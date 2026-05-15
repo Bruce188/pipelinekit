@@ -7,6 +7,9 @@
   "features": {
     "ghcr.io/devcontainers/features/git:1": {},
     "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/azure-cli:1": {
+      "extensions": "azure-devops,subscription"
+    },
     "ghcr.io/devcontainers/features/node:1": {
       "version": "20",
       "nvmInstallPath": "/usr/local/share/nvm"
