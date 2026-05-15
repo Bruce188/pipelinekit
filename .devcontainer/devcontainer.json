@@ -1,5 +1,5 @@
 {
-  "name": "claude-portable",
+  "name": "pipelinekit",
   "build": {
     "dockerfile": "Dockerfile",
     "context": ".."
@@ -47,11 +47,11 @@
   },
   "containerEnv": {
     "CLAUDE_HOME": "${containerEnv:HOME}/.claude",
-    "CLAUDE_PORTABLE_ROOT": "${containerWorkspaceFolder}",
+    "PIPELINEKIT_ROOT": "${containerWorkspaceFolder}",
     "PIPELINE_NIT_FIRST": "0"
   },
   "mounts": [
-    "source=claude-portable-cache,target=/home/vscode/.cache,type=volume"
+    "source=pipelinekit-cache,target=/home/vscode/.cache,type=volume"
   ],
   "forwardPorts": [],
   "portsAttributes": {}

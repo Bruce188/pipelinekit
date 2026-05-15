@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Verify claude-portable install integrity.
+# Verify pipelinekit install integrity.
 # Exits non-zero if critical paths or sanitization invariants fail.
 
 set -uo pipefail
@@ -9,7 +9,7 @@ FAIL=0
 pass()  { printf '  [pass] %s\n' "$*"; }
 fail()  { printf '  [fail] %s\n' "$*"; FAIL=$((FAIL+1)); }
 
-echo "Verifying claude-portable at $CLAUDE_HOME"
+echo "Verifying pipelinekit at $CLAUDE_HOME"
 
 # Core files (CLAUDE.md may be rendered or template-only pre-install)
 if [[ -f "$CLAUDE_HOME/CLAUDE.md" ]]; then

@@ -1,4 +1,4 @@
-# claude-portable
+# pipelinekit
 
 Portable, sandbox-ready Claude Code overlay. Pull repo → one-command install → working multi-agent pipeline with MCP fleet, LSP stack, gstack overlay, TDD-aware `/pipeline`.
 
@@ -9,13 +9,13 @@ Portable, sandbox-ready Claude Code overlay. Pull repo → one-command install �
 # 1. Open repo in Codespaces. Devcontainer post-create runs install automatically.
 # 2. Open a terminal:
 claude
-# 3. Tell Claude:  "Install claude-portable from this repo."
+# 3. Tell Claude:  "Install pipelinekit from this repo."
 ```
 
 ### Local (any Linux / WSL / macOS bash)
 ```
-git clone https://github.com/<you>/claude-portable.git
-cd claude-portable
+git clone https://github.com/Bruce188/pipelinekit.git
+cd pipelinekit
 ./scripts/install.sh
 ```
 
@@ -23,7 +23,7 @@ cd claude-portable
 
 ### Pull with a prompt (existing Claude Code session)
 ```
-"Clone https://github.com/<you>/claude-portable.git into ~/work,
+"Clone https://github.com/Bruce188/pipelinekit.git into ~/work,
  cd into it, and run ./scripts/install.sh non-interactively."
 ```
 
@@ -54,7 +54,7 @@ Override with `**Type:** dev|non-dev` per-feature line in `docs/features.md`.
 ## Layout
 
 ```
-claude-portable/
+pipelinekit/
 ├── .devcontainer/        # Codespaces / VS Code devcontainer
 ├── claude/               # Overlay installed to ~/.claude/
 │   ├── CLAUDE.md.template

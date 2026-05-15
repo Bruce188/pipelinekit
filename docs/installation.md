@@ -10,8 +10,8 @@
 ## Local install (Linux / WSL / macOS bash)
 
 ```bash
-git clone https://github.com/<you>/claude-portable.git
-cd claude-portable
+git clone https://github.com/Bruce188/pipelinekit.git
+cd pipelinekit
 ./scripts/install.sh
 ```
 

@@ -1,7 +1,7 @@
 # User-Level Instructions
 
 > **Platform:** any POSIX (Linux/macOS/WSL2) | **Shell:** bash | **Node:** 20+ recommended
-> Generated from `claude-portable` install. Edit freely after install.
+> Generated from `pipelinekit` install. Edit freely after install.
 
 # Detailed rules
 @~/.claude/rules/workflow.md

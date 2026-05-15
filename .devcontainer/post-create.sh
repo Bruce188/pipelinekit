@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Codespaces / devcontainer post-create hook.
-# Runs once after container build. Bootstraps claude-portable + LSPs + MCP fleet.
+# Runs once after container build. Bootstraps pipelinekit + LSPs + MCP fleet.
 
 set -euo pipefail
 
-REPO_ROOT="${CLAUDE_PORTABLE_ROOT:-$PWD}"
+REPO_ROOT="${PIPELINEKIT_ROOT:-${CLAUDE_PORTABLE_ROOT:-$PWD}}"
 cd "$REPO_ROOT"
 
-echo "[post-create] Bootstrapping claude-portable in $REPO_ROOT"
+echo "[post-create] Bootstrapping pipelinekit in $REPO_ROOT"
 
 # Run main installer non-interactively.
 CLAUDE_INSTALL_NONINTERACTIVE=1 \
