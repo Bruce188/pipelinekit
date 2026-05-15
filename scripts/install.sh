@@ -13,6 +13,9 @@ set -euo pipefail
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 REPO_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 CLAUDE_HOME="${CLAUDE_HOME:-$HOME/.claude}"
+if [[ "$CLAUDE_HOME" == *'${containerEnv:HOME}'* ]]; then
+  CLAUDE_HOME="${CLAUDE_HOME//\$\{containerEnv:HOME\}/$HOME}"
+fi
 TS="$(date +%Y%m%d-%H%M%S)"
 LOG="${CLAUDE_INSTALL_LOG:-$HOME/.cache/pipelinekit-install.log}"
 mkdir -p "$(dirname "$LOG")"

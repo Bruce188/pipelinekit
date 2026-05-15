@@ -7,7 +7,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ripgrep \
         fd-find \
         jq \
-        yq \
         tree \
         bat \
         htop \
@@ -21,10 +20,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
         pkg-config \
         libssl-dev \
+        python3-pip \
         zsh \
         fzf \
     && ln -sf /usr/bin/fdfind /usr/local/bin/fd \
     && ln -sf /usr/bin/batcat /usr/local/bin/bat \
+    && python3 -m pip install --no-cache-dir yq \
     && rm -rf /var/lib/apt/lists/*
 
 # Claude Code CLI (latest).
@@ -40,7 +41,7 @@ RUN su - $USERNAME -c '\
     else \
         echo "WARNING: CLAUDE_CLI_SHA256 not set — installing unverified Claude CLI."; \
     fi; \
-    sh /tmp/claude-install.sh; \
+    bash /tmp/claude-install.sh; \
     rm -f /tmp/claude-install.sh'
 
 # LSP servers + dev tooling installed in post-create.sh to keep image lean.
