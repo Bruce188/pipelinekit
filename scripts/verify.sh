@@ -40,7 +40,8 @@ AGENT_COUNT=$(find "$CLAUDE_HOME/agents" -maxdepth 1 -name '*.md' 2>/dev/null | 
 # Sanitization invariants (relevant only when run from the repo)
 REPO_ROOT="${CLAUDE_PORTABLE_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 if [[ -d "$REPO_ROOT/claude" ]]; then
-  LEAK=$(grep -rIn -E "(brucieboyy99|/home/bruce(/|$))" "$REPO_ROOT/claude" 2>/dev/null | wc -l)
+  # Catch both filesystem paths (/home/bruce/...) and slug forms (-home-bruce in dir names).
+  LEAK=$(grep -rIn -E "(brucieboyy[0-9]*|/home/bruce(/|\$)|-home-bruce\b)" "$REPO_ROOT/claude" 2>/dev/null | wc -l)
   [[ "$LEAK" -eq 0 ]] && pass "no personal data leaks" || fail "$LEAK personal data references found"
 
   ORCH=$(grep -rIn "orchestrate\.sh" "$REPO_ROOT/claude" 2>/dev/null | wc -l)

@@ -46,7 +46,7 @@
     }
   },
   "containerEnv": {
-    "CLAUDE_HOME": "/home/vscode/.claude",
+    "CLAUDE_HOME": "${containerEnv:HOME}/.claude",
     "CLAUDE_PORTABLE_ROOT": "${containerWorkspaceFolder}",
     "PIPELINE_NIT_FIRST": "0"
   },

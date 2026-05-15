@@ -1,5 +1,6 @@
 {
-  "_comment": "Copy to <your-project>/.mcp.json. Edit serena project_root + remove servers you do not want.",
+  "_comment": "Copy to <your-project>/.mcp.json. PIN serena ref (replace @main with a commit SHA) before sandbox use.",
+  "_security_note": "git+https without a pinned ref allows upstream takeover to execute arbitrary code via uvx. Replace 'main' with a known-good commit hash.",
   "mcpServers": {
     "context7": {
       "type": "stdio",
@@ -16,7 +17,7 @@
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/oraios/serena",
+        "git+https://github.com/oraios/serena@main",
         "serena-mcp-server",
         "--project",
         "."

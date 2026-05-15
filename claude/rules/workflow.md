@@ -244,7 +244,7 @@ Compact routing table for each pipeline phase. Native tools (Read, Write, Edit, 
 
 ### Memory Feed
 
-How acquired memories (`~/.claude/projects/-home-bruce/memory/`) inform each phase. Reads are advisory — Claude reads memories when contextually relevant, not on every invocation.
+How acquired memories (`~/.claude/projects/<project-slug>/memory/`) inform each phase. Reads are advisory — Claude reads memories when contextually relevant, not on every invocation.
 
 | Memory File | Phases | How It's Used |
 |-------------|--------|---------------|
@@ -262,7 +262,7 @@ How acquired memories (`~/.claude/projects/-home-bruce/memory/`) inform each pha
 
 ### Memory Integration
 
-All memory files are in `~/.claude/projects/-home-bruce/memory/`, indexed by `MEMORY.md` which is loaded into system context at session start.
+All memory files are in `~/.claude/projects/<project-slug>/memory/`, indexed by `MEMORY.md` which is loaded into system context at session start.
 
 **Memory writes:** Any phase can write new memories when:
 - User corrects Claude's approach → write feedback memory
@@ -273,7 +273,7 @@ Writes follow the auto-memory save protocol in the system instructions.
 
 ## Tools
 
-- Tool libraries: `~/claude-library/`, `~/claude-skills/`, `~/.claude/tresor-resources/`. Install per-project via symlink.
+- Tool libraries: `~/claude-skills/` (optional install), `~/.claude/tresor-resources/`. Install per-project via symlink.
 
 ## Per-Project Evaluation
 

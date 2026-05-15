@@ -31,32 +31,36 @@ if echo "$COMMAND" | grep -qE 'git\s+config\s+--global\b'; then
   exit 2
 fi
 
-# Block git push to non-origin remotes
-# Extract remote by finding the first non-flag argument after "git push"
+# Block git push to non-origin remotes.
+# Iterate every `git push` in the command (catches chained pushes:
+# `git push origin main && git push attacker main`).
 if echo "$COMMAND" | grep -qE 'git\s+push\b'; then
-  REMOTE=$(printf '%s' "$COMMAND" | python3 -c "
+  BAD_REMOTE=$(printf '%s' "$COMMAND" | python3 -c "
 import sys, re
 cmd = sys.stdin.read()
-m = re.search(r'git\s+push\s+(.*)', cmd)
-if m:
+SKIP_NEXT = ('--repo', '--push-option', '--signed', '-o', '--recurse-submodules')
+for m in re.finditer(r'git\s+push\s+(.*?)(?=(?:\s*(?:&&|\|\||;)\s*git\s+push\b)|$)', cmd):
     args = m.group(1).split()
-    skip_next = False
+    skip = False
+    remote = None
     for a in args:
-        if skip_next:
-            skip_next = False
+        if skip:
+            skip = False
             continue
-        # Handle --flag=value form (skip entirely)
         if a.startswith('--') and '=' in a:
             continue
-        if a in ('--repo', '--push-option', '--signed', '-o', '--recurse-submodules'):
-            skip_next = True
+        if a in SKIP_NEXT:
+            skip = True
             continue
         if not a.startswith('-'):
-            print(a)
+            remote = a
             break
+    if remote and remote != 'origin':
+        print(remote)
+        sys.exit(0)
 " 2>/dev/null)
-  if [ -n "$REMOTE" ] && [ "$REMOTE" != "origin" ]; then
-    echo "BLOCKED: Push to non-origin remote '$REMOTE'. Only 'origin' is permitted." >&2
+  if [ -n "$BAD_REMOTE" ]; then
+    echo "BLOCKED: Push to non-origin remote '$BAD_REMOTE'. Only 'origin' is permitted." >&2
     exit 2
   fi
 fi

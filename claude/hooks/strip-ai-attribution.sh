@@ -21,6 +21,14 @@ LOG_DIR="$HOME/.claude/logs"
 LOG_FILE="$LOG_DIR/strip-ai-attribution.log"
 mkdir -p "$LOG_DIR"
 
+# Rotate when log > 1 MiB to prevent unbounded growth.
+if [ -f "$LOG_FILE" ]; then
+  LOG_SIZE=$(stat -c%s "$LOG_FILE" 2>/dev/null || stat -f%z "$LOG_FILE" 2>/dev/null || echo 0)
+  if [ "${LOG_SIZE:-0}" -gt 1048576 ]; then
+    mv "$LOG_FILE" "$LOG_FILE.1"
+  fi
+fi
+
 # Run attribution cleanup in background — retry until PR is found (max 3 attempts)
 (
   for i in 1 2 3; do

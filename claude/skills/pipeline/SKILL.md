@@ -596,8 +596,8 @@ Derive `FEATURE_CLASS` from the feature H2 prefix and the optional `**Type:**` o
 
    | Prefix | Class |
    |--------|-------|
-   | `feat`, `fix`, `refactor`, `perf`, `test` | `dev` |
-   | `docs`, `chore`, `style`, `build`, `ci`, `content`, `ops`, `research` | `non-dev` |
+   | `feat`, `fix`, `refactor`, `perf`, `test`, `hotfix` | `dev` |
+   | `docs`, `chore`, `style`, `build`, `ci`, `content`, `ops`, `research`, `merge`, `revert`, `wip` | `non-dev` |
    | (any other) | `dev` (conservative default) |
 
 4. Log: `INFO: Feature class: $FEATURE_CLASS (prefix=<prefix>, override=<yes|no>)`.
@@ -607,7 +607,7 @@ Derive `FEATURE_CLASS` from the feature H2 prefix and the optional `**Type:**` o
 
 - If `FEATURE_CLASS = non-dev`: skip TDD entirely. Continue to Step 5.5.2 (non-dev path).
 - If `FEATURE_CLASS = dev` and `**Phase Mode:** = subagent`: continue to Step 5.5.3 (dev TDD path).
-- If `FEATURE_CLASS = dev` and `**Phase Mode:** = inline` (legacy): continue to Step 5.5.2 (non-dev path) — TDD pairing requires subagent isolation. Log: `WARN: dev feature under legacy inline mode — TDD pairing skipped, falling back to standard implement`.
+- If `FEATURE_CLASS = dev` and `**Phase Mode:** = inline` (legacy state-file resume only — never produced by new feature starts in the portable build): continue to Step 5.5.2 (non-dev path) — TDD pairing requires subagent isolation. Log: `WARN: dev feature under legacy inline mode — TDD pairing skipped, falling back to standard implement`.
 
 **Step 5.5.2: Non-dev path (standard implement-plan dispatch).**
 

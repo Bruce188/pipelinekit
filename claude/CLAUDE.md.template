@@ -4,8 +4,8 @@
 > Generated from `claude-portable` install. Edit freely after install.
 
 # Detailed rules
-@${CLAUDE_HOME}/rules/workflow.md
-@${CLAUDE_HOME}/rules/agents-worktrees.md
+@~/.claude/rules/workflow.md
+@~/.claude/rules/agents-worktrees.md
 
 ## Core Principles
 
@@ -13,7 +13,7 @@
 2. **No AI Attribution**: Zero Claude/LLM references in commits, PRs, code, docs. No `Co-Authored-By`, no `Generated with`, no AI comments.
 3. **Commit Only When Asked**: Wait for explicit user confirmation. Exception: worktree agents auto-commit `wip:` messages.
 4. **Plan Trust**: When a plan specifies exact files, line numbers, and code changes — skip all exploration. Implement directly.
-5. **Caveman Default**: Responses are terse (wenyan-ultra style) by default. Code, commits, and security-critical text stay normal English. See `${CLAUDE_HOME}/skills/caveman-mode/` if installed, or `/caveman lite|full|ultra` to adjust.
+5. **Caveman Default**: Responses are terse (wenyan-ultra style) by default. Code, commits, and security-critical text stay normal English. See `~/.claude/skills/caveman-mode/SKILL.md`, or `/caveman lite|full|ultra` to adjust.
 
 ## Tool Usage Rules
 
@@ -42,7 +42,7 @@ claude -n "myproject/refactor-auth"
 
 ## Git
 
-- Conventional commits: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`, `perf:`, `style:`, `build:`, `ci:` (enforced by `${CLAUDE_HOME}/hooks/validate-commit-msg.sh`). No emojis.
+- Conventional commits: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`, `perf:`, `style:`, `build:`, `ci:` (enforced by `~/.claude/hooks/validate-commit-msg.sh`). No emojis.
 - No `Co-authored-by` lines in commits or PR bodies.
 - Claude workflow exclusions → `.git/info/exclude` (NOT `.gitignore`).
 - Never stage files listed in `rules/workflow.md` § Plan & Progress → "Never stage" (canonical list). Key items: `.env`, `.claude/`, `docs/` workflow files, `credentials*`.
@@ -71,9 +71,9 @@ When a task prompt specifies a model, pass it via the Agent tool's `model` param
 
 Pipelines are defined by skills. Each pipeline skill ends with a "What's Next" block — follow it. Human drives forward; Claude does not auto-advance.
 
-Autonomous option: `/pipeline [feature-file]` — runs the full workflow per feature. Supports both **dev** items (auto-routed through TDD: `tdd-test-writer` → `tdd-implementer`) and **non-dev** items (docs, ops, chores — skip TDD). Routing is derived from the feature's commit-type prefix; override with `**Type:** dev|non-dev` in the feature block. See `${CLAUDE_HOME}/skills/pipeline/SKILL.md` § Step 5.5 for full routing detail.
+Autonomous option: `/pipeline [feature-file]` — runs the full workflow per feature. Supports both **dev** items (auto-routed through TDD: `tdd-test-writer` → `tdd-implementer`) and **non-dev** items (docs, ops, chores — skip TDD). Routing is derived from the feature's commit-type prefix; override with `**Type:** dev|non-dev` in the feature block. See `~/.claude/skills/pipeline/SKILL.md` § Step 5.5 for full routing detail.
 
-See `${CLAUDE_HOME}/rules/workflow.md` for the argument convention, base-branch detection, and context-aware clearing rules.
+See `~/.claude/rules/workflow.md` for the argument convention, base-branch detection, and context-aware clearing rules.
 
 ## Consumer Web App Mode (Optional Overlay)
 
@@ -105,7 +105,7 @@ When the workload is a **consumer web app** (UI-driven, design-sensitive, browse
 2. gstack must be installed with `--prefix gstack-` to namespace all gstack skills. The installer does this automatically.
 3. Verify `/gstack-document-release` is attribution-clean on a throwaway branch first.
 4. `/gstack-design-shotgun` requires OpenAI key at `~/.gstack/openai.json`.
-5. gstack writes its own learnings to `~/.gstack/projects/<slug>/learnings.jsonl`; native memory is at `${CLAUDE_HOME}/memory/`. Promote manually if a learning rises to global-rule status.
+5. gstack writes its own learnings to `~/.gstack/projects/<slug>/learnings.jsonl`; native memory is at `~/.claude/memory/`. Promote manually if a learning rises to global-rule status.
 
 ## User Identity
 

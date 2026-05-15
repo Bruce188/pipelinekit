@@ -2,6 +2,8 @@
 .env
 .env.local
 *.local
+.install.log
+.cache/
 
 # Claude runtime (never commit)
 claude/.credentials.json
