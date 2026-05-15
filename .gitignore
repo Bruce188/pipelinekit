@@ -1,0 +1,55 @@
+# Local install artifacts
+.env
+.env.local
+*.local
+
+# Claude runtime (never commit)
+claude/.credentials.json
+claude/projects/
+claude/sessions/
+claude/cache/
+claude/jobs/
+claude/daemon/
+claude/daemon.log
+claude/diagnostics/
+claude/file-history/
+claude/history.jsonl
+claude/paste-cache/
+claude/plans/
+claude/plugins/cache/
+claude/plugins/data/
+claude/shell-snapshots/
+claude/backups/
+claude/archive-*/
+claude/.last-cleanup
+claude/.caveman-active
+claude/mcp-needs-auth-cache.json
+claude/review-diff.txt
+claude/settings.json
+claude/settings.json.bak*
+
+# Codespaces secrets
+.codespaces/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+
+# Node
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# OS
+Thumbs.db

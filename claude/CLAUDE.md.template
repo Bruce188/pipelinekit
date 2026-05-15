@@ -1,0 +1,113 @@
+# User-Level Instructions
+
+> **Platform:** any POSIX (Linux/macOS/WSL2) | **Shell:** bash | **Node:** 20+ recommended
+> Generated from `claude-portable` install. Edit freely after install.
+
+# Detailed rules
+@${CLAUDE_HOME}/rules/workflow.md
+@${CLAUDE_HOME}/rules/agents-worktrees.md
+
+## Core Principles
+
+1. **Verification First**: Run tests/build after EVERY change. Restart app if applicable. Do not mark done without passing verification.
+2. **No AI Attribution**: Zero Claude/LLM references in commits, PRs, code, docs. No `Co-Authored-By`, no `Generated with`, no AI comments.
+3. **Commit Only When Asked**: Wait for explicit user confirmation. Exception: worktree agents auto-commit `wip:` messages.
+4. **Plan Trust**: When a plan specifies exact files, line numbers, and code changes — skip all exploration. Implement directly.
+5. **Caveman Default**: Responses are terse (wenyan-ultra style) by default. Code, commits, and security-critical text stay normal English. See `${CLAUDE_HOME}/skills/caveman-mode/` if installed, or `/caveman lite|full|ultra` to adjust.
+
+## Tool Usage Rules
+
+- **Code search** (find functions, classes, patterns): Grep/Glob (native)
+- **Semantic code navigation** (cross-file refs, symbol graph): `serena` MCP if configured
+- **Library/framework docs** (how does X API work?): `context7` MCP resolve-library-id → query-docs
+- **Structural code patterns** (class hierarchies, call graphs): `RepoMapper` MCP if configured
+- **Documentation/specs/PDFs**: `local-rag` MCP query_documents if configured
+- **Web research** (current events, non-cached docs): WebSearch → WebFetch
+
+## Context Management
+
+- Context-aware clearing between pipeline steps (see `rules/workflow.md`). `/compact` proactively around 50% capacity.
+- After 2 failed corrections, `/clear` and rewrite the prompt.
+- Subagents for investigation/exploration — keeps main context clean.
+- Prefer direct work for coding; subagents for reading/exploring.
+
+### Session naming
+
+Name sessions `<project-slug>/<feature-or-task-slug>` to distinguish concurrent `/resume` entries by purpose rather than timestamp or UUID. This is advisory — no enforcement mechanism.
+
+```bash
+claude -n "myproject/feature-x"
+claude -n "myproject/refactor-auth"
+```
+
+## Git
+
+- Conventional commits: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`, `perf:`, `style:`, `build:`, `ci:` (enforced by `${CLAUDE_HOME}/hooks/validate-commit-msg.sh`). No emojis.
+- No `Co-authored-by` lines in commits or PR bodies.
+- Claude workflow exclusions → `.git/info/exclude` (NOT `.gitignore`).
+- Never stage files listed in `rules/workflow.md` § Plan & Progress → "Never stage" (canonical list). Key items: `.env`, `.claude/`, `docs/` workflow files, `credentials*`.
+
+## Agents & Worktrees
+
+- Named agents only when task prompt explicitly instructs.
+- Worktree agents: `wip: [description]` commit before reporting done (enforced by hook).
+- Squash-merge worktree branches. Clean conventional message — no `wip:`, stream names, or finding counts.
+- See `rules/agents-worktrees.md` for detailed protocol.
+
+## Task Prompt Format
+
+```
+### Task X.Y: [Name]
+> Model: [model] | Effort: [level] | Agent: [name or none] | /clear before starting
+```
+When a task prompt specifies a model, pass it via the Agent tool's `model` parameter.
+
+## Verification vs. Quality Gate
+
+- **Verification** (automatic): Run build/tests after every task.
+- **Quality Gate** (opt-in): Verification + code-reviewer agent. Only when task prompt specifies.
+
+## Workflow Pipelines
+
+Pipelines are defined by skills. Each pipeline skill ends with a "What's Next" block — follow it. Human drives forward; Claude does not auto-advance.
+
+Autonomous option: `/pipeline [feature-file]` — runs the full workflow per feature. Supports both **dev** items (auto-routed through TDD: `tdd-test-writer` → `tdd-implementer`) and **non-dev** items (docs, ops, chores — skip TDD). Routing is derived from the feature's commit-type prefix; override with `**Type:** dev|non-dev` in the feature block. See `${CLAUDE_HOME}/skills/pipeline/SKILL.md` § Step 5.5 for full routing detail.
+
+See `${CLAUDE_HOME}/rules/workflow.md` for the argument convention, base-branch detection, and context-aware clearing rules.
+
+## Consumer Web App Mode (Optional Overlay)
+
+When the workload is a **consumer web app** (UI-driven, design-sensitive, browser-testable) **and** the `gstack` optional is installed, augment the default backend routing with `/gstack-*` skills per the table below. For backend / library / data-pipeline / trading-bot work (the default), nothing changes — keep using the native skills.
+
+| Phase | Tool | Rationale |
+|-------|------|-----------|
+| Product discovery | `/gstack-office-hours` | YC forcing questions; deeper than `/interview-prp` for consumer scope |
+| Design system bootstrap (one-time) | `/gstack-design-consultation` | Produces `DESIGN.md` |
+| Plan creation | `/create-plan` | Integrated with `progress.md`, versioning convention |
+| Plan design audit | `/gstack-plan-design-review` | 7-dimension rating loop |
+| Plan eng audit | `/review --scope plan` | Multi-agent backend correctness |
+| Branch | `/new-branch` | — |
+| Implementation | `/implement-plan` | Subagent mode, budget caps, hooks |
+| Visual exploration | `/gstack-design-shotgun` | GPT Image variants (requires OpenAI key) |
+| HTML production | `/gstack-design-html` | Computed-layout HTML |
+| Browser QA | `/gstack-qa` | Persistent daemon, snapshot diff |
+| Code review | `/review` | Plan-integrated, hook-protected, multi-agent (`--design-pass` for UI diffs) |
+| Visual audit | `/gstack-design-review` | Before/after screenshots |
+| DX audit (if app exposes API/CLI) | `/gstack-devex-review` | Live boomerang vs. plan-devex-review scores |
+| Performance baseline | `/gstack-benchmark` | Core Web Vitals via daemon |
+| Ship | `/ppr` | Hook-stripped commit hygiene — **DO NOT use `/gstack-ship`** (it bypasses `validate-commit-msg.sh` and `strip-ai-attribution.sh`) |
+| Doc update | `/gstack-document-release` | Auto-fired post-ship; verify it doesn't add AI attribution |
+| Deploy verification | `/gstack-canary` | Post-deploy monitoring loop |
+| Retro | `/gstack-retro` | Cross-project learning |
+
+**Gotchas:**
+1. Skip `/gstack-ship`. Use `/ppr` (covers push+PR with the right hooks).
+2. gstack must be installed with `--prefix gstack-` to namespace all gstack skills. The installer does this automatically.
+3. Verify `/gstack-document-release` is attribution-clean on a throwaway branch first.
+4. `/gstack-design-shotgun` requires OpenAI key at `~/.gstack/openai.json`.
+5. gstack writes its own learnings to `~/.gstack/projects/<slug>/learnings.jsonl`; native memory is at `${CLAUDE_HOME}/memory/`. Promote manually if a learning rises to global-rule status.
+
+## User Identity
+
+- Name: ${USER_NAME}
+- Email: ${USER_EMAIL}

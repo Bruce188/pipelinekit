@@ -1,0 +1,18 @@
+# Testing dependencies for playwright skill
+
+# Core testing framework
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-asyncio>=0.21.0
+pytest-mock>=3.11.1
+
+# Mocking and fixtures
+faker>=19.3.0
+
+# Code quality
+black>=23.7.0
+flake8>=6.1.0
+mypy>=1.4.1
+
+# Optional: for integration tests
+playwright>=1.40.0

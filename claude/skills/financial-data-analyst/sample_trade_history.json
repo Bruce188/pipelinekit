@@ -1,0 +1,49 @@
+{
+  "trades": [
+    {
+      "entry_date": "2024-01-05",
+      "exit_date": "2024-01-10",
+      "entry_price": 150.00,
+      "exit_price": 155.50,
+      "quantity": 100,
+      "direction": "long",
+      "commission": 2.00
+    },
+    {
+      "entry_date": "2024-01-12",
+      "exit_date": "2024-01-15",
+      "entry_price": 156.00,
+      "exit_price": 154.00,
+      "quantity": 100,
+      "direction": "long",
+      "commission": 2.00
+    },
+    {
+      "entry_date": "2024-01-18",
+      "exit_date": "2024-01-22",
+      "entry_price": 153.00,
+      "exit_price": 158.50,
+      "quantity": 100,
+      "direction": "long",
+      "commission": 2.00
+    },
+    {
+      "entry_date": "2024-01-25",
+      "exit_date": "2024-01-29",
+      "entry_price": 159.00,
+      "exit_price": 162.00,
+      "quantity": 100,
+      "direction": "long",
+      "commission": 2.00
+    },
+    {
+      "entry_date": "2024-02-01",
+      "exit_date": "2024-02-05",
+      "entry_price": 161.50,
+      "exit_price": 159.00,
+      "quantity": 100,
+      "direction": "long",
+      "commission": 2.00
+    }
+  ]
+}

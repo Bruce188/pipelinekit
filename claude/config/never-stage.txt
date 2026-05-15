@@ -1,0 +1,36 @@
+# Never-stage canonical list. Hook `block-stage-sensitive.sh` reads this at invocation.
+# Format: fnmatch-style globs, one per line. Blank lines and '#' comments allowed. No regex.
+# Missing/unreadable file = default-deny (hook exits 2).
+
+# Secrets / credentials
+.env
+credentials*
+
+# Claude config (allowlist exceptions handled in the hook, not here)
+.claude/*
+
+# docs/ workflow files
+docs/progress.md
+docs/prompts*.md
+docs/plan*.md
+docs/analysis*.md
+docs/prp*.md
+docs/review*
+docs/pipeline-state.md
+docs/.last-verify.json
+docs/pipeline-intel.json
+docs/context-dump.md
+docs/archive/*
+
+# Misc workflow artifacts
+whats-next.md
+.review-diff*
+.review-scoped-diff*
+
+# Build / runtime detritus
+__pycache__/
+*.pyc
+bin/
+obj/
+*.user
+*.suo
