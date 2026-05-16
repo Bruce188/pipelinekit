@@ -76,6 +76,28 @@ Check MCP tool availability in order. Use each if available, skip if not.
 
 ---
 
+### Step 3.8: Charter Scoping (if charter present)
+
+Before beginning the codebase analysis, check for an active charter:
+
+```bash
+test -f docs/charter.md && echo "CHARTER_FOUND" || echo "NO_CHARTER"
+```
+
+**If `docs/charter.md` is absent:** Emit one line at the top of the analysis file (Step 5): `No charter found — full-scope analysis.` Then proceed to Step 4 with full-scope investigation.
+
+**If `docs/charter.md` exists:**
+1. Read the following sections from `docs/charter.md`: `## MVP Boundary`, `## Non-Goals`, `## Constraints`.
+2. Derive scope rules:
+   - Areas inside `MVP Boundary > In` → include in full-depth analysis.
+   - Areas listed under `## Non-Goals` or `MVP Boundary > Out` → flag with a one-line `out-of-scope-per-charter` note; do NOT traverse deeply.
+   - Items under `## Constraints` → surface as analysis-context notes (e.g., "stack constraint: X").
+3. Record these scope rules for use in Step 5 (the `## Charter Reference` section).
+
+The analysis file template in Step 5 adds a `## Charter Reference` section when a charter is present.
+
+---
+
 ### Step 4: Codebase Analysis
 
 Report facts. Do not infer design decisions.
@@ -111,6 +133,13 @@ Create `docs/` if it doesn't exist. Write to the filename determined in Step 4.5
 
 **Date:** [today]
 **Project type:** [Python / Node.js / Mixed / Unknown]
+
+## Charter Reference
+(Only present when `docs/charter.md` exists.)
+
+- **In scope (from charter):** [MVP Boundary > In items relevant to this analysis]
+- **Out of scope (from charter):** [Non-Goals + MVP Boundary > Out items — not deeply analyzed]
+- **Constraints honored:** [Constraints from charter that bound this analysis]
 
 ## Objective
 [user's answer to Q1]

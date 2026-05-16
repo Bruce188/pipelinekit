@@ -1,7 +1,7 @@
 ---
 name: pipeline
 description: Autonomous pipeline orchestrator. Processes a feature list through the full workflow (analyze → plan → implement → review → merge) with zero human intervention. Supports --dry-run and --restart-from.
-argument-hint: ([feature-file]|[--renew]|[--adopt]|[--from "<text>"]|[--plan [<path>]]) [--restart-from analyze|plan|implement|review] [--dry-run]
+argument-hint: ([feature-file]|[--renew]|[--adopt]|[--from "<text>"]|[--plan [<path>]]) [--restart-from analyze|plan|implement|review] [--dry-run] [--no-charter|--charter <path>|--max-questions <N>]
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, Skill, TodoWrite
 effort: high
 ---
@@ -23,6 +23,51 @@ Summary
 
 ## Process
 
+### Step 0: Charter Discovery
+
+Charter Discovery is the default-on front-loaded alignment phase. It produces `docs/charter.md` by asking the user a structured set of questions (from `claude/skills/pipeline/charter.md`) and writing a versioned charter artifact. Downstream phases read this charter to scope their work.
+
+**Skip conditions (check in order — first match wins):**
+
+1. `--no-charter` is present → skip entirely (legacy autonomous flow).
+2. `--charter <path>` is present → adopt existing charter at `<path>`, set `**Charter:**` pointer in `progress.md`, skip discovery loop. Error cleanly on missing path.
+3. `--max-questions 0` is present → treat as `--no-charter` (alias).
+4. `docs/charter.md` exists AND `progress.md` `**Charter:**` pointer is valid → skip (charter already produced for this run).
+
+**Mutual exclusivity:**
+- `--no-charter` + `--charter <path>` → **STOP**: "ERROR: --no-charter and --charter are mutually exclusive."
+- `--charter <path>` with missing target → **STOP**: "ERROR: --charter path not found: <path>"
+
+**Charter Discovery loop (when not skipped):**
+
+1. Print an explainer to the user:
+   > "Charter Discovery (Step 0): Before the pipeline runs autonomously, let's align on what you want to build. I'll ask about 9 topics. You can exit at any point — just choose 'ship the charter now' to write the charter with what we have so far and continue."
+   >
+   > "To skip entirely: re-invoke with `--no-charter`. To adopt an existing charter: `--charter <path>`."
+
+2. Read `claude/skills/pipeline/charter.md` for the question bank.
+
+3. For each topic in order (Goal → Users → Problem → Success → Non-Goals → Constraints → MVP Boundary → Prior Art → Open Questions):
+   a. Invoke `AskUserQuestion` with the topic's question and options from the bank.
+   b. Record the user's answer.
+   c. After the answer, invoke the convergence check from the bank:
+      - **"ship the charter now"** → write `docs/charter.md` (status: `draft`), set `**Charter:**` pointer in `progress.md`, exit loop, continue pipeline.
+      - **"continue to next topic"** → advance to the next topic.
+      - **"go deeper / follow-up"** → ask the topic's follow-up question (if any), then advance.
+      - **"edit manually"** → write current draft to `docs/charter.md` (status: `draft`), print path, **STOP** pipeline. User resumes via `/pipeline --charter docs/charter.md` when ready.
+
+4. After the final topic, run a final convergence check. If user is satisfied, write `docs/charter.md` (status: `ratified`), set `**Charter:**` pointer in `progress.md`.
+
+**Charter file versioning:** follow the Versioning Convention from `claude/rules/workflow.md` — if `docs/charter.md` already exists, archive it to `docs/charter-v[N+1].md` before writing the new one.
+
+**progress.md `**Charter:**` pointer:** written as `**Charter:** docs/charter.md` (or the versioned path) immediately after the charter file is written.
+
+**Subprocess mode:** Step 0 relies on `AskUserQuestion`, which is interactive-session-only. If invoked via a subprocess driver (e.g., `orchestrate.sh` or `claude -p`), Step 0 cannot run. The subprocess driver is responsible for detecting this condition and exiting with an error before reaching Step 0. (See `docs/pipeline.md` § Charter Mode for the subprocess constraint.)
+
+**`--max-questions <N>` behavior:** When `N > 0`, cap the total number of `AskUserQuestion` invocations at `N`. After the cap is reached, write the draft charter and continue. `N = 0` is the `--no-charter` alias (no discovery at all).
+
+---
+
 ### Step 1: Parse Arguments
 
 Parse `$ARGUMENTS`:
@@ -35,8 +80,11 @@ Parse `$ARGUMENTS`:
 - `--max-turns <N>` = hard cap on accumulated sub-agent turns. Default: **unlimited**. When set, counts Agent tool invocations.
 - `--from "<text>"` = free-text context for feature-file auto-generation. Stored as `FROM_TEXT`. Mutually exclusive with `--adopt` and `--renew`. Compatible with `--dry-run`, `--restart-from`, and all other flags.
 - `--plan [<path>]` = ingest a plan-mode plan file. With a path: reads that file. Without a value: auto-picks the most-recently-modified `~/.claude/plans/*.md` if modified within the last 60 min (else STOP with a path-required error). `~/` and relative paths resolved. 200 KB cap. Mutually exclusive with `--from`, `--adopt`, `--renew`, and a positional feature-file path.
+- `--no-charter` = skip Step 0 Charter Discovery entirely; restores legacy autonomous flow.
+- `--charter <path>` = adopt an existing charter file at `<path>`. Skips Step 0 discovery loop; sets the `**Charter:**` pointer in `progress.md`. STOP if the path does not exist: "ERROR: --charter path not found: <path>"
+- `--max-questions <N>` = cap the total number of `AskUserQuestion` invocations in Step 0 at `N`. Default: unbounded. `--max-questions 0` is an alias for `--no-charter` (no discovery at all).
 
-Validate mutual exclusivity: if `--from` and `--adopt` are both present, STOP with "ERROR: --from and --adopt are mutually exclusive." If `--from` and `--renew` are both present, STOP with "ERROR: --from and --renew are mutually exclusive." If `--plan` is combined with `--from`, `--adopt`, `--renew`, or a positional feature file, STOP with `ERROR: --plan is mutually exclusive with --from/--adopt/--renew/positional path`.
+Validate mutual exclusivity: if `--from` and `--adopt` are both present, STOP with "ERROR: --from and --adopt are mutually exclusive." If `--from` and `--renew` are both present, STOP with "ERROR: --from and --renew are mutually exclusive." If `--plan` is combined with `--from`, `--adopt`, `--renew`, or a positional feature file, STOP with `ERROR: --plan is mutually exclusive with --from/--adopt/--renew/positional path`. If `--no-charter` and `--charter <path>` are both present, STOP with "ERROR: --no-charter and --charter are mutually exclusive."
 
 Determine feature file source (in priority order):
 1. If `--adopt` is present → go to Step 1.7 (Adopt Manual Workflow). `--adopt` is mutually exclusive with providing a feature file path, `--renew`, and `--from`.
@@ -384,9 +432,12 @@ Write/update `docs/pipeline-state.md`:
 **Started:** [YYYY-MM-DD HH:MM]
 **Phase Mode:** <subagent|subprocess|inline>
 **Last phase agent:** [subagent ID, only when Phase Mode = subagent]
+**Charter:** [path to docs/charter.md, or (none) when --no-charter is set]
 ```
 
 Default value for new features: `subagent`. `inline` appears only in legacy state files written under the prior heuristic policy or in Path N nit-attack sub-paths.
+
+**Charter field:** Set `**Charter:**` to the resolved charter file path when `--charter <path>` is given or when Step 0 writes `docs/charter.md`. Set to `(none)` when `--no-charter` or `--max-questions 0` is in effect. On resume (Step 3), read the saved `**Charter:**` value and restore it for the in-flight feature — do not re-run Step 0 if `**Charter:**` points to a valid existing file.
 
 ---
 
