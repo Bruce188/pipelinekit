@@ -1,7 +1,7 @@
 ---
 name: pipeline
 description: Autonomous pipeline orchestrator. Processes a feature list through the full workflow (analyze → plan → implement → review → merge) with zero human intervention. Supports --dry-run and --restart-from.
-argument-hint: ([feature-file]|[--renew]|[--adopt]|[--from "<text>"]|[--plan [<path>]]) [--restart-from analyze|plan|implement|review] [--dry-run]
+argument-hint: ([feature-file]|[--renew]|[--adopt]|[--from "<text>"]|[--plan [<path>]]) [--restart-from analyze|plan|implement|review] [--dry-run] [--no-charter|--charter <path>|--max-questions <N>]
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, Skill, TodoWrite
 effort: high
 ---
@@ -80,8 +80,11 @@ Parse `$ARGUMENTS`:
 - `--max-turns <N>` = hard cap on accumulated sub-agent turns. Default: **unlimited**. When set, counts Agent tool invocations.
 - `--from "<text>"` = free-text context for feature-file auto-generation. Stored as `FROM_TEXT`. Mutually exclusive with `--adopt` and `--renew`. Compatible with `--dry-run`, `--restart-from`, and all other flags.
 - `--plan [<path>]` = ingest a plan-mode plan file. With a path: reads that file. Without a value: auto-picks the most-recently-modified `~/.claude/plans/*.md` if modified within the last 60 min (else STOP with a path-required error). `~/` and relative paths resolved. 200 KB cap. Mutually exclusive with `--from`, `--adopt`, `--renew`, and a positional feature-file path.
+- `--no-charter` = skip Step 0 Charter Discovery entirely; restores legacy autonomous flow.
+- `--charter <path>` = adopt an existing charter file at `<path>`. Skips Step 0 discovery loop; sets the `**Charter:**` pointer in `progress.md`. STOP if the path does not exist: "ERROR: --charter path not found: <path>"
+- `--max-questions <N>` = cap the total number of `AskUserQuestion` invocations in Step 0 at `N`. Default: unbounded. `--max-questions 0` is an alias for `--no-charter` (no discovery at all).
 
-Validate mutual exclusivity: if `--from` and `--adopt` are both present, STOP with "ERROR: --from and --adopt are mutually exclusive." If `--from` and `--renew` are both present, STOP with "ERROR: --from and --renew are mutually exclusive." If `--plan` is combined with `--from`, `--adopt`, `--renew`, or a positional feature file, STOP with `ERROR: --plan is mutually exclusive with --from/--adopt/--renew/positional path`.
+Validate mutual exclusivity: if `--from` and `--adopt` are both present, STOP with "ERROR: --from and --adopt are mutually exclusive." If `--from` and `--renew` are both present, STOP with "ERROR: --from and --renew are mutually exclusive." If `--plan` is combined with `--from`, `--adopt`, `--renew`, or a positional feature file, STOP with `ERROR: --plan is mutually exclusive with --from/--adopt/--renew/positional path`. If `--no-charter` and `--charter <path>` are both present, STOP with "ERROR: --no-charter and --charter are mutually exclusive."
 
 Determine feature file source (in priority order):
 1. If `--adopt` is present → go to Step 1.7 (Adopt Manual Workflow). `--adopt` is mutually exclusive with providing a feature file path, `--renew`, and `--from`.
