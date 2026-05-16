@@ -1,12 +1,5 @@
 # Installation
 
-## Codespaces / Devcontainer (recommended)
-
-1. Open the repo in Codespaces (or VS Code "Reopen in Container").
-2. The devcontainer builds. `post-create.sh` runs `scripts/install.sh` non-interactively.
-3. Open a terminal: `claude`
-4. The overlay is at `~/.claude/`. Project-level MCP: copy `.mcp.json.template` to a project root as `.mcp.json`.
-
 ## Local install (Linux / WSL / macOS bash)
 
 ```bash
@@ -23,6 +16,29 @@ CLAUDE_INSTALL_NONINTERACTIVE=1 \
 CLAUDE_INSTALL_OPTIONALS=tresor,lsp,mcp,serena \
   ./scripts/install.sh
 ```
+
+## Cloud cold-start (Oracle / Hetzner)
+
+Bootstrap a fresh cloud VM and install pipelinekit in one step. See [cloud-setup.md](cloud-setup.md) for the full walkthrough including image selection, SSH, firewall, and troubleshooting.
+
+**Oracle Cloud Free Tier ARM A1 (aarch64):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/Bruce188/pipelinekit/main/scripts/cloud/oracle-bootstrap.sh | bash
+```
+
+**Hetzner CX22 (x86_64, creates 2 GB swap automatically):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/Bruce188/pipelinekit/main/scripts/cloud/hetzner-bootstrap.sh | bash
+```
+
+Both scripts are idempotent; re-run to update. Secrets read from env — never baked in.
+
+## Codespaces / Devcontainer
+
+1. Open the repo in Codespaces (or VS Code "Reopen in Container").
+2. The devcontainer builds. `post-create.sh` runs `scripts/install.sh` non-interactively.
+3. Open a terminal: `claude`
+4. The overlay is at `~/.claude/`. Project-level MCP: copy `.mcp.json.template` to a project root as `.mcp.json`.
 
 ## Environment variables
 
