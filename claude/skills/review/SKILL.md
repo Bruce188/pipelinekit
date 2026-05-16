@@ -532,6 +532,41 @@ No flag needed — nit auto-fix always runs when nits are present.
 
 ---
 
+### Step 7.8: Charter Scope Classification (if charter present)
+
+After auto-fix (Step 7.5), before saving findings:
+
+```bash
+test -f docs/charter.md && echo "CHARTER_FOUND" || echo "NO_CHARTER"
+```
+
+**If `docs/charter.md` is absent:** classify all findings as `in-scope`. Proceed to Step 8 with the combined findings list unchanged.
+
+**If `docs/charter.md` exists:** read sections `## Non-Goals` and `## MVP Boundary`. For each remaining finding in the findings list:
+
+1. If the finding maps to a charter Non-Goal or MVP Boundary `Out` item (partial string match on the finding's description or the file it targets):
+   - Classify as `out-of-scope`.
+   - Move to the `## Deferred` section in `docs/progress.md` with note: `charter: out of scope (review-vN)`.
+   - Do NOT reopen any task for this finding — out-of-scope findings never trigger Path B.
+
+2. Otherwise: classify as `in-scope`. Keep in the findings list.
+
+**Review report structure (when charter present):** the review file written in Step 8 uses two sub-sections:
+
+```
+## In-Scope Findings
+[findings classified in-scope — these trigger task reopening in Step 9]
+
+## Out-of-Scope Findings (Deferred)
+[findings classified out-of-scope — informational only; moved to Deferred]
+```
+
+**Task reopening (Step 9) operates only on in-scope findings.** Out-of-scope findings never reopen tasks and never feed into Path B re-implement cycles.
+
+**If `docs/charter.md` is absent:** use a single `## Findings` section (current behavior unchanged).
+
+---
+
 ### Step 8: Save Review Findings
 
 Follow the **Versioning Convention** from `~/.claude/rules/workflow.md` for review files.
@@ -550,6 +585,7 @@ Each finding includes:
 - Severity: blocking | non-blocking | nit
 - Which agent found it (code-reviewer, security-auditor, test-engineer, performance-tuner)
 - Which task it relates to (matched by file paths to plan task `Files:` lists)
+- **Scope classification:** `in-scope` or `out-of-scope (charter)` (only present when `docs/charter.md` exists)
 
 Note: the `review-vN` in task notes (e.g., `reopened: review-vN`) refers to the version number from the review filename (e.g., `review-v2.md` means N=2). For unversioned `review.md`, use `reopened: review`.
 
