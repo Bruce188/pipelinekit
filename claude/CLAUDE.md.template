@@ -73,6 +73,8 @@ Pipelines are defined by skills. Each pipeline skill ends with a "What's Next" b
 
 Autonomous option: `/pipeline [feature-file]` — runs the full workflow per feature. Supports both **dev** items (auto-routed through TDD: `tdd-test-writer` → `tdd-implementer`) and **non-dev** items (docs, ops, chores — skip TDD). Routing is derived from the feature's commit-type prefix; override with `**Type:** dev|non-dev` in the feature block. See `~/.claude/skills/pipeline/SKILL.md` § Step 5.5 for full routing detail.
 
+**Charter Mode (default-on):** `/pipeline` opens with a Charter Discovery phase (Step 0) that asks you 9 structured questions and writes `docs/charter.md`. Downstream phases (`/analyze`, `/create-plan`, `/implement-plan`, `/review`, `/ppr`) read the charter to scope their work automatically. Skip it with `--no-charter` for legacy autonomous behavior, or adopt an existing charter with `--charter <path>`. For full detail see `docs/pipeline.md` § Charter Mode.
+
 See `~/.claude/rules/workflow.md` for the argument convention, base-branch detection, and context-aware clearing rules.
 
 ## Consumer Web App Mode (Optional Overlay)
