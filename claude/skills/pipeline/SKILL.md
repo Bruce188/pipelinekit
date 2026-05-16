@@ -23,6 +23,51 @@ Summary
 
 ## Process
 
+### Step 0: Charter Discovery
+
+Charter Discovery is the default-on front-loaded alignment phase. It produces `docs/charter.md` by asking the user a structured set of questions (from `claude/skills/pipeline/charter.md`) and writing a versioned charter artifact. Downstream phases read this charter to scope their work.
+
+**Skip conditions (check in order — first match wins):**
+
+1. `--no-charter` is present → skip entirely (legacy autonomous flow).
+2. `--charter <path>` is present → adopt existing charter at `<path>`, set `**Charter:**` pointer in `progress.md`, skip discovery loop. Error cleanly on missing path.
+3. `--max-questions 0` is present → treat as `--no-charter` (alias).
+4. `docs/charter.md` exists AND `progress.md` `**Charter:**` pointer is valid → skip (charter already produced for this run).
+
+**Mutual exclusivity:**
+- `--no-charter` + `--charter <path>` → **STOP**: "ERROR: --no-charter and --charter are mutually exclusive."
+- `--charter <path>` with missing target → **STOP**: "ERROR: --charter path not found: <path>"
+
+**Charter Discovery loop (when not skipped):**
+
+1. Print an explainer to the user:
+   > "Charter Discovery (Step 0): Before the pipeline runs autonomously, let's align on what you want to build. I'll ask about 9 topics. You can exit at any point — just choose 'ship the charter now' to write the charter with what we have so far and continue."
+   >
+   > "To skip entirely: re-invoke with `--no-charter`. To adopt an existing charter: `--charter <path>`."
+
+2. Read `claude/skills/pipeline/charter.md` for the question bank.
+
+3. For each topic in order (Goal → Users → Problem → Success → Non-Goals → Constraints → MVP Boundary → Prior Art → Open Questions):
+   a. Invoke `AskUserQuestion` with the topic's question and options from the bank.
+   b. Record the user's answer.
+   c. After the answer, invoke the convergence check from the bank:
+      - **"ship the charter now"** → write `docs/charter.md` (status: `draft`), set `**Charter:**` pointer in `progress.md`, exit loop, continue pipeline.
+      - **"continue to next topic"** → advance to the next topic.
+      - **"go deeper / follow-up"** → ask the topic's follow-up question (if any), then advance.
+      - **"edit manually"** → write current draft to `docs/charter.md` (status: `draft`), print path, **STOP** pipeline. User resumes via `/pipeline --charter docs/charter.md` when ready.
+
+4. After the final topic, run a final convergence check. If user is satisfied, write `docs/charter.md` (status: `ratified`), set `**Charter:**` pointer in `progress.md`.
+
+**Charter file versioning:** follow the Versioning Convention from `claude/rules/workflow.md` — if `docs/charter.md` already exists, archive it to `docs/charter-v[N+1].md` before writing the new one.
+
+**progress.md `**Charter:**` pointer:** written as `**Charter:** docs/charter.md` (or the versioned path) immediately after the charter file is written.
+
+**Subprocess mode:** Step 0 relies on `AskUserQuestion`, which is interactive-session-only. If invoked via a subprocess driver (e.g., `orchestrate.sh` or `claude -p`), Step 0 cannot run. The subprocess driver is responsible for detecting this condition and exiting with an error before reaching Step 0. (See `docs/pipeline.md` § Charter Mode for the subprocess constraint.)
+
+**`--max-questions <N>` behavior:** When `N > 0`, cap the total number of `AskUserQuestion` invocations at `N`. After the cap is reached, write the draft charter and continue. `N = 0` is the `--no-charter` alias (no discovery at all).
+
+---
+
 ### Step 1: Parse Arguments
 
 Parse `$ARGUMENTS`:
