@@ -66,6 +66,8 @@ After Phase 1, conduct a thorough interview using the AskUserQuestion tool. Cove
 1. **Core goal** — What problem does this solve? Who is it for? (Anchor on Phase 1 Q3 / Q1.)
 2. **Technical stack** — Language, framework, infrastructure preferences or constraints
 3. **Architecture** — Key components, data flow, external integrations
+
+   If the user's architecture answer mentions more than 3 services / processes / plugin surfaces, OR describes integration with external systems beyond a single database, dispatch the `architect` agent with a prompt that captures the answers so far and asks for: (a) component diagram in ASCII, (b) data-flow notes, (c) failure-mode candidates. Use the architect's output to populate the Architecture section of the eventual PRP. Small CLI projects and single-service apps skip this dispatch.
 4. **UI/UX** — User-facing behavior, interaction patterns, responsive requirements
 5. **Edge cases** — Error handling, failure modes, concurrency, rate limits
 6. **Security** — Auth, data validation, secrets management
