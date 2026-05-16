@@ -68,6 +68,70 @@ Per feature, the pipeline runs:
 
 State persists in `docs/pipeline-state.md` per run. Resume by re-invoking `/pipeline`.
 
+## Charter Mode
+
+Charter Mode is the default-on front-loaded alignment phase added in Step 0 of `/pipeline`. Before the pipeline processes features, it asks the user a structured set of questions to produce `docs/charter.md`. Downstream phases (`/analyze`, `/create-plan`, `/implement-plan`, `/review`, `/ppr`) read this charter to scope their work.
+
+### When it runs
+
+Step 0 runs by default on every interactive `/pipeline` invocation, unless one of the following opt-out conditions is met (checked in order):
+
+1. `--no-charter` flag is present → skip entirely (legacy autonomous flow restored).
+2. `--charter <path>` flag is present → adopt the existing charter at `<path>`, skip discovery.
+3. `--max-questions 0` → treated as `--no-charter` (alias).
+4. `docs/charter.md` exists AND `progress.md` `**Charter:**` pointer is valid → skip (already chartered for this run).
+
+### Opt-out flags
+
+| Flag | Effect |
+|------|--------|
+| `--no-charter` | Skip Step 0; restore legacy autonomous behavior |
+| `--charter <path>` | Adopt an existing charter file; skip discovery loop |
+| `--max-questions <N>` | Cap total `AskUserQuestion` calls at `N`; `0` = `--no-charter` alias |
+
+`--no-charter` and `--charter` are mutually exclusive. Using both together stops the pipeline with: `ERROR: --no-charter and --charter are mutually exclusive.`
+
+Providing `--charter <path>` with a missing file stops the pipeline with: `ERROR: --charter path not found: <path>`
+
+### Subprocess-mode constraint
+
+**`AskUserQuestion` is interactive-session-only.** Charter Discovery cannot run inside a subprocess driver (`claude -p` or equivalent). If you re-introduce a subprocess driver in a fork:
+
+- The driver MUST check for an existing charter before launching any phase.
+- If `docs/charter.md` is absent AND neither `--no-charter` nor `--charter <path>` is set, the driver MUST exit non-zero with:
+
+  ```
+  ERROR: subprocess mode cannot run Charter Discovery (AskUserQuestion is interactive-only). Run /pipeline interactively first, or pass --no-charter.
+  ```
+
+### Charter file shape
+
+`docs/charter.md` contains 9 required sections (in order):
+
+1. **Goal** — what the feature/iteration achieves
+2. **Users** — who it serves
+3. **Problem** — the pain being solved
+4. **Success** — measurable outcomes
+5. **Non-Goals** — explicit exclusions
+6. **Constraints** — hard technical or process limits
+7. **MVP Boundary** — what is "In" vs "Out" for this iteration
+8. **Prior Art** — existing work this relates to or supersedes
+9. **Open Questions** — unresolved items for future decisions
+
+Plus frontmatter (`version`, `created`, `status`) and an optional **Decision Log** table.
+
+Versioning follows the same convention as `plan.md` and `analysis.md` — see `claude/rules/workflow.md` § Versioning Convention.
+
+### How downstream phases consume the charter
+
+| Phase | Charter usage |
+|-------|--------------|
+| `/analyze` | Scopes investigation to MVP Boundary; flags Non-Goal areas without deep traversal |
+| `/create-plan` | Gates tasks against Non-Goals and MVP Boundary; defers out-of-scope items |
+| `/implement-plan` | Prepends charter Goal + Constraints to each task subagent's context |
+| `/review` | Classifies findings as in-scope or out-of-scope per charter; defers out-of-scope findings |
+| `/ppr` | Derives PR `## Summary` opening line from charter Goal |
+
 ## What was removed in the portable build
 
 - `orchestrate.sh` (out-of-process driver). The in-process Skill is the only entry point.
