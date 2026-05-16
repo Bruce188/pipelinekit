@@ -10,6 +10,7 @@ credentials*
 .claude/*
 
 # docs/ workflow files
+docs/charter*.md
 docs/progress.md
 docs/prompts*.md
 docs/plan*.md

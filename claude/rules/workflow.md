@@ -70,7 +70,8 @@ Before running `/analyze`, verify a base branch exists using the Base Branch Det
 - **Versioning:** Plan and prompts files follow the **Versioning Convention** below.
 - **progress.md is history-preserving:** Completed (`done`) tasks are never removed. Superseded `todo`/`doing` tasks may be replaced when a new plan is created. New tasks are appended. Superseded iteration Status tables are rotated to `docs/archive/progress-v<N>.md` by `/create-plan` — see that skill's Step 5.
 - **Task reopening:** `/review` can set completed tasks back to `todo` with note `reopened: review-vN`. `/implement-plan` reads the referenced review file for guidance on what to fix. New micro-tasks may be created if findings don't map to existing tasks.
-- **Pointer system:** `progress.md` has `**Plan:**` and `**Prompts:**` fields pointing to the active files. All reader skills (`/implement-plan`, `/review`, `/ppr`) follow these pointers — never hardcode `docs/plan.md`.
+- **Pointer system:** `progress.md` has `**Plan:**`, `**Prompts:**`, and `**Charter:**` fields pointing to the active files. All reader skills (`/implement-plan`, `/review`, `/ppr`) follow these pointers — never hardcode `docs/plan.md`.
+- **Charter pointer:** `progress.md` has a `**Charter:**` field. `/pipeline` Step 0 writes this pointer when it creates or adopts a charter. Downstream phases read it to locate `docs/charter.md`.
 - **Analysis pointer:** `progress.md` has an `**Analysis:**` field. `/analyze` updates it. `/create-plan` follows it instead of hardcoding `analysis.md`.
 - **Review pointer:** `progress.md` has a `**Review:**` field. `/review` updates it when saving findings. `/implement-plan` follows it when re-executing reopened tasks.
 - **analysis.md:** Follows the **Versioning Convention** below. Pointer in progress.md tracks current file.
@@ -80,7 +81,7 @@ Before running `/analyze`, verify a base branch exists using the Base Branch Det
 
 ## Versioning Convention
 
-All versioned workflow files (plan, prompts, analysis, review) follow the same archiving convention:
+All versioned workflow files (plan, prompts, analysis, review, charter) follow the same archiving convention:
 
 1. Check for existing files: `ls docs/<type>*.md`
 2. Find highest version N among `docs/<type>-v*.md` files (if none, N = 0)
