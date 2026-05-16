@@ -1,0 +1,39 @@
+#cloud-config
+# Hetzner Cloud CX22 (x86_64) — pipelinekit bootstrap
+# Paste this YAML into the "User data" field at server creation in Hetzner Cloud Console.
+#
+# What it does:
+#   1. Installs minimal apt seed packages (git, curl, ca-certificates)
+#   2. Runs the hetzner-bootstrap.sh script via curl — handles all remaining setup
+#      including the mandatory 2 GB swapfile (created before apt-get to prevent npm OOM)
+#
+# Optional: uncomment the write_files block below and fill in your values
+# to inject env vars without typing secrets in the terminal.
+
+package_update: true
+
+packages:
+  - git
+  - curl
+  - ca-certificates
+
+# Optional: inject env vars before the bootstrap runs.
+# Uncomment and fill in values. Do NOT commit this file with real secrets.
+# write_files:
+#   - path: /etc/pipelinekit-env
+#     permissions: '0600'
+#     content: |
+#       export USER_EMAIL="you@example.com"
+#       export USER_NAME="Your Name"
+#       export ANTHROPIC_API_KEY=""
+#       export GH_TOKEN=""
+#       export CLAUDE_CLI_SHA256=""
+#       export CLAUDE_INSTALL_OPTIONALS="tresor,lsp,mcp"
+#       export PIPELINEKIT_DIR="/root/pipelinekit"
+
+runcmd:
+  # Optional: source env vars if you wrote the file above
+  # - source /etc/pipelinekit-env
+  - |
+    curl -fsSL https://raw.githubusercontent.com/Bruce188/pipelinekit/main/scripts/cloud/hetzner-bootstrap.sh \
+      | bash 2>&1 | tee /var/log/pipelinekit-cloud-init.log
