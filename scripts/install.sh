@@ -52,7 +52,8 @@ maybe_install_settings() {
       prev_settings="$backup_dir/settings.json"
     fi
     if [[ -n "$prev_settings" ]]; then
-      local bak="$target.bak-$(date +%s)"
+      local bak
+      bak="$target.bak-$(date +%s)"
       cp -a "$prev_settings" "$bak"
       log "Backed up existing settings.json → $bak"
     fi
