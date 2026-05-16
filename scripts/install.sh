@@ -298,3 +298,4 @@ fi
 
 log "Install complete. Open a new terminal and run: claude"
 log "Tell Claude:  /pipeline   (after creating docs/features.md in your project)"
+log "Tip: to wire the 8 optional hooks (cost logging, env scrubbing, TDD gate, etc.), re-run with CLAUDE_INSTALL_SETTINGS=1"
