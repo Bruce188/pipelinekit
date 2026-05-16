@@ -26,6 +26,8 @@ Extract the problem description and any acceptance criteria from the issue body.
 
 Find files relevant to the reported issue. Use Grep/Glob to locate the affected code. Identify the root cause.
 
+If surface-level grep/glob does not surface the root cause within 2-3 search rounds, dispatch the `debugger` agent with a prompt summarizing the symptom, the files already inspected, and the hypothesis space. Wait for its `<task-notification>` before continuing.
+
 ### 4. Write Failing Test (Red)
 
 Write a test that reproduces the reported bug. Run the test suite -- confirm the new test FAILS.
