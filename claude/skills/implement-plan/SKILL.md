@@ -150,6 +150,34 @@ If `--no-parallel` was passed or only 1 task exists in the phase: skip this step
 
 ---
 
+### Step 1.8: Charter Context Extraction (if charter present)
+
+Before executing any task, check for an active charter:
+
+```bash
+test -f docs/charter.md && echo "CHARTER_FOUND" || echo "NO_CHARTER"
+```
+
+**If `docs/charter.md` is absent:** set `CHARTER_CONTEXT=""`. Proceed to Step 2 — no charter excerpts added to subagent prompts.
+
+**If `docs/charter.md` exists:** read sections `## Goal`, `## Constraints`, and `## Non-Goals`. Build a `CHARTER_CONTEXT` block:
+
+```markdown
+## Charter Context
+
+**Goal:** [verbatim content of charter ## Goal section]
+
+**Constraints:** [verbatim content of charter ## Constraints section]
+
+**Non-Goals (do not implement):** [verbatim content of charter ## Non-Goals section]
+
+Design decisions must align with the Charter Context above. If the charter conflicts with the task spec, flag the conflict in your `<task-notification>` `<summary>` rather than guessing.
+```
+
+This `CHARTER_CONTEXT` block is prepended to every task subagent prompt dispatched in Step 2 and in the parallel execution path (Step 1.5).
+
+---
+
 ### Step 2: Execute Task Loop
 
 For each remaining `todo` task, in order:
@@ -176,6 +204,8 @@ Spawn the `tdd-test-writer` agent as a context-isolated subagent (NOT Agent Team
 Agent tool parameters:
   model: sonnet
   prompt: |
+    [CHARTER_CONTEXT — insert verbatim if non-empty, omit if empty]
+
     Task: [task name]
     Objective: [from task prompt]
     Tests: [from plan's Tests: section]
