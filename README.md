@@ -90,12 +90,6 @@ stop caveman     # revert to normal
 
 Memory ships as an empty scaffold. After install, Claude builds memory in `~/.claude/projects/<project-slug>/memory/`. See `claude/memory/MEMORY.md` for schema reference.
 
-## Omissions (by design)
-
-- No `orchestrate.sh` (subprocess pipeline driver). The in-process `/pipeline` skill is the only entry point.
-- No `claude -p` subprocess invocations.
-- No personal data (paths templated, memories stripped, email scrubbed).
-- No marketplace plugin auto-install (use `claude plugin install` after setup if wanted).
 
 ## License
 
