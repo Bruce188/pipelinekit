@@ -5,6 +5,10 @@ disable-model-invocation: true
 allowed-tools: Read, Write, Bash, AskUserQuestion
 ---
 
+**Note:** `/pipeline` now includes Step 0 Charter Discovery, which supersedes the upfront-PRP role. Charter Discovery is the recommended path for new projects: run `/pipeline` interactively to produce `docs/charter.md` instead. This `/interview-prp` skill remains available for teams with existing PRP workflows. Continuing with legacy PRP flow...
+
+---
+
 Interview the user to produce a Product Requirements Prompt (PRP) for: $ARGUMENTS
 
 The interview runs in two phases. **Phase 1 is forcing questions** that pressure-test whether the project should exist at all and what the smallest valuable wedge looks like. **Phase 2 is the standard PRP coverage** — stack, architecture, edge cases, etc.
