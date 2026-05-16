@@ -119,6 +119,9 @@ Read:
 - `git diff "$BASE"...HEAD --stat` — files changed
 - `docs/progress.md` — completed tasks for context
 - The plan file referenced by the `**Plan:**` field in `docs/progress.md` (fall back to `docs/plan.md` if no pointer exists) — for understanding the broader objective
+- The review file referenced by the `**Review:**` pointer in `docs/progress.md` — for surfacing spec-tracer and other agent evidence in the PR body
+
+Before composing the PR body, read the `**Review:**` pointer from `docs/progress.md` and open the referenced review file. Include the spec-tracer outcome (pass / findings) verbatim in the PR body under a "Review evidence" subsection, alongside the other agent outcomes (code-reviewer, security-auditor, test-engineer, performance-tuner). If no review file exists, omit the subsection.
 
 Generate PR title and body:
 - Title: conventional format `<type>[(scope)]: <description>` (≤ 72 chars)

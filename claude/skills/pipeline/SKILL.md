@@ -467,9 +467,6 @@ Update `docs/progress.md` `**Analysis:**` pointer to the new analysis file.
 3. Verify each key file exists: `ls [file] 2>/dev/null`. Remove any that don't exist.
 4. If validation fails (objective mismatch or no relevant key files): log warning, re-read codebase with corrected focus, rewrite the analysis file.
 
-**Context mitigation:** After analysis completes, compact context to retain only the analysis file path and feature metadata. Discard exploration context:
-> At this point, if context usage is above 40%, invoke `/compact` with guidance: "Keep: analysis file path, feature name, feature index. Discard: file reads, glob results, project detection output." (Check context usage via statusline if available; otherwise use judgment based on conversation length.)
-
 Update pipeline state: step = "plan"
 
 ---
@@ -544,9 +541,6 @@ After writing the plan and prompts files, validate:
 5. Are there file overlaps between tasks in the same phase?
 If issues found: fix them in the plan and prompts before proceeding.
 Log: "Plan validated: [N] tasks, [M] phases, [P] issues auto-fixed"
-
-**Context mitigation:** After planning completes, compact context to retain only plan/prompts file paths and progress state. Discard planning reasoning:
-> At this point, if context usage is above 40%, invoke `/compact` with guidance: "Keep: plan file path, prompts file path, feature name, feature index, branch name. Discard: analysis content, task breakdown reasoning." (Check context usage via statusline if available; otherwise use judgment based on conversation length.)
 
 Update pipeline state: step = "implement"
 
@@ -691,9 +685,6 @@ Skill: review
 ```
 
 Note: The pipeline defaults to --teams when available because autonomous execution benefits most from cross-agent communication. Manual `/review` uses --teams opt-in.
-
-**Context mitigation:** After review completes, compact context to retain only the review file path and findings summary. Discard agent outputs:
-> At this point, if context usage is above 40%, invoke `/compact` with guidance: "Keep: review file path, finding counts by severity, feature name, feature index, review cycle count. Discard: agent prompts, raw findings, diff content." (Check context usage via statusline if available; otherwise use judgment based on conversation length.)
 
 After completion: proceed to Step 5.7.
 
