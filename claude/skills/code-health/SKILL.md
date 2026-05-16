@@ -108,7 +108,7 @@ Expected Improvement: 7.3 -> 8.5 (+1.2 points)
 After assessment, consider:
 - Use `/review` for deep-dive into specific issues found
 - Update `docs/progress.md` (AI workflow tracking) with health score and improvement tasks
-- For complex refactoring, create tasks in the prompts file (follow the `**Prompts:**` pointer in `docs/progress.md`) with the refactor-expert agent
+- When the health report flags refactor candidates (cyclomatic complexity, large files, duplicated blocks), dispatch the `refactor-expert` agent with a prompt that includes: (a) the file path and offending region, (b) the desired refactor pattern, (c) the existing test coverage for the region. Refactor-expert returns either a patch plan or a "needs more tests first" verdict. Create the resulting tasks in the prompts file (follow the `**Prompts:**` pointer in `docs/progress.md`).
 - Note: `docs/` = AI workflow files. `documentation/` = application docs. Documentation quality metrics should assess `documentation/`, not `docs/`.
 
 ---
