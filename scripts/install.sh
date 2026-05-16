@@ -32,6 +32,74 @@ log()  { printf '[install] %s\n' "$*" | tee -a "$LOG"; }
 warn() { printf '[install][warn] %s\n' "$*" | tee -a "$LOG" >&2; }
 die()  { printf '[install][error] %s\n' "$*" | tee -a "$LOG" >&2; exit 1; }
 
+# ---------- optional: settings.json hook wiring ----------
+# Gated by CLAUDE_INSTALL_SETTINGS=1. Off by default — safe for existing users.
+# When the flag is unset and the previous install backed up a settings.json,
+# restore it into the new overlay so user customizations survive the swap.
+# $1 = backup dir (the $BACKUP path captured at swap time, or "" if no backup).
+maybe_install_settings() {
+  local backup_dir="${1:-}"
+  local target="$CLAUDE_HOME/settings.json"
+
+  if [[ "${CLAUDE_INSTALL_SETTINGS:-}" == "1" ]]; then
+    # Opt-in: back up any existing settings.json (may live in the backup dir from
+    # the overlay swap, since the swap moves $CLAUDE_HOME wholesale), then write
+    # the hook template.
+    local prev_settings=""
+    if [[ -f "$target" ]]; then
+      prev_settings="$target"
+    elif [[ -n "$backup_dir" && -f "$backup_dir/settings.json" ]]; then
+      prev_settings="$backup_dir/settings.json"
+    fi
+    if [[ -n "$prev_settings" ]]; then
+      local bak="$target.bak-$(date +%s)"
+      cp -a "$prev_settings" "$bak"
+      log "Backed up existing settings.json → $bak"
+    fi
+    python3 - "$CLAUDE_HOME" <<'PYEOF'
+import json, os, sys
+
+h = sys.argv[1]
+
+def hook(cmd):
+    return [{"type": "command", "command": cmd}]
+
+settings = {
+    "hooks": {
+        "PostToolUse": [
+            {"matcher": "*", "hooks": hook(f"{h}/hooks/cost_log.py")}
+        ],
+        "Notification": [
+            {"matcher": "*", "hooks": hook(f"{h}/hooks/denial_tracker.py")}
+        ],
+        "PreToolUse": [
+            {"matcher": "Bash",       "hooks": hook(f"{h}/hooks/env-scrub.py")},
+            {"matcher": "Skill",      "hooks": hook(f"{h}/hooks/skill_budget.py")},
+            {"matcher": "Edit|Write", "hooks": hook(f"{h}/hooks/tdd-red-phase-gate.sh")},
+            {"matcher": "Write",      "hooks": hook(f"{h}/hooks/block-bare-repo-markers.py")}
+        ],
+        "PostCompact": [
+            {"matcher": "*", "hooks": hook(f"{h}/hooks/context-warning.py")},
+            {"matcher": "*", "hooks": hook(f"{h}/hooks/post-compact-context.sh")}
+        ]
+    }
+}
+
+dst = os.path.join(h, "settings.json")
+with open(dst, "w", encoding="utf-8") as f:
+    json.dump(settings, f, indent=2)
+    f.write("\n")
+print(f"installed: {dst} (8 hooks wired)")
+PYEOF
+  else
+    # Flag not set: restore user's previous settings.json from backup if present.
+    if [[ -n "$backup_dir" && -f "$backup_dir/settings.json" ]]; then
+      cp -a "$backup_dir/settings.json" "$target"
+      log "Preserved existing $target (re-run with CLAUDE_INSTALL_SETTINGS=1 to wire hooks)"
+    fi
+  fi
+}
+
 # ---------- preflight ----------
 command -v bash    >/dev/null || die "bash required"
 command -v git     >/dev/null || die "git required"
@@ -69,12 +137,14 @@ if [[ -L "$CLAUDE_HOME" ]]; then
   log "Removing stale symlink at $CLAUDE_HOME"
   rm "$CLAUDE_HOME"
 fi
+BACKUP=""
 if [[ -e "$CLAUDE_HOME" ]]; then
   BACKUP="$CLAUDE_HOME.bak-$TS"
   log "Existing $CLAUDE_HOME → backing up to $BACKUP"
   mv "$CLAUDE_HOME" "$BACKUP"
 fi
 mv "$STAGE" "$CLAUDE_HOME"
+maybe_install_settings "$BACKUP"
 
 # ---------- render CLAUDE.md from template ----------
 # Use python3 with env-var-driven substitution; sed is unsafe when values contain
