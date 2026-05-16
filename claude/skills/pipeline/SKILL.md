@@ -432,9 +432,12 @@ Write/update `docs/pipeline-state.md`:
 **Started:** [YYYY-MM-DD HH:MM]
 **Phase Mode:** <subagent|subprocess|inline>
 **Last phase agent:** [subagent ID, only when Phase Mode = subagent]
+**Charter:** [path to docs/charter.md, or (none) when --no-charter is set]
 ```
 
 Default value for new features: `subagent`. `inline` appears only in legacy state files written under the prior heuristic policy or in Path N nit-attack sub-paths.
+
+**Charter field:** Set `**Charter:**` to the resolved charter file path when `--charter <path>` is given or when Step 0 writes `docs/charter.md`. Set to `(none)` when `--no-charter` or `--max-questions 0` is in effect. On resume (Step 3), read the saved `**Charter:**` value and restore it for the in-flight feature — do not re-run Step 0 if `**Charter:**` points to a valid existing file.
 
 ---
 
