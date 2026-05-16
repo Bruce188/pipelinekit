@@ -52,6 +52,33 @@ Also read `.claude/CLAUDE.md` for project-specific constraints (if it exists).
 
 ---
 
+### Step 1.8: Charter Gating (if charter present)
+
+Before designing tasks, check for an active charter:
+
+```bash
+test -f docs/charter.md && echo "CHARTER_FOUND" || echo "NO_CHARTER"
+```
+
+**If `docs/charter.md` is absent:** proceed to Step 2 with full discretionary planning.
+
+**If `docs/charter.md` exists:** read sections `## Non-Goals`, `## MVP Boundary`. Apply the following gate to every candidate task before adding it to the plan:
+
+1. **Non-Goal match** — if the task's objective matches a charter Non-Goal item (partial string match): exclude the task entirely. Add to `## Deferred` in `docs/progress.md` with note `charter: non-goal`.
+
+2. **MVP Boundary > Out match** — if the task matches an item listed under `MVP Boundary > Out`: exclude and defer with note `charter: out of MVP`.
+
+3. **Gray area (no charter match)** — ask the user via `AskUserQuestion`:
+   > "Charter doesn't explicitly cover [task name]. Include in plan, defer to a later iteration, or update charter to clarify?"
+   Options: `Include in plan`, `Defer to later iteration`, `Update charter manually and re-run`.
+   - `Include in plan` → add the task normally
+   - `Defer to later iteration` → add to `## Deferred` with note `charter: gray area — deferred per user choice`
+   - `Update charter manually and re-run` → STOP: "Open docs/charter.md, update the relevant section, then re-run /create-plan."
+
+Apply these rules to every task in Step 2 before finalizing the plan.
+
+---
+
 ### Step 2: Design the Plan
 
 Break the work into phases and tasks. Rules:
