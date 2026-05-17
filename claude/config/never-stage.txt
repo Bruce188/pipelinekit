@@ -35,3 +35,6 @@ bin/
 obj/
 *.user
 *.suo
+
+# Research artifacts
+docs/research-results.tsv

@@ -48,7 +48,7 @@ claude
 | Layer | Contents |
 |-------|----------|
 | Rules | `CLAUDE.md`, `rules/workflow.md`, `rules/agents-worktrees.md` |
-| Skills | 30 native (analyze, create-plan, implement-plan, review, ppr, pipeline, expo, ios, azure-ops, document-release, ...) |
+| Skills | 31 native (analyze, create-plan, implement-plan, review, ppr, pipeline, expo, ios, azure-ops, document-release, ...) |
 | Agents | 15 specialized (architect, code-reviewer, security-auditor, tdd-test-writer, mobile-dev, azure-deployment-engineer, ...) |
 | Hooks | 21 production hooks (validate-commit-msg, strip-ai-attribution, block-push-main, tdd-order-check, ...) |
 | MCP | context7, serena (semantic), sequential-thinking, optional local-rag |
@@ -75,7 +75,7 @@ pipelinekit/
 ├── claude/               # Overlay installed to ~/.claude/
 │   ├── CLAUDE.md.template
 │   ├── rules/
-│   ├── skills/           # 30 native skills
+│   ├── skills/           # 31 native skills
 │   ├── agents/           # 15 specialized agents
 │   ├── hooks/            # 21 production hooks
 │   ├── memory/           # Scaffold (empty by design)

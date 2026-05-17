@@ -1,7 +1,7 @@
 ---
 name: new-branch
 description: Create a conventional feature branch from main/master. Use when starting new work, before first commit, or when on main/master.
-argument-hint: <type/name> (e.g., feat/auth, fix/login-bug, refactor/cleanup)
+argument-hint: <type/name> (e.g., feat/auth, fix/login-bug, refactor/cleanup) OR --research-tag <slug> for research/<slug>-YYYY-MM-DD
 disable-model-invocation: true
 allowed-tools: Bash, Read, AskUserQuestion
 ---
@@ -25,6 +25,15 @@ Create a feature branch following conventional naming conventions.
    - Must use kebab-case after the prefix
    - Cannot be `main` or `master`
    - If no argument given, ask the user what to name the branch
+
+1a. **`--research-tag <slug>` override (optional).** If `--research-tag <slug>` is
+    passed instead of (or in addition to) a positional `<type/name>` argument:
+    - Compute branch name as `research/<slug>-$(date -u +%Y-%m-%d)` (UTC).
+    - Skip the type-prefix validator in Step 1 — the `research/` prefix is
+      deliberately not in the conventional allowlist, but is allowed here.
+      The `research/` prefix bypasses the validator; all other branch rules still apply.
+    - The slug must be kebab-case after the `--research-tag` flag.
+    - Continue to Step 2 (base-branch verification) with the computed name.
 
 2. Verify a base branch exists:
    - Run the Base Branch Detection snippet from `~/.claude/rules/workflow.md` § Base Branch Detection
@@ -54,6 +63,7 @@ Create a feature branch following conventional naming conventions.
 | `test/` | Test additions |
 | `chore/` | Maintenance |
 | `perf/` | Performance |
+| `research/` | Karpathy autoresearch loop (date-stamped, set via `--research-tag <slug>`) |
 
 ### What's Next
 
@@ -63,6 +73,12 @@ Create a feature branch following conventional naming conventions.
 Branch created: [branch name]
 
 Next: Run /clear to reset context, then /implement-plan to start executing tasks.
+
+For `research/` branches: the follow-on is the `/research` skill (run
+`bash claude/skills/research/research-loop.sh --research-tag <slug> ...`),
+not `/implement-plan`. Results are appended to `docs/research-results.tsv`.
+
+Note: `research/` branches skip the conventional type-prefix validator by design.
 
 ---
 ```
