@@ -356,6 +356,15 @@ Look up the phase model from this table. Store as `PHASE_MODEL`. Override preced
 
 Pass `model: $PHASE_MODEL` in the `Agent` tool parameters for every phase dispatch (initial Step 5.x AND Path B/C re-invocations). Inline nit-attack sub-paths (Step 5.7) do not invoke models — they apply Edit-tool changes directly, no model selection involved.
 
+**Model overlay resolution:** Before each phase dispatch, resolve the overlay file using `claude/model-overlays/<MODEL_SLUG>.md` where `MODEL_SLUG` is the versioned slug for `$PHASE_MODEL` (e.g., `opus-4-7` for the opus family at the current Anthropic version). Fallback chain: versioned slug (`opus-4-7.md`) → family name (`opus.md`) → generic (`claude.md`) → no overlay (no-op). When an overlay file resolves and is non-empty (≤ 2KB), read its content and substitute the `{{MODEL_OVERLAY_NOTE}}` placeholder in the phase prompt template with:
+
+```
+Model overlay (claude/model-overlays/<resolved-file>):
+[contents of the overlay file]
+```
+
+When no overlay file resolves: `MODEL_OVERLAY_NOTE=""` (empty, no-op). A missing overlay is silent — backward compatible, defaults inherited from current behavior. The fallback chain ensures `claude.md` (generic) carries universal hints when no model-specific file exists; if `claude.md` itself is missing, no overlay note is emitted and behavior is identical to today.
+
 ---
 
 ##### Step 5.1: Log Feature Start
@@ -867,6 +876,14 @@ On non-zero exit:
 6. Continue to the next feature — the pipeline does not halt
 
 On success, append `POSTMERGE_OK: <cmd>` to the completion Run Log line.
+
+After `POSTMERGE_OK` is appended, dispatch `Skill: learn` (via `claude/lib/learn-append.sh`) with a one-line lesson capturing post-merge outcome:
+```bash
+bash claude/lib/learn-append.sh --severity info --category post-merge \
+  --source post-merge --feature "<feature-name>" \
+  --lesson "Post-merge gate passed; squash SHA $(git rev-parse HEAD)."
+```
+Best-effort — failure NEVER downgrades the feature's terminal status (mirrors the docs-phase best-effort semantics). This is the second of two `/learn` trigger points (the first is Path A step 0 post-review).
 
 ---
 

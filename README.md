@@ -48,12 +48,14 @@ claude
 | Layer | Contents |
 |-------|----------|
 | Rules | `CLAUDE.md`, `rules/workflow.md`, `rules/agents-worktrees.md` |
-| Skills | 34 native (analyze, create-plan, implement-plan, review, ppr, pipeline, expo, ios, azure-ops, document-release, tdd, zoom-out, write-a-skill, ...) |
+| Skills | 36 native (analyze, create-plan, implement-plan, review, ppr, pipeline, expo, ios, azure-ops, document-release, tdd, zoom-out, write-a-skill, learn, landing-report, ...) |
 | Agents | 16 specialized (architect, code-reviewer, security-auditor, karpathy-reviewer, tdd-test-writer, mobile-dev, azure-deployment-engineer, ...) |
 | Hooks | 21 production hooks (validate-commit-msg, strip-ai-attribution, block-push-main, tdd-order-check, ...) |
 | MCP | context7, serena (semantic), sequential-thinking, optional local-rag |
 | LSP | pyright, typescript, csharp, gopls, rust-analyzer |
 | Templates | tresor-resources (prompts, standards, examples) |
+| Model overlays | 4 (claude.md generic, opus-4-7.md, sonnet-4-6.md, haiku-4-5.md) — per-model token/thinking budget tuning consumed by phase skills |
+| Host adapters | 4 (claude.sh concrete, codex.sh/cursor.sh/gemini.sh stubs) — interface scaffold for future multi-host dispatch |
 | Optional | gstack overlay (`/gstack-*` skills) and `~/claude-skills/` via setup flags |
 
 ## Pipeline modes
@@ -75,12 +77,14 @@ pipelinekit/
 ├── claude/               # Overlay installed to ~/.claude/
 │   ├── CLAUDE.md.template
 │   ├── rules/
-│   ├── skills/           # 34 native skills
+│   ├── skills/           # 36 native skills
 │   ├── agents/           # 16 specialized agents
 │   ├── hooks/            # 21 production hooks
 │   ├── memory/           # Scaffold (empty by design)
 │   ├── tresor-resources/ # Prompt templates + standards
 │   ├── lib/sandbox/      # Pluggable SandboxProvider (worktree-only default, podman, docker)
+│   ├── model-overlays/   # Per-model tuning hints (claude.md generic + opus/sonnet/haiku variants)
+│   ├── host-adapters/    # Host dispatch interface (claude.sh concrete, others stub)
 │   └── config/
 ├── scripts/
 │   ├── install.sh        # Idempotent installer

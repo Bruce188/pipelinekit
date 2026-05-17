@@ -71,6 +71,25 @@ If `docs/progress.md` does not exist: warn "No progress.md found — skipping re
 
 ---
 
+### Step 1.6: Landing Report (advisory)
+
+Detect version-slot collisions before push. Fires only when a `VERSION` file or `package.json:version` is present in the repo root; otherwise silently skips.
+
+```bash
+if [ -f VERSION ] || python3 -c 'import json,sys;sys.exit(0 if json.load(open("package.json",encoding="utf-8")).get("version") else 1)' 2>/dev/null; then
+  Skill: landing-report
+fi
+```
+
+Behavior:
+- **Collision detected** — print warning to stdout (e.g., `landing-report: collision=yes — tag v1.2.3 already exists`), but DO NOT stop. The push proceeds.
+- **No collision** — print one-line summary (`landing-report: ... collision=no`) and continue.
+- **Neither marker present** — silent skip (`SKIP: no VERSION or package.json:version found` on stderr), continue.
+
+Advisory only — never blocks the push.
+
+---
+
 ### Step 1.7: Auto-format (language-specific)
 
 Before push, apply the project's formatter so CI doesn't bounce the PR on mechanical style issues. Detect by marker file and run unconditionally — the formatter is a no-op when code is already clean.

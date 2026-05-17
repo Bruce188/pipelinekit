@@ -97,6 +97,14 @@ Do not modify any existing `docs/` files during adoption — only create `featur
 
 ### Path A — Review Passed
 
+0. **Persist lesson (advisory)** — best-effort dispatch capturing the clean-review outcome:
+   ```bash
+   bash claude/lib/learn-append.sh --severity info --category review \
+     --source review --feature "<feature-name>" \
+     --lesson "Path A entered: review clean."
+   ```
+   Failure NEVER blocks Path A (helper always exits 0). This is the post-review trigger for `Skill: learn`. The helper writes to `~/.pipelinekit/projects/<slug>/learnings.jsonl`.
+
 1. **Pre-push auto-format** — run the project's formatter unconditionally. Detect by marker file; if clean, it's a fast no-op, so there's no gating.
    ```bash
    if ls *.sln 2>/dev/null | head -1 >/dev/null; then
@@ -112,6 +120,14 @@ Do not modify any existing `docs/` files during adoption — only create `featur
    #   go.mod → gofmt -w . OR go fmt ./...
    ```
    This prevents the push → CI → fix loop from burning one of its 3 attempts on a mechanical style issue. If the formatter fails (non-zero exit, unexpected), log and proceed — the CI fix loop is the safety net.
+
+   1.5. **Landing report (advisory)** — detect version-slot collisions before push:
+   ```bash
+   if [ -f VERSION ] || python3 -c 'import json,sys;sys.exit(0 if json.load(open("package.json",encoding="utf-8")).get("version") else 1)' 2>/dev/null; then
+     Skill: landing-report
+   fi
+   ```
+   Advisory only; never blocks the push. Silent skip when neither marker is present.
 
 2. Push to remote:
    ```bash
@@ -409,6 +425,8 @@ The orchestrator's substitution code does not yet exist at the time this section
 ```
 You are dispatched by the pipeline orchestrator as the ANALYZE phase subagent for feature `{{FEATURE_NAME}}` ({{FEATURE_INDEX}}/{{FEATURE_TOTAL}}). Remaining budget: ${{BUDGET_REMAINING}} of ${{MAX_USD}}.
 
+{{MODEL_OVERLAY_NOTE}}
+
 Inputs:
 - Feature description: {{FEATURE_DESCRIPTION}}
 - Feature constraints: {{FEATURE_CONSTRAINTS}}
@@ -470,6 +488,8 @@ Report back with this XML block as the very last content in your response:
 ```
 You are dispatched by the pipeline orchestrator as the PLAN phase subagent for feature `{{FEATURE_NAME}}` ({{FEATURE_INDEX}}/{{FEATURE_TOTAL}}). Remaining budget: ${{BUDGET_REMAINING}} of ${{MAX_USD}}.
 
+{{MODEL_OVERLAY_NOTE}}
+
 Inputs:
 - Feature description: {{FEATURE_DESCRIPTION}}
 - Feature constraints: {{FEATURE_CONSTRAINTS}}
@@ -530,6 +550,8 @@ Report back with this XML block as the very last content in your response:
 ```
 You are dispatched by the pipeline orchestrator as the IMPLEMENT phase subagent for feature `{{FEATURE_NAME}}` ({{FEATURE_INDEX}}/{{FEATURE_TOTAL}}). Remaining budget: ${{BUDGET_REMAINING}} of ${{MAX_USD}}.
 
+{{MODEL_OVERLAY_NOTE}}
+
 Inputs:
 - Plan file: {{PLAN_PATH}}
 - Prompts file: {{PROMPTS_PATH}}
@@ -576,6 +598,8 @@ Report back with this XML block as the very last content in your response:
 
 ```
 You are dispatched by the pipeline orchestrator as the REVIEW phase subagent for feature `{{FEATURE_NAME}}` ({{FEATURE_INDEX}}/{{FEATURE_TOTAL}}). Remaining budget: ${{BUDGET_REMAINING}} of ${{MAX_USD}}.
+
+{{MODEL_OVERLAY_NOTE}}
 
 Inputs:
 - Branch name: {{BRANCH_NAME}}
@@ -626,6 +650,8 @@ Report back with this XML block as the very last content in your response:
 
 ```
 You are dispatched by the pipeline orchestrator as the DOCS phase subagent (subagent_type: docs-writer) for feature `{{FEATURE_NAME}}` ({{FEATURE_INDEX}}/{{FEATURE_TOTAL}}). Remaining budget: ${{BUDGET_REMAINING}} of ${{MAX_USD}}.
+
+{{MODEL_OVERLAY_NOTE}}
 
 Inputs:
 - Feature description: {{FEATURE_DESCRIPTION}}
