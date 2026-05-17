@@ -446,6 +446,8 @@ Adjusts detail level:
 **Last Updated**: November 2025
 **Compatible**: Claude Code 2.0+, Claude Apps, Claude API
 
+Remember: The goal is to make Claude more efficient and context-aware, not to create bureaucracy. Start simple, iterate based on real usage, and automate quality checks where possible.
+
 ## Pipelinekit Overlay — Diff/Accept Flow
 
 When pipelinekit runs this skill, an existing `CLAUDE.md` is NEVER overwritten
@@ -510,5 +512,3 @@ This adds latency to every Write/Edit tool call (the hook itself is ~5ms but
 the Python interpreter startup dominates). The hook exits 0 silently for any
 file whose basename is NOT `CLAUDE.md` (case-sensitive), so the latency is
 bounded by the interpreter startup cost.
-
-Remember: The goal is to make Claude more efficient and context-aware, not to create bureaucracy. Start simple, iterate based on real usage, and automate quality checks where possible.
