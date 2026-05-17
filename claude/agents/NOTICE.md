@@ -44,3 +44,50 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+# Additional vendor — alirezarezvani/ClaudeForge
+
+`claude-md-guardian.md` in this directory is vendored from:
+
+**Upstream:** https://github.com/alirezarezvani/ClaudeForge
+**Pinned SHA:** `6eb741b46cd8dcdb444be6f004b481a0b589a18d`
+**Upstream path:** `agent/claude-md-guardian.md`
+**License:** MIT — Copyright (c) 2025 Alireza Rezvani.
+
+The full MIT License text and the related skill-level notice are in
+`claude/skills/claude-md-enhancer/NOTICE.md`.
+
+## Pipelinekit deltas (so re-vendoring stays mechanical)
+
+1. **HTML-comment attribution header** prepended:
+   `<!-- Adopted from alirezarezvani/ClaudeForge @ 6eb741b — MIT (Copyright 2025 Alireza Rezvani). See claude/agents/NOTICE.md. -->`
+2. **Frontmatter rewrite:** upstream's `permissions:` block, `hooks:` block,
+   and the fields `color`, `field`, `expertise`, `fork_safe` are dropped.
+   `model: haiku` is upgraded to `model: sonnet`. New `tools: Read, Grep,
+   Glob, Bash` line is added. `description:` is tightened to "drift detection
+   and best-practices audit" framing.
+3. **Pipelinekit overlay section** `## Pipelinekit Overlay — /review Integration`
+   appended to the END of the agent body. Documents the pipelinekit review
+   schema and the `## CLAUDE.md Audit` filing convention.
+
+## Re-vendor procedure
+
+To re-vendor (e.g., when upstream ships a guardian improvement):
+
+1. Pick a new HEAD SHA: `gh api repos/alirezarezvani/ClaudeForge/commits/HEAD --jq .sha`
+2. Fetch the upstream body:
+   ```bash
+   gh api "repos/alirezarezvani/ClaudeForge/contents/agent/claude-md-guardian.md?ref=${NEW_SHA}" \
+     | python3 -c 'import json,sys,base64; sys.stdout.buffer.write(base64.b64decode(json.load(sys.stdin)["content"]))' \
+     > /tmp/upstream-guardian.md
+   ```
+3. Manually re-apply the frontmatter rewrite (drop `permissions`, `hooks`,
+   `color`, `field`, `expertise`, `fork_safe`; ensure `model: sonnet` and
+   `tools: ...`).
+4. Re-prepend the HTML-comment attribution header (update the short SHA).
+5. Re-append the `## Pipelinekit Overlay — /review Integration` section
+   (sentinel header — find it at the end of the previous version's file).
+6. Update this NOTICE.md's `**Pinned SHA:**` line.
+7. Commit with `chore: re-vendor alirezarezvani/ClaudeForge guardian @ <short-sha>`.

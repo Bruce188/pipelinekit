@@ -48,9 +48,9 @@ claude
 | Layer | Contents |
 |-------|----------|
 | Rules | `CLAUDE.md`, `rules/workflow.md`, `rules/agents-worktrees.md` |
-| Skills | 37 native (analyze, create-plan, implement-plan, review, ppr, pipeline, expo, ios, azure-ops, document-release, tdd, zoom-out, write-a-skill, learn, landing-report, incident, ...) |
-| Agents | 26 specialized (architect, code-reviewer, security-auditor, karpathy-reviewer, tdd-test-writer, mobile-dev, azure-deployment-engineer, deployment-engineer, incident-responder, architect-review, cloud-architect, ...) |
-| Hooks | 21 production hooks (validate-commit-msg, strip-ai-attribution, block-push-main, tdd-order-check, ...) |
+| Skills | 38 native (analyze, create-plan, implement-plan, review, ppr, pipeline, expo, ios, azure-ops, document-release, tdd, zoom-out, write-a-skill, learn, landing-report, incident, claude-md-enhancer, ...) |
+| Agents | 27 specialized (architect, code-reviewer, security-auditor, karpathy-reviewer, tdd-test-writer, mobile-dev, azure-deployment-engineer, deployment-engineer, incident-responder, architect-review, cloud-architect, claude-md-guardian, ...) |
+| Hooks | 22 production hooks (validate-commit-msg, strip-ai-attribution, block-push-main, tdd-order-check, claude-md-guard, ...) |
 | MCP | context7, serena (semantic), sequential-thinking, optional local-rag |
 | LSP | pyright, typescript, csharp, gopls, rust-analyzer |
 | Templates | tresor-resources (prompts, standards, examples) |
@@ -77,9 +77,9 @@ pipelinekit/
 ├── claude/               # Overlay installed to ~/.claude/
 │   ├── CLAUDE.md.template
 │   ├── rules/
-│   ├── skills/           # 37 native skills
-│   ├── agents/           # 26 specialized agents
-│   ├── hooks/            # 21 production hooks
+│   ├── skills/           # 38 native skills
+│   ├── agents/           # 27 specialized agents
+│   ├── hooks/            # 22 production hooks
 │   ├── memory/           # Scaffold (empty by design)
 │   ├── tresor-resources/ # Prompt templates + standards
 │   ├── lib/sandbox/      # Pluggable SandboxProvider (worktree-only default, podman, docker)
