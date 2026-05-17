@@ -22,6 +22,9 @@ Specialized subagents for software development. Each is defined as a `.md` file 
 - **@trading-bot-developer** — Automated trading (CEX/DEX), strategies, backtesting
 - **@data-pipeline-engineer** — ETL/ELT design, data processing, ML feature pipelines
 
+### Mobile Development
+- **@mobile-dev** — iOS (Swift/Xcode), Android (Kotlin), React Native, Expo, Flutter; native modules, mobile CI/CD, App Store / Play Console workflows
+
 ## Agent Format
 
 Each agent is a markdown file with YAML frontmatter:

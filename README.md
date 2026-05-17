@@ -48,8 +48,8 @@ claude
 | Layer | Contents |
 |-------|----------|
 | Rules | `CLAUDE.md`, `rules/workflow.md`, `rules/agents-worktrees.md` |
-| Skills | 25 native (analyze, create-plan, implement-plan, review, ppr, pipeline, ...) |
-| Agents | 14 specialized (architect, code-reviewer, security-auditor, tdd-test-writer, ...) |
+| Skills | 28 native (analyze, create-plan, implement-plan, review, ppr, pipeline, expo, ios, ...) |
+| Agents | 14 specialized (architect, code-reviewer, security-auditor, tdd-test-writer, mobile-dev, ...) |
 | Hooks | 21 production hooks (validate-commit-msg, strip-ai-attribution, block-push-main, tdd-order-check, ...) |
 | MCP | context7, serena (semantic), sequential-thinking, optional local-rag |
 | LSP | pyright, typescript, csharp, gopls, rust-analyzer |
