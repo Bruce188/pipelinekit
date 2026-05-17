@@ -82,6 +82,16 @@ Parallel execution is the default for phases with multiple parallelizable tasks.
       mkdir -p "$SCRATCHPAD"
       ```
       Record `$SCRATCHPAD` as an absolute path (use `realpath`) so worktree agents in a different cwd can reach it. Pass this absolute path to each worker prompt below.
+   a-cap. Cap parallel fan-out at 8 worktree agents per batch. Per the Anthropic
+      community ceiling, more than 8 simultaneous worktree agents reliably
+      saturates the lead's merge loop and increases conflict probability. If
+      `len(parallelizable_tasks_in_phase) > 8`, partition into batches of 8
+      (final batch may be smaller). Run each batch as a complete Step 1.5 cycle
+      — construct prompts (step 5.a), spawn agents (5.b), wait (5.d), run the
+      merge loop (5.e), surface scratchpad notes (5.f.5), clean up (5.f) —
+      before starting the next batch. The scratchpad is per-batch (each batch
+      creates its own `$PHASE_ID` directory). Tasks waiting for a later batch
+      remain marked `todo` until their batch runs.
    a. For each task, construct the full agent prompt:
       - The task prompt from the prompts file
       - Include the TDD subagent isolation instruction: "For testable tasks: spawn the tdd-test-writer subagent first with the task spec and Tests/Review Tests section. Wait for it to complete and commit. Verify tests fail. Then spawn the tdd-implementer subagent with the task spec and test file paths from the commit. Wait for it to complete and commit. Verify all tests pass. Check test integrity via git diff between the two commits. For non-testable tasks (config, docs, CI): execute directly without TDD subagents."
@@ -89,6 +99,11 @@ Parallel execution is the default for phases with multiple parallelizable tasks.
       - If RAG context was retrieved in Step 1.2: include relevant results in the agent prompt
       - Include the scratchpad contract:
         > Shared scratchpad: `[absolute path to $SCRATCHPAD]`. If you discover something a sibling stream needs to know (shared utility, conflicting assumption, upstream dependency), drop a note there named `<your-stream>-to-<sibling-stream>.md` — small plain-text (<5KB). Before you report done, read any `*-to-<your-stream>.md` files left by siblings. Do not put file contents in the scratchpad — notes only.
+      - Note that the worktree was created with `.worktreeinclude`-driven env
+        handoff (see `claude/rules/agents-worktrees.md` § "Env handoff via
+        `.worktreeinclude`"). Worker prompts no longer enumerate `.env` /
+        `credentials*` copying inline — those paths are already present in the
+        worktree at the same relative path.
       - Append the worktree commit instruction verbatim:
         > Before reporting done: stage all your changes and commit with message `wip: [task name]`. If a pre-commit hook fails, fix the issue and retry the commit. Do NOT report done without a successful commit — uncommitted worktree changes are lost on cleanup.
       - Append the task-notification XML instruction verbatim (see `~/.claude/rules/agents-worktrees.md` § Worktree Agent Task-Notification XML):

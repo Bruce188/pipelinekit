@@ -1,0 +1,22 @@
+# .worktreeinclude.template — Claude Code worktree env-handoff
+#
+# Copy this file to `.worktreeinclude` in your repo root to opt in.
+# On worktree creation, paths matching these patterns are bind-mounted
+# (or copied, as fallback) into the new worktree at the same relative path.
+# Syntax: gitignore-style fnmatch globs. Blank lines and '#' comments OK.
+#
+# Note: the resolved `.worktreeinclude` lists paths to secret files.
+# If those paths include `.env` or `credentials*`, the existing
+# `block-stage-sensitive.sh` hook will refuse to stage them.
+# Do not commit the resolved `.worktreeinclude` if it materially differs
+# from this template.
+
+# Default entries — uncomment any you want copied into each worktree:
+.env
+credentials*
+
+# Common optional entries (commented; uncomment as needed):
+# .envrc
+# .secrets/
+# .npmrc
+# .pypirc

@@ -80,6 +80,7 @@ pipelinekit/
 │   ├── hooks/            # 21 production hooks
 │   ├── memory/           # Scaffold (empty by design)
 │   ├── tresor-resources/ # Prompt templates + standards
+│   ├── lib/sandbox/      # Pluggable SandboxProvider (worktree-only default, podman, docker)
 │   └── config/
 ├── scripts/
 │   ├── install.sh        # Idempotent installer
