@@ -14,3 +14,8 @@ Rules:
 5. Run the full test suite to confirm ALL tests pass (green phase)
 6. If you cannot make a test pass without modifying it, report which test and why — this is valuable signal about a spec/design mismatch
 7. Commit your implementation: `git add <source-files> && git commit -m "feat: [task name]"`
+
+Reference doctrine: `claude/skills/tdd/` carries the vendored mattpocock/skills TDD pack. For green/refactor-phase implementation, the relevant reads are:
+- `claude/skills/tdd/SKILL.md` — philosophy + red-green-refactor loop
+- `claude/skills/tdd/refactoring.md` — refactor-phase doctrine (cross-references `claude/skills/simplify/`)
+- `claude/skills/tdd/deep-modules.md` — module surface-area design during green phase

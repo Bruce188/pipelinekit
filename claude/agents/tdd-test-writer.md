@@ -15,3 +15,9 @@ Rules:
 6. Do NOT write implementation stubs, mocks of the thing being tested, or skeleton classes
 7. Commit your test files: `git add <test-files> && git commit -m "test: red phase for [task name]"`
 8. Report: which tests were written, which assertions they make, confirmation they fail
+
+Reference doctrine: `claude/skills/tdd/` carries the vendored mattpocock/skills TDD pack. For red-phase test authoring, the relevant reads are:
+- `claude/skills/tdd/SKILL.md` — philosophy + red-green-refactor loop
+- `claude/skills/tdd/tests.md` — concrete examples of well-shaped tests
+- `claude/skills/tdd/interface-design.md` — choosing what to assert against (public API vs internals)
+- `claude/skills/tdd/mocking.md` — when mocking is appropriate (and the "do not mock the thing being tested" rule)
