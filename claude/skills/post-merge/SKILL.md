@@ -63,6 +63,7 @@ Clean up local and remote state after a PR has been merged.
    Parse with python3 and report any workflows where `headBranch` matches `$BASE` and `conclusion` is `failure`:
    ```
    WARNING: Failing workflows on [BASE]: [workflow names]
+   Triage with /incident for a structured analysis.
    ```
    If no failures or `gh` is unavailable: skip silently (no output).
    This is advisory only — do not halt or block. The user decides what to do.
@@ -94,7 +95,14 @@ Clean up local and remote state after a PR has been merged.
    ```
 
    The summary (pass/fail counts and any failing test names) prints to stdout.
-   If all tests pass, a single green summary line is shown. Either way, proceed to the next step.
+   If all tests pass, a single green summary line is shown. If any test failures
+   are reported, print one additional advisory line:
+
+   ```
+   Hook test failures detected. Consider /incident for triage.
+   ```
+
+   Either way, proceed to the next step.
 
 11. Deferred-Items Audit (advisory):
 
