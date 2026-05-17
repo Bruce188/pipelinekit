@@ -1,6 +1,6 @@
 ---
 name: review
-description: Multi-agent parallel review with auto-scaling agent selection. Scales from 2 agents (small diffs) to 5-agent teams (large diffs). Supports --scope, --health, --force, --teams, and --design-pass.
+description: Multi-agent parallel review with auto-scaling agent selection. Scales from 2 agents (small diffs) to 6-agent teams (large diffs). Supports --scope, --health, --force, --teams, and --design-pass.
 argument-hint: [--scope <task-id|path>] [--health] [--force] [--teams] [--design-pass]
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob, Agent, Skill
 effort: high
@@ -404,13 +404,13 @@ If `--teams` is NOT present AND `teams_mode` is not already true: set teams_mode
 - **If `review_tier=small`:** Spawn only 2 agents:
   - Agent 1 (code-reviewer) — from `agent-prompts.md` § "Agent 1 -- code-reviewer"
   - Agent 5 (spec-tracer) — from `~/.claude/agents/spec-tracer.md`
-  Skip security-auditor, test-engineer, and performance-tuner. These agents add overhead that exceeds their value on small diffs.
+  Skip security-auditor, test-engineer, performance-tuner, and karpathy-reviewer. These agents add overhead that exceeds their value on small diffs. Note: karpathy-reviewer is deliberately excluded from small tier — see `documentation/review-cost.md` for the cost/detection trade-off rationale.
 
-- **If `review_tier=medium`:** Spawn all 5 agents as independent agents (current default behavior). No changes to existing logic.
+- **If `review_tier=medium`:** Spawn all 6 agents as independent agents (the 5 existing reviewers + karpathy-reviewer). No changes to existing logic.
 
-- **If `review_tier=large` (teams_mode=true):** Spawn all 5 as named teammates (current teams behavior). No changes to existing teams logic.
+- **If `review_tier=large` (teams_mode=true):** Spawn all 6 as named teammates (the 5 existing reviewers + karpathy-reviewer). No changes to existing teams logic.
 
-All selected agents receive the path to $DIFF_FILE (from Step 4) and objective. Launch all selected agents in a single message using the Agent tool (parallel tool calls). Each agent reads the diff via the Read tool. This avoids duplicating the full diff across agent prompts (~75% token savings).
+All selected agents receive the path to $DIFF_FILE (from Step 4) and objective. Launch all selected agents in a single message using the Agent tool (parallel tool calls — up to 6 in medium / large tier). Each agent reads the diff via the Read tool. This avoids duplicating the full diff across agent prompts (~75% token savings).
 
 Note: `teams_mode` can be activated by either `--teams` flag (Step 5.5) or large diff escalation (Step 4.5). Both paths lead to the same team-based review below.
 
@@ -419,12 +419,12 @@ If an agent fails to return structured output or times out, note that agent as "
 **If teams_mode=true:**
 
 Instead of 5 independent Agent calls, spawn all 5 as named teammates that communicate via SendMessage:
-1. Spawn each agent using the Agent tool with a descriptive name ('code-reviewer', 'security-auditor', 'test-engineer', 'performance-tuner', 'spec-tracer') so they can communicate via SendMessage during execution
+1. Spawn each agent using the Agent tool with a descriptive name ('code-reviewer', 'security-auditor', 'test-engineer', 'performance-tuner', 'spec-tracer', 'karpathy-reviewer') so they can communicate via SendMessage during execution
 2. Each agent receives the same prompt as the independent path (below), PLUS this additional instruction at the top:
 
    > You are part of a review team. As you find issues, share them with your teammates using SendMessage. When you see a teammate's finding that relates to your domain, note the correlation. If a teammate's finding changes your assessment of something, update your analysis.
    >
-   > Your teammates: code-reviewer, security-auditor, test-engineer, performance-tuner, spec-tracer.
+   > Your teammates: code-reviewer, security-auditor, test-engineer, performance-tuner, spec-tracer, karpathy-reviewer.
    > Communicate findings as you go — don't wait until you're done.
    >
    > For each finding, include an additional field:
@@ -445,6 +445,7 @@ Load the relevant block when spawning each agent.
 - **Agent 3 -- test-engineer:** see `agent-prompts.md` § "Agent 3 -- test-engineer"
 - **Agent 4 -- performance-tuner:** see `agent-prompts.md` § "Agent 4 -- performance-tuner"
 - **Agent 5 -- spec-tracer:** prompt defined in `~/.claude/agents/spec-tracer.md`
+- **Agent 6 -- karpathy-reviewer:** prompt defined in `~/.claude/agents/karpathy-reviewer.md` (self-contained, like spec-tracer)
 
 **Default model mapping:** Absent a `REVIEW.md` `review-model:` override (see Step 3a), each reviewer runs on the model declared in its agent-file frontmatter. Deep-reasoning reviewers run on opus; pattern-based reviewers drop to sonnet; spec comparison runs on haiku for cost.
 
@@ -455,8 +456,9 @@ Load the relevant block when spawning each agent.
 | test-engineer | sonnet | Pattern-based gap-finding that sonnet handles well |
 | performance-tuner | sonnet | Pattern-based bottleneck analysis |
 | spec-tracer | haiku | Structured diff-vs-objective comparison; ~20× cheaper |
+| karpathy-reviewer | opus | Symbol/API resolution requires deep reasoning; false positives are expensive to triage |
 
-When `review-model:` is set in REVIEW.md it applies uniformly to all five agents and bypasses these per-agent defaults (see Step 3a for override semantics).
+When `review-model:` is set in REVIEW.md it applies uniformly to all six agents and bypasses these per-agent defaults (see Step 3a for override semantics).
 
 ---
 
@@ -466,6 +468,7 @@ When `review-model:` is set in REVIEW.md it applies uniformly to all five agents
 2. **Check agent completion:** If ALL spawned agents failed or timed out: **STOP** with "Review BLOCKED — all agents failed. Re-run /review." If some but not all agents failed: proceed with remaining results but include a warning: "WARNING: [N] agent(s) incomplete ([names]). Results may be partial."
 3. Merge all findings into a single list
 4. Deduplicate: if two agents flag the same file:line, keep the higher severity and combine descriptions
+4.5. **Hallucination prose-guard:** for each finding with `category: hallucination` AND `severity: blocking`, Read the cited file at the cited line. If the line is inside a comment (`#`, `//`, `/* */`), docstring (`"""`, `'''`), or markdown prose block, downgrade severity to `non-blocking` and append the note "downgraded by category-hallucination prose guard (cited line is comment/docstring/prose)". One Read per blocking-hallucination finding — cheap, protects against future prompt drift.
 5. Sort: blocking first, then non-blocking, then nit
 6. Count totals by severity
 6.5. **Cross-feature intel collection:**

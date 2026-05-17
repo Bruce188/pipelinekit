@@ -1,7 +1,6 @@
 # Review Agent Prompts
 
-Inline prompt templates for the 4 non-spec-tracer review agents.
-Spec-tracer lives separately at `~/.claude/agents/spec-tracer.md`.
+Inline prompt templates for the 4 inline review agents (code-reviewer, security-auditor, test-engineer, performance-tuner). spec-tracer and karpathy-reviewer are self-contained agent files at `~/.claude/agents/spec-tracer.md` and `~/.claude/agents/karpathy-reviewer.md` respectively.
 
 Load only the relevant block when spawning each agent from `SKILL.md` Step 6.
 
@@ -11,9 +10,9 @@ SKILL.md Step 4.6 determines which agents to spawn based on diff size:
 
 | Tier | Diff lines | Agents spawned |
 |------|-----------|----------------|
-| Small | < 500 | Agent 1 (code-reviewer), Agent 5 (spec-tracer) |
-| Medium | 500-5,000 | All 5 agents (independent) |
-| Large | > 5,000 | All 5 agents (teams mode - collaborative) |
+| Small | < 500 | Agent 1 (code-reviewer), Agent 5 (spec-tracer) — karpathy-reviewer excluded by design |
+| Medium | 500-5,000 | All 6 agents (independent) |
+| Large | > 5,000 | All 6 agents (teams mode - collaborative) |
 
 The `--teams` flag (Step 5.5) overrides: if set, small tier upgrades to medium with teams mode and auto-enables `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`.
 
