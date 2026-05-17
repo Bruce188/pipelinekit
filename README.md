@@ -53,7 +53,7 @@ claude
 | Hooks | 22 production hooks (validate-commit-msg, strip-ai-attribution, block-push-main, tdd-order-check, claude-md-guard, ...) |
 | MCP | context7, serena (semantic), sequential-thinking, optional local-rag |
 | LSP | pyright, typescript, csharp, gopls, rust-analyzer |
-| Templates | tresor-resources (prompts, standards, examples) |
+| Templates | tresor-resources (prompts, standards, examples); `documentation/SKILL_PIPELINE.md` + `documentation/SKILL-AUTHORING-STANDARD.md` (vendored skill authoring contract — pair with `/write-a-skill`) |
 | Model overlays | 4 (claude.md generic, opus-4-7.md, sonnet-4-6.md, haiku-4-5.md) — per-model token/thinking budget tuning consumed by phase skills |
 | Host adapters | 4 (claude.sh concrete, codex.sh/cursor.sh/gemini.sh stubs) — interface scaffold for future multi-host dispatch |
 | Optional | gstack overlay (`/gstack-*` skills) and `~/claude-skills/` via setup flags |

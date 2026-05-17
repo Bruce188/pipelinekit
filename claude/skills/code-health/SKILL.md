@@ -183,3 +183,19 @@ Use `/review --health` to prioritize by ROI.
 **Category:** Quality
 **License:** MIT
 **Author:** Alireza Rezvani
+
+---
+
+## Authoring Reference
+
+This skill is a reference implementation of pipelinekit's skill authoring conventions.
+For the full standard, see:
+
+- `documentation/SKILL-AUTHORING-STANDARD.md` — the 10-pattern skill DNA template
+- `documentation/SKILL_PIPELINE.md` — the Intent → ... → Verify lifecycle
+
+Both are vendored from `alirezarezvani/claude-skills` (MIT). The standard is **advisory** for v1
+of pipelinekit — no skills are required to conform. `/code-health` is offered as the worked example
+because (a) it's pipelinekit-native (no vendor boundary), (b) it has the right shape (frontmatter
+with `name`, `description`, `argument-hint`, `disable-model-invocation`, `allowed-tools`), and
+(c) its body uses the action-oriented patterns the standard recommends.
