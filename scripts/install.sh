@@ -325,6 +325,31 @@ if want mobile; then
   fi
 fi
 
+# Azure CLI (opt-in). Installed via Microsoft-published one-liner on Debian/Ubuntu.
+# Trust pattern: curl-to-bash; Microsoft does not publish a sha256 for this script —
+# verify https origin only. User is responsible for `az login` afterwards — the install
+# does NOT authenticate.
+if want azure; then
+  if command -v az >/dev/null; then
+    log "az already installed; skipping (run 'az version' to check version)"
+  elif [[ "$(uname -s)" == "Linux" ]]; then
+    if [[ -f /etc/os-release ]] && grep -qE 'ID(_LIKE)?=.*(ubuntu|debian)' /etc/os-release; then
+      log "Installing Azure CLI via Microsoft one-liner (https://aka.ms/InstallAzureCLIDeb)"
+      if curl -sL https://aka.ms/InstallAzureCLIDeb | bash 2>>"$LOG"; then
+        log "Azure CLI installed. Authenticate yourself with the standard interactive sign-in (the installer does not log you in)."
+      else
+        warn "Azure CLI install failed — see $LOG. Manual install: https://learn.microsoft.com/cli/azure/install-azure-cli-linux"
+      fi
+    else
+      warn "Azure CLI auto-install supports Debian/Ubuntu only. Other Linux distros: see https://learn.microsoft.com/cli/azure/install-azure-cli-linux"
+    fi
+  elif [[ "$(uname -s)" == "Darwin" ]]; then
+    warn "Azure CLI on macOS: install via Homebrew — 'brew install azure-cli' (the install.sh gate is Debian/Ubuntu-only in v1)"
+  else
+    warn "Azure CLI auto-install skipped on $(uname -s). See https://learn.microsoft.com/cli/azure/install-azure-cli"
+  fi
+fi
+
 # Third-party skill library (alirezarezvani/claude-skills). Pinnable via $CLAUDE_SKILLS_REF.
 if want claude-skills; then
   log "Installing third-party claude-skills @ ref=$CLAUDE_SKILLS_REF"

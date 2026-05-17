@@ -25,6 +25,9 @@ Specialized subagents for software development. Each is defined as a `.md` file 
 ### Mobile Development
 - **@mobile-dev** — iOS (Swift/Xcode), Android (Kotlin), React Native, Expo, Flutter; native modules, mobile CI/CD, App Store / Play Console workflows
 
+### Cloud Deployment
+- **@azure-deployment-engineer** — Azure CLI (`az`) ops, App Service / Container Apps / Function Apps / AKS deployment, Bicep / ARM templates, Log Analytics + Application Insights, RBAC + Managed Identity
+
 ## Agent Format
 
 Each agent is a markdown file with YAML frontmatter:

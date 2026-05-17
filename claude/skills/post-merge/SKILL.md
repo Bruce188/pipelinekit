@@ -67,6 +67,22 @@ Clean up local and remote state after a PR has been merged.
    If no failures or `gh` is unavailable: skip silently (no output).
    This is advisory only — do not halt or block. The user decides what to do.
 
+9b. Azure project-signal advisory:
+   Check whether the repo has Azure deployment signals. The probe looks for any of:
+   - `azure-pipelines.yml` (Azure Pipelines CI/CD config)
+   - `.azure/config` (Azure CLI workspace defaults)
+   - `az-deploy.sh` (project-local Azure deploy script)
+   ```bash
+   if ls azure-pipelines.yml .azure/config az-deploy.sh 2>/dev/null | head -1 >/dev/null; then
+     echo "Azure project signal detected. Consider @azure-deployment-engineer for deploy review."
+   fi
+   ```
+   This step is advisory and non-blocking. It NEVER invokes `az` from inside `/post-merge` —
+   the deployment-engineer agent is the executor; `/post-merge` only signals presence of
+   Azure-flavored artifacts. The user decides whether to invoke `@azure-deployment-engineer`
+   for the next iteration.
+   If `ls` returns no matches: skip silently (no output).
+
 10. Advisory: Run Hook Tests
 
    Invoke `/test-hooks` to run the hook unit-test suite and surface any regressions.
