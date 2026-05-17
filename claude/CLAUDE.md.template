@@ -109,6 +109,41 @@ When the workload is a **consumer web app** (UI-driven, design-sensitive, browse
 4. `/gstack-design-shotgun` requires OpenAI key at `~/.gstack/openai.json`.
 5. gstack writes its own learnings to `~/.gstack/projects/<slug>/learnings.jsonl`; native memory is at `~/.claude/memory/`. Promote manually if a learning rises to global-rule status.
 
+## Mobile App Mode (Optional Overlay)
+
+When the workload is a **mobile app** (iOS/Android/cross-platform) **and** `CLAUDE_INSTALL_OPTIONALS=mobile` is set at install time, augment the default routing with the mobile-specific agent and skills per the table below. For backend / library / data-pipeline / web work (the default), nothing changes — keep using the native skills.
+
+| Phase | Tool | Rationale |
+|-------|------|-----------|
+| Product discovery | `/interview-prp` | Mobile-specific scoping (target platforms, store-policy constraints, native-module requirements) captured here |
+| Plan creation | `/create-plan` | Integrated with `progress.md`, versioning convention |
+| Plan review | `/review --scope plan` | Multi-agent backend correctness |
+| Branch | `/new-branch` | — |
+| Implementation | `/implement-plan` (with `@mobile-dev` agent) | TDD-aware; mobile-dev agent orchestrates platform-specific work |
+| iOS workflow | `claude/skills/ios/SKILL.md` | Xcode 26.3 + Claude Agent SDK integration |
+| Expo / React Native | `claude/skills/expo/SKILL.md` | Managed/bare workflow, EAS Build, OTA updates |
+| iOS build automation | `XcodeBuildMCP` (optional MCP) | Remote-build alternative for Linux/WSL2 hosts |
+| iOS simulator control | `ios-simulator-mcp` (optional MCP) | Programmatic simulator control (requires Xcode host) |
+| LSP (Swift) | `sourcekit-lsp` (macOS only) | Swift autocomplete & diagnostics; ships with Xcode |
+| LSP (Kotlin) | `kotlin-language-server` (cross-platform) | Kotlin/Android autocomplete & diagnostics |
+| Mobile CI/CD | Fastlane / EAS Build / GitHub Actions iOS | Cert rotation, TestFlight upload, Play Store deploy; `@mobile-dev` agent configures |
+| Code review | `/review` | Plan-integrated, hook-protected; mobile-dev agent contributes |
+| Performance profiling | Instruments (iOS) / Android Profiler | Cold-start, memory, battery; run out-of-band via `@mobile-dev` |
+| Ship | `/ppr` | Hook-stripped commit hygiene |
+| Store submission | App Store Connect / Google Play Console | Managed by `@mobile-dev` agent; manual review required by Apple/Google |
+| Doc update | `/post-merge` | Update CLAUDE.md / README as needed |
+| Retro | Project retro notes | Capture mobile-specific learnings (signing gotchas, simulator quirks, EAS build config) in `docs/` |
+
+**Gotchas:**
+1. iOS workflows require a macOS host with Xcode. On Linux/WSL2, use `XcodeBuildMCP` for remote builds or pair with a macOS CI runner (Bitrise, Codemagic, GitHub Actions iOS).
+2. The mobile MCPs (`XcodeBuildMCP`, `ios-simulator-mcp`) are NOT installed by default. Set `CLAUDE_INSTALL_OPTIONALS=mobile` when running `install.sh` to enable the `want mobile` block (which prints copy-paste instructions for `.mcp.json`).
+3. Mobile QA is out-of-band: pipelinekit's `/qa` skill (when present) is web-only. For mobile QA, use Maestro / Detox / XCUITest / Espresso per the mobile-dev agent's recommendations.
+4. The `@mobile-dev` agent is named — invoke it explicitly when planning or implementing mobile features. Per project convention, named agents are not auto-spawned.
+5. `sourcekit-lsp` ships with Xcode and is detected via `xcrun --find sourcekit-lsp`; there is no separate install. On Linux/WSL2, the LSP install step warns and skips (no failure, no `LSP_FAILURES` increment).
+6. The Xcode 26.3 + Claude Agent SDK integration documented in `claude/skills/ios/SKILL.md` is based on the Feb-2026 baseline. If specific API claims drift, re-run the verification step and update the skill accordingly.
+
+See `claude/agents/mobile-dev.md` for the full mobile-dev agent spec and `claude/skills/ios/SKILL.md` / `claude/skills/expo/SKILL.md` for platform-specific skill docs.
+
 ## User Identity
 
 - Name: ${USER_NAME}

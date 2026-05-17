@@ -23,5 +23,22 @@
         "."
       ]
     }
+  },
+  "_mobile_instructions": "Optional iOS-development MCPs. Uncomment-and-move into 'mcpServers' to enable. Both require Xcode on host. ios-simulator-mcp uses git+https — PIN the ref (replace @main with a commit SHA) before sandbox use.",
+  "_optional_mobile_mcpServers": {
+    "XcodeBuildMCP": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "xcodebuildmcp"]
+    },
+    "ios-simulator-mcp": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/joshuayoes/ios-simulator-mcp@main",
+        "ios-simulator-mcp"
+      ]
+    }
   }
 }

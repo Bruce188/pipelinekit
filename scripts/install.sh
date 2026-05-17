@@ -232,6 +232,44 @@ if want lsp; then
     rustup component add rust-analyzer 2>>"$LOG" \
       || { warn "rust-analyzer add failed"; LSP_FAILURES=$((LSP_FAILURES+1)); }
   fi
+
+  # Swift LSP (macOS only; ships with Xcode — no separate install).
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    if command -v xcrun >/dev/null && xcrun --find sourcekit-lsp >/dev/null 2>&1; then
+      log "sourcekit-lsp present (bundled with Xcode)"
+    else
+      warn "sourcekit-lsp not found — install full Xcode (App Store) to enable Swift LSP"
+      # Intentionally not incrementing LSP_FAILURES — sourcekit-lsp ships with Xcode, not a separate install.
+    fi
+  else
+    warn "sourcekit-lsp is macOS-only (ships with Xcode); skipping on $(uname -s)"
+    # Intentionally not incrementing LSP_FAILURES — platform-skip is not a failure.
+  fi
+
+  # Kotlin LSP (cross-platform). On Darwin use brew; elsewhere fall back to pinned binary release.
+  if command -v kotlin-language-server >/dev/null; then
+    log "kotlin-language-server already installed; skipping"
+  elif [[ "$(uname -s)" == "Darwin" ]] && command -v brew >/dev/null; then
+    brew install kotlin-language-server 2>>"$LOG" \
+      || { warn "kotlin-language-server brew install failed"; LSP_FAILURES=$((LSP_FAILURES+1)); }
+  else
+    KLS_VERSION="${KLS_VERSION:-1.3.13}"
+    KLS_URL="https://github.com/fwcd/kotlin-language-server/releases/download/${KLS_VERSION}/server.zip"
+    KLS_DIR="$HOME/.local/share/kotlin-language-server"
+    mkdir -p "$HOME/.local/bin" "$KLS_DIR"
+    if command -v curl >/dev/null && command -v unzip >/dev/null \
+       && curl -fsSL -o /tmp/kls.zip "$KLS_URL" \
+       && unzip -q -o /tmp/kls.zip -d "$KLS_DIR" \
+       && ln -sf "$KLS_DIR/server/bin/kotlin-language-server" "$HOME/.local/bin/kotlin-language-server" \
+       && chmod +x "$HOME/.local/bin/kotlin-language-server"; then
+      log "kotlin-language-server installed to $HOME/.local/bin (v${KLS_VERSION})"
+      rm -f /tmp/kls.zip
+    else
+      warn "kotlin-language-server install failed (curl/unzip missing or download failed)"
+      LSP_FAILURES=$((LSP_FAILURES+1))
+      rm -f /tmp/kls.zip
+    fi
+  fi
 fi
 
 # MCP servers (npx-based, no global install).
@@ -270,6 +308,20 @@ if want gstack; then
     if [[ -x "$GSTACK_DIR/setup" ]]; then
       "$GSTACK_DIR/setup" --prefix gstack- 2>>"$LOG" || warn "gstack setup failed"
     fi
+  fi
+fi
+
+# Mobile MCPs (XcodeBuildMCP + ios-simulator-mcp). Both pulled JIT via npx/uvx — no global install.
+# Gated behind CLAUDE_INSTALL_OPTIONALS=mobile (NOT default-on; treat like serena/gstack opt-ins).
+if want mobile; then
+  log "Mobile overlay requested. Optional MCPs available:"
+  log "  - XcodeBuildMCP      (iOS build automation; requires Xcode on host)"
+  log "  - ios-simulator-mcp  (iOS Simulator control; requires Xcode on host)"
+  if [[ -f "$REPO_ROOT/.mcp.json.template" ]]; then
+    log "  -> Uncomment the _optional_mobile_mcpServers block in .mcp.json.template before copying into <your-project>/.mcp.json"
+  fi
+  if [[ "$(uname -s)" != "Darwin" ]]; then
+    warn "Mobile MCPs require Xcode on host. $(uname -s) detected — XcodeBuildMCP supports remote macOS builds; ios-simulator-mcp will not function locally."
   fi
 fi
 
