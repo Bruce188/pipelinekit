@@ -132,6 +132,38 @@ Versioning follows the same convention as `plan.md` and `analysis.md` — see `c
 | `/review` | Classifies findings as in-scope or out-of-scope per charter; defers out-of-scope findings |
 | `/ppr` | Derives PR `## Summary` opening line from charter Goal |
 
+## Documentation Update Phase
+
+After a feature's squash-merge passes the **Post-Merge Verification Gate**
+(`claude/skills/pipeline/SKILL.md` § Post-Merge Verification Gate), the pipeline
+runs a best-effort documentation update phase. The phase dispatches the
+`docs-writer` subagent to read the merged diff and update files in `documentation/`
+(the committed application-docs directory, distinct from `docs/` which is
+workflow-only). The doc update lands as a separate `docs: <feature description>`
+commit on the base branch — the merge commit stays clean.
+
+**Execution order (Path A success):**
+1. Squash-merge lands on `$BASE`.
+2. Post-merge cleanup + `git pull origin "$BASE"` (Path A step 7).
+3. **Post-Merge Verification Gate** runs — on failure, revert; on success, append `POSTMERGE_OK: <cmd>`.
+4. **Documentation Update Phase** — dispatches `docs-writer` via Agent tool; emits beacon `docs-pre` before dispatch and `docs-done` on success.
+5. **Step 5.9** emits `feature-done`.
+
+**Opt-out:** Set `PIPELINE_SKIP_DOCS=1` to skip the docs phase. Default is "phase runs"
+(mirrors `SKIP_POSTMERGE_VERIFY=1` semantics — opt-out, not opt-in). When skipped, the
+Run Log gets `Docs: SKIPPED (PIPELINE_SKIP_DOCS=1)` and neither `docs-pre` nor
+`docs-done` is emitted.
+
+**Failure semantics (best-effort):** A docs-writer subagent failure does NOT downgrade
+`feature-done` to `feature-failed`. The Run Log gets `Docs: SKIPPED (subagent error)`
+and the feature still completes with terminal status `SUCCESS`. Docs are a tail step,
+not load-bearing.
+
+**Subprocess-mode constraint:** The out-of-process `orchestrate.sh` is not shipped in
+pipelinekit (see § What was removed in the portable build). If `orchestrate.sh` is
+ever introduced, it would need its own docs-phase parallel — record as a deferred
+dependency.
+
 ## What was removed in the portable build
 
 - `orchestrate.sh` (out-of-process driver). The in-process Skill is the only entry point.
