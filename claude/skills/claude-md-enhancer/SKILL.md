@@ -446,4 +446,69 @@ Adjusts detail level:
 **Last Updated**: November 2025
 **Compatible**: Claude Code 2.0+, Claude Apps, Claude API
 
+## Pipelinekit Overlay — Diff/Accept Flow
+
+When pipelinekit runs this skill, an existing `CLAUDE.md` is NEVER overwritten
+without explicit user consent. Override Step 2 of the upstream workflow as follows:
+
+1. Generate the new file content to an in-memory string (do NOT write yet).
+2. Write to `.CLAUDE.md.proposed` (NOT `CLAUDE.md`).
+3. If `CLAUDE.md` already exists, print a unified diff:
+   ```bash
+   git diff --no-index CLAUDE.md .CLAUDE.md.proposed
+   # Or, if not in a git repo:
+   diff -u CLAUDE.md .CLAUDE.md.proposed
+   ```
+4. Use the `AskUserQuestion` tool with options:
+   - `accept` — `mv .CLAUDE.md.proposed CLAUDE.md` (replace existing)
+   - `reject` — `rm .CLAUDE.md.proposed` (discard the proposed)
+   - `edit`   — leave `.CLAUDE.md.proposed` in place; tell the user the path
+5. If no existing `CLAUDE.md`: still write to `.CLAUDE.md.proposed` first, show
+   the proposed content (skip the diff), then `AskUserQuestion accept|reject|edit`.
+
+## Pipelinekit Overlay — Step 4 Validation
+
+After Step 3 of the upstream workflow (and BEFORE the diff/accept gate of the
+overlay above), validate the proposed content with the pipelinekit hook:
+
+```bash
+python3 ~/.claude/hooks/claude-md-guard.py < .CLAUDE.md.proposed.payload.json
+```
+
+Where `.CLAUDE.md.proposed.payload.json` is a synthetic `PreToolUse` payload:
+
+```json
+{"tool_name":"Write","tool_input":{"file_path":"CLAUDE.md","content":"<proposed content>"}}
+```
+
+- Exit 0: proceed to the diff/accept gate.
+- Exit 2: regenerate with adjustments (cap at 2 retries). On 3rd failure, print
+  the validation errors and leave `.CLAUDE.md.proposed` in place for manual fix.
+
+This validation step is in addition to the upstream `validator.py` rules — the
+hook is a fast 8-rule gate; the validator is a thorough audit. See
+`claude/skills/claude-md-enhancer/NOTICE.md` § Pipelinekit deltas.
+
+## Installation
+
+The `claude-md-guard.py` hook is OFF BY DEFAULT. To enable it for all `Write`
+and `Edit` events on `CLAUDE.md` files across all projects, add the following
+to `~/.claude/settings.json` (or per-project `.claude/settings.json`):
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [{
+      "matcher": "Write|Edit",
+      "hooks": [{"type": "command", "command": "python3 ~/.claude/hooks/claude-md-guard.py"}]
+    }]
+  }
+}
+```
+
+This adds latency to every Write/Edit tool call (the hook itself is ~5ms but
+the Python interpreter startup dominates). The hook exits 0 silently for any
+file whose basename is NOT `CLAUDE.md` (case-sensitive), so the latency is
+bounded by the interpreter startup cost.
+
 Remember: The goal is to make Claude more efficient and context-aware, not to create bureaucracy. Start simple, iterate based on real usage, and automate quality checks where possible.

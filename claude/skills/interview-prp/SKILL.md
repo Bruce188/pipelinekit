@@ -5,7 +5,7 @@ disable-model-invocation: true
 allowed-tools: Read, Write, Bash, AskUserQuestion
 ---
 
-**Note:** `/pipeline` now includes Step 0 Charter Discovery, which supersedes the upfront-PRP role. Charter Discovery is the recommended path for new projects: run `/pipeline` interactively to produce `docs/charter.md` instead. This `/interview-prp` skill remains available for teams with existing PRP workflows. Continuing with legacy PRP flow...
+**Note:** `/pipeline` now includes Step 0 Charter Discovery, which supersedes the upfront-PRP role. Charter Discovery is the recommended path for new projects: run `/pipeline` interactively to produce `docs/charter.md` instead. This `/interview-prp` skill remains available for teams with existing PRP workflows. After completing this interview, run `/claude-md-enhancer` to generate the project's CLAUDE.md instead of drafting it by hand. Continuing with legacy PRP flow...
 
 ---
 

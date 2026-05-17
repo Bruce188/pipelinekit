@@ -301,6 +301,13 @@ Note: Retain the parsed plan data and progress.md data from this step — Step 6
 Compute the diff once here. All subsequent steps (secret scan, agents) use this same diff output.
 
 - If `--scope` argument is present:
+  - **Named scope `claude-md`** — if `--scope claude-md` is given, this is the CLAUDE.md audit dimension (not a diff-based review). Branch as follows:
+    1. Skip Step 4 diff computation; do NOT run `git diff`.
+    2. Identify the target files: the repo-root `CLAUDE.md` (if present) plus any `**/CLAUDE.md` files under the repo (e.g., monorepo per-subdir CLAUDE.md). Cap at 10 files; if more, warn and proceed with the first 10.
+    3. Skip Steps 5 (secret scan) and 6 (multi-agent dispatch). Instead, dispatch a SINGLE agent via the Agent tool with `subagent_type: claude-md-guardian` and a prompt containing the file paths and instruction "audit per `## Pipelinekit Overlay — /review Integration` in your definition".
+    4. The agent returns findings in pipelinekit's review schema (`Section | Severity | Finding | Recommendation`).
+    5. Write findings to the active review file (per the `**Review:**` pointer in `docs/progress.md`) under a new top-level section `## CLAUDE.md Audit`.
+    6. Skip Steps 7, 8, 9 (size guard, summary, task reopening). Exit normally — the audit dimension does not reopen tasks; it produces an informational report that the human reviews.
   - If value contains `..`: **STOP** with error "Invalid --scope value. Path traversal sequences (..) are not allowed."
   - **Validate the scope value:** must match `^[a-zA-Z0-9_./\-]+$`. If it contains shell metacharacters or fails validation: **STOP** with error "Invalid --scope value. Use alphanumeric characters, dots, slashes, hyphens, and underscores only."
   - If value looks like a task ID (e.g., `2.3`): read `docs/progress.md` -> find the `**Plan:**` field -> read the plan file -> find the task -> get its `Files:` list -> if `Files:` is empty or absent, **stop with error**: "Task [ID] has no Files: field. Use `--scope <path>` with an explicit path instead." -> otherwise `git diff "$BASE"...HEAD -- file1 file2 ...`
