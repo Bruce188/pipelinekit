@@ -146,7 +146,7 @@ def validate(content: str) -> list[tuple[str, str, str]]:
 def format_findings(findings: list[tuple[str, str, str]]) -> str:
     """Format findings as prefixed lines for stderr output."""
     parts = []
-    for rule_id, severity, message in findings:
+    for _, severity, message in findings:
         prefix = "BLOCK" if severity == "block" else "WARN"
         parts.append(f"{prefix}: {message}")
     return "\n".join(parts)
