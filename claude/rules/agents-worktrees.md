@@ -25,6 +25,31 @@ The scratchpad lives at `.claude/scratchpad/<phase-id>/` and is excluded from gi
 - Agent finishes without committing = worktree directory exists until removed (recovery window)
 - The commit instruction prevents needing recovery
 
+## Env handoff via `.worktreeinclude`
+
+Worker prompts no longer need inline env-copy boilerplate. Worktree creation
+reads `.worktreeinclude` (resolved from the repo-root template
+`.worktreeinclude.template`) and bind-mounts each matching path from the
+source repo into the new worktree at the same relative path. Where bind-mount
+is unavailable (Windows host without WSL2 mount-share, or filesystems that
+reject bind), the mechanism falls back to `cp -p` of each matching path.
+
+**Opt-in flow:**
+1. Copy `.worktreeinclude.template` (committed at repo root) to `.worktreeinclude`.
+2. Edit `.worktreeinclude` to declare the env/secret paths your worktree agents need.
+3. The next worktree-creation step picks it up automatically.
+
+**Hook composition.** The resolved `.worktreeinclude` lists secret paths
+(typically `.env`, `credentials*`). The existing `block-stage-sensitive.sh`
+hook (driven by `claude/config/never-stage.txt`) already refuses to stage
+those paths inside the worktree, so accidental commits of secret contents
+are blocked at the same gate as in the main repo.
+
+**Why not in worker prompts.** Putting env-copy commands in worker prompts
+meant every prompt had to enumerate the secret paths — fragile and easy to
+forget. The `.worktreeinclude` mechanism centralizes the list in one file
+per repo.
+
 ## Worktree Agent Task-Notification XML
 Per NETMIND Part 1 §6.2, Claude Code uses a `<task-notification>` XML block to report worker results back to the coordinator. Every worktree agent's final response MUST end with a block in this format:
 
