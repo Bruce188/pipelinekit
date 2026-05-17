@@ -372,6 +372,7 @@ These templates are the entire interface between the pipeline orchestrator and t
 | `{{PROMPTS_PATH}}` | Target prompts file path, resolved by the Versioning Convention |
 | `{{REVIEW_PATH}}` | Target review file path (populated after review writes it) |
 | `{{BRANCH_NAME}}` | Feature branch name (matches the feature H2 after the type prefix) |
+| `{{MERGE_SHA}}` | 40-char git SHA of the squash-merge commit captured by Path A immediately after `git pull origin "$BASE"` |
 | `{{FEATURE_INDEX}}` | 1-based index of the current feature |
 | `{{FEATURE_TOTAL}}` | Total feature count in the feature file |
 | `{{BUDGET_REMAINING}}` | Remaining USD budget at dispatch time |
@@ -397,6 +398,7 @@ The orchestrator MUST apply the following validation steps before substituting a
 4. **Length cap.** Cap each substituted field at 2 KB (UTF-8 bytes). Oversize fields are rejected, not silently truncated, so the caller notices.
 5. **Path placeholder allowlist.** `{{ANALYSIS_PATH}}`, `{{PLAN_PATH}}`, `{{PROMPTS_PATH}}`, `{{REVIEW_PATH}}`: resolve via `os.path.realpath()` and require the resolved path to live under the repo-relative `docs/` directory (i.e., `os.path.realpath(path).startswith(os.path.realpath("docs") + os.sep)`). Reject any path that escapes via `..`, symlinks, or absolute paths outside `docs/`.
 6. **Numeric placeholders.** `{{FEATURE_INDEX}}`, `{{FEATURE_TOTAL}}`, `{{BUDGET_REMAINING}}`, `{{MAX_USD}}`: validate as integers or decimals, not arbitrary text.
+7. **Merge SHA shape.** Regex-validate `{{MERGE_SHA}}` against `^[0-9a-f]{40}$`. Reject anything else — branch names, abbreviated SHAs, dirty trees, and shell metacharacters are all forbidden. The orchestrator captures this value via `MERGE_SHA=$(git rev-parse HEAD)` immediately after Path A step 7's `git pull origin "$BASE"` (HEAD = squash-merge commit at that point).
 
 The orchestrator's substitution code does not yet exist at the time this section is written — this section is a normative contract for the code that will land with Step 5.0 wiring. Until substitution code exists, treat every dispatch as a manual validation step.
 
@@ -610,6 +612,65 @@ Report back with this XML block as the very last content in your response:
   <summary>1-3 sentence summary including blocking/non-blocking finding counts (e.g. "Clean: 0 blocking, 0 non-blocking" or "2 blocking, 4 non-blocking, 3 tasks reopened").</summary>
   <files>
     <file>{{REVIEW_PATH}}</file>
+  </files>
+  <usage>
+    <total_tokens>[if available, else omit]</total_tokens>
+    <tool_uses>[if available, else omit]</tool_uses>
+  </usage>
+</task-notification>
+```
+
+---
+
+<!-- PHASE: docs -->
+
+```
+You are dispatched by the pipeline orchestrator as the DOCS phase subagent (subagent_type: docs-writer) for feature `{{FEATURE_NAME}}` ({{FEATURE_INDEX}}/{{FEATURE_TOTAL}}). Remaining budget: ${{BUDGET_REMAINING}} of ${{MAX_USD}}.
+
+Inputs:
+- Feature description: {{FEATURE_DESCRIPTION}}
+- Branch name (already merged; reference only): {{BRANCH_NAME}}
+- Squash-merge SHA on base branch: {{MERGE_SHA}}
+
+Your job:
+1. Inspect the merged change:
+   ```bash
+   git show {{MERGE_SHA}} --stat
+   git show {{MERGE_SHA}}
+   ```
+   The first command lists files changed; the second is the full diff.
+2. Read `docs/progress.md` for feature context — follow the `**Plan:**` and `**Prompts:**` pointers if you need additional context. DO NOT modify `docs/progress.md` or any other file in `docs/`.
+3. Update or create application documentation in `documentation/`:
+   - **API references** (if API endpoints changed)
+   - **User guides** (if user-facing behavior changed)
+   - **Architecture docs** (if structural changes were made)
+   - **Migration / upgrade notes** (if breaking changes were introduced)
+   Write only to `documentation/`. NEVER write to `docs/` — that directory is reserved for AI workflow files (per `claude/agents/docs-writer.md` lines 11-16). If `documentation/` does not exist, create it (`mkdir -p documentation`).
+4. Commit the doc update as a SEPARATE commit on the base branch:
+   ```bash
+   git add documentation/
+   git commit -m "docs: <feature description>"
+   ```
+   NEVER use `git commit --amend` on `{{MERGE_SHA}}` — amending rewrites a public commit and breaks downstream consumers. The doc update lands as a discrete `docs:` commit.
+   The `strip-ai-attribution.sh` PreToolUse hook scrubs AI attribution from the commit message — do NOT add `Generated with`, `Co-Authored-By`, or similar attribution; the hook will reject the commit if you do.
+5. Emit the standard `<task-notification>` XML block.
+
+Constraints:
+- Output directory is `documentation/` ONLY. Writes to `docs/` are forbidden by the docs-writer agent contract.
+- Doc commit is a separate `docs: ...` commit on the base branch. NEVER amend `{{MERGE_SHA}}`.
+- No AI attribution in the commit message.
+- If `git show {{MERGE_SHA}}` returns no diff or the SHA is invalid, emit `status: failed` with reason `invalid merge SHA` — do NOT proceed.
+- If the budget remaining is below your estimate, STOP and emit `status: failed` with reason `budget exceeded`.
+- This phase is best-effort. The pipeline treats any `status: failed` / `status: blocked` outcome as non-fatal (Run Log gets `Docs: SKIPPED (subagent error)` and the feature still completes as `feature-done`).
+
+Report back with this XML block as the very last content in your response:
+
+<task-notification>
+  <task-id>docs:{{FEATURE_NAME}}</task-id>
+  <status>completed|failed|blocked</status>
+  <summary>1-3 sentence summary of what was documented (or why it failed).</summary>
+  <files>
+    <file>documentation/...</file>
   </files>
   <usage>
     <total_tokens>[if available, else omit]</total_tokens>

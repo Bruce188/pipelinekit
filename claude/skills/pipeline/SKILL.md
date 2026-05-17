@@ -312,7 +312,7 @@ Record `**Phase Mode:** subagent` in `docs/pipeline-state.md` (Step 5.1 writes t
 
 **Progress beacon helper:** At each phase transition (Step 5.1, 5.2, 5.3, 5.5, 5.6, and on Path B/C entry), emit a beacon to the user via:
 `Bash(command='printf "[PIPELINE] feat=%s/%s step=%s cycle=%s :: %s (%s)\n" "$IDX" "$TOTAL" "$STEP" "$CYC" "$NAME" "$TAG" >&2', description='Progress beacon')`
-where `$IDX/$TOTAL/$STEP/$CYC/$NAME/$TAG` are the current values from `docs/pipeline-state.md`. Tags: `phase-pre`, `phase-done`, `path-b-pre`, `path-c-pre`, `feature-start`, `feature-done`, `feature-failed`.
+where `$IDX/$TOTAL/$STEP/$CYC/$NAME/$TAG` are the current values from `docs/pipeline-state.md`. Tags: `phase-pre`, `phase-done`, `path-b-pre`, `path-c-pre`, `feature-start`, `feature-done`, `feature-failed`, `docs-pre`, `docs-done`.
 
 **TASKS panel helper (TodoWrite):** Side-by-side with each beacon, the orchestrator MUST call the `TodoWrite` tool so the host UI's TASKS panel (e.g. T3 Code's right-hand pane) reflects what the pipeline is currently working on. This is non-optional — the TodoWrite state IS the user-facing visibility into pipeline progress. The orchestrator is expected to keep a single live todo list across the run; each transition rewrites the whole list with updated statuses.
 
@@ -867,6 +867,108 @@ On non-zero exit:
 6. Continue to the next feature — the pipeline does not halt
 
 On success, append `POSTMERGE_OK: <cmd>` to the completion Run Log line.
+
+---
+
+### Documentation Update Phase
+
+After the Post-Merge Verification Gate appends `POSTMERGE_OK: <cmd>` (success path),
+the pipeline runs a best-effort documentation update phase via the `docs-writer`
+subagent. The phase reads the just-merged squash commit's diff and `docs/progress.md`,
+then writes/updates application docs in `documentation/` and lands a separate
+`docs: <feature description>` commit on the base branch.
+
+**Execution order (Path A success):**
+1. Squash-merge lands (Path A step 5, `reference.md` lines 187-197)
+2. Post-merge cleanup checks out `$BASE` and pulls (Path A step 7, `reference.md` lines 209-218)
+3. **Post-Merge Verification Gate** (this SKILL.md, H3 above) runs — on failure, revert + skip docs entirely; on success, append `POSTMERGE_OK: <cmd>` and continue.
+4. **Documentation Update Phase** (this section) — dispatches `docs-writer` to update `documentation/` and commit `docs: ...` to `$BASE`.
+5. **Step 5.9** emits `feature-done` (source order earlier; execution last).
+
+Source order in this file places Step 5.9 above the gate and this section, but the
+pipeline executes the gate first, then this section, then Step 5.9 — the gate is the
+failure-revert checkpoint, and `feature-done` is the terminal signal.
+
+#### Escape Hatch
+
+Set `PIPELINE_SKIP_DOCS=1` to bypass the docs phase entirely. Default behavior is
+"docs phase runs" — opt-out, not opt-in (mirrors the `SKIP_POSTMERGE_VERIFY=1`
+semantics above). When skipped, append `Docs: SKIPPED (PIPELINE_SKIP_DOCS=1)`
+to the Run Log and proceed to `feature-done`. No beacon is emitted for the skipped
+phase.
+
+#### Phase Mode + Beacon
+
+This phase ALWAYS dispatches as `subagent` mode via the `Agent` tool (per the
+Phase Mode Precedence at lines 305-311). It is NOT a feature-loop entry phase; it is
+a Path-A-only tail phase. The Phase Mode Precedence table treats it as a `subagent`
+dispatch, consistent with all other initial-phase dispatches.
+
+Emit the standard transition beacon (per the beacon helper above) with tag `docs-pre`
+immediately before dispatch and `docs-done` on successful completion. The TodoWrite
+update appends a `Feature <IDX>/<TOTAL>: <NAME> — docs` row between the `merge` row
+and the `feature-done` terminal row.
+
+#### Subagent Dispatch
+
+Use the `Agent` tool with `subagent_type: docs-writer`. The prompt template is
+defined in `reference.md` § "Step 5.x: Phase Subagent Dispatch — Prompt Templates"
+under `<!-- PHASE: docs -->`. Substitute placeholders before dispatch:
+- `{{FEATURE_NAME}}` — feature H2 name
+- `{{FEATURE_DESCRIPTION}}` — feature `**Description:**` content
+- `{{BRANCH_NAME}}` — feature branch (already merged; passed for reference only)
+- `{{MERGE_SHA}}` — capture immediately before dispatch via `MERGE_SHA=$(git rev-parse HEAD)`; HEAD = squash-merge commit at this point per Path A step 7
+- `{{BUDGET_REMAINING}}`, `{{MAX_USD}}` — standard
+
+Pass `model: sonnet` (the docs-writer agent has `model: inherit`, but the pipeline
+sets sonnet as the operational default — see model defaults table above).
+
+#### Subagent Contract — Output Boundary
+
+The docs-writer subagent prompt MUST instruct the agent:
+
+1. Read `git show {{MERGE_SHA}} --stat` to see files changed by the merge.
+2. Read `git show {{MERGE_SHA}}` (full diff) to understand the substantive change.
+3. Read `docs/progress.md` for feature context (Plan + Prompts pointers).
+4. Write/update files ONLY in `documentation/` (per `claude/agents/docs-writer.md`
+   lines 11-16). NEVER write to `docs/` — that directory is reserved for AI workflow
+   files (progress.md, plan.md, prompts.md), and writes there are forbidden by the
+   agent's own contract. All application documentation goes to `documentation/`.
+5. After writing, commit as a separate base-branch commit:
+   ```bash
+   git add documentation/
+   git commit -m "docs: <feature description from feature file>"
+   ```
+   NEVER `git commit --amend` on the squash SHA — amending rewrites a public commit
+   and breaks downstream consumers.
+6. Emit the standard `<task-notification>` XML block.
+
+The `strip-ai-attribution.sh` PreToolUse hook scrubs AI attribution from the commit
+message — the prompt MUST NOT instruct the agent to add attribution (don't fight
+the hook).
+
+#### Failure Semantics (Non-Fatal)
+
+If the docs-writer subagent returns `status: failed` or `status: blocked` (or fails
+the Agent dispatch with any error), append `Docs: SKIPPED (subagent error)` to the
+feature's Run Log line and proceed to `feature-done`. This phase is best-effort —
+a docs failure MUST NOT downgrade the feature's terminal status from `SUCCESS` to
+`FAILED`. The feature has already merged and survived the post-merge gate; docs are
+a tail step.
+
+Emit a single warning line on stderr: `WARNING: Documentation Update Phase failed
+for <feature>; continuing.`
+
+#### Position Invariants
+
+- The docs phase MUST NOT run on Path A failure paths (push/PR/CI/CD halt) — those
+  skip to the next feature before reaching the gate.
+- The docs phase MUST NOT run on gate failure — the gate's `git reset --hard HEAD~1`
+  revert leaves no merged code to document.
+- The docs phase MUST NOT modify any `docs/*.md` workflow file. All writes go to
+  `documentation/`.
+- The docs phase MUST NOT use `git commit --amend`. Commits land as a separate
+  `docs: ...` commit on `$BASE`.
 
 ---
 
