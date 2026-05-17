@@ -4,14 +4,6 @@ Portable, sandbox-ready Claude Code overlay. Pull repo → one-command install �
 
 ## Quick start
 
-### GitHub Codespaces (recommended)
-```
-# 1. Open repo in Codespaces. Devcontainer post-create runs install automatically.
-# 2. Open a terminal:
-claude
-# 3. Tell Claude:  "Install pipelinekit from this repo."
-```
-
 ### Local (any Linux / WSL / macOS bash)
 ```
 git clone https://github.com/Bruce188/pipelinekit.git
@@ -20,6 +12,30 @@ cd pipelinekit
 ```
 
 `install.sh` is idempotent. Run again to update.
+
+### Cloud cold-start (Oracle / Hetzner)
+
+Bootstrap a fresh cloud VM and install pipelinekit in one step. See [docs/cloud-setup.md](docs/cloud-setup.md) for the full walkthrough.
+
+**Oracle Cloud Free Tier ARM A1 (aarch64, 24 GB RAM):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/Bruce188/pipelinekit/main/scripts/cloud/oracle-bootstrap.sh | bash
+```
+
+**Hetzner CX22 (x86_64, 4 GB RAM — swap created automatically):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/Bruce188/pipelinekit/main/scripts/cloud/hetzner-bootstrap.sh | bash
+```
+
+Both scripts are idempotent: re-run to update. Secrets are read from env — never baked in. See [scripts/cloud/](scripts/cloud/) for source and cloud-init YAMLs.
+
+### GitHub Codespaces
+```
+# 1. Open repo in Codespaces. Devcontainer post-create runs install automatically.
+# 2. Open a terminal:
+claude
+# 3. Tell Claude:  "Install pipelinekit from this repo."
+```
 
 ### Pull with a prompt (existing Claude Code session)
 ```
