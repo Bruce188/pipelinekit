@@ -53,6 +53,6 @@ maxTurns: 30
 
 ## Worktree Isolation
 
-Agents can run in isolated git worktrees with `isolation: "worktree"`. Every worktree agent must commit `wip: [description]` before reporting done (enforced by SubagentStop hook).
+Agents can run in isolated git worktrees with `isolation: "worktree"`. Every worktree agent must commit `wip: [description]` before reporting done (enforced by SubagentStop hook). For interactive single-stream worktree work, agents may also use the native `EnterWorktree` / `ExitWorktree` tools (Claude CLI `>= v2.1.72`); the `isolation: "worktree"` pattern remains the parallel-stream dispatch mechanism.
 
 See `~/.claude/rules/agents-worktrees.md` for the full merge protocol.

@@ -52,6 +52,7 @@ claude -n "myproject/refactor-auth"
 - Named agents only when task prompt explicitly instructs.
 - Worktree agents: `wip: [description]` commit before reporting done (enforced by hook).
 - Squash-merge worktree branches. Clean conventional message — no `wip:`, stream names, or finding counts.
+- Interactive single-stream worktrees: prefer the native `EnterWorktree` / `ExitWorktree` tools (Claude CLI `>= v2.1.72`); on older CLI builds, fall back to manual `git worktree add`. The `isolation: "worktree"` Agent-tool pattern remains the mechanism for parallel-stream dispatch.
 - See `rules/agents-worktrees.md` for detailed protocol.
 
 ## Task Prompt Format
