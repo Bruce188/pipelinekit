@@ -20,6 +20,10 @@ Every worktree agent prompt under a parallel phase ALSO gets the scratchpad cont
 The scratchpad lives at `.claude/scratchpad/<phase-id>/` and is excluded from git via `.git/info/exclude`. The lead surfaces any `*-to-*.md` files in the merge-commit context after all streams complete, then removes the scratchpad on successful merge. On merge failure, the scratchpad is left in place for post-mortem.
 
 ## Worktree Lifecycle
+
+Interactive worktree creation uses the native Claude Code `EnterWorktree` / `ExitWorktree` tools (Claude CLI `>= v2.1.72`). `EnterWorktree` creates a worktree under `$HOME/.claude/worktrees/<branch>` and switches the harness into it; `ExitWorktree` returns the session to the source repo without removing the worktree (so the lead can squash-merge per § Lead Merge Protocol). On Claude CLI `< v2.1.72`, fall back to manual `git worktree add` — the same `$HOME/.claude/worktrees/<branch>` path convention applies so `verify-worktree-commit.sh` continues to fire correctly. The subprocess-mode driver (not shipped in this overlay) also uses manual `git worktree add` because it has no Claude harness to dispatch tool calls into.
+
+Lifecycle rules (apply to both native-tool and manual paths):
 - Zero changes = auto-removed by Claude Code
 - Uncommitted changes = persist (lead controls lifecycle)
 - Agent finishes without committing = worktree directory exists until removed (recovery window)

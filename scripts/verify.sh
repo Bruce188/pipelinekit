@@ -51,9 +51,22 @@ if [[ -d "$REPO_ROOT/claude" ]]; then
   [[ "$CLAUDE_P" -eq 0 ]] && pass "no 'claude -p' subprocess calls" || fail "$CLAUDE_P 'claude -p' references remain"
 fi
 
-# Optional Claude CLI
+# Optional Claude CLI — PATH presence + version-floor check for EnterWorktree / ExitWorktree (v2.1.72+).
 if command -v claude >/dev/null 2>&1; then
-  pass "claude CLI on PATH ($(claude --version 2>&1 | head -1))"
+  CLAUDE_VER_LINE=$(claude --version 2>&1 | head -1)
+  pass "claude CLI on PATH ($CLAUDE_VER_LINE)"
+  CLAUDE_VER=$(printf '%s' "$CLAUDE_VER_LINE" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+  MIN_VER="2.1.72"
+  if [[ -z "$CLAUDE_VER" ]]; then
+    fail "could not parse Claude CLI version from '$CLAUDE_VER_LINE'"
+  else
+    LOWEST=$(printf '%s\n%s\n' "$CLAUDE_VER" "$MIN_VER" | sort -V | head -1)
+    if [[ "$LOWEST" != "$MIN_VER" ]]; then
+      fail "Claude CLI ${CLAUDE_VER} is below ${MIN_VER} — native EnterWorktree / ExitWorktree tools unavailable; fallback is manual 'git worktree add'"
+    else
+      pass "claude CLI version ${CLAUDE_VER} satisfies EnterWorktree / ExitWorktree floor (${MIN_VER})"
+    fi
+  fi
 else
   fail "claude CLI not on PATH — install from https://claude.ai/install.sh"
 fi

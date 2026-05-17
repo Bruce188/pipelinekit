@@ -366,6 +366,21 @@ if want claude-skills; then
   fi
 fi
 
+# Claude CLI version-floor check for EnterWorktree / ExitWorktree (v2.1.72+).
+# Soft: warn only. Below-floor users keep working via the manual `git worktree add` fallback.
+if command -v claude >/dev/null 2>&1; then
+  CLAUDE_VER=$(claude --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+  if [[ -z "$CLAUDE_VER" ]]; then
+    warn "could not parse Claude CLI version from 'claude --version' output"
+  else
+    MIN_VER="2.1.72"
+    LOWEST=$(printf '%s\n%s\n' "$CLAUDE_VER" "$MIN_VER" | sort -V | head -1)
+    if [[ "$LOWEST" != "$MIN_VER" ]]; then
+      warn "Claude CLI ${CLAUDE_VER} is below ${MIN_VER}. Native EnterWorktree / ExitWorktree tools will be unavailable; pipelinekit will fall back to manual 'git worktree add'. Upgrade with: https://claude.ai/install.sh"
+    fi
+  fi
+fi
+
 # ---------- verify ----------
 log "Verifying install"
 bash "$SCRIPT_DIR/verify.sh" || warn "Verification reported issues — see $LOG"
