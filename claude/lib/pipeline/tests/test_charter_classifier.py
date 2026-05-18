@@ -493,6 +493,81 @@ class ValidatorHelpersTests(unittest.TestCase):
         self.assertEqual(charter_classifier._scope_tag_to_scope(""), "in")
 
 
+class DeferredAppendTwoAxisTests(unittest.TestCase):
+    """Red-phase tests for Task 1.3 — two_axis kwarg + intent suffix in deferred append."""
+
+    CHARTER = (
+        "## MVP Boundary\n**In:**\n- async runtime hardening\n"
+        "**Out (deferred):**\n- ui theming\n\n## Non-Goals\n- new database adapter\n"
+    )
+
+    def _make_progress(self, content: str = "") -> str:
+        """Write a temp progress.md and return its path."""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".md", delete=False
+        ) as f:
+            f.write(content)
+            path = f.name
+        self.addCleanup(os.unlink, path)
+        return path
+
+    def test_classify_findings_two_axis_true_emits_scope_and_intent(self):
+        findings = [{"text": "async runtime tweak", "severity": "blocking",
+                     "scope": "in", "intent": "correctness"}]
+        out = charter_classifier.classify_findings(findings, self.CHARTER, two_axis=True)
+        self.assertIn("scope", out[0])
+        self.assertIn("intent", out[0])
+        self.assertNotIn("scope_tag", out[0])
+
+    def test_classify_findings_two_axis_false_emits_legacy_scope_tag(self):
+        findings = [{"text": "async runtime tweak", "severity": "blocking"}]
+        out = charter_classifier.classify_findings(findings, self.CHARTER, two_axis=False)
+        self.assertIn("scope_tag", out[0])
+        self.assertNotIn("scope", out[0])
+
+    def test_classify_findings_default_kwarg_is_two_axis_true(self):
+        findings = [{"text": "async runtime tweak", "severity": "blocking"}]
+        out = charter_classifier.classify_findings(findings, self.CHARTER)
+        self.assertIn("scope", out[0])
+
+    def test_deferred_append_recognizes_new_scope_out_field(self):
+        path = self._make_progress("# Progress\n")
+        findings = [{"text": "ui theming update", "severity": "non-blocking", "scope": "out"}]
+        count = charter_classifier.append_out_of_scope_to_deferred(path, findings, "review-v1.md")
+        self.assertEqual(count, 1)
+        with open(path) as f:
+            body = f.read()
+        self.assertIn("ui theming update", body)
+
+    def test_deferred_append_intent_suffix_when_intent_not_unrelated(self):
+        path = self._make_progress("# Progress\n")
+        findings = [{"text": "ui theming redesign", "severity": "non-blocking",
+                     "scope": "out", "intent": "design"}]
+        charter_classifier.append_out_of_scope_to_deferred(path, findings, "review-v1.md")
+        with open(path) as f:
+            body = f.read()
+        self.assertIn("(intent: design)", body)
+
+    def test_deferred_append_no_intent_suffix_when_intent_unrelated(self):
+        path = self._make_progress("# Progress\n")
+        findings = [{"text": "ui theming cleanup", "severity": "non-blocking",
+                     "scope": "out", "intent": "unrelated"}]
+        charter_classifier.append_out_of_scope_to_deferred(path, findings, "review-v1.md")
+        with open(path) as f:
+            body = f.read()
+        self.assertNotIn("(intent:", body)
+
+    def test_adjacent_findings_do_not_trip_deferred_append(self):
+        path = self._make_progress("# Progress\n")
+        findings = [{"text": "near-charter thing", "severity": "non-blocking",
+                     "scope": "adjacent"}]
+        count = charter_classifier.append_out_of_scope_to_deferred(path, findings, "review-v1.md")
+        self.assertEqual(count, 0)
+        with open(path) as f:
+            body = f.read()
+        self.assertNotIn("near-charter thing", body)
+
+
 class TestBulletLineRegexDRY(unittest.TestCase):
     """N1 regression: _BULLET_LINE_RE is imported from charter_revalidate, not
     duplicated. Verifies the DRY contract from plan-v26 Task 1.2 and review-v23
