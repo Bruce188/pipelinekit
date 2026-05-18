@@ -15,8 +15,7 @@ set -euo pipefail
 # vars only. F10 (feat/integrate-openhuman) MUST reuse this helper unchanged;
 # the public CLI here is the cross-feature contract.
 #
-# Rate-limiting: NONE — delegated to Channels' built-in mechanics. Do NOT add
-# debounce, queue, or per-minute limits.
+# Throttling: NONE here. Channels' built-in mechanics are authoritative.
 
 # Opt-out short-circuit (must be before any other side effects).
 [ "${PIPELINE_NO_NOTIFICATIONS:-0}" = "1" ] && exit 0
