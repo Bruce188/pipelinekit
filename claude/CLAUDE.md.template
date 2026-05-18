@@ -116,7 +116,7 @@ When the workload is a **mobile app** (iOS/Android/cross-platform) **and** `CLAU
 
 | Phase | Tool | Rationale |
 |-------|------|-----------|
-| Product discovery | `/interview-prp` | Mobile-specific scoping (target platforms, store-policy constraints, native-module requirements) captured here |
+| Product discovery | `/pipeline` Step 0 | Charter Discovery captures mobile-specific scoping (target platforms, store-policy constraints, native-module requirements) into `docs/charter.md` |
 | Plan creation | `/create-plan` | Integrated with `progress.md`, versioning convention |
 | Plan review | `/review --scope plan` | Multi-agent backend correctness |
 | Branch | `/new-branch` | — |
@@ -151,7 +151,7 @@ When the workload is an **Azure** workload (App Service / Container Apps / Funct
 
 | Phase | Tool | Rationale |
 |-------|------|-----------|
-| Product discovery | `/interview-prp` | Captures Azure-specific scoping: target services (App Service / Container Apps / Functions / AKS), region, subscription, IaC preference (Bicep vs ARM) |
+| Product discovery | `/pipeline` Step 0 | Charter Discovery captures Azure-specific scoping: target services (App Service / Container Apps / Functions / AKS), region, subscription, IaC preference (Bicep vs ARM) into `docs/charter.md` |
 | Plan / analysis | `/analyze` (with `@azure-deployment-engineer`) | Agent contributes resource-layout, RBAC, cost-guardrail constraints to analysis |
 | Plan review | `/review --scope plan` | Multi-agent backend correctness; azure-deployment-engineer joins review pool |
 | Implementation (IaC) | `/implement-plan` (with `@azure-deployment-engineer`) | Bicep-first IaC authoring (or ARM JSON for legacy tooling); no portal-clicked production resources |
