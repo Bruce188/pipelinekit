@@ -49,26 +49,26 @@
 #   $1   — absolute path to the worktree directory (must exist on the host)
 #   $@   — command and arguments to execute inside the container
 #
-# The env-scrub prefix is applied by env-scrub.py --wrap before the command
-# is passed to `sh -c` inside the container, stripping sensitive env vars
-# (ANTHROPIC_API_KEY, cloud credentials, etc.) from the container environment.
+# env-scrub.py --prefix-args emits one token per line: `env`, then alternating
+# `-u VAR` pairs. The provider reads those tokens into a bash array and dispatches
+# the user's command as exec-style argv (`"${prefix[@]}" "$@"`), preserving argv
+# boundaries. Shell-string concatenation via `sh -c` is intentionally avoided —
+# it would re-tokenize the command and expose a shell-injection surface to
+# any caller passing AI-generated text with shell metacharacters.
 # ---------------------------------------------------------------------------
 sandbox_enter() {
   local wt="$1"; shift
   local image="${SANDBOX_DOCKER_IMAGE:-pipelinekit-sandbox:latest}"
   local claude_home="${CLAUDE_HOME:-$HOME/.claude}"
-  local scrubbed
+  local prefix
 
-  # env-scrub.py --wrap emits `env -u VAR1 -u VAR2 ... <command>` on stdout.
-  # Capture that output and pass it to sh -c inside the container so the full
-  # env-scrub prefix is applied in the container environment.
-  scrubbed=$(python3 "${claude_home}/hooks/env-scrub.py" --wrap "$*")
+  mapfile -t prefix < <(python3 "${claude_home}/hooks/env-scrub.py" --prefix-args)
 
   docker run --rm \
     --volume "$wt:$wt:rw" \
     --workdir "$wt" \
     "$image" \
-    sh -c "$scrubbed"
+    "${prefix[@]}" "$@"
 }
 
 # ---------------------------------------------------------------------------

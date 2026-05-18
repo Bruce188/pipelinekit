@@ -202,6 +202,41 @@ In this build, the header is acknowledged but ignored — every task dispatches 
 ClaudeWorker regardless. The header reservation lets plan authors begin annotating
 plans today; routing arrives in a future iteration.
 
+## Sandbox Provider
+
+`/pipeline` runs each phase's command stream inside a sandbox provider chosen by
+`claude/lib/sandbox/SandboxProvider.sh`. The provider selection ladder is:
+
+1. `SANDBOX_PROVIDER=podman` | `docker` | `worktree-only` — explicit override.
+2. `SANDBOX_PROVIDER=auto` (default) — **engine-when-present**: prefer `podman`,
+   else `docker`, else fall back to `worktree-only`. The fallback keeps the
+   pipeline runnable on hosts without a container engine; on engines-available
+   hosts the container provider is selected automatically.
+3. `PIPELINE_NO_SANDBOX=1` — short-circuit to `worktree-only` regardless of
+   detected engines.
+
+### Shell-injection hardening (exec-style argv)
+
+Sandbox providers (`podman.sh`, `docker.sh`) dispatch the inner command as
+**exec-style argv**, never as a shell string. The env-scrub prefix is read via
+`env-scrub.py --prefix-args` (one token per line: `env`, then alternating
+`-u VAR` pairs), loaded into a bash array with `mapfile -t prefix`, and
+passed alongside the user's argv:
+
+```bash
+mapfile -t prefix < <(python3 "${claude_home}/hooks/env-scrub.py" --prefix-args)
+podman run --rm ... "$image" "${prefix[@]}" "$@"
+```
+
+This eliminates the shell-injection surface that `sh -c "$scrubbed"` would
+expose if a caller ever passed AI-generated text containing shell
+metacharacters. Provider authors **must not** reintroduce `sh -c` for
+command dispatch — `claude/lib/sandbox/tests/test_no_shell_injection.sh`
+guards against regression.
+
+The `sandbox_enter` API surface is unchanged: callers still invoke
+`sandbox_enter "$wt" cmd arg1 arg2 ...` exactly as before.
+
 ## What was removed in the portable build
 
 - `orchestrate.sh` (out-of-process driver). The in-process Skill is the only entry point.
