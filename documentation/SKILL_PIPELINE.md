@@ -477,3 +477,55 @@ Set `PIPELINE_NO_NOTIFICATIONS=1` in your environment for the duration of a `/pi
 - Hook event mapping is documented in `~/.claude/CLAUDE.md § Notifications` (canonical user-side reference).
 - Payload schema (6 fields, 200-char text cap) is documented in `~/.claude/skills/pipeline/reference.md § Notification payload schema`.
 - The canonical emit helper lives at `claude/hooks/notify-emit.sh` — it is the cross-feature contract; `feat/integrate-openhuman` (F10) is the second consumer.
+
+## Human-Review Gate
+
+`/pipeline` ships an opt-in human-in-the-loop approval gate that pauses before destructive actions — today the only wired trigger is `git merge --squash` (the auto-merge step in Path A). When enabled, the pipeline waits for an out-of-band human approval signal before letting the merge proceed.
+
+### Enabling
+
+| Invocation | Behavior |
+|------------|----------|
+| `/pipeline` (no flag) | Gate disabled — squash-merge proceeds without pause. This is the default (0 minutes). |
+| `/pipeline --human-review` | Gate enabled with **30-minute** timeout. |
+| `/pipeline --human-review 60` | Gate enabled with **60-minute** timeout (any positive integer minutes). |
+| `/pipeline --no-human-review` | Explicit-disable form. Same effect as flag absence. |
+
+`--human-review` and `--no-human-review` are mutually exclusive — passing both stops the run with `ERROR: --human-review and --no-human-review are mutually exclusive`.
+
+### Responding to the gate
+
+When the gate fires, `/pipeline` emits a `human-review` notification (PushNotification when an interactive session has Remote Control enabled, terminalSequence OSC 777 otherwise) carrying the signal-file path in the `action_link` field. To approve, write a JSON file at the signal-file path:
+
+```json
+{"decision": "allow", "reason": "Reviewed diff; safe to merge.", "reviewer": "bruce", "ts": "2026-05-18T20:30:00Z"}
+```
+
+To deny: `{"decision": "deny"}`. Only `decision` is required; `reason`, `reviewer`, and `ts` are optional.
+
+**Atomic write** (required to avoid the polling loop reading a half-written file):
+
+```bash
+printf '%s' "$JSON" > "$SIGNAL.tmp" && mv "$SIGNAL.tmp" "$SIGNAL"
+```
+
+Signal-file path convention: `.claude/openhuman/<feature-name>-<unix-timestamp>.json`. The `.claude/` directory is gitignored per the standard pipelinekit never-stage list — signal files are never committed.
+
+### Timeout behavior
+
+If no signal file is written within the timeout window, the gate **denies** the merge:
+
+```json
+{"hookSpecificOutput":{"permissionDecision":"deny",
+                       "permissionDecisionReason":"OPENHUMAN_TIMEOUT: <minutes> minutes elapsed without approval"}}
+```
+
+This is **fail-safe** — the pipeline never auto-approves on timeout. The orchestrator routes the failure into Path B remediation (or feature-fail per Step 5.7).
+
+The default of **0** minutes (gate off when the flag is absent) is intentional — per the 2026-05-18 native-Claude-Code-compliance audit, defaulting to a non-zero timeout with auto-approve would create a silent-auto-approve drift hazard.
+
+### Reference
+
+- Skill body: `~/.claude/skills/openhuman/SKILL.md` (canonical contract).
+- Hook wiring + appendix: `~/.claude/skills/pipeline/reference.md § Human-Review Gate (--human-review)`.
+- Upstream attribution (concept-only): `~/.claude/skills/openhuman/NOTICE.md`.
