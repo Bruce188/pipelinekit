@@ -1,0 +1,12 @@
+[
+  {
+    "number": 99,
+    "title": "fix: some bug with empty body",
+    "body": "",
+    "labels": [{"name": "bug"}],
+    "createdAt": "2026-01-10T00:00:00Z",
+    "updatedAt": "2026-01-10T00:00:00Z",
+    "milestone": null,
+    "comments": []
+  }
+]

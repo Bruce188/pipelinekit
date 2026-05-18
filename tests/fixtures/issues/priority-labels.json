@@ -1,0 +1,32 @@
+[
+  {
+    "number": 10,
+    "title": "fix: high priority bug",
+    "body": "This is high priority.",
+    "labels": [{"name": "priority:high"}, {"name": "bug"}],
+    "createdAt": "2026-01-01T00:00:00Z",
+    "updatedAt": "2026-01-01T00:00:00Z",
+    "milestone": null,
+    "comments": []
+  },
+  {
+    "number": 20,
+    "title": "feat: low priority enhancement",
+    "body": "This is low priority.",
+    "labels": [{"name": "priority:low"}],
+    "createdAt": "2026-01-02T00:00:00Z",
+    "updatedAt": "2026-01-02T00:00:00Z",
+    "milestone": null,
+    "comments": []
+  },
+  {
+    "number": 30,
+    "title": "chore: medium priority task",
+    "body": "This is medium priority.",
+    "labels": [{"name": "priority:medium"}],
+    "createdAt": "2026-01-03T00:00:00Z",
+    "updatedAt": "2026-01-03T00:00:00Z",
+    "milestone": null,
+    "comments": []
+  }
+]

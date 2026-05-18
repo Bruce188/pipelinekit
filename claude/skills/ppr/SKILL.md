@@ -165,12 +165,31 @@ Generate PR title and body:
 - **No workflow metadata** — no task IDs (e.g., "1.1", "2.3"), phase numbers, review file references (e.g., "review-v23"), `reopened:` annotations, or pipeline-internal terminology. The PR should read as if authored by a human developer.
 
 ```bash
+# Derive Closes #N from branch name if issue-sourced
+BRANCH=$(git branch --show-current)
+ISSUE_NUM=""
+if [[ "$BRANCH" =~ ^[a-z]+/issue-([0-9]+)- ]]; then
+  ISSUE_NUM="${BASH_REMATCH[1]}"
+fi
+```
+
+```bash
+# Idempotency: skip Closes append if body already references one
+if [ -n "$ISSUE_NUM" ] && echo "$PR_BODY" | grep -qiE "(closes|fixes|resolves)[[:space:]]+#[0-9]+"; then
+  echo "DEDUP_CLOSES: existing close-keyword detected in PR body — skipping auto-append" >&2
+  ISSUE_NUM=""
+fi
+```
+
+```bash
 gh pr create \
   --title "[type(scope): description]" \
   --body "$(cat <<'EOF'
 ## Summary
 [CHARTER_GOAL_LINE — verbatim charter Goal excerpt, or omit line if no charter]
 [2–3 bullets: what changed and why]
+
+Closes #${ISSUE_NUM}
 
 ## Changes
 [key files modified and what each does]
@@ -182,6 +201,8 @@ gh pr create \
 EOF
 )"
 ```
+
+When `ISSUE_NUM` is empty (no issue-pattern match OR dedup hit), behavior is identical to today's PR-body output — backward compat preserved.
 
 **Check the exit code.** If `gh pr create` fails: **STOP** with descriptive error. Do NOT output the "What's Next" block with a nonexistent PR URL.
 

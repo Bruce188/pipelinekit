@@ -16,6 +16,9 @@ Create a feature branch following conventional naming conventions.
 /new-branch feat/user-auth
 /new-branch fix/login-redirect
 /new-branch refactor/api-cleanup
+/new-branch feat/issue-42-add-foo
+/new-branch fix/issue-103-login-redirect-loop
+/new-branch refactor/issue-204-extract-validator
 ```
 
 ## Steps
@@ -64,6 +67,8 @@ Create a feature branch following conventional naming conventions.
 | `chore/` | Maintenance |
 | `perf/` | Performance |
 | `research/` | Karpathy autoresearch loop (date-stamped, set via `--research-tag <slug>`) |
+
+Issue-sourced branches add `issue-<N>-` between the type prefix and the slug (e.g., `feat/issue-42-add-foo`). The `/pipeline --issues` flow emits this form automatically.
 
 ### What's Next
 
