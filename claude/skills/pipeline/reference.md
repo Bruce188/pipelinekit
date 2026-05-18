@@ -31,6 +31,52 @@ Triggered when `--renew` is present.
    - Append empty `### Run Log` sections to all.
 
 6. Log: "Renewed feature file: docs/features-renewed.md ([N] features: [F] failed, [U] unprocessed, [D] deferred)"
+
+6.5. Charter re-validation (runs after Step 6 log, before Step 7 proceed):
+
+   a. **Skip-condition check.** Read `docs/progress.md` and locate the `**Charter:**` pointer line.
+      - If pointer reads `(none)`, is absent from `progress.md`, or points to a path that does not exist on disk:
+        - Log: `CHARTER_REVALIDATE: skipped — no charter in effect`
+        - GOTO sub-step h (proceed to Step 7). Do NOT invoke `AskUserQuestion`.
+      - Otherwise resolve the pointer to an absolute charter path and continue with sub-step b.
+
+   b. **Parse charter sections.** Read the charter file at the resolved path. Extract two H2-bounded section bodies:
+      - `## Non-Goals` body — every line between that header and the next H2 (or EOF).
+      - `## MVP Boundary` body — every line between that header and the next H2 (or EOF).
+      - If either header is missing OR the body is empty (whitespace-only): Log
+        `CHARTER_REVALIDATE: warn — charter missing Non-Goals or MVP Boundary section; treating as empty`
+        and continue. (Empty constraints produce zero drift downstream, so the run still proceeds.)
+
+   c. **Parse features.** Read `docs/features-renewed.md` and parse each feature block: the H2 header `## <type>/<name>`, the `**Description:**` body lines, and the optional `**Constraints:**` body lines. Robust to absent constraints (treat as empty string).
+
+   d. **Drift classification.** For each parsed feature, run the hybrid drift detector (deterministic substring + token-overlap match against Non-Goal bullets and MVP `**Out (deferred):**` bullets; LLM fallback gated by `PIPELINE_CHARTER_LLM_CHECK` env var, default OFF). Collect `DRIFT_LIST = [(feature_header, drift_reason), ...]`.
+
+   e. **Empty-drift clean path.** If `DRIFT_LIST` is empty:
+      - Log: `CHARTER_REVALIDATE: clean — N features in scope` (where N is the parsed feature count).
+      - GOTO sub-step h (proceed to Step 7). Do NOT invoke `AskUserQuestion`.
+
+   f. **Drift-resolution loop.** For each `(feature_header, drift_reason)` tuple in `DRIFT_LIST`:
+      i.   Invoke `AskUserQuestion` with this exact shape:
+             - Question: `"Feature \`<feature_header>\` may drift outside the charter. Reason: <drift_reason>. How do you want to proceed?"`
+             - Options (single-letter prefixes, in this order):
+               - A) `Proceed` — keep this feature; the pipeline runs it through Step 2 unchanged.
+               - B) `Drop feature` — remove the feature's H2 block (header + body until the next H2 or EOF) from `docs/features-renewed.md` via the `Edit` tool.
+               - C) `Edit charter` — STOP the pipeline so the user can hand-edit the charter, then re-run with `/pipeline --charter <path> --renew`.
+      ii.  Record the user's answer.
+      iii. If the answer is **C (Edit charter)**:
+             - Log: `CHARTER_REVALIDATE: user chose edit-charter for <feature_header>`
+             - Print to the user: `"Charter file: <resolved-path>. Edit the Non-Goals or MVP Boundary section, then resume via: /pipeline --charter <resolved-path> --renew"`.
+             - Persist nothing else. Do NOT auto-modify the charter or `features-renewed.md`.
+             - **STOP** the pipeline immediately. Skip remaining drift entries.
+      iv.  If the answer is **B (Drop feature)**: delete the feature's H2 block from `docs/features-renewed.md` via the `Edit` tool (header line plus body up to but not including the next H2 or EOF). Continue the loop with the next drift entry.
+      v.   If the answer is **A (Proceed)**: no-op. The feature stays in `features-renewed.md`. Continue the loop.
+
+   g. **Post-loop recount.** After the loop exits without an Edit-charter STOP: re-parse `docs/features-renewed.md` and recompute the final feature count. Log:
+      `CHARTER_REVALIDATE: resolved — N kept, M dropped, edits=0`
+      where N is the post-edit feature count, M is the number of B (Drop feature) answers, and `edits=0` is literal — re-validation never mutates the charter.
+
+   h. **Proceed.** Fall through to Step 7 below.
+
 7. Proceed to Step 2 with `docs/features-renewed.md`
 
 ---

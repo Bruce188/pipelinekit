@@ -221,7 +221,7 @@ Triggered when no feature file path is provided.
 
 ### Step 1.6: Renew Feature File
 
-Triggered when `--renew` is present. Full flow defined in `reference.md` § "Step 1.6: Renew Feature File (--renew)". After renewal, proceed to Step 2 with `docs/features-renewed.md`.
+Triggered when `--renew` is present. Full flow defined in `reference.md` § "Step 1.6: Renew Feature File (--renew)". After renewal, proceed to Step 2 with `docs/features-renewed.md`. Includes a charter re-validation pass (see reference.md § Step 1.6 sub-step 6.5) when `**Charter:**` is not `(none)`.
 
 ---
 
