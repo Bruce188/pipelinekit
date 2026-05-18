@@ -194,6 +194,7 @@ One block per task. Follow the Task Prompt Format from CLAUDE.md exactly:
 
 ### Task 1.1: [Name]
 > Model: sonnet | Effort: medium | Agent: none | /clear before starting
+> worker: claude
 
 **Testable:** yes | no
 **Tests:** [required when Testable: yes — copy verbatim from the plan's Tests: field; omit entirely when Testable: no]
@@ -221,6 +222,16 @@ Include:
 ```
 
 **MANDATORY in every task block:** the `**Testable:**` line directly under the `> Model:` header line. Without it, `/implement-plan` Step 1.3 cannot route the task to the red/green TDD subagents and `lint_plan.sh` rule R2 will fail the Step 4.5 gate.
+
+**Optional `worker:` header:** A task prompt MAY include a `worker: <class>` line directly under the `> Model:` header and above `**Testable:**`. This header is OPTIONAL — when omitted, the task routes to ClaudeWorker (the always-available default). When present, `/implement-plan` Step 1.5 resolves the named class using the four-step order in `claude/lib/worker-provider/interface.md` § Env-var resolution.
+
+When to set it: the named worker class provides an alternative execution runtime suited to this task (for example, a long-running CLI task that benefits from a different host). For all current pipelinekit work, omit the header — ClaudeWorker handles every dispatch.
+
+Valid class names live in `claude/lib/worker-provider/<class>.md`. Do not hard-code class names in this file — the directory is the authoritative registry.
+
+Fallback behavior: if the named class's runtime is unavailable on the host, `/implement-plan` logs `WORKER_UNAVAILABLE: <class> (host-adapter missing)` and runs the task via ClaudeWorker without halting the pipeline.
+
+This header is NOT a lint-gate field (Step 4.5 R-rules are unchanged). No new R-rule is added for `worker:` — its absence is valid.
 
 ---
 
