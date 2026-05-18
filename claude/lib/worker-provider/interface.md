@@ -72,6 +72,19 @@ Every worker, regardless of class, MUST produce the following before
 
 ---
 
+## Fallback semantics
+
+The lead applies a two-tier fallback policy when a non-default worker class fails to execute a task:
+
+- **Exit 2 from host-adapter** → `WORKER_UNAVAILABLE: <class> (host-adapter missing)` log line. The runtime is absent on the host. Single ClaudeWorker re-dispatch for that task. The task is NOT counted as failed.
+- **Other non-zero exit from host-adapter** → `WORKER_FALLBACK: <task-id> <provider> -> claude (<reason>)` log line. The runtime is present but task execution failed (transient error, timeout, etc.). Single ClaudeWorker re-dispatch for that task — one fallback attempt only. A second failure marks the task as `failed` in the `<task-notification>` XML. No second fallback hop.
+
+Both fallback paths attempt re-dispatch **ONCE**. Second failure marks the task as `failed` in the `<task-notification>` XML — no second fallback hop.
+
+**Why two distinct log lines:** `WORKER_UNAVAILABLE` signals a configuration issue (class not installed); `WORKER_FALLBACK` signals a runtime issue (class installed but execution failed). Operators can filter each separately in run logs.
+
+---
+
 ## Failure semantics
 
 `verify_completion` returns false on any of:

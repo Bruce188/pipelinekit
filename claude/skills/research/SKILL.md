@@ -63,7 +63,24 @@ bash claude/skills/research/research-loop.sh --goal ... --research-tag speed-all
 | `--accept-when` | shell expr | `""` | Shell expression evaluated with `$metric` in scope. If true, commit the iteration unconditionally. Overrides the default "improve vs. last keep" heuristic. |
 | `--stop-when` | shell expr | `""` | Shell expression evaluated with `$metric` in scope. If true, exit the loop after committing. |
 | `--research-tag` | slug | current branch | Kebab-case slug used in the commit message (`chore: research <slug> iter N — metric=<value>`) and in cost-log feature name (`research/<slug>`). Defaults to the portion of the current branch name after `research/` if the branch matches that pattern. |
+| `--worker` | class | `claude` | Worker class for the mutation phase (`claude`, `codex`, etc.). Resolution order: per-iteration `_RESEARCH_ITER_WORKER` env override > this flag > `WORKER_CLASS` env var > default `claude`. Aggregation (keep-or-reset + TSV append) always runs in-session regardless of mutation worker. If the resolved class is unavailable (host-adapter exits 2), `WORKER_UNAVAILABLE: <class>` is logged to stderr and the iteration falls back to in-session Claude. |
 | `--dry-run` | flag | unset | Print the resolved arg surface and exit 0 without mutating anything, spawning `claude -p`, or writing to the TSV. |
+
+## Worker routing
+
+The mutation phase (step 2) can be delegated to a non-default worker class via `--worker <class>`. The aggregation phase (steps 5–6: keep-or-reset and TSV append) always runs in-session regardless of the mutation worker.
+
+Worker class resolution per iteration:
+1. Per-iteration directive: `_RESEARCH_ITER_WORKER` env var (set externally from experiment manifest). Takes priority over everything.
+2. `--worker <class>` global flag.
+3. `WORKER_CLASS` env var.
+4. Default: `claude` (always-available in-session).
+
+Fallback semantics:
+- If the resolved class is absent (host-adapter exits 2): log `WORKER_UNAVAILABLE: <class> (host-adapter missing)` and fall back to in-session Claude for that iteration. Iteration counter advances normally.
+- If the host-adapter exits other non-zero: log `WORKER_FALLBACK: <iter-id> <class> -> claude (exit <rc>)` and retry once via ClaudeWorker. Second failure marks the iteration as a crash row in the TSV.
+
+Artifacts from delegated mutation phases are written to `.claude/tasks/research-<tag>/output/iter-<N>/` (stdout, stderr, exit files).
 
 ## Iteration phases
 
