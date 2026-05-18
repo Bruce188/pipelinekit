@@ -93,5 +93,29 @@ if grep -q 'FINDINGS_LIST_PYTHON' "$SKILL"; then
   fi
 fi
 
+# 11. two_axis=True kwarg flows to classify_findings.
+grep -q 'two_axis=True' "$SKILL" || {
+  echo "FAIL: 'two_axis=True' not found in $SKILL — Step 7.8 must pass two_axis kwarg."
+  exit 1
+}
+
+# 12. CHARTER_SCOPE_CONFLICT token is caught + emitted to stderr.
+grep -q 'CHARTER_SCOPE_CONFLICT' "$SKILL" || {
+  echo "FAIL: 'CHARTER_SCOPE_CONFLICT' not found in $SKILL — conflict token must be present."
+  exit 1
+}
+
+# 13. Adjacent-advisory Summary line surfaces.
+grep -q 'Charter scope adjacent' "$SKILL" || {
+  echo "FAIL: 'Charter scope adjacent' not found in $SKILL — adjacent advisory line missing."
+  exit 1
+}
+
+# 14. Two-axis worked-examples reference subsection exists.
+grep -q 'Two-axis classification' "$SKILL" || {
+  echo "FAIL: 'Two-axis classification' reference subsection missing in $SKILL."
+  exit 1
+}
+
 echo "OK: test_review_skill_step78.sh"
 exit 0

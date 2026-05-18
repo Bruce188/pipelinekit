@@ -35,7 +35,46 @@ __all__ = [
     "classify_findings",
     "classifier_should_skip",
     "append_out_of_scope_to_deferred",
+    "CharterScopeConflictError",
+    "classify_finding_two_axis",
+    "INTENT_VALUES",
+    "SCOPE_VALUES",
 ]
+
+# ---------------------------------------------------------------------------
+# Two-axis classification constants (Task 1.1)
+# ---------------------------------------------------------------------------
+
+INTENT_VALUES: frozenset = frozenset({"correctness", "polish", "design", "unrelated"})
+SCOPE_VALUES: frozenset = frozenset({"in", "out", "adjacent"})
+
+_LEGACY_SCOPE_TAG_TO_SCOPE: Dict[str, str] = {
+    "in_scope": "in",
+    "out_of_scope": "out",
+    "scope_creep": "adjacent",
+}
+
+
+def _validate_intent(value) -> str:
+    """Return ``value`` if it is a canonical intent, else ``"unrelated"``.
+
+    Case-sensitive — reviewer-emitted strings are lower-case per the
+    agent-prompt schema. Non-string inputs always normalize to
+    ``"unrelated"``.
+    """
+    if isinstance(value, str) and value in INTENT_VALUES:
+        return value
+    return "unrelated"
+
+
+def _scope_tag_to_scope(scope_tag: str) -> str:
+    """Map legacy ``scope_tag`` value to new two-axis ``scope`` value.
+
+    ``in_scope -> "in"``, ``out_of_scope -> "out"``, ``scope_creep -> "adjacent"``.
+    Unknown values fall through to ``"in"`` (default-allow, consistent with
+    ``_tag_for_match`` rule 3d).
+    """
+    return _LEGACY_SCOPE_TAG_TO_SCOPE.get(scope_tag, "in")
 
 
 # ---------------------------------------------------------------------------
@@ -200,21 +239,86 @@ def classify_finding(finding: dict, charter_sections: dict) -> str:
     return _tag_for_match(severity, "none")
 
 
+class CharterScopeConflictError(ValueError):
+    """Raised when reviewer-emitted scope=in contradicts the token-overlap classifier.
+
+    Step 7.8 of ``review/SKILL.md`` catches this exception, emits the
+    canonical ``CHARTER_SCOPE_CONFLICT: ...`` token to stderr, and skips the
+    review-file write so the orchestrator can route to Path B re-spawn.
+    """
+
+
+def classify_finding_two_axis(finding: dict, charter_sections: dict) -> dict:
+    """Return ``{"scope": ..., "intent": ...}`` for a single finding.
+
+    Trust reviewer-emitted ``intent`` when present (validate against
+    ``INTENT_VALUES``; invalid → ``"unrelated"``). Trust reviewer-emitted
+    ``scope`` when present, BUT cross-check against the legacy token-overlap
+    classifier. If reviewer says ``"in"`` but the classifier returns
+    ``"out_of_scope"`` or ``"scope_creep"``, raise ``CharterScopeConflictError``
+    — Step 7.8 of ``review/SKILL.md`` catches the exception, emits
+    ``CHARTER_SCOPE_CONFLICT: ...`` to stderr, and skips the review-file write
+    (the orchestrator then routes to Path B re-spawn).
+
+    When ``scope`` is absent, fall back to ``classify_finding`` +
+    ``_scope_tag_to_scope`` mapping. When ``intent`` is absent, default to
+    ``"unrelated"``.
+    """
+    legacy_tag = classify_finding(finding, charter_sections)
+    derived_scope = _scope_tag_to_scope(legacy_tag)
+
+    reviewer_scope = finding.get("scope")
+    reviewer_intent = finding.get("intent")
+
+    if reviewer_scope in SCOPE_VALUES:
+        if reviewer_scope == "in" and legacy_tag in ("out_of_scope", "scope_creep"):
+            snippet = str(finding.get("text", ""))[:60]
+            raise CharterScopeConflictError(
+                f'CHARTER_SCOPE_CONFLICT: finding "{snippet}" tagged scope=in by '
+                f"reviewer but classifier returns {legacy_tag}"
+            )
+        scope = reviewer_scope
+    else:
+        scope = derived_scope
+
+    intent = _validate_intent(reviewer_intent) if reviewer_intent is not None else "unrelated"
+    return {"scope": scope, "intent": intent}
+
+
+_TWO_AXIS_UNSET = object()  # Sentinel for detect-default in classify_findings
+
+
 def classify_findings(
-    findings: List[dict], charter_text: str
+    findings: List[dict], charter_text: str, *, two_axis: object = _TWO_AXIS_UNSET
 ) -> List[dict]:
-    """Decorate each finding with a ``scope_tag`` field; return a NEW list.
+    """Decorate each finding with scope/intent fields; return a NEW list.
+
+    Three invocation modes controlled by the ``two_axis`` kwarg:
+
+    * ``two_axis`` not passed (default / unset):
+        Backward-compat transition mode. Adds BOTH the legacy ``scope_tag``
+        field AND the new ``scope`` + ``intent`` fields. Existing callers
+        that read ``scope_tag`` keep working; new callers can read ``scope``
+        and ``intent``.
+
+    * ``two_axis=True`` (explicit):
+        Pure two-axis mode — adds ``scope`` + ``intent`` only. No
+        ``scope_tag`` field. Step 7.8 of ``review/SKILL.md`` uses this.
+
+    * ``two_axis=False`` (explicit):
+        Pure legacy mode — adds ``scope_tag`` only (byte-identical to the
+        pre-F13 behavior). Backward-compat shim for callers that need the
+        exact old schema.
 
     Pure function — does not mutate the input dicts. Each output dict is a
-    shallow copy of the corresponding input dict with one extra key
-    (``scope_tag``).
+    shallow copy of the corresponding input dict with extra key(s).
 
     Edge cases:
       * Empty ``findings`` -> ``[]``
       * Empty/missing ``charter_text`` -> returns the input list unchanged
-        (a new list, same item references; no ``scope_tag`` field added).
+        (a new list, same item references; no classification fields added).
         The caller detects classifier-skip via
-        ``'scope_tag' not in result[0]``.
+        ``'scope_tag' not in result[0]`` (legacy) or ``'scope' not in result[0]``.
     """
     if not findings:
         return []
@@ -227,11 +331,21 @@ def classify_findings(
         return list(findings)
 
     sections = parse_charter_sections(charter_text)
+    is_unset = two_axis is _TWO_AXIS_UNSET
 
     decorated: List[dict] = []
     for finding in findings:
         copy = dict(finding)
-        copy["scope_tag"] = classify_finding(finding, sections)
+        if two_axis is True:
+            # Pure new schema: scope + intent only.
+            copy.update(classify_finding_two_axis(finding, sections))
+        elif two_axis is False:
+            # Pure legacy schema: scope_tag only.
+            copy["scope_tag"] = classify_finding(finding, sections)
+        else:
+            # Transition default: add both fields for backward compat.
+            copy["scope_tag"] = classify_finding(finding, sections)
+            copy.update(classify_finding_two_axis(finding, sections))
         decorated.append(copy)
     return decorated
 
@@ -341,9 +455,13 @@ def append_out_of_scope_to_deferred(
     ``f"out-of-scope of charter ({review_file_name.removesuffix('.md')})"``.
     Target Iteration: ``"Next"``.
     """
-    # Step 1 — filter to out_of_scope findings. Empty -> no-op, no file touch.
+    # Step 1 — filter to out-of-scope findings. Accept EITHER the new two-axis
+    # ``scope: "out"`` field OR the legacy ``scope_tag: "out_of_scope"`` field
+    # for one-release backward compatibility. ``scope: "adjacent"`` is advisory
+    # only — do NOT include it in the deferred list.
     out_of_scope = [
-        f for f in findings if f.get("scope_tag") == "out_of_scope"
+        f for f in findings
+        if (f.get("scope") == "out") or (f.get("scope_tag") == "out_of_scope")
     ]
     if not out_of_scope:
         return 0
@@ -382,7 +500,7 @@ def append_out_of_scope_to_deferred(
 
     # Step 4 — build candidate rows and filter for idempotency.
     source = review_file_name
-    reason = f"out-of-scope of charter ({review_file_name.removesuffix('.md')})"
+    _reason_base = f"out-of-scope of charter ({review_file_name.removesuffix('.md')})"
     target = "Next"
 
     existing_lines = body.splitlines()
@@ -400,6 +518,14 @@ def append_out_of_scope_to_deferred(
             item = text
         else:
             item = text[:_ITEM_MAX_LEN] + _ELLIPSIS
+
+        # Compute intent suffix: when intent is a non-"unrelated" canonical
+        # value, suffix the Reason cell with " (intent: <intent>)".
+        intent = finding.get("intent")
+        if isinstance(intent, str) and intent in INTENT_VALUES and intent != "unrelated":
+            reason = _reason_base + f" (intent: {intent})"
+        else:
+            reason = _reason_base
 
         # Idempotency: skip when any existing line already contains BOTH the
         # Item value AND the Source value as substrings. Matches the

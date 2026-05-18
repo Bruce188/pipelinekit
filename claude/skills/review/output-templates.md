@@ -58,6 +58,7 @@ Review passed.
   [If cross-feature intel captured: "Cross-feature intel: [N] notes captured"]
   [If auto-scope active: "NOTE: Re-review scoped to [N] files from fixed tasks."]
   [If large diff: "Note: diff was [N] lines — consider --scope for targeted reviews"]
+  [If adjacent > 0: "Adjacent advisory: [N] finding(s) — near-charter, surfaced for awareness."]
 
 Next: Run /compact, then /ppr to push and open the PR.
 
@@ -76,6 +77,7 @@ Review complete.
   [If auto-scope active: "NOTE: Re-review scoped to [N] files from fixed tasks."]
   Findings: [N blocking, M non-blocking, P nits] -> [review filename]
   [If cross-feature intel captured: "Cross-feature intel: [N] notes captured"]
+  [If adjacent > 0: "Adjacent advisory: [N] finding(s) — near-charter, surfaced for awareness."]
 
 Reopened tasks in progress.md:
   [list]
@@ -98,6 +100,7 @@ Review complete — mixed findings.
   [If auto-scope active: "NOTE: Re-review scoped to [N] files from fixed tasks."]
   Findings: [N blocking, M non-blocking, P nits] -> [review filename]
   [If cross-feature intel captured: "Cross-feature intel: [N] notes captured"]
+  [If adjacent > 0: "Adjacent advisory: [N] finding(s) — near-charter, surfaced for awareness."]
 
 Fixable findings — reopened tasks in progress.md:
   [list]
