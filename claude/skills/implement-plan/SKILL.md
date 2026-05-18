@@ -74,7 +74,7 @@ Parallel execution is the default for phases with multiple parallelizable tasks.
 
 **Mixed-worker batches:** A single phase's parallel tasks may dispatch to heterogeneous worker classes. The lifecycle (5.a prepare → 5.f.5 squash-merge) is provider-agnostic by design — the lead does not need to know which class each worktree agent used. Contract:
 
-- A single phase may contain tasks with `worker: claude`, `worker: codex`, or any registered class in `claude/lib/worker-provider/`. Each task resolves its class independently via `5.a.routing`.
+- A single phase may contain tasks with different `worker:` classes (e.g., `worker: claude` or any registered class in `claude/lib/worker-provider/`). Each task resolves its class independently via `5.a.routing`.
 - Cross-worker scratchpad notes (`*-to-*.md`) route across worker classes because they are plain markdown files on disk at `$SCRATCHPAD`. Any task, regardless of class, can read and write notes there.
 - The lead **squash-merges all worktree branches** — regardless of their origin class — into ONE conventional commit on the working branch. Worker-class names MUST NOT appear in the merge commit message.
 - The beacon line at dispatch emits `worker=<class>` per task so the run log captures which class handled each task. This is the only place where the class is surfaced.
