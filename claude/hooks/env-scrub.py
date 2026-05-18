@@ -153,12 +153,26 @@ def wrap_mode(cmd: str) -> int:
     return 0
 
 
+def prefix_args_mode() -> int:
+    parts = ["env"]
+    for v in SCRUB_VARS:
+        if v in PRESERVED:
+            continue
+        parts.append("-u")
+        parts.append(v)
+    print("\n".join(parts))
+    return 0
+
+
 def main() -> int:
     if len(sys.argv) > 1 and sys.argv[1] == "--wrap":
         if len(sys.argv) < 3:
             print("usage: env-scrub.py --wrap <command>", file=sys.stderr)
             return 2
         return wrap_mode(" ".join(sys.argv[2:]))
+
+    if len(sys.argv) > 1 and sys.argv[1] == "--prefix-args":
+        return prefix_args_mode()
 
     return hook_mode()
 
