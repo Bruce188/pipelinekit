@@ -164,6 +164,44 @@ pipelinekit (see § What was removed in the portable build). If `orchestrate.sh`
 ever introduced, it would need its own docs-phase parallel — record as a deferred
 dependency.
 
+## Worker Delegation
+
+The implement phase of `/pipeline` dispatches each plan task to a worker. The default
+worker is **ClaudeWorker** — the in-session Agent-tool worktree fan-out documented
+in `claude/skills/implement-plan/SKILL.md` § Step 1.5. ClaudeWorker is always
+available and requires no external runtime.
+
+Plan task prompts MAY include an optional `worker:` header to request a different
+worker class (for example, an external worker class for long-running parallel work).
+When the header is absent or set to `worker: claude`, pipelinekit dispatches via
+ClaudeWorker. Routing logic for non-default worker classes is **not wired in this
+build** — see Phase 3 of the worker-delegation initiative (deferred).
+
+### Worker classes
+
+| Class    | Status                          | Dispatch mechanism                                |
+|----------|---------------------------------|---------------------------------------------------|
+| `claude` | default; always available       | In-session Agent tool + worktree isolation        |
+
+Per-class implementation specs live in `claude/lib/worker-provider/<class>.md`.
+The contract every worker class implements is documented in
+`claude/lib/worker-provider/interface.md`. The per-task spec schema that every
+worker reads from `.claude/tasks/<task-id>/spec.md` is documented in
+`claude/lib/worker-provider/task-spec.md`.
+
+### Opt-in format
+
+Add a `worker:` line to a plan task prompt's header block:
+
+```
+### Task 1.1: Build the thing
+> Model: sonnet | Effort: medium | Agent: none | worker: claude
+```
+
+In this build, the header is acknowledged but ignored — every task dispatches via
+ClaudeWorker regardless. The header reservation lets plan authors begin annotating
+plans today; routing arrives in a future iteration.
+
 ## What was removed in the portable build
 
 - `orchestrate.sh` (out-of-process driver). The in-process Skill is the only entry point.
