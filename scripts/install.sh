@@ -5,7 +5,7 @@
 # Env:
 #   CLAUDE_HOME                 Target overlay dir (default: $HOME/.claude)
 #   CLAUDE_INSTALL_NONINTERACTIVE=1   Skip all prompts; assume sane defaults
-#   CLAUDE_INSTALL_OPTIONALS    Comma list: tresor,lsp,mcp,gstack,claude-skills,serena,mobile,azure,claude-context,vercel
+#   CLAUDE_INSTALL_OPTIONALS    Comma list: tresor,lsp,mcp,gstack,claude-skills,serena,mobile,azure,claude-context,vercel,agentmemory
 #                               Default interactive prompt; non-interactive default: tresor,lsp,mcp
 #                               claude-context = community MCP (@zilliztech) for codebase semantic RAG; opt-in only.
 
@@ -379,6 +379,22 @@ if want claude-context; then
     log "  -> Uncomment the _optional_claude_context_mcpServers block in .mcp.json.template before copying into <your-project>/.mcp.json"
   fi
   warn "@zilliztech/claude-context is a community MCP (NOT Anthropic-official). Review upstream before sandbox use; PIN the npx package to a specific version for reproducibility."
+fi
+
+# AgentMemory (community — rohitg00/agentmemory, NOT Anthropic). Opt-in structured-retrieval
+# layer over the existing ~/.claude/memory/ flat-file system. Adds semantic similarity, decay,
+# and contextual recall via vendored library under claude/lib/agentmemory/. Default behavior
+# unchanged when not installed.
+if want agentmemory; then
+  log "AgentMemory requested (community — rohitg00/agentmemory, NOT Anthropic)."
+  log "  - Structured retrieval layer over flat-file ~/.claude/memory/<slug>/ markdown files"
+  log "  - Complementarity: flat-file remains canonical write path; agentmemory is a secondary retrieval index"
+  log "  - Vendoring skeleton: claude/lib/agentmemory/NOTICE.md + README.md (SHA pin + file copy land in a follow-up iteration)"
+  log "  - Plain-markdown inspectability preserved: cat / Read / grep continue to work on memory files"
+  if [[ -f "$REPO_ROOT/.mcp.json.template" ]]; then
+    log "  -> Uncomment the _optional_agentmemory_mcpServers block in .mcp.json.template before copying into <your-project>/.mcp.json"
+  fi
+  warn "rohitg00/agentmemory is a community project (NOT Anthropic-official). Review upstream before sandbox use; PIN the version to a specific commit/release for reproducibility."
 fi
 
 # Third-party skill library (alirezarezvani/claude-skills). Pinnable via $CLAUDE_SKILLS_REF.
