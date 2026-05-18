@@ -27,6 +27,7 @@ Specialized subagents for software development. Each is defined as a `.md` file 
 
 ### Cloud Deployment
 - **@azure-deployment-engineer** — Azure CLI (`az`) ops, App Service / Container Apps / Function Apps / AKS deployment, Bicep / ARM templates, Log Analytics + Application Insights, RBAC + Managed Identity
+- **@vercel-deployment-engineer** — Vercel CLI ops, project/team/scope layout, `vercel.json` + framework presets (Next.js / SvelteKit / Astro), preview-URL smoke + `vercel inspect` verification, Web Analytics + log drains, Hobby/Pro/Enterprise plan guardrails
 
 ### Personas
 - **@devops** — Infra / operational / deployment / observability emphasis

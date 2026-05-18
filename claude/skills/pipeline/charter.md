@@ -17,7 +17,7 @@ status: draft | ratified
 ---
 ```
 
-Required sections (9 topics in order):
+Required sections (10 topics in order):
 1. `## Goal`
 2. `## Users`
 3. `## Problem`
@@ -27,6 +27,7 @@ Required sections (9 topics in order):
 7. `## MVP Boundary`
 8. `## Prior Art`
 9. `## Open Questions`
+10. `## Deployment target`
 
 Required table (appended after the 9 sections):
 ```markdown
@@ -49,6 +50,19 @@ Ready to ship? Choose:
   C) Go deeper on the current topic (follow-up questions)
   D) Edit manually — write current draft and pause (resume via /pipeline --charter docs/charter.md)
 ```
+
+The 10 topics enumerated by the convergence check (in order):
+
+- Topic 1 — Goal
+- Topic 2 — Users
+- Topic 3 — Problem
+- Topic 4 — Success
+- Topic 5 — Non-Goals
+- Topic 6 — Constraints
+- Topic 7 — MVP Boundary
+- Topic 8 — Prior Art
+- Topic 9 — Open Questions
+- Topic 10 — Deployment target
 
 The user must see this choice after every topic, including the last. "Ship the charter now" is always available.
 
@@ -168,6 +182,27 @@ Options:
 
 ---
 
+### Topic 10: Deployment target
+
+**Probe:** Which deployment target will this project ship to?
+
+**Follow-up 1:** Is there an existing provider config file in the repo (`vercel.json`, `railway.toml`, `render.yaml`, `.do/app.yaml`)? If so, the pipeline can pre-fill this topic from the detected provider and ask only for confirmation.
+
+**Follow-up 2:** If you don't deploy from this repo (library / pure backend / data pipeline), choose `none` — the pipeline will skip the deployment phase entirely.
+
+**Example values:** `vercel`, `railway`, `render`, `digitalocean`, `none`.
+
+Options:
+- A) `[User provides free-form answer]`
+- B) `vercel`
+- C) `railway`
+- D) `render`
+- E) `digitalocean`
+- F) `none` — no deployment from this repo
+- G) `Ship the charter now`
+
+---
+
 ## Charter File Template
 
 After all topics are gathered (or user chooses "ship now"), write `docs/charter.md` using this template:
@@ -209,6 +244,9 @@ status: draft
 
 ## Open Questions
 [Open Questions content]
+
+## Deployment target
+[Provider slug, e.g. `vercel`, `railway`, `render`, `digitalocean`, or `none`.]
 
 ## Decision Log
 | Date | Question | Decision | Reason |

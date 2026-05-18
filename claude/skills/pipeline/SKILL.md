@@ -44,13 +44,13 @@ Charter Discovery is the default-on front-loaded alignment phase. It produces `d
 **Charter Discovery loop (when not skipped):**
 
 1. Print an explainer to the user:
-   > "Charter Discovery (Step 0): Before the pipeline runs autonomously, let's align on what you want to build. I'll ask about 9 topics. You can exit at any point — just choose 'ship the charter now' to write the charter with what we have so far and continue."
+   > "Charter Discovery (Step 0): Before the pipeline runs autonomously, let's align on what you want to build. I'll ask about 10 topics. You can exit at any point — just choose 'ship the charter now' to write the charter with what we have so far and continue."
    >
    > "To skip entirely: re-invoke with `--no-charter`. To adopt an existing charter: `--charter <path>`."
 
 2. Read `claude/skills/pipeline/charter.md` for the question bank.
 
-3. For each topic in order (Goal → Users → Problem → Success → Non-Goals → Constraints → MVP Boundary → Prior Art → Open Questions):
+3. For each topic in order (Goal → Users → Problem → Success → Non-Goals → Constraints → MVP Boundary → Prior Art → Open Questions → Deployment target):
    a. Invoke `AskUserQuestion` with the topic's question and options from the bank.
    b. Record the user's answer.
    c. After the answer, invoke the convergence check from the bank:
@@ -58,6 +58,8 @@ Charter Discovery is the default-on front-loaded alignment phase. It produces `d
       - **"continue to next topic"** → advance to the next topic.
       - **"go deeper / follow-up"** → ask the topic's follow-up question (if any), then advance.
       - **"edit manually"** → write current draft to `docs/charter.md` (status: `draft`), print path, **STOP** pipeline. User resumes via `/pipeline --charter docs/charter.md` when ready.
+
+**Auto-detect short-circuit (Topic 10 only):** Before asking Topic 10 (Deployment target), check `docs/active-deployment`. If present, treat its value as the answer and skip the topic. If absent, probe the working tree for `vercel.json`, `railway.toml`, `render.yaml`, `.do/app.yaml`. If exactly one is found, pre-fill the Topic 10 answer with the matching provider slug and ask the user only for confirmation (single `AskUserQuestion` — exempt from the `--max-questions` topic-cap). If multiple config files coexist, log `DEPLOY_TARGET_AUTO_DETECT_CONFLICT: <files>` and fall through to a full Topic 10 prompt. If none found, ask the full Topic 10 prompt as normal.
 
 4. After the final topic, run a final convergence check. If user is satisfied, write `docs/charter.md` (status: `ratified`), set `**Charter:**` pointer in `progress.md`.
 

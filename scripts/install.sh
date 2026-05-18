@@ -5,7 +5,7 @@
 # Env:
 #   CLAUDE_HOME                 Target overlay dir (default: $HOME/.claude)
 #   CLAUDE_INSTALL_NONINTERACTIVE=1   Skip all prompts; assume sane defaults
-#   CLAUDE_INSTALL_OPTIONALS    Comma list: tresor,lsp,mcp,gstack,claude-skills,serena,mobile,azure,claude-context
+#   CLAUDE_INSTALL_OPTIONALS    Comma list: tresor,lsp,mcp,gstack,claude-skills,serena,mobile,azure,claude-context,vercel
 #                               Default interactive prompt; non-interactive default: tresor,lsp,mcp
 #                               claude-context = community MCP (@zilliztech) for codebase semantic RAG; opt-in only.
 
@@ -349,6 +349,19 @@ if want azure; then
   else
     warn "Azure CLI auto-install skipped on $(uname -s). See https://learn.microsoft.com/cli/azure/install-azure-cli"
   fi
+fi
+
+# Vercel CLI (opt-in). Probed via PATH; install + authenticate manually outside Claude.
+# The gate prints the official npm install one-liner and reminds the user to run
+# `vercel login` themselves. It does NOT auto-install the CLI and NEVER auto-authenticates.
+# NEVER auto-run `vercel login` — user authenticates manually outside Claude.
+if want vercel; then
+  if command -v vercel >/dev/null 2>&1; then
+    log "vercel CLI already installed; skipping (run 'vercel --version' to check version)"
+  else
+    warn "Vercel CLI not on PATH. Install: npm i -g vercel"
+  fi
+  log "Authenticate via: vercel login   (run outside Claude before invoking /pipeline)"
 fi
 
 # Claude-Context MCP (community — @zilliztech, NOT Anthropic). Codebase semantic RAG via npx;
