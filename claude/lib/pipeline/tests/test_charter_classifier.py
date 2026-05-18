@@ -591,5 +591,201 @@ class TestBulletLineRegexDRY(unittest.TestCase):
         )
 
 
+# ---------------------------------------------------------------------------
+# F14 — Task 1.2: DEPLOYMENT_PROVIDER_TOKENS + parsing/mismatch helpers
+# ---------------------------------------------------------------------------
+
+
+class DeploymentTargetClassifierTests(unittest.TestCase):
+    """Red-phase tests for Task 1.2 — DEPLOYMENT_PROVIDER_TOKENS constant and
+    the three helpers: _parse_deployment_target, _classify_provider_mismatch.
+
+    Source: docs/plan-v45.md Task 1.2 / docs/analysis-v44.md.
+    """
+
+    def test_deployment_provider_tokens_has_seven_keys(self):
+        """DEPLOYMENT_PROVIDER_TOKENS must have exactly seven provider keys."""
+        self.assertEqual(
+            set(charter_classifier.DEPLOYMENT_PROVIDER_TOKENS.keys()),
+            {"vercel", "railway", "render", "digitalocean", "azure", "aws", "gcp"},
+        )
+
+    def test_deployment_provider_tokens_no_none_key(self):
+        """'none' must NOT be a key — it means 'skip' not a provider."""
+        self.assertNotIn("none", charter_classifier.DEPLOYMENT_PROVIDER_TOKENS)
+
+    def test_parse_deployment_target_slug(self):
+        """Plain slug with trailing newline returns lower-cased slug."""
+        self.assertEqual(
+            charter_classifier._parse_deployment_target("vercel\n"),
+            "vercel",
+        )
+
+    def test_parse_deployment_target_strips_backticks(self):
+        """Backtick-wrapped slug is unwrapped."""
+        self.assertEqual(
+            charter_classifier._parse_deployment_target("`azure`\n"),
+            "azure",
+        )
+
+    def test_parse_deployment_target_strips_bullet(self):
+        """Bullet marker is stripped before returning."""
+        self.assertEqual(
+            charter_classifier._parse_deployment_target("- vercel\n"),
+            "vercel",
+        )
+
+    def test_parse_deployment_target_empty(self):
+        """Empty input returns empty string."""
+        self.assertEqual(charter_classifier._parse_deployment_target(""), "")
+
+    def test_parse_deployment_target_none_literal(self):
+        """The literal string 'none' is returned as-is (not treated as absent)."""
+        self.assertEqual(
+            charter_classifier._parse_deployment_target("none\n"),
+            "none",
+        )
+
+    def test_classify_provider_mismatch_azure_vs_vercel_true(self):
+        """Blob with Azure tokens + charter_provider='vercel' → True (mismatch)."""
+        blob_tokens = charter_classifier._build_finding_blob_tokens(
+            {"text": "Azure cold-start latency"}
+        )
+        self.assertTrue(
+            charter_classifier._classify_provider_mismatch(blob_tokens, "vercel")
+        )
+
+    def test_classify_provider_mismatch_vercel_vs_vercel_false(self):
+        """Blob with Vercel tokens + charter_provider='vercel' → False (no mismatch)."""
+        blob_tokens = charter_classifier._build_finding_blob_tokens(
+            {"text": "Vercel cold-start latency"}
+        )
+        self.assertFalse(
+            charter_classifier._classify_provider_mismatch(blob_tokens, "vercel")
+        )
+
+    def test_classify_provider_mismatch_generic_false(self):
+        """Generic blob with no provider tokens + charter_provider='vercel' → False."""
+        blob_tokens = charter_classifier._build_finding_blob_tokens(
+            {"text": "off-by-one in async retry"}
+        )
+        self.assertFalse(
+            charter_classifier._classify_provider_mismatch(blob_tokens, "vercel")
+        )
+
+    def test_classify_provider_mismatch_empty_charter_false(self):
+        """Empty charter_provider → False (dimension skipped)."""
+        blob_tokens = charter_classifier._build_finding_blob_tokens(
+            {"text": "Azure functions cold-start latency"}
+        )
+        self.assertFalse(
+            charter_classifier._classify_provider_mismatch(blob_tokens, "")
+        )
+
+    def test_classify_provider_mismatch_none_charter_false(self):
+        """charter_provider='none' → False (dimension skipped)."""
+        blob_tokens = charter_classifier._build_finding_blob_tokens(
+            {"text": "Azure functions cold-start latency"}
+        )
+        self.assertFalse(
+            charter_classifier._classify_provider_mismatch(blob_tokens, "none")
+        )
+
+
+# ---------------------------------------------------------------------------
+# F14 — Task 1.3: Deployment-mismatch clause in classify_finding_two_axis
+# ---------------------------------------------------------------------------
+
+
+def _charter_with_deployment(deployment_target: str) -> str:
+    """Build a minimal charter with Non-Goals, MVP Boundary, and Deployment target."""
+    return textwrap.dedent(
+        f"""\
+        # Charter
+
+        ## Non-Goals
+
+        - irrelevant non-goal stub
+
+        ## MVP Boundary
+
+        **In:**
+        - core api stability
+
+        ## Deployment target
+
+        {deployment_target}
+        """
+    )
+
+
+class DeploymentMismatchClassifyTests(unittest.TestCase):
+    """F14 Task 1.3 — deployment-mismatch clause in classify_finding_two_axis.
+
+    Source: docs/plan-v45.md Task 1.3 / docs/analysis-v44.md.
+    """
+
+    def test_charter_vercel_azure_finding_tagged_out(self):
+        """Charter=vercel + Azure finding → scope: 'out'."""
+        charter_text = _charter_with_deployment("vercel")
+        sections = charter_revalidate.parse_charter_sections(charter_text)
+        finding = {"text": "Azure functions cold-start latency spike", "severity": "non-blocking"}
+        result = charter_classifier.classify_finding_two_axis(finding, sections)
+        self.assertEqual(
+            result["scope"], "out",
+            f"Charter vercel + Azure finding must be tagged out; got {result!r}",
+        )
+
+    def test_charter_vercel_vercel_finding_tagged_in(self):
+        """Charter=vercel + Vercel finding → scope: 'in' (no demotion)."""
+        charter_text = _charter_with_deployment("vercel")
+        sections = charter_revalidate.parse_charter_sections(charter_text)
+        finding = {"text": "Vercel edge function timeout", "severity": "non-blocking"}
+        result = charter_classifier.classify_finding_two_axis(finding, sections)
+        self.assertNotEqual(
+            result["scope"], "out",
+            f"Charter vercel + Vercel finding must NOT be demoted; got {result!r}",
+        )
+
+    def test_charter_none_skips_dimension(self):
+        """Charter deployment_target=none → mismatch dimension skipped entirely."""
+        charter_text = _charter_with_deployment("none")
+        sections = charter_revalidate.parse_charter_sections(charter_text)
+        finding = {"text": "Vercel edge function timeout", "severity": "non-blocking"}
+        # Must not raise, and must not return scope: "out" from provider mismatch
+        result = charter_classifier.classify_finding_two_axis(finding, sections)
+        # With 'none', provider mismatch is skipped; legacy path applies.
+        # The finding "Vercel edge function timeout" doesn't match any Non-Goals
+        # or MVP-out bullets → default-allow → scope "in".
+        self.assertNotEqual(
+            result["scope"], "out",
+            f"Charter none must skip dimension; got {result!r}",
+        )
+
+    def test_charter_vercel_generic_finding_falls_through(self):
+        """Charter=vercel + generic finding → falls through to legacy (scope: 'in')."""
+        charter_text = _charter_with_deployment("vercel")
+        sections = charter_revalidate.parse_charter_sections(charter_text)
+        finding = {"text": "off-by-one in async retry", "severity": "non-blocking"}
+        result = charter_classifier.classify_finding_two_axis(finding, sections)
+        self.assertEqual(
+            result["scope"], "in",
+            f"Generic finding under vercel charter must fall through to in; got {result!r}",
+        )
+
+    def test_reviewer_scope_in_with_provider_mismatch_raises_conflict(self):
+        """reviewer scope=in + provider mismatch → CharterScopeConflictError."""
+        charter_text = _charter_with_deployment("vercel")
+        sections = charter_revalidate.parse_charter_sections(charter_text)
+        finding = {
+            "text": "Azure functions cold-start latency spike",
+            "severity": "non-blocking",
+            "scope": "in",
+        }
+        with self.assertRaises(charter_classifier.CharterScopeConflictError) as ctx:
+            charter_classifier.classify_finding_two_axis(finding, sections)
+        self.assertIn("CHARTER_SCOPE_CONFLICT", str(ctx.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

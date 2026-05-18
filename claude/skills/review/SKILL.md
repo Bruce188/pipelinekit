@@ -636,6 +636,40 @@ Worked examples:
 
 If reviewer emits `scope=in` but the token-overlap classifier returns `out_of_scope` or `scope_creep`, `CHARTER_SCOPE_CONFLICT` is raised and the review-file write is skipped — the orchestrator routes to Path B for re-review.
 
+#### Deployment-target mismatch (Topic 10)
+
+When charter Topic 10 declares a concrete deployment target (one of
+`vercel`, `railway`, `render`, `digitalocean`, `azure`, `aws`, `gcp`),
+the classifier additionally demotes findings that name a *different*
+provider to `scope: "out"`. A `deployment_target` value of `none` (or
+a missing section) skips this dimension — generic findings are NOT
+demoted.
+
+Provider-token lookup table (matches `DEPLOYMENT_PROVIDER_TOKENS` in
+`claude/lib/pipeline/charter_classifier.py`):
+
+| Provider | Token phrases | Example mismatch finding |
+|----------|---------------|--------------------------|
+| `vercel` | `vercel`, `vercel.json`, `edge function(s)`, `vercel deploy`, `vercel cli` | "Vercel cold-start latency exceeds 800ms" |
+| `railway` | `railway`, `railway.toml`, `railway up`, `railway cli` | "Railway healthcheck flaps under load" |
+| `render` | `render`, `render.yaml`, `render service` | "Render service restart loop on OOM" |
+| `digitalocean` | `digitalocean`, `digital ocean`, `doctl`, `.do/app.yaml`, `do droplet` | "DigitalOcean droplet provisioning timeout" |
+| `azure` | `azure`, `azure functions`, `azure app service`, `az cli`, `bicep`, `arm template` | "Azure functions cold-start latency spike" |
+| `aws` | `aws lambda`, `aws s3`, `aws cloudformation`, `aws sam`, `aws iam`, `aws cdk`, `amazon s3`, `amazon ec2` | "AWS Lambda timeout exceeds 15 min cap" |
+| `gcp` | `gcp`, `google cloud`, `cloud run`, `cloud functions`, `gcloud`, `firebase hosting` | "Cloud Run revision rollback fails" |
+
+Worked example: charter Topic 10 = `vercel`. Reviewer emits a finding
+`"Azure functions cold-start latency spike"`. The classifier checks
+the token set against `DEPLOYMENT_PROVIDER_TOKENS["azure"]`, matches
+on `azure functions`, observes the charter provider is `vercel`
+(different), and tags the finding `scope: "out"`. The Deferred append
+then records it with Reason `out-of-scope of charter (review-vN)`.
+
+Conflict path: if the reviewer pre-emits `scope: "in"` on the same
+Azure-named finding under a Vercel charter, the classifier raises
+`CharterScopeConflictError` and the orchestrator routes to Path B
+re-review (identical to the existing scope-conflict path).
+
 ---
 
 ### Step 8: Save Review Findings

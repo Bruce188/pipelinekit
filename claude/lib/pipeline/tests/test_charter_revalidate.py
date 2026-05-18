@@ -340,6 +340,101 @@ class TestFrontmatterParse(unittest.TestCase):
         )
 
 
+class TestDeploymentTargetSection(unittest.TestCase):
+    """F14 — parse_charter_sections must extract ``## Deployment target`` body
+    into a new ``deployment_target`` key.
+
+    Source: docs/analysis-v44.md § 3.1, docs/plan-v45.md Task 1.1.
+    """
+
+    def test_parses_deployment_target_present(self):
+        """Charter with `## Deployment target\\nvercel\\n` exposes the body."""
+        charter_text = textwrap.dedent(
+            """\
+            # Charter
+
+            ## Non-Goals
+
+            - no logging changes
+
+            ## MVP Boundary
+
+            **In:**
+            - auth flow
+
+            ## Deployment target
+
+            vercel
+            """
+        )
+        result = charter_revalidate.parse_charter_sections(charter_text)
+        self.assertIn(
+            "deployment_target", result,
+            "parse_charter_sections must expose a 'deployment_target' key",
+        )
+        self.assertIn(
+            "vercel", result["deployment_target"],
+            f"Expected 'vercel' in deployment_target body; got {result['deployment_target']!r}",
+        )
+
+    def test_parses_deployment_target_with_backticks(self):
+        """Body wrapping the slug in backticks still exposes the slug text."""
+        charter_text = textwrap.dedent(
+            """\
+            # Charter
+
+            ## Non-Goals
+
+            - none
+
+            ## MVP Boundary
+
+            **In:**
+            - x
+
+            ## Deployment target
+
+            `azure`
+            """
+        )
+        result = charter_revalidate.parse_charter_sections(charter_text)
+        self.assertIn(
+            "azure", result["deployment_target"],
+            "Backticked slug must still appear in the deployment_target body",
+        )
+
+    def test_deployment_target_absent_returns_empty_string(self):
+        """Charter without the section returns empty string for the key."""
+        charter_text = textwrap.dedent(
+            """\
+            # Charter
+
+            ## Non-Goals
+
+            - none
+
+            ## MVP Boundary
+
+            **In:**
+            - x
+            """
+        )
+        result = charter_revalidate.parse_charter_sections(charter_text)
+        self.assertEqual(
+            result.get("deployment_target", None), "",
+            "Missing Deployment target section must yield empty string, not None",
+        )
+
+    def test_default_dict_contains_deployment_target_key(self):
+        """Empty input still exposes deployment_target key with empty value."""
+        result = charter_revalidate.parse_charter_sections("")
+        self.assertIn(
+            "deployment_target", result,
+            "parse_charter_sections('') must include deployment_target key",
+        )
+        self.assertEqual(result["deployment_target"], "")
+
+
 class TestLegacyShim(unittest.TestCase):
     def test_detect_drift_legacy_returns_2_tuples(self):
         charter_text = _charter(non_goals_body="- no logging changes\n")
