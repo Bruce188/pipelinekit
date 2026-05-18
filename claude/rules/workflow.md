@@ -278,6 +278,19 @@ All memory files are in `~/.claude/projects/<project-slug>/memory/`, indexed by 
 
 Writes follow the auto-memory save protocol in the system instructions.
 
+#### Agentmemory complementarity (opt-in)
+
+When installed via `CLAUDE_INSTALL_OPTIONALS=agentmemory`, the vendored `claude/lib/agentmemory/` skeleton enables a structured-retrieval layer over the same `~/.claude/memory/` flat-file system (semantic similarity, decay, contextual recall). AgentMemory is a community project (NOT Anthropic-official) — see `claude/lib/agentmemory/NOTICE.md` for vendor attribution.
+
+**Complementarity invariants (enforced by the opt-in design):**
+
+1. **Flat-file remains canonical.** All memory writes land as plain markdown files in `~/.claude/memory/<slug>/` regardless of whether agentmemory is installed. The Memory Feed and Memory Integration protocols above apply identically.
+2. **Plain-markdown inspectability preserved.** `cat`, Read, and grep continue to work on every memory file. AgentMemory's vector store (if a separate store mode is chosen) is a secondary index, never the only access path.
+3. **One mode at a time.** The user explicitly chooses either (a) "same store" — vector index rebuilt from the markdown files on each refresh — or (b) "separate store" — independent vector DB used for retrieval queries. Never both writing concurrently. Mode-selection mechanics are deferred to a follow-up iteration.
+4. **Default behavior unchanged when not installed.** Without `agentmemory` in `CLAUDE_INSTALL_OPTIONALS`, pipelinekit installs and runs exactly as today — no new dependencies, no Phase Tool Routing or Memory Feed table changes.
+
+**Out of scope this MVP (deferred):** wiring agentmemory queries into the Phase Tool Routing Memory Reads column for `/analyze` / `/create-plan` / `/implement-plan` / `/review`, "same store vs separate store" decision matrix, vector-store backup tooling. See `claude/lib/agentmemory/README.md` for the full opt-in reference and the deferred-decision list.
+
 ## Tools
 
 - Tool libraries: `~/claude-skills/` (optional install), `~/.claude/tresor-resources/`. Install per-project via symlink.

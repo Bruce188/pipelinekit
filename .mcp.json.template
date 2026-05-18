@@ -53,5 +53,17 @@
         "MILVUS_TOKEN": ""
       }
     }
+  },
+  "_agentmemory_instructions": "COMMUNITY MCP / LIBRARY — rohitg00/agentmemory is a community project (NOT Anthropic-official). Opt-in structured-retrieval layer over the existing ~/.claude/memory/<slug>/ flat-file markdown system. Adds semantic similarity, decay, and contextual recall. Complementarity: flat-file remains the canonical write path; agentmemory is a secondary retrieval index — plain-markdown inspectability via cat/Read/grep is preserved. Vendoring skeleton lives under claude/lib/agentmemory/. Mode (same-store vs separate-store) and upstream shape (library vs MCP) are deferred to a follow-up iteration. PIN guidance: when upstream ships an MCP server, replace any rolling ref (e.g. @main) with a fixed commit SHA or pinned version BEFORE sandbox use to prevent supply-chain takeover.",
+  "_optional_agentmemory_mcpServers": {
+    "agentmemory": {
+      "type": "stdio",
+      "command": "TBD",
+      "args": ["TBD"],
+      "env": {
+        "AGENTMEMORY_STORE_MODE": "",
+        "AGENTMEMORY_DATA_DIR": ""
+      }
+    }
   }
 }
