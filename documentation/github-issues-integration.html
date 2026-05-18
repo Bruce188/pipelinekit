@@ -1,8 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GitHub Issues Integration</title>
+  <meta name="description" content="GitHub Issues Integration — pipelinekit application documentation.">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111111;
+      --muted: #555555;
+      --border: #dddddd;
+      --link: #0050b3;
+      --code-bg: #f5f5f5;
+      --header-bg: #fafafa;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0d1117;
+        --fg: #e6edf3;
+        --muted: #8b949e;
+        --border: #30363d;
+        --link: #58a6ff;
+        --code-bg: #161b22;
+        --header-bg: #161b22;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.55; background: var(--bg); color: var(--fg); margin: 0 auto; padding: 2rem; max-width: 1200px; }
+    h1 { margin-top: 0; font-size: 1.85rem; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 3px; padding: 1rem; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; font-family: ui-monospace, "Cascadia Code", "Consolas", monospace; }
+    @media (max-width: 768px) { body { padding: 1rem; } }
+  </style>
+</head>
+<body>
+<h1>GitHub Issues Integration</h1>
+<pre>
 # GitHub Issues Integration
 
 ## Overview
 
-`/pipeline --issues \<selector\>` ingests open GitHub Issues as an alternative
+`/pipeline --issues \&lt;selector\&gt;` ingests open GitHub Issues as an alternative
 feature source, converting each issue into one H2 section in `docs/features.md`
 and processing it through the standard autonomous pipeline.
 
@@ -24,15 +62,15 @@ All `--issues-*` flags are ignored when `--issues` is absent.
 
 | Flag | Description |
 |------|-------------|
-| `--issues label:\<name\>` | Fetch open issues with label \<name\> |
-| `--issues milestone:\<name\>` | Fetch open issues in milestone \<name\> |
+| `--issues label:\&lt;name\&gt;` | Fetch open issues with label \&lt;name\&gt; |
+| `--issues milestone:\&lt;name\&gt;` | Fetch open issues in milestone \&lt;name\&gt; |
 | `--issues all` | Fetch all open issues (no filter) |
-| `--issues \<name\>` | Bare value — defaults to `label:\<name\>` |
+| `--issues \&lt;name\&gt;` | Bare value — defaults to `label:\&lt;name\&gt;` |
 | `--issues-sort created` | Sort by creation date (default) |
 | `--issues-sort updated` | Sort by last-updated date |
 | `--issues-sort priority` | Sort by `priority:high/medium/low` labels (client-side) |
-| `--issues-limit \<N\>` | Cap fetched issues at \<N\> (default 50, max 200) |
-| `--issues-comment-author \<login\>` | Override maintainer heuristic for constraint extraction |
+| `--issues-limit \&lt;N\&gt;` | Cap fetched issues at \&lt;N\&gt; (default 50, max 200) |
+| `--issues-comment-author \&lt;login\&gt;` | Override maintainer heuristic for constraint extraction |
 
 **Mutual exclusivity:** `--issues` cannot be combined with `--plan`, `--adopt`,
 `--renew`, `--from`, or a positional feature-file path. Violating this stops the
@@ -46,7 +84,7 @@ ERROR: --issues is mutually exclusive with --plan/--adopt/--renew/--from/positio
 
 ## Issue → feature mapping
 
-Each open issue becomes one `## \<type\>/issue-\<N\>-\<slug\>` section in
+Each open issue becomes one `## \&lt;type\&gt;/issue-\&lt;N\&gt;-\&lt;slug\&gt;` section in
 `docs/features.md`.
 
 ### Commit type
@@ -67,16 +105,16 @@ Starting from the issue title:
 1. Strip leading conventional prefixes (`feat:`, `[BUG]`, etc.).
 2. Strip punctuation; downcase; collapse whitespace → `-`.
 3. Cap at 50 characters at a word boundary.
-4. If empty after normalization → fall back to `issue-<N>`.
+4. If empty after normalization → fall back to `issue-&lt;N&gt;`.
 
 ### Body normalization (`**Description:**`)
 
-1. Strip HTML comments (`<!-- ... -->`).
+1. Strip HTML comments (`&lt;!-- ... --&gt;`).
 2. If body matches the bug-report template, extract user-authored prose
    paragraphs only.
 3. Collapse multiple blank lines.
-4. Cap at 2 KB; truncate at word boundary, append `… (see issue #<N> for full body)`.
-5. If empty → `**Description:** See issue #<N>. No body provided.`
+4. Cap at 2 KB; truncate at word boundary, append `… (see issue #&lt;N&gt; for full body)`.
+5. If empty → `**Description:** See issue #&lt;N&gt;. No body provided.`
 
 ### Constraint extraction (`**Constraints:**`)
 
@@ -86,7 +124,7 @@ Merged from three sources (in priority order):
    `Acceptance Criteria`, `Specification`, or `Spec`.
 2. Maintainer comments that begin with `Constraints:`, `Requirements:`, or
    `Acceptance:`. Maintainer = repo owner or first commenter (or
-   `--issues-comment-author \<login\>` override).
+   `--issues-comment-author \&lt;login\&gt;` override).
 3. Labels with `requires:` prefix → individual constraint bullets.
 
 If none → `**Constraints:** None stated.` Cap at 2 KB.
@@ -94,7 +132,7 @@ If none → `**Constraints:** None stated.` Cap at 2 KB.
 ### Branch naming
 
 ```
-\<type\>/issue-\<N\>-\<slug\>
+\&lt;type\&gt;/issue-\&lt;N\&gt;-\&lt;slug\&gt;
 ```
 
 Examples: `feat/issue-42-add-foo`, `fix/issue-103-login-redirect-loop`,
@@ -103,10 +141,10 @@ Examples: `feat/issue-42-add-foo`, `fix/issue-103-login-redirect-loop`,
 ### PR body: `Closes #N`
 
 The PR body assembled by `/pipeline` Path A (automatic) and `/ppr` (human-driver)
-appends `Closes #<N>` to the `## Summary` section when the branch matches the
+appends `Closes #&lt;N&gt;` to the `## Summary` section when the branch matches the
 `^[a-z]+/issue-([0-9]+)-` pattern.
 
-**Dedup mechanism:** `Closes #<N>` is emitted by a conditional printf that fires only when
+**Dedup mechanism:** `Closes #&lt;N&gt;` is emitted by a conditional printf that fires only when
 `ISSUE_NUM` is non-empty (i.e., the branch matches `^[a-z]+/issue-([0-9]+)-`). For
 non-issue branches, `ISSUE_NUM` is empty and no close keyword is appended. Exactly one
 `Closes #N` line appears per issue-sourced PR body.
@@ -117,7 +155,7 @@ non-issue branches, `ISSUE_NUM` is empty and no close keyword is appended. Exact
 
 GitHub automatically closes an issue when a PR containing a
 [close keyword](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue)
-(`Closes #<N>`, `Fixes #<N>`, `Resolves #<N>`) is **squash-merged** into the
+(`Closes #&lt;N&gt;`, `Fixes #&lt;N&gt;`, `Resolves #&lt;N&gt;`) is **squash-merged** into the
 default branch.
 
 **Why `Closes` lives in the PR body, not the commit subject:**
@@ -125,17 +163,17 @@ default branch.
 - GitHub parses close keywords from PR bodies and commit messages, but only
   squash-merge commits (not individual feature-branch commits) trigger the
   auto-close on the default branch.
-- Embedding `Closes #<N>` in the PR body is more robust: it survives rebase
+- Embedding `Closes #&lt;N&gt;` in the PR body is more robust: it survives rebase
   strategies and does not clutter commit history with tracking metadata.
 
 **Post-merge verification (advisory):**
 
 ```bash
-gh issue view <N> --json state -q '.state'
+gh issue view &lt;N&gt; --json state -q '.state'
 ```
 
 If the issue is still `OPEN` after merge, the GitHub keyword was not recognized
-(e.g., wrong branch target, keyword typo). Resolve manually with `gh issue close <N>`.
+(e.g., wrong branch target, keyword typo). Resolve manually with `gh issue close &lt;N&gt;`.
 
 ---
 
@@ -147,7 +185,7 @@ If the issue is still `OPEN` after merge, the GitHub keyword was not recognized
 /pipeline --issues label:bug
 ```
 
-Fetches all open issues labeled `bug`, maps each to `fix/issue-\<N\>-\<slug\>`.
+Fetches all open issues labeled `bug`, maps each to `fix/issue-\&lt;N\&gt;-\&lt;slug\&gt;`.
 
 **Milestone-scoped batch:**
 
@@ -190,9 +228,12 @@ refactor/issue-204-extract-validator
 |---------|-------|-----|
 | `ERROR: gh CLI not installed` | `gh` binary absent | Install: https://cli.github.com/ |
 | `ERROR: gh not authenticated` | No valid GitHub token | Run `gh auth login` |
-| `ERROR: --issues requires a GitHub remote` | Repo has no `origin` | `git remote add origin \<url\>` |
+| `ERROR: --issues requires a GitHub remote` | Repo has no `origin` | `git remote add origin \&lt;url\&gt;` |
 | `ERROR: No open issues match selector` | Label/milestone typo or no open issues | Check spelling: `gh label list` / `gh api repos/{owner}/{repo}/milestones` |
-| `WARN: \<N\> issues match selector; processing top \<limit\>` | More issues than limit | Increase `--issues-limit` or use a narrower selector |
-| Empty issue body → emits `See issue #<N>. No body provided.` | Issue was opened without a body | Add description to the issue on GitHub, then re-run |
-| Multiple PRs reference same issue → advisory log | Team opened > 1 PR for the same issue | Close duplicate PRs manually; advisory does not block merge |
+| `WARN: \&lt;N\&gt; issues match selector; processing top \&lt;limit\&gt;` | More issues than limit | Increase `--issues-limit` or use a narrower selector |
+| Empty issue body → emits `See issue #&lt;N&gt;. No body provided.` | Issue was opened without a body | Add description to the issue on GitHub, then re-run |
+| Multiple PRs reference same issue → advisory log | Team opened &gt; 1 PR for the same issue | Close duplicate PRs manually; advisory does not block merge |
 | Rate limit error | Too many `gh` API calls in a short window | Wait for reset: `gh api rate_limit` shows reset time |
+</pre>
+</body>
+</html>
