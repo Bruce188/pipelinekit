@@ -52,5 +52,24 @@ if grep -q "partial string match on the finding" "$SKILL"; then
   exit 1
 fi
 
+# 8. FINDINGS_JSON variable initialized before the heredoc fires (B2 fix).
+# Either a shell assignment `FINDINGS_JSON=...` or a mktemp assignment line
+# must appear in the SKILL.md Step 7.8 block. The heredoc calls
+# `python3 - "$FINDINGS_JSON" ...` — if $FINDINGS_JSON is never set, the
+# open() inside the heredoc gets an empty path and crashes.
+if ! grep -qE 'FINDINGS_JSON=\$\(mktemp\)|FINDINGS_JSON=' "$SKILL"; then
+  echo "FAIL: FINDINGS_JSON is not initialized in $SKILL — Step 7.8 must assign the variable before the heredoc runs."
+  exit 1
+fi
+
+# 9. REVIEW_FILE_NAME variable initialized (B2 fix — review filename argument).
+# The Python heredoc calls append_out_of_scope_to_deferred(..., sys.argv[2])
+# where sys.argv[2] is "$REVIEW_FILE_NAME". Without the assignment the Source
+# column in the Deferred table is empty.
+if ! grep -qE 'REVIEW_FILE_NAME=' "$SKILL"; then
+  echo "FAIL: REVIEW_FILE_NAME is not initialized in $SKILL — Step 7.8 must assign the variable before the heredoc runs."
+  exit 1
+fi
+
 echo "OK: test_review_skill_step78.sh"
 exit 0

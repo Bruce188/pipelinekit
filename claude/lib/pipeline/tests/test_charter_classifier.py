@@ -334,5 +334,110 @@ class TestCharterClassifier(unittest.TestCase):
             raise
 
 
+class TestClassifierShouldSkipCWDResolution(unittest.TestCase):
+    """Review-v23 regression tests: relative pointer resolves against CWD, not
+    progress.md's parent directory (B1 fix)."""
+
+    def setUp(self):
+        # Track all directories/files created so tearDown can clean up even
+        # when an assertion fires mid-test.
+        self._to_remove: list[str] = []
+        self._original_cwd = os.getcwd()
+
+    def tearDown(self):
+        # Always restore the original CWD first so subsequent tests are not
+        # affected.
+        os.chdir(self._original_cwd)
+        for path in reversed(self._to_remove):
+            try:
+                if os.path.isdir(path):
+                    import shutil
+                    shutil.rmtree(path, ignore_errors=True)
+                elif os.path.exists(path):
+                    os.unlink(path)
+            except OSError:
+                pass
+
+    def _make_tmp(self) -> str:
+        tmp = tempfile.mkdtemp()
+        self._to_remove.append(tmp)
+        return tmp
+
+    def test_skip_condition_relative_pointer_resolves_against_cwd(self):
+        """B1 regression: `**Charter:** charter.md` with adjacent file; skip=False."""
+        tmp = self._make_tmp()
+        # Write progress.md with a CWD-relative pointer (no `docs/` prefix).
+        progress = os.path.join(tmp, "progress.md")
+        with open(progress, "w") as f:
+            f.write("**Charter:** charter.md\n")
+        # Place the charter at `<tmp>/charter.md` — i.e. accessible as
+        # `charter.md` when CWD is `<tmp>`.
+        charter = os.path.join(tmp, "charter.md")
+        with open(charter, "w") as f:
+            f.write("# Charter\n")
+
+        os.chdir(tmp)
+        skip, log = charter_classifier.classifier_should_skip(
+            progress_md_path="progress.md",
+        )
+
+        self.assertFalse(
+            skip,
+            "B1: relative pointer 'charter.md' with CWD containing charter.md "
+            f"must return skip=False; got skip={skip!r}, log={log!r}",
+        )
+        self.assertEqual(log, "", f"Expected empty log; got {log!r}")
+
+    def test_skip_condition_docs_relative_pointer_resolves_against_cwd(self):
+        """B1 regression: `**Charter:** docs/charter.md` resolves from CWD."""
+        tmp = self._make_tmp()
+        # progress.md lives at <tmp>/docs/progress.md (real pipelinekit layout).
+        docs_dir = os.path.join(tmp, "docs")
+        os.makedirs(docs_dir)
+        progress = os.path.join(docs_dir, "progress.md")
+        with open(progress, "w") as f:
+            f.write("**Charter:** docs/charter.md\n")
+        # charter.md lives at <tmp>/docs/charter.md, addressable as
+        # 'docs/charter.md' when CWD is <tmp>.
+        charter = os.path.join(docs_dir, "charter.md")
+        with open(charter, "w") as f:
+            f.write("# Charter\n")
+
+        os.chdir(tmp)
+        skip, log = charter_classifier.classifier_should_skip(
+            progress_md_path="docs/progress.md",
+        )
+
+        self.assertFalse(
+            skip,
+            "B1: pointer 'docs/charter.md' with CWD containing docs/charter.md "
+            f"must return skip=False; got skip={skip!r}, log={log!r}",
+        )
+        self.assertEqual(log, "", f"Expected empty log; got {log!r}")
+
+
+class TestBulletLineRegexDRY(unittest.TestCase):
+    """N1 regression: _BULLET_LINE_RE is imported from charter_revalidate, not
+    duplicated. Verifies the DRY contract from plan-v26 Task 1.2 and review-v23
+    N1."""
+
+    def test_bullet_line_regex_matches_revalidate_source(self):
+        """N1: _BULLET_LINE_RE imported from charter_revalidate (pattern equality)."""
+        from claude.lib.pipeline.charter_revalidate import (
+            _BULLET_LINE_RE as REV_RE,
+        )
+        from claude.lib.pipeline.charter_classifier import (
+            _BULLET_LINE_RE as CLS_RE,
+        )
+        self.assertEqual(
+            REV_RE.pattern,
+            CLS_RE.pattern,
+            "N1: _BULLET_LINE_RE in charter_classifier must have the same pattern "
+            "as charter_revalidate._BULLET_LINE_RE. If they differ, the DRY fix was "
+            "not applied — the local definition should be removed in favour of an "
+            "explicit import.",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -21,6 +21,7 @@ import re
 from typing import Dict, List, Tuple
 
 from claude.lib.pipeline.charter_revalidate import (
+    _BULLET_LINE_RE,
     _extract_non_goal_bullets,
     _extract_out_deferred_bullets,
     _phrase_matches_blob,
@@ -41,10 +42,9 @@ __all__ = [
 # Module-level regex constants (compiled once)
 # ---------------------------------------------------------------------------
 
-# Bullet line in a markdown list: ``- `` or ``* `` prefix. Mirrors the
-# pattern in charter_revalidate so the In-list extractor behaves identically
-# to the Out-list extractor it parallels.
-_BULLET_LINE_RE = re.compile(r"^[ \t]*[-*][ \t]+(.+?)[ \t]*$", re.MULTILINE)
+# _BULLET_LINE_RE is re-imported from charter_revalidate (DRY — analysis-v25
+# § 4 "Internal helpers ... re-imported"). Using the same compiled object
+# ensures future edits to the bullet pattern need only happen in one place.
 
 # `**In:**` marker introducing the MVP "In" sub-list. Case-insensitive so
 # `**in:**` / `**IN:**` also match. The parallel in `charter_revalidate` is
@@ -290,12 +290,17 @@ def classifier_should_skip(
             "CHARTER_ABSENT_CLASSIFIER_SKIPPED: no charter pointer in progress.md",
         )
 
-    # Resolve the pointer relative to progress.md's directory if not absolute.
+    # Resolve the pointer relative to the current working directory when not
+    # absolute. This mirrors how every caller site in pipelinekit accesses
+    # charter and progress files — both `docs/progress.md` and
+    # `docs/charter.md` are CWD-relative paths from the repo root. Resolving
+    # against progress.md's parent directory would produce
+    # `<repo>/docs/docs/charter.md` for the canonical `**Charter:** docs/charter.md`
+    # pointer format, which is always wrong.
     if os.path.isabs(pointer):
         resolved = pointer
     else:
-        progress_dir = os.path.dirname(os.path.abspath(progress_md_path))
-        resolved = os.path.normpath(os.path.join(progress_dir, pointer))
+        resolved = os.path.abspath(pointer)
 
     if not os.path.exists(resolved):
         return (
@@ -384,6 +389,13 @@ def append_out_of_scope_to_deferred(
     new_rows: List[str] = []
     for finding in out_of_scope:
         text = str(finding.get("text", "")).strip()
+        # Escape pipe characters BEFORE truncation so internal `|` chars do
+        # not create extra columns in the markdown table. This matches the
+        # standard markdown escape convention (`\|`). The replacement is
+        # applied first so truncation measures the post-escape length
+        # accurately — the few extra `\` characters are part of the stored
+        # cell value and must be within the 80-char budget.
+        text = text.replace("|", "\\|")
         if len(text) <= _ITEM_MAX_LEN:
             item = text
         else:

@@ -185,5 +185,49 @@ fi
 rm -rf "$TMP"
 trap - EXIT
 
+# ---------------------------------------------------------------------------
+# Case 4 — pipe characters in finding text do not break the markdown table.
+# ---------------------------------------------------------------------------
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+
+cat > "$TMP/progress.md" <<'EOF'
+# Progress
+
+**Plan:** docs/plan.md
+**Charter:** docs/charter.md
+
+## Status
+
+| Task | Title | Status |
+|------|-------|--------|
+| 1.1  | Some task | done |
+EOF
+
+python3 -c "
+import sys
+sys.path.insert(0, '$REPO')
+from claude.lib.pipeline import charter_classifier
+charter_classifier.append_out_of_scope_to_deferred(
+    '$TMP/progress.md',
+    [{'text': 'a | b | c', 'scope_tag': 'out_of_scope', 'severity': 'non-blocking'}],
+    'review-v3.md',
+)
+"
+
+# The appended row must escape the internal pipe characters as `\|` so
+# markdown table parsers see 4 data columns, not 6 data columns.
+# Assertion: the row contains the escaped form `\|` (backslash-pipe).
+# A row without escaping would store the literal `a | b | c` which adds
+# extra pipe-delimited cells and breaks /create-plan's Deferred-table parser.
+if ! grep -q 'a \\| b \\| c' "$TMP/progress.md"; then
+  echo "FAIL: case-4 — pipe characters in finding text not escaped to \\| in the appended row"
+  echo "     row: $(grep 'review-v3' "$TMP/progress.md" | head -1)"
+  exit 1
+fi
+
+rm -rf "$TMP"
+trap - EXIT
+
 echo "OK: test_deferred_append.sh"
 exit 0

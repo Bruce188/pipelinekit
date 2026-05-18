@@ -546,11 +546,27 @@ No flag needed — nit auto-fix always runs when nits are present.
 
 This classifier runs after Step 7.5 (Auto-Fix Detection) and before Step 8 (Save Review Findings). The call is strictly post-aggregation: it consumes the merged, deduped, auto-fix-finalized findings list and decorates each entry with a `scope_tag`. The 5-agent panel composition (Step 6) is untouched — no agent prompts, agent count, or agent communication semantics change.
 
+**Pre-heredoc shim — initialize shell variables:**
+
+Before running the Python classifier, serialize the in-memory findings list to a temp file and pre-compute the next review filename using the Versioning Convention from `~/.claude/rules/workflow.md`. Both variables must be set before the heredoc fires; without them `sys.argv[1]`/`sys.argv[2]` are empty strings and the `open()` calls inside the script crash.
+
 ```bash
-# FINDINGS_JSON is the same in-memory list the review skill already
-# builds for Step 8. Step 8 reads sys.argv[1] back to get the surviving
-# list; the audit trail (including scope_tag for every decorated entry)
-# is written separately to review-vN.md.
+# Serialize the in-memory findings list to a temp JSON file.
+FINDINGS_JSON=$(mktemp --suffix=.json)
+# Write the current findings list (a Python list of dicts) to the file.
+# The variable $FINDINGS_LIST_PYTHON holds the Python-literal or JSON string
+# produced by Step 7 (Collect and Deduplicate Results).
+python3 -c "import json, sys; json.dump($FINDINGS_LIST_PYTHON, open(sys.argv[1], 'w'))" "$FINDINGS_JSON"
+
+# Pre-compute the next review filename per the Versioning Convention.
+# Find the highest existing review-vN.md in docs/ and increment by 1.
+_REVIEW_N=$(ls docs/review-v*.md 2>/dev/null | grep -oE '[0-9]+' | sort -n | tail -1 || echo 0)
+REVIEW_FILE_NAME="review-v$((_REVIEW_N + 1)).md"
+```
+
+Then invoke the classifier:
+
+```bash
 python3 - "$FINDINGS_JSON" "$REVIEW_FILE_NAME" <<'PYEOF'
 import json, sys
 from claude.lib.pipeline import charter_classifier
@@ -577,6 +593,10 @@ surviving = [f for f in decorated if f.get("scope_tag") != "out_of_scope"]
 with open(sys.argv[1], "w") as f:
     json.dump(surviving, f)
 PYEOF
+
+# Read the surviving findings list back from the file (Step 8 uses it).
+FINDINGS_LIST_PYTHON=$(python3 -c "import json, sys; print(json.load(open(sys.argv[1])))" "$FINDINGS_JSON")
+rm -f "$FINDINGS_JSON"
 ```
 
 **Constraint surface:**
