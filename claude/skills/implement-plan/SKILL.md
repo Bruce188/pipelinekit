@@ -137,8 +137,15 @@ See `claude/skills/research/tests/test_mixed_worker_fanout.sh` for the smoke fix
       - Append the task-notification XML instruction verbatim (see `~/.claude/rules/agents-worktrees.md` § Worktree Agent Task-Notification XML):
         > End your final response with a `<task-notification>` XML block containing task-id (stream/task name), status (completed|failed|blocked), summary (1-3 sentences), files list (paths only, capped at 50), and usage (total_tokens and tool_uses if available). The XML must be the LAST content in your response. Do not embed file contents — paths only.
    b. Spawn each task as a worktree agent using the Agent tool with `isolation: "worktree"`
+   b.5 PARALLEL DISPATCH CONTRACT (load-bearing): When you reach 5.c below, you MUST issue all N Agent tool calls in **one assistant message** (one `<function_calls>` block containing N `<invoke name="Agent">` entries). Splitting across messages serialises them — the platform only parallelises tool calls within the same message. Do NOT spawn agent 1, wait, then spawn agent 2. Construct all N prompts first (step 5.a), then emit one batched dispatch.
    c. Launch all agents in a single message (parallel tool calls)
    d. Wait for all agents to complete. If an agent fails or times out: note it as failed, proceed with remaining completed agents. Report which agent(s) failed in the output.
+   d.0 Emit observability beacon BEFORE step 5.b dispatch:
+       ```bash
+       BRANCH_LIST=$(printf '%s,' "${WT_BRANCHES[@]}" | sed 's/,$//')
+       echo "PARALLEL_DISPATCH: phase=$PHASE_ID, streams=${#WT_BRANCHES[@]}, branches=[$BRANCH_LIST]"
+       ```
+       This single line is the canonical signal that Step 1.5 fan-out fired. Absent → either single-task phase, `--no-parallel` set, or shared-files fallback.
    d-pre. Check for unrelated tracked changes before merging (once, before the merge loop — catches pre-existing dirty state):
       ```bash
       git diff --name-only HEAD

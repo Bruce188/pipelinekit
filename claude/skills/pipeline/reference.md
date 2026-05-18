@@ -777,6 +777,7 @@ Your job:
    ```
    If you are NOT on `{{BRANCH_NAME}}`: STOP immediately, do NOT check out, do NOT implement. Emit `status: failed` with reason `wrong branch`.
 2. Invoke the `/implement-plan` skill via the Skill tool. This preserves the existing implement logic; the subagent is just an isolation wrapper around the same skill invocation the inline pipeline path uses.
+2a. PARALLEL DISPATCH AWARENESS: When `/implement-plan` reaches a phase with multiple zero-overlap `todo` tasks AND `--no-parallel` is not set, it will emit a beacon line `PARALLEL_DISPATCH: phase=<X>, streams=<N>, branches=[<list>]` and dispatch N worktree agents in one Agent-batch message (single-message fan-out — dispatch in one message). This is expected behaviour — surface the beacon text in your `<summary>` of the `<task-notification>` so the orchestrator's Run Log records which phases ran in parallel. If multiple parallel-eligible phases fire, surface each beacon line.
 3. After `/implement-plan` completes, read `docs/progress.md` and check for any task with status `doing`. A `doing` task indicates implementation failure.
 4. Determine your final status:
    - All plan tasks `done` → `status: completed`
