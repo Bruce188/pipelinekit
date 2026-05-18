@@ -233,17 +233,17 @@ Example `.mcp.json` for a project needing RepoMapper:
 
 Compact routing table for each pipeline phase. Native tools (Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch) are in each SKILL.md `allowed-tools` — not repeated here. MCPs listed are available when configured; skills auto-detect availability at runtime.
 
-| Phase | MCPs | Agent Types | Sub-Skills | Memory Reads | Hooks |
-|-------|------|-------------|------------|--------------|-------|
-| `/interview-prp` | — | — | — | `user_profile.md` | block-stage-sensitive, block-dangerous-commands |
-| `/analyze` | context7 (resolve + query), local-rag (query + ingest) | — | — | `user_profile.md`, `feedback_plan_trust.md`, `reference_claude_skills.md`, `reference_tresor.md` | block-stage-sensitive, block-dangerous-commands |
-| `/create-plan` | context7 (resolve + query), local-rag (query) | — | — | `feedback_workflow.md`, `feedback_plan_trust.md`, `project_env_cleanup.md` | block-stage-sensitive |
-| `/implement-plan` | context7 (API lookups), local-rag (query per phase), RepoMapper (structural nav), sequential-thinking (complex logic) | tdd-test-writer, tdd-implementer, worktree agents, docs-writer, trading-bot-developer, data-pipeline-engineer | `/simplify` | `feedback_worktree_commit.md`, `feedback_parallel_sessions.md`, `feedback_hooks_jq.md` | pre-edit-protect, tdd-order-check, post-edit-format, test-logger, block-stage-sensitive, block-dangerous-commands, stop-completion-gate |
-| `/review` | — | code-reviewer, security-auditor, test-engineer, performance-tuner, spec-tracer | `/code-health` (--health) | `feedback_review_verification.md`, `feedback_docs_gitignore.md` | strip-ai-attribution, block-stage-sensitive |
-| `/ppr` | — | — | — | `feedback_docs_gitignore.md` | strip-ai-attribution, block-push-main |
-| `/post-merge` | — | — | — | — | block-dangerous-commands |
-| `/pipeline` | (delegates to phase skills) | phase subagents (--phase-mode subagent) | `/implement-plan`, `/review` (inline) | (delegates to phase skills) | (delegates to phase skills) |
-| `consumer-web-app` workload (overlay) | gstack browse daemon (via `/gstack-*`); OpenAI Images API (only `/gstack-design-shotgun`) | — | `/gstack-office-hours`, `/gstack-design-consultation`, `/gstack-plan-design-review`, `/gstack-design-shotgun`, `/gstack-design-html`, `/gstack-qa`, `/gstack-design-review`, `/gstack-devex-review`, `/gstack-benchmark`, `/gstack-document-release`, `/gstack-canary`, `/gstack-retro` (overlay on native phase skills — full per-phase mapping in `~/.claude/CLAUDE.md` § Consumer Web App Mode) | — | (inherits from per-phase rows above) |
+| Phase | MCPs | Agent Types | Sub-Skills | Memory Reads | Hooks | WorkerProvider |
+|-------|------|-------------|------------|--------------|-------|----------------|
+| `/interview-prp` | — | — | — | `user_profile.md` | block-stage-sensitive, block-dangerous-commands | — |
+| `/analyze` | context7 (resolve + query), local-rag (query + ingest) | — | — | `user_profile.md`, `feedback_plan_trust.md`, `reference_claude_skills.md`, `reference_tresor.md` | block-stage-sensitive, block-dangerous-commands | — |
+| `/create-plan` | context7 (resolve + query), local-rag (query) | — | — | `feedback_workflow.md`, `feedback_plan_trust.md`, `project_env_cleanup.md` | block-stage-sensitive | — |
+| `/implement-plan` | context7 (API lookups), local-rag (query per phase), RepoMapper (structural nav), sequential-thinking (complex logic) | tdd-test-writer, tdd-implementer, worktree agents, docs-writer, trading-bot-developer, data-pipeline-engineer | `/simplify` | `feedback_worktree_commit.md`, `feedback_parallel_sessions.md`, `feedback_hooks_jq.md` | pre-edit-protect, tdd-order-check, post-edit-format, test-logger, block-stage-sensitive, block-dangerous-commands, stop-completion-gate | WorkerProvider (claude default) |
+| `/review` | — | code-reviewer, security-auditor, test-engineer, performance-tuner, spec-tracer | `/code-health` (--health) | `feedback_review_verification.md`, `feedback_docs_gitignore.md` | strip-ai-attribution, block-stage-sensitive | — |
+| `/ppr` | — | — | — | `feedback_docs_gitignore.md` | strip-ai-attribution, block-push-main | — |
+| `/post-merge` | — | — | — | — | block-dangerous-commands | — |
+| `/pipeline` | (delegates to phase skills) | phase subagents (--phase-mode subagent) | `/implement-plan`, `/review` (inline) | (delegates to phase skills) | (delegates to phase skills) | (delegates to /implement-plan) |
+| `consumer-web-app` workload (overlay) | gstack browse daemon (via `/gstack-*`); OpenAI Images API (only `/gstack-design-shotgun`) | — | `/gstack-office-hours`, `/gstack-design-consultation`, `/gstack-plan-design-review`, `/gstack-design-shotgun`, `/gstack-design-html`, `/gstack-qa`, `/gstack-design-review`, `/gstack-devex-review`, `/gstack-benchmark`, `/gstack-document-release`, `/gstack-canary`, `/gstack-retro` (overlay on native phase skills — full per-phase mapping in `~/.claude/CLAUDE.md` § Consumer Web App Mode) | — | (inherits from per-phase rows above) | — |
 
 ### Memory Feed
 

@@ -640,6 +640,8 @@ If the branch already exists: `git checkout <type>/<feature-name>` (do not creat
 
 Skip if `--restart-from` is `review`.
 
+**Worker delegation (Phase 1 — documentation only):** Plan task prompts MAY include an optional `worker:` header in the prompt frontmatter (e.g. `worker: claude`). When absent, the implement-phase dispatches via ClaudeWorker (in-session Agent-tool worktree fan-out — the current behavior; see `claude/lib/worker-provider/claude.md`). When present, future routing (Phase 3 of the worker-delegation initiative; not wired in this iteration) will dispatch to the named worker class per `claude/lib/worker-provider/<class>.md`. Until Phase 3 ships, the header is acknowledged but ignored — behavior is identical to `worker: claude` regardless of header presence. See `claude/lib/worker-provider/interface.md` for the full contract.
+
 **Step 5.5.0: Classify feature (dev vs non-dev) — determines TDD routing.**
 
 Derive `FEATURE_CLASS` from the feature H2 prefix and the optional `**Type:**` override line:

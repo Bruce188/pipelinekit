@@ -70,6 +70,8 @@ Before executing any task, verify the plan shape supports TDD. For each task wit
 
 Parallel execution is the default for phases with multiple parallelizable tasks. Skip this step only if `--no-parallel` was passed as an argument.
 
+**WorkerProvider contract (informational):** The worktree fan-out described in items 1–5 below IS the reference implementation of the `ClaudeWorker` class documented in `claude/lib/worker-provider/claude.md`. The five worktree-agent lifecycle steps (prepare worktree → dispatch via `Agent` tool → collect artifacts → verify completion → cleanup) map directly to the five `WorkerProvider` methods in `claude/lib/worker-provider/interface.md`. This is documentation only — no routing or selection logic is invoked here; ClaudeWorker is always the dispatcher in the portable build.
+
 1. Identify all `todo` tasks in the **current phase** (same phase number prefix)
 2. If only 1 task in the phase: log "Single task in phase — skipping parallel, proceeding sequentially" and fall back to Step 2
 3. Read the plan file: check if these tasks have zero file overlap (different `Files:` lists with no shared files)
