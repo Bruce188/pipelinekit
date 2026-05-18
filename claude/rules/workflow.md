@@ -20,6 +20,7 @@ Pipeline skills accept optional `--` arguments that modify their behavior. Argum
 | `--no-parallel` | `/implement-plan` | Force sequential execution, skip parallel detection |
 | `--health` | `/review` | Run quick code-health assessment, include score in report |
 | `--renew` | `/pipeline` | Regenerate feature file from deferred items + failed features, then process |
+| `--auto` | `/pipeline` | Autonomous-bypass modifier on `--renew`. Skips every `AskUserQuestion` inside charter re-validation sub-step 6.5; records the resolved drift set as an HTML-comment header block in `docs/features-renewed.md`. Only honoured when `--renew` is also present. |
 | `--force` | `/review` | Override review cycle cap (manual use only — never passed by pipeline) |
 | `--teams` | `/review` | Enable Agent Teams mode — review agents communicate during execution (auto-enables `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` if not set) |
 | `--max-usd` | `/pipeline` | Hard cap on cumulative USD across the run. Default: unlimited (flag omitted → no budget check). Halts at phase boundaries when next phase would exceed cap. |
