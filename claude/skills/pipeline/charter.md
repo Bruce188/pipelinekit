@@ -28,6 +28,7 @@ Required sections (10 topics in order):
 8. `## Prior Art`
 9. `## Open Questions`
 10. `## Deployment target`
+11. `## Review style`
 
 Required table (appended after the 9 sections):
 ```markdown
@@ -63,6 +64,7 @@ The 10 topics enumerated by the convergence check (in order):
 - Topic 8 — Prior Art
 - Topic 9 — Open Questions
 - Topic 10 — Deployment target
+- Topic 11 — Review style
 
 The user must see this choice after every topic, including the last. "Ship the charter now" is always available.
 
@@ -203,6 +205,23 @@ Options:
 
 ---
 
+### Topic 11: Review style
+
+**Probe:** When the pipeline reaches the review phase, should it always use Agent Teams (richer cross-agent communication, higher token cost), never use teams (faster, lighter), or decide per-feature based on diff size and feature class?
+
+**Follow-up:** Default is `orchestrator decides` — the heuristic picks `--teams` when the diff is large (>500 lines or >8 files) or the feature class is `dev`. Choose `always teams` for richer reviews on every feature regardless of size. Choose `never teams` to suppress the heuristic entirely.
+
+**Example values:** `always teams`, `never teams`, `orchestrator decides`.
+
+Options:
+- A) `[User provides free-form answer]`
+- B) `always teams`
+- C) `never teams`
+- D) `orchestrator decides` (default)
+- E) `Ship the charter now`
+
+---
+
 ## Charter File Template
 
 After all topics are gathered (or user chooses "ship now"), write `docs/charter.md` using this template:
@@ -247,6 +266,9 @@ status: draft
 
 ## Deployment target
 [Provider slug, e.g. `vercel`, `railway`, `render`, `digitalocean`, or `none`.]
+
+## Review style
+[Either `always teams`, `never teams`, or `orchestrator decides` (default).]
 
 ## Decision Log
 | Date | Question | Decision | Reason |
