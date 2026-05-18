@@ -88,8 +88,10 @@ Parse `$ARGUMENTS`:
 - `--no-charter` = skip Step 0 Charter Discovery entirely; restores legacy autonomous flow.
 - `--charter <path>` = adopt an existing charter file at `<path>`. Skips Step 0 discovery loop; sets the `**Charter:**` pointer in `progress.md`. STOP if the path does not exist: "ERROR: --charter path not found: <path>"
 - `--max-questions <N>` = cap the total number of `AskUserQuestion` invocations in Step 0 at `N`. Default: unbounded. `--max-questions 0` is an alias for `--no-charter` (no discovery at all).
+- `--teams` = force-enable Agent Teams for this run. Resolves `PIPELINE_TEAMS_OVERRIDE=always`. Persists into `**Review style:** always teams` for every feature in the run (overrides Charter Topic 11 and the heuristic). Mutually exclusive with `--no-teams`.
+- `--no-teams` = force-disable Agent Teams for this run. Resolves `PIPELINE_TEAMS_OVERRIDE=never`. Persists into `**Review style:** never teams` for every feature in the run (overrides Charter Topic 11 and the heuristic). Mutually exclusive with `--teams`.
 
-Validate mutual exclusivity: if `--from` and `--adopt` are both present, STOP with "ERROR: --from and --adopt are mutually exclusive." If `--from` and `--renew` are both present, STOP with "ERROR: --from and --renew are mutually exclusive." If `--plan` is combined with `--from`, `--adopt`, `--renew`, or a positional feature file, STOP with `ERROR: --plan is mutually exclusive with --from/--adopt/--renew/positional path`. If `--no-charter` and `--charter <path>` are both present, STOP with "ERROR: --no-charter and --charter are mutually exclusive."
+Validate mutual exclusivity: if `--from` and `--adopt` are both present, STOP with "ERROR: --from and --adopt are mutually exclusive." If `--from` and `--renew` are both present, STOP with "ERROR: --from and --renew are mutually exclusive." If `--plan` is combined with `--from`, `--adopt`, `--renew`, or a positional feature file, STOP with `ERROR: --plan is mutually exclusive with --from/--adopt/--renew/positional path`. If `--no-charter` and `--charter <path>` are both present, STOP with "ERROR: --no-charter and --charter are mutually exclusive." If `--teams` and `--no-teams` are both present, STOP with "ERROR: --teams and --no-teams are mutually exclusive."
 
 Determine feature file source (in priority order):
 1. If `--adopt` is present → go to Step 1.7 (Adopt Manual Workflow). `--adopt` is mutually exclusive with providing a feature file path, `--renew`, and `--from`.
@@ -102,6 +104,11 @@ Determine feature file source (in priority order):
 Validate `--restart-from` if present: must be one of `analyze`, `plan`, `implement`, `review`.
 
 Record `--max-usd` and `--max-turns` in `docs/pipeline-state.md` as `**Max USD:**` and `**Max turns:**` fields so the budget check at every phase boundary can read them. Write `unlimited` when the flag was not provided — the budget-check step treats `unlimited` as a no-op.
+
+Record the teams override in a local variable for use by Step 5.1:
+- If `--teams` is present: `PIPELINE_TEAMS_OVERRIDE=always`.
+- If `--no-teams` is present: `PIPELINE_TEAMS_OVERRIDE=never`.
+- Otherwise: `PIPELINE_TEAMS_OVERRIDE=decide`.
 
 ### Step 1.4: Plan-Mode Ingest (--plan)
 
@@ -449,11 +456,20 @@ Write/update `docs/pipeline-state.md`:
 **Phase Mode:** <subagent|subprocess|inline>
 **Last phase agent:** [subagent ID, only when Phase Mode = subagent]
 **Charter:** [path to docs/charter.md, or (none) when --no-charter is set]
+**Review style:** [always teams | never teams | orchestrator decides]
 ```
 
 Default value for new features: `subagent`. `inline` appears only in legacy state files written under the prior heuristic policy or in Path N nit-attack sub-paths.
 
 **Charter field:** Set `**Charter:**` to the resolved charter file path when `--charter <path>` is given or when Step 0 writes `docs/charter.md`. Set to `(none)` when `--no-charter` or `--max-questions 0` is in effect. On resume (Step 3), read the saved `**Charter:**` value and restore it for the in-flight feature — do not re-run Step 0 if `**Charter:**` points to a valid existing file.
+
+**Review style field:** Sits in the same state-file template block as `**Phase Mode:**` (the per-feature dispatch-routing field). Resolve `**Review style:**` in this priority order:
+1. If `PIPELINE_TEAMS_OVERRIDE = always` → write `always teams`.
+2. If `PIPELINE_TEAMS_OVERRIDE = never` → write `never teams`.
+3. If `PIPELINE_TEAMS_OVERRIDE = decide` AND a charter exists at the `**Charter:**` pointer AND `docs/charter.md` contains a `## Review style` section with one of the canonical values (`always teams` / `never teams` / `orchestrator decides`): write that value verbatim.
+4. Otherwise (no override, no charter, or charter section absent/unrecognized): write `orchestrator decides`.
+
+The field is **sticky for the duration of the feature** — Path B / Path C / Retry re-reviews re-read this value at Step 5.6.0 but never recompute the heuristic mid-feature. The `**Review style:**` itself is not mutated by Path B/C/Retry. (Path C re-plan that flips `**Feature class:**` does change the next review's heuristic outcome when the style is `orchestrator decides` — this is intentional and aligned with the "decision computed at review boundary" contract.)
 
 ---
 
@@ -732,6 +748,57 @@ If a task has no `Tests:` field or it is "N/A": skip the TDD pair and dispatch a
 If `docs/progress.md` has any task still `doing` after the loop: append to Run Log `Status: FAILED (TDD pairing error)` and skip to the next feature.
 
 Update pipeline state: step = "review"
+
+---
+
+##### Step 5.6.0: Compute Teams Decision (per-feature, before Step 5.6 dispatch)
+
+Before the Step 5.6 review dispatch (initial cycle and every Path B / Path C / Retry re-review), the orchestrator decides whether to set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` so the `<!-- PHASE: review -->` template inside the dispatched subagent passes `--teams` to `/review`.
+
+**Read state (fresh — never trust local cache):**
+1. Read `**Review style:**` from `docs/pipeline-state.md`. Treat missing field as `orchestrator decides` (backward-compatible default for state files written under prior versions).
+2. Read `**Feature class:**` from `docs/pipeline-state.md` (already written at Step 5.5.0).
+
+**Resolve `dispatch_with_teams`:**
+- `Review style = always teams` → `dispatch_with_teams = true`. Skip heuristic.
+- `Review style = never teams` → `dispatch_with_teams = false`. Skip heuristic. Even on very large diffs, the user's explicit `never teams` choice overrides the heuristic at the orchestrator layer. (Note: `/review`'s own Step 4.5 large-diff escalation at >5,000 lines may still auto-enable teams inside the subagent — that is the inner skill's last-resort safety net and is out of scope here.)
+- `Review style = orchestrator decides` → compute the heuristic:
+
+```bash
+# Tunable constants — env-var overrides deferred to a follow-up iteration.
+TEAMS_LINE_THRESHOLD=500   # mirrors review/SKILL.md SMALL_DIFF_THRESHOLD
+TEAMS_FILE_THRESHOLD=8
+BASE=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+[ -z "$BASE" ] && BASE=$(git branch -l main master 2>/dev/null | head -1 | awk '{print $NF}')
+[ -z "$BASE" ] && BASE="main"
+DIFF_LINES=$(git diff "$BASE"...HEAD | wc -l)
+DIFF_FILES=$(git diff --name-only "$BASE"...HEAD | wc -l)
+FEATURE_CLASS=$(grep -E '^\*\*Feature class:\*\*' docs/pipeline-state.md | sed 's|.*:\*\*[[:space:]]*||')
+if [ "$DIFF_LINES" -gt "$TEAMS_LINE_THRESHOLD" ] || \
+   [ "$DIFF_FILES" -gt "$TEAMS_FILE_THRESHOLD" ] || \
+   [ "$FEATURE_CLASS" = "dev" ]; then
+  dispatch_with_teams=true
+else
+  dispatch_with_teams=false
+fi
+```
+
+**Env var lifecycle (symmetric):**
+1. `teams_was_set=$CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` — snapshot.
+2. If `dispatch_with_teams = true` AND `teams_was_set != '1'`: `export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`; set `teams_orchestrator_set=true`.
+3. Perform the existing Step 5.6 Agent dispatch (the `<!-- PHASE: review -->` template reads the env var and decides whether to pass `--teams`).
+4. After capturing `<task-notification>`: if `teams_orchestrator_set = true`: `unset CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`.
+
+The host-shell-preserves invariant: if the user had `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` set before launching `/pipeline`, `teams_was_set` was `1`, `teams_orchestrator_set` stays unset, and the unset step does NOT fire — the host environment is preserved.
+
+**Run Log entry:** Append a single line to the feature's `### Run Log` documenting the decision and rationale:
+```
+**TeamsDecision [YYYY-MM-DD HH:MM]:** Review style=[…] | dispatch_with_teams=[true|false] | DIFF_LINES=[…] | DIFF_FILES=[…] | FEATURE_CLASS=[dev|non-dev] | teams_orchestrator_set=[true|false]
+```
+
+**Stickiness contract:** Once `**Review style:**` is written at Step 5.1, Step 5.6.0 re-reads it on every Path B / Path C / Retry re-review but does NOT recompute the heuristic per cycle — the persisted style is sticky. The heuristic constants (500 / 8 / dev) are tunable inline; env-var overrides (`PIPELINE_TEAMS_LINE_THRESHOLD`, `PIPELINE_TEAMS_FILE_THRESHOLD`) are deferred to a follow-up iteration.
+
+**Path N exemption:** Path N nit-attack runs Edit-tool only and does not invoke `/review` — Step 5.6.0 does NOT apply to Path N. The env var is neither set nor unset for the nit pass.
 
 ---
 

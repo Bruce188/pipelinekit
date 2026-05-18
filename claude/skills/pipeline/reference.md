@@ -404,7 +404,14 @@ Do not modify any existing `docs/` files during adoption — only create `featur
 5. **Re-invoke implement.** Read `**Phase Mode:**` fresh from `docs/pipeline-state.md` — never trust a stale local variable. Branch:
    - **If `Phase Mode = subagent` (default):** Dispatch via the `Agent` tool using the prompt template from § "Step 5.x: Phase Subagent Dispatch — Prompt Templates" matching `<!-- PHASE: implement -->`. Substitute placeholders with current feature values (`FEATURE_NAME`, `BRANCH_NAME`, `PLAN_PATH` from `**Plan:**` pointer in `docs/progress.md`, `PROMPTS_PATH` from `**Prompts:**` pointer, `FEATURE_INDEX`, `FEATURE_TOTAL`, `BUDGET_REMAINING`, `MAX_USD`). Pass `model: sonnet` (the phase default; task-prompt `Model:` headers override per-task inside the subagent). Capture the returned `<task-notification>` XML; on `status: completed`, read `docs/progress.md` and continue. Update `docs/pipeline-state.md` `**Last phase agent:**` with the subagent ID. On `status: failed`, treat as Path-B failure: append `Path: B | Review cycles: [N] | Status: FAILED (implement subagent error)` to Run Log and skip to next feature.
    - **If `Phase Mode = inline` (legacy state files only):** invoke `Skill: implement-plan` directly. This branch is preserved for backward compat with state files written under the old policy; do not select it on a fresh feature.
-6. **Re-invoke review.** Read `**Phase Mode:**` fresh again. Branch:
+6. **Re-invoke review.** Read `**Phase Mode:**` fresh again. Before dispatching the Agent for this re-review, apply SKILL.md Step 5.6.0's env-var wrap:
+   - Read `**Review style:**` fresh from `docs/pipeline-state.md`. The persisted `Review style` is sticky for the feature — do NOT recompute the heuristic in Path B.
+   - Snapshot `teams_was_set=$CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`.
+   - If the persisted decision is `always teams`, OR if (`orchestrator decides` AND the heuristic recorded at first dispatch was `true`): `export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` AND set `teams_orchestrator_set=true` (skip if `teams_was_set='1'`).
+   - Dispatch the Agent (existing body below).
+   - After capturing `<task-notification>`: if `teams_orchestrator_set='true'`: `unset CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`.
+
+   Branch:
    - **If `Phase Mode = subagent` (default):** Dispatch via the `Agent` tool using the prompt template matching `<!-- PHASE: review -->`. Substitute `FEATURE_NAME`, `BRANCH_NAME`, `REVIEW_PATH` (the Versioning-Convention next-version path), `BUDGET_REMAINING`, `MAX_USD`. Pass `model: opus` (REVIEW.md `review-model:` override applies inside the subagent if present). Capture `<task-notification>`; on `status: completed`, follow the `**Review:**` pointer in `docs/progress.md` to the new review file. Update `**Last phase agent:**`. On `status: failed`: log `Path: B | Review cycles: [N] | Status: FAILED (review subagent error)` and skip to next feature.
    - **If `Phase Mode = inline` (legacy):** invoke `Skill: review --teams` (if `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) or `Skill: review`.
 7. Emit phase transition signal (progress beacon **and** TodoWrite update, tag=`path-b-post`) per the helpers in SKILL.md Step 5.0. Return to Step 5.7 (path determination)
@@ -421,7 +428,14 @@ Do not modify any existing `docs/` files during adoption — only create `featur
    - `subagent` → `Agent` tool with `<!-- PHASE: implement -->` template, `model: sonnet`.
    - `subprocess` → unreachable in /pipeline; re-route as subagent with warning.
    - `inline` (legacy) → `Skill: implement-plan`.
-6. **Re-invoke review.** Read `**Phase Mode:**` fresh. Branch identically to Path B step 6:
+6. **Re-invoke review.** Read `**Phase Mode:**` fresh. Before dispatching the Agent for this re-review, apply SKILL.md Step 5.6.0's env-var wrap:
+   - Read `**Review style:**` fresh from `docs/pipeline-state.md`. The persisted `Review style` is sticky for the feature — do NOT recompute the heuristic in Path C.
+   - Snapshot `teams_was_set=$CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`.
+   - If the persisted decision is `always teams`, OR if (`orchestrator decides` AND the heuristic recorded at first dispatch was `true`): `export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` AND set `teams_orchestrator_set=true` (skip if `teams_was_set='1'`).
+   - Dispatch the Agent (existing branch below).
+   - After capturing `<task-notification>`: if `teams_orchestrator_set='true'`: `unset CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`.
+
+   Branch identically to Path B step 6:
    - `subagent` → `Agent` tool with `<!-- PHASE: review -->` template, `model: opus`.
    - `subprocess` → unreachable; re-route as subagent with warning.
    - `inline` (legacy) → `Skill: review` (with `--teams` if env var set).
@@ -436,7 +450,14 @@ Do not modify any existing `docs/` files during adoption — only create `featur
 3. If retry count > 3:
    - Append to Run Log: `Status: FAILED (blocked after 3 retries)`
    - Skip to next feature.
-4. **Re-invoke review.** Read `**Phase Mode:**` fresh from `docs/pipeline-state.md`. Branch identically to Path B step 6:
+4. **Re-invoke review.** Read `**Phase Mode:**` fresh from `docs/pipeline-state.md`. Before dispatching the Agent for this re-review, apply SKILL.md Step 5.6.0's env-var wrap:
+   - Read `**Review style:**` fresh from `docs/pipeline-state.md`. The persisted `Review style` is sticky for the feature — do NOT recompute the heuristic in Retry.
+   - Snapshot `teams_was_set=$CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`.
+   - If the persisted decision is `always teams`, OR if (`orchestrator decides` AND the heuristic recorded at first dispatch was `true`): `export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` AND set `teams_orchestrator_set=true` (skip if `teams_was_set='1'`).
+   - Dispatch the Agent (existing branch below).
+   - After capturing `<task-notification>`: if `teams_orchestrator_set='true'`: `unset CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`.
+
+   Branch identically to Path B step 6:
    - `subagent` → `Agent` tool with `<!-- PHASE: review -->` template, `model: opus`.
    - `subprocess` → unreachable in /pipeline; re-route as subagent with warning.
    - `inline` (legacy) → `Skill: review` (with `--teams` if env var set).
@@ -704,6 +725,8 @@ Report back with this XML block as the very last content in your response:
 ---
 
 <!-- PHASE: review -->
+
+> NOTE: The orchestrator (SKILL.md Step 5.6.0) decides per-feature whether `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` should be set before this template is dispatched. The template body below already conditionally passes `--teams` based on that env var. Do NOT add env-var management inside the template — the orchestrator owns the symmetric `export` / `unset` lifecycle around each `Agent` dispatch (initial Step 5.6 plus Path B / Path C / Retry re-reviews). See SKILL.md Step 5.6.0 for the decision logic and the `teams_was_set` / `teams_orchestrator_set` invariants.
 
 ```
 You are dispatched by the pipeline orchestrator as the REVIEW phase subagent for feature `{{FEATURE_NAME}}` ({{FEATURE_INDEX}}/{{FEATURE_TOTAL}}). Remaining budget: ${{BUDGET_REMAINING}} of ${{MAX_USD}}.
