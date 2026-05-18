@@ -703,7 +703,21 @@ After completion: read `docs/progress.md`. If any task has status `doing` (faile
 
 **Step 5.5.3: Dev TDD path (paired subagent dispatch per task).**
 
-Read the plan file (from the `**Plan:**` pointer in `docs/progress.md`) and enumerate tasks with status `todo` in phase order. For each task with a non-empty `Tests:` field:
+Read the plan file (from the `**Plan:**` pointer in `docs/progress.md`) and enumerate tasks with status `todo` in phase order.
+
+**Step 5.5.3a: Group tasks by phase and assess parallelisability.**
+
+Before the per-task loop below, partition `todo` tasks by phase number. For each phase with N > 1 tasks, check pairwise `Files:` overlap (per `implement-plan` SKILL.md Step 1.5). If zero overlap AND `--no-parallel` is not set: emit a single beacon line
+
+```
+PARALLEL_DISPATCH: phase=<X>, streams=<N>, branches=[<comma-separated list>]
+```
+
+then dispatch all N (tdd-test-writer → tdd-implementer) pairs in **one Agent-batch message** with `isolation: "worktree"` per pair. Each pair runs the red→green sequence inside its own worktree. The lead waits for all to complete, then squash-merges per `claude/rules/agents-worktrees.md` § Lead Merge Protocol.
+
+If `--no-parallel` was passed OR tasks share files OR the phase has only 1 task: fall back to the existing per-task sequential loop below.
+
+For each task with a non-empty `Tests:` field:
 
 1. **RED phase — dispatch `tdd-test-writer` subagent.**
 
