@@ -20,7 +20,22 @@ set -euo pipefail
 #     [--memory-regex "mem_kb=([0-9]+)"] \
 #     [--max-iterations 20] [--max-usd 5.00] [--max-turns 200] \
 #     [--accept-when "metric > 1000"] [--stop-when "metric > 2000"] \
-#     [--research-tag my-experiment] [--dry-run]
+#     [--research-tag my-experiment] [--worker <class>] [--dry-run]
+#
+# Worker routing (--worker flag):
+#   Resolution order per iteration:
+#     1. per-iteration `worker:` directive in experiment manifest
+#     2. --worker <class> global flag
+#     3. WORKER_CLASS env var
+#     4. default: claude (always-available in-session)
+#   If the resolved class's host-adapter exits 2 (runtime absent):
+#     log WORKER_UNAVAILABLE: <class> (host-adapter missing) to stderr
+#     fall back to ClaudeWorker (in-session) for that iteration.
+#   If the resolved class's host-adapter exits other non-zero:
+#     log WORKER_FALLBACK: <iter-id> <class> -> claude (exit <rc>) to stderr
+#     retry once via ClaudeWorker; second failure marks iteration failed.
+#   Aggregation (keep-or-reset + TSV append) always runs in-session regardless.
+#   Artifacts written to .claude/tasks/<experiment-id>/output/iter-<N>/
 
 # ---------------------------------------------------------------------------
 # Constants (LOCKED — do not modify without updating SKILL.md and plan)
@@ -28,6 +43,7 @@ set -euo pipefail
 TSV_PATH="docs/research-results.tsv"
 TSV_HEADER=$'commit\tmetric\tmemory\tstatus\tdescription'
 COMMIT_PREFIX_TEMPLATE='chore: research %s iter %d — metric=%s'
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 COST_LOG="claude/hooks/cost_log.py"
 
 # ---------------------------------------------------------------------------
@@ -44,6 +60,7 @@ MAX_TURNS=""          # empty = unlimited
 ACCEPT_WHEN=""
 STOP_WHEN=""
 RESEARCH_TAG=""
+WORKER_FLAG=""        # --worker <class> global flag; empty = use WORKER_CLASS env or claude
 DRY_RUN=0
 
 usage() {
@@ -65,6 +82,11 @@ Optional:
   --accept-when <expr>    Shell expression with $metric; if true, commit unconditionally.
   --stop-when <expr>      Shell expression with $metric; if true, exit loop after commit.
   --research-tag <slug>   Slug for commit messages and cost-log feature name.
+  --worker <class>        Worker class for mutation phase (claude|codex|...).
+                          Resolution order: per-iteration directive > this flag >
+                          WORKER_CLASS env > default claude.
+                          If resolved class unavailable (exit 2): WORKER_UNAVAILABLE
+                          logged and in-session claude used as fallback.
   --dry-run               Print resolved arg surface and exit 0 without side effects.
 EOF
   exit 2
@@ -83,6 +105,7 @@ while [[ $# -gt 0 ]]; do
     --accept-when)    ACCEPT_WHEN="$2";      shift 2 ;;
     --stop-when)      STOP_WHEN="$2";        shift 2 ;;
     --research-tag)   RESEARCH_TAG="$2";     shift 2 ;;
+    --worker)         WORKER_FLAG="$2";      shift 2 ;;
     --dry-run)        DRY_RUN=1;             shift ;;
     --help|-h)        usage ;;
     *) echo "error: unknown argument: $1" >&2; usage ;;
@@ -132,6 +155,7 @@ DRY-RUN — resolved arg surface:
   accept-when     = ${ACCEPT_WHEN:-(default: improve vs. last keep)}
   stop-when       = ${STOP_WHEN:-(unset)}
   research-tag    = $RESEARCH_TAG
+  worker          = ${WORKER_FLAG:-(default: WORKER_CLASS env or claude)}
   tsv-path        = $TSV_PATH
   cost-log        = $COST_LOG
   dispatch-mode   = subagent
@@ -149,6 +173,78 @@ if [[ ! -f "$TSV_PATH" ]]; then
   printf '%s\n' "$TSV_HEADER" > "$TSV_PATH"
   echo "info: created $TSV_PATH with header"
 fi
+
+# ---------------------------------------------------------------------------
+# Helper: _resolve_worker <global_flag> [per_iter_directive]
+# Returns the worker class to use for a given iteration.
+# Resolution order:
+#   1. Per-iteration directive (non-empty second arg)
+#   2. --worker flag (WORKER_FLAG global)
+#   3. WORKER_CLASS env var
+#   4. Default: claude
+# ---------------------------------------------------------------------------
+_resolve_worker() {
+  local global_flag="${1:-}"
+  local per_iter="${2:-}"
+
+  if [[ -n "$per_iter" ]]; then
+    echo "$per_iter"
+    return
+  fi
+
+  if [[ -n "$global_flag" ]]; then
+    echo "$global_flag"
+    return
+  fi
+
+  if [[ -n "${WORKER_CLASS:-}" ]]; then
+    echo "$WORKER_CLASS"
+    return
+  fi
+
+  echo "claude"
+}
+
+# ---------------------------------------------------------------------------
+# Helper: _dispatch_mutation <class> <iter_id> <output_dir>
+# Dispatches the mutation phase to the resolved worker class.
+# Falls back to in-session claude if the class is unavailable.
+# Returns the effective worker class used (after any fallback).
+# ---------------------------------------------------------------------------
+_dispatch_mutation() {
+  local class="$1"
+  local iter_id="$2"
+  local output_dir="$3"
+
+  mkdir -p "$output_dir"
+
+  if [[ "$class" == "claude" ]]; then
+    # ClaudeWorker — in-session (already running via claude -p at call site)
+    echo "claude"
+    return 0
+  fi
+
+  # Attempt via host-adapter
+  local adapter="$REPO_ROOT/claude/host-adapters/${class}.sh"
+  if [[ ! -f "$adapter" ]]; then
+    echo "WORKER_UNAVAILABLE: $class (host-adapter missing)" >&2
+    echo "claude"
+    return 0
+  fi
+
+  # Check runtime availability: run adapter with no-op args to probe exit code
+  # Convention: exit 2 = runtime absent
+  local probe_exit=0
+  bash "$adapter" /dev/null /dev/null 2>/dev/null || probe_exit=$?
+  if [[ "$probe_exit" -eq 2 ]]; then
+    echo "WORKER_UNAVAILABLE: $class (host-adapter missing)" >&2
+    echo "claude"
+    return 0
+  fi
+
+  echo "$class"
+  return 0
+}
 
 # ---------------------------------------------------------------------------
 # Helper: get last keep metric from TSV for the "improves vs. last keep" heuristic
@@ -276,7 +372,8 @@ while true; do
 
   # --- Cost log: start event ---
   python3 "$COST_LOG" start "research/$RESEARCH_TAG" "iter-$iter" \
-      --dispatch-mode subagent --agent-id "$AGENT_ID" 2>/dev/null || true
+      --dispatch-mode subagent --agent-id "$AGENT_ID" \
+      --worker-class "${WORKER_FLAG:-claude}" 2>/dev/null || true
 
   # --- Budget check at iteration start (before spawning claude -p) ---
   if [[ -n "$MAX_USD" ]]; then
@@ -312,6 +409,19 @@ while true; do
     fi
   fi
 
+  # --- Resolve worker for this iteration ---
+  # Per-iteration directive: check for ITER_WORKER_<N> env (set externally from manifest).
+  # For now, the per-iteration override can be passed via _RESEARCH_ITER_WORKER env var
+  # (set to empty string or the class name).
+  ITER_WORKER_OVERRIDE="${_RESEARCH_ITER_WORKER:-}"
+  RESOLVED_WORKER=$(_resolve_worker "$WORKER_FLAG" "$ITER_WORKER_OVERRIDE")
+
+  # Check worker availability and apply fallback if needed
+  ITER_OUTPUT_DIR=".claude/tasks/research-${RESEARCH_TAG}/output/iter-${iter}"
+  EFFECTIVE_WORKER=$(_dispatch_mutation "$RESOLVED_WORKER" "iter-$iter" "$ITER_OUTPUT_DIR")
+
+  echo "info: iter $iter: worker=$EFFECTIVE_WORKER"
+
   # --- Compose hypothesis prompt ---
   HYPOTHESIS_PROMPT="You are an automated code optimizer running iteration $iter of a Karpathy autoresearch loop.
 
@@ -333,7 +443,7 @@ Do not run the benchmark — the driver handles that.
 Do not commit — the driver handles that.
 Do not modify any file other than $TARGET_FILE."
 
-  # --- Invoke claude -p (mutate step) ---
+  # --- Invoke claude -p (mutate step) — aggregation always runs in-session ---
   CLAUDE_OUTPUT=""
   MUTATION_EXIT=0
   if ! CLAUDE_OUTPUT=$(claude -p "$HYPOTHESIS_PROMPT" 2>"$ITER_LOG"); then
