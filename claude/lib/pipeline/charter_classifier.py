@@ -239,6 +239,52 @@ def classify_finding(finding: dict, charter_sections: dict) -> str:
     return _tag_for_match(severity, "none")
 
 
+class CharterScopeConflictError(ValueError):
+    """Raised when reviewer-emitted scope=in contradicts the token-overlap classifier.
+
+    Step 7.8 of ``review/SKILL.md`` catches this exception, emits the
+    canonical ``CHARTER_SCOPE_CONFLICT: ...`` token to stderr, and skips the
+    review-file write so the orchestrator can route to Path B re-spawn.
+    """
+
+
+def classify_finding_two_axis(finding: dict, charter_sections: dict) -> dict:
+    """Return ``{"scope": ..., "intent": ...}`` for a single finding.
+
+    Trust reviewer-emitted ``intent`` when present (validate against
+    ``INTENT_VALUES``; invalid → ``"unrelated"``). Trust reviewer-emitted
+    ``scope`` when present, BUT cross-check against the legacy token-overlap
+    classifier. If reviewer says ``"in"`` but the classifier returns
+    ``"out_of_scope"`` or ``"scope_creep"``, raise ``CharterScopeConflictError``
+    — Step 7.8 of ``review/SKILL.md`` catches the exception, emits
+    ``CHARTER_SCOPE_CONFLICT: ...`` to stderr, and skips the review-file write
+    (the orchestrator then routes to Path B re-spawn).
+
+    When ``scope`` is absent, fall back to ``classify_finding`` +
+    ``_scope_tag_to_scope`` mapping. When ``intent`` is absent, default to
+    ``"unrelated"``.
+    """
+    legacy_tag = classify_finding(finding, charter_sections)
+    derived_scope = _scope_tag_to_scope(legacy_tag)
+
+    reviewer_scope = finding.get("scope")
+    reviewer_intent = finding.get("intent")
+
+    if reviewer_scope in SCOPE_VALUES:
+        if reviewer_scope == "in" and legacy_tag in ("out_of_scope", "scope_creep"):
+            snippet = str(finding.get("text", ""))[:60]
+            raise CharterScopeConflictError(
+                f'CHARTER_SCOPE_CONFLICT: finding "{snippet}" tagged scope=in by '
+                f"reviewer but classifier returns {legacy_tag}"
+            )
+        scope = reviewer_scope
+    else:
+        scope = derived_scope
+
+    intent = _validate_intent(reviewer_intent) if reviewer_intent is not None else "unrelated"
+    return {"scope": scope, "intent": intent}
+
+
 def classify_findings(
     findings: List[dict], charter_text: str
 ) -> List[dict]:
