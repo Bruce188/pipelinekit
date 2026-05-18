@@ -32,7 +32,10 @@ Charter Discovery is the default-on front-loaded alignment phase. It produces `d
 1. `--no-charter` is present → skip entirely (legacy autonomous flow).
 2. `--charter <path>` is present → adopt existing charter at `<path>`, set `**Charter:**` pointer in `progress.md`, skip discovery loop. Error cleanly on missing path.
 3. `--max-questions 0` is present → treat as `--no-charter` (alias).
-4. `docs/charter.md` exists AND `progress.md` `**Charter:**` pointer is valid → skip (charter already produced for this run).
+4. `docs/analysis*.md` (or `docs/analysis-v*.md`) AND `docs/plan*.md` exist AND `docs/charter.md` does NOT exist → **auto-extract draft charter from prior artifacts**, write `docs/charter.md` (status: `draft`), then surface a single `AskUserQuestion` (`accept` / `edit` / `start fresh discovery`). Detailed algorithm in `reference.md` § "Step 0: Charter Auto-Extract (when prior artifacts exist)". Skips silently in subprocess mode with `CHARTER_AUTO_EXTRACT_SKIPPED: subprocess mode`. Implemented by `charter_extractor` (`claude/lib/pipeline/charter_extractor.py`).
+5. `docs/charter.md` exists AND `progress.md` `**Charter:**` pointer is valid → skip (charter already produced for this run).
+
+> **Note:** Auto-extract (condition 4) fires only when `docs/charter.md` is absent. If a versioned `docs/charter-v*.md` exists but `docs/charter.md` is absent, auto-extract still fires — auto-extract is for fresh-charter situations, not amendment.
 
 **Mutual exclusivity:**
 - `--no-charter` + `--charter <path>` → **STOP**: "ERROR: --no-charter and --charter are mutually exclusive."
