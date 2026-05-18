@@ -35,7 +35,46 @@ __all__ = [
     "classify_findings",
     "classifier_should_skip",
     "append_out_of_scope_to_deferred",
+    "CharterScopeConflictError",
+    "classify_finding_two_axis",
+    "INTENT_VALUES",
+    "SCOPE_VALUES",
 ]
+
+# ---------------------------------------------------------------------------
+# Two-axis classification constants (Task 1.1)
+# ---------------------------------------------------------------------------
+
+INTENT_VALUES: frozenset = frozenset({"correctness", "polish", "design", "unrelated"})
+SCOPE_VALUES: frozenset = frozenset({"in", "out", "adjacent"})
+
+_LEGACY_SCOPE_TAG_TO_SCOPE: Dict[str, str] = {
+    "in_scope": "in",
+    "out_of_scope": "out",
+    "scope_creep": "adjacent",
+}
+
+
+def _validate_intent(value) -> str:
+    """Return ``value`` if it is a canonical intent, else ``"unrelated"``.
+
+    Case-sensitive — reviewer-emitted strings are lower-case per the
+    agent-prompt schema. Non-string inputs always normalize to
+    ``"unrelated"``.
+    """
+    if isinstance(value, str) and value in INTENT_VALUES:
+        return value
+    return "unrelated"
+
+
+def _scope_tag_to_scope(scope_tag: str) -> str:
+    """Map legacy ``scope_tag`` value to new two-axis ``scope`` value.
+
+    ``in_scope -> "in"``, ``out_of_scope -> "out"``, ``scope_creep -> "adjacent"``.
+    Unknown values fall through to ``"in"`` (default-allow, consistent with
+    ``_tag_for_match`` rule 3d).
+    """
+    return _LEGACY_SCOPE_TAG_TO_SCOPE.get(scope_tag, "in")
 
 
 # ---------------------------------------------------------------------------
