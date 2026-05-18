@@ -32,15 +32,15 @@ Memories live at `~/.claude/memory/` (or `~/.claude/projects/<project-slug>/memo
 
 Each memory carries `last_seen` (date last revalidated) and `confidence` (0.0-1.0). Read-time decay rule: `confidence_now = confidence * (1 - 0.05) ^ weeks_since_last_seen`. Memories below `confidence_now ≈ 0.6` should be cross-checked before use. See `~/.claude/memory/MEMORY.md` for the canonical decay schema.
 
-### AgentMemory (optional retrieval layer)
+### AgentMemory (retrieval layer)
 
-When installed with `CLAUDE_INSTALL_OPTIONALS=agentmemory`, the vendored `claude/lib/agentmemory/` skeleton enables structured retrieval over the same markdown files: semantic similarity search, contextual recall, and an alternative decay model. AgentMemory is a **community project (NOT Anthropic-official)** — review upstream before sandbox use and PIN the version before production use.
+The vendored `claude/lib/agentmemory/` skeleton enables structured retrieval over the same markdown files: semantic similarity search, contextual recall, and an alternative decay model. AgentMemory is a **community project (NOT Anthropic-official)** — review upstream before sandbox use and PIN the version before production use.
 
 **Complementarity rules:**
 1. Flat-file remains the canonical write path. All memory writes go to plain `.md` files regardless of whether agentmemory is installed.
 2. AgentMemory is a **secondary retrieval index**, not the only access path. Plain-markdown inspectability via `cat` / Read / grep is preserved at all times.
 3. The user picks one mode at a time — either "same store" (vector index rebuilt from the markdown files) or "separate store" (independent vector DB the user explicitly selects). Never both writing concurrently.
-4. Default behavior is unchanged when `agentmemory` is not in `CLAUDE_INSTALL_OPTIONALS`.
+4. Default per-run behaviour is unchanged when no agentmemory queries are issued — the flat-file path remains the canonical read/write path.
 
 See `claude/lib/agentmemory/README.md` for the full opt-in / complementarity reference and `claude/lib/agentmemory/NOTICE.md` for vendor attribution.
 
