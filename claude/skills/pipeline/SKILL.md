@@ -1,7 +1,7 @@
 ---
 name: pipeline
 description: Autonomous pipeline orchestrator. Processes a feature list through the full workflow (analyze → plan → implement → review → merge) with zero human intervention. Supports --dry-run and --restart-from.
-argument-hint: ([feature-file]|[--renew]|[--adopt]|[--from "<text>"]|[--plan [<path>]]) [--restart-from analyze|plan|implement|review] [--dry-run] [--no-charter|--charter <path>|--max-questions <N>]
+argument-hint: ([feature-file]|[--renew [--auto]]|[--adopt]|[--from "<text>"]|[--plan [<path>]]) [--restart-from analyze|plan|implement|review] [--dry-run] [--no-charter|--charter <path>|--max-questions <N>]
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, Skill, TodoWrite
 effort: high
 ---
@@ -82,6 +82,7 @@ Parse `$ARGUMENTS`:
 - `--dry-run` flag = preview mode
 - `--restart-from <step>` = resume from a specific step. Valid: `analyze`, `plan`, `implement`, `review`
 - `--renew` flag = regenerate feature file from failed/deferred items
+- `--auto` = autonomous-bypass modifier on `--renew`. When present, every `AskUserQuestion` invocation inside the Step 1.6 charter re-validation pass (reference.md sub-step 6.5) is skipped; the resolved drift set is recorded as an HTML-comment header block in `docs/features-renewed.md`. Only honoured when `--renew` is also present; otherwise ignored.
 - `--adopt` flag = adopt current manual workflow state into pipeline
 - `--max-usd <N>` = hard cap on cumulative USD across the entire run. Default: **unlimited** (flag omitted disables the budget check).
 - `--max-turns <N>` = hard cap on accumulated sub-agent turns. Default: **unlimited**. When set, counts Agent tool invocations.
@@ -305,7 +306,7 @@ Triggered when no feature file path is provided.
 
 ### Step 1.6: Renew Feature File
 
-Triggered when `--renew` is present. Full flow defined in `reference.md` § "Step 1.6: Renew Feature File (--renew)". After renewal, proceed to Step 2 with `docs/features-renewed.md`. Includes a charter re-validation pass (see reference.md § Step 1.6 sub-step 6.5) when `**Charter:**` is not `(none)`.
+Triggered when `--renew` is present. Full flow defined in `reference.md` § "Step 1.6: Renew Feature File (--renew)". After renewal, proceed to Step 2 with `docs/features-renewed.md`. Includes a charter re-validation pass (see reference.md § Step 1.6 sub-step 6.5) when `**Charter:**` is not `(none)`. Emits a drift artifact at `docs/charter-drift.md` (or `docs/charter-drift-vN.md` per the Versioning Convention). When `--renew --auto` is combined, the `AskUserQuestion` gating inside sub-step 6.5 is bypassed and drift entries are auto-accepted into an HTML-comment header block.
 
 ---
 
