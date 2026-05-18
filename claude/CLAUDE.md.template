@@ -145,6 +145,33 @@ When the workload is a **mobile app** (iOS/Android/cross-platform) **and** `CLAU
 
 See `claude/agents/mobile-dev.md` for the full mobile-dev agent spec and `claude/skills/ios/SKILL.md` / `claude/skills/expo/SKILL.md` for platform-specific skill docs.
 
+## Azure Mode (Optional Overlay)
+
+When the workload is an **Azure** workload (App Service / Container Apps / Function Apps / AKS) **and** `CLAUDE_INSTALL_OPTIONALS=azure` is set at install time, augment the default routing with the Azure-specific agent and skill per the table below. For non-Azure work (the default), nothing changes — keep using the native skills.
+
+| Phase | Tool | Rationale |
+|-------|------|-----------|
+| Product discovery | `/interview-prp` | Captures Azure-specific scoping: target services (App Service / Container Apps / Functions / AKS), region, subscription, IaC preference (Bicep vs ARM) |
+| Plan / analysis | `/analyze` (with `@azure-deployment-engineer`) | Agent contributes resource-layout, RBAC, cost-guardrail constraints to analysis |
+| Plan review | `/review --scope plan` | Multi-agent backend correctness; azure-deployment-engineer joins review pool |
+| Implementation (IaC) | `/implement-plan` (with `@azure-deployment-engineer`) | Bicep-first IaC authoring (or ARM JSON for legacy tooling); no portal-clicked production resources |
+| Day-to-day ops | `claude/skills/azure-ops/SKILL.md` | `az` CLI wrapper: resource listing, deploy, log tail, App Service restart |
+| Deploy verification | `azure-ops` skill → `az webapp show` / `az containerapp show` + log tail | Post-deploy health check against already-authenticated context |
+| Observability | Log Analytics + Application Insights (KQL) | Wired by azure-deployment-engineer; SLO-based alerts + diagnostic settings |
+| Doc update | `/post-merge` | F5 added Azure-aware capture; verify no credential material in logs |
+| Cost retro | `az consumption usage list` via `azure-ops` | Tag-based cost allocation; right-sized SKU check; scale-to-zero verification |
+
+**Gotchas:**
+1. The `@azure-deployment-engineer` agent and `azure-ops` skill are NOT installed by default. Set `CLAUDE_INSTALL_OPTIONALS=azure` when running `install.sh` to enable them.
+2. Authentication is the user's responsibility. The `azure-ops` skill STOPS and prompts you to run `az login` yourself if `az account show` fails — it never auto-authenticates and never reads credential env vars or caches tokens.
+3. Service-principal / non-interactive auth flows are deliberately unsupported in the operational skill (credential-leak risk in agentic contexts). For CI, configure `azure/login@v2` outside Claude and run `az` against the pre-authenticated context.
+4. Default subscription matters: confirm `az account show --query id` before every deploy. Multi-subscription users should pin via `az account set --subscription <id>` or per-command `--subscription` flags.
+5. Regional defaults are NOT assumed — every Bicep/ARM template must declare `location` explicitly. The agent flags missing region parameters during plan review.
+6. Managed Identity is preferred over service-principal client secrets for runtime identity. The azure-deployment-engineer agent enforces this during plan review.
+7. The `@azure-deployment-engineer` agent is named — invoke it explicitly when planning or deploying Azure workloads. Per project convention, named agents are not auto-spawned.
+
+See claude/agents/azure-deployment-engineer.md for the full agent spec and claude/skills/azure-ops/SKILL.md for the operational skill.
+
 ## User Identity
 
 - Name: ${USER_NAME}
