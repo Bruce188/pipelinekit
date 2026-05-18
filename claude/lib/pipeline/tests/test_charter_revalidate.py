@@ -99,8 +99,14 @@ class TestDetectDrift(unittest.TestCase):
         )
         first = result[0]
         self.assertIsInstance(first, tuple)
-        self.assertEqual(len(first), 2, "drift entries must be (header, reason) tuples")
-        _header, reason = first
+        # F12: detect_drift returns 4-tuples (header, reason, status, evidence).
+        # The semantic invariant Case A asserts (reason mentions 'Non-Goal' +
+        # 'logging') is preserved on the new shape.
+        self.assertEqual(
+            len(first), 4,
+            "F12 contract: drift entries are (header, reason, status, evidence)",
+        )
+        _header, reason, _status, _evidence = first
         reason_lower = reason.lower()
         self.assertIn(
             "non-goal", reason_lower,
@@ -131,7 +137,8 @@ class TestDetectDrift(unittest.TestCase):
             len(result), 0,
             "expected drift entry for mobile-app feature against the MVP 'Out' list",
         )
-        _header, reason = result[0]
+        # F12: 4-tuples (header, reason, status, evidence) — unpack accordingly.
+        _header, reason, _status, _evidence = result[0]
         # Plan Task 1.1 Case B: reason contains 'MVP Boundary' or 'Out'.
         self.assertTrue(
             ("MVP Boundary" in reason) or ("Out" in reason),
@@ -254,6 +261,101 @@ class TestPublicSurface(unittest.TestCase):
             callable(charter_revalidate.detect_drift),
             "detect_drift must be callable",
         )
+
+
+# ---------------------------------------------------------------------------
+# F12 — status enum / freshness / frontmatter / legacy-shim coverage.
+# Each class targets a discrete new symbol introduced by F12. The original
+# Case A-F drift cases above continue to cover the substring + token-floor
+# semantics; these cases pin the new public surface.
+# ---------------------------------------------------------------------------
+
+
+class TestStatusEnum(unittest.TestCase):
+    def test_detect_drift_returns_4_tuple_with_status(self):
+        charter_text = _charter(non_goals_body="- no logging changes\n")
+        features_text = _feature(
+            "feat/structured-logging",
+            "Add structured logging across worker pool",
+        )
+        result = charter_revalidate.detect_drift(charter_text, features_text)
+        self.assertGreater(len(result), 0)
+        first = result[0]
+        self.assertEqual(
+            len(first), 4,
+            f"detect_drift must return 4-tuple post-F12; got len={len(first)}",
+        )
+        _header, _reason, status, evidence = first
+        self.assertIn(
+            status,
+            (charter_revalidate.STATUS_CURRENT,
+             charter_revalidate.STATUS_DRIFTED,
+             charter_revalidate.STATUS_OBSOLETE),
+            f"status must be one of the enum constants; got {status!r}",
+        )
+        self.assertIsInstance(evidence, str)
+        self.assertGreater(
+            len(evidence), 0,
+            "evidence field must be a non-empty string",
+        )
+
+
+class TestFreshness(unittest.TestCase):
+    def test_is_fresh_true_for_recent_charter(self):
+        # 2026-05-15 vs probe 2026-05-18 = 3 days < 7
+        charter = "---\ncreated: 2026-05-15\n---\n# Charter\n"
+        self.assertTrue(charter_revalidate.is_fresh(charter, "2026-05-18"))
+
+    def test_is_fresh_false_for_old_charter(self):
+        # 2026-04-01 vs probe 2026-05-18 = 47 days >= 7
+        charter = "---\ncreated: 2026-04-01\n---\n# Charter\n"
+        self.assertFalse(charter_revalidate.is_fresh(charter, "2026-05-18"))
+
+    def test_is_fresh_false_when_no_frontmatter(self):
+        charter = "# Charter\n\n## Goal\n\nFoo.\n"
+        self.assertFalse(charter_revalidate.is_fresh(charter, "2026-05-18"))
+
+    def test_is_fresh_respects_threshold_days_argument(self):
+        # 4 days ago, threshold 3 → not fresh
+        charter = "---\ncreated: 2026-05-14\n---\n# Charter\n"
+        self.assertFalse(
+            charter_revalidate.is_fresh(charter, "2026-05-18", threshold_days=3)
+        )
+        # 4 days ago, threshold 5 → fresh
+        self.assertTrue(
+            charter_revalidate.is_fresh(charter, "2026-05-18", threshold_days=5)
+        )
+
+
+class TestFrontmatterParse(unittest.TestCase):
+    def test_parse_charter_frontmatter_extracts_created(self):
+        charter = "---\ncreated: 2026-05-15\nstatus: draft\n---\n# Body\n"
+        meta = charter_revalidate.parse_charter_frontmatter(charter)
+        self.assertEqual(meta.get("created"), "2026-05-15")
+
+    def test_parse_charter_frontmatter_empty_returns_empty_dict(self):
+        charter = "# Body without frontmatter\n"
+        self.assertEqual(
+            charter_revalidate.parse_charter_frontmatter(charter), {}
+        )
+
+
+class TestLegacyShim(unittest.TestCase):
+    def test_detect_drift_legacy_returns_2_tuples(self):
+        charter_text = _charter(non_goals_body="- no logging changes\n")
+        features_text = _feature(
+            "feat/structured-logging",
+            "Add structured logging across worker pool",
+        )
+        result = charter_revalidate.detect_drift_legacy(
+            charter_text, features_text
+        )
+        self.assertGreater(len(result), 0)
+        for entry in result:
+            self.assertEqual(
+                len(entry), 2,
+                f"detect_drift_legacy must return 2-tuples; got len={len(entry)}",
+            )
 
 
 if __name__ == "__main__":
