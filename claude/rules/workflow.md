@@ -210,6 +210,7 @@ An out-of-process subprocess driver is intentionally not shipped. If you need a 
 - **sequential-thinking:** Deep reasoning chains. Add when tasks require multi-step logic.
 - **RepoMapper:** Structural code patterns, class hierarchies, call graphs. Add for large codebases.
 - **voicemode:** Push-to-talk voice interaction via `converse` tool.
+- **claude-context:** Codebase semantic RAG via `@zilliztech/claude-context` (community MCP — NOT Anthropic). AST-aware chunking + Merkle-tree incremental indexing; complements serena (LSP/symbolic navigation) by providing semantic retrieval against natural-language objectives. Opt-in via `CLAUDE_INSTALL_OPTIONALS=claude-context`. `/analyze` Step 3.6 skips semantic retrieval below 50000 LOC. local-mode (Ollama / Transformers embedding, no Milvus account) and cloud-mode (Milvus / Zilliz creds via `MILVUS_ADDRESS` / `MILVUS_TOKEN`) both supported — env-var skeleton lives in `.mcp.json.template` `_optional_claude_context_mcpServers`. Upstream benchmark: <5s per `git pull` for incremental Merkle-tree re-indexing (benchmark, not a guarantee).
 
 Example `.mcp.json` for a project needing RepoMapper:
 ```json

@@ -40,5 +40,18 @@
         "ios-simulator-mcp"
       ]
     }
+  },
+  "_claude_context_instructions": "COMMUNITY MCP — @zilliztech/claude-context is maintained by Zilliz (Milvus commercial vendor), NOT Anthropic. Uncomment-and-move into 'mcpServers' to enable codebase semantic RAG (AST-aware chunking + Merkle-tree incremental indexing). LOCAL MODE: set EMBEDDING_PROVIDER=ollama (or transformers) and provide a local embedding model — no Milvus account needed. CLOUD MODE: set MILVUS_ADDRESS and MILVUS_TOKEN to Zilliz Cloud credentials. PIN guidance: replace '-y' with a fixed @version (e.g. @zilliztech/claude-context@0.1.0) for reproducibility. 50k LOC heuristic: /analyze skips semantic retrieval below 50000 LOC; opt-in indexing on smaller repos via direct MCP query.",
+  "_optional_claude_context_mcpServers": {
+    "claude-context": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@zilliztech/claude-context"],
+      "env": {
+        "EMBEDDING_PROVIDER": "",
+        "MILVUS_ADDRESS": "",
+        "MILVUS_TOKEN": ""
+      }
+    }
   }
 }
