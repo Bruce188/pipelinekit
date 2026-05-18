@@ -500,6 +500,56 @@ Steps:
 - No new files created (any creation is reverted in step 7.b).
 If a nit's suggestion requires logic interpretation, leave it for the next subagent cycle. Path N is not for "anything cheap"; it is specifically for Edit-tool-mechanical fixes.
 
+### Path M — Inline Mini-Fix (max 2 inline cycles)
+
+Triggered by Step 5.7 row 1.7 (0 blocking + N>0 non-blocking findings AND Path M gate predicate holds). Strict superset of Path N — pure-nit-only review files route to Path N first (row 1.5); Path M kicks in only when at least one non-blocking finding is present.
+
+This is an additional legitimate inline-dispatch path (alongside Path N). Rationale mirrors Path N: small Edit-tool-mechanical fixes whose subagent dispatch overhead (~5× phase startup) is wasteful for fixes that touch ≤ 5 lines / ≤ 1 file per finding, with an aggregate ceiling of 3 findings / 8 lines / 1-file-per-finding to bound blast radius.
+
+Steps:
+
+0. **Gate predicate evaluation.** Parse all findings from the review file (via `**Review:**` pointer in `docs/progress.md`). Predicate holds iff ALL of the following are true:
+   - Every finding's `Severity:` field ∈ {non-blocking, nit} (no blockers).
+   - Every finding's `Lines:` count ≤ 5.
+   - Every finding's `Files:` count ≤ 1.
+   - Total finding count ≤ 3.
+   - Aggregate lines across findings ≤ 8.
+   - Every finding has a mechanical `Suggestion:` field (no logic interpretation required).
+
+   If predicate FAILS → fall through to Path B step 5 subagent dispatch (existing flow unchanged). Severity regex reuses Path B Step 1.5: `^- \*\*Severity:\*\* (non-blocking|nit)`. Lines / Files counts come from the finding's `Lines:` / `Files:` fields (populated by `/review` finding emission — Path M does NOT change that format).
+
+1. Track inline-cycle count in `docs/pipeline-state.md` as `**Inline cycles:**` (default 0, cap 2). Increment. If `Inline cycles > 2`: append `Path: M | Inline cycles: 2 | Status: FAILED (mini-fix did not converge — escalating)` to the feature's Run Log and ESCALATE to Path B step 6 (re-review only; do NOT route through step 5 re-implement — the surviving findings already have reopened tasks if applicable, so dropping into step 6 lets the next reviewer subagent re-categorize them; same escalation pattern Path N uses at step 2 / line 478).
+
+2. Snapshot tracked files: `EXISTING_FILES=$(git ls-files)`. Capture the set of files the predicate-qualified findings target so revert is bounded.
+
+3. For each qualifying finding:
+   - Verify the file is within `git diff $BASE...HEAD` scope (do not edit files outside the feature's diff).
+   - Apply the fix using the `Edit` tool (NOT a subagent — this is the inline path).
+   - Skip findings whose `Suggestion:` requires logic interpretation. If skipping leaves zero edits applied, bail to Path B step 5 (the predicate was satisfied at parse-time but all edits were unreachable in practice — indicates suggestions are not mechanical).
+
+4. Run the project's sanity gate (auto-detected: `dotnet build` for *.sln, `npm test --silent` for package.json, `pytest -q` for pyproject/setup.py, otherwise no-op). 5-minute timeout cap. (Same auto-detection as Path N step 5.)
+
+5. **If sanity gate passes:**
+   a. Stage the fixed files by name (NOT `git add -A` — the `block-stage-sensitive.sh` hook enforces the never-stage list). Skip files that match the canonical never-stage patterns.
+   b. Commit: `git commit -m "fix: address review feedback inline"` — clean conventional message, no AI attribution, no finding count or stream references (per `~/.claude/rules/agents-worktrees.md` § Commit Message Hygiene).
+   c. Strike the resolved findings from the review file's findings list (leave the file in place for audit).
+
+6. **If sanity gate fails:** revert the inline mini-fix edits:
+   a. `git checkout HEAD -- <files>` for each modified file in the snapshot. Path M is Edit-tool only, so no new files can have been created — the snapshot diff is sufficient. (If a future Path M variant introduces `Write`, also run the `EXISTING_FILES` cleanup pattern from `/review` Step 7.5.f.)
+   b. Keep the surviving findings in the review file. Append to Run Log: `Path: M | Inline cycles: [N] | Status: PARTIAL (sanity-gate revert)` and ESCALATE to Path B step 5 (subagent dispatch).
+
+7. **Re-route via Step 5.7** — read the review file again (now with resolved findings struck) and re-evaluate path detection. Typical outcomes:
+   - All findings cleared → Path A (passed).
+   - Some findings survived, predicate still holds → Path M again (capped at 2 cycles by step 1).
+   - Predicate now fails (e.g., a new finding surfaced or a survivor falls outside the budget) → Path B or Path C.
+
+**Inline boundary check (REQUIRED):** Path M's Edit calls run in the orchestrator's main context — they are inline by design. They MUST be limited to:
+- Files that already appear in `git diff $BASE...HEAD` for the current feature branch.
+- Mechanical edits whose `Suggestion:` field describes a single-line or small-multi-line code change (rename, reformat, comment fix, dead-code removal, single-line logic change with explicit before/after).
+- No new files created (Edit-tool only — any creation is caught by the snapshot/revert path in step 6.a).
+
+Findings whose `Suggestion:` requires logic interpretation are skipped at step 3. Path M is not for "anything cheap"; it is specifically for Edit-tool-mechanical fixes within the gate budget.
+
 ---
 
 ## Step 5.x: Phase Subagent Dispatch — Prompt Templates
