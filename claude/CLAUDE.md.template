@@ -44,6 +44,38 @@ The vendored `claude/lib/agentmemory/` skeleton enables structured retrieval ove
 
 See `claude/lib/agentmemory/README.md` for the full opt-in / complementarity reference and `claude/lib/agentmemory/NOTICE.md` for vendor attribution.
 
+## Notifications
+
+When `/pipeline` reaches a state requiring user attention — budget breach, error, human-review checkpoint, end-of-feature, permission prompt — it emits a push notification via native Claude Code surfaces. There is no custom notification config file, no parallel rate limiter — Channels' built-in mechanics are authoritative.
+
+### Hook event mapping
+
+| Hook event | Notify event_type | Surface |
+|------------|-------------------|---------|
+| `Stop` | `feature-done` | `PushNotification` (interactive) OR `terminalSequence` (fallback) |
+| `PermissionRequest` | `question` | `terminalSequence` (OSC 777) |
+| `Notification` | `error` / `budget-breach` / `dropped` | `terminalSequence` (OSC 777) |
+| `PreCompact` (= `PostCompact` matcher in `~/.claude/settings.json`) | `human-review` | `terminalSequence` |
+
+### Surfaces
+
+- `PushNotification` tool (Claude Code 2.1.110+) — requires interactive session + Remote Control + "Push when Claude decides" enabled in the Claude Code mobile app.
+- `Notification`-hook `terminalSequence` — JSON field returned by the hook handler; emits OSC 777 desktop notification. Non-blocking; any exit code is non-blocking by contract.
+- `Channels` surface (Claude Code 2.1.121+) — for managed-org sessions; inbound delivery requires `channelsEnabled: true` in `~/.claude/settings.json`. Users opt in themselves; pipelinekit does NOT auto-enable.
+
+### Payload (6 fields)
+
+Notifications carry: `feature_index`, `step`, `event_type`, `text` (≤ 200 chars, truncated with ellipsis), `action_link` (deep link OR signal-file path), `feature_name`. Charter / analysis / plan / review file contents do not leak — the 200-char cap is a hard limit. Full schema in `~/.claude/skills/pipeline/reference.md § Notification payload schema`.
+
+### Opt-out
+
+- Set `channelsEnabled: false` in `~/.claude/settings.json` to disable inbound Channels delivery.
+- Set `PIPELINE_NO_NOTIFICATIONS=1` in the environment per-run to short-circuit the helper for that run (no emit at all).
+
+### Shared-surface invariant
+
+`feat/integrate-openhuman` (F10) is the second consumer of this surface. F10 reuses `claude/hooks/notify-emit.sh` and the same hook event mapping. The schema is the cross-feature contract — F10 cannot fork it.
+
 ## Context Management
 
 - Context-aware clearing between pipeline steps (see `rules/workflow.md`). `/compact` proactively around 50% capacity.

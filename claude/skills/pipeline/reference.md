@@ -412,6 +412,8 @@ Do not modify any existing `docs/` files during adoption — only create `featur
 
 ### Path B — Fixable Findings (max 5 review cycles)
 
+On Path B entry, the orchestrator emits a `path-b-pre` beacon; this beacon ALSO invokes `claude/hooks/notify-emit.sh` with `NOTIFY_EVENT_TYPE=human-review` per the canonical schema in § Notification payload schema. The notification is delivered via `PushNotification` when the session is interactive + Remote Control is enabled; otherwise via the `Notification`-hook `terminalSequence` fallback (OSC 777).
+
 1. Read current review cycle count from pipeline state. Increment.
 1.5. **Convergence check:** Count the review file's blocking + non-blocking findings by counting lines matching `^- \*\*Severity:\*\* (blocking|non-blocking)`. Read `**Prior finding count:**` from pipeline-state.md. If absent (first Path B cycle): set `**Prior finding count:**` to the current count and skip the comparison (first cycle establishes the baseline). If present: compare current against prior. If current >= prior, increment `**Non-converging cycles:**` in pipeline-state.md (0 if absent). If `**Non-converging cycles:**` >= 2, log "Non-converging review: [current] >= [prior] findings for 2 consecutive cycles — escalating to Path C" and jump to Path C. If current < prior, reset `**Non-converging cycles:**` to 0. Always update `**Prior finding count:**` to the current count.
 2. If cycle count > 5:
@@ -435,6 +437,8 @@ Do not modify any existing `docs/` files during adoption — only create `featur
 7. Emit phase transition signal (progress beacon **and** TodoWrite update, tag=`path-b-post`) per the helpers in SKILL.md Step 5.0. Return to Step 5.7 (path determination)
 
 ### Path C — Scope Change (max 1 re-plan)
+
+On Path C entry, the orchestrator emits a `path-c-pre` beacon; this beacon ALSO invokes `claude/hooks/notify-emit.sh` with `NOTIFY_EVENT_TYPE=human-review` per the canonical schema in § Notification payload schema. The notification is delivered via `PushNotification` when the session is interactive + Remote Control is enabled; otherwise via the `Notification`-hook `terminalSequence` fallback (OSC 777).
 
 1. Read current replan count from pipeline state. Increment.
 2. If replan count > 1:
@@ -1286,5 +1290,43 @@ prompt body, wrapped in `<<<ISSUES_CONTENT_BEGIN>>> ...
 >   summarize.
 >
 > Issue payload follows the `<<<ISSUES_CONTENT_BEGIN>>>` delimiter.
+
+---
+
+### Notification payload schema
+
+The orchestrator surfaces halt-class state transitions to the user via native Claude Code notification surfaces (see SKILL.md § Notifications). The canonical helper at `claude/hooks/notify-emit.sh` is the single emit point. The payload below is the cross-feature invariant — `feat/integrate-openhuman` (F10) is the second consumer and MUST reuse this helper unchanged.
+
+```json
+{
+  "feature_index": "9/23",
+  "step": "review",
+  "event_type": "human-review",
+  "text": "<= 200 chars, truncated with ellipsis",
+  "action_link": "claude://session/<id>?at=<anchor>  OR  signal-file:///path/to/signal",
+  "feature_name": "feat/pipeline-mobile-notifications"
+}
+```
+
+**Field-type table:**
+
+| field | type | constraint |
+|-------|------|------------|
+| `feature_index` | string | `N/M` shape (1-based current / total in feature file) |
+| `step` | enum string | one of `analyze` / `plan` / `implement` / `review` / `merge` |
+| `event_type` | enum string | one of `question` / `error` / `dropped` / `human-review` / `budget-breach` / `feature-done` |
+| `text` | string | ≤ 200 chars; truncated with ellipsis when input length > 200 |
+| `action_link` | string | deep-link (`claude://session/...`) OR signal-file path (`signal-file:///...`); may be empty |
+| `feature_name` | string | `<type>/<name>` shape per `~/.claude/skills/new-branch/SKILL.md` validators |
+
+**No-leak constraint:** Hook handlers MUST NOT cat, paste, or otherwise read charter, analysis, plan, or review file contents into the notification body. The `text` field is constructed exclusively from `docs/pipeline-state.md` + the in-memory `<task-notification>` `<summary>` — never from `docs/plan-v*.md`, `docs/charter.md`, `docs/review-v*.md`, or `docs/analysis-v*.md`. The 200-char `text` cap is the hard upper bound on payload size.
+
+**OSC 777 `terminalSequence` shape:** the hook-mode helper emits the JSON shape `{"terminalSequence":"]777;notify;Claude Code;<text>"}` (one line on stdout). The literal escape bytes are `\x1b` (ESC) at the start and `\x07` (BEL) at the end of the OSC 777 sequence. The `terminalSequence` JSON field is returned to the Claude Code harness; the harness writes it to the host terminal verbatim.
+
+**Fallback chain:** `PushNotification` (interactive session + Remote Control enabled in the Claude Code mobile app) → `Notification`-hook `terminalSequence` (terminal attached, OSC 777 supported by host terminal emulator) → no-op (headless subprocess driver, or terminal without OSC 777 support). The subprocess driver `orchestrate.sh` / `claude -p` cannot emit `PushNotification` (interactive-session-only) and always falls through to the `Notification`-hook path.
+
+**Opt-out:** `PIPELINE_NO_NOTIFICATIONS=1` env var short-circuits the helper at script start (no emit, exit 0). `channelsEnabled: false` in `~/.claude/settings.json` disables inbound Channels delivery (Claude Code 2.1.121+).
+
+**Cross-feature contract:** `feat/integrate-openhuman` (F10) is the second consumer of this surface. F10 MUST reuse `claude/hooks/notify-emit.sh` and the canonical hook event mapping in `claude/skills/pipeline/SKILL.md § Notifications`. The schema in this appendix is the cross-feature invariant — F10 cannot fork it.
 
 ---

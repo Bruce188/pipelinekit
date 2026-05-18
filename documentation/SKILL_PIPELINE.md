@@ -448,3 +448,32 @@ If a deployed skill breaks:
 [ ] CLAUDE.md updated
 [ ] docs/ regenerated
 ```
+
+## Notifications
+
+`/pipeline` surfaces push notifications when it reaches a state requiring user attention: budget breach, error, end-of-feature, human-review checkpoint, or permission prompt. Notifications use native Claude Code surfaces only — there is no custom config file or rate limiter.
+
+### Enabling
+
+1. **Mobile push notifications** — enable Remote Control in your Claude Code mobile app and toggle "Push when Claude decides" in your preferences. Requires Claude Code 2.1.110 or later. See the upstream Claude Code Remote Control settings page for the latest setup instructions.
+2. **Desktop terminal notifications** — automatically emitted via the `Notification` hook's `terminalSequence` (OSC 777). No additional setup needed; works in any terminal that supports OSC 777 escape sequences.
+3. **Channels (managed-org inbound delivery)** — set `channelsEnabled: true` in `~/.claude/settings.json` (Claude Code 2.1.121+, console-API-key auth orgs). Used for webhook-delivered events such as budget bump approvals.
+
+### What gets notified
+
+| Event | When | Surface |
+|-------|------|---------|
+| `feature-done` | End-of-feature (`Stop` hook fires) | PushNotification (interactive) or terminalSequence (fallback) |
+| `question` | Pipeline about to request a permission grant (`PermissionRequest` hook) | terminalSequence |
+| `error` / `budget-breach` / `dropped` | Budget breach, error halt, dropped-run watcher | terminalSequence (OSC 777) |
+| `human-review` | Path B / Path C re-route (re-implement / re-plan), context-fill warning | terminalSequence |
+
+### Per-run opt-out
+
+Set `PIPELINE_NO_NOTIFICATIONS=1` in your environment for the duration of a `/pipeline` run to suppress all notifications. The pipeline emits no notification for that run, regardless of Remote Control / Channels settings.
+
+### Reference
+
+- Hook event mapping is documented in `~/.claude/CLAUDE.md § Notifications` (canonical user-side reference).
+- Payload schema (6 fields, 200-char text cap) is documented in `~/.claude/skills/pipeline/reference.md § Notification payload schema`.
+- The canonical emit helper lives at `claude/hooks/notify-emit.sh` — it is the cross-feature contract; `feat/integrate-openhuman` (F10) is the second consumer.

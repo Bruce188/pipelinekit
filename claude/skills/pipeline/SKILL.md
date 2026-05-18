@@ -247,6 +247,8 @@ If `estimated_next_phase_cost` is unknown, use a conservative estimate from the 
 
 Halts are **phase-boundary only**, never mid-phase — a halted mid-phase leaves inconsistent state.
 
+On budget breach, the orchestrator emits a `feature-failed` beacon (see Step 5.0 § Progress beacon helper); the same beacon-helper path routes to `claude/hooks/notify-emit.sh` with `NOTIFY_EVENT_TYPE=budget-breach`. For interactive sessions the helper's beacon-mode JSON is forwarded to `PushNotification`; for subprocess-driver runs the `Notification`-hook `terminalSequence` (OSC 777) is the fallback, itself a no-op when the host terminal does not support OSC 777. See § Notifications below for the full event mapping and opt-out semantics.
+
 ---
 
 ### Step 1.5: Auto-Generate Feature File
@@ -385,6 +387,8 @@ Record `**Phase Mode:** subagent` in `docs/pipeline-state.md` (Step 5.1 writes t
 **Progress beacon helper:** At each phase transition (Step 5.1, 5.2, 5.3, 5.5, 5.6, and on Path B/C entry), emit a beacon to the user via:
 `Bash(command='printf "[PIPELINE] feat=%s/%s step=%s cycle=%s :: %s (%s) worker=%s\n" "$IDX" "$TOTAL" "$STEP" "$CYC" "$NAME" "$TAG" "$WORKER" >&2', description='Progress beacon')`
 where `$IDX/$TOTAL/$STEP/$CYC/$NAME/$TAG/$WORKER` are the current values from `docs/pipeline-state.md`. Tags: `phase-pre`, `phase-done`, `path-b-pre`, `path-c-pre`, `feature-start`, `feature-done`, `feature-failed`, `docs-pre`, `docs-done`.
+
+For notify-class tags (`feature-failed`, `path-b-pre`, `path-c-pre`, `feature-done`), the beacon helper ALSO invokes `claude/hooks/notify-emit.sh --mode beacon` with `NOTIFY_*` env vars derived from `docs/pipeline-state.md` (`NOTIFY_FEATURE_INDEX` from `**Feature:**`, `NOTIFY_STEP` from `**Step:**`, `NOTIFY_FEATURE_NAME` from `**Name:**`, `NOTIFY_EVENT_TYPE` per the canonical hook event mapping in § Notifications below, `NOTIFY_TEXT` from the in-memory `<task-notification>` `<summary>` or the beacon's tag context, capped at 200 chars by the helper). For interactive sessions with Remote Control + "Push when Claude decides" enabled, the orchestrator captures the helper's JSON-line stdout and forwards it to the `PushNotification` tool (Claude Code 2.1.110+). For non-interactive subprocess-driver runs (`orchestrate.sh`, `claude -p`), `PushNotification` is interactive-session-only and the helper falls through to the `Notification`-hook OSC 777 `terminalSequence` path. The non-notify tags (`phase-pre`, `phase-done`, `feature-start`, `docs-pre`, `docs-done`) emit only the printf beacon — no notify-emit invocation. The helper short-circuits to a no-op when `PIPELINE_NO_NOTIFICATIONS=1` is set in the environment.
 
 `$WORKER` defaults to `claude` when no routing override is in effect. When `/implement-plan` Step 1.5 resolves a per-task `worker:` header to an alternate class, `$WORKER` is set to that class name before the beacon fires. The resolution order for `$WORKER` is defined in `claude/lib/worker-provider/interface.md` § Env-var resolution.
 
@@ -1177,6 +1181,37 @@ Pipeline complete.
 2. If no intel file exists: omit this section from the summary
 
 Remove `docs/pipeline-state.md` (cleanup — only if all features completed successfully).
+
+---
+
+### Notifications
+
+When `/pipeline` encounters a halt-class state (budget breach, error, human-review checkpoint, end-of-feature, permission prompt), it surfaces a push notification via native Claude Code surfaces. There is NO custom notification config file, queue, or rate limiter — Channels' built-in mechanics are authoritative. The canonical helper at `claude/hooks/notify-emit.sh` is the single emit point; F10 (`feat/integrate-openhuman`) is the second consumer of this surface and reuses the same helper + hook event mapping.
+
+**Hook event mapping:**
+
+| Hook event | Trigger context | Notify event_type | Surface |
+|------------|-----------------|-------------------|---------|
+| `Stop` | End-of-feature (Claude finishes responding) | `feature-done` | `PushNotification` (interactive) OR `terminalSequence` (fallback) |
+| `PermissionRequest` | Permission prompt (Bash/Edit/AskUserQuestion) | `question` | `terminalSequence` (OSC 777) |
+| `Notification` | Budget breach / error / dropped-run watcher | `error` / `budget-breach` / `dropped` | `terminalSequence` (OSC 777) |
+| `PreCompact` (wired as `PostCompact` matcher in `~/.claude/settings.json`) | Context-fill (manual or auto) | `human-review` | `terminalSequence` |
+
+The Step 5.0 beacon helper's notify-class tags (`feature-failed`, `path-b-pre`, `path-c-pre`, `feature-done`) route via the beacon-mode helper invocation to `PushNotification` (interactive) or the `Notification`-hook `terminalSequence` (fallback). The non-notify beacon tags (`phase-pre`, `phase-done`, `feature-start`, `docs-pre`, `docs-done`) do not emit notifications.
+
+**PushNotification gating:** the `PushNotification` tool (Claude Code 2.1.110+) requires an interactive session with Remote Control + "Push when Claude decides" enabled in the Claude Code mobile app preferences. When unavailable (settings disabled, or non-interactive session), the fallback chain takes over.
+
+**Fallback chain:** `PushNotification` (interactive + Remote Control) → `Notification`-hook `terminalSequence` (terminal-attached, OSC 777 supported) → no-op (headless subprocess or terminal without OSC 777 support).
+
+**Subprocess-driver constraint:** the `PushNotification` tool is interactive-session-only. The subprocess driver `orchestrate.sh` / `claude -p` cannot emit `PushNotification` — when the orchestrator runs in subprocess form, every notify-class tag falls through to the `Notification`-hook `terminalSequence` path, which is itself a no-op when the host terminal doesn't support OSC 777. This is by design: subprocess-driver runs are intentionally unattended and the user is expected to monitor via the feature file's Run Log.
+
+**Opt-out:**
+- Set `channelsEnabled: false` in `~/.claude/settings.json` to disable inbound Channels delivery (Claude Code 2.1.121+).
+- Set `PIPELINE_NO_NOTIFICATIONS=1` in the environment per-run to short-circuit the helper for that run (no emit at all, regardless of session interactivity).
+
+**Payload schema:** 6 fields — `feature_index`, `step`, `event_type`, `text` (≤ 200 chars, truncated with ellipsis), `action_link` (deep-link OR signal-file path; may be empty), `feature_name`. Charter / analysis / plan / review file contents MUST NOT leak into the payload — the 200-char `text` cap is hard. Full schema documented in `claude/skills/pipeline/reference.md § Notification payload schema`.
+
+**Shared-surface invariant:** `feat/integrate-openhuman` (F10) is the second consumer of this surface. F10 reuses `claude/hooks/notify-emit.sh` (the helper's public CLI is the cross-feature contract) and the canonical hook event mapping above. The schema is the cross-feature invariant — F10 cannot fork it.
 
 ---
 
