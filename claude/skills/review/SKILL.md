@@ -544,36 +544,47 @@ No flag needed — nit auto-fix always runs when nits are present.
 
 ### Step 7.8: Charter Scope Classification (if charter present)
 
-After auto-fix (Step 7.5), before saving findings:
+This classifier runs after Step 7.5 (Auto-Fix Detection) and before Step 8 (Save Review Findings). The call is strictly post-aggregation: it consumes the merged, deduped, auto-fix-finalized findings list and decorates each entry with a `scope_tag`. The 5-agent panel composition (Step 6) is untouched — no agent prompts, agent count, or agent communication semantics change.
 
 ```bash
-test -f docs/charter.md && echo "CHARTER_FOUND" || echo "NO_CHARTER"
+# FINDINGS_JSON is the same in-memory list the review skill already
+# builds for Step 8. Step 8 reads sys.argv[1] back to get the surviving
+# list; the audit trail (including scope_tag for every decorated entry)
+# is written separately to review-vN.md.
+python3 - "$FINDINGS_JSON" "$REVIEW_FILE_NAME" <<'PYEOF'
+import json, sys
+from claude.lib.pipeline import charter_classifier
+
+skip, log = charter_classifier.classifier_should_skip()
+if skip:
+    print(log, file=sys.stderr)
+    sys.exit(0)
+
+with open(sys.argv[1]) as f:
+    findings = json.load(f)
+with open("docs/charter.md") as f:
+    charter_text = f.read()
+
+decorated = charter_classifier.classify_findings(findings, charter_text)
+charter_classifier.append_out_of_scope_to_deferred(
+    "docs/progress.md", decorated, sys.argv[2]
+)
+
+# Drop out_of_scope findings from the in-memory list so Step 9 does
+# not reopen tasks for them (analysis-v25 § 8). They remain in
+# review-vN.md for the audit trail.
+surviving = [f for f in decorated if f.get("scope_tag") != "out_of_scope"]
+with open(sys.argv[1], "w") as f:
+    json.dump(surviving, f)
+PYEOF
 ```
 
-**If `docs/charter.md` is absent:** classify all findings as `in-scope`. Proceed to Step 8 with the combined findings list unchanged.
+**Constraint surface:**
 
-**If `docs/charter.md` exists:** read sections `## Non-Goals` and `## MVP Boundary`. For each remaining finding in the findings list:
-
-1. If the finding maps to a charter Non-Goal or MVP Boundary `Out` item (partial string match on the finding's description or the file it targets):
-   - Classify as `out-of-scope`.
-   - Move to the `## Deferred` section in `docs/progress.md` with note: `charter: out of scope (review-vN)`.
-   - Do NOT reopen any task for this finding — out-of-scope findings never trigger Path B.
-
-2. Otherwise: classify as `in-scope`. Keep in the findings list.
-
-**Review report structure (when charter present):** the review file written in Step 8 uses two sub-sections:
-
-```
-## In-Scope Findings
-[findings classified in-scope — these trigger task reopening in Step 9]
-
-## Out-of-Scope Findings (Deferred)
-[findings classified out-of-scope — informational only; moved to Deferred]
-```
-
-**Task reopening (Step 9) operates only on in-scope findings.** Out-of-scope findings never reopen tasks and never feed into Path B re-implement cycles.
-
-**If `docs/charter.md` is absent:** use a single `## Findings` section (current behavior unchanged).
+- The classifier is **advisory** — the existing `severity` column on review-vN.md remains the gate for blocking/non-blocking. `scope_tag` is decoration alongside severity, not a replacement for it.
+- `scope_creep` raises a flag, never blocks. The review file's `## Summary` section gains a line: `Charter scope-creep flag: <N> finding(s) — consider /pipeline --renew or charter amendment`. The orchestrator (`/pipeline`) is the consumer; this step does not auto-edit the charter or auto-replan.
+- `out_of_scope` findings are auto-appended to `docs/progress.md` § Deferred via `append_out_of_scope_to_deferred` and dropped from the in-memory findings list before Step 9 runs, so Step 9 never reopens tasks for them. They are still written to `review-vN.md` with `scope_tag: out_of_scope` for the audit trail.
+- When `classifier_should_skip` trips (no progress.md, no `**Charter:**` line, pointer literal `(none)`, or pointer references a missing file), the canonical log line `CHARTER_ABSENT_CLASSIFIER_SKIPPED: <reason>` is printed to stderr, the review file is written with its current charter-unaware schema, and `progress.md` § Deferred is not touched.
 
 ---
 
