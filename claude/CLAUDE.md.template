@@ -76,6 +76,12 @@ Notifications carry: `feature_index`, `step`, `event_type`, `text` (≤ 200 char
 
 `feat/integrate-openhuman` (F10) is the second consumer of this surface. F10 reuses `claude/hooks/notify-emit.sh` and the same hook event mapping. The schema is the cross-feature contract — F10 cannot fork it.
 
+### Human-Review Gate (--human-review)
+
+`/pipeline` ships a `--human-review [<minutes>]` flag that pauses before destructive actions (today: `git merge --squash`) for out-of-band human approval via the `claude/skills/openhuman/` skill. Default is **0** (gate off — flag absence is the same as `--no-human-review`). Bare `--human-review` (no minutes argument) defaults to **30 minutes**; `--human-review <N>` sets a user-supplied timeout in minutes (positive integer). The two flags are mutually exclusive.
+
+On timeout, the PreToolUse handler emits `permissionDecision: "deny"` with reason `OPENHUMAN_TIMEOUT: <minutes> elapsed without approval` — this is **fail-safe abort**, NEVER auto-approve. The human responds by writing a JSON signal file at `.claude/openhuman/<feature-name>-<timestamp>.json` containing `{"decision":"allow"}` or `{"decision":"deny"}` (atomically: `printf ... > "$SIGNAL.tmp" && mv "$SIGNAL.tmp" "$SIGNAL"`). Full body lives at `~/.claude/skills/openhuman/SKILL.md`; the wire-up reference lives at `~/.claude/skills/pipeline/reference.md § Human-Review Gate (--human-review)`. The cross-feature payload contract is the same 6-field schema documented in § Notifications above (handler invokes `notify-emit.sh --mode beacon` with `NOTIFY_EVENT_TYPE=human-review`).
+
 ## Context Management
 
 - Context-aware clearing between pipeline steps (see `rules/workflow.md`). `/compact` proactively around 50% capacity.

@@ -96,8 +96,10 @@ Parse `$ARGUMENTS`:
 - `--max-questions <N>` = cap the total number of `AskUserQuestion` invocations in Step 0 at `N`. Default: unbounded. `--max-questions 0` is an alias for `--no-charter` (no discovery at all).
 - `--teams` = force-enable Agent Teams for this run. Resolves `PIPELINE_TEAMS_OVERRIDE=always`. Persists into `**Review style:** always teams` for every feature in the run (overrides Charter Topic 11 and the heuristic). Mutually exclusive with `--no-teams`.
 - `--no-teams` = force-disable Agent Teams for this run. Resolves `PIPELINE_TEAMS_OVERRIDE=never`. Persists into `**Review style:** never teams` for every feature in the run (overrides Charter Topic 11 and the heuristic). Mutually exclusive with `--teams`.
+- `--human-review [<minutes>]` = enable the human-in-the-loop approval gate before destructive actions (today: `git merge --squash`). Bare flag (no `<minutes>` argument) defaults to **30** minutes. With an argument, `<minutes>` must match the positive integer regex `^[1-9][0-9]*$` — reject with `ERROR: --human-review minutes must be a positive integer` if not. Sets `PIPELINE_HUMAN_REVIEW=<minutes>` env var consumed by the `claude/skills/openhuman/` PreToolUse handler. Mutually exclusive with `--no-human-review`.
+- `--no-human-review` = force-disable the human-review gate. Sets `PIPELINE_HUMAN_REVIEW=0`. Flag absence has the same effect — the default is gate off. Mutually exclusive with `--human-review`.
 
-Validate mutual exclusivity: if `--from` and `--adopt` are both present, STOP with "ERROR: --from and --adopt are mutually exclusive." If `--from` and `--renew` are both present, STOP with "ERROR: --from and --renew are mutually exclusive." If `--plan` is combined with `--from`, `--adopt`, `--renew`, or a positional feature file, STOP with `ERROR: --plan is mutually exclusive with --from/--adopt/--renew/positional path`. If `--issues` is combined with `--from`, `--adopt`, `--renew`, `--plan`, or a positional feature file, STOP with `ERROR: --issues is mutually exclusive with --plan/--adopt/--renew/--from/positional path`. If `--no-charter` and `--charter <path>` are both present, STOP with "ERROR: --no-charter and --charter are mutually exclusive." If `--teams` and `--no-teams` are both present, STOP with "ERROR: --teams and --no-teams are mutually exclusive."
+Validate mutual exclusivity: if `--from` and `--adopt` are both present, STOP with "ERROR: --from and --adopt are mutually exclusive." If `--from` and `--renew` are both present, STOP with "ERROR: --from and --renew are mutually exclusive." If `--plan` is combined with `--from`, `--adopt`, `--renew`, or a positional feature file, STOP with `ERROR: --plan is mutually exclusive with --from/--adopt/--renew/positional path`. If `--issues` is combined with `--from`, `--adopt`, `--renew`, `--plan`, or a positional feature file, STOP with `ERROR: --issues is mutually exclusive with --plan/--adopt/--renew/--from/positional path`. If `--no-charter` and `--charter <path>` are both present, STOP with "ERROR: --no-charter and --charter are mutually exclusive." If `--teams` and `--no-teams` are both present, STOP with "ERROR: --teams and --no-teams are mutually exclusive." If `--human-review` and `--no-human-review` are both present, STOP with "ERROR: --human-review and --no-human-review are mutually exclusive."
 
 Determine feature file source (in priority order):
 1. If `--adopt` is present → go to Step 1.7 (Adopt Manual Workflow). `--adopt` is mutually exclusive with providing a feature file path, `--renew`, and `--from`.
@@ -116,6 +118,14 @@ Record the teams override in a local variable for use by Step 5.1:
 - If `--teams` is present: `PIPELINE_TEAMS_OVERRIDE=always`.
 - If `--no-teams` is present: `PIPELINE_TEAMS_OVERRIDE=never`.
 - Otherwise: `PIPELINE_TEAMS_OVERRIDE=decide`.
+
+Resolve `--human-review` / `--no-human-review` into the `PIPELINE_HUMAN_REVIEW` env var that the `claude/skills/openhuman/handler.sh` PreToolUse hook reads:
+- `--human-review <N>` (positive integer regex `^[1-9][0-9]*$`): `PIPELINE_HUMAN_REVIEW=<N>`. Reject non-matching `<N>` with `ERROR: --human-review minutes must be a positive integer`.
+- `--human-review` (bare, no argument): `PIPELINE_HUMAN_REVIEW=30` (30-minute default).
+- `--no-human-review`: `PIPELINE_HUMAN_REVIEW=0` (gate off).
+- Flag absent: `PIPELINE_HUMAN_REVIEW=0` (default — same as `--no-human-review`).
+
+In addition to `PIPELINE_HUMAN_REVIEW`, the orchestrator exports `PIPELINE_FEATURE_INDEX="<N>/<M>"` (NB1 `N/M` shape from `docs/pipeline-state.md` `**Feature:**` line; set at Step 5.1) and `PIPELINE_FEATURE_NAME="<feature-name>"` (e.g., `feat/integrate-openhuman`) so the openhuman handler can populate the notification payload's `feature_index` / `feature_name` fields without re-parsing pipeline state.
 
 ### Step 1.4: Plan-Mode Ingest (--plan)
 
@@ -1212,6 +1222,8 @@ The Step 5.0 beacon helper's notify-class tags (`feature-failed`, `path-b-pre`, 
 **Payload schema:** 6 fields — `feature_index`, `step`, `event_type`, `text` (≤ 200 chars, truncated with ellipsis), `action_link` (deep-link OR signal-file path; may be empty), `feature_name`. Charter / analysis / plan / review file contents MUST NOT leak into the payload — the 200-char `text` cap is hard. Full schema documented in `claude/skills/pipeline/reference.md § Notification payload schema`.
 
 **Shared-surface invariant:** `feat/integrate-openhuman` (F10) is the second consumer of this surface. F10 reuses `claude/hooks/notify-emit.sh` (the helper's public CLI is the cross-feature contract) and the canonical hook event mapping above. The schema is the cross-feature invariant — F10 cannot fork it.
+
+**Human-review gate (`--human-review`):** When `--human-review` is set, `/pipeline` additionally pauses at the squash-merge step for out-of-band human approval via the `claude/skills/openhuman/` skill — the orchestrator exports `PIPELINE_HUMAN_REVIEW=<minutes>` (and `PIPELINE_FEATURE_INDEX` / `PIPELINE_FEATURE_NAME` for the notification payload), and the openhuman PreToolUse handler invokes `notify-emit.sh --mode beacon` with `NOTIFY_EVENT_TYPE=human-review` to surface the approval prompt. Default is gate-off (0 minutes). Bare `--human-review` defaults to 30 minutes. Fail-safe = abort on timeout (NEVER auto-approve). See `~/.claude/CLAUDE.md § Notifications` and `~/.claude/skills/openhuman/SKILL.md` for the full body.
 
 ---
 

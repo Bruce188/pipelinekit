@@ -81,7 +81,10 @@ settings = {
             {"matcher": "Bash",       "hooks": hook(f"{h}/hooks/env-scrub.py")},
             {"matcher": "Skill",      "hooks": hook(f"{h}/hooks/skill_budget.py")},
             {"matcher": "Edit|Write", "hooks": hook(f"{h}/hooks/tdd-red-phase-gate.sh")},
-            {"matcher": "Write",      "hooks": hook(f"{h}/hooks/block-bare-repo-markers.py")}
+            {"matcher": "Write",      "hooks": hook(f"{h}/hooks/block-bare-repo-markers.py")},
+            {"matcher": "Bash",       "hooks": [{"type": "command",
+                                                  "command": f"{h}/skills/openhuman/handler.sh",
+                                                  "if": "Bash(git merge --squash *)"}]}
         ],
         "PostCompact": [
             {"matcher": "*", "hooks": hook(f"{h}/hooks/context-warning.py")},
@@ -95,7 +98,7 @@ dst = os.path.join(h, "settings.json")
 with open(dst, "w", encoding="utf-8") as f:
     json.dump(settings, f, indent=2)
     f.write("\n")
-print(f"installed: {dst} (12 hooks wired)")
+print(f"installed: {dst} (13 hooks wired)")
 PYEOF
   else
     # Flag not set: restore user's previous settings.json from backup if present.
@@ -381,4 +384,4 @@ fi
 
 log "Install complete. Open a new terminal and run: claude"
 log "Tell Claude:  /pipeline   (after creating docs/features.md in your project)"
-log "Tip: to wire the 12 optional hooks (cost logging, env scrubbing, TDD gate, notify-emit, etc.), re-run with CLAUDE_INSTALL_SETTINGS=1"
+log "Tip: to wire the 13 optional hooks (cost logging, env scrubbing, TDD gate, notify-emit, openhuman gate, etc.), re-run with CLAUDE_INSTALL_SETTINGS=1"
