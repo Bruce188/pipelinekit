@@ -1,11 +1,17 @@
 ---
 name: interview-prp
-description: Interview the user about a project idea to produce a complete PRP/spec document
+description: [DEPRECATED] Interview the user about a project idea to produce a complete PRP/spec document. Charter Discovery via /pipeline Step 0 is the recommended replacement.
 disable-model-invocation: true
 allowed-tools: Read, Write, Bash, AskUserQuestion
 ---
 
-**Note:** `/pipeline` now includes Step 0 Charter Discovery, which supersedes the upfront-PRP role. Charter Discovery is the recommended path for new projects: run `/pipeline` interactively to produce `docs/charter.md` instead. This `/interview-prp` skill remains available for teams with existing PRP workflows. After completing this interview, run `/claude-md-enhancer` to generate the project's CLAUDE.md instead of drafting it by hand. Continuing with legacy PRP flow...
+## Migration notice (deprecation)
+
+> **[DEPRECATED]** This skill is in its deprecation window. `/pipeline` Step 0 (Charter Discovery) is the recommended replacement for new-project scoping; it writes `docs/charter.md` and downstream phases (`/analyze`, `/create-plan`, `/implement-plan`, `/review`, `/ppr`) auto-consume the charter.
+>
+> **PRP-artifact migration path.** If you still want a `docs/prp.md` artifact, continue past this notice — the skill still runs unchanged. To migrate to the modern flow, run `/pipeline` and step through Charter Discovery; it produces `docs/charter.md` covering the same scoping ground, and downstream phases auto-consume it.
+>
+> This skill will be removed from the default install in the next release.
 
 ---
 

@@ -7,7 +7,7 @@ argument-hint: <name>
 
 # /persona — Switch the active session persona
 
-Personas are **advisory only** — they bias emphasis in `/interview-prp` and `/analyze` but **never override** explicit user instructions. Session-scoped via `docs/active-persona` (cleared via `/persona none`). Default: no persona active (skills proceed unchanged).
+Personas are **advisory only** — they bias emphasis in `/interview-prp` (deprecated — still installed for one release) and `/analyze`. Charter Discovery (`/pipeline` Step 0) is the modern new-project entry, but does not yet read personas; this gap closes when `/interview-prp` is fully removed. Explicit user instructions always override persona emphasis. Session-scoped via `docs/active-persona` (cleared via `/persona none`). Default: no persona active (skills proceed unchanged).
 
 ## Available personas
 
