@@ -237,9 +237,42 @@ guards against regression.
 The `sandbox_enter` API surface is unchanged: callers still invoke
 `sandbox_enter "$wt" cmd arg1 arg2 ...` exactly as before.
 
+## Optional subprocess driver
+
+`claude/skills/pipeline/orchestrate.sh` ships as an **OPTIONAL** out-of-process
+driver stub. The in-process `/pipeline` Skill remains the canonical entry
+point for interactive sessions. The stub exists for unattended runs (CI cron,
+scheduled batch processing) where maximum context isolation between phases
+matters more than the convenience of the in-process Skill.
+
+The stub exposes a single library function:
+
+```bash
+. claude/skills/pipeline/orchestrate.sh
+run_phase analyze prompt.txt /path/to/worktree
+```
+
+`run_phase` reads the phase prompt from a file, then dispatches `claude -p`
+**inside** the sandbox provider chosen by `claude/lib/sandbox/SandboxProvider.sh`
+— i.e., the subprocess invocation participates in the same `sandbox_enter` /
+`sandbox_exit` isolation boundary used by the in-process Skill.
+
+**Charter Discovery constraint.** A subprocess driver cannot run Step 0
+Charter Discovery because `AskUserQuestion` is interactive-session-only. When
+generating phase prompts for unattended runs, pass `--no-charter` to the
+`/pipeline` invocation that produced the prompt files (or adopt a pre-built
+charter with `--charter <path>`).
+
+**Stub scope.** `orchestrate.sh` demonstrates the per-phase wrapping contract.
+A full driver must iterate over phases and features, persist
+`docs/pipeline-state.md` between phases, and handle Path A/B/C transitions
+per the contract in `~/.claude/skills/pipeline/reference.md`. Forks are
+expected to extend the stub; the upstream stub deliberately does not
+re-implement the full pipeline loop.
+
 ## What was removed in the portable build
 
-- `orchestrate.sh` (out-of-process driver). The in-process Skill is the only entry point.
-- `claude -p` subprocess invocations. Phase dispatch is always via the `Agent` tool with subagent isolation.
-
-If you need maximum context isolation for long unattended runs, re-introduce a subprocess driver in your fork — the upstream design is documented in `rules/workflow.md` § Pipeline Entry Points but intentionally not shipped.
+- `claude -p` subprocess invocations as the **primary** phase-dispatch mechanism.
+  Phase dispatch in the in-process Skill is always via the `Agent` tool with
+  subagent isolation. The optional `orchestrate.sh` stub (see above) is the
+  only place `claude -p` still appears in shipped code.
