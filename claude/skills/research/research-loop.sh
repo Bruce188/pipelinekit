@@ -34,6 +34,11 @@ set -euo pipefail
 #   If the resolved class's host-adapter exits other non-zero:
 #     log WORKER_FALLBACK: <iter-id> <class> -> claude (exit <rc>) to stderr
 #     retry once via ClaudeWorker; second failure marks iteration failed.
+#   Note: WORKER_FALLBACK semantics are documented in
+#     claude/lib/worker-provider/interface.md but not yet wired in this loop —
+#     exits other than 2 currently fall through to the WORKER_UNAVAILABLE
+#     branch above. Behavioral implementation is deferred until a working
+#     codex CLI is installed (plan-v22 Task 3.2 § Tests note).
 #   Aggregation (keep-or-reset + TSV append) always runs in-session regardless.
 #   Artifacts written to .claude/tasks/<experiment-id>/output/iter-<N>/
 
