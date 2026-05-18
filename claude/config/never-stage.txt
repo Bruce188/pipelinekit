@@ -22,6 +22,7 @@ docs/.last-verify.json
 docs/pipeline-intel.json
 docs/context-dump.md
 docs/archive/*
+docs/active-persona
 
 # Misc workflow artifacts
 whats-next.md

@@ -28,6 +28,14 @@ Specialized subagents for software development. Each is defined as a `.md` file 
 ### Cloud Deployment
 - **@azure-deployment-engineer** — Azure CLI (`az`) ops, App Service / Container Apps / Function Apps / AKS deployment, Bicep / ARM templates, Log Analytics + Application Insights, RBAC + Managed Identity
 
+### Personas
+- **@devops** — Infra / operational / deployment / observability emphasis
+- **@growth-marketer** — GTM / user-impact / instrumentation / growth-loop emphasis
+- **@solo-founder** — Scope-creep / opportunity-cost / smallest-valuable-version emphasis
+- **@startup-cto** — Tech-debt vs time-to-market / hiring / scaling emphasis
+
+> Advisory only — never overrides user instructions. Session-scoped via `docs/active-persona`. Default: no persona active. Switch mid-session with `/persona <name>`. Source files vendored under `claude/agents/personas/` (see `NOTICE.md` for upstream attribution).
+
 ## Agent Format
 
 Each agent is a markdown file with YAML frontmatter:
