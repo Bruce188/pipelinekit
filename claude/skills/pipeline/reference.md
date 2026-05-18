@@ -97,48 +97,93 @@ Triggered when `--renew` is present.
 
 6.5. Charter re-validation (runs after Step 6 log, before Step 7 proceed):
 
-   a. **Skip-condition check.** Read `docs/progress.md` and locate the `**Charter:**` pointer line.
+   a. **Freshness skip (F12).** Read `docs/charter.md` (or the path resolved from `progress.md` `**Charter:**`) and parse its YAML-ish frontmatter `created:` field. If `(today - created).days < 7` (7-day threshold, mapped onto `claude/lib/pipeline/charter_revalidate.py::is_fresh`):
+      - Log: `CHARTER_REVALIDATE: fresh — charter created <ISO date> (<N> days ago); skipping re-validation pass`
+      - GOTO sub-step j (proceed to Step 7). Do NOT invoke the drift-resolution prompt. Do NOT write a drift report — the entire pass short-circuits.
+      - If the charter has no frontmatter, no `created:` field, or the date fails to parse: fall through to sub-step b. Anomalous dates (e.g. charter dated in the future) also fall through — treat as not-fresh so the re-validation pass still runs.
+
+   b. **Skip-condition check.** Read `docs/progress.md` and locate the `**Charter:**` pointer line.
       - If pointer reads `(none)`, is absent from `progress.md`, or points to a path that does not exist on disk:
         - Log: `CHARTER_REVALIDATE: skipped — no charter in effect`
-        - GOTO sub-step h (proceed to Step 7). Do NOT invoke `AskUserQuestion`.
-      - Otherwise resolve the pointer to an absolute charter path and continue with sub-step b.
+        - GOTO sub-step j (proceed to Step 7). Do NOT invoke the drift-resolution prompt.
+      - Otherwise resolve the pointer to an absolute charter path and continue with sub-step c.
 
-   b. **Parse charter sections.** Read the charter file at the resolved path. Extract two H2-bounded section bodies:
-      - `## Non-Goals` body — every line between that header and the next H2 (or EOF).
-      - `## MVP Boundary` body — every line between that header and the next H2 (or EOF).
-      - If either header is missing OR the body is empty (whitespace-only): Log
-        `CHARTER_REVALIDATE: warn — charter missing Non-Goals or MVP Boundary section; treating as empty`
-        and continue. (Empty constraints produce zero drift downstream, so the run still proceeds.)
+   c. **Parse charter sections.** Read the charter file at the resolved path. Extract every standard H2-bounded section body — F12 widens the probe surface from the original two sections (`## Non-Goals`, `## MVP Boundary`) to all standard charter sections. Bodies are every line between the H2 and the next H2 (or EOF).
 
-   c. **Parse features.** Read `docs/features-renewed.md` and parse each feature block: the H2 header `## <type>/<name>`, the `**Description:**` body lines, and the optional `**Constraints:**` body lines. Robust to absent constraints (treat as empty string).
+      **Per-section probe table (new in F12):** every standard charter H2 section maps to a probe strategy. Sections with no repo-introspectable facts probe as `current` with evidence `narrative section, no fact probes`.
 
-   d. **Drift classification.** For each parsed feature, run the hybrid drift detector (deterministic substring + token-overlap match against Non-Goal bullets and MVP `**Out (deferred):**` bullets; LLM fallback gated by `PIPELINE_CHARTER_LLM_CHECK` env var, default OFF). Collect `DRIFT_LIST = [(feature_header, drift_reason), ...]`.
+      | Section | Probe strategy | Default status |
+      |---------|----------------|----------------|
+      | `Goal` | narrative — no probe | `current` |
+      | `Users` | narrative — no probe | `current` |
+      | `Problem` | narrative — no probe | `current` |
+      | `Success` | Glob filename mentions; check existence under repo root | `current` (drifted/obsolete on miss) |
+      | `Non-Goals` | unchanged — token-overlap against feature blobs | `current` (drifted on feature overlap) |
+      | `Constraints` | Glob filename mentions; package-manager file lookups for library mentions | `current` (drifted/obsolete on miss) |
+      | `MVP Boundary` | unchanged for `**Out (deferred):**` (token-overlap); `**In:**` always `current` | `current` |
+      | `Prior Art` | external URLs → no probe; internal paths → existence check | `current` (obsolete on missing internal path) |
+      | `Open Questions` | narrative — no probe | `current` |
+      | `Decision Log` | historical — no probe | `current` |
 
-   e. **Empty-drift clean path.** If `DRIFT_LIST` is empty:
+      Note: F12 implementation only emits drift entries with status `drifted` or `obsolete` into the artifact. Sections that resolve `current` are tallied but not enumerated per-bullet in the artifact (compact output). If `## Non-Goals` or `## MVP Boundary` is missing or its body is empty (whitespace-only): Log `CHARTER_REVALIDATE: warn — charter missing Non-Goals or MVP Boundary section; treating as empty` and continue.
+
+   d. **Status enum (F12).** Every emitted drift entry carries one of three status values:
+      - **`current`** — fact still holds in the repo (file exists, claim string present, library still pinned). Default state.
+      - **`drifted`** — fact partially holds: file exists but the claim is no longer accurate (e.g., `orchestrate.sh` exists but is a stub).
+      - **`obsolete`** — the entity the charter line references no longer exists at all (file gone, library uninstalled). Dangling reference.
+
+   e. **Parse features.** Read `docs/features-renewed.md` and parse each feature block: the H2 header `## <type>/<name>`, the `**Description:**` body lines, and the optional `**Constraints:**` body lines. Robust to absent constraints (treat as empty string).
+
+   f. **Drift classification.** For each parsed feature, run the deterministic drift detector (`detect_drift` in `claude/lib/pipeline/charter_revalidate.py`). The function now returns 4-tuples `(feature_header, drift_reason, status, evidence)` where status ∈ {`current`, `drifted`, `obsolete`} (per the enum in sub-step d). Collect `DRIFT_LIST = [(feature_header, drift_reason, status, evidence), ...]`. LLM fallback gated by `PIPELINE_CHARTER_LLM_CHECK` env var (default OFF) is deferred.
+
+      After the detector returns, write the drift report to `docs/charter-drift.md` (first run) or `docs/charter-drift-vN.md` (subsequent runs per the Versioning Convention in `claude/rules/workflow.md`) via `write_drift_report`. The report schema is:
+
+      | Field | Type | Description |
+      |-------|------|-------------|
+      | section | string | Charter H2 section the drift originated from (e.g., `Non-Goals`, `Success`, `Prior Art`). |
+      | line | string | The feature header that flagged drift (lower-cased, whitespace-collapsed). |
+      | status | enum | `current` / `drifted` / `obsolete` per the enum above. |
+      | evidence | string | Free-form. For `Non-Goal` overlap drift: `"feature blob token-overlaps Non-Goal phrase '<phrase>'"`. For `Success`-section drift: `"file <path> absent under repo root"`. Etc. |
+
+   g. **Empty-drift clean path.** If `DRIFT_LIST` is empty (no `drifted` / `obsolete` entries):
       - Log: `CHARTER_REVALIDATE: clean — N features in scope` (where N is the parsed feature count).
-      - GOTO sub-step h (proceed to Step 7). Do NOT invoke `AskUserQuestion`.
+      - GOTO sub-step j (proceed to Step 7). Do NOT invoke the drift-resolution prompt.
 
-   f. **Drift-resolution loop.** For each `(feature_header, drift_reason)` tuple in `DRIFT_LIST`:
-      i.   Invoke `AskUserQuestion` with this exact shape:
-             - Question: `"Feature \`<feature_header>\` may drift outside the charter. Reason: <drift_reason>. How do you want to proceed?"`
-             - Options (single-letter prefixes, in this order):
-               - A) `Proceed` — keep this feature; the pipeline runs it through Step 2 unchanged.
-               - B) `Drop feature` — remove the feature's H2 block (header + body until the next H2 or EOF) from `docs/features-renewed.md` via the `Edit` tool.
-               - C) `Edit charter` — STOP the pipeline so the user can hand-edit the charter, then re-run with `/pipeline --charter <path> --renew`.
-      ii.  Record the user's answer.
-      iii. If the answer is **C (Edit charter)**:
-             - Log: `CHARTER_REVALIDATE: user chose edit-charter for <feature_header>`
-             - Print to the user: `"Charter file: <resolved-path>. Edit the Non-Goals or MVP Boundary section, then resume via: /pipeline --charter <resolved-path> --renew"`.
-             - Persist nothing else. Do NOT auto-modify the charter or `features-renewed.md`.
-             - **STOP** the pipeline immediately. Skip remaining drift entries.
-      iv.  If the answer is **B (Drop feature)**: delete the feature's H2 block from `docs/features-renewed.md` via the `Edit` tool (header line plus body up to but not including the next H2 or EOF). Continue the loop with the next drift entry.
-      v.   If the answer is **A (Proceed)**: no-op. The feature stays in `features-renewed.md`. Continue the loop.
+   h. **Drift-resolution loop.** Branch on the `--auto` flag:
 
-   g. **Post-loop recount.** After the loop exits without an Edit-charter STOP: re-parse `docs/features-renewed.md` and recompute the final feature count. Log:
+      - **If `--auto` is set (F12)**: every drift entry in `DRIFT_LIST` is auto-accepted **without prompting**. Skip the entire `AskUserQuestion` invocation. After the loop:
+        - Prepend an HTML-comment header block to `docs/features-renewed.md`:
+          ```html
+          <!-- auto-accept: charter drift accepted without prompting; --renew --auto invoked at <ISO timestamp>
+            drift entries:
+              - feature: <feature_header> | section: <charter-section> | status: <status> | evidence: <evidence>
+              ...
+          -->
+          ```
+        - Log: `CHARTER_REVALIDATE: auto-accepted N drift entries`.
+        - Continue to sub-step i (post-loop recount).
+
+      - **Otherwise (interactive)**: for each `(feature_header, drift_reason, status, evidence)` tuple in `DRIFT_LIST`:
+        i.   Invoke `AskUserQuestion` with this exact shape:
+               - Question: `"Feature \`<feature_header>\` may drift outside the charter. Reason: <drift_reason> [status: <status>]. How do you want to proceed?"`
+               - Options (single-letter prefixes, in this order):
+                 - A) `Proceed` — keep this feature; the pipeline runs it through Step 2 unchanged.
+                 - B) `Drop feature` — remove the feature's H2 block (header + body until the next H2 or EOF) from `docs/features-renewed.md` via the `Edit` tool.
+                 - C) `Edit charter` — STOP the pipeline so the user can hand-edit the charter, then re-run with `/pipeline --charter <path> --renew`.
+        ii.  Record the user's answer.
+        iii. If the answer is **C (Edit charter)**:
+               - Log: `CHARTER_REVALIDATE: user chose edit-charter for <feature_header>`
+               - Print to the user: `"Charter file: <resolved-path>. Edit the Non-Goals or MVP Boundary section, then resume via: /pipeline --charter <resolved-path> --renew"`.
+               - Persist nothing else. Do NOT auto-modify the charter or `features-renewed.md`.
+               - **STOP** the pipeline immediately. Skip remaining drift entries.
+        iv.  If the answer is **B (Drop feature)**: delete the feature's H2 block from `docs/features-renewed.md` via the `Edit` tool (header line plus body up to but not including the next H2 or EOF). Continue the loop with the next drift entry.
+        v.   If the answer is **A (Proceed)**: no-op. The feature stays in `features-renewed.md`. Continue the loop.
+
+   i. **Post-loop recount.** After the loop exits without an Edit-charter STOP: re-parse `docs/features-renewed.md` and recompute the final feature count. Log:
       `CHARTER_REVALIDATE: resolved — N kept, M dropped, edits=0`
-      where N is the post-edit feature count, M is the number of B (Drop feature) answers, and `edits=0` is literal — re-validation never mutates the charter.
+      where N is the post-edit feature count, M is the number of B (Drop feature) answers (or 0 in the `--auto` branch), and `edits=0` is literal — re-validation never mutates the charter.
 
-   h. **Proceed.** Fall through to Step 7 below.
+   j. **Proceed.** Fall through to Step 7 below.
 
 7. Proceed to Step 2 with `docs/features-renewed.md`
 
