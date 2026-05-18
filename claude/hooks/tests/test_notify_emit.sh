@@ -173,6 +173,51 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# test_08: human-review event_type round-trips through beacon mode (F10 contract)
+# ---------------------------------------------------------------------------
+out=$(
+  NOTIFY_FEATURE_INDEX="10/23" \
+  NOTIFY_STEP="merge" \
+  NOTIFY_EVENT_TYPE="human-review" \
+  NOTIFY_TEXT="Approve squash-merge of feat/integrate-openhuman?" \
+  NOTIFY_ACTION_LINK="signal-file:///abs/path/.claude/openhuman/feat-x-1234.json" \
+  NOTIFY_FEATURE_NAME="feat/integrate-openhuman" \
+  "$HELPER" --mode beacon
+)
+got=$(python3 -c '
+import json, sys
+print(json.loads(sys.argv[1])["event_type"])
+' "$out")
+if [ "$got" = "human-review" ]; then
+  record "test_08_human_review_event_type" PASS
+else
+  record "test_08_human_review_event_type" FAIL "got=$got"
+fi
+
+# ---------------------------------------------------------------------------
+# test_09: human-review action_link signal-file URI round-trips byte-for-byte (F10 contract)
+# ---------------------------------------------------------------------------
+link="signal-file:///abs/path/.claude/openhuman/feat-x-1234.json"
+out=$(
+  NOTIFY_FEATURE_INDEX="10/23" \
+  NOTIFY_STEP="merge" \
+  NOTIFY_EVENT_TYPE="human-review" \
+  NOTIFY_TEXT="Approve squash-merge?" \
+  NOTIFY_ACTION_LINK="$link" \
+  NOTIFY_FEATURE_NAME="feat/integrate-openhuman" \
+  "$HELPER" --mode beacon
+)
+got=$(python3 -c '
+import json, sys
+print(json.loads(sys.argv[1])["action_link"])
+' "$out")
+if [ "$got" = "$link" ]; then
+  record "test_09_human_review_action_link" PASS
+else
+  record "test_09_human_review_action_link" FAIL "got=$got"
+fi
+
+# ---------------------------------------------------------------------------
 echo "Results: $PASS PASS / $FAIL FAIL"
 if [ "$FAIL" -ne 0 ]; then
   echo "Failed: ${FAILED_NAMES[*]}"
