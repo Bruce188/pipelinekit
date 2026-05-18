@@ -23,6 +23,7 @@ docs/pipeline-intel.json
 docs/context-dump.md
 docs/archive/*
 docs/active-persona
+docs/active-deployment
 
 # Misc workflow artifacts
 whats-next.md

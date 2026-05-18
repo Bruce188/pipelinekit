@@ -172,6 +172,32 @@ When the workload is an **Azure** workload (App Service / Container Apps / Funct
 
 See claude/agents/azure-deployment-engineer.md for the full agent spec and claude/skills/azure-ops/SKILL.md for the operational skill.
 
+## Vercel Mode (Optional Overlay)
+
+When the workload deploys to **Vercel** (Next.js / SvelteKit / Astro / static + Edge / serverless functions) **and** `CLAUDE_INSTALL_OPTIONALS=vercel` is set at install time, augment the default routing with the Vercel-specific agent and skill per the table below. For non-Vercel work (the default), nothing changes — keep using the native skills.
+
+| Phase | Tool | Rationale |
+|-------|------|-----------|
+| Product discovery | `/pipeline` Step 0 | Charter Topic 10 captures the Vercel deployment target into `docs/active-deployment` |
+| Plan / analysis | `/analyze` (with `@vercel-deployment-engineer`) | Agent contributes `vercel.json` layout, framework-preset, env-var-scope constraints |
+| Plan review | `/review --scope plan` | Multi-agent backend correctness; vercel-deployment-engineer joins review pool |
+| Implementation (config) | `/implement-plan` (with `@vercel-deployment-engineer`) | `vercel.json` + framework config authoring; no dashboard-clicked production changes |
+| Day-to-day ops | `claude/skills/vercel-ops/SKILL.md` | `vercel` CLI wrapper: project ls, deploy, log tail, redeploy |
+| Deploy verification (preview) | `vercel deploy --prebuilt` → preview URL `curl -sI` smoke | Pre-prod URL must respond before promoting |
+| Deploy verification (prod) | `vercel inspect <url> --wait` + `vercel logs --follow <deployment>` | Wait for READY state, watch logs for first 60s |
+| Observability | Vercel Web Analytics + log drains | Wired by vercel-deployment-engineer |
+| Doc update | `/post-merge` | Verify no `VERCEL_TOKEN` or env-var leakage in logs |
+
+**Gotchas:**
+1. The `@vercel-deployment-engineer` agent and `vercel-ops` skill are NOT installed by default. Set `CLAUDE_INSTALL_OPTIONALS=vercel` when running `install.sh` to enable them.
+2. Authentication is the user's responsibility. The `vercel-ops` skill STOPS and prompts you to run `vercel login` yourself if `vercel whoami` fails — it never auto-authenticates.
+3. `VERCEL_TOKEN` is sometimes exported for CI. The skill MUST NOT echo, log, or copy it into prompts. Treat any `vercel_*` value as a secret.
+4. Default scope/team matters: confirm `vercel whoami` shows the right scope before every deploy. Multi-team users should pin via `vercel switch <team>` outside Claude.
+5. Preview deploys are per-commit. Production deploys (`vercel --prod`) require explicit confirmation in the deploy verification row — never auto-promote a preview without the smoke check passing.
+6. The `@vercel-deployment-engineer` agent is named — invoke it explicitly when planning or deploying Vercel workloads. Per project convention, named agents are not auto-spawned.
+
+See claude/agents/vercel-deployment-engineer.md for the full agent spec and claude/skills/vercel-ops/SKILL.md for the operational skill.
+
 ## User Identity
 
 - Name: ${USER_NAME}
