@@ -105,7 +105,10 @@ See `claude/skills/research/tests/test_mixed_worker_fanout.sh` for the smoke fix
       3. If `WORKER_CLASS=<name>` env var is set → that class (same existence check).
       4. `WORKER_CLASS=auto` or unset → `claude` (ClaudeWorker, the always-available default).
 
-      Store the resolved class as `$WORKER` for use in the beacon and prompt construction. If the resolved class's host-adapter exits 2 OR its runtime binary is absent, log `WORKER_UNAVAILABLE: <class> (host-adapter missing)` and fall back to ClaudeWorker for that task — do not halt the pipeline.
+      Store the resolved class as `$WORKER` for use in the beacon and prompt construction. Apply the two-tier fallback policy (one fallback attempt max — second failure marks task `failed`):
+      - Host-adapter exits **2** (runtime absent): log `WORKER_UNAVAILABLE: <class> (host-adapter missing)` and re-dispatch via ClaudeWorker — do not halt the pipeline.
+      - Host-adapter exits **other non-zero** (runtime present, execution failed): log `WORKER_FALLBACK: <task-id> <class> -> claude (exit <rc>)` and re-dispatch via ClaudeWorker once. Second failure marks the task `failed`.
+      See `claude/lib/worker-provider/interface.md` § Fallback semantics for the authoritative contract.
 
    a-cap. Cap parallel fan-out at 8 worktree agents per batch. Per the Anthropic
       community ceiling, more than 8 simultaneous worktree agents reliably
