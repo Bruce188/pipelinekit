@@ -86,6 +86,7 @@ def write_event(
     estimated_usd: float = 0.0,
     dispatch_mode: str = "inline",
     agent_id: str | None = None,
+    worker_class: str | None = None,
 ) -> int:
     try:
         path = _log_path()
@@ -106,6 +107,8 @@ def write_event(
     }
     if agent_id is not None:
         entry["agent_id"] = agent_id
+    if worker_class is not None:
+        entry["worker_class"] = worker_class
     try:
         # O_NOFOLLOW rejects symlinks at open time — review-v21 NB5.
         fd = os.open(
@@ -235,6 +238,12 @@ def _build_parser() -> argparse.ArgumentParser:
             default=None,
             type=lambda s: s[:128] if s else None,
         )
+        sp.add_argument(
+            "--worker-class",
+            dest="worker_class",
+            default=None,
+            help="Worker class that handled this phase (e.g. claude, codex). Omit to leave field absent.",
+        )
 
     add_event_args(sub.add_parser("start", add_help=False))
     add_event_args(sub.add_parser("end", add_help=False))
@@ -298,6 +307,7 @@ def main(argv: list[str] | None = None) -> int:
             estimated_usd=args.estimated_usd,
             dispatch_mode=args.dispatch_mode,
             agent_id=args.agent_id,
+            worker_class=args.worker_class,
         )
 
     if cmd == "report":
