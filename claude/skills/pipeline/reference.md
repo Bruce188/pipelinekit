@@ -259,16 +259,15 @@ Do not modify any existing `docs/` files during adoption — only create `featur
    ```
 
    ```bash
-   gh pr create --title "<type>: <short description from feature>" --body "$(cat <<'EOF'
+   PR_BODY=$(cat <<EOF
    ## Summary
    [2-3 bullets from the plan objective]
 
-   Closes #${ISSUE_NUM}
-
+   $([ -n "$ISSUE_NUM" ] && printf "Closes #%s\n\n" "$ISSUE_NUM")
    ## Changes
    [key files from git diff --stat]
    EOF
-   )"
+   )
    ```
 
    ```bash
@@ -277,6 +276,10 @@ Do not modify any existing `docs/` files during adoption — only create `featur
      echo "DEDUP_CLOSES: existing close-keyword detected in PR body — skipping auto-append" >&2
      ISSUE_NUM=""
    fi
+   ```
+
+   ```bash
+   gh pr create --title "<type>: <short description from feature>" --body "$PR_BODY"
    ```
 
    When `ISSUE_NUM` is empty (no issue-pattern match OR dedup hit), the resulting PR body is identical to today's behavior — backward compat preserved.

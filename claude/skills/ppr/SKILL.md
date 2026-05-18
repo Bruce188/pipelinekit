@@ -174,6 +174,24 @@ fi
 ```
 
 ```bash
+PR_BODY=$(cat <<EOF
+## Summary
+[CHARTER_GOAL_LINE — verbatim charter Goal excerpt, or omit line if no charter]
+[2–3 bullets: what changed and why]
+
+$([ -n "$ISSUE_NUM" ] && printf "Closes #%s\n\n" "$ISSUE_NUM")
+## Changes
+[key files modified and what each does]
+
+## Verification
+- [ ] Sanity gate passed
+- [ ] Secret scan clean
+- [ ] Review agents passed (code, security, testing, performance, spec-tracer)
+EOF
+)
+```
+
+```bash
 # Idempotency: skip Closes append if body already references one
 if [ -n "$ISSUE_NUM" ] && echo "$PR_BODY" | grep -qiE "(closes|fixes|resolves)[[:space:]]+#[0-9]+"; then
   echo "DEDUP_CLOSES: existing close-keyword detected in PR body — skipping auto-append" >&2
@@ -184,22 +202,7 @@ fi
 ```bash
 gh pr create \
   --title "[type(scope): description]" \
-  --body "$(cat <<'EOF'
-## Summary
-[CHARTER_GOAL_LINE — verbatim charter Goal excerpt, or omit line if no charter]
-[2–3 bullets: what changed and why]
-
-Closes #${ISSUE_NUM}
-
-## Changes
-[key files modified and what each does]
-
-## Verification
-- [ ] Sanity gate passed
-- [ ] Secret scan clean
-- [ ] Review agents passed (code, security, testing, performance, spec-tracer)
-EOF
-)"
+  --body "$PR_BODY"
 ```
 
 When `ISSUE_NUM` is empty (no issue-pattern match OR dedup hit), behavior is identical to today's PR-body output — backward compat preserved.

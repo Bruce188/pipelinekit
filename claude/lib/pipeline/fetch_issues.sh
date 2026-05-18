@@ -146,12 +146,18 @@ def priority_key(issue):
 # Use stable sort to preserve original order within same priority class
 data.sort(key=priority_key)
 print(json.dumps(data))
-" <<< "$GH_JSON")
+" <<< "$GH_JSON") || {
+    echo "ERROR: failed to parse JSON from gh issue list (priority sort)" >&2
+    exit 7
+  }
 fi
 
 # ── Apply limit ───────────────────────────────────────────────────────────────
 
-TOTAL=$(python3 -c "import json,sys; print(len(json.loads(sys.stdin.read())))" <<< "$GH_JSON")
+TOTAL=$(python3 -c "import json,sys; print(len(json.loads(sys.stdin.read())))" <<< "$GH_JSON") || {
+  echo "ERROR: failed to parse JSON from gh issue list (total count)" >&2
+  exit 7
+}
 
 if [[ "$TOTAL" -gt "$LIMIT" ]]; then
   echo "WARN: $TOTAL issues match selector; processing top $LIMIT by $SORT_MODE" >&2
@@ -159,7 +165,10 @@ if [[ "$TOTAL" -gt "$LIMIT" ]]; then
 import json, sys
 data = json.loads(sys.stdin.read())
 print(json.dumps(data[:int(sys.argv[1])]))
-" "$LIMIT" <<< "$GH_JSON")
+" "$LIMIT" <<< "$GH_JSON") || {
+    echo "ERROR: failed to parse JSON from gh issue list (limit slice)" >&2
+    exit 7
+  }
 fi
 
 # ── Annotate with _maintainer_login if comment-author override given ──────────
@@ -172,7 +181,10 @@ data = json.loads(sys.stdin.read())
 for issue in data:
     issue['_maintainer_login'] = login
 print(json.dumps(data))
-" "$COMMENT_AUTHOR" <<< "$GH_JSON")
+" "$COMMENT_AUTHOR" <<< "$GH_JSON") || {
+    echo "ERROR: failed to parse JSON from gh issue list (maintainer annotation)" >&2
+    exit 7
+  }
 fi
 
 # ── Emit JSON on stdout ───────────────────────────────────────────────────────

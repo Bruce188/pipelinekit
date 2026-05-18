@@ -328,6 +328,9 @@ print(slug)
 }
 
 # ── Test 15: empty body → emits "See issue #<N>. No body provided." ──────────
+# Contract check only: empty-body message generation is produced by the Agent
+# subagent (Issues Extraction Prompt in reference.md), not fetch_issues.sh.
+# This test verifies the plan's stated output format contract.
 
 test_15_empty_body() {
   BODY=""
@@ -366,6 +369,9 @@ test_16_archive_features_md() {
 }
 
 # ── Test 17: mutex error → --issues + --plan → correct error string ───────────
+# Contract check: verifies mutex error string is present in SKILL.md.
+# Runtime mutex enforcement is the orchestrator's responsibility and is not
+# exercisable from this shell-level test.
 
 test_17_mutex_error() {
   # The orchestrator validates this before reaching fetch_issues.sh.
