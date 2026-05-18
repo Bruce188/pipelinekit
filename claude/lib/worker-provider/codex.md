@@ -41,11 +41,11 @@ same way regardless of which worker class executed the task.
 
 | Method               | CodexWorker realization                                                                               |
 |----------------------|-------------------------------------------------------------------------------------------------------|
-| `prepare_workspace`  | Create a git worktree at `.claude/worktrees/agent-<task-id>` with the working branch checked out. Inherits the `.worktreeinclude` bind-mount behavior from `claude/rules/agents-worktrees.md` § Env handoff. |
-| `dispatch`           | Shell out to `claude/host-adapters/codex.sh <prompt-file> <output-file>` with the worktree path mounted; capture stdout/stderr/exit code into `.claude/tasks/<task-id>/output/`. On exit 2: log `WORKER_UNAVAILABLE: codex (host-adapter missing)`, re-dispatch via ClaudeWorker. |
-| `collect_artifacts`  | Read stdout from `.claude/tasks/<task-id>/output/stdout` as the artifacts list per the WorkerProvider contract in `interface.md`. |
-| `verify_completion`  | Enforce all Phase-1 required artifacts: `<task-notification>` XML as last content; at least one commit on the worker branch with non-empty subject; all paths in `<files>` exist on disk. Fan-out cap of 8 per `/implement-plan` Step 1.5 a-cap. |
-| `cleanup`            | Delete the worktree branch and `.claude/worktrees/agent-<task-id>` directory after a successful squash-merge and test run — identical to ClaudeWorker cleanup. |
+| prepare_workspace    | Create a git worktree at `.claude/worktrees/agent-<task-id>` with the working branch checked out. Inherits the `.worktreeinclude` bind-mount behavior from `claude/rules/agents-worktrees.md` § Env handoff. |
+| dispatch             | Shell out to `claude/host-adapters/codex.sh <prompt-file> <output-file>` with the worktree path mounted; capture stdout/stderr/exit code into `.claude/tasks/<task-id>/output/`. On exit 2: log `WORKER_UNAVAILABLE: codex (host-adapter missing)`, re-dispatch via ClaudeWorker. |
+| collect_artifacts    | Read stdout from `.claude/tasks/<task-id>/output/stdout` as the artifacts list per the WorkerProvider contract in `interface.md`. |
+| verify_completion    | Enforce all Phase-1 required artifacts: `<task-notification>` XML as last content; at least one commit on the worker branch with non-empty subject; all paths in `<files>` exist on disk. Fan-out cap of 8 per `/implement-plan` Step 1.5 a-cap. |
+| cleanup              | Delete the worktree branch and `.claude/worktrees/agent-<task-id>` directory after a successful squash-merge and test run — identical to ClaudeWorker cleanup. |
 
 ---
 
