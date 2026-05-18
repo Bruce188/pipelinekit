@@ -72,6 +72,21 @@ Parallel execution is the default for phases with multiple parallelizable tasks.
 
 **WorkerProvider contract (operational):** The worktree fan-out described in items 1–5 below IS the reference implementation of the `ClaudeWorker` class documented in `claude/lib/worker-provider/claude.md`. The five worktree-agent lifecycle steps (prepare worktree → dispatch → collect artifacts → verify completion → cleanup) map directly to the five `WorkerProvider` methods in `claude/lib/worker-provider/interface.md`. Per-task `worker:` header routing is now active — see step `5.a.routing` below. ClaudeWorker remains the default when no routing override is in effect.
 
+**Mixed-worker batches:** A single phase's parallel tasks may dispatch to heterogeneous worker classes. The lifecycle (5.a prepare → 5.f.5 squash-merge) is provider-agnostic by design — the lead does not need to know which class each worktree agent used. Contract:
+
+- A single phase may contain tasks with `worker: claude`, `worker: codex`, or any registered class in `claude/lib/worker-provider/`. Each task resolves its class independently via `5.a.routing`.
+- Cross-worker scratchpad notes (`*-to-*.md`) route across worker classes because they are plain markdown files on disk at `$SCRATCHPAD`. Any task, regardless of class, can read and write notes there.
+- The lead **squash-merges all worktree branches** — regardless of their origin class — into ONE conventional commit on the working branch. Worker-class names MUST NOT appear in the merge commit message.
+- The beacon line at dispatch emits `worker=<class>` per task so the run log captures which class handled each task. This is the only place where the class is surfaced.
+- If a non-default class's host-adapter is unavailable (exit 2), `WORKER_UNAVAILABLE: <class>` is logged and ClaudeWorker handles that task. If the adapter exits other non-zero, `WORKER_FALLBACK: <task-id> <class> -> claude (<reason>)` is logged and ClaudeWorker retries once — see `claude/lib/worker-provider/interface.md` § Fallback semantics.
+
+**Acceptance criteria for mixed-class batches:**
+1. One squash commit on the working branch after all workers complete.
+2. Per-task beacon lines with `worker=<class>` in the run log.
+3. Scratchpad cross-class routing works (any task can read any note regardless of its class).
+
+See `claude/skills/research/tests/test_mixed_worker_fanout.sh` for the smoke fixture.
+
 1. Identify all `todo` tasks in the **current phase** (same phase number prefix)
 2. If only 1 task in the phase: log "Single task in phase — skipping parallel, proceeding sequentially" and fall back to Step 2
 3. Read the plan file: check if these tasks have zero file overlap (different `Files:` lists with no shared files)
