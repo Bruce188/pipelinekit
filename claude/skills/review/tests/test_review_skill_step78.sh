@@ -71,5 +71,27 @@ if ! grep -qE 'REVIEW_FILE_NAME=' "$SKILL"; then
   exit 1
 fi
 
+# 10. FINDINGS_LIST_PYTHON either absent or assigned before the heredoc.
+# The B2 fix introduced a pre-heredoc shim that serializes the in-memory list
+# to $FINDINGS_JSON. NB1 found that the shim used $FINDINGS_LIST_PYTHON as an
+# intermediate variable but Step 7 never assigns it, causing a SyntaxError at
+# runtime. Option 2 removes the variable entirely (cleaner); Option 1 assigns
+# it before the heredoc. This assertion parametrizes on the choice:
+# - If the variable is present, it MUST be assigned (= sign) before the heredoc.
+# - If the variable is absent, the assertion passes unconditionally.
+if grep -q 'FINDINGS_LIST_PYTHON' "$SKILL"; then
+  # Variable still referenced — verify it has an assignment line before the heredoc.
+  ASSIGN_LINE=$(grep -n 'FINDINGS_LIST_PYTHON=' "$SKILL" 2>/dev/null | head -1 | cut -d: -f1 || echo "")
+  HEREDOC_LINE=$(grep -n "<<'PYEOF'" "$SKILL" | head -1 | cut -d: -f1)
+  if [ -z "$ASSIGN_LINE" ]; then
+    echo "FAIL: FINDINGS_LIST_PYTHON is referenced but never assigned in $SKILL (NB1 unfixed)"
+    exit 1
+  fi
+  if [ "$ASSIGN_LINE" -gt "$HEREDOC_LINE" ]; then
+    echo "FAIL: FINDINGS_LIST_PYTHON assignment (line $ASSIGN_LINE) must precede the heredoc (line $HEREDOC_LINE)"
+    exit 1
+  fi
+fi
+
 echo "OK: test_review_skill_step78.sh"
 exit 0

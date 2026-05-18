@@ -548,15 +548,14 @@ This classifier runs after Step 7.5 (Auto-Fix Detection) and before Step 8 (Save
 
 **Pre-heredoc shim — initialize shell variables:**
 
-Before running the Python classifier, serialize the in-memory findings list to a temp file and pre-compute the next review filename using the Versioning Convention from `~/.claude/rules/workflow.md`. Both variables must be set before the heredoc fires; without them `sys.argv[1]`/`sys.argv[2]` are empty strings and the `open()` calls inside the script crash.
+Before running the Python classifier, create a temp file for the findings JSON and pre-compute the next review filename using the Versioning Convention from `~/.claude/rules/workflow.md`. Both variables must be set before the heredoc fires; without them `sys.argv[1]`/`sys.argv[2]` are empty strings and the `open()` calls inside the script crash.
 
 ```bash
-# Serialize the in-memory findings list to a temp JSON file.
+# Create a temp file for the findings JSON.
 FINDINGS_JSON=$(mktemp --suffix=.json)
-# Write the current findings list (a Python list of dicts) to the file.
-# The variable $FINDINGS_LIST_PYTHON holds the Python-literal or JSON string
-# produced by Step 7 (Collect and Deduplicate Results).
-python3 -c "import json, sys; json.dump($FINDINGS_LIST_PYTHON, open(sys.argv[1], 'w'))" "$FINDINGS_JSON"
+# Write the in-memory findings list (built in Step 7) directly to $FINDINGS_JSON
+# as a JSON array. No shell-variable indirection is required — the executor
+# writes the file directly from the in-memory list.
 
 # Pre-compute the next review filename per the Versioning Convention.
 # Find the highest existing review-vN.md in docs/ and increment by 1.
@@ -595,7 +594,7 @@ with open(sys.argv[1], "w") as f:
 PYEOF
 
 # Read the surviving findings list back from the file (Step 8 uses it).
-FINDINGS_LIST_PYTHON=$(python3 -c "import json, sys; print(json.load(open(sys.argv[1])))" "$FINDINGS_JSON")
+# The executor reads $FINDINGS_JSON to get the decorated, filtered findings.
 rm -f "$FINDINGS_JSON"
 ```
 
