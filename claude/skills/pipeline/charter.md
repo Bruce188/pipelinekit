@@ -192,6 +192,13 @@ Options:
 
 **Follow-up 2:** If you don't deploy from this repo (library / pure backend / data pipeline), choose `none` — the pipeline will skip the deployment phase entirely.
 
+**Classification note:** When the review classifier encounters a
+finding that names a provider OTHER than this slug, it tags the
+finding `scope: out` (advisory deferral). A value of `none` skips
+this classification entirely. See
+`claude/skills/review/SKILL.md` § Step 7.8 "Deployment-target
+mismatch (Topic 10)" for the provider-token lookup table.
+
 **Example values:** `vercel`, `railway`, `render`, `digitalocean`, `none`.
 
 Options:

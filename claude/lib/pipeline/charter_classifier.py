@@ -6,6 +6,17 @@ Public surface:
     classify_finding(finding, charter_sections)         -> str
     classify_findings(findings, charter_text)           -> list[dict]
     classifier_should_skip(progress_md_path, charter_path) -> tuple[bool, str]
+    DEPLOYMENT_PROVIDER_TOKENS                          -> dict[str, frozenset[str]]
+
+F14 extension — deployment-target mismatch (Topic 10):
+    DEPLOYMENT_PROVIDER_TOKENS: dict of provider slug → frozenset of token
+        phrases. Does NOT include a "none" key — "none" means skip.
+    _parse_deployment_target(body): strip bullets/backticks/whitespace, return
+        first non-empty line lower-cased.
+    _classify_provider_mismatch(blob_tokens, charter_provider): return True
+        when the blob names a provider OTHER than the charter target.
+    classify_finding_two_axis: extended with a deployment-mismatch clause
+        inserted after the legacy-conflict raise.
 
 DRY: charter parsing + token-overlap matching is re-imported from
 `charter_revalidate` rather than redefined. Only the `**In:**` extractor is
@@ -39,6 +50,7 @@ __all__ = [
     "classify_finding_two_axis",
     "INTENT_VALUES",
     "SCOPE_VALUES",
+    "DEPLOYMENT_PROVIDER_TOKENS",
 ]
 
 # ---------------------------------------------------------------------------
@@ -47,6 +59,45 @@ __all__ = [
 
 INTENT_VALUES: frozenset = frozenset({"correctness", "polish", "design", "unrelated"})
 SCOPE_VALUES: frozenset = frozenset({"in", "out", "adjacent"})
+
+# ---------------------------------------------------------------------------
+# F14 — Deployment-provider token table (Task 1.2)
+# ---------------------------------------------------------------------------
+#
+# Maps provider slug → frozenset of token phrases. Multi-token phrases (e.g.
+# "aws lambda") are matched via _phrase_matches_blob; single-token entries
+# (e.g. "vercel") are matched verbatim against the tokenized blob. Does NOT
+# include a "none" key — "none" means "skip this dimension".
+
+DEPLOYMENT_PROVIDER_TOKENS: Dict[str, frozenset] = {
+    "vercel": frozenset({
+        "vercel", "vercel.json", "edge function",
+        "edge functions", "vercel deploy", "vercel cli",
+    }),
+    "railway": frozenset({
+        "railway", "railway.toml", "railway up", "railway cli",
+    }),
+    "render": frozenset({
+        "render", "render.yaml", "render service",
+    }),
+    "digitalocean": frozenset({
+        "digitalocean", "digital ocean", "doctl",
+        ".do/app.yaml", "do droplet",
+    }),
+    "azure": frozenset({
+        "azure", "azure functions", "azure app service",
+        "az cli", "bicep", "arm template",
+    }),
+    "aws": frozenset({
+        "aws lambda", "aws s3", "aws cloudformation",
+        "aws sam", "aws iam", "aws cdk",
+        "amazon s3", "amazon ec2",
+    }),
+    "gcp": frozenset({
+        "gcp", "google cloud", "cloud run",
+        "cloud functions", "gcloud", "firebase hosting",
+    }),
+}
 
 _LEGACY_SCOPE_TAG_TO_SCOPE: Dict[str, str] = {
     "in_scope": "in",
@@ -75,6 +126,76 @@ def _scope_tag_to_scope(scope_tag: str) -> str:
     ``_tag_for_match`` rule 3d).
     """
     return _LEGACY_SCOPE_TAG_TO_SCOPE.get(scope_tag, "in")
+
+
+# ---------------------------------------------------------------------------
+# F14 — Deployment-target parsing + mismatch helpers (Task 1.2)
+# ---------------------------------------------------------------------------
+
+# Strip leading bullet marker (- or *), optional backticks, and whitespace.
+_DEPLOYMENT_STRIP_RE = re.compile(
+    r"^[\s*\-]*`?([^`\n]+?)`?\s*$",
+    re.MULTILINE,
+)
+
+
+def _parse_deployment_target(body: str) -> str:
+    """Parse the ``## Deployment target`` section body into a normalized slug.
+
+    Strips leading bullet markers (``-`` / ``*``), backtick wrapping, and
+    surrounding whitespace. Returns the first non-empty line lower-cased.
+    Empty input → ``""``.
+    """
+    if not body:
+        return ""
+    for line in body.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        # Remove bullet markers
+        if stripped.startswith(("-", "*")):
+            stripped = stripped[1:].strip()
+        # Remove backtick wrapping
+        if stripped.startswith("`") and stripped.endswith("`") and len(stripped) > 1:
+            stripped = stripped[1:-1]
+        stripped = stripped.strip().lower()
+        if stripped:
+            return stripped
+    return ""
+
+
+def _classify_provider_mismatch(blob_tokens: set, charter_provider: str) -> bool:
+    """Return True when the finding blob names a provider OTHER than charter_provider.
+
+    ``charter_provider`` is the slug returned by ``_parse_deployment_target``
+    (one of the keys in ``DEPLOYMENT_PROVIDER_TOKENS``, or ``""`` / ``"none"``).
+
+    Logic:
+    - If ``charter_provider`` is ``""`` or ``"none"`` → ``False`` (skip dimension).
+    - If ``charter_provider`` is not in ``DEPLOYMENT_PROVIDER_TOKENS`` → ``False``.
+    - Build the set of OTHER providers (all keys minus charter_provider).
+    - For each other provider, walk its token set:
+        * Single-token entries (no whitespace): match iff present in blob_tokens.
+        * Multi-token phrases: match iff ALL phrase tokens are present in blob_tokens.
+    - Return ``True`` on the first matching other-provider; ``False`` otherwise.
+    """
+    if not charter_provider or charter_provider in ("", "none"):
+        return False
+    if charter_provider not in DEPLOYMENT_PROVIDER_TOKENS:
+        return False
+    other_providers = set(DEPLOYMENT_PROVIDER_TOKENS) - {charter_provider}
+    for provider in other_providers:
+        for phrase in DEPLOYMENT_PROVIDER_TOKENS[provider]:
+            phrase_tokens = _tokenize(phrase)
+            if len(phrase_tokens) <= 1:
+                # Single-token entry: verbatim membership check.
+                if phrase_tokens and phrase_tokens[0] in blob_tokens:
+                    return True
+            else:
+                # Multi-token phrase: all tokens must be present in blob.
+                if all(t in blob_tokens for t in phrase_tokens):
+                    return True
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -263,6 +384,14 @@ def classify_finding_two_axis(finding: dict, charter_sections: dict) -> dict:
     When ``scope`` is absent, fall back to ``classify_finding`` +
     ``_scope_tag_to_scope`` mapping. When ``intent`` is absent, default to
     ``"unrelated"``.
+
+    F14 — Deployment-target mismatch clause (Topic 10):
+    After the legacy-conflict raise, this function also checks the charter's
+    ``deployment_target`` field. When the charter names a concrete provider
+    (not ``""`` / ``"none"``) and the finding blob names a DIFFERENT provider:
+    - If reviewer emitted ``scope="in"``: raise ``CharterScopeConflictError``.
+    - If reviewer scope is absent/invalid: override ``scope = "out"``.
+    When charter target is ``""`` or ``"none"``, the dimension is skipped.
     """
     legacy_tag = classify_finding(finding, charter_sections)
     derived_scope = _scope_tag_to_scope(legacy_tag)
@@ -270,6 +399,7 @@ def classify_finding_two_axis(finding: dict, charter_sections: dict) -> dict:
     reviewer_scope = finding.get("scope")
     reviewer_intent = finding.get("intent")
 
+    # Legacy-conflict raise: reviewer says "in" but classifier disagrees.
     if reviewer_scope in SCOPE_VALUES:
         if reviewer_scope == "in" and legacy_tag in ("out_of_scope", "scope_creep"):
             snippet = str(finding.get("text", ""))[:60]
@@ -277,6 +407,29 @@ def classify_finding_two_axis(finding: dict, charter_sections: dict) -> dict:
                 f'CHARTER_SCOPE_CONFLICT: finding "{snippet}" tagged scope=in by '
                 f"reviewer but classifier returns {legacy_tag}"
             )
+
+    # F14 — Deployment-target mismatch clause.
+    # Pull deployment_target from charter_sections; skip when absent or "none".
+    charter_provider = _parse_deployment_target(
+        charter_sections.get("deployment_target", "")
+    )
+    blob_tokens = _build_finding_blob_tokens(finding)
+    provider_mismatch = _classify_provider_mismatch(blob_tokens, charter_provider)
+
+    if provider_mismatch:
+        if reviewer_scope == "in":
+            snippet = str(finding.get("text", ""))[:60]
+            raise CharterScopeConflictError(
+                f'CHARTER_SCOPE_CONFLICT: finding "{snippet}" tagged scope=in '
+                f"by reviewer but charter deployment_target={charter_provider} "
+                f"and finding names a different provider"
+            )
+        # No reviewer scope (or invalid): override to "out".
+        if reviewer_scope not in SCOPE_VALUES:
+            scope = "out"
+        else:
+            scope = reviewer_scope
+    elif reviewer_scope in SCOPE_VALUES:
         scope = reviewer_scope
     else:
         scope = derived_scope

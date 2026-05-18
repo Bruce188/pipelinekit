@@ -97,14 +97,23 @@ _TOKEN_FLOOR = 2
 
 
 def parse_charter_sections(charter_text: str) -> Dict[str, str]:
-    """Return the ``Non-Goals`` and ``MVP Boundary`` section bodies.
+    """Return the ``Non-Goals``, ``MVP Boundary``, and ``Deployment target`` bodies.
 
     Body is the verbatim slice between the matching ``## <title>`` H2 header
     and the next ``## `` H2 header (or EOF). A missing section yields an
     empty string for that key. Leading/trailing whitespace inside the body
     is preserved so downstream bullet extraction sees the original layout.
+
+    F14 — ``deployment_target`` is the body of the ``## Deployment target``
+    H2 section (charter Topic 10). Consumed by
+    :func:`charter_classifier.classify_finding_two_axis` to demote findings
+    that name a deployment provider OTHER than the charter target.
     """
-    sections: Dict[str, str] = {"non_goals": "", "mvp_boundary": ""}
+    sections: Dict[str, str] = {
+        "non_goals": "",
+        "mvp_boundary": "",
+        "deployment_target": "",
+    }
     if not charter_text:
         return sections
 
@@ -132,6 +141,8 @@ def parse_charter_sections(charter_text: str) -> Dict[str, str]:
             sections["non_goals"] = body
         elif title == "mvp boundary":
             sections["mvp_boundary"] = body
+        elif title == "deployment target":
+            sections["deployment_target"] = body
 
     return sections
 
