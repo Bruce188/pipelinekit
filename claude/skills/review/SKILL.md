@@ -580,15 +580,26 @@ with open(sys.argv[1]) as f:
 with open("docs/charter.md") as f:
     charter_text = f.read()
 
-decorated = charter_classifier.classify_findings(findings, charter_text)
+try:
+    decorated = charter_classifier.classify_findings(findings, charter_text, two_axis=True)
+except charter_classifier.CharterScopeConflictError as exc:
+    print(str(exc), file=sys.stderr)
+    sys.exit(2)  # orchestrator routes exit code 2 → Path B re-spawn
+
 charter_classifier.append_out_of_scope_to_deferred(
     "docs/progress.md", decorated, sys.argv[2]
 )
 
-# Drop out_of_scope findings from the in-memory list so Step 9 does
+# Drop out-of-scope findings from the in-memory list so Step 9 does
 # not reopen tasks for them (analysis-v25 § 8). They remain in
 # review-vN.md for the audit trail.
-surviving = [f for f in decorated if f.get("scope_tag") != "out_of_scope"]
+surviving = [f for f in decorated if f.get("scope") != "out"]
+
+# Surface adjacent count in the Summary block of the review file.
+adjacent_count = sum(1 for f in decorated if f.get("scope") == "adjacent")
+if adjacent_count:
+    print(f"ADJACENT_COUNT={adjacent_count}", file=sys.stderr)
+
 with open(sys.argv[1], "w") as f:
     json.dump(surviving, f)
 PYEOF
@@ -600,10 +611,30 @@ rm -f "$FINDINGS_JSON"
 
 **Constraint surface:**
 
-- The classifier is **advisory** — the existing `severity` column on review-vN.md remains the gate for blocking/non-blocking. `scope_tag` is decoration alongside severity, not a replacement for it.
+- The classifier is **advisory** — the existing `severity` column on review-vN.md remains the gate for blocking/non-blocking. `scope` and `intent` are decoration alongside severity, not a replacement for it.
 - `scope_creep` raises a flag, never blocks. The review file's `## Summary` section gains a line: `Charter scope-creep flag: <N> finding(s) — consider /pipeline --renew or charter amendment`. The orchestrator (`/pipeline`) is the consumer; this step does not auto-edit the charter or auto-replan.
-- `out_of_scope` findings are auto-appended to `docs/progress.md` § Deferred via `append_out_of_scope_to_deferred` and dropped from the in-memory findings list before Step 9 runs, so Step 9 never reopens tasks for them. They are still written to `review-vN.md` with `scope_tag: out_of_scope` for the audit trail.
+- `out_of_scope` (new: `scope == "out"`) findings are auto-appended to `docs/progress.md` § Deferred via `append_out_of_scope_to_deferred` and dropped from the in-memory findings list before Step 9 runs, so Step 9 never reopens tasks for them. They are still written to `review-vN.md` for the audit trail.
+- `adjacent` findings (`scope == "adjacent"`) surface as advisory only. When `adjacent_count > 0`, the review file `## Summary` gains: `Charter scope adjacent: <N> finding(s) — advisory only`. Adjacent findings are NEITHER deferred NOR routed through Path B.
 - When `classifier_should_skip` trips (no progress.md, no `**Charter:**` line, pointer literal `(none)`, or pointer references a missing file), the canonical log line `CHARTER_ABSENT_CLASSIFIER_SKIPPED: <reason>` is printed to stderr, the review file is written with its current charter-unaware schema, and `progress.md` § Deferred is not touched.
+- When reviewer-emitted `scope=in` contradicts the token-overlap classifier (`out_of_scope` or `scope_creep`), `CharterScopeConflictError` is raised and the canonical token `CHARTER_SCOPE_CONFLICT: finding "<snippet>" tagged scope=in by reviewer but classifier returns <tag>` is printed to stderr. Review-file write is skipped; orchestrator routes exit code 2 to Path B re-spawn.
+
+#### Two-axis classification heuristic
+
+Each finding carries TWO independent tags:
+
+- **scope** ∈ `{in, out, adjacent}` — relationship to charter Goal / MVP Boundary / Non-Goals.
+- **intent** ∈ `{correctness, polish, design, unrelated}` — the *kind* of issue (independent of severity).
+
+Severity (blocking / non-blocking / nit) remains the routing gate. `scope` + `intent` are decoration; they do NOT determine Path A/B/M/N selection.
+
+Worked examples:
+
+1. **correctness in-scope** — `{scope: in, intent: correctness}`: off-by-one in the async runtime hardening logic the feature ships. Severity `blocking`. Auto-reopens task via Step 9.
+2. **polish adjacent** — `{scope: adjacent, intent: polish}`: a naming consistency tweak near the new module but in a sibling file. Surfaced as Run Log advisory; not deferred, not routed through Path B.
+3. **design out** — `{scope: out, intent: design}`: a suggestion to introduce a new DB adapter (charter Non-Goal). Auto-deferred with Reason `out-of-scope of charter (review-vN) (intent: design)`.
+4. **unrelated out** — `{scope: out, intent: unrelated}`: a typo fix in an untouched documentation file. Auto-deferred with Reason `out-of-scope of charter (review-vN)` (no intent suffix when intent=unrelated).
+
+If reviewer emits `scope=in` but the token-overlap classifier returns `out_of_scope` or `scope_creep`, `CHARTER_SCOPE_CONFLICT` is raised and the review-file write is skipped — the orchestrator routes to Path B for re-review.
 
 ---
 
