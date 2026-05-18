@@ -42,10 +42,9 @@ graph TD
 
 > **Blacksmith CI default.** All `runs-on:` jobs target the
 > Blacksmith runner via the `BLACKSMITH_RUNNER` GitHub Actions
-> variable (default `blacksmith-4vcpu-ubuntu-2204`). To override
-> globally, set the variable in your repo settings. See
-> `documentation/ci-blacksmith.html` for the full registration
-> flow.
+> variable. To override globally, set the variable in your repo
+> settings. See `documentation/ci-blacksmith.html` for the full
+> registration flow and available runner tiers.
 
 ## 🚀 Phase 1: Pre-commit & Build Stage
 
