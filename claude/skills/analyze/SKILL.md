@@ -26,6 +26,30 @@ Record the answers. These drive the entire analysis.
 
 ---
 
+### Step 1.5: Persona Re-Read
+
+Personas are **advisory only** — they bias analysis emphasis but **never override** the user's Q1 / Q2 answers. Session-scoped via `docs/active-persona`. Default: no active persona — fall through with no-op.
+
+1. **Probe for an active persona:**
+
+   ```bash
+   cat docs/active-persona 2>/dev/null
+   ```
+
+2. **If absent or empty:** Log `"no active persona — proceeding with default analysis emphasis"` and fall through to Step 2.
+
+3. **If present:** Read `claude/agents/personas/<name>.md` (the file body) and record a one-line emphasis note for use in Step 5 (Write Analysis File). Emphasis mapping:
+   - `devops` → flag infra / operational / deployment / observability concerns in Flagged Areas
+   - `growth-marketer` → flag GTM / user-impact / instrumentation / growth-loop concerns
+   - `solo-founder` → flag scope-creep / opportunity-cost / smallest-valuable-version concerns
+   - `startup-cto` → flag tech-debt vs time-to-market / hiring / scaling concerns
+
+4. **Surface in the analysis file:** When Step 5 writes the analysis file, include a `**Active persona:**` field in the file header (just after `**Project type:**`). When no persona is active, omit the field entirely.
+
+5. If the user's Q1 / Q2 answers contradict the persona's emphasis, the user's answers win — proceed without persona bias.
+
+---
+
 ### Step 2: Auto-Detect Project Type
 
 ```bash
@@ -160,6 +184,7 @@ Create `docs/` if it doesn't exist. Write to the filename determined in Step 4.5
 
 **Date:** [today]
 **Project type:** [Python / Node.js / Mixed / Unknown]
+**Active persona:** [from docs/active-persona if present — devops / growth-marketer / solo-founder / startup-cto; OMIT this field entirely when no persona is active]
 
 ## Charter Reference
 (Only present when `docs/charter.md` exists.)

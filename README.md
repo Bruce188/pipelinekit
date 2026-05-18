@@ -49,7 +49,7 @@ claude
 |-------|----------|
 | Rules | `CLAUDE.md`, `rules/workflow.md`, `rules/agents-worktrees.md` |
 | Skills | 38 native (analyze, create-plan, implement-plan, review, ppr, pipeline, expo, ios, azure-ops, document-release, tdd, zoom-out, write-a-skill, learn, landing-report, incident, claude-md-enhancer, ...) |
-| Agents | 27 specialized (architect, code-reviewer, security-auditor, karpathy-reviewer, tdd-test-writer, mobile-dev, azure-deployment-engineer, deployment-engineer, incident-responder, architect-review, cloud-architect, claude-md-guardian, ...) |
+| Agents | 31 specialized (architect, code-reviewer, security-auditor, karpathy-reviewer, tdd-test-writer, mobile-dev, azure-deployment-engineer, deployment-engineer, incident-responder, architect-review, cloud-architect, claude-md-guardian, personas/devops, personas/growth-marketer, personas/solo-founder, personas/startup-cto, ...) |
 | Hooks | 22 production hooks (validate-commit-msg, strip-ai-attribution, block-push-main, tdd-order-check, claude-md-guard, ...) |
 | MCP | context7, serena (semantic), sequential-thinking, optional local-rag, opt-in claude-context (community — @zilliztech, codebase semantic RAG) |
 | LSP | pyright, typescript, csharp, gopls, rust-analyzer |
@@ -78,7 +78,7 @@ pipelinekit/
 │   ├── CLAUDE.md.template
 │   ├── rules/
 │   ├── skills/           # 38 native skills
-│   ├── agents/           # 27 specialized agents
+│   ├── agents/           # 31 specialized agents
 │   ├── hooks/            # 22 production hooks
 │   ├── memory/           # Scaffold (empty by design)
 │   ├── tresor-resources/ # Prompt templates + standards

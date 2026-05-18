@@ -17,6 +17,35 @@ For internal infra / tools / personal scripts where Phase 1 is overkill, the use
 
 ---
 
+## Phase 0: Persona Preamble
+
+Personas are **advisory only** — they bias question emphasis in Phase 1 / Phase 2 but **never override** explicit user answers. Session-scoped via `docs/active-persona` (gitignored). Default: no persona active (interview proceeds unchanged).
+
+### Process
+
+1. Check for an active persona:
+
+   ```bash
+   cat docs/active-persona 2>/dev/null
+   ```
+
+2. **If absent or empty:** Use `AskUserQuestion` with the question "Which persona should govern this interview?" and these 5 options:
+   - `devops` — infra / operational / deployment emphasis
+   - `growth-marketer` — GTM / user-impact / growth-loop emphasis
+   - `solo-founder` — scope-creep / opportunity-cost emphasis
+   - `startup-cto` — tech-debt vs time-to-market emphasis
+   - `no persona` — proceed with default emphasis
+
+   If the user picks a named persona, write the lowercase name to `docs/active-persona`. If `no persona`, do NOT create the file.
+
+3. **If `docs/active-persona` exists or was just written:** Read `claude/agents/personas/<name>.md` and extract 1–2 emphasis bullets relevant to product discovery (e.g., for `solo-founder`: "watch for scope creep in Q4 wedge"; for `startup-cto`: "track tech-debt implications in Q3 desperate specificity"). These bullets bias the depth of follow-up pushes in Phase 1 questions, NOT which questions are asked. Phase 1 still runs the full Q1–Q6 sequence.
+
+4. Append a comment to the eventual PRP header (Phase 2 write step): `<!-- persona: <name> -->`. This is metadata only; do not gate any behavior on it.
+
+5. If the user provides an explicit answer in Phase 1 / Phase 2 that contradicts the persona's emphasis, the explicit answer wins — log the resolution but proceed with the user's answer verbatim.
+
+---
+
 ## Phase 1: Forcing Questions
 
 Use the AskUserQuestion tool to ask these **one at a time**, in order. Push on each answer until it is specific, evidence-based, and concrete. If an answer to a later question is already covered by an earlier one (smart-skip), say so and skip it. Do not batch.
