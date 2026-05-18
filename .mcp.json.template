@@ -22,6 +22,14 @@
         "--project",
         "."
       ]
+    },
+    "agentmemory": {
+      "type": "stdio",
+      "_pending_real_mcp_shape": "Upstream rohitg00/agentmemory has not shipped an MCP server binary as of F2. Replace this key with the real { command, args } block when upstream lands. See claude/lib/agentmemory/README.md § Upstream tracking.",
+      "env": {
+        "AGENTMEMORY_STORE_MODE": "",
+        "AGENTMEMORY_DATA_DIR": ""
+      }
     }
   },
   "_mobile_instructions": "Optional iOS-development MCPs. Uncomment-and-move into 'mcpServers' to enable. Both require Xcode on host. ios-simulator-mcp uses git+https — PIN the ref (replace @main with a commit SHA) before sandbox use.",
@@ -54,16 +62,5 @@
       }
     }
   },
-  "_agentmemory_instructions": "COMMUNITY MCP / LIBRARY — rohitg00/agentmemory is a community project (NOT Anthropic-official). Opt-in structured-retrieval layer over the existing ~/.claude/memory/<slug>/ flat-file markdown system. Adds semantic similarity, decay, and contextual recall. Complementarity: flat-file remains the canonical write path; agentmemory is a secondary retrieval index — plain-markdown inspectability via cat/Read/grep is preserved. Vendoring skeleton lives under claude/lib/agentmemory/. Mode (same-store vs separate-store) and upstream shape (library vs MCP) are deferred to a follow-up iteration. PIN guidance: when upstream ships an MCP server, replace any rolling ref (e.g. @main) with a fixed commit SHA or pinned version BEFORE sandbox use to prevent supply-chain takeover.",
-  "_optional_agentmemory_mcpServers": {
-    "agentmemory": {
-      "type": "stdio",
-      "command": "TBD",
-      "args": ["TBD"],
-      "env": {
-        "AGENTMEMORY_STORE_MODE": "",
-        "AGENTMEMORY_DATA_DIR": ""
-      }
-    }
-  }
+  "_agentmemory_note": "COMMUNITY MCP / LIBRARY — rohitg00/agentmemory is a community project (NOT Anthropic-official). Default-present since F2 — the agentmemory entry above sits inside mcpServers but is inert (no command yet — see _pending_real_mcp_shape). Complementarity: flat-file remains the canonical write path; agentmemory is a secondary retrieval index. Plain-markdown inspectability via cat/Read/grep is preserved. When upstream ships an MCP server, replace _pending_real_mcp_shape with a real { command, args } block AND pin the ref to a fixed commit SHA or release before sandbox use."
 }
