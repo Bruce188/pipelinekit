@@ -416,6 +416,28 @@ class TestClassifierShouldSkipCWDResolution(unittest.TestCase):
         self.assertEqual(log, "", f"Expected empty log; got {log!r}")
 
 
+class ValidatorHelpersTests(unittest.TestCase):
+    """Red-phase tests for Task 1.1 — INTENT_VALUES, SCOPE_VALUES,
+    _validate_intent, _scope_tag_to_scope."""
+
+    def test_validate_intent_accepts_canonical_values(self):
+        for value in ("correctness", "polish", "design", "unrelated"):
+            self.assertEqual(charter_classifier._validate_intent(value), value)
+
+    def test_validate_intent_normalizes_invalid_to_unrelated(self):
+        for bad in ("bogus", "", None, 123, "CORRECTNESS"):
+            self.assertEqual(charter_classifier._validate_intent(bad), "unrelated")
+
+    def test_scope_tag_to_scope_maps_legacy_values(self):
+        self.assertEqual(charter_classifier._scope_tag_to_scope("in_scope"), "in")
+        self.assertEqual(charter_classifier._scope_tag_to_scope("out_of_scope"), "out")
+        self.assertEqual(charter_classifier._scope_tag_to_scope("scope_creep"), "adjacent")
+
+    def test_scope_tag_to_scope_default_in_for_unknown(self):
+        self.assertEqual(charter_classifier._scope_tag_to_scope("anything-else"), "in")
+        self.assertEqual(charter_classifier._scope_tag_to_scope(""), "in")
+
+
 class TestBulletLineRegexDRY(unittest.TestCase):
     """N1 regression: _BULLET_LINE_RE is imported from charter_revalidate, not
     duplicated. Verifies the DRY contract from plan-v26 Task 1.2 and review-v23
