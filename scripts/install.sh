@@ -5,9 +5,7 @@
 # Env:
 #   CLAUDE_HOME                 Target overlay dir (default: $HOME/.claude)
 #   CLAUDE_INSTALL_NONINTERACTIVE=1   Skip all prompts; assume sane defaults
-#   CLAUDE_INSTALL_OPTIONALS    Comma list: tresor,lsp,mcp,gstack,claude-skills,serena,mobile,azure,claude-context,vercel
-#                               Default interactive prompt; non-interactive default: tresor,lsp,mcp
-#                               claude-context = community MCP (@zilliztech) for codebase semantic RAG; opt-in only.
+#   CLAUDE_INSTALL_OPTIONALS    deprecated; flag is a no-op (kept for backward-compat). All components are installed by default.
 
 set -euo pipefail
 
@@ -196,218 +194,163 @@ EOF
   log "Wrote $ENV_FILE"
 fi
 
-# ---------- optionals ----------
-OPTIONALS_DEFAULT="${CLAUDE_INSTALL_OPTIONALS:-tresor,lsp,mcp}"
-if [[ "$NONINTERACTIVE" != "1" ]]; then
-  echo
-  echo "Optional components: tresor lsp mcp gstack claude-skills serena"
-  OPTIONALS="$(ask 'Comma-separated list to install' "$OPTIONALS_DEFAULT")"
-else
-  OPTIONALS="$OPTIONALS_DEFAULT"
-fi
-
-want() { [[ ",$OPTIONALS," == *",$1,"* ]]; }
+# ---------- optionals (deprecated env-var, all components default-on) ----------
+[[ -n "${CLAUDE_INSTALL_OPTIONALS:-}" ]] && log "CLAUDE_INSTALL_OPTIONALS is deprecated; flag is a no-op (kept for backward-compat). All components install by default."
 
 # tresor already bundled in overlay copy step; no-op confirmation.
-if want tresor; then
-  log "Tresor resources present at $CLAUDE_HOME/tresor-resources"
-fi
+log "Tresor resources present at $CLAUDE_HOME/tresor-resources"
 
 # LSP servers. Each failure increments LSP_FAILURES; summary printed at end.
-if want lsp; then
-  log "Installing LSP servers (pyright, typescript, csharp, gopls, rust-analyzer)"
-  # --ignore-scripts denies postinstall RCE from typosquats; safe for these known packages.
-  if command -v npm >/dev/null; then
-    npm install -g --silent --ignore-scripts pyright typescript typescript-language-server 2>>"$LOG" \
-      || { warn "npm LSP install partial"; LSP_FAILURES=$((LSP_FAILURES+1)); }
-  fi
-  if command -v dotnet >/dev/null; then
-    dotnet tool install --global csharp-ls 2>>"$LOG" \
-      || warn "csharp-ls already installed or failed"
-  fi
-  if command -v go >/dev/null; then
-    go install golang.org/x/tools/gopls@latest 2>>"$LOG" \
-      || { warn "gopls install failed"; LSP_FAILURES=$((LSP_FAILURES+1)); }
-  fi
-  if command -v rustup >/dev/null; then
-    rustup component add rust-analyzer 2>>"$LOG" \
-      || { warn "rust-analyzer add failed"; LSP_FAILURES=$((LSP_FAILURES+1)); }
-  fi
+log "Installing LSP servers (pyright, typescript, csharp, gopls, rust-analyzer)"
+# --ignore-scripts denies postinstall RCE from typosquats; safe for these known packages.
+if command -v npm >/dev/null; then
+  npm install -g --silent --ignore-scripts pyright typescript typescript-language-server 2>>"$LOG" \
+    || { warn "npm LSP install partial"; LSP_FAILURES=$((LSP_FAILURES+1)); }
+fi
+if command -v dotnet >/dev/null; then
+  dotnet tool install --global csharp-ls 2>>"$LOG" \
+    || warn "csharp-ls already installed or failed"
+fi
+if command -v go >/dev/null; then
+  go install golang.org/x/tools/gopls@latest 2>>"$LOG" \
+    || { warn "gopls install failed"; LSP_FAILURES=$((LSP_FAILURES+1)); }
+fi
+if command -v rustup >/dev/null; then
+  rustup component add rust-analyzer 2>>"$LOG" \
+    || { warn "rust-analyzer add failed"; LSP_FAILURES=$((LSP_FAILURES+1)); }
+fi
 
-  # Swift LSP (macOS only; ships with Xcode — no separate install).
-  if [[ "$(uname -s)" == "Darwin" ]]; then
-    if command -v xcrun >/dev/null && xcrun --find sourcekit-lsp >/dev/null 2>&1; then
-      log "sourcekit-lsp present (bundled with Xcode)"
-    else
-      warn "sourcekit-lsp not found — install full Xcode (App Store) to enable Swift LSP"
-      # Intentionally not incrementing LSP_FAILURES — sourcekit-lsp ships with Xcode, not a separate install.
-    fi
+# Swift LSP (macOS only; ships with Xcode — no separate install).
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  if command -v xcrun >/dev/null && xcrun --find sourcekit-lsp >/dev/null 2>&1; then
+    log "sourcekit-lsp present (bundled with Xcode)"
   else
-    warn "sourcekit-lsp is macOS-only (ships with Xcode); skipping on $(uname -s)"
-    # Intentionally not incrementing LSP_FAILURES — platform-skip is not a failure.
+    warn "sourcekit-lsp not found — install full Xcode (App Store) to enable Swift LSP"
+    # Intentionally not incrementing LSP_FAILURES — sourcekit-lsp ships with Xcode, not a separate install.
   fi
+else
+  warn "sourcekit-lsp is macOS-only (ships with Xcode); skipping on $(uname -s)"
+  # Intentionally not incrementing LSP_FAILURES — platform-skip is not a failure.
+fi
 
-  # Kotlin LSP (cross-platform). On Darwin use brew; elsewhere fall back to pinned binary release.
-  if command -v kotlin-language-server >/dev/null; then
-    log "kotlin-language-server already installed; skipping"
-  elif [[ "$(uname -s)" == "Darwin" ]] && command -v brew >/dev/null; then
-    brew install kotlin-language-server 2>>"$LOG" \
-      || { warn "kotlin-language-server brew install failed"; LSP_FAILURES=$((LSP_FAILURES+1)); }
+# Kotlin LSP (cross-platform). On Darwin use brew; elsewhere fall back to pinned binary release.
+if command -v kotlin-language-server >/dev/null; then
+  log "kotlin-language-server already installed; skipping"
+elif [[ "$(uname -s)" == "Darwin" ]] && command -v brew >/dev/null; then
+  brew install kotlin-language-server 2>>"$LOG" \
+    || { warn "kotlin-language-server brew install failed"; LSP_FAILURES=$((LSP_FAILURES+1)); }
+else
+  KLS_VERSION="${KLS_VERSION:-1.3.13}"
+  KLS_URL="https://github.com/fwcd/kotlin-language-server/releases/download/${KLS_VERSION}/server.zip"
+  KLS_DIR="$HOME/.local/share/kotlin-language-server"
+  mkdir -p "$HOME/.local/bin" "$KLS_DIR"
+  if command -v curl >/dev/null && command -v unzip >/dev/null \
+     && curl -fsSL -o /tmp/kls.zip "$KLS_URL" \
+     && unzip -q -o /tmp/kls.zip -d "$KLS_DIR" \
+     && ln -sf "$KLS_DIR/server/bin/kotlin-language-server" "$HOME/.local/bin/kotlin-language-server" \
+     && chmod +x "$HOME/.local/bin/kotlin-language-server"; then
+    log "kotlin-language-server installed to $HOME/.local/bin (v${KLS_VERSION})"
+    rm -f /tmp/kls.zip
   else
-    KLS_VERSION="${KLS_VERSION:-1.3.13}"
-    KLS_URL="https://github.com/fwcd/kotlin-language-server/releases/download/${KLS_VERSION}/server.zip"
-    KLS_DIR="$HOME/.local/share/kotlin-language-server"
-    mkdir -p "$HOME/.local/bin" "$KLS_DIR"
-    if command -v curl >/dev/null && command -v unzip >/dev/null \
-       && curl -fsSL -o /tmp/kls.zip "$KLS_URL" \
-       && unzip -q -o /tmp/kls.zip -d "$KLS_DIR" \
-       && ln -sf "$KLS_DIR/server/bin/kotlin-language-server" "$HOME/.local/bin/kotlin-language-server" \
-       && chmod +x "$HOME/.local/bin/kotlin-language-server"; then
-      log "kotlin-language-server installed to $HOME/.local/bin (v${KLS_VERSION})"
-      rm -f /tmp/kls.zip
-    else
-      warn "kotlin-language-server install failed (curl/unzip missing or download failed)"
-      LSP_FAILURES=$((LSP_FAILURES+1))
-      rm -f /tmp/kls.zip
-    fi
+    warn "kotlin-language-server install failed (curl/unzip missing or download failed)"
+    LSP_FAILURES=$((LSP_FAILURES+1))
+    rm -f /tmp/kls.zip
   fi
 fi
 
 # MCP servers (npx-based, no global install).
-if want mcp; then
-  log "Provisioning .mcp.json template (copy to project roots as needed)"
-  if [[ -f "$REPO_ROOT/.mcp.json.template" ]]; then
-    log "  → cp $REPO_ROOT/.mcp.json.template <your-project>/.mcp.json"
-  fi
+log "Provisioning .mcp.json template (copy to project roots as needed)"
+if [[ -f "$REPO_ROOT/.mcp.json.template" ]]; then
+  log "  -> cp $REPO_ROOT/.mcp.json.template <your-project>/.mcp.json"
 fi
 
 # Serena (semantic MCP). Pinnable via $SERENA_REF.
-if want serena; then
-  log "Installing serena (semantic code MCP) @ ref=$SERENA_REF"
-  if [[ "$SERENA_REF" == "main" ]]; then
-    warn "serena pinned to 'main' (rolling). Override with SERENA_REF=<commit-sha> for reproducibility."
-  fi
-  if command -v uv >/dev/null; then
-    uv tool install --quiet "git+https://github.com/oraios/serena@${SERENA_REF}" 2>>"$LOG" || warn "serena install failed"
-  else
-    pip install --quiet "git+https://github.com/oraios/serena@${SERENA_REF}" 2>>"$LOG" || warn "serena install failed (need uv or pip)"
-  fi
+log "Installing serena (semantic code MCP) @ ref=$SERENA_REF"
+if [[ "$SERENA_REF" == "main" ]]; then
+  warn "serena pinned to 'main' (rolling). Override with SERENA_REF=<commit-sha> for reproducibility."
+fi
+if command -v uv >/dev/null; then
+  uv tool install --quiet "git+https://github.com/oraios/serena@${SERENA_REF}" 2>>"$LOG" || warn "serena install failed"
+else
+  pip install --quiet "git+https://github.com/oraios/serena@${SERENA_REF}" 2>>"$LOG" || warn "serena install failed (need uv or pip)"
 fi
 
-# gstack overlay (third-party; install with --prefix to namespace as /gstack-*).
-# Requires GSTACK_REPO env var (full https URL). No default to prevent typosquat risk.
-if want gstack; then
-  if [[ -z "${GSTACK_REPO:-}" ]]; then
-    warn "gstack requested but GSTACK_REPO env var not set. Skipping. Set GSTACK_REPO=https://github.com/<owner>/<repo> to enable."
-  else
-    log "Installing gstack overlay from $GSTACK_REPO @ ref=$GSTACK_REF (namespaced as /gstack-*)"
-    GSTACK_DIR="$HOME/.gstack"
-    if [[ ! -d "$GSTACK_DIR" ]]; then
-      git clone --branch "$GSTACK_REF" --depth 1 "$GSTACK_REPO" "$GSTACK_DIR" 2>>"$LOG" \
-        || warn "gstack clone failed (check GSTACK_REPO + GSTACK_REF)"
-    fi
-    if [[ -x "$GSTACK_DIR/setup" ]]; then
-      "$GSTACK_DIR/setup" --prefix gstack- 2>>"$LOG" || warn "gstack setup failed"
-    fi
-  fi
-fi
+# gstack is a third-party overlay project (alirezarezvani/gstack); install instructions live in its own README.
+log "gstack is a third-party overlay; for install instructions see https://github.com/alirezarezvani/gstack"
 
 # Mobile MCPs (XcodeBuildMCP + ios-simulator-mcp). Both pulled JIT via npx/uvx — no global install.
-# Gated behind CLAUDE_INSTALL_OPTIONALS=mobile (NOT default-on; treat like serena/gstack opt-ins).
-if want mobile; then
-  log "Mobile overlay requested. Optional MCPs available:"
-  log "  - XcodeBuildMCP      (iOS build automation; requires Xcode on host)"
-  log "  - ios-simulator-mcp  (iOS Simulator control; requires Xcode on host)"
-  if [[ -f "$REPO_ROOT/.mcp.json.template" ]]; then
-    log "  -> Uncomment the _optional_mobile_mcpServers block in .mcp.json.template before copying into <your-project>/.mcp.json"
-  fi
-  if [[ "$(uname -s)" != "Darwin" ]]; then
-    warn "Mobile MCPs require Xcode on host. $(uname -s) detected — XcodeBuildMCP supports remote macOS builds; ios-simulator-mcp will not function locally."
-  fi
+log "Mobile MCPs available as advisory uncomment-to-enable in .mcp.json.template:"
+log "  - XcodeBuildMCP      (iOS build automation; requires Xcode on host)"
+log "  - ios-simulator-mcp  (iOS Simulator control; requires Xcode on host)"
+if [[ -f "$REPO_ROOT/.mcp.json.template" ]]; then
+  log "  -> Uncomment the _mobile_mcpServers block in .mcp.json.template before copying into <your-project>/.mcp.json"
+fi
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  warn "Mobile MCPs require Xcode on host. $(uname -s) detected — XcodeBuildMCP supports remote macOS builds; ios-simulator-mcp will not function locally."
 fi
 
-# Azure CLI (opt-in). Installed via Microsoft-published one-liner on Debian/Ubuntu.
+# Azure CLI. Auto-installed via Microsoft-published one-liner on Debian/Ubuntu.
 # Trust pattern: curl-to-bash; Microsoft does not publish a sha256 for this script —
 # verify https origin only. User is responsible for `az login` afterwards — the install
 # does NOT authenticate.
-if want azure; then
-  if command -v az >/dev/null; then
-    log "az already installed; skipping (run 'az version' to check version)"
-  elif [[ "$(uname -s)" == "Linux" ]]; then
-    if [[ -f /etc/os-release ]] && grep -qE 'ID(_LIKE)?=.*(ubuntu|debian)' /etc/os-release; then
-      log "Installing Azure CLI via Microsoft one-liner (https://aka.ms/InstallAzureCLIDeb)"
-      if curl -sL https://aka.ms/InstallAzureCLIDeb | bash 2>>"$LOG"; then
-        log "Azure CLI installed. Authenticate yourself with the standard interactive sign-in (the installer does not log you in)."
-      else
-        warn "Azure CLI install failed — see $LOG. Manual install: https://learn.microsoft.com/cli/azure/install-azure-cli-linux"
-      fi
+if command -v az >/dev/null; then
+  log "az already installed; skipping (run 'az version' to check version)"
+elif [[ "$(uname -s)" == "Linux" ]]; then
+  if [[ -f /etc/os-release ]] && grep -qE 'ID(_LIKE)?=.*(ubuntu|debian)' /etc/os-release; then
+    log "Installing Azure CLI via Microsoft one-liner (https://aka.ms/InstallAzureCLIDeb)"
+    if curl -sL https://aka.ms/InstallAzureCLIDeb | bash 2>>"$LOG"; then
+      log "Azure CLI installed. Authenticate yourself with the standard interactive sign-in (the installer does not log you in)."
     else
-      warn "Azure CLI auto-install supports Debian/Ubuntu only. Other Linux distros: see https://learn.microsoft.com/cli/azure/install-azure-cli-linux"
+      warn "Azure CLI install failed — see $LOG. Manual install: https://learn.microsoft.com/cli/azure/install-azure-cli-linux"
     fi
-  elif [[ "$(uname -s)" == "Darwin" ]]; then
-    warn "Azure CLI on macOS: install via Homebrew — 'brew install azure-cli' (the install.sh gate is Debian/Ubuntu-only in v1)"
   else
-    warn "Azure CLI auto-install skipped on $(uname -s). See https://learn.microsoft.com/cli/azure/install-azure-cli"
+    warn "Azure CLI auto-install supports Debian/Ubuntu only. Other Linux distros: see https://learn.microsoft.com/cli/azure/install-azure-cli-linux"
   fi
+elif [[ "$(uname -s)" == "Darwin" ]]; then
+  warn "Azure CLI on macOS: install via Homebrew — 'brew install azure-cli' (auto-install is Debian/Ubuntu-only)"
+else
+  warn "Azure CLI auto-install skipped on $(uname -s). See https://learn.microsoft.com/cli/azure/install-azure-cli"
 fi
 
-# Vercel CLI (opt-in). Probed via PATH; install + authenticate manually outside Claude.
-# The gate prints the official npm install one-liner and reminds the user to run
-# `vercel login` themselves. It does NOT auto-install the CLI and NEVER auto-authenticates.
+# Vercel CLI. Probed via PATH; install + authenticate manually outside Claude.
+# Prints the official npm install one-liner and reminds the user to run
+# `vercel login` themselves. Never auto-installs the CLI and NEVER auto-authenticates.
 # NEVER auto-run `vercel login` — user authenticates manually outside Claude.
-if want vercel; then
-  if command -v vercel >/dev/null 2>&1; then
-    log "vercel CLI already installed; skipping (run 'vercel --version' to check version)"
-  else
-    warn "Vercel CLI not on PATH. Install: npm i -g vercel"
-  fi
-  log "Authenticate via: vercel login   (run outside Claude before invoking /pipeline)"
+if command -v vercel >/dev/null 2>&1; then
+  log "vercel CLI already installed; skipping (run 'vercel --version' to check version)"
+else
+  warn "Vercel CLI not on PATH. Install: npm i -g vercel"
 fi
+log "Authenticate via: vercel login   (run outside Claude before invoking /pipeline)"
 
 # Claude-Context MCP (community — @zilliztech, NOT Anthropic). Codebase semantic RAG via npx;
 # AST-aware chunking + Merkle-tree incremental indexing. local-mode (no Milvus account) is
 # documented in .mcp.json.template; cloud-mode uses Milvus/Zilliz creds via env vars.
 # Skip below ~50k LOC: indexing adds latency with no semantic-retrieval benefit at that scale.
-if want claude-context; then
-  log "Claude-Context MCP requested (community — @zilliztech/claude-context, NOT Anthropic)."
-  log "  - Codebase semantic RAG: AST-aware chunking + Merkle-tree incremental indexing"
-  log "  - local-mode setup: see .mcp.json.template _optional_claude_context_mcpServers block for env-var skeleton"
-  log "  - cloud-mode setup: same block — swap in MILVUS_ADDRESS / MILVUS_TOKEN for Zilliz cloud"
-  log "  - 50k LOC heuristic: /analyze skips semantic retrieval below 50000 LOC; opt-in indexing on smaller repos via direct MCP query"
-  log "  - Re-indexing budget: <5s per 'git pull' (upstream benchmark; not a guarantee)"
-  if [[ -f "$REPO_ROOT/.mcp.json.template" ]]; then
-    log "  -> Uncomment the _optional_claude_context_mcpServers block in .mcp.json.template before copying into <your-project>/.mcp.json"
-  fi
-  warn "@zilliztech/claude-context is a community MCP (NOT Anthropic-official). Review upstream before sandbox use; PIN the npx package to a specific version for reproducibility."
+log "Claude-Context MCP available (community — @zilliztech/claude-context, NOT Anthropic)."
+log "  - Codebase semantic RAG: AST-aware chunking + Merkle-tree incremental indexing"
+log "  - local-mode setup: see .mcp.json.template _claude_context_mcpServers block for env-var skeleton"
+log "  - cloud-mode setup: same block — swap in MILVUS_ADDRESS / MILVUS_TOKEN for Zilliz cloud"
+log "  - 50k LOC heuristic: /analyze skips semantic retrieval below 50000 LOC; opt-in indexing on smaller repos via direct MCP query"
+log "  - Re-indexing budget: <5s per 'git pull' (upstream benchmark; not a guarantee)"
+if [[ -f "$REPO_ROOT/.mcp.json.template" ]]; then
+  log "  -> Uncomment the _claude_context_mcpServers block in .mcp.json.template before copying into <your-project>/.mcp.json"
 fi
+warn "@zilliztech/claude-context is a community MCP (NOT Anthropic-official). Review upstream before sandbox use; PIN the npx package to a specific version for reproducibility."
 
-# AgentMemory (community — rohitg00/agentmemory, NOT Anthropic). Default-installed since F2;
-# the legacy "agentmemory" optional flag is now a no-op (the `want` helper still parses it,
-# nothing matches). Structured-retrieval layer over the existing ~/.claude/memory/ flat-file
-# system. Adds semantic similarity, decay, and contextual recall via vendored library under
+# AgentMemory (community — rohitg00/agentmemory, NOT Anthropic). Default-installed since F2.
+# Structured-retrieval layer over the existing ~/.claude/memory/ flat-file system.
+# Adds semantic similarity, decay, and contextual recall via vendored library under
 # claude/lib/agentmemory/. Per-run bypass: simply do not issue agentmemory queries.
-log "AgentMemory requested (community — rohitg00/agentmemory, NOT Anthropic)."
+log "AgentMemory available (community — rohitg00/agentmemory, NOT Anthropic)."
 log "  - Structured retrieval layer over flat-file ~/.claude/memory/<slug>/ markdown files"
 log "  - Complementarity: flat-file remains canonical write path; agentmemory is a secondary retrieval index"
 log "  - Vendoring skeleton: claude/lib/agentmemory/NOTICE.md + README.md (SHA pin + file copy land in a follow-up iteration)"
 log "  - Plain-markdown inspectability preserved: cat / Read / grep continue to work on memory files"
 warn "rohitg00/agentmemory is a community project (NOT Anthropic-official). Review upstream before sandbox use; PIN the version to a specific commit/release for reproducibility."
 
-# Third-party skill library (alirezarezvani/claude-skills). Pinnable via $CLAUDE_SKILLS_REF.
-if want claude-skills; then
-  log "Installing third-party claude-skills @ ref=$CLAUDE_SKILLS_REF"
-  if [[ "$CLAUDE_SKILLS_REF" == "main" ]]; then
-    warn "claude-skills pinned to 'main' (rolling). Override with CLAUDE_SKILLS_REF=<commit-sha>."
-  fi
-  CS_DIR="$HOME/claude-skills"
-  if [[ ! -d "$CS_DIR" ]]; then
-    git clone --branch "$CLAUDE_SKILLS_REF" --depth 1 \
-      https://github.com/alirezarezvani/claude-skills "$CS_DIR" 2>>"$LOG" \
-      || warn "claude-skills clone failed"
-  else
-    log "claude-skills already present — not auto-pulling (re-clone manually to update)"
-  fi
-fi
+# claude-skills is a third-party skill collection (alirezarezvani/claude-skills); install instructions live in its own README.
+log "claude-skills is a third-party skill collection; for install instructions see https://github.com/alirezarezvani/claude-skills"
 
 # Claude CLI version-floor check for EnterWorktree / ExitWorktree (v2.1.72+).
 # Soft: warn only. Below-floor users keep working via the manual `git worktree add` fallback.
