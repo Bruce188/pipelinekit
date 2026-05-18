@@ -1,0 +1,42 @@
+# pipelinekit/sandbox-base — OCI build recipe for the pipelinekit sandbox image.
+#
+# Build (local-only — no registry push):
+#   bash scripts/sandbox/build.sh
+#
+# After build, point the providers at the resulting tag:
+#   export PIPELINEKIT_SANDBOX_TAG=pipelinekit/sandbox-base:<sha>
+#
+# Both podman and docker read Containerfile by default; no engine-specific
+# syntax appears here. Image is intended to stay local; do not publish to
+# a public registry.
+
+FROM debian:13-slim
+
+# Avoid prompts during apt operations inside the build.
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install OS-level utilities, Node 20 (via NodeSource), and the pinned
+# @anthropic-ai/claude-code release. Cleanup happens in the same RUN so the
+# apt cache does not leak into a final layer.
+#
+# Pin rationale:
+#   - @2.0.40 is the current stable claude CLI release at the time the image
+#     recipe was authored. Bumping this constant + rebuilding produces a new
+#     SHA-tagged image; provider defaults resolve through PIPELINEKIT_SANDBOX_TAG.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        git \
+        gh \
+        jq \
+        python3 \
+        python3-pip \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && npm install -g @anthropic-ai/claude-code@2.0.40 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# No CMD, no EXPOSE — the image is invoked as `<engine> run ... <image> <argv>`
+# by the sandbox providers. Providers supply the env-scrub prefix and command.

@@ -27,8 +27,18 @@
 # Env vars:
 #   SANDBOX_PROVIDER        — provider name: worktree-only | podman | docker | auto (default: auto)
 #   PIPELINE_NO_SANDBOX     — set to 1 to unconditionally skip container isolation
-#   SANDBOX_PODMAN_IMAGE    — image name for podman provider (default: localhost/pipelinekit-sandbox:latest)
-#   SANDBOX_DOCKER_IMAGE    — image name for docker provider (default: pipelinekit-sandbox:latest)
+#   SANDBOX_PODMAN_IMAGE    — per-engine image override for the podman provider
+#                             (highest precedence). Default fallback path:
+#                             SANDBOX_PODMAN_IMAGE → PIPELINEKIT_SANDBOX_TAG →
+#                             localhost/pipelinekit/sandbox-base:latest.
+#   SANDBOX_DOCKER_IMAGE    — per-engine image override for the docker provider
+#                             (highest precedence). Default fallback path:
+#                             SANDBOX_DOCKER_IMAGE → PIPELINEKIT_SANDBOX_TAG →
+#                             pipelinekit/sandbox-base:latest.
+#   PIPELINEKIT_SANDBOX_TAG — cross-engine default tag consumed by both providers
+#                             when no per-engine override is set. The build script
+#                             scripts/sandbox/build.sh prints the export line for
+#                             this var on success.
 
 # ---------------------------------------------------------------------------
 # provider_detect

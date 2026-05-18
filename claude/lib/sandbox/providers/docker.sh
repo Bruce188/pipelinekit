@@ -28,7 +28,11 @@
 #   this file is not sourced when that flag is set — worktree-only.sh is used instead.
 #
 # Env vars (all optional):
-#   SANDBOX_DOCKER_IMAGE   — container image (default: pipelinekit-sandbox:latest)
+#   SANDBOX_DOCKER_IMAGE   — container image (highest precedence, per-engine override).
+#                           Falls back to PIPELINEKIT_SANDBOX_TAG, then to the
+#                           namespaced default tag set on the image= line below.
+#   PIPELINEKIT_SANDBOX_TAG — cross-engine default tag, written by
+#                           scripts/sandbox/build.sh on successful build.
 #   CLAUDE_HOME            — path to the Claude Code config directory (default: $HOME/.claude)
 #
 # Runtime requirements:
@@ -58,7 +62,7 @@
 # ---------------------------------------------------------------------------
 sandbox_enter() {
   local wt="$1"; shift
-  local image="${SANDBOX_DOCKER_IMAGE:-pipelinekit-sandbox:latest}"
+  local image="${SANDBOX_DOCKER_IMAGE:-${PIPELINEKIT_SANDBOX_TAG:-pipelinekit/sandbox-base:latest}}"
   local claude_home="${CLAUDE_HOME:-$HOME/.claude}"
   local prefix_out prefix_rc
   local -a prefix
