@@ -427,10 +427,10 @@ on: [push, pull_request]
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v2   # No Blacksmith drop-in — using upstream actions/checkout
+      - uses: useblacksmith/setup-python@v6
         with:
           python-version: '3.9'
 
@@ -444,7 +444,7 @@ jobs:
         run: python -m pytest --cov=scripts --cov-report=xml
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v2   # No Blacksmith drop-in — using upstream codecov/codecov-action
 ```
 
 ## Troubleshooting Tests

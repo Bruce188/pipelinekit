@@ -40,6 +40,12 @@ graph TD
     M --> N[Monitoring]
 ```
 
+> **Blacksmith CI default.** All `runs-on:` jobs target the
+> Blacksmith runner via the `BLACKSMITH_RUNNER` GitHub Actions
+> variable. To override globally, set the variable in your repo
+> settings. See `documentation/ci-blacksmith.html` for the full
+> registration flow and available runner tiers.
+
 ## 🚀 Phase 1: Pre-commit & Build Stage
 
 ### Step 1: Pre-commit Hooks Setup
@@ -101,16 +107,16 @@ env:
 jobs:
   build:
     name: Build and Test
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4   # No Blacksmith drop-in — using upstream actions/checkout
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: useblacksmith/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -122,7 +128,7 @@ jobs:
         run: npm run build
 
       - name: Cache build artifacts
-        uses: actions/cache@v3
+        uses: useblacksmith/cache@v5
         with:
           path: |
             dist/
@@ -131,15 +137,15 @@ jobs:
 
   unit-tests:
     name: Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}
     needs: build
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4   # No Blacksmith drop-in — using upstream actions/checkout
 
       - name: Restore cache
-        uses: actions/cache@v3
+        uses: useblacksmith/cache@v5
         with:
           path: |
             dist/
@@ -150,22 +156,22 @@ jobs:
         run: npm run test:unit -- --coverage
 
       - name: Upload coverage reports
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v3   # No Blacksmith drop-in — using upstream codecov/codecov-action
         with:
           file: ./coverage/coverage.xml
           flags: unittests
 
   code-quality:
     name: Code Quality & Security
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}
     needs: build
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4   # No Blacksmith drop-in — using upstream actions/checkout
 
       - name: Restore cache
-        uses: actions/cache@v3
+        uses: useblacksmith/cache@v5
         with:
           path: |
             dist/
@@ -184,7 +190,7 @@ jobs:
         run: npm run type-check
 
       - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
+        uses: SonarSource/sonarcloud-github-action@master   # No Blacksmith drop-in — using upstream SonarSource/sonarcloud-github-action
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -216,22 +222,22 @@ jobs:
 ```yaml
   security-scan:
     name: Security Scanning
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}
     needs: build
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4   # No Blacksmith drop-in — using upstream actions/checkout
 
       - name: Run Snyk Security Scan
-        uses: snyk/actions/node@master
+        uses: snyk/actions/node@master   # No Blacksmith drop-in — using upstream snyk/actions/node
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           args: --severity-threshold=high
 
       - name: SAST with CodeQL
-        uses: github/codeql-action/init@v2
+        uses: github/codeql-action/init@v2   # No Blacksmith drop-in — using upstream github/codeql-action
         with:
           languages: javascript, typescript
 
@@ -247,14 +253,14 @@ jobs:
           - Dependency vulnerability assessment
 
       - name: Container Security Scan
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@master   # No Blacksmith drop-in — using upstream aquasecurity/trivy-action
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           format: 'sarif'
           output: 'trivy-results.sarif'
 
       - name: Upload Security Results
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v2   # No Blacksmith drop-in — using upstream github/codeql-action
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
@@ -265,12 +271,12 @@ jobs:
 ```yaml
   performance-tests:
     name: Performance Testing
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}
     needs: [unit-tests, code-quality]
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4   # No Blacksmith drop-in — using upstream actions/checkout
 
       - name: Setup test environment
         run: |
@@ -301,7 +307,7 @@ jobs:
           - Scalability improvements
 
       - name: Upload Performance Reports
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3   # No Blacksmith drop-in — using upstream actions/upload-artifact
         with:
           name: performance-reports
           path: performance-report.html
@@ -314,7 +320,7 @@ jobs:
 ```yaml
   integration-tests:
     name: Integration Tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}
     needs: [unit-tests, code-quality]
 
     services:
@@ -340,10 +346,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4   # No Blacksmith drop-in — using upstream actions/checkout
 
       - name: Restore cache
-        uses: actions/cache@v3
+        uses: useblacksmith/cache@v5
         with:
           path: |
             dist/
@@ -382,12 +388,12 @@ jobs:
 ```yaml
   e2e-tests:
     name: E2E Tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}
     needs: integration-tests
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4   # No Blacksmith drop-in — using upstream actions/checkout
 
       - name: Start application stack
         run: |
@@ -406,7 +412,7 @@ jobs:
           BASE_URL: http://localhost:3000
 
       - name: Upload Test Results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3   # No Blacksmith drop-in — using upstream actions/upload-artifact
         if: always()
         with:
           name: playwright-report
@@ -420,7 +426,7 @@ jobs:
 ```yaml
   deploy-staging:
     name: Deploy to Staging
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}
     needs: [integration-tests, performance-tests, security-scan]
     if: github.ref == 'refs/heads/develop'
 
@@ -430,10 +436,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4   # No Blacksmith drop-in — using upstream actions/checkout
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v2   # No Blacksmith drop-in — using upstream aws-actions/configure-aws-credentials
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -470,7 +476,7 @@ jobs:
 ```yaml
   deploy-production:
     name: Deploy to Production
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}
     needs: [deploy-staging, e2e-tests]
     if: github.ref == 'refs/heads/main'
 
@@ -480,7 +486,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4   # No Blacksmith drop-in — using upstream actions/checkout
 
       - name: Architecture Review
         run: |
@@ -525,7 +531,7 @@ jobs:
 ```yaml
   setup-monitoring:
     name: Setup Monitoring
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}
     needs: deploy-production
 
     steps:
@@ -564,7 +570,7 @@ jobs:
 ```yaml
   update-documentation:
     name: Update Documentation
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}
     needs: deploy-production
 
     steps:
@@ -605,7 +611,7 @@ jobs:
 ```yaml
   feature-flags:
     name: Feature Flags Management
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}
 
     steps:
       - name: Update Feature Flags
@@ -637,7 +643,7 @@ jobs:
 ```yaml
   automated-rollback:
     name: Automated Rollback
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}
     if: failure()
 
     steps:

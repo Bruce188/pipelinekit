@@ -207,9 +207,9 @@ on:
     - cron: '0 0 * * 0'
 jobs:
   audit:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2   # No Blacksmith drop-in — using upstream actions/checkout
       - run: npm audit
 ```
 
