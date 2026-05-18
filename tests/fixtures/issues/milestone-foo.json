@@ -1,0 +1,12 @@
+[
+  {
+    "number": 5,
+    "title": "feat: milestone feature",
+    "body": "Part of the v1.0 milestone.",
+    "labels": [],
+    "createdAt": "2026-01-05T00:00:00Z",
+    "updatedAt": "2026-01-05T00:00:00Z",
+    "milestone": {"title": "v1.0"},
+    "comments": []
+  }
+]

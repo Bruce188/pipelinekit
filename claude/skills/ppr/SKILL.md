@@ -165,13 +165,21 @@ Generate PR title and body:
 - **No workflow metadata** — no task IDs (e.g., "1.1", "2.3"), phase numbers, review file references (e.g., "review-v23"), `reopened:` annotations, or pipeline-internal terminology. The PR should read as if authored by a human developer.
 
 ```bash
-gh pr create \
-  --title "[type(scope): description]" \
-  --body "$(cat <<'EOF'
+# Derive Closes #N from branch name if issue-sourced
+BRANCH=$(git branch --show-current)
+ISSUE_NUM=""
+if [[ "$BRANCH" =~ ^[a-z]+/issue-([0-9]+)- ]]; then
+  ISSUE_NUM="${BASH_REMATCH[1]}"
+fi
+```
+
+```bash
+PR_BODY=$(cat <<EOF
 ## Summary
 [CHARTER_GOAL_LINE — verbatim charter Goal excerpt, or omit line if no charter]
 [2–3 bullets: what changed and why]
 
+$([ -n "$ISSUE_NUM" ] && printf "Closes #%s\n\n" "$ISSUE_NUM")
 ## Changes
 [key files modified and what each does]
 
@@ -180,8 +188,16 @@ gh pr create \
 - [ ] Secret scan clean
 - [ ] Review agents passed (code, security, testing, performance, spec-tracer)
 EOF
-)"
+)
 ```
+
+```bash
+gh pr create \
+  --title "[type(scope): description]" \
+  --body "$PR_BODY"
+```
+
+When `ISSUE_NUM` is empty (no issue-pattern match), behavior is identical to today's PR-body output — backward compat preserved. The conditional printf above is the sole dedup mechanism: it emits `Closes #N` only when `ISSUE_NUM` is non-empty, so exactly one close keyword appears for issue branches and none for non-issue branches.
 
 **Check the exit code.** If `gh pr create` fails: **STOP** with descriptive error. Do NOT output the "What's Next" block with a nonexistent PR URL.
 
