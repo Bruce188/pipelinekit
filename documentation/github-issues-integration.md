@@ -106,10 +106,10 @@ The PR body assembled by `/pipeline` Path A (automatic) and `/ppr` (human-driver
 appends `Closes #<N>` to the `## Summary` section when the branch matches the
 `^[a-z]+/issue-([0-9]+)-` pattern.
 
-**Idempotency guard:** if the PR body already contains a `closes`/`fixes`/`resolves`
-keyword followed by `#<N>`, the auto-append is skipped and
-`DEDUP_CLOSES: existing close-keyword detected in PR body — skipping auto-append`
-is logged to stderr.
+**Dedup mechanism:** `Closes #<N>` is emitted by a conditional printf that fires only when
+`ISSUE_NUM` is non-empty (i.e., the branch matches `^[a-z]+/issue-([0-9]+)-`). For
+non-issue branches, `ISSUE_NUM` is empty and no close keyword is appended. Exactly one
+`Closes #N` line appears per issue-sourced PR body.
 
 ---
 
