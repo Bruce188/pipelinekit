@@ -71,6 +71,8 @@ Charter Discovery is the default-on front-loaded alignment phase. It produces `d
 
 **`--max-questions <N>` behavior:** When `N > 0`, cap the total number of `AskUserQuestion` invocations at `N`. After the cap is reached, write the draft charter and continue. `N = 0` is the `--no-charter` alias (no discovery at all).
 
+**Charter scope vs. install gates:** Every native skill, agent, and hook ships default-on regardless of charter answers; the charter scopes the work, it does not enable or disable skills.
+
 ---
 
 ### Step 1: Parse Arguments

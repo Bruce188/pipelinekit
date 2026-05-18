@@ -98,125 +98,21 @@ Autonomous option: `/pipeline [feature-file]` — runs the full workflow per fea
 
 See `~/.claude/rules/workflow.md` for the argument convention, base-branch detection, and context-aware clearing rules.
 
-## Consumer Web App Mode (Optional Overlay)
+## Consumer Web App Workflows
 
-When the workload is a **consumer web app** (UI-driven, design-sensitive, browser-testable) **and** the `gstack` optional is installed, augment the default backend routing with `/gstack-*` skills per the table below. For backend / library / data-pipeline / trading-bot work (the default), nothing changes — keep using the native skills.
+The native pipelinekit toolchain ships by default and covers backend, library, data-pipeline, and CLI workloads out of the box. Consumer web app workflows are out of scope for pipelinekit's default install. `gstack` is a third-party project (`alirezarezvani/gstack`); to install it, see its own README.
 
-| Phase | Tool | Rationale |
-|-------|------|-----------|
-| Product discovery | `/gstack-office-hours` | YC forcing questions; deeper than `/interview-prp` for consumer scope |
-| Design system bootstrap (one-time) | `/gstack-design-consultation` | Produces `DESIGN.md` |
-| Plan creation | `/create-plan` | Integrated with `progress.md`, versioning convention |
-| Plan design audit | `/gstack-plan-design-review` | 7-dimension rating loop |
-| Plan eng audit | `/review --scope plan` | Multi-agent backend correctness |
-| Branch | `/new-branch` | — |
-| Implementation | `/implement-plan` | Subagent mode, budget caps, hooks |
-| Visual exploration | `/gstack-design-shotgun` | GPT Image variants (requires OpenAI key) |
-| HTML production | `/gstack-design-html` | Computed-layout HTML |
-| Browser QA | `/gstack-qa` | Persistent daemon, snapshot diff |
-| Code review | `/review` | Plan-integrated, hook-protected, multi-agent (`--design-pass` for UI diffs) |
-| Visual audit | `/gstack-design-review` | Before/after screenshots |
-| DX audit (if app exposes API/CLI) | `/gstack-devex-review` | Live boomerang vs. plan-devex-review scores |
-| Performance baseline | `/gstack-benchmark` | Core Web Vitals via daemon |
-| Ship | `/ppr` | Hook-stripped commit hygiene — **DO NOT use `/gstack-ship`** (it bypasses `validate-commit-msg.sh` and `strip-ai-attribution.sh`) |
-| Doc update | `/gstack-document-release` | Auto-fired post-ship; verify it doesn't add AI attribution |
-| Deploy verification | `/gstack-canary` | Post-deploy monitoring loop |
-| Retro | `/gstack-retro` | Cross-project learning |
+## Mobile App Workflows
 
-**Gotchas:**
-1. Skip `/gstack-ship`. Use `/ppr` (covers push+PR with the right hooks).
-2. gstack must be installed with `--prefix gstack-` to namespace all gstack skills. The installer does this automatically.
-3. Verify `/gstack-document-release` is attribution-clean on a throwaway branch first.
-4. `/gstack-design-shotgun` requires OpenAI key at `~/.gstack/openai.json`.
-5. gstack writes its own learnings to `~/.gstack/projects/<slug>/learnings.jsonl`; native memory is at `~/.claude/memory/`. Promote manually if a learning rises to global-rule status.
+The mobile toolchain ships by default. `claude/agents/mobile-dev.md`, `claude/skills/ios/SKILL.md`, and `claude/skills/expo/SKILL.md` are always available. iOS-specific build steps runtime-detect Xcode (`xcrun --find` probe) and skip silently on non-macOS hosts.
 
-## Mobile App Mode (Optional Overlay)
+## Azure Workflows
 
-When the workload is a **mobile app** (iOS/Android/cross-platform) **and** `CLAUDE_INSTALL_OPTIONALS=mobile` is set at install time, augment the default routing with the mobile-specific agent and skills per the table below. For backend / library / data-pipeline / web work (the default), nothing changes — keep using the native skills.
+The Azure toolchain ships by default. `@azure-deployment-engineer` and the `azure-ops` skill are always available. Azure CLI auto-install runs at `scripts/install.sh` time on Debian / Ubuntu hosts; on other hosts the installer prints the Homebrew / Microsoft-docs link and continues without failure.
 
-| Phase | Tool | Rationale |
-|-------|------|-----------|
-| Product discovery | `/pipeline` Step 0 | Charter Discovery captures mobile-specific scoping (target platforms, store-policy constraints, native-module requirements) into `docs/charter.md` |
-| Plan creation | `/create-plan` | Integrated with `progress.md`, versioning convention |
-| Plan review | `/review --scope plan` | Multi-agent backend correctness |
-| Branch | `/new-branch` | — |
-| Implementation | `/implement-plan` (with `@mobile-dev` agent) | TDD-aware; mobile-dev agent orchestrates platform-specific work |
-| iOS workflow | `claude/skills/ios/SKILL.md` | Xcode 26.3 + Claude Agent SDK integration |
-| Expo / React Native | `claude/skills/expo/SKILL.md` | Managed/bare workflow, EAS Build, OTA updates |
-| iOS build automation | `XcodeBuildMCP` (optional MCP) | Remote-build alternative for Linux/WSL2 hosts |
-| iOS simulator control | `ios-simulator-mcp` (optional MCP) | Programmatic simulator control (requires Xcode host) |
-| LSP (Swift) | `sourcekit-lsp` (macOS only) | Swift autocomplete & diagnostics; ships with Xcode |
-| LSP (Kotlin) | `kotlin-language-server` (cross-platform) | Kotlin/Android autocomplete & diagnostics |
-| Mobile CI/CD | Fastlane / EAS Build / GitHub Actions iOS | Cert rotation, TestFlight upload, Play Store deploy; `@mobile-dev` agent configures |
-| Code review | `/review` | Plan-integrated, hook-protected; mobile-dev agent contributes |
-| Performance profiling | Instruments (iOS) / Android Profiler | Cold-start, memory, battery; run out-of-band via `@mobile-dev` |
-| Ship | `/ppr` | Hook-stripped commit hygiene |
-| Store submission | App Store Connect / Google Play Console | Managed by `@mobile-dev` agent; manual review required by Apple/Google |
-| Doc update | `/post-merge` | Update CLAUDE.md / README as needed |
-| Retro | Project retro notes | Capture mobile-specific learnings (signing gotchas, simulator quirks, EAS build config) in `docs/` |
+## Vercel Workflows
 
-**Gotchas:**
-1. iOS workflows require a macOS host with Xcode. On Linux/WSL2, use `XcodeBuildMCP` for remote builds or pair with a macOS CI runner (Bitrise, Codemagic, GitHub Actions iOS).
-2. The mobile MCPs (`XcodeBuildMCP`, `ios-simulator-mcp`) are NOT installed by default. Set `CLAUDE_INSTALL_OPTIONALS=mobile` when running `install.sh` to enable the `want mobile` block (which prints copy-paste instructions for `.mcp.json`).
-3. Mobile QA is out-of-band: pipelinekit's `/qa` skill (when present) is web-only. For mobile QA, use Maestro / Detox / XCUITest / Espresso per the mobile-dev agent's recommendations.
-4. The `@mobile-dev` agent is named — invoke it explicitly when planning or implementing mobile features. Per project convention, named agents are not auto-spawned.
-5. `sourcekit-lsp` ships with Xcode and is detected via `xcrun --find sourcekit-lsp`; there is no separate install. On Linux/WSL2, the LSP install step warns and skips (no failure, no `LSP_FAILURES` increment).
-6. The Xcode 26.3 + Claude Agent SDK integration documented in `claude/skills/ios/SKILL.md` is based on the Feb-2026 baseline. If specific API claims drift, re-run the verification step and update the skill accordingly.
-
-See `claude/agents/mobile-dev.md` for the full mobile-dev agent spec and `claude/skills/ios/SKILL.md` / `claude/skills/expo/SKILL.md` for platform-specific skill docs.
-
-## Azure Mode (Optional Overlay)
-
-When the workload is an **Azure** workload (App Service / Container Apps / Function Apps / AKS) **and** `CLAUDE_INSTALL_OPTIONALS=azure` is set at install time, augment the default routing with the Azure-specific agent and skill per the table below. For non-Azure work (the default), nothing changes — keep using the native skills.
-
-| Phase | Tool | Rationale |
-|-------|------|-----------|
-| Product discovery | `/pipeline` Step 0 | Charter Discovery captures Azure-specific scoping: target services (App Service / Container Apps / Functions / AKS), region, subscription, IaC preference (Bicep vs ARM) into `docs/charter.md` |
-| Plan / analysis | `/analyze` (with `@azure-deployment-engineer`) | Agent contributes resource-layout, RBAC, cost-guardrail constraints to analysis |
-| Plan review | `/review --scope plan` | Multi-agent backend correctness; azure-deployment-engineer joins review pool |
-| Implementation (IaC) | `/implement-plan` (with `@azure-deployment-engineer`) | Bicep-first IaC authoring (or ARM JSON for legacy tooling); no portal-clicked production resources |
-| Day-to-day ops | `claude/skills/azure-ops/SKILL.md` | `az` CLI wrapper: resource listing, deploy, log tail, App Service restart |
-| Deploy verification | `azure-ops` skill → `az webapp show` / `az containerapp show` + log tail | Post-deploy health check against already-authenticated context |
-| Observability | Log Analytics + Application Insights (KQL) | Wired by azure-deployment-engineer; SLO-based alerts + diagnostic settings |
-| Doc update | `/post-merge` | F5 added Azure-aware capture; verify no credential material in logs |
-| Cost retro | `az consumption usage list` via `azure-ops` | Tag-based cost allocation; right-sized SKU check; scale-to-zero verification |
-
-**Gotchas:**
-1. The `@azure-deployment-engineer` agent and `azure-ops` skill are NOT installed by default. Set `CLAUDE_INSTALL_OPTIONALS=azure` when running `install.sh` to enable them.
-2. Authentication is the user's responsibility. The `azure-ops` skill STOPS and prompts you to run `az login` yourself if `az account show` fails — it never auto-authenticates and never reads credential env vars or caches tokens.
-3. Service-principal / non-interactive auth flows are deliberately unsupported in the operational skill (credential-leak risk in agentic contexts). For CI, configure `azure/login@v2` outside Claude and run `az` against the pre-authenticated context.
-4. Default subscription matters: confirm `az account show --query id` before every deploy. Multi-subscription users should pin via `az account set --subscription <id>` or per-command `--subscription` flags.
-5. Regional defaults are NOT assumed — every Bicep/ARM template must declare `location` explicitly. The agent flags missing region parameters during plan review.
-6. Managed Identity is preferred over service-principal client secrets for runtime identity. The azure-deployment-engineer agent enforces this during plan review.
-7. The `@azure-deployment-engineer` agent is named — invoke it explicitly when planning or deploying Azure workloads. Per project convention, named agents are not auto-spawned.
-
-See claude/agents/azure-deployment-engineer.md for the full agent spec and claude/skills/azure-ops/SKILL.md for the operational skill.
-
-## Vercel Mode (Optional Overlay)
-
-When the workload deploys to **Vercel** (Next.js / SvelteKit / Astro / static + Edge / serverless functions) **and** `CLAUDE_INSTALL_OPTIONALS=vercel` is set at install time, augment the default routing with the Vercel-specific agent and skill per the table below. For non-Vercel work (the default), nothing changes — keep using the native skills.
-
-| Phase | Tool | Rationale |
-|-------|------|-----------|
-| Product discovery | `/pipeline` Step 0 | Charter Topic 10 captures the Vercel deployment target into `docs/active-deployment` |
-| Plan / analysis | `/analyze` (with `@vercel-deployment-engineer`) | Agent contributes `vercel.json` layout, framework-preset, env-var-scope constraints |
-| Plan review | `/review --scope plan` | Multi-agent backend correctness; vercel-deployment-engineer joins review pool |
-| Implementation (config) | `/implement-plan` (with `@vercel-deployment-engineer`) | `vercel.json` + framework config authoring; no dashboard-clicked production changes |
-| Day-to-day ops | `claude/skills/vercel-ops/SKILL.md` | `vercel` CLI wrapper: project ls, deploy, log tail, redeploy |
-| Deploy verification (preview) | `vercel deploy --prebuilt` → preview URL `curl -sI` smoke | Pre-prod URL must respond before promoting |
-| Deploy verification (prod) | `vercel inspect <url> --wait` + `vercel logs --follow <deployment>` | Wait for READY state, watch logs for first 60s |
-| Observability | Vercel Web Analytics + log drains | Wired by vercel-deployment-engineer |
-| Doc update | `/post-merge` | Verify no `VERCEL_TOKEN` or env-var leakage in logs |
-
-**Gotchas:**
-1. The `@vercel-deployment-engineer` agent and `vercel-ops` skill are NOT installed by default. Set `CLAUDE_INSTALL_OPTIONALS=vercel` when running `install.sh` to enable them.
-2. Authentication is the user's responsibility. The `vercel-ops` skill STOPS and prompts you to run `vercel login` yourself if `vercel whoami` fails — it never auto-authenticates.
-3. `VERCEL_TOKEN` is sometimes exported for CI. The skill MUST NOT echo, log, or copy it into prompts. Treat any `vercel_*` value as a secret.
-4. Default scope/team matters: confirm `vercel whoami` shows the right scope before every deploy. Multi-team users should pin via `vercel switch <team>` outside Claude.
-5. Preview deploys are per-commit. Production deploys (`vercel --prod`) require explicit confirmation in the deploy verification row — never auto-promote a preview without the smoke check passing.
-6. The `@vercel-deployment-engineer` agent is named — invoke it explicitly when planning or deploying Vercel workloads. Per project convention, named agents are not auto-spawned.
-
-See claude/agents/vercel-deployment-engineer.md for the full agent spec and claude/skills/vercel-ops/SKILL.md for the operational skill.
+The Vercel toolchain ships by default. `@vercel-deployment-engineer` and the `vercel-ops` skill are always available. The Vercel CLI itself is user-driven (`npm i -g vercel`); the skill stops cleanly with an install prompt if the CLI is absent.
 
 ## User Identity
 

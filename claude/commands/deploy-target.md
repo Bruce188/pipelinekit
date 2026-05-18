@@ -59,6 +59,6 @@ Only `vercel` ships an end-to-end overlay in the MVP iteration. `railway`, `rend
 
 - `docs/active-deployment` is a single-line file (one provider slug per line). Mutually exclusive across providers; later writes overwrite.
 - `docs/active-deployment` is gitignored via `.git/info/exclude` and never-staged via `claude/config/never-stage.txt`.
-- Do NOT auto-install any provider CLI (`npm i -g vercel`, `railway login`, etc.). The install one-liner is printed by `scripts/install.sh` under the `want vercel` (etc.) gate; the user runs it manually.
+- Do NOT auto-install any provider CLI (`npm i -g vercel`, `railway login`, etc.). The install one-liner is printed by `scripts/install.sh` unconditionally; the user runs it manually.
 - Do NOT auto-authenticate. The per-provider ops skill (`vercel-ops`, etc.) STOPS and prompts the user to authenticate outside Claude.
 - Do not modify any other file outside `docs/active-deployment`.

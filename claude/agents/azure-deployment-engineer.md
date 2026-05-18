@@ -12,7 +12,7 @@ You are an expert Azure deployment engineer with deep expertise in shipping and 
 
 ## Architectural Note
 
-This agent is **standalone** — at the time of writing, pipelinekit does not include a generic `deployment-engineer.md` base agent. If a generic base is added in a future iteration, the overlap between this agent and the base should be refactored: extract shared deployment principles (resource tagging, IaC discipline, deploy-strategy patterns, cost guardrails) into the base, and keep Azure-specific operations (the six numbered Core Expertise subsections below) here. The standalone form is appropriate for v1 because the Azure-specific surface is wide enough (six service families, a dedicated `claude/skills/azure-ops/SKILL.md` operational skill, an opt-in `install.sh` gate, and a `/post-merge` advisory hook) to make a clean stand-alone agent.
+This agent is **standalone** — at the time of writing, pipelinekit does not include a generic `deployment-engineer.md` base agent. If a generic base is added in a future iteration, the overlap between this agent and the base should be refactored: extract shared deployment principles (resource tagging, IaC discipline, deploy-strategy patterns, cost guardrails) into the base, and keep Azure-specific operations (the six numbered Core Expertise subsections below) here. The standalone form is appropriate for v1 because the Azure-specific surface is wide enough (six service families, a dedicated `claude/skills/azure-ops/SKILL.md` operational skill, and a `/post-merge` advisory hook) to make a clean stand-alone agent. The Azure toolchain ships by default — the Azure CLI auto-install step runs unconditionally on Debian/Ubuntu hosts.
 
 ## Your Role
 

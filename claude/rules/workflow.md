@@ -226,7 +226,7 @@ An out-of-process subprocess driver is intentionally not shipped. If you need a 
 - **sequential-thinking:** Deep reasoning chains. Add when tasks require multi-step logic.
 - **RepoMapper:** Structural code patterns, class hierarchies, call graphs. Add for large codebases.
 - **voicemode:** Push-to-talk voice interaction via `converse` tool.
-- **claude-context:** Codebase semantic RAG via `@zilliztech/claude-context` (community MCP — NOT Anthropic). AST-aware chunking + Merkle-tree incremental indexing; complements serena (LSP/symbolic navigation) by providing semantic retrieval against natural-language objectives. Opt-in via `CLAUDE_INSTALL_OPTIONALS=claude-context`. `/analyze` Step 3.6 skips semantic retrieval below 50000 LOC. local-mode (Ollama / Transformers embedding, no Milvus account) and cloud-mode (Milvus / Zilliz creds via `MILVUS_ADDRESS` / `MILVUS_TOKEN`) both supported — env-var skeleton lives in `.mcp.json.template` `_optional_claude_context_mcpServers`. Upstream benchmark: <5s per `git pull` for incremental Merkle-tree re-indexing (benchmark, not a guarantee).
+- **claude-context:** Codebase semantic RAG via `@zilliztech/claude-context` (community MCP — NOT Anthropic). AST-aware chunking + Merkle-tree incremental indexing; complements serena (LSP/symbolic navigation) by providing semantic retrieval against natural-language objectives. Available by default; uncomment the `.mcp.json.template` block to enable. `/analyze` Step 3.6 skips semantic retrieval below 50000 LOC. local-mode (Ollama / Transformers embedding, no Milvus account) and cloud-mode (Milvus / Zilliz creds via `MILVUS_ADDRESS` / `MILVUS_TOKEN`) both supported — env-var skeleton lives in `.mcp.json.template` `_claude_context_mcpServers`. Upstream benchmark: <5s per `git pull` for incremental Merkle-tree re-indexing (benchmark, not a guarantee).
 
 Example `.mcp.json` for a project needing RepoMapper:
 ```json
@@ -259,7 +259,6 @@ Compact routing table for each pipeline phase. Native tools (Read, Write, Edit, 
 | `/ppr` | — | — | — | `feedback_docs_gitignore.md` | strip-ai-attribution, block-push-main | — |
 | `/post-merge` | — | — | — | — | block-dangerous-commands | — |
 | `/pipeline` | (delegates to phase skills) | phase subagents (--phase-mode subagent) | `/implement-plan`, `/review` (inline) | (delegates to phase skills) | (delegates to phase skills) | (delegates to /implement-plan) |
-| `consumer-web-app` workload (overlay) | gstack browse daemon (via `/gstack-*`); OpenAI Images API (only `/gstack-design-shotgun`) | — | `/gstack-office-hours`, `/gstack-design-consultation`, `/gstack-plan-design-review`, `/gstack-design-shotgun`, `/gstack-design-html`, `/gstack-qa`, `/gstack-design-review`, `/gstack-devex-review`, `/gstack-benchmark`, `/gstack-document-release`, `/gstack-canary`, `/gstack-retro` (overlay on native phase skills — full per-phase mapping in `~/.claude/CLAUDE.md` § Consumer Web App Mode) | — | (inherits from per-phase rows above) | — |
 
 ### Memory Feed
 

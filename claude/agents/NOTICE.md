@@ -68,7 +68,7 @@ The full MIT License text and the related skill-level notice are in
    `model: haiku` is upgraded to `model: sonnet`. New `tools: Read, Grep,
    Glob, Bash` line is added. `description:` is tightened to "drift detection
    and best-practices audit" framing.
-3. **Pipelinekit overlay section** `## Pipelinekit Overlay — /review Integration`
+3. **Pipelinekit integration section** `## Pipelinekit Integration — /review`
    appended to the END of the agent body. Documents the pipelinekit review
    schema and the `## CLAUDE.md Audit` filing convention.
 
@@ -87,7 +87,7 @@ To re-vendor (e.g., when upstream ships a guardian improvement):
    `color`, `field`, `expertise`, `fork_safe`; ensure `model: sonnet` and
    `tools: ...`).
 4. Re-prepend the HTML-comment attribution header (update the short SHA).
-5. Re-append the `## Pipelinekit Overlay — /review Integration` section
+5. Re-append the `## Pipelinekit Integration — /review` section
    (sentinel header — find it at the end of the previous version's file).
 6. Update this NOTICE.md's `**Pinned SHA:**` line.
 7. Commit with `chore: re-vendor alirezarezvani/ClaudeForge guardian @ <short-sha>`.
