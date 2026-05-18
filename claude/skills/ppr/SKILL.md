@@ -192,20 +192,12 @@ EOF
 ```
 
 ```bash
-# Idempotency: skip Closes append if body already references one
-if [ -n "$ISSUE_NUM" ] && echo "$PR_BODY" | grep -qiE "(closes|fixes|resolves)[[:space:]]+#[0-9]+"; then
-  echo "DEDUP_CLOSES: existing close-keyword detected in PR body — skipping auto-append" >&2
-  ISSUE_NUM=""
-fi
-```
-
-```bash
 gh pr create \
   --title "[type(scope): description]" \
   --body "$PR_BODY"
 ```
 
-When `ISSUE_NUM` is empty (no issue-pattern match OR dedup hit), behavior is identical to today's PR-body output — backward compat preserved.
+When `ISSUE_NUM` is empty (no issue-pattern match), behavior is identical to today's PR-body output — backward compat preserved. The conditional printf above is the sole dedup mechanism: it emits `Closes #N` only when `ISSUE_NUM` is non-empty, so exactly one close keyword appears for issue branches and none for non-issue branches.
 
 **Check the exit code.** If `gh pr create` fails: **STOP** with descriptive error. Do NOT output the "What's Next" block with a nonexistent PR URL.
 

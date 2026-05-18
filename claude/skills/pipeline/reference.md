@@ -271,18 +271,10 @@ Do not modify any existing `docs/` files during adoption — only create `featur
    ```
 
    ```bash
-   # Idempotency: skip Closes append if body already references one
-   if [ -n "$ISSUE_NUM" ] && echo "$PR_BODY" | grep -qiE "(closes|fixes|resolves)[[:space:]]+#[0-9]+"; then
-     echo "DEDUP_CLOSES: existing close-keyword detected in PR body — skipping auto-append" >&2
-     ISSUE_NUM=""
-   fi
-   ```
-
-   ```bash
    gh pr create --title "<type>: <short description from feature>" --body "$PR_BODY"
    ```
 
-   When `ISSUE_NUM` is empty (no issue-pattern match OR dedup hit), the resulting PR body is identical to today's behavior — backward compat preserved.
+   When `ISSUE_NUM` is empty (no issue-pattern match), the resulting PR body is identical to today's behavior — backward compat preserved. The conditional printf above is the sole dedup mechanism: it emits `Closes #N` only when `ISSUE_NUM` is non-empty, so exactly one close keyword appears for issue branches and none for non-issue branches.
 
    No AI attribution. No workflow metadata. No Co-authored-by.
 
