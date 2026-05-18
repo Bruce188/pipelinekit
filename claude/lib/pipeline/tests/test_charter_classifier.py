@@ -43,6 +43,7 @@ if str(_REPO_ROOT) not in sys.path:
 # This import is intentionally at module load time. On base `main` it must
 # raise ImportError / ModuleNotFoundError, which is the red-phase signal.
 from claude.lib.pipeline import charter_classifier  # noqa: E402
+from claude.lib.pipeline import charter_revalidate  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -414,6 +415,60 @@ class TestClassifierShouldSkipCWDResolution(unittest.TestCase):
             f"must return skip=False; got skip={skip!r}, log={log!r}",
         )
         self.assertEqual(log, "", f"Expected empty log; got {log!r}")
+
+
+class TwoAxisClassificationTests(unittest.TestCase):
+    """Red-phase tests for Task 1.2 — classify_finding_two_axis + CharterScopeConflictError."""
+
+    CHARTER = (
+        "## MVP Boundary\n"
+        "**In:**\n"
+        "- async runtime hardening\n"
+        "**Out (deferred):**\n"
+        "- ui theming\n"
+        "\n"
+        "## Non-Goals\n"
+        "- new database adapter\n"
+    )
+
+    def setUp(self):
+        self.sections = charter_revalidate.parse_charter_sections(self.CHARTER)
+
+    def test_reviewer_emitted_intent_trusted_when_valid(self):
+        finding = {"text": "async runtime tweak", "severity": "blocking",
+                   "scope": "in", "intent": "correctness"}
+        result = charter_classifier.classify_finding_two_axis(finding, self.sections)
+        self.assertEqual(result, {"scope": "in", "intent": "correctness"})
+
+    def test_reviewer_emitted_intent_invalid_falls_back_to_unrelated(self):
+        finding = {"text": "async runtime tweak", "severity": "blocking",
+                   "scope": "in", "intent": "wat"}
+        result = charter_classifier.classify_finding_two_axis(finding, self.sections)
+        self.assertEqual(result["intent"], "unrelated")
+
+    def test_reviewer_scope_in_but_classifier_says_out_raises_conflict(self):
+        finding = {"text": "ui theming polish", "severity": "non-blocking",
+                   "scope": "in", "intent": "polish"}
+        with self.assertRaises(charter_classifier.CharterScopeConflictError) as ctx:
+            charter_classifier.classify_finding_two_axis(finding, self.sections)
+        self.assertIn("CHARTER_SCOPE_CONFLICT", str(ctx.exception))
+
+    def test_reviewer_scope_in_but_classifier_says_creep_raises_conflict(self):
+        finding = {"text": "new database adapter for postgres", "severity": "blocking",
+                   "scope": "in", "intent": "design"}
+        with self.assertRaises(charter_classifier.CharterScopeConflictError):
+            charter_classifier.classify_finding_two_axis(finding, self.sections)
+
+    def test_missing_reviewer_scope_falls_back_to_token_overlap(self):
+        finding = {"text": "ui theming polish", "severity": "non-blocking"}
+        result = charter_classifier.classify_finding_two_axis(finding, self.sections)
+        self.assertEqual(result["scope"], "out")
+        self.assertEqual(result["intent"], "unrelated")
+
+    def test_scope_creep_legacy_maps_to_adjacent(self):
+        finding = {"text": "new database adapter for postgres", "severity": "blocking"}
+        result = charter_classifier.classify_finding_two_axis(finding, self.sections)
+        self.assertEqual(result["scope"], "adjacent")
 
 
 class ValidatorHelpersTests(unittest.TestCase):
