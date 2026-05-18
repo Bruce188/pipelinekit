@@ -14,8 +14,12 @@ DOCKER="$REPO_ROOT/claude/lib/sandbox/providers/docker.sh"
 
 fail=0
 
-# AC1: podman.sh must not use `sh -c` for command dispatch
-if grep -qE '^\s*sh -c' "$PODMAN"; then
+# AC1: podman.sh must not use `sh -c` for command dispatch.
+# Strip comment lines first so prose explaining *why* `sh -c` is avoided
+# doesn't trigger a false-positive. Use a word-boundary regex on the
+# remaining code so chained forms (`&& sh -c`, `\\\n  sh -c`) are caught,
+# not just `sh -c` at line start.
+if grep -vE '^\s*#' "$PODMAN" | grep -qE '\bsh -c\b'; then
   echo "FAIL podman.sh still uses 'sh -c' for command dispatch"
   fail=1
 else
@@ -23,7 +27,7 @@ else
 fi
 
 # AC2: docker.sh must not use `sh -c` for command dispatch
-if grep -qE '^\s*sh -c' "$DOCKER"; then
+if grep -vE '^\s*#' "$DOCKER" | grep -qE '\bsh -c\b'; then
   echo "FAIL docker.sh still uses 'sh -c' for command dispatch"
   fail=1
 else
@@ -59,6 +63,21 @@ else
   echo "FAIL docker.sh failed bash -n"
   fail=1
 fi
+
+# AC6: fail-closed when env-scrub.py is missing/broken
+# Both providers must check the producer exit status and the first token of
+# its output. mapfile-only consumption would silently dispatch with an empty
+# prefix, running the container env-bare — a silent regression of the entire
+# scrub contract.
+for f in "$PODMAN" "$DOCKER"; do
+  name=$(basename "$f")
+  if grep -q "prefix_rc" "$f" && grep -q 'prefix\[0\].*!=.*"env"' "$f"; then
+    echo "PASS $name fail-closes on env-scrub.py error"
+  else
+    echo "FAIL $name does not check env-scrub.py exit status / first token"
+    fail=1
+  fi
+done
 
 if [ $fail -ne 0 ]; then
   echo ""
