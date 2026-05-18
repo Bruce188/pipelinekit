@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>CI on Blacksmith — pipelinekit</title>
+  <meta name="description" content="Blacksmith runner registration, env-var override pattern, drop-in action matrix, and gap-comment policy for pipelinekit-generated GitHub Actions workflows.">
+</head>
+<body>
+  <h1>CI on Blacksmith</h1>
+
+  <h2>1. Why Blacksmith</h2>
+  <p>
+    Blacksmith provides ephemeral, performant runners for GitHub Actions that are faster and more cost-effective than
+    GitHub-hosted runners for most workloads. Key advantages:
+  </p>
+  <ul>
+    <li>Faster cache warm-up through persistent runner-local caching via <code>useblacksmith/cache</code></li>
+    <li>Reduced per-minute compute cost compared to GitHub-hosted runners at equivalent vCPU tiers</li>
+    <li>Drop-in compatibility: most jobs need only one <code>runs-on:</code> line change</li>
+    <li>Ecosystem-native drop-in actions for common setup tasks (<code>cache</code>, <code>setup-node</code>, <code>setup-python</code>, <code>setup-go</code>)</li>
+  </ul>
+  <p>
+    pipelinekit defaults to Blacksmith runners in all generated and templated workflow YAML. The lint rule R5
+    (in <code>claude/skills/create-plan/SKILL.md</code> Step 4.5) enforces this default at plan-creation time.
+  </p>
+
+  <h2>2. Account &amp; runner registration</h2>
+  <ol>
+    <li>Sign up at <code>blacksmith.sh</code> and create an organisation.</li>
+    <li>Register an organisation runner via <code>blacksmith register</code> in your GitHub organisation settings.</li>
+    <li>
+      Store the runner authentication token as a GitHub Actions secret named <code>BLACKSMITH_TOKEN</code> only
+      if a specific Blacksmith action requires it. Most jobs auto-authenticate via the registered runner — no
+      per-job secret token is required for <code>useblacksmith/*</code> actions.
+    </li>
+    <li>Optionally set the <code>BLACKSMITH_RUNNER</code> GitHub Actions variable at the repository or organisation
+      level to select a non-default runner tier (see Section 3).</li>
+  </ol>
+
+  <h2>3. The <code>BLACKSMITH_RUNNER</code> env-var override</h2>
+  <p>Every <code>runs-on:</code> line in pipelinekit-generated workflows uses the fallback expression:</p>
+  <pre><code>runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}</code></pre>
+  <p>
+    Set the <code>BLACKSMITH_RUNNER</code> GitHub Actions variable (repo or org level) to one of the
+    available runner tiers:
+  </p>
+  <ul>
+    <li><code>blacksmith-2vcpu-ubuntu-2204</code> — small jobs (linting, quick unit tests)</li>
+    <li><code>blacksmith-4vcpu-ubuntu-2204</code> — default tier (balanced cost/performance)</li>
+    <li><code>blacksmith-8vcpu-ubuntu-2204</code> — heavier builds (multi-module monorepos, Docker builds)</li>
+    <li><code>blacksmith-16vcpu-ubuntu-2204</code> — very heavy / parallel matrix jobs</li>
+  </ul>
+  <p>
+    When <code>BLACKSMITH_RUNNER</code> is unset, the fallback literal
+    <code>blacksmith-4vcpu-ubuntu-2204</code> is used. To switch all jobs in a repository to a larger tier,
+    set the variable once at the repository level — no YAML changes required.
+  </p>
+
+  <h2>4. Drop-in action matrix</h2>
+  <p>
+    Blacksmith publishes optimised drop-in replacements for common GitHub Actions setup steps.
+    Use the drop-ins where available; retain upstream actions and annotate with the gap-comment pattern
+    (see Section 5) where no drop-in exists.
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Upstream action</th>
+        <th>Blacksmith drop-in</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td><code>actions/cache@v3,v4</code></td><td><code>useblacksmith/cache@v5</code></td><td>swap</td></tr>
+      <tr><td><code>actions/setup-node@v3,v4</code></td><td><code>useblacksmith/setup-node@v5</code></td><td>swap</td></tr>
+      <tr><td><code>actions/setup-python@v2,v4,v5</code></td><td><code>useblacksmith/setup-python@v6</code></td><td>swap</td></tr>
+      <tr><td><code>actions/setup-go@v4,v5</code></td><td><code>useblacksmith/setup-go@v6</code></td><td>swap</td></tr>
+      <tr><td><code>actions/checkout@v2,v4</code></td><td>(no drop-in needed)</td><td>keep + annotate</td></tr>
+      <tr><td><code>actions/upload-artifact@v3,v4</code></td><td>(no drop-in published)</td><td>keep + annotate</td></tr>
+      <tr><td><code>codecov/codecov-action@v2,v3,v4</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
+      <tr><td><code>aquasecurity/trivy-action@master</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
+      <tr><td><code>github/codeql-action/*</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
+      <tr><td><code>SonarSource/sonarcloud-github-action@master</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
+      <tr><td><code>snyk/actions/node@master</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
+      <tr><td><code>aws-actions/configure-aws-credentials@v2,v4</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
+    </tbody>
+  </table>
+
+  <h2>5. Gap-annotation pattern</h2>
+  <p>
+    When no Blacksmith drop-in exists for an upstream action, retain the upstream action and add a same-line
+    comment using exactly this format (three spaces before <code>#</code>, em-dash, action name without
+    the <code>@vN</code> pin):
+  </p>
+  <pre><code>- uses: codecov/codecov-action@v3   # No Blacksmith drop-in — using upstream codecov/codecov-action</code></pre>
+  <p>
+    The annotation communicates to reviewers and future maintainers that the upstream action was intentionally
+    retained because no Blacksmith optimised equivalent is available, not because the migration was missed.
+  </p>
+
+  <h2>6. Secrets policy</h2>
+  <p>
+    Never commit Blacksmith account credentials, billing tokens, or runner registration tokens to any
+    YAML, Markdown, or config file in the repository. All secrets must be stored in the GitHub Actions
+    secrets store at the repository or organisation level and referenced via
+    <code>${{ secrets.&lt;NAME&gt; }}</code>.
+  </p>
+  <p>
+    The pipelinekit lint rule R5 does not check for secret exposure — use standard secret-scanning tooling
+    (e.g., <code>github/codeql-action/init</code> with secret scanning enabled, or
+    <code>aquasecurity/trivy-action</code>) to enforce this policy in CI.
+  </p>
+
+  <h2>7. Lint enforcement (R5)</h2>
+  <p>
+    The pipelinekit plan-mode lint gate (<code>claude/skills/create-plan/SKILL.md</code> Step 4.5, rule
+    <strong>R5</strong>) rejects any plan task whose <code>**Files:**</code> list creates or modifies a
+    <code>.github/workflows/*.yml</code> or <code>.github/workflows/*.yaml</code> file with a
+    non-<code>blacksmith-*</code> runner, unless the task body documents the gap via a
+    <code>BLACKSMITH_DOES_NOT_SUPPORT_&lt;reason&gt;:</code> line in the <code>**Context:**</code> field.
+  </p>
+  <p>
+    The companion smoke test at <code>tests/test_blacksmith_lint_r5.sh</code> exercises the R5 rule against
+    six fixture plans covering the violation, compliant, documented-gap, non-workflow-file, yaml-extension,
+    and non-ubuntu-hosted-runner cases.
+  </p>
+  <p>
+    The <code>BLACKSMITH_RUNNER</code> variable name also appears in the R5 remediation hint inside
+    <code>claude/skills/create-plan/SKILL.md</code> Step 4.5, and throughout the drop-in matrix examples
+    in this document.
+  </p>
+
+  <h2>8. Documented-gap escape hatch</h2>
+  <p>
+    Use this escape hatch only when the workflow legitimately cannot run on Blacksmith — for example, when
+    the job requires a Windows or macOS host, or custom hardware that Blacksmith does not support.
+    Add a single line to the task's <code>**Context:**</code> field:
+  </p>
+  <pre><code>BLACKSMITH_DOES_NOT_SUPPORT_HOST_ARCH: windows-2022</code></pre>
+  <p>
+    R5 reads this as an explicit acknowledgement that the non-Blacksmith runner is intentional, and lets
+    the task pass the lint gate. Choose the <code>&lt;reason&gt;</code> suffix to communicate why
+    Blacksmith is not applicable (e.g., <code>HOST_ARCH</code>, <code>GPU_REQUIRED</code>,
+    <code>MACOS_KEYCHAIN</code>).
+  </p>
+  <p>
+    Do not use this escape hatch for convenience — only for genuine technical incompatibilities.
+    Every use of the escape hatch should be reviewable: a future reader of the plan should be able to
+    understand why Blacksmith was not used for that specific task.
+  </p>
+</body>
+</html>
