@@ -87,6 +87,10 @@ Parse `$ARGUMENTS`:
 - `--max-turns <N>` = hard cap on accumulated sub-agent turns. Default: **unlimited**. When set, counts Agent tool invocations.
 - `--from "<text>"` = free-text context for feature-file auto-generation. Stored as `FROM_TEXT`. Mutually exclusive with `--adopt` and `--renew`. Compatible with `--dry-run`, `--restart-from`, and all other flags.
 - `--plan [<path>]` = ingest a plan-mode plan file. With a path: reads that file. Without a value: auto-picks the most-recently-modified `~/.claude/plans/*.md` if modified within the last 60 min (else STOP with a path-required error). `~/` and relative paths resolved. 200 KB cap. Mutually exclusive with `--from`, `--adopt`, `--renew`, and a positional feature-file path.
+- `--issues <selector>` = ingest GitHub Issues as the feature source. Selector forms: `label:<name>`, `milestone:<name>`, `all`, or bare `<name>` (defaults to `label:<name>`). Routes to Step 1.45 (Issues-Mode Ingest). Mutually exclusive with `--plan`, `--from`, `--adopt`, `--renew`, and a positional feature-file path.
+- `--issues-limit <N>` = cap fetched issues at `<N>` (default 50, max 200). When `gh issue list` returns more than the cap, log a warning and proceed with the top `<N>` per `--issues-sort` order. Ignored when `--issues` is absent.
+- `--issues-sort <mode>` = sort mode for fetched issues. Values: `created` (default), `updated`, `priority`. `priority` is derived client-side from `priority:high|medium|low` labels (no priority label sorts to the end). Ignored when `--issues` is absent.
+- `--issues-comment-author <login>` = override the maintainer-comment heuristic. When set, only comments authored by `<login>` are considered for constraint extraction. Ignored when `--issues` is absent.
 - `--no-charter` = skip Step 0 Charter Discovery entirely; restores legacy autonomous flow.
 - `--charter <path>` = adopt an existing charter file at `<path>`. Skips Step 0 discovery loop; sets the `**Charter:**` pointer in `progress.md`. STOP if the path does not exist: "ERROR: --charter path not found: <path>"
 - `--max-questions <N>` = cap the total number of `AskUserQuestion` invocations in Step 0 at `N`. Default: unbounded. `--max-questions 0` is an alias for `--no-charter` (no discovery at all).
@@ -98,10 +102,11 @@ Validate mutual exclusivity: if `--from` and `--adopt` are both present, STOP wi
 Determine feature file source (in priority order):
 1. If `--adopt` is present → go to Step 1.7 (Adopt Manual Workflow). `--adopt` is mutually exclusive with providing a feature file path, `--renew`, and `--from`.
 2. If `--plan` is present → go to **Step 1.4 (Plan-Mode Ingest)**.
-3. If a positional path argument is given AND the file exists → use it directly
-4. If a positional path argument is given AND the file does NOT exist → STOP: "Feature file not found: [path]"
-5. If `--renew` is present → go to Step 1.6 (Renew)
-6. If no positional argument → go to Step 1.5 (Auto-Generate). If `FROM_TEXT` is set, Step 1.5 uses it as context.
+3. If `--issues` is present → go to **Step 1.45 (Issues-Mode Ingest)**.
+4. If a positional path argument is given AND the file exists → use it directly
+5. If a positional path argument is given AND the file does NOT exist → STOP: "Feature file not found: [path]"
+6. If `--renew` is present → go to Step 1.6 (Renew)
+7. If no positional argument → go to Step 1.5 (Auto-Generate). If `FROM_TEXT` is set, Step 1.5 uses it as context.
 
 Validate `--restart-from` if present: must be one of `analyze`, `plan`, `implement`, `review`.
 
