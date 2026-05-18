@@ -34,6 +34,14 @@ For each finding, output:
 - **Severity:** blocking | non-blocking | nit
 - **Issue:** description
 - **Suggestion:** fix
+- **Scope:** in | out | adjacent
+- **Intent:** correctness | polish | design | unrelated
+
+How to classify (charter-aware):
+- **Scope:** `in` = finding touches a charter MVP "In:" item. `out` = touches a Non-Goal or charter "Out (deferred):" item. `adjacent` = near charter scope but not literally in/out.
+- **Intent:** `correctness` = logic/bug/security. `polish` = naming/style/docs. `design` = architectural shape. `unrelated` = off-topic relative to the diff's stated objective.
+- If unsure of scope, omit the field; the post-aggregation classifier will fill it via token-overlap.
+- A `scope=in` tag that contradicts the charter raises a plan-spec error and routes to re-review.
 
 Do not suggest refactors or improvements beyond the stated task scope.
 If you discover an issue or insight relevant to a DIFFERENT feature than the one being reviewed (e.g., a dependency that another feature should be aware of, a pattern that will conflict with planned work), emit a cross-feature intel section after your findings:
@@ -65,6 +73,14 @@ For each finding, output:
 - **Issue:** description
 - **CWE:** if applicable
 - **Suggestion:** fix
+- **Scope:** in | out | adjacent
+- **Intent:** correctness | polish | design | unrelated
+
+How to classify (charter-aware):
+- **Scope:** `in` = finding touches a charter MVP "In:" item. `out` = touches a Non-Goal or charter "Out (deferred):" item. `adjacent` = near charter scope but not literally in/out.
+- **Intent:** `correctness` = logic/bug/security. `polish` = naming/style/docs. `design` = architectural shape. `unrelated` = off-topic relative to the diff's stated objective.
+- If unsure of scope, omit the field; the post-aggregation classifier will fill it via token-overlap.
+- A `scope=in` tag that contradicts the charter raises a plan-spec error and routes to re-review.
 
 Only flag issues introduced or modified in this diff. Do not flag pre-existing issues.
 If you discover an issue or insight relevant to a DIFFERENT feature than the one being reviewed (e.g., a dependency that another feature should be aware of, a pattern that will conflict with planned work), emit a cross-feature intel section after your findings:
@@ -102,6 +118,14 @@ For each finding, output:
 - **Severity:** blocking | non-blocking | nit
 - **Issue:** description
 - **Suggestion:** specific test to add
+- **Scope:** in | out | adjacent
+- **Intent:** correctness | polish | design | unrelated
+
+How to classify (charter-aware):
+- **Scope:** `in` = finding touches a charter MVP "In:" item. `out` = touches a Non-Goal or charter "Out (deferred):" item. `adjacent` = near charter scope but not literally in/out.
+- **Intent:** `correctness` = logic/bug/security. `polish` = naming/style/docs. `design` = architectural shape. `unrelated` = off-topic relative to the diff's stated objective.
+- If unsure of scope, omit the field; the post-aggregation classifier will fill it via token-overlap.
+- A `scope=in` tag that contradicts the charter raises a plan-spec error and routes to re-review.
 
 Only flag gaps introduced by this diff. Do not audit pre-existing test debt.
 If you discover an issue or insight relevant to a DIFFERENT feature than the one being reviewed (e.g., a dependency that another feature should be aware of, a pattern that will conflict with planned work), emit a cross-feature intel section after your findings:
@@ -139,6 +163,14 @@ For each finding, output:
 - **Severity:** blocking | non-blocking | nit
 - **Issue:** description
 - **Suggestion:** fix
+- **Scope:** in | out | adjacent
+- **Intent:** correctness | polish | design | unrelated
+
+How to classify (charter-aware):
+- **Scope:** `in` = finding touches a charter MVP "In:" item. `out` = touches a Non-Goal or charter "Out (deferred):" item. `adjacent` = near charter scope but not literally in/out.
+- **Intent:** `correctness` = logic/bug/security. `polish` = naming/style/docs. `design` = architectural shape. `unrelated` = off-topic relative to the diff's stated objective.
+- If unsure of scope, omit the field; the post-aggregation classifier will fill it via token-overlap.
+- A `scope=in` tag that contradicts the charter raises a plan-spec error and routes to re-review.
 
 Only flag issues introduced or modified in this diff.
 If you discover an issue or insight relevant to a DIFFERENT feature than the one being reviewed (e.g., a dependency that another feature should be aware of, a pattern that will conflict with planned work), emit a cross-feature intel section after your findings:
