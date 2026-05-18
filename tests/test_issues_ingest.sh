@@ -280,21 +280,31 @@ test_12_close_keyword_regex() {
   fi
 }
 
-# ── Test 13: dedup guard → pre-populated body with "Closes #42" → ISSUE_NUM cleared
+# ── Test 13: conditional printf → ISSUE_NUM non-empty emits exactly 1 Closes line;
+#             ISSUE_NUM empty emits zero Closes lines (current dedup mechanism)
 
-test_13_dedupe_skips_append() {
-  PR_BODY="## Summary
-Some changes.
+test_13_single_closes_line() {
+  # Case A: issue branch — ISSUE_NUM set → conditional printf fires once
+  local ISSUE_NUM="42"
+  local CLOSES_SNIPPET
+  CLOSES_SNIPPET=$([ -n "$ISSUE_NUM" ] && printf "Closes #%s\n" "$ISSUE_NUM" || true)
+  PR_BODY=$(printf "## Summary\nSome changes.\n\n%s\n## Changes\nsome/file.sh | 1 +\n" "$CLOSES_SNIPPET")
+  local COUNT_A
+  COUNT_A=$(echo "$PR_BODY" | grep -c "Closes #42" || true)
 
-Closes #42"
-  ISSUE_NUM="42"
-  if [ -n "$ISSUE_NUM" ] && echo "$PR_BODY" | grep -qiE "(closes|fixes|resolves)[[:space:]]+#[0-9]+"; then
-    ISSUE_NUM=""
-  fi
-  if [ -z "$ISSUE_NUM" ]; then
-    ok "test_13_dedupe_skips_append"
+  # Case B: non-issue branch — ISSUE_NUM empty → conditional printf silent
+  ISSUE_NUM=""
+  local CLOSES_SNIPPET_B
+  CLOSES_SNIPPET_B=$([ -n "$ISSUE_NUM" ] && printf "Closes #%s\n" "$ISSUE_NUM" || true)
+  local PR_BODY_B
+  PR_BODY_B=$(printf "## Summary\nSome changes.\n\n%s\n## Changes\nsome/file.sh | 1 +\n" "$CLOSES_SNIPPET_B")
+  local COUNT_B
+  COUNT_B=$(echo "$PR_BODY_B" | grep -c "Closes" || true)
+
+  if [ "$COUNT_A" -eq 1 ] && [ "$COUNT_B" -eq 0 ]; then
+    ok "test_13_single_closes_line"
   else
-    fail "test_13_dedupe_skips_append (ISSUE_NUM not cleared; got=$ISSUE_NUM)"
+    fail "test_13_single_closes_line (issue-branch Closes count=$COUNT_A want=1; non-issue Closes count=$COUNT_B want=0)"
   fi
 }
 
@@ -398,7 +408,7 @@ test_09_limit_cap
 test_10_priority_sort
 test_11_no_curl
 test_12_close_keyword_regex
-test_13_dedupe_skips_append
+test_13_single_closes_line
 test_14_slug_derivation
 test_15_empty_body
 test_16_archive_features_md
