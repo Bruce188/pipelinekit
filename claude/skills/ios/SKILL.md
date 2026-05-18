@@ -88,8 +88,8 @@ For authoritative API reference, use `context7` MCP (`resolve-library-id` → `c
 Xcode is macOS-only. The Claude Agent SDK's Xcode integration is therefore macOS-only as well.
 
 **For Linux/WSL2 developers:**
-- **XcodeBuildMCP** (optional MCP, enabled via `CLAUDE_INSTALL_OPTIONALS=mobile`): provides remote Xcode build capabilities — trigger builds, run tests, capture diagnostics from a Linux/WSL2 host by connecting to a macOS build host over SSH. This is the recommended path for teams with Linux CI and macOS build machines.
-- **ios-simulator-mcp** (optional MCP, enabled via `CLAUDE_INSTALL_OPTIONALS=mobile`): programmatic iOS Simulator control. Requires a macOS host with Xcode installed; does not function on Linux/WSL2 natively.
+- **XcodeBuildMCP** (optional MCP, advisory entry in `.mcp.json.template` under `_mobile_mcpServers`): provides remote Xcode build capabilities — trigger builds, run tests, capture diagnostics from a Linux/WSL2 host by connecting to a macOS build host over SSH. This is the recommended path for teams with Linux CI and macOS build machines.
+- **ios-simulator-mcp** (optional MCP, advisory entry in `.mcp.json.template` under `_mobile_mcpServers`): programmatic iOS Simulator control. Requires a macOS host with Xcode installed; does not function on Linux/WSL2 natively.
 - **macOS CI runners**: Codemagic, Bitrise, and GitHub Actions (`macos-latest`) provide hosted macOS runners with Xcode pre-installed for iOS build and test automation without a dedicated macOS machine.
 
 **For macOS developers:** Xcode 26.3 is available from the Mac App Store and the Apple Developer Portal. Ensure Xcode Command Line Tools are installed (`xcode-select --install`) for `xcrun` and `xcodebuild` CLI access.
@@ -104,7 +104,7 @@ The optional `ios-simulator-mcp` MCP provides programmatic control of the iOS Si
 - Send simulated push notifications
 - Control device state (rotate, shake, lock, change network conditions)
 
-**Prerequisites:** macOS host with Xcode 26.3 installed. The `ios-simulator-mcp` MCP is activated by enabling `CLAUDE_INSTALL_OPTIONALS=mobile` when running `scripts/install.sh`, then moving the `ios-simulator-mcp` entry from `_optional_mobile_mcpServers` into `mcpServers` in your project's `.mcp.json`.
+**Prerequisites:** macOS host with Xcode 26.3 installed. The `ios-simulator-mcp` MCP is activated by moving the `ios-simulator-mcp` entry from `_mobile_mcpServers` into `mcpServers` in your project's `.mcp.json`.
 
 **PIN the git+https ref**: the `ios-simulator-mcp` entry in `.mcp.json.template` uses `@main` as the ref. Before sandbox use, replace `@main` with a pinned commit SHA (as instructed in `.mcp.json.template`'s `_mobile_instructions` comment).
 
@@ -154,14 +154,14 @@ APIs documented here reflect the Feb-2026 baseline; see `docs/xcode-sdk-verifica
 ## When NOT to Use
 
 - Cross-platform mobile development targeting Android in addition to iOS — use `claude/agents/mobile-dev.md` with the appropriate platform stack (Kotlin, React Native, Expo, Flutter)
-- Web development — use the `/gstack-*` overlay for consumer web apps or the native pipelinekit skills for backend work
+- Web development — use the native pipelinekit skills for backend and consumer web work
 - Android-only development — use Kotlin + Android Studio; this skill is Xcode-specific
 
 ## Cross-references
 
 - `claude/agents/mobile-dev.md` — the `@mobile-dev` agent that orchestrates iOS (and multi-platform) mobile work. Invoke explicitly when implementing iOS features.
 - `claude/skills/expo/SKILL.md` — the JS-side mobile workflow for Expo and React Native projects, including EAS Build, EAS Update, and Expo Router.
-- Optional MCPs enabled via `CLAUDE_INSTALL_OPTIONALS=mobile` (configured in `.mcp.json.template` under `_optional_mobile_mcpServers`):
+- Optional MCPs (advisory entries in `.mcp.json.template` under `_mobile_mcpServers`):
   - **XcodeBuildMCP** — remote iOS build automation for Linux/WSL2 hosts
   - **ios-simulator-mcp** — programmatic iOS Simulator control (requires macOS + Xcode)
 
@@ -171,4 +171,4 @@ APIs documented here reflect the Feb-2026 baseline; see `docs/xcode-sdk-verifica
 - Xcode 26.3+ (available from the Mac App Store or Apple Developer Portal)
 - Apple Developer account (free for simulator development; paid for TestFlight and App Store submission)
 - Anthropic account or API key for the Claude Agent SDK integration (configured in Xcode → Settings → Claude)
-- For XcodeBuildMCP / ios-simulator-mcp: enable mobile overlay via `CLAUDE_INSTALL_OPTIONALS=mobile` when running `scripts/install.sh`, then copy the `_optional_mobile_mcpServers` block from `.mcp.json.template` into your project's `.mcp.json`
+- For XcodeBuildMCP / ios-simulator-mcp: copy the `_mobile_mcpServers` block from `.mcp.json.template` into your project's `.mcp.json` and uncomment the entries you need

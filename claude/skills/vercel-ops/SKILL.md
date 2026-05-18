@@ -223,8 +223,8 @@ Do not use this skill for:
 
 ## Installation Requirements
 
-- Set `CLAUDE_INSTALL_OPTIONALS=vercel` (or any superset that includes `vercel`) when running `scripts/install.sh` to opt into the Vercel CLI install gate. The Vercel CLI is NOT installed by default.
-- The install gate prints the official npm install one-liner (`npm i -g vercel`) and reminds the user to run `vercel login` outside Claude. The gate does NOT auto-execute either command — the user runs both manually.
+- The Vercel CLI ships by default — `scripts/install.sh` runs the Vercel install step unconditionally. No opt-in flag is required.
+- The install step prints the official npm install one-liner (`npm i -g vercel`) and reminds the user to run `vercel login` outside Claude. The step does NOT auto-execute either command — the user runs both manually.
 - macOS / Linux / WSL2 all work with the npm install path. No platform-specific branch.
-- **`vercel login` is the user's responsibility.** The install gate does not authenticate. After install, run `vercel login` in an interactive shell before invoking this skill.
+- **`vercel login` is the user's responsibility.** The install step does not authenticate. After install, run `vercel login` in an interactive shell before invoking this skill.
 - The skill verifies authentication state by running `vercel whoami` at the start of every workflow. STOP and prompt the user if it returns non-zero — `Vercel auth missing. Run \`vercel login\` outside Claude, then re-invoke this skill.`

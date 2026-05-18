@@ -205,9 +205,9 @@ Do not use this skill for:
 
 ## Installation Requirements
 
-- Set `CLAUDE_INSTALL_OPTIONALS=azure` (or any superset that includes `azure`) when running `scripts/install.sh` to opt into the Azure CLI install gate. The Azure CLI is NOT installed by default.
-- The install gate runs the Microsoft-published one-liner `curl -sL https://aka.ms/InstallAzureCLIDeb | bash` on Debian/Ubuntu hosts. **Trust note:** Microsoft does not publish a sha256 for the install script; the install gate logs the URL before running so the user can verify the supply-chain dependency. The user can also install manually from https://learn.microsoft.com/cli/azure/install-azure-cli-linux.
-- macOS: install via `brew install azure-cli`. The `install.sh` gate is Debian/Ubuntu-only in v1 — macOS users install the CLI themselves and re-run `install.sh` to verify.
-- WSL2-Ubuntu and the pipelinekit devcontainer base image both work out of the box (the devcontainer pre-provisions `az` when the `azure` optional is enabled).
-- **`az login` is the user's responsibility.** The install gate does not authenticate. After install, run `az login` in an interactive shell before invoking this skill.
+- The Azure CLI ships by default — `scripts/install.sh` runs the Azure CLI install step unconditionally on Debian/Ubuntu hosts. No opt-in flag is required.
+- The install step runs the Microsoft-published one-liner `curl -sL https://aka.ms/InstallAzureCLIDeb | bash` on Debian/Ubuntu hosts. **Trust note:** Microsoft does not publish a sha256 for the install script; the install step logs the URL before running so the user can verify the supply-chain dependency. The user can also install manually from https://learn.microsoft.com/cli/azure/install-azure-cli-linux.
+- macOS: install via `brew install azure-cli`. The `install.sh` step is Debian/Ubuntu-only in v1 — macOS users install the CLI themselves and re-run `install.sh` to verify.
+- WSL2-Ubuntu and the pipelinekit devcontainer base image both work out of the box (the devcontainer pre-provisions `az` as part of the default install).
+- **`az login` is the user's responsibility.** The install step does not authenticate. After install, run `az login` in an interactive shell before invoking this skill.
 - The skill verifies authentication state by running `az account show --query "user.name" -o tsv` at the start of every workflow. STOP and prompt the user if it returns non-zero.
