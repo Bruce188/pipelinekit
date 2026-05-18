@@ -36,5 +36,8 @@ grep -q 'subprocess mode' "$SKILL" || grep -q 'Subprocess mode' "$SKILL" || { ec
 # Assertion 8: reference.md pointer adjacent to the new entry
 grep -B 5 -A 5 'charter_extractor' "$SKILL" | grep -q 'reference.md' || { echo "FAIL: reference.md pointer not adjacent to charter_extractor mention in SKILL.md"; exit 1; }
 
+# Assertion 9 (NB1 OR-semantics): condition 4 wording uses OR not AND for analysis/plan trigger
+grep -q 'docs/analysis.*OR.*docs/plan' "$SKILL" || { echo "FAIL: condition 4 does not use OR semantics for analysis/plan trigger (expected 'docs/analysis.*OR.*docs/plan')"; exit 1; }
+
 echo "OK: test_step0_auto_extract.sh"
 exit 0

@@ -166,5 +166,116 @@ class TestExtractDraftCharter(unittest.TestCase):
             self.assertIn("no prior analysis or plan", result[1])
 
 
+class TestRenderCharterMarkdown(unittest.TestCase):
+    """Behavioral tests for render_charter_markdown output structure."""
+
+    def _empty_draft(self):
+        return {
+            "goal": "",
+            "users": "",
+            "problem": "",
+            "success": "",
+            "non_goals": [],
+            "constraints": [],
+            "mvp_boundary": "",
+            "prior_art": "",
+            "open_questions": "",
+        }
+
+    def test_render_includes_all_nine_sections_and_decision_log(self):
+        """Empty draft must still have all 9 section headers + Decision Log."""
+        draft = self._empty_draft()
+        output = charter_extractor.render_charter_markdown(draft)
+        expected_headers = [
+            "## Goal",
+            "## Users",
+            "## Problem",
+            "## Success",
+            "## Non-Goals",
+            "## Constraints",
+            "## MVP Boundary",
+            "## Prior Art",
+            "## Open Questions",
+            "## Decision Log",
+        ]
+        for header in expected_headers:
+            self.assertIn(header, output, f"Missing section header: {header}")
+
+    def test_render_frontmatter_status_is_draft(self):
+        """Frontmatter must contain 'status: draft'."""
+        draft = self._empty_draft()
+        output = charter_extractor.render_charter_markdown(draft)
+        self.assertIn("status: draft", output)
+
+    def test_render_empty_fields_render_blank_body(self):
+        """For each empty field, the line after the section header must be blank (not placeholder text)."""
+        draft = self._empty_draft()
+        output = charter_extractor.render_charter_markdown(draft)
+        lines = output.splitlines()
+        for i, line in enumerate(lines):
+            if line.startswith("## ") and line != "## Decision Log":
+                # Check the next non-blank-causing line: it should be blank or another ##
+                # Per plan-v27: empty fields render the header followed by ONE blank line.
+                # The next non-empty-if-skipped content should be another ## header, not placeholder
+                remaining = lines[i + 1:]
+                # The next non-empty line should be another ## header (or end of file)
+                for next_line in remaining:
+                    if next_line.strip():
+                        self.assertTrue(
+                            next_line.startswith("## ") or "|" in next_line,
+                            f"After empty section '{line}', unexpected content: '{next_line}'"
+                        )
+                        break
+
+    def test_render_today_default_is_today_iso(self):
+        """Passing today='2026-05-18' must put that date in the created: frontmatter field."""
+        draft = self._empty_draft()
+        output = charter_extractor.render_charter_markdown(draft, today="2026-05-18")
+        self.assertIn("created: 2026-05-18", output)
+
+
+class TestShouldAutoExtractOrSemantics(unittest.TestCase):
+    """Verify OR semantics: should_auto_extract returns True with only analysis present."""
+
+    def test_should_auto_extract_returns_true_with_only_analysis(self):
+        """should_auto_extract returns (True, '') when only analysis exists (no plan), no charter."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            docs_dir = os.path.join(tmpdir, "docs")
+            os.makedirs(docs_dir)
+            open(os.path.join(docs_dir, "analysis-v1.md"), "w").close()
+            # No plan, no charter
+            result = charter_extractor.should_auto_extract(docs_dir=docs_dir)
+            self.assertEqual(result, (True, ""),
+                             "OR semantics: analysis alone (no plan) should trigger auto-extract")
+
+
+class TestH1Truncation(unittest.TestCase):
+    """Verify H1 truncation is word-aware (textwrap.shorten)."""
+
+    def test_h1_truncation_is_word_aware(self):
+        """A goal longer than 80 chars must truncate with '...' or '…' (textwrap.shorten), not mid-word."""
+        # This goal is > 80 chars and the 80-char hard-cut lands mid-word: "...artifacts w"
+        long_goal = "Enable /pipeline to auto-extract a draft charter from prior workflow artifacts when analysis and plan exist"
+        self.assertGreater(len(long_goal), 80)
+        draft = {
+            "goal": long_goal,
+            "users": "", "problem": "", "success": "",
+            "non_goals": [], "constraints": [],
+            "mvp_boundary": "", "prior_art": "", "open_questions": "",
+        }
+        output = charter_extractor.render_charter_markdown(draft)
+        # Find the H1 line
+        h1_line = next(line for line in output.splitlines() if line.startswith("# Charter"))
+        title = h1_line[len("# Charter — "):]
+        self.assertLessEqual(len(title), 80)
+        # textwrap.shorten places the placeholder ('…' or '...') at the end;
+        # a raw [:80] slice produces a title ending mid-word without any placeholder.
+        # Assert the title ends with '…' or '[...]' (not a raw alphabetic mid-word cut).
+        self.assertTrue(
+            title.endswith("…") or title.endswith("...") or not title[-1:].isalpha(),
+            f"H1 truncation cut mid-word without ellipsis: '{title}'"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

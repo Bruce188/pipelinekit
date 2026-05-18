@@ -16,11 +16,10 @@ from __future__ import annotations
 
 import os
 import re
-from pathlib import Path
+import textwrap
 from typing import Dict, List, Mapping, Optional, Tuple
 
 from claude.lib.pipeline.charter_revalidate import (
-    parse_charter_sections,
     _BULLET_LINE_RE,
 )
 
@@ -279,7 +278,7 @@ def render_charter_markdown(draft: Dict, today: Optional[str] = None) -> str:
             return f"## {header}\n\n"
 
     goal_text = draft.get("goal", "")
-    goal_oneliner = goal_text.split("\n")[0][:80] if goal_text else "Draft"
+    goal_oneliner = textwrap.shorten(goal_text.split("\n")[0], width=80, placeholder="…") if goal_text else "Draft"
 
     lines = [
         "---",

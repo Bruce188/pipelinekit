@@ -31,6 +31,8 @@ When `AskUserQuestion` is unavailable (subprocess driver such as `orchestrate.sh
 
 ### Algorithm steps
 
+a0. Call `charter_extractor.subprocess_mode_skip_check()`. If returns `(True, log_line)`: log `log_line` (`CHARTER_AUTO_EXTRACT_SKIPPED: subprocess mode`) to stderr and fall through to the existing Step 0 subprocess error path. This ensures the auto-extract question is never attempted in a non-interactive subprocess driver context.
+
 a. Call `charter_extractor.should_auto_extract()`. If returns `(False, reason)`: log `reason` (which is already a `CHARTER_AUTO_EXTRACT_SKIPPED: ...` string) to stderr and fall through to the existing Step 0 skip-condition 5 check.
 
 b. Call `charter_extractor.discover_artifact_paths()`. Read each non-`None` path into memory (analysis / plan / prp text strings).
