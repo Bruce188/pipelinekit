@@ -193,6 +193,8 @@ The pipeline selects `subagent` as the phase mode at every feature-loop entry. T
 | Path M (small non-blocking fixes post-review) | `inline` — Edit-tool only, max 2 cycles, conservative gate predicate (see SKILL.md Step 5.7 Row 1.7) |
 | Optional Row-2 nit preamble (`PIPELINE_NIT_FIRST=1`) | `inline` — runs Path N body before falling through to Path B subagent dispatch |
 
+> Tracer-bullet framing throughout this file (vertical-slice priority, anti-horizontal-slicing) follows Matt Pocock's adaptation of *The Pragmatic Programmer* (Hunt & Thomas, 1999). See `claude/skills/tdd/SKILL.md` lines 26–49 for the vendored anti-pattern doc.
+
 **Path M gate examples:**
 
 - **Qualifying:** review returns 2 non-blocking findings: NB1 = "rename `foo` → `fooBar` (1 line, 1 file)", NB2 = "tighten error string wording (2 lines, 1 file)". Total: 2 findings, 3 lines aggregate, 1 file per finding. All within gate. Each has a mechanical `Suggestion:` → Path M fires.
