@@ -17,7 +17,7 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Mapping, Optional, Tuple
 
 from claude.lib.pipeline.charter_revalidate import (
     parse_charter_sections,
@@ -151,10 +151,11 @@ def _find_highest_versioned(docs_dir: str, prefix: str) -> Optional[str]:
             stripped = fname[len(prefix):]
             if stripped == ".md":
                 version = 0
-            elif versioned_re.fullmatch(stripped):
-                version = int(versioned_re.fullmatch(stripped).group(1))
             else:
-                continue
+                m = versioned_re.fullmatch(stripped)
+                if m is None:
+                    continue
+                version = int(m.group(1))
 
         if version > best_version:
             best_version = version
@@ -309,7 +310,7 @@ def render_charter_markdown(draft: Dict, today: Optional[str] = None) -> str:
     return "\n".join(lines)
 
 
-def subprocess_mode_skip_check(env: Optional[Dict] = None) -> Tuple[bool, str]:
+def subprocess_mode_skip_check(env: Optional[Mapping[str, str]] = None) -> Tuple[bool, str]:
     """Return (skip, log_line).
 
     Skip is True when AskUserQuestion is unavailable (subprocess driver).
