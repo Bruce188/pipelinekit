@@ -869,7 +869,9 @@ Check conditions in order — first match wins.
 
 **Row 2 nit-preamble option (`PIPELINE_NIT_FIRST=1`):** When blocking/non-blocking findings exist AND nit findings also exist, the orchestrator MAY attack nits inline first as a preamble to Path B. This is opt-in via the `PIPELINE_NIT_FIRST=1` environment variable. Default off (deterministic). When enabled: run an inline nit-fix pass (same logic as Path N), commit `fix: minor code quality improvements`, then continue into Path B subagent dispatch for the blocking/non-blocking work. Rationale: nits are cheap to fix inline and reduce noise in the next review cycle's diff — but the heavy work (blockers/non-blockers) ALWAYS goes through subagent dispatch.
 
-For **FAILED (no changes)**: append to Run Log `**Completed [YYYY-MM-DD HH:MM]:** FAILED (no changes) | Review cycles: [N] | PR: N/A`, log to the pipeline summary as failed (not already-shipped — that category is for pre-existing work on `$BASE`), skip to the next feature.
+For **FAILED (no changes)**: append to Run Log the canonical-format failure line `- YYYY-MM-DD HH:MM: FAILED — PR #N/A merged as N/A. <class> feature. analysis-vA / plan-vP / prompts-vP / review-vR. [N] Path B cycles, 0 inline cycles. 0 blocking, 0 non-blocking, 0 nits. 0 files, +0/-0. <reason summary>.`, log to the pipeline summary as failed (not already-shipped — that category is for pre-existing work on `$BASE`), skip to the next feature.
+
+This is the canonical format defined in `docs/analysis-v35.md` § 3.1; see `reference.md` § "Run Log Canonical Format" for the field-definitions table and should-match / should-NOT-match examples. The orchestrator MUST invoke `bash claude/lib/pipeline/format_runlog.sh validate "<candidate-line>"` before appending any Run Log entry (Path A success, Path B failure, Path C failure, FAILED-no-changes, etc.). On non-zero exit the append is aborted and `RUNLOG_FORMAT_INVALID: <reason>` is logged to stderr. The helper at `claude/lib/pipeline/format_runlog.sh` is the single source of truth for the validation regex — do not re-derive the pattern elsewhere.
 
 For mixed findings (some fixable, some scope-change): treat as **Path B** first — fix the reopened tasks, then re-review will catch remaining issues.
 
@@ -925,7 +927,7 @@ WTF-LIKELIHOOD:
 
 Append to the feature's `### Run Log` section (prepend a blank line before non-first entries; the first entry immediately after `### Run Log` has no leading blank line; ensure the section ends in a single `\n`):
 ```
-**Completed [YYYY-MM-DD HH:MM]:** [SUCCESS|FAILED] | Review cycles: [N] | PR: [URL or N/A]
+- 2026-05-18 14:22: SUCCESS — PR #33 merged as a1b2c3d. non-dev feature. analysis-v35 / plan-v36 / prompts-v36 / review-v33. 0 Path B cycles, 0 inline cycles. 0 blocking, 0 non-blocking, 0 nits. 3 files, +145/-2. Unified Run Log format with helper script and validation regex.
 ```
 
 Then emit phase transition signal — tag=`feature-done` on success, `feature-failed` on any failure path (CD halt, post-merge regression, budget halt, implementation error). The signal includes both the progress beacon AND the TodoWrite update per Step 5.0; the TodoWrite update is what flips the host UI's TASKS panel from showing the in-progress feature to showing it complete (or cancelled with reason).

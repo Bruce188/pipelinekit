@@ -389,8 +389,10 @@ Do not modify any existing `docs/` files during adoption — only create `featur
 
 8. Append to feature's Run Log:
    ```
-   Path: A (passed) | CI fixes: [N] | CD check: [OK|SKIPPED|FAILED] | PR: [URL] | Status: SUCCESS
+   - 2026-05-18 14:22: SUCCESS — PR #33 merged as a1b2c3d. non-dev feature. analysis-v35 / plan-v36 / prompts-v36 / review-v33. 0 Path B cycles, 0 inline cycles. 0 blocking, 0 non-blocking, 0 nits. 3 files, +145/-2. Unified Run Log format with helper script and validation regex.
    ```
+
+   This is the canonical format defined in `docs/analysis-v35.md` § 3.1; see `#### Run Log Canonical Format` below for field definitions and validation rules. The orchestrator MUST validate every candidate entry via `bash claude/lib/pipeline/format_runlog.sh validate "<line>"` before appending — on non-zero exit the append is aborted and `RUNLOG_FORMAT_INVALID: <reason>` is logged to stderr.
 
 ### Path B — Fixable Findings (max 5 review cycles)
 
@@ -923,6 +925,80 @@ Report back with this XML block as the very last content in your response:
   </usage>
 </task-notification>
 ```
+
+---
+
+#### Run Log Canonical Format
+
+The canonical Run Log entry format codified by F5 of features-v2.md
+(`feat/runlog-unify-format`). Defined in `docs/analysis-v35.md` § 3.1. The
+single source of truth for the validation regex is
+`claude/lib/pipeline/format_runlog.sh` — SKILL.md and reference.md both reference
+that helper for runtime enforcement.
+
+**Canonical pattern (literal template):**
+
+```
+- YYYY-MM-DD HH:MM: <STATUS> — PR #<N> merged as <sha7>. <class> feature. analysis-vA / plan-vP / prompts-vP / review-vR. <pathB_cycles> Path B cycles, <inline_cycles> inline cycles. <B> blocking, <NB> non-blocking, <Nit> nits. <files> files, +<added>/-<deleted>. <one-sentence summary>.
+```
+
+Concrete F5-flavoured example:
+
+```
+- 2026-05-18 14:22: SUCCESS — PR #33 merged as a1b2c3d. non-dev feature. analysis-v35 / plan-v36 / prompts-v36 / review-v33. 0 Path B cycles, 0 inline cycles. 0 blocking, 0 non-blocking, 0 nits. 3 files, +145/-2. Unified Run Log format with helper script and validation regex.
+```
+
+**Field definitions:**
+
+| Field | Type | Allowed values | Required |
+|-------|------|---------------|----------|
+| `YYYY-MM-DD HH:MM` | timestamp (UTC, 24-hour) | `2026-05-18 14:22` | yes |
+| `<STATUS>` | enum | `SUCCESS` \| `FAILED` \| `PARTIAL` \| `BLOCKED` | yes |
+| `<N>` | int | PR number, 1..99999 | yes (use literal `N/A` for FAILED-pre-PR) |
+| `<sha7>` | hex | 7-char merge commit SHA; literal `N/A` if no merge | yes |
+| `<class>` | enum | `dev` \| `non-dev` | yes |
+| `<A>/<P>/<R>` | int | version numbers per Versioning Convention | yes |
+| `<pathB_cycles>` | int | 0..5 (Path B cap) | yes |
+| `<inline_cycles>` | int | 0..2 (Path N/M cap) | yes |
+| `<B>/<NB>/<Nit>` | int | finding counts ≥ 0 | yes |
+| `<files>` | int | files changed in merged diff | yes |
+| `<added>/<deleted>` | int | line counts from `git diff --shortstat` | yes |
+| `<one-sentence summary>` | text | ≤ 200 chars, no newline | yes |
+
+**Should-match examples** (from `docs/analysis-v35.md` § 4.3):
+
+1. ```
+   - 2026-05-18 14:22: SUCCESS — PR #33 merged as a1b2c3d. non-dev feature. analysis-v35 / plan-v36 / prompts-v36 / review-v33. 0 Path B cycles, 0 inline cycles. 0 blocking, 0 non-blocking, 0 nits. 3 files, +145/-2. Unified Run Log format with helper script and validation regex.
+   ```
+2. ```
+   - 2026-05-18 02:10: FAILED — PR #N/A merged as N/A. dev feature. analysis-v40 / plan-v41 / prompts-v41 / review-v38. 5 Path B cycles, 0 inline cycles. 2 blocking, 3 non-blocking, 1 nits. 12 files, +0/-0. Max review cycles exceeded; surviving blockers in NB1+NB2.
+   ```
+3. ```
+   - 2026-05-18 09:01: PARTIAL — PR #34 merged as fedcba9. dev feature. analysis-v36 / plan-v37 / prompts-v37 / review-v34. 1 Path B cycles, 2 inline cycles. 0 blocking, 0 non-blocking, 2 nits. 5 files, +88/-3. Inline mini-fix landed; 2 cosmetic nits survived sanity-gate revert.
+   ```
+
+**Should-NOT-match examples** (typo catchers, from `docs/analysis-v35.md` § 4.4):
+
+1. `**Completed [2026-05-18 00:35]:** SUCCESS | Review cycles: 1 | PR: ...` — legacy Format 1: no leading `- `, wrong separators, missing fields.
+2. `- 2026-05-18: PR #25 merged. analysis-v23 / plan-v24 / prompts-v24 / review-v21. 0 blocking + 0 non-blocking + 0 nits; PASS.` — Format 2: no HH:MM, no STATUS verb.
+3. `- 2026-05-18 14:22: success — PR #33 merged as a1b2c3d. non-dev feature. ...` — lowercase status.
+4. `- 2026-05-18 14:22: SUCCESS - PR #33 merged as a1b2c3d. non-dev feature. ...` — ASCII hyphen instead of em-dash `—`.
+
+**Validation.** The canonical regex lives in `claude/lib/pipeline/format_runlog.sh`
+as the `RUNLOG_RE` shell variable — single source of truth. Before appending any
+Run Log entry the orchestrator MUST invoke `bash claude/lib/pipeline/format_runlog.sh validate "<candidate>"`.
+On exit 1 the append is aborted and `RUNLOG_FORMAT_INVALID: <reason>` is logged
+to stderr. The helper also exposes a `format` subcommand that assembles a
+canonical line from 18 named flags and self-validates the result, and a
+`selftest` subcommand that runs eight built-in assertions.
+
+**Backward-compat.** Pre-F5 Run Log entries (in `docs/features.md` and archived
+`docs/features-v*.md`) are NOT rewritten — the history-preserving rule in
+`~/.claude/rules/workflow.md` applies. Mixed-format Run Log sections are
+expected during the transition window; the orchestrator's pre-append validator
+only sees the candidate string just-built for the current merge, never the
+file's existing contents. See `docs/analysis-v35.md` § 3.3 for the full
+backward-compat policy.
 
 ---
 
