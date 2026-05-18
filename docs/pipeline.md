@@ -237,6 +237,33 @@ guards against regression.
 The `sandbox_enter` API surface is unchanged: callers still invoke
 `sandbox_enter "$wt" cmd arg1 arg2 ...` exactly as before.
 
+### Build & Pull
+
+The sandbox base image is built locally from `scripts/sandbox/Containerfile`
+via the wrapper script:
+
+```bash
+bash scripts/sandbox/build.sh
+export PIPELINEKIT_SANDBOX_TAG=pipelinekit/sandbox-base:<git-short-sha>
+```
+
+The build script auto-detects `podman` (preferred) or `docker`, applies the
+`pipelinekit/sandbox-base:latest` alias locally (suppress with `--no-latest`),
+and prints the exact `export` line for the resolved tag on success.
+
+The image is **local-only**: there is no `push` step in `build.sh` and no
+registry hostname appears in the recipe. Do not publish this image to a
+public registry — the namespace is unclaimed and the recipe omits any
+registry-pin or signature step that would make a public publish safe.
+
+Size budget: the slim base + apt cache cleanup keeps the compressed image
+under 1 GB. Enforcing that ceiling in CI (assert `<engine> image inspect`
+size) is a follow-up; today it is a soft target verified by inspection.
+
+WSL2 storage hygiene: layered worktrees and npm caches can balloon on
+Windows-hosted Linux. Reclaim space with `podman system prune` or
+`docker system prune` after pipeline runs accumulate unused layers.
+
 ## Optional subprocess driver
 
 `claude/skills/pipeline/orchestrate.sh` ships as an **OPTIONAL** out-of-process
