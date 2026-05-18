@@ -67,5 +67,33 @@ if [[ ! -e "$RESOLVED" ]]; then
   exit 0
 fi
 
+# F12 freshness check. Read the resolved charter's frontmatter `created:` field
+# and short-circuit when the charter is < 7 days old (604800 seconds). Falls
+# through cleanly on any parse failure (treat as "not fresh, fall through").
+CREATED=""
+if grep -q '^---[[:space:]]*$' "$RESOLVED"; then
+  # Extract the first frontmatter block (delimited by two `---` fences) and
+  # pull out the `created:` line value.
+  CREATED=$(awk '/^---[[:space:]]*$/{c++; next} c==1' "$RESOLVED" \
+    | grep -m1 '^created:' \
+    | sed -e 's/^created:[[:space:]]*//' -e 's/[[:space:]]*$//' \
+    || true)
+fi
+
+if [[ -n "$CREATED" ]]; then
+  # `date -d` is GNU-only; on environments where the parse fails (e.g. BSD
+  # date), fall through (treat as not-fresh). 2>/dev/null suppresses the
+  # parse error so `set -e` does not abort.
+  if CREATED_TS=$(date -d "$CREATED" +%s 2>/dev/null) && NOW_TS=$(date +%s); then
+    DELTA_SECONDS=$(( NOW_TS - CREATED_TS ))
+    # 7 days in seconds = 604800.
+    if (( DELTA_SECONDS >= 0 && DELTA_SECONDS < 604800 )); then
+      DELTA_DAYS=$(( DELTA_SECONDS / 86400 ))
+      echo "CHARTER_REVALIDATE: fresh — charter created $CREATED ($DELTA_DAYS days ago); skipping re-validation pass"
+      exit 0
+    fi
+  fi
+fi
+
 echo "CHARTER_REVALIDATE: charter found at $RESOLVED"
 exit 0
