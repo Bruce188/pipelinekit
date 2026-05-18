@@ -12,7 +12,7 @@ host-adapters/<host>.sh <prompt-file> <output-file> [--model <m>] [--max-turns N
 
 Exit codes:
 - `0` — success
-- `2` — not implemented (stub)
+- `2 — runtime unavailable (stub or missing CLI)`
 - non-zero — failure
 
 ## Adding a new host

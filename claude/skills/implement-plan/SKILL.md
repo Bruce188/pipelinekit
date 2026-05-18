@@ -70,7 +70,7 @@ Before executing any task, verify the plan shape supports TDD. For each task wit
 
 Parallel execution is the default for phases with multiple parallelizable tasks. Skip this step only if `--no-parallel` was passed as an argument.
 
-**WorkerProvider contract (informational):** The worktree fan-out described in items 1–5 below IS the reference implementation of the `ClaudeWorker` class documented in `claude/lib/worker-provider/claude.md`. The five worktree-agent lifecycle steps (prepare worktree → dispatch via `Agent` tool → collect artifacts → verify completion → cleanup) map directly to the five `WorkerProvider` methods in `claude/lib/worker-provider/interface.md`. This is documentation only — no routing or selection logic is invoked here; ClaudeWorker is always the dispatcher in the portable build.
+**WorkerProvider contract (operational):** The worktree fan-out described in items 1–5 below IS the reference implementation of the `ClaudeWorker` class documented in `claude/lib/worker-provider/claude.md`. The five worktree-agent lifecycle steps (prepare worktree → dispatch → collect artifacts → verify completion → cleanup) map directly to the five `WorkerProvider` methods in `claude/lib/worker-provider/interface.md`. Per-task `worker:` header routing is now active — see step `5.a.routing` below. ClaudeWorker remains the default when no routing override is in effect.
 
 1. Identify all `todo` tasks in the **current phase** (same phase number prefix)
 2. If only 1 task in the phase: log "Single task in phase — skipping parallel, proceeding sequentially" and fall back to Step 2
@@ -84,6 +84,14 @@ Parallel execution is the default for phases with multiple parallelizable tasks.
       mkdir -p "$SCRATCHPAD"
       ```
       Record `$SCRATCHPAD` as an absolute path (use `realpath`) so worktree agents in a different cwd can reach it. Pass this absolute path to each worker prompt below.
+   a.routing. For each task, resolve the worker class before constructing the agent prompt. Resolution order (mirrors `claude/lib/worker-provider/interface.md` § Env-var resolution):
+      1. If `PIPELINE_NO_WORKER_ROUTING=1` is set → `claude` (ClaudeWorker, unconditional).
+      2. Read the task's optional `worker:` header from the prompts file. If present and the class file `claude/lib/worker-provider/<class>.md` exists → that class.
+      3. If `WORKER_CLASS=<name>` env var is set → that class (same existence check).
+      4. `WORKER_CLASS=auto` or unset → `claude` (ClaudeWorker, the always-available default).
+
+      Store the resolved class as `$WORKER` for use in the beacon and prompt construction. If the resolved class's host-adapter exits 2 OR its runtime binary is absent, log `WORKER_UNAVAILABLE: <class> (host-adapter missing)` and fall back to ClaudeWorker for that task — do not halt the pipeline.
+
    a-cap. Cap parallel fan-out at 8 worktree agents per batch. Per the Anthropic
       community ceiling, more than 8 simultaneous worktree agents reliably
       saturates the lead's merge loop and increases conflict probability. If

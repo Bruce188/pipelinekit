@@ -311,8 +311,10 @@ Decision rule:
 Record `**Phase Mode:** subagent` in `docs/pipeline-state.md` (Step 5.1 writes the full template — this sub-step guarantees the value is known before that write happens).
 
 **Progress beacon helper:** At each phase transition (Step 5.1, 5.2, 5.3, 5.5, 5.6, and on Path B/C entry), emit a beacon to the user via:
-`Bash(command='printf "[PIPELINE] feat=%s/%s step=%s cycle=%s :: %s (%s)\n" "$IDX" "$TOTAL" "$STEP" "$CYC" "$NAME" "$TAG" >&2', description='Progress beacon')`
-where `$IDX/$TOTAL/$STEP/$CYC/$NAME/$TAG` are the current values from `docs/pipeline-state.md`. Tags: `phase-pre`, `phase-done`, `path-b-pre`, `path-c-pre`, `feature-start`, `feature-done`, `feature-failed`, `docs-pre`, `docs-done`.
+`Bash(command='printf "[PIPELINE] feat=%s/%s step=%s cycle=%s :: %s (%s) worker=%s\n" "$IDX" "$TOTAL" "$STEP" "$CYC" "$NAME" "$TAG" "$WORKER" >&2', description='Progress beacon')`
+where `$IDX/$TOTAL/$STEP/$CYC/$NAME/$TAG/$WORKER` are the current values from `docs/pipeline-state.md`. Tags: `phase-pre`, `phase-done`, `path-b-pre`, `path-c-pre`, `feature-start`, `feature-done`, `feature-failed`, `docs-pre`, `docs-done`.
+
+`$WORKER` defaults to `claude` when no routing override is in effect. When `/implement-plan` Step 1.5 resolves a per-task `worker:` header to an alternate class, `$WORKER` is set to that class name before the beacon fires. The resolution order for `$WORKER` is defined in `claude/lib/worker-provider/interface.md` § Env-var resolution.
 
 **TASKS panel helper (TodoWrite):** Side-by-side with each beacon, the orchestrator MUST call the `TodoWrite` tool so the host UI's TASKS panel (e.g. T3 Code's right-hand pane) reflects what the pipeline is currently working on. This is non-optional — the TodoWrite state IS the user-facing visibility into pipeline progress. The orchestrator is expected to keep a single live todo list across the run; each transition rewrites the whole list with updated statuses.
 
