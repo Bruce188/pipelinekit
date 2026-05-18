@@ -22,8 +22,6 @@ mkdir -p "$(dirname "$LOG")"
 # Supply-chain refs. Override via env vars before running install.
 # Default = `main` (rolling); CI/prod use should pin to a commit SHA.
 SERENA_REF="${SERENA_REF:-main}"
-CLAUDE_SKILLS_REF="${CLAUDE_SKILLS_REF:-main}"
-GSTACK_REF="${GSTACK_REF:-main}"
 CLAUDE_CLI_SHA256="${CLAUDE_CLI_SHA256:-}"   # optional sha256 of https://claude.ai/install.sh
 LSP_FAILURES=0
 
@@ -188,8 +186,6 @@ USER_NAME=${USER_NAME:-developer}
 PIPELINE_NIT_FIRST=0
 # Supply-chain pins (override before re-running install for reproducibility)
 SERENA_REF=$SERENA_REF
-CLAUDE_SKILLS_REF=$CLAUDE_SKILLS_REF
-GSTACK_REF=$GSTACK_REF
 EOF
   log "Wrote $ENV_FILE"
 fi
