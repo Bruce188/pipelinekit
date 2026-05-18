@@ -5,8 +5,9 @@
 # Env:
 #   CLAUDE_HOME                 Target overlay dir (default: $HOME/.claude)
 #   CLAUDE_INSTALL_NONINTERACTIVE=1   Skip all prompts; assume sane defaults
-#   CLAUDE_INSTALL_OPTIONALS    Comma list: tresor,lsp,mcp,gstack,claude-skills,serena
+#   CLAUDE_INSTALL_OPTIONALS    Comma list: tresor,lsp,mcp,gstack,claude-skills,serena,mobile,azure,claude-context
 #                               Default interactive prompt; non-interactive default: tresor,lsp,mcp
+#                               claude-context = community MCP (@zilliztech) for codebase semantic RAG; opt-in only.
 
 set -euo pipefail
 
@@ -348,6 +349,23 @@ if want azure; then
   else
     warn "Azure CLI auto-install skipped on $(uname -s). See https://learn.microsoft.com/cli/azure/install-azure-cli"
   fi
+fi
+
+# Claude-Context MCP (community — @zilliztech, NOT Anthropic). Codebase semantic RAG via npx;
+# AST-aware chunking + Merkle-tree incremental indexing. local-mode (no Milvus account) is
+# documented in .mcp.json.template; cloud-mode uses Milvus/Zilliz creds via env vars.
+# Skip below ~50k LOC: indexing adds latency with no semantic-retrieval benefit at that scale.
+if want claude-context; then
+  log "Claude-Context MCP requested (community — @zilliztech/claude-context, NOT Anthropic)."
+  log "  - Codebase semantic RAG: AST-aware chunking + Merkle-tree incremental indexing"
+  log "  - local-mode setup: see .mcp.json.template _optional_claude_context_mcpServers block for env-var skeleton"
+  log "  - cloud-mode setup: same block — swap in MILVUS_ADDRESS / MILVUS_TOKEN for Zilliz cloud"
+  log "  - 50k LOC heuristic: /analyze skips semantic retrieval below 50000 LOC; opt-in indexing on smaller repos via direct MCP query"
+  log "  - Re-indexing budget: <5s per 'git pull' (upstream benchmark; not a guarantee)"
+  if [[ -f "$REPO_ROOT/.mcp.json.template" ]]; then
+    log "  -> Uncomment the _optional_claude_context_mcpServers block in .mcp.json.template before copying into <your-project>/.mcp.json"
+  fi
+  warn "@zilliztech/claude-context is a community MCP (NOT Anthropic-official). Review upstream before sandbox use; PIN the npx package to a specific version for reproducibility."
 fi
 
 # Third-party skill library (alirezarezvani/claude-skills). Pinnable via $CLAUDE_SKILLS_REF.

@@ -51,7 +51,7 @@ claude
 | Skills | 38 native (analyze, create-plan, implement-plan, review, ppr, pipeline, expo, ios, azure-ops, document-release, tdd, zoom-out, write-a-skill, learn, landing-report, incident, claude-md-enhancer, ...) |
 | Agents | 27 specialized (architect, code-reviewer, security-auditor, karpathy-reviewer, tdd-test-writer, mobile-dev, azure-deployment-engineer, deployment-engineer, incident-responder, architect-review, cloud-architect, claude-md-guardian, ...) |
 | Hooks | 22 production hooks (validate-commit-msg, strip-ai-attribution, block-push-main, tdd-order-check, claude-md-guard, ...) |
-| MCP | context7, serena (semantic), sequential-thinking, optional local-rag |
+| MCP | context7, serena (semantic), sequential-thinking, optional local-rag, opt-in claude-context (community — @zilliztech, codebase semantic RAG) |
 | LSP | pyright, typescript, csharp, gopls, rust-analyzer |
 | Templates | tresor-resources (prompts, standards, examples); `documentation/SKILL_PIPELINE.md` + `documentation/SKILL-AUTHORING-STANDARD.md` (vendored skill authoring contract — pair with `/write-a-skill`) |
 | Model overlays | 4 (claude.md generic, opus-4-7.md, sonnet-4-6.md, haiku-4-5.md) — per-model token/thinking budget tuning consumed by phase skills |
