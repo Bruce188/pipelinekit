@@ -18,12 +18,14 @@ AgentMemory is an opt-in structured-retrieval layer over the existing
 - **Contextual recall** — retrieves memories relevant to the current
   phase / task context, scoped by tag / file / project slug.
 
-## When to opt in
+## When to use it
 
-Install with `CLAUDE_INSTALL_OPTIONALS=agentmemory` (comma-list flag,
-passed to `scripts/install.sh`). When not in the optional list, pipelinekit
-installs and runs exactly as today — no new dependencies, no Phase Tool
-Routing changes, no behavior drift.
+AgentMemory is part of pipelinekit's default install (since the F2
+vendoring feature). The retrieval layer is available out of the box; no
+flag is required. AgentMemory remains additive and inert until a query is
+issued, so the flat-file path is the only path for any run that does not
+explicitly call into agentmemory. No Phase Tool Routing changes, no
+behavior drift for default runs.
 
 ## Complementarity with the flat-file memory system
 
@@ -46,9 +48,10 @@ AgentMemory is **additive**, not a replacement.
      queries. The follow-up iteration documents the trade-offs.
    Never both writing concurrently — divergence between stores would
    compromise inspectability.
-4. **Default behavior unchanged.** Without `agentmemory` in
-   `CLAUDE_INSTALL_OPTIONALS`, every memory read / write goes through
-   the flat-file path with no agentmemory involvement.
+4. **Default behavior unchanged.** Agentmemory ships in the default
+   install but stays inert until a query is issued — every memory read /
+   write goes through the flat-file path with no agentmemory involvement
+   unless an agentmemory query fires.
 
 ## Community status
 
