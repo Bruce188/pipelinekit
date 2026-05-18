@@ -12,9 +12,9 @@
 #   - Bind-mounts the worktree directory READ-WRITE; NEVER copies worktree contents.
 #     The worktree path inside the container matches the host path exactly, so all
 #     relative-path references within the command continue to work unchanged.
-#   - Composes with claude/hooks/env-scrub.py --wrap to apply the existing env scrub
-#     prefix — do NOT redefine SCRUB_VARS here; env-scrub.py owns that list and
-#     keeps it in sync with the Claude Code hook chain.
+#   - Composes with claude/hooks/env-scrub.py --prefix-args to build an env-scrub
+#     argv prefix — do NOT redefine SCRUB_VARS here; env-scrub.py owns that list
+#     and keeps it in sync with the Claude Code hook chain.
 #   - Uses --rm so the container is removed automatically on exit; sandbox_exit is a no-op.
 #   - Does NOT use --userns=keep-id (not universally supported by Docker).
 #     File ownership inside the container follows the image's default USER directive.
@@ -60,9 +60,26 @@ sandbox_enter() {
   local wt="$1"; shift
   local image="${SANDBOX_DOCKER_IMAGE:-pipelinekit-sandbox:latest}"
   local claude_home="${CLAUDE_HOME:-$HOME/.claude}"
-  local prefix
+  local prefix_out prefix_rc
+  local -a prefix
 
-  mapfile -t prefix < <(python3 "${claude_home}/hooks/env-scrub.py" --prefix-args)
+  # Capture env-scrub.py output via command substitution so we can observe its
+  # exit status. `mapfile < <(...)` would silently discard producer failures
+  # (mapfile returns 0 even when the producer exits non-zero) — that would
+  # silently drop the scrub prefix and run the container env-bare. Fail closed
+  # instead: if the helper fails or returns an unexpected first token, refuse
+  # to launch the container.
+  prefix_out=$(python3 "${claude_home}/hooks/env-scrub.py" --prefix-args)
+  prefix_rc=$?
+  if [ "$prefix_rc" -ne 0 ]; then
+    echo "sandbox(docker): env-scrub.py --prefix-args failed (rc=$prefix_rc); refusing to launch container" >&2
+    return "$prefix_rc"
+  fi
+  mapfile -t prefix <<< "$prefix_out"
+  if [ "${#prefix[@]}" -lt 1 ] || [ "${prefix[0]}" != "env" ]; then
+    echo "sandbox(docker): env-scrub.py --prefix-args returned unexpected output; refusing to launch container" >&2
+    return 1
+  fi
 
   docker run --rm \
     --volume "$wt:$wt:rw" \
