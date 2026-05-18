@@ -842,6 +842,7 @@ Check conditions in order — first match wins.
 | 0 | `git diff $BASE...HEAD` is empty AND review file contains "BLOCKED", "nothing to review", "empty diff", or "implementation no-op" (case-insensitive) | **FAILED (no changes)** |
 | 1 | No review file exists, OR review file has 0 blocking + 0 non-blocking + 0 nit findings | **A** (passed) |
 | 1.5 | Review file has 0 blocking + 0 non-blocking + N nit findings (N>0) — nits survived `/review` Step 7.5 auto-fix | **N** (inline nit-attack, then re-route via Step 5.7) |
+| 1.7 | Review file has 0 blocking + N>0 non-blocking findings AND Path M gate predicate holds (severity ∈ {non-blocking, nit} ∧ lines_changed ≤ 5 ∧ files_changed ≤ 1 per finding ∧ total_finding_count ≤ 3 ∧ total_lines_across_findings ≤ 8 ∧ every finding has mechanical Suggestion:) | **M** (inline mini-fix, then re-route via Step 5.7) |
 | 2 | Review file has blocking or non-blocking findings AND progress.md has tasks with `reopened:` notes | **B** (fixable) |
 | 3 | Review file contains "beyond current scope" or all findings require re-planning | **C** (scope change) |
 | 4 | Review output was "BLOCKED" (sanity gate, secrets, all agents failed) | **Retry** |
@@ -850,13 +851,15 @@ Check conditions in order — first match wins.
 
 **Row 1.5 rationale (nit-only inline carve-out):** `/review` Step 7.5 already auto-fixes nits inline before writing the review file — so most of the time, surviving nits = 0 and Row 1 fires. When `/review`'s auto-fix path failed (sanity-gate revert, file outside scope, etc.), nits remain in the review file. These nits should be addressed before merging (the user explicitly does NOT want to ship surviving cosmetic issues), but they don't justify a full subagent re-implement. Path N runs an inline nit-fix pass (the only legitimate inline path in the pipeline) and re-routes through Step 5.7 — typically falling into Path A if nits clear successfully.
 
+**Row 1.7 rationale (mini-fix inline carve-out — strict superset of Path N):** Path N (Row 1.5) handles pure-nit-only review files. Path M extends Path N to small non-blocking findings — same Edit-tool-mechanical contract, conservative gate predicate (encoded in Row 1.7 above), capped at 2 inline cycles via a separate `**Inline cycles:**` counter (Path N's `**Nit cycles:**` is preserved as an independent 2-cycle budget). Path M fires only when at least one finding is `severity: non-blocking`; pure-nit-only review files continue to route to Path N first. On gate-fail or cycle overflow (`Inline cycles > 2`), escalates to Path B step 6 (re-review only). On sanity-gate failure post-Edit, snapshot-revert and escalate to Path B step 5. See `reference.md` § "Path M — Inline Mini-Fix (max 2 inline cycles)" for full step body.
+
 **Row 2 nit-preamble option (`PIPELINE_NIT_FIRST=1`):** When blocking/non-blocking findings exist AND nit findings also exist, the orchestrator MAY attack nits inline first as a preamble to Path B. This is opt-in via the `PIPELINE_NIT_FIRST=1` environment variable. Default off (deterministic). When enabled: run an inline nit-fix pass (same logic as Path N), commit `fix: minor code quality improvements`, then continue into Path B subagent dispatch for the blocking/non-blocking work. Rationale: nits are cheap to fix inline and reduce noise in the next review cycle's diff — but the heavy work (blockers/non-blockers) ALWAYS goes through subagent dispatch.
 
 For **FAILED (no changes)**: append to Run Log `**Completed [YYYY-MM-DD HH:MM]:** FAILED (no changes) | Review cycles: [N] | PR: N/A`, log to the pipeline summary as failed (not already-shipped — that category is for pre-existing work on `$BASE`), skip to the next feature.
 
 For mixed findings (some fixable, some scope-change): treat as **Path B** first — fix the reopened tasks, then re-review will catch remaining issues.
 
-**Inline-mode boundary (REQUIRED INVARIANT):** Inline tool dispatch (direct `Skill:`, direct `Edit`/`Bash` outside an Agent) is permitted ONLY in Path N and the optional Row-2 nit preamble. Every other path — A's CI fix loop, B's re-implement, C's re-plan, Retry's re-review — dispatches via the `Agent` tool when `**Phase Mode:** = subagent` (the default), preserving context isolation. See `reference.md` § "Step 5.8: Execute Path — Full Details" for per-path dispatch detail.
+**Inline-mode boundary (REQUIRED INVARIANT):** Inline tool dispatch (direct `Skill:`, direct `Edit`/`Bash` outside an Agent) is permitted ONLY in Path N, Path M, and the optional Row-2 nit preamble. Every other path — A's CI fix loop, B's re-implement, C's re-plan, Retry's re-review — dispatches via the `Agent` tool when `**Phase Mode:** = subagent` (the default), preserving context isolation. See `reference.md` § "Step 5.8: Execute Path — Full Details" for per-path dispatch detail.
 
 ---
 
@@ -867,10 +870,11 @@ Full per-path flows are defined in `reference.md` § "Step 5.8: Execute Path —
 - **Path A — Review Passed:** push → create PR → CI monitor (max 3 fix attempts) → auto-merge → post-merge cleanup → CD health check → log SUCCESS
 - **Path B — Fixable Findings:** re-implement → re-review, capped at 5 review cycles. **Always honors `**Phase Mode:**` from `docs/pipeline-state.md`** — re-implement and re-review dispatch via `Agent` tool when `Phase Mode = subagent` (the default). Optional `PIPELINE_NIT_FIRST=1` runs a Path-N-style inline nit preamble first.
 - **Path C — Scope Change:** re-plan (capped at 1) → re-implement → re-review. Same `Phase Mode` honoring as Path B.
-- **Path N — Nit-Only Inline:** Edit-tool nit fixes inline → sanity gate → commit → re-route via Step 5.7. Capped at 2 cycles. **The only path that runs inline.**
+- **Path N — Nit-Only Inline:** Edit-tool nit fixes inline → sanity gate → commit → re-route via Step 5.7. Capped at 2 cycles. **A legitimate inline path (alongside Path M).**
+- **Path M — Inline Mini-Fix:** Gate-predicate-qualified small non-blocking fixes inline via Edit tool → sanity gate → commit (`fix: address review feedback inline`) → re-route via Step 5.7. Capped at 2 inline cycles (`**Inline cycles:**` state field). Edit-tool only — snapshot-revert + Path B escalation on sanity-gate failure. See `reference.md` § Path M for full body.
 - **Retry — BLOCKED:** retry /review on transient failures only, capped at 3 attempts. Re-review honors `Phase Mode`.
 
-Select the path from Step 5.7, load the corresponding flow from `reference.md`, and execute. **Inline tool dispatch is forbidden in Paths A, B, C, and Retry when `Phase Mode = subagent` — those paths must use `Agent` tool dispatch with the corresponding `<!-- PHASE: ... -->` template.**
+Select the path from Step 5.7, load the corresponding flow from `reference.md`, and execute. **Inline tool dispatch is forbidden in Paths A, B, C, and Retry when `Phase Mode = subagent` — those paths must use `Agent` tool dispatch with the corresponding `<!-- PHASE: ... -->` template.** Path N and Path M are the only legitimate inline paths (plus the optional Row-2 nit preamble); see § "Inline-mode boundary (REQUIRED INVARIANT)" above.
 
 ##### Path B Convergence: WTF-Likelihood Self-Regulation
 

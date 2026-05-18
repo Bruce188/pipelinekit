@@ -170,6 +170,7 @@ If this snippet needs updating, change it here — all skills reference this sec
 - `**Max USD:**` — hard cap for cumulative cost across the run (from `--max-usd`). Value is `unlimited` when the flag was omitted; the budget check treats `unlimited` as a no-op.
 - `**Max turns:**` — hard cap for accumulated sub-agent turns (from `--max-turns`). Value is `unlimited` when the flag was omitted.
 - `**Phase Mode:**` `subagent` | `inline` (legacy/Path N) — set per-feature at Step 5.0. New features always start as `subagent`. `inline` appears only in (a) legacy state files written under the prior heuristic policy, or (b) Path N nit-attack sub-paths (Edit-tool only). See § Phase Mode Precedence below.
+- `**Inline cycles:**` — integer, default 0, incremented on each Path M cycle; cap 2. Resets to 0 at feature init (Step 5.1). On overflow (`> 2`), escalates to Path B step 6 (re-review only). Separate budget from Path N's `**Nit cycles:**` — both paths get an independent 2-cycle allowance per feature. See SKILL.md Step 5.7 Row 1.7 and reference.md § "Path M — Inline Mini-Fix" for the full contract.
 - `**Last phase agent:**` subagent ID of the most recently dispatched phase — present whenever the phase ran via the `Agent` tool. Omitted only when the phase ran inline (Path N nit-attack).
 - `**Feature class:**` `dev` | `non-dev` — set per-feature at Step 5.5.0. Drives TDD routing: `dev` features dispatch a tdd-test-writer + tdd-implementer pair per task; `non-dev` features use the standard implement-plan dispatch.
 - `**Charter:**` path to the active charter file (e.g., `docs/charter.md`), or `(none)` when `--no-charter` is in effect. Written by Step 5.1 from the resolved charter path. Step 3 (resume) reads and preserves this field; if it points to a valid file, Step 0 is not re-run.
@@ -187,8 +188,19 @@ The pipeline selects `subagent` as the phase mode at every feature-loop entry. T
 | Feature start (Step 5.0) | `subagent` — always, unconditional |
 | Path B re-implement / re-review | `subagent` — Path B reads `**Phase Mode:**` fresh and dispatches via Agent tool |
 | Path C re-plan / re-implement / re-review | `subagent` — same as Path B |
-| Path N (nit-only post-review) | `inline` — the ONLY legitimate inline-dispatch path; max 2 cycles, Edit-tool only |
+| Path N (nit-only post-review) | `inline` — a legitimate inline-dispatch path (alongside Path M); max 2 cycles, Edit-tool only |
+| Path M (small non-blocking fixes post-review) | `inline` — Edit-tool only, max 2 cycles, conservative gate predicate (see SKILL.md Step 5.7 Row 1.7) |
 | Optional Row-2 nit preamble (`PIPELINE_NIT_FIRST=1`) | `inline` — runs Path N body before falling through to Path B subagent dispatch |
+
+**Path M gate examples:**
+
+- **Qualifying:** review returns 2 non-blocking findings: NB1 = "rename `foo` → `fooBar` (1 line, 1 file)", NB2 = "tighten error string wording (2 lines, 1 file)". Total: 2 findings, 3 lines aggregate, 1 file per finding. All within gate. Each has a mechanical `Suggestion:` → Path M fires.
+- **Disqualifying (multi-line):** review returns 1 non-blocking finding spanning 12 lines. `lines_changed > 5` → predicate fails → Path B subagent dispatch.
+- **Disqualifying (multi-file):** review returns 1 non-blocking finding touching 2 files. `files_changed > 1` → predicate fails → Path B.
+- **Disqualifying (count):** review returns 4 non-blocking findings, each ≤ 5 lines / 1 file. `total_finding_count > 3` → predicate fails → Path B.
+- **Disqualifying (aggregate lines):** review returns 3 non-blocking findings of 4+3+3 lines (10 total). Each ≤ 5 per-finding, BUT `total_lines_across_findings > 8` → predicate fails → Path B.
+- **Disqualifying (logic suggestion):** review returns 1 non-blocking finding whose `Suggestion:` reads "rework error-handling to use the new `Result<T,E>` pattern". No mechanical Edit applies → predicate fails → Path B.
+- **Disqualifying (blocker present):** any blocking finding short-circuits the predicate at clause 1 → Path B.
 
 **On resume:** Preserve the saved `**Phase Mode:**` from `docs/pipeline-state.md`. Never silently downgrade `subagent` → `inline`. Direct invocation of `Skill: implement-plan` or `Skill: review` on a `subagent`-mode resume is a contract violation — see SKILL.md Step 3 § "Phase Mode preservation contract".
 
