@@ -151,6 +151,29 @@ run_host_adapter() {
     "$adapter_path" "$prompt_file" "$output_file" "$@"
 }
 
+# ---------------------------------------------------------------------------
+# run_mcp <server-name> <worktree> <command...>
+#
+# Wraps an MCP-server launch in sandbox_wrap. SCAFFOLDING ONLY — no
+# pipelinekit consumer ships using this helper today; MCP servers are
+# launched by the Claude Code host. Forks that spawn MCP servers from a
+# subprocess driver should use this entry point.
+#
+# Exit codes:
+#   1 — worktree directory not found
+#   * — forwarded from the wrapped command
+# ---------------------------------------------------------------------------
+run_mcp() {
+  local server="${1:?server name required}"
+  local worktree="${2:?worktree path required}"
+  shift 2
+  if [ ! -d "$worktree" ]; then
+    echo "orchestrate.sh: worktree not found: $worktree" >&2
+    return 1
+  fi
+  sandbox_wrap "mcp:${server}:$$" "$worktree" "$@"
+}
+
 # When invoked directly with --help, print usage and exit. When sourced, this
 # block is skipped so callers can use run_phase as a library function.
 if [ "${BASH_SOURCE[0]:-$0}" = "$0" ]; then
