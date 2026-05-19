@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Render Deployment Provider — pipelinekit</title>
-<meta name="description" content="Render account setup, service link, CLI install posture, pipelinekit integration via Charter Topic 10, runtime verification commands, auth posture, and provider comparison for Render-hosted workloads.">
+<meta name="description" content="Render account setup, service config, render.yaml IaC, environment groups, pipelinekit integration via Charter Topic 10, runtime verification, and provider comparison.">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Render Deployment Provider</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <a href="credits.html">Credits</a> &nbsp;/&nbsp; <span>Render Deployment Provider</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -532,7 +532,7 @@ footer {
     <h2 class="toc-heading">On this page</h2>
     <ul>
       <li class="lvl-2"><a href="#1-what-is-the-render-provider-integration">1. What is the Render provider integration</a></li>
-      <li class="lvl-2"><a href="#2-account-amp-project-setup">2. Account &amp;amp; project setup</a></li>
+      <li class="lvl-2"><a href="#2-account-project-setup">2. Account &amp; project setup</a></li>
       <li class="lvl-2"><a href="#3-cli-install">3. CLI install</a></li>
       <li class="lvl-2"><a href="#4-pipelinekit-integration">4. Pipelinekit integration</a></li>
       <li class="lvl-2"><a href="#5-runtime-verification-commands">5. Runtime verification commands</a></li>
@@ -547,7 +547,7 @@ footer {
   <main>
     <header class="page-header">
       <h1>Render Deployment Provider</h1>
-      <p class="description">Render account setup, service link, CLI install posture, pipelinekit integration via Charter Topic 10, runtime verification commands, auth posture, and provider comparison for Render-hosted workloads.</p>
+      <p class="description">Render account setup, service config, render.yaml IaC, environment groups, pipelinekit integration via Charter Topic 10, runtime verification, and provider comparison.</p>
       <div class="page-meta"></div>
     </header>
 
@@ -585,12 +585,11 @@ footer {
     .pkit-cmp .pkit-cmp-note { font-size: 0.78rem; color: var(--fg-subtle); margin-top: 0.8rem; font-style: italic; }
   </style>
 
-  <div class="pkit-cmp-tabs" id="pkit-cmp-tabs"></div>
-  <div class="pkit-cmp-grid" id="pkit-cmp-grid"></div>
+  <div class="pkit-cmp-tabs" data-cmp-tabs></div>
+  <div class="pkit-cmp-grid" data-cmp-grid></div>
   <p class="pkit-cmp-note">Click any tab to compare this page's provider against another. Compare against → switches the right column.</p>
-</div>
 
-<script type="application/json" id="pkit-cmp-data">
+  <script type="application/json" data-cmp-data>
 {
   "providers": {
     "vercel": {
@@ -645,19 +644,21 @@ footer {
     }
   }
 }
-</script>
+  </script>
+</div>
 
 <script>
 (function() {
   'use strict';
-  const cmps = document.querySelectorAll('.pkit-cmp[data-snippet-mount="comparison-tabs"]');
-  const cmp = cmps[cmps.length - 1];
-  if (!cmp || cmp.dataset.pkitInit) return;
-  cmp.dataset.pkitInit = '1';
+  document.querySelectorAll('.pkit-cmp[data-snippet-mount="comparison-tabs"]').forEach(cmp => {
+    if (cmp.dataset.pkitInit) return;
+    cmp.dataset.pkitInit = '1';
 
-  const data = JSON.parse(cmp.querySelector('#pkit-cmp-data').textContent);
-  const tabsEl = cmp.querySelector('#pkit-cmp-tabs');
-  const gridEl = cmp.querySelector('#pkit-cmp-grid');
+    const dataEl = cmp.querySelector('script[data-cmp-data]');
+    const tabsEl = cmp.querySelector('[data-cmp-tabs]');
+    const gridEl = cmp.querySelector('[data-cmp-grid]');
+    if (!dataEl || !tabsEl || !gridEl) return;
+    const data = JSON.parse(dataEl.textContent);
 
   // Detect "home" provider from <title>
   const title = (document.title || '').toLowerCase();
@@ -700,279 +701,173 @@ footer {
     gridEl.innerHTML = colHtml(homeProv, true) + colHtml(otherProv, false);
   }
 
-  render();
+    render();
+  });
 })();
 </script>
 
-<p>
-    pipelinekit integrates Render as a first-class deployment provider on the same footing as Vercel, Azure, and Railway.
-    When your project charter selects <code>render</code> as the deployment target (Charter Topic 10),
-    pipelinekit routes deployment work to the <code>@render-deployment-engineer</code> agent and the
-    <code>render-ops</code> skill automatically.
-  </p>
 
-  <h2 id="1-what-is-the-render-provider-integration">1. What is the Render provider integration</h2>
-  <p>
-    Render is a cloud platform that provisions infrastructure from source code with zero Dockerfile required
-    for most runtimes (Node.js, Python, Go, Ruby). Render supports persistent disks, cron jobs, private
-    networking, and multi-service projects defined via a <code>render.yaml</code> Blueprint at the repository root.
-  </p>
-  <p>
-    The pipelinekit Render integration consists of three components:
-  </p>
-  <ul>
-    <li>
-      <strong><code>claude/skills/render-ops/SKILL.md</code></strong> — the operational skill that wraps the
-      Render CLI (<code>render</code>) for day-to-day ops: service listing, deploy, log tail, health-endpoint
-      polling, and redeploy. Enforces the auth-posture contract (never auto-authenticates, always starts with
-      <code>render whoami</code>).
-    </li>
-    <li>
-      <strong><code>claude/agents/render-deployment-engineer.md</code></strong> — the deployment-engineer
-      agent that covers Render project/service topology, <code>render.yaml</code> Blueprint configuration
-      authoring, observability wiring, cost guardrails, and the full provider-native verification chain.
-    </li>
-    <li>
-      <strong>Charter Topic 10 integration</strong> — selecting <code>render</code> as the deployment
-      provider in the project charter automatically routes <code>/pipeline</code> deployment phases to the
-      agent and skill above.
-    </li>
-  </ul>
+<p>Render account setup, service config, render.yaml IaC, environment groups, pipelinekit integration via Charter Topic 10, runtime verification, and provider comparison.</p>
+<p>pipelinekit integrates Render as a first-class deployment provider on the same footing as Vercel, Azure, and Railway. When your project charter selects <code>render</code> as the deployment target (Charter Topic 10), pipelinekit routes deployment work to the <code>@render-deployment-engineer</code> agent and the <code>render-ops</code> skill automatically.</p>
+<h2 id="1-what-is-the-render-provider-integration">1. What is the Render provider integration</h2>
+<p>Render is a cloud platform that provisions infrastructure from source code with zero Dockerfile required for most runtimes (Node.js, Python, Go, Ruby). Render supports persistent disks, cron jobs, private networking, and multi-service projects defined via a <code>render.yaml</code> Blueprint at the repository root.</p>
+<p>The pipelinekit Render integration consists of three components:</p>
+<ul>
+<li><strong><code>claude/skills/render-ops/SKILL.md</code></strong> — the operational skill that wraps the Render CLI (<code>render</code>) for day-to-day ops: service listing, deploy, log tail, health-endpoint polling, and redeploy. Enforces the auth-posture contract (never auto-authenticates, always starts with <code>render whoami</code>).</li>
+<li><strong><code>claude/agents/render-deployment-engineer.md</code></strong> — the deployment-engineer agent that covers Render project/service topology, <code>render.yaml</code> Blueprint configuration authoring, observability wiring, cost guardrails, and the full provider-native verification chain.</li>
+<li><strong>Charter Topic 10 integration</strong> — selecting <code>render</code> as the deployment provider in the project charter automatically routes <code>/pipeline</code> deployment phases to the agent and skill above.</li>
+</ul>
+<h2 id="2-account-project-setup">2. Account &amp; project setup</h2>
+<ol>
+<li>
+<p>Create a Render account at <a href="https://render.com">render.com</a>. You can sign up with GitHub for zero-friction Git integration.</p>
+</li>
+<li>
+<p>Create a new service via the Render dashboard. A Web Service, Background Worker, or other service type is the primary deployable unit on Render. One service per deployable application is recommended for clean environment and secret isolation.</p>
+</li>
+<li>
+<p>Optionally define your full service topology in a <code>render.yaml</code> Blueprint at the repository root:</p>
+<div class="codehilite"><pre><span></span><code>render.yaml
+</code></pre></div>
 
-  <h2 id="2-account-amp-project-setup">2. Account &amp; project setup</h2>
-  <ol>
-    <li>
-      Create a Render account at <a href="https://render.com">render.com</a>. You can sign up with GitHub
-      for zero-friction Git integration.
-    </li>
-    <li>
-      Create a new service via the Render dashboard. A Web Service, Background Worker, or other service type
-      is the primary deployable unit on Render. One service per deployable application is recommended for
-      clean environment and secret isolation.
-    </li>
-    <li>
-      Optionally define your full service topology in a <code>render.yaml</code> Blueprint at the repository root:
-      <pre><code>render.yaml</code></pre>
-      <p>
-        The <code>render.yaml</code> Blueprint declares services, databases, and environment groups in code.
-        Render picks it up automatically when the repository is connected to a Render project. Prefer
-        <code>render.yaml</code> over dashboard-only configuration so the deployment spec is version-controlled.
-      </p>
-    </li>
-    <li>
-      Authenticate the CLI before deploying:
-      <pre><code>render login</code></pre>
-      <p>
-        Run <code>render login</code> outside Claude in an interactive shell. pipelinekit's
-        <code>render-ops</code> skill never runs <code>render login</code> for you — authentication is
-        your responsibility.
-      </p>
-    </li>
-    <li>
-      Verify authentication and list your services to confirm the target service exists:
-      <pre><code>render whoami
-render services list</code></pre>
-    </li>
-  </ol>
+<p>The <code>render.yaml</code> Blueprint declares services, databases, and environment groups in code. Render picks it up automatically when the repository is connected to a Render project. Prefer <code>render.yaml</code> over dashboard-only configuration so the deployment spec is version-controlled.</p>
+</li>
+<li>
+<p>Authenticate the CLI before deploying:</p>
+<div class="codehilite"><pre><span></span><code>render login
+</code></pre></div>
 
-  <h2 id="3-cli-install">3. CLI install</h2>
-  <p>
-    The Render CLI is not auto-installed by pipelinekit. Installation is user-driven — this mirrors
-    Vercel's and Railway's install posture. To install the Render CLI, follow the instructions in the
-    <a href="https://render.com/docs/cli">Render CLI documentation</a>.
-  </p>
-  <p>
-    pipelinekit does not automate this step. Refer to the Render CLI docs linked above for the canonical
-    install path for your operating system (macOS, Linux, or Windows).
-  </p>
-  <p>
-    After installing, run <code>render login</code> in an interactive shell outside Claude to authenticate
-    the CLI. Then verify the install and auth with:
-  </p>
-  <pre><code>render whoami</code></pre>
-  <p>
-    A successful <code>render whoami</code> is the prerequisite for every <code>render-ops</code> skill
-    invocation.
-  </p>
+<p>Run <code>render login</code> outside Claude in an interactive shell. pipelinekit's <code>render-ops</code> skill never runs <code>render login</code> for you — authentication is your responsibility.</p>
+</li>
+<li>
+<p>Verify authentication and list your services to confirm the target service exists:</p>
+<div class="codehilite"><pre><span></span><code>render whoami
+render services list
+</code></pre></div>
 
-  <h2 id="4-pipelinekit-integration">4. Pipelinekit integration</h2>
-  <p>
-    To activate the Render provider integration in pipelinekit, select <code>render</code> as the
-    deployment provider when answering Charter Topic 10 during <code>/pipeline</code> Step 0 (Charter
-    Discovery).
-  </p>
-  <p>
-    <strong>Charter Topic 10</strong> asks: <em>"What is your deployment target?"</em> Answer
-    <code>render</code> (Option D). The charter records this answer and downstream pipeline phases use it
-    to route deployment work automatically:
-  </p>
-  <ul>
-    <li>
-      The <code>/implement-plan</code> phase routes Render-specific deployment tasks to the
-      <code>@render-deployment-engineer</code> agent.
-    </li>
-    <li>
-      The agent invokes <code>claude/skills/render-ops/SKILL.md</code> for all CLI operations, enforcing
-      the auth-posture contract (preflight <code>render whoami</code>, never auto-authenticates).
-    </li>
-  </ul>
-  <p>
-    If you have an existing charter and want to switch to Render, update Charter Topic 10 to
-    <code>render</code> and re-run the relevant pipeline phase.
-  </p>
+</li>
+</ol>
+<h2 id="3-cli-install">3. CLI install</h2>
+<p>The Render CLI is not auto-installed by pipelinekit. Installation is user-driven — this mirrors Vercel's and Railway's install posture. To install the Render CLI, follow the instructions in the <a href="https://render.com/docs/cli">Render CLI documentation</a>.</p>
+<p>pipelinekit does not automate this step. Refer to the Render CLI docs linked above for the canonical install path for your operating system (macOS, Linux, or Windows).</p>
+<p>After installing, run <code>render login</code> in an interactive shell outside Claude to authenticate the CLI. Then verify the install and auth with:</p>
+<div class="codehilite"><pre><span></span><code>render whoami
+</code></pre></div>
 
-  <h2 id="5-runtime-verification-commands">5. Runtime verification commands</h2>
-  <p>
-    pipelinekit's Render integration uses the following verification chain after every deploy.
-    All three steps must pass before a deployment is declared production-ready.
-  </p>
+<p>A successful <code>render whoami</code> is the prerequisite for every <code>render-ops</code> skill invocation.</p>
+<h2 id="4-pipelinekit-integration">4. Pipelinekit integration</h2>
+<p>To activate the Render provider integration in pipelinekit, select <code>render</code> as the deployment provider when answering Charter Topic 10 during <code>/pipeline</code> Step 0 (Charter Discovery).</p>
+<p><strong>Charter Topic 10</strong> asks: <em>"What is your deployment target?"</em> Answer <code>render</code> (Option D). The charter records this answer and downstream pipeline phases use it to route deployment work automatically:</p>
+<ul>
+<li>The <code>/implement-plan</code> phase routes Render-specific deployment tasks to the <code>@render-deployment-engineer</code> agent.</li>
+<li>The agent invokes <code>claude/skills/render-ops/SKILL.md</code> for all CLI operations, enforcing the auth-posture contract (preflight <code>render whoami</code>, never auto-authenticates).</li>
+</ul>
+<p>If you have an existing charter and want to switch to Render, update Charter Topic 10 to <code>render</code> and re-run the relevant pipeline phase.</p>
+<h2 id="5-runtime-verification-commands">5. Runtime verification commands</h2>
+<p>pipelinekit's Render integration uses the following verification chain after every deploy. All three steps must pass before a deployment is declared production-ready.</p>
+<h3 id="step-1-service-state-check">Step 1: Service state check</h3>
+<div class="codehilite"><pre><span></span><code>render services list
+</code></pre></div>
 
-  <h3 id="step-1-service-state-check">Step 1: Service state check</h3>
-  <pre><code>render services list</code></pre>
-  <p>
-    Confirms the service reached <strong>LIVE</strong> state. If the state is FAILED or DEPLOY_FAILED,
-    do not proceed — read <code>render logs</code> for the failure reason.
-  </p>
+<p>Confirms the service reached <strong>LIVE</strong> state. If the state is FAILED or DEPLOY_FAILED, do not proceed — read <code>render logs</code> for the failure reason.</p>
+<h3 id="step-2-log-tail-60-seconds-post-deploy">Step 2: Log tail (60 seconds post-deploy)</h3>
+<div class="codehilite"><pre><span></span><code>render logs --tail
+</code></pre></div>
 
-  <h3 id="step-2-log-tail-60-seconds-post-deploy">Step 2: Log tail (60 seconds post-deploy)</h3>
-  <pre><code>render logs --tail</code></pre>
-  <p>
-    Streams live logs from the active service for the first 60 seconds after deploy. Cold-start failures
-    and config-only runtime errors surface within this window.
-  </p>
+<p>Streams live logs from the active service for the first 60 seconds after deploy. Cold-start failures and config-only runtime errors surface within this window.</p>
+<h3 id="step-3-health-endpoint-probe-with-exponential-backoff-60s-timeout">Step 3: Health endpoint probe with exponential backoff (60s timeout)</h3>
+<div class="codehilite"><pre><span></span><code>for i in 1 2 4 8 16 32; do
+  curl --fail --silent &quot;$RENDER_URL/health&quot; &amp;&amp; break
+  echo &quot;Health check failed — retrying in ${i}s (exponential backoff)...&quot;
+  sleep &quot;$i&quot;
+done
+</code></pre></div>
 
-  <h3 id="step-3-health-endpoint-probe-with-exponential-backoff-60s-timeout">Step 3: Health endpoint probe with exponential backoff (60s timeout)</h3>
-  <pre><code>for i in 1 2 4 8 16 32; do
-  curl --fail --silent "$RENDER_URL/health" &amp;&amp; break
-  echo "Health check failed — retrying in ${i}s (exponential backoff)..."
-  sleep "$i"
-done</code></pre>
-  <p>
-    Probes <code>$RENDER_URL/health</code> with a 60s total timeout using exponential backoff (1 → 2 → 4 →
-    8 → 16 → 32 seconds between retries). Render services can have cold-start delays; a single one-shot
-    <code>curl</code> probe produces false negatives. The exponential backoff pattern handles cold-start
-    gracefully.
-  </p>
-  <p>
-    Set <code>healthCheckPath: /health</code> in your <code>render.yaml</code> so Render itself also
-    polls the health endpoint before routing traffic to the new deployment.
-  </p>
-
-  <h2 id="6-auth-posture">6. Auth posture</h2>
-  <p>
-    pipelinekit's Render integration enforces a strict auth posture: Claude never runs
-    <code>render login</code>, never reads <code>RENDER_API_KEY</code> from the environment, and never
-    caches or echoes Render credentials.
-  </p>
-  <ul>
-    <li>
-      <strong>You are responsible for <code>render login</code>.</strong> Run it outside Claude in an
-      interactive shell before invoking any Render skill or agent. Claude refuses to run
-      <code>render login</code> for you.
-    </li>
-    <li>
-      <strong>pipelinekit does not read <code>RENDER_API_KEY</code>.</strong> If you are wiring a CI
-      pipeline (GitHub Actions, etc.), manage <code>RENDER_API_KEY</code> as a CI secret outside Claude.
-      The <code>render-ops</code> skill and <code>@render-deployment-engineer</code> agent never read it.
-    </li>
-    <li>
-      <strong>Preflight on every operation.</strong> Every <code>render-ops</code> workflow begins with
-      <code>render whoami</code>. On non-zero exit, the skill stops and prompts:
-      <pre><code>Render auth missing. Run `render login` outside Claude, then re-invoke this skill.</code></pre>
-    </li>
-  </ul>
-  <p>
-    This posture eliminates a class of credential-leak risk that has historically occurred when agentic
-    contexts run non-interactive auth flows (shell history leaks, log captures, transcript exports).
-  </p>
-
-  <h2 id="7-when-to-use-render-vs-other-providers">7. When to use Render vs. other providers</h2>
-  <p>
-    Render, Railway, Vercel, and Azure serve overlapping but distinct workload profiles. Use this comparison
-    to guide Charter Topic 10 selection.
-  </p>
-  <table>
-    <thead>
-      <tr>
-        <th>Dimension</th>
-        <th>Render</th>
-        <th>Railway</th>
-        <th>Vercel</th>
-        <th>Azure</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Best for</td>
-        <td>Full-stack apps, APIs, workers, databases; Blueprint-driven multi-service projects</td>
-        <td>Full-stack apps, APIs, workers, databases in one project</td>
-        <td>Frontend-heavy apps (Next.js, SvelteKit, Astro, Remix)</td>
-        <td>Enterprise .NET / Java workloads, regulated industries</td>
-      </tr>
-      <tr>
-        <td>Runtime model</td>
-        <td>Always-on services (paid plans); spin-down on inactivity (Free)</td>
-        <td>Always-on services (Pro); sleep on inactivity (Hobby)</td>
-        <td>Serverless / Edge Functions; no persistent processes</td>
-        <td>App Service (persistent), Container Apps (serverless containers), Functions</td>
-      </tr>
-      <tr>
-        <td>Database support</td>
-        <td>First-class: managed PostgreSQL as a Render service, linked via render.yaml</td>
-        <td>First-class: Postgres, MySQL, Redis, MongoDB as Railway services</td>
-        <td>No native database — use external (PlanetScale, Supabase, Neon)</td>
-        <td>Azure SQL, Cosmos DB, Cache for Redis — managed PaaS</td>
-      </tr>
-      <tr>
-        <td>Config format</td>
-        <td><code>render.yaml</code> (Blueprint)</td>
-        <td><code>railway.toml</code></td>
-        <td><code>vercel.json</code></td>
-        <td>Bicep / ARM templates, App Service config</td>
-      </tr>
-      <tr>
-        <td>CLI auth posture</td>
-        <td>User-driven <code>render login</code></td>
-        <td>User-driven <code>railway login</code></td>
-        <td>User-driven <code>vercel login</code></td>
-        <td>User-driven <code>az login</code></td>
-      </tr>
-      <tr>
-        <td>Cold start</td>
-        <td>Yes (Free plan spin-down); No (paid plans with always-on)</td>
-        <td>Yes (Hobby plan sleep); No (Pro plan)</td>
-        <td>Yes (Serverless Functions); Near-zero (Edge Functions)</td>
-        <td>Varies by service tier and scaling config</td>
-      </tr>
-      <tr>
-        <td>Compliance</td>
-        <td>SOC 2 / HIPAA on Enterprise plan</td>
-        <td>SOC 2 / HIPAA on Enterprise plan</td>
-        <td>SOC 2 / HIPAA on Enterprise plan</td>
-        <td>Broad: ISO 27001, SOC 1/2/3, HIPAA, FedRAMP, GDPR</td>
-      </tr>
-    </tbody>
-  </table>
-  <p>
-    <strong>Choose Render when</strong> your workload needs persistent processes (long-running workers,
-    WebSocket servers), managed PostgreSQL co-located with the app, a declarative Blueprint spec for
-    multi-service projects, or an alternative to Railway with a slightly different platform ergonomics
-    and pricing model.
-  </p>
-  <p>
-    <strong>Choose Railway when</strong> your workload is a full-stack application or API that benefits
-    from Railway's project/environment/service topology, <code>railway.toml</code> configuration, or
-    Railway's GitHub integration.
-  </p>
-  <p>
-    <strong>Choose Vercel when</strong> your workload is a frontend framework (Next.js / SvelteKit / Astro
-    / Remix) and you want zero-config per-commit preview deployments with tight Git integration.
-  </p>
-  <p>
-    <strong>Choose Azure when</strong> your workload is enterprise .NET or Java, requires Azure-native
-    services (Azure SQL, Cosmos DB, Service Bus), or has compliance requirements (FedRAMP, regulated
-    healthcare) that need Azure's compliance portfolio.
-  </p>
+<p>Probes <code>$RENDER_URL/health</code> with a 60s total timeout using exponential backoff (1 → 2 → 4 → 8 → 16 → 32 seconds between retries). Render services can have cold-start delays; a single one-shot <code>curl</code> probe produces false negatives. The exponential backoff pattern handles cold-start gracefully.</p>
+<p>Set <code>healthCheckPath: /health</code> in your <code>render.yaml</code> so Render itself also polls the health endpoint before routing traffic to the new deployment.</p>
+<h2 id="6-auth-posture">6. Auth posture</h2>
+<p>pipelinekit's Render integration enforces a strict auth posture: Claude never runs <code>render login</code>, never reads <code>RENDER_API_KEY</code> from the environment, and never caches or echoes Render credentials.</p>
+<ul>
+<li>
+<p><strong>You are responsible for <code>render login</code>.</strong> Run it outside Claude in an interactive shell before invoking any Render skill or agent. Claude refuses to run <code>render login</code> for you.</p>
+</li>
+<li>
+<p><strong>pipelinekit does not read <code>RENDER_API_KEY</code>.</strong> If you are wiring a CI pipeline (GitHub Actions, etc.), manage <code>RENDER_API_KEY</code> as a CI secret outside Claude. The <code>render-ops</code> skill and <code>@render-deployment-engineer</code> agent never read it.</p>
+</li>
+<li>
+<p><strong>Preflight on every operation.</strong> Every <code>render-ops</code> workflow begins with <code>render whoami</code>. On non-zero exit, the skill stops and prompts:</p>
+<p>Render auth missing. Run <code>render login</code> outside Claude, then re-invoke this skill.</p>
+</li>
+</ul>
+<p>This posture eliminates a class of credential-leak risk that has historically occurred when agentic contexts run non-interactive auth flows (shell history leaks, log captures, transcript exports).</p>
+<h2 id="7-when-to-use-render-vs-other-providers">7. When to use Render vs. other providers</h2>
+<p>Render, Railway, Vercel, and Azure serve overlapping but distinct workload profiles. Use this comparison to guide Charter Topic 10 selection.</p>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Render</th>
+<th>Railway</th>
+<th>Vercel</th>
+<th>Azure</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Best for</td>
+<td>Full-stack apps, APIs, workers, databases; Blueprint-driven multi-service projects</td>
+<td>Full-stack apps, APIs, workers, databases in one project</td>
+<td>Frontend-heavy apps (Next.js, SvelteKit, Astro, Remix)</td>
+<td>Enterprise .NET / Java workloads, regulated industries</td>
+</tr>
+<tr>
+<td>Runtime model</td>
+<td>Always-on services (paid plans); spin-down on inactivity (Free)</td>
+<td>Always-on services (Pro); sleep on inactivity (Hobby)</td>
+<td>Serverless / Edge Functions; no persistent processes</td>
+<td>App Service (persistent), Container Apps (serverless containers), Functions</td>
+</tr>
+<tr>
+<td>Database support</td>
+<td>First-class: managed PostgreSQL as a Render service, linked via render.yaml</td>
+<td>First-class: Postgres, MySQL, Redis, MongoDB as Railway services</td>
+<td>No native database — use external (PlanetScale, Supabase, Neon)</td>
+<td>Azure SQL, Cosmos DB, Cache for Redis — managed PaaS</td>
+</tr>
+<tr>
+<td>Config format</td>
+<td><code>render.yaml</code> (Blueprint)</td>
+<td><code>railway.toml</code></td>
+<td><code>vercel.json</code></td>
+<td>Bicep / ARM templates, App Service config</td>
+</tr>
+<tr>
+<td>CLI auth posture</td>
+<td>User-driven <code>render login</code></td>
+<td>User-driven <code>railway login</code></td>
+<td>User-driven <code>vercel login</code></td>
+<td>User-driven <code>az login</code></td>
+</tr>
+<tr>
+<td>Cold start</td>
+<td>Yes (Free plan spin-down); No (paid plans with always-on)</td>
+<td>Yes (Hobby plan sleep); No (Pro plan)</td>
+<td>Yes (Serverless Functions); Near-zero (Edge Functions)</td>
+<td>Varies by service tier and scaling config</td>
+</tr>
+<tr>
+<td>Compliance</td>
+<td>SOC 2 / HIPAA on Enterprise plan</td>
+<td>SOC 2 / HIPAA on Enterprise plan</td>
+<td>SOC 2 / HIPAA on Enterprise plan</td>
+<td>Broad: ISO 27001, SOC 1/2/3, HIPAA, FedRAMP, GDPR</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Choose Render when</strong> your workload needs persistent processes (long-running workers, WebSocket servers), managed PostgreSQL co-located with the app, a declarative Blueprint spec for multi-service projects, or an alternative to Railway with a slightly different platform ergonomics and pricing model.</p>
+<p><strong>Choose Railway when</strong> your workload is a full-stack application or API that benefits from Railway's project/environment/service topology, <code>railway.toml</code> configuration, or Railway's GitHub integration.</p>
+<p><strong>Choose Vercel when</strong> your workload is a frontend framework (Next.js / SvelteKit / Astro / Remix) and you want zero-config per-commit preview deployments with tight Git integration.</p>
+<p><strong>Choose Azure when</strong> your workload is enterprise .NET or Java, requires Azure-native services (Azure SQL, Cosmos DB, Service Bus), or has compliance requirements (FedRAMP, regulated healthcare) that need Azure's compliance portfolio.</p>
     </div>
 
     <div class="no-results" id="no-results">
@@ -982,7 +877,7 @@ done</code></pre>
 </div>
 
 <footer>
-  <div>Generated by <a href="https://github.com/Bruce188/pipelinekit">pipelinekit</a> · <code>docs-writer/2</code></div>
+  <div>Generated by <a href="https://github.com/Bruce188/pipelinekit">pipelinekit</a> · <code>docs-writer/2</code> · <a href="credits.html">Credits</a></div>
   <div>Self-contained HTML · no CDN · no remote assets</div>
 </footer>
 

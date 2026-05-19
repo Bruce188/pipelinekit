@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CI on Blacksmith — pipelinekit</title>
-<meta name="description" content="Blacksmith runner registration, env-var override pattern, drop-in action matrix, and gap-comment policy for pipelinekit-generated GitHub Actions workflows.">
+<title>CI/CD on Blacksmith — pipelinekit</title>
+<meta name="description" content="Pipelinekit defaults to Blacksmith runners (runs-on: blacksmith) for GitHub Actions CI/CD: cost, speed, and per-job pricing characteristics vs ubuntu-latest.">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>CI on Blacksmith</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <a href="credits.html">Credits</a> &nbsp;/&nbsp; <span>CI/CD on Blacksmith</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -532,7 +532,7 @@ footer {
     <h2 class="toc-heading">On this page</h2>
     <ul>
       <li class="lvl-2"><a href="#1-why-blacksmith">1. Why Blacksmith</a></li>
-      <li class="lvl-2"><a href="#2-account-amp-runner-registration">2. Account &amp;amp; runner registration</a></li>
+      <li class="lvl-2"><a href="#2-account-runner-registration">2. Account &amp; runner registration</a></li>
       <li class="lvl-2"><a href="#3-the-blacksmith-runner-env-var-override">3. The BLACKSMITH_RUNNER env-var override</a></li>
       <li class="lvl-2"><a href="#4-drop-in-action-matrix">4. Drop-in action matrix</a></li>
       <li class="lvl-2"><a href="#5-gap-annotation-pattern">5. Gap-annotation pattern</a></li>
@@ -544,526 +544,289 @@ footer {
 
   <main>
     <header class="page-header">
-      <h1>CI on Blacksmith</h1>
-      <p class="description">Blacksmith runner registration, env-var override pattern, drop-in action matrix, and gap-comment policy for pipelinekit-generated GitHub Actions workflows.</p>
+      <h1>CI/CD on Blacksmith</h1>
+      <p class="description">Pipelinekit defaults to Blacksmith runners (runs-on: blacksmith) for GitHub Actions CI/CD: cost, speed, and per-job pricing characteristics vs ubuntu-latest.</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
-<!-- snippet:cost-calculator
-     Live /review cost estimator. Sliders for diff size; toggles for --teams /
-     --design-pass / --health; dropdown for model. Computes estimated tokens,
-     dollars, and wall-time. Export-as-JSON button.
+<!-- snippet:comparison-tabs
+     Tabbed side-by-side comparison of the 5 cloud deployment providers.
+     Click a tab to compare against the page's "home" provider on:
+     pricing model, build system, DB story, region story, scaling story.
 
-     Placeholder usage in markdown source:
-       <div data-snippet="cost-calculator"></div>
+     The "home" provider is auto-detected from <title> if it contains
+     "Vercel", "Azure", "Railway", "Render", or "DigitalOcean".
 
-     All estimates are illustrative — actual costs depend on the diff's
-     content + your charter + your provider's pricing.
+     Placeholder usage:
+       <div data-snippet="comparison-tabs"></div>
 -->
-<div class="pkit-cost-calc" data-snippet-mount="cost-calculator">
+<div class="pkit-cmp" data-snippet-mount="comparison-tabs">
   <style>
-    .pkit-cost-calc {
-      margin: 1.5rem 0;
-      padding: 1.5rem;
-      background: var(--bg-elev);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      display: grid;
-      grid-template-columns: 1fr 320px;
-      gap: 1.5rem;
-    }
-    @media (max-width: 720px) {
-      .pkit-cost-calc { grid-template-columns: 1fr; }
-    }
-    .pkit-cost-calc .pkit-cc-controls {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-    .pkit-cost-calc .pkit-cc-field {
-      display: flex;
-      flex-direction: column;
-      gap: 0.3rem;
-    }
-    .pkit-cost-calc .pkit-cc-field label {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      font-size: 0.78rem;
-      font-weight: 600;
-      color: var(--fg-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-    .pkit-cost-calc .pkit-cc-field label .value {
-      font-family: var(--mono);
-      font-size: 0.85rem;
-      color: var(--accent);
-      text-transform: none;
-      letter-spacing: 0;
-      background: var(--accent-soft);
-      padding: 0.1rem 0.5rem;
-      border-radius: var(--radius-sm);
-    }
-    .pkit-cost-calc input[type="range"] {
-      width: 100%;
-      accent-color: var(--accent);
-      cursor: pointer;
-    }
-    .pkit-cost-calc select {
-      width: 100%;
-      padding: 0.4rem 0.7rem;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      background: var(--bg);
-      color: var(--fg);
-      font-family: var(--sans);
-      font-size: 0.85rem;
-    }
-    .pkit-cost-calc .pkit-cc-toggles {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-    }
-    .pkit-cost-calc .pkit-cc-toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      padding: 0.35rem 0.7rem;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      color: var(--fg-muted);
-      font-size: 0.8rem;
-      cursor: pointer;
-      user-select: none;
-      transition: all var(--transition);
-    }
-    .pkit-cost-calc .pkit-cc-toggle input { margin: 0; accent-color: var(--accent); }
-    .pkit-cost-calc .pkit-cc-toggle:has(input:checked) {
-      color: var(--fg);
-      border-color: var(--accent);
-      background: var(--accent-soft);
-    }
-    .pkit-cost-calc .pkit-cc-output {
-      background: var(--bg);
-      border: 1px solid var(--border-strong);
-      border-radius: var(--radius);
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.7rem;
-    }
-    .pkit-cost-calc .pkit-cc-metric {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      padding-bottom: 0.4rem;
-      border-bottom: 1px dashed var(--border);
-    }
-    .pkit-cost-calc .pkit-cc-metric:last-of-type { border-bottom: none; }
-    .pkit-cost-calc .pkit-cc-metric .key {
-      font-size: 0.78rem;
-      color: var(--fg-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      font-weight: 600;
-    }
-    .pkit-cost-calc .pkit-cc-metric .val {
-      font-family: var(--mono);
-      font-weight: 600;
-      color: var(--fg);
-      font-size: 1rem;
-      text-align: right;
-    }
-    .pkit-cost-calc .pkit-cc-metric .val .sub {
-      font-size: 0.72rem;
-      color: var(--fg-subtle);
-      font-weight: 400;
-      margin-left: 0.3rem;
-    }
-    .pkit-cost-calc .pkit-cc-metric.total .val { color: var(--accent); font-size: 1.4rem; }
-    .pkit-cost-calc .pkit-cc-actions {
-      display: flex;
-      gap: 0.5rem;
-      margin-top: 0.4rem;
-    }
-    .pkit-cost-calc .pkit-cc-btn {
-      flex: 1;
-      padding: 0.45rem 0.7rem;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      background: var(--bg-elev);
-      color: var(--fg-muted);
-      font-family: var(--sans);
-      font-size: 0.8rem;
-      cursor: pointer;
-      transition: all var(--transition);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.35rem;
-    }
-    .pkit-cost-calc .pkit-cc-btn:hover { color: var(--fg); border-color: var(--accent); }
-    .pkit-cost-calc .pkit-cc-btn.copied { color: var(--success); border-color: var(--success); }
-    .pkit-cost-calc .pkit-cc-note {
-      font-size: 0.72rem;
-      color: var(--fg-subtle);
-      font-style: italic;
-      margin-top: 0.3rem;
-    }
+    .pkit-cmp { margin: 1.5rem 0; padding: 1.5rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); }
+    .pkit-cmp .pkit-cmp-tabs { display: flex; gap: 0.3rem; flex-wrap: wrap; border-bottom: 1px solid var(--border); margin-bottom: 1rem; padding-bottom: 0; }
+    .pkit-cmp .pkit-cmp-tab { padding: 0.5rem 0.9rem; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--fg-muted); font-family: var(--sans); font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: all var(--transition); position: relative; bottom: -1px; }
+    .pkit-cmp .pkit-cmp-tab:hover { color: var(--fg); }
+    .pkit-cmp .pkit-cmp-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .pkit-cmp .pkit-cmp-tab .icon { margin-right: 0.3rem; }
+    .pkit-cmp .pkit-cmp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 720px) { .pkit-cmp .pkit-cmp-grid { grid-template-columns: 1fr; } }
+    .pkit-cmp .pkit-cmp-col { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; }
+    .pkit-cmp .pkit-cmp-col h4 { margin: 0 0 0.8rem; font-size: 1rem; font-weight: 700; color: var(--fg); display: flex; align-items: center; gap: 0.4rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+    .pkit-cmp .pkit-cmp-col.home h4 { color: var(--accent); }
+    .pkit-cmp .pkit-cmp-col h4 .badge { font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 999px; background: var(--accent-soft); color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+    .pkit-cmp .pkit-cmp-row { display: flex; flex-direction: column; padding: 0.55rem 0; border-bottom: 1px dashed var(--border); }
+    .pkit-cmp .pkit-cmp-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .pkit-cmp .pkit-cmp-key { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-subtle); font-weight: 600; margin-bottom: 0.2rem; }
+    .pkit-cmp .pkit-cmp-val { font-size: 0.88rem; color: var(--fg); line-height: 1.5; }
+    .pkit-cmp .pkit-cmp-val code { background: var(--bg-elev); padding: 0.1rem 0.4rem; border-radius: var(--radius-sm); font-size: 0.82rem; border: 1px solid var(--border); }
+    .pkit-cmp .pkit-cmp-note { font-size: 0.78rem; color: var(--fg-subtle); margin-top: 0.8rem; font-style: italic; }
   </style>
 
-  <div class="pkit-cc-controls">
-    <div class="pkit-cc-field">
-      <label>Diff size (lines) <span class="value" data-out="diff">200</span></label>
-      <input type="range" min="50" max="5000" step="50" value="200" data-in="diff">
-    </div>
-    <div class="pkit-cc-field">
-      <label>File count <span class="value" data-out="files">5</span></label>
-      <input type="range" min="1" max="50" step="1" value="5" data-in="files">
-    </div>
-    <div class="pkit-cc-field">
-      <label>Reviewer model</label>
-      <select data-in="model">
-        <option value="opus">Opus 4.7 (default for review)</option>
-        <option value="sonnet" selected>Sonnet 4.6</option>
-        <option value="haiku">Haiku 4.5</option>
-      </select>
-    </div>
-    <div class="pkit-cc-field">
-      <label>Flags</label>
-      <div class="pkit-cc-toggles">
-        <label class="pkit-cc-toggle"><input type="checkbox" data-in="teams"> --teams (5 agents)</label>
-        <label class="pkit-cc-toggle"><input type="checkbox" data-in="design-pass"> --design-pass</label>
-        <label class="pkit-cc-toggle"><input type="checkbox" data-in="health"> --health</label>
-      </div>
-    </div>
-  </div>
+  <div class="pkit-cmp-tabs" data-cmp-tabs></div>
+  <div class="pkit-cmp-grid" data-cmp-grid></div>
+  <p class="pkit-cmp-note">Click any tab to compare this page's provider against another. Compare against → switches the right column.</p>
 
-  <div class="pkit-cc-output">
-    <div class="pkit-cc-metric">
-      <span class="key">Agents</span>
-      <span class="val" data-out="agents">2</span>
-    </div>
-    <div class="pkit-cc-metric">
-      <span class="key">Input tokens</span>
-      <span class="val" data-out="in-tokens">12k <span class="sub">cached: 80%</span></span>
-    </div>
-    <div class="pkit-cc-metric">
-      <span class="key">Output tokens</span>
-      <span class="val" data-out="out-tokens">3k</span>
-    </div>
-    <div class="pkit-cc-metric">
-      <span class="key">Wall time</span>
-      <span class="val" data-out="time">~2m</span>
-    </div>
-    <div class="pkit-cc-metric total">
-      <span class="key">Estimated $</span>
-      <span class="val" data-out="dollars">$0.04</span>
-    </div>
-    <div class="pkit-cc-actions">
-      <button class="pkit-cc-btn" data-act="copy">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-        Copy JSON
-      </button>
-      <button class="pkit-cc-btn" data-act="reset">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.74 9.74 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-        Reset
-      </button>
-    </div>
-    <p class="pkit-cc-note">Estimates use Anthropic public per-1M-token pricing (Opus $15 in / $75 out; Sonnet $3 / $15; Haiku $0.80 / $4). Cache hit rate assumed 80%. Actual costs vary by content.</p>
-  </div>
+  <script type="application/json" data-cmp-data>
+{
+  "providers": {
+    "vercel": {
+      "name": "Vercel", "icon": "▲", "color": "#000",
+      "rows": {
+        "Pricing model": "Per-invocation (Hobby free / Pro $20/mo + usage). Free tier generous for static + low-traffic SSR.",
+        "Build system": "Auto-detect framework presets (Next.js, SvelteKit, Astro, Remix, Vite). Zero <code>vercel.json</code> needed for the common case.",
+        "Database story": "No first-party. Use Vercel Postgres (Neon-managed) or external (Supabase / Neon direct / PlanetScale).",
+        "Region story": "Global edge by default. Pin functions to specific regions via <code>vercel.json</code>.",
+        "Scaling": "Auto-scale per-function. Cold-start ~50-200ms on warm functions; up to ~1s on rarely-hit ones."
+      }
+    },
+    "azure": {
+      "name": "Azure", "icon": "☁", "color": "#0078d4",
+      "rows": {
+        "Pricing model": "Per-resource (App Service plan, Container Apps consumption, Function Apps Y1/EP). Free tier exists but limited.",
+        "Build system": "Multiple options: App Service auto-build, Container Apps Dockerfile, Bicep IaC for full control.",
+        "Database story": "First-party: Azure SQL, Cosmos DB, PostgreSQL Flexible Server, Redis Cache. Tight integration via Managed Identity.",
+        "Region story": "60+ regions globally. Availability zones for HA. Region pairs for DR.",
+        "Scaling": "Granular: App Service plan instances, Container Apps replicas, Function consumption-plan auto-scale. Some resources scale to zero."
+      }
+    },
+    "railway": {
+      "name": "Railway", "icon": "⚡", "color": "#7c3aed",
+      "rows": {
+        "Pricing model": "Usage-based (~$5 credit/mo free, then $0.000463/GB-hour). Predictable for small projects.",
+        "Build system": "Nixpacks (zero Dockerfile for most runtimes — Node, Python, Go, Ruby). Falls back to Dockerfile if present.",
+        "Database story": "First-party managed Postgres, MySQL, Redis, MongoDB. One-click provisioning inside the same project.",
+        "Region story": "Limited regions (US-West / EU-West / Singapore). Not edge.",
+        "Scaling": "Vertical (CPU/RAM) by default. Horizontal replicas require config. Cron + workers natively supported."
+      }
+    },
+    "render": {
+      "name": "Render", "icon": "🎨", "color": "#46e3b7",
+      "rows": {
+        "Pricing model": "Per-service tier ($7/mo Standard, $25/mo Pro). Free tier for static + cron only — web services don't have a real free tier (spin-down after inactivity).",
+        "Build system": "Native runtime detection (Node, Python, Ruby, Go, Rust, Elixir, Docker). <code>render.yaml</code> for IaC.",
+        "Database story": "First-party managed Postgres + Redis. External: any.",
+        "Region story": "5 regions (Oregon, Ohio, Virginia, Frankfurt, Singapore).",
+        "Scaling": "Manual horizontal scaling on Pro+. Auto-scaling in beta. Predictable instance pricing."
+      }
+    },
+    "digitalocean": {
+      "name": "DigitalOcean App Platform", "icon": "🌊", "color": "#0080ff",
+      "rows": {
+        "Pricing model": "Per-service tier ($5/mo Basic, $12/mo Pro per instance). Predictable. No free tier for App Platform itself.",
+        "Build system": "Buildpacks (Heroku-style) or Dockerfile. Component-based deploy.",
+        "Database story": "First-party DO Managed Databases (Postgres, MySQL, Redis, MongoDB, Kafka). Separate billing from App Platform.",
+        "Region story": "12+ regions. App Platform availability varies per region; check before commit.",
+        "Scaling": "Vertical resize + horizontal scaling. App Platform handles routing automatically."
+      }
+    }
+  }
+}
+  </script>
 </div>
 
 <script>
 (function() {
   'use strict';
-  const calcs = document.querySelectorAll('.pkit-cost-calc[data-snippet-mount="cost-calculator"]');
-  const calc = calcs[calcs.length - 1];
-  if (!calc || calc.dataset.pkitInit) return;
-  calc.dataset.pkitInit = '1';
+  document.querySelectorAll('.pkit-cmp[data-snippet-mount="comparison-tabs"]').forEach(cmp => {
+    if (cmp.dataset.pkitInit) return;
+    cmp.dataset.pkitInit = '1';
 
-  // Pricing per 1M tokens (input cached / input uncached / output)
-  const PRICING = {
-    opus:   { inCached: 1.50, inUncached: 15.00, out: 75.00 },
-    sonnet: { inCached: 0.30, inUncached:  3.00, out: 15.00 },
-    haiku:  { inCached: 0.08, inUncached:  0.80, out:  4.00 },
-  };
+    const dataEl = cmp.querySelector('script[data-cmp-data]');
+    const tabsEl = cmp.querySelector('[data-cmp-tabs]');
+    const gridEl = cmp.querySelector('[data-cmp-grid]');
+    if (!dataEl || !tabsEl || !gridEl) return;
+    const data = JSON.parse(dataEl.textContent);
 
-  // Per-agent token budget (illustrative)
-  // Each reviewer agent reads: full diff + plan + analysis + charter ≈ 8k tokens base
-  // Plus per-line overhead: ~2 tokens/diff-line (model "sees" the diff)
-  // Plus per-file overhead: ~50 tokens/file (file headers, line metadata)
-  // Output: ~1k tokens per agent for the findings (more with --teams, --design-pass)
-
-  const $ = (sel) => calc.querySelector(sel);
-  const inputs = {
-    diff:        $('[data-in="diff"]'),
-    files:       $('[data-in="files"]'),
-    model:       $('[data-in="model"]'),
-    teams:       $('[data-in="teams"]'),
-    designPass:  $('[data-in="design-pass"]'),
-    health:      $('[data-in="health"]'),
-  };
-  const outputs = {
-    diff:      $('[data-out="diff"]'),
-    files:     $('[data-out="files"]'),
-    agents:    $('[data-out="agents"]'),
-    inTokens:  $('[data-out="in-tokens"]'),
-    outTokens: $('[data-out="out-tokens"]'),
-    time:      $('[data-out="time"]'),
-    dollars:   $('[data-out="dollars"]'),
-  };
-
-  function format(n) {
-    if (n < 1000) return n.toFixed(0);
-    if (n < 1000000) return (n / 1000).toFixed(1) + 'k';
-    return (n / 1000000).toFixed(2) + 'M';
+  // Detect "home" provider from <title>
+  const title = (document.title || '').toLowerCase();
+  let home = 'vercel';
+  for (const key of Object.keys(data.providers)) {
+    if (title.includes(key)) { home = key; break; }
   }
-  function dollars(d) {
-    if (d < 0.01) return '$' + d.toFixed(4);
-    if (d < 1)    return '$' + d.toFixed(3);
-    return '$' + d.toFixed(2);
-  }
+  // Default "other" = first non-home
+  const others = Object.keys(data.providers).filter(k => k !== home);
+  let compareKey = others[0];
 
-  function compute() {
-    const diff = +inputs.diff.value;
-    const files = +inputs.files.value;
-    const model = inputs.model.value;
-    const teams = inputs.teams.checked;
-    const designPass = inputs.designPass.checked;
-    const health = inputs.health.checked;
+  function render() {
+    tabsEl.innerHTML = '';
+    Object.entries(data.providers).forEach(([key, prov]) => {
+      if (key === home) return;
+      const b = document.createElement('button');
+      b.className = 'pkit-cmp-tab' + (key === compareKey ? ' active' : '');
+      b.dataset.key = key;
+      b.innerHTML = `<span class="icon">${prov.icon}</span>${prov.name}`;
+      b.addEventListener('click', () => { compareKey = key; render(); });
+      tabsEl.appendChild(b);
+    });
 
-    // Agent count
-    let agents;
-    if (diff < 500) agents = 2;           // lightweight (small diff)
-    else if (diff < 5000) agents = 5;     // standard
-    else agents = 6;                       // large
-    if (teams) agents = Math.max(agents, 5);  // --teams floor
-    if (designPass) agents += 1;
-    if (health) agents += 1;
+    const homeProv = data.providers[home];
+    const otherProv = data.providers[compareKey];
 
-    // Per-agent input budget
-    const baseInput = 8000;                 // prompt + system
-    const diffOverhead = diff * 2;          // ~2 tokens / diff line
-    const fileOverhead = files * 50;
-    const perAgentInput = baseInput + diffOverhead + fileOverhead;
-    const totalInput = perAgentInput * agents;
+    function colHtml(prov, isHome) {
+      const rows = Object.entries(prov.rows).map(([k, v]) =>
+        `<div class="pkit-cmp-row">
+           <div class="pkit-cmp-key">${k}</div>
+           <div class="pkit-cmp-val">${v}</div>
+         </div>`).join('');
+      const badge = isHome ? ' <span class="badge">this page</span>' : '';
+      return `<div class="pkit-cmp-col ${isHome ? 'home' : ''}">
+                <h4>${prov.icon} ${prov.name}${badge}</h4>
+                ${rows}
+              </div>`;
+    }
 
-    // Per-agent output (findings)
-    const baseOutput = 1500;
-    const perAgentOutput = baseOutput + (teams ? 500 : 0) + (designPass ? 800 : 0);
-    const totalOutput = perAgentOutput * agents;
-
-    // Cache hit rate (80% by default — first agent uncached, subsequent agents cached)
-    const cacheHitRate = 0.80;
-    const cachedInput = totalInput * cacheHitRate;
-    const uncachedInput = totalInput * (1 - cacheHitRate);
-
-    // Cost
-    const p = PRICING[model];
-    const inputCost = (cachedInput * p.inCached + uncachedInput * p.inUncached) / 1_000_000;
-    const outputCost = (totalOutput * p.out) / 1_000_000;
-    const totalCost = inputCost + outputCost;
-
-    // Wall time: agents run in parallel, so time = base + per-agent serial overhead
-    // For --teams (5 agents parallel), time is dominated by the slowest agent
-    const baseTime = 90;                    // 90s minimum
-    const tokensPerSecond = model === 'opus' ? 40 : model === 'sonnet' ? 80 : 150;
-    const perAgentTimeSec = (perAgentInput / 5 + perAgentOutput) / tokensPerSecond;
-    const totalTimeSec = baseTime + perAgentTimeSec;  // parallel: max agent time
-    const timeStr = totalTimeSec < 60 ? `~${Math.round(totalTimeSec)}s`
-                  : totalTimeSec < 600 ? `~${Math.round(totalTimeSec / 60)}m`
-                  : `~${(totalTimeSec / 60).toFixed(1)}m`;
-
-    // Update outputs
-    outputs.diff.textContent = diff.toString();
-    outputs.files.textContent = files.toString();
-    outputs.agents.textContent = agents.toString();
-    outputs.inTokens.innerHTML = `${format(totalInput)} <span class="sub">cached: ${Math.round(cacheHitRate * 100)}%</span>`;
-    outputs.outTokens.textContent = format(totalOutput);
-    outputs.time.textContent = timeStr;
-    outputs.dollars.textContent = dollars(totalCost);
-
-    return {
-      input: { diff, files, model, teams, designPass, health },
-      agents,
-      tokens: { input: totalInput, output: totalOutput, cached_pct: cacheHitRate * 100 },
-      time_seconds: Math.round(totalTimeSec),
-      cost_usd: +totalCost.toFixed(4),
-    };
+    gridEl.innerHTML = colHtml(homeProv, true) + colHtml(otherProv, false);
   }
 
-  Object.values(inputs).forEach(el => el.addEventListener('input', compute));
-
-  const copyBtn = $('[data-act="copy"]');
-  copyBtn.addEventListener('click', async () => {
-    const result = compute();
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(result, null, 2));
-      copyBtn.classList.add('copied');
-      const orig = copyBtn.innerHTML;
-      copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Copied';
-      setTimeout(() => { copyBtn.classList.remove('copied'); copyBtn.innerHTML = orig; }, 1800);
-    } catch (e) { copyBtn.textContent = 'Press Ctrl+C'; }
+    render();
   });
-
-  $('[data-act="reset"]').addEventListener('click', () => {
-    inputs.diff.value = 200;
-    inputs.files.value = 5;
-    inputs.model.value = 'sonnet';
-    inputs.teams.checked = false;
-    inputs.designPass.checked = false;
-    inputs.health.checked = false;
-    compute();
-  });
-
-  compute();
 })();
 </script>
 
+
 <h2 id="1-why-blacksmith">1. Why Blacksmith</h2>
-  <p>
-    Blacksmith provides ephemeral, performant runners for GitHub Actions that are faster and more cost-effective than
-    GitHub-hosted runners for most workloads. Key advantages:
-  </p>
-  <ul>
-    <li>Faster cache warm-up through persistent runner-local caching via <code>useblacksmith/cache</code></li>
-    <li>Reduced per-minute compute cost compared to GitHub-hosted runners at equivalent vCPU tiers</li>
-    <li>Drop-in compatibility: most jobs need only one <code>runs-on:</code> line change</li>
-    <li>Ecosystem-native drop-in actions for common setup tasks (<code>cache</code>, <code>setup-node</code>, <code>setup-python</code>, <code>setup-go</code>)</li>
-  </ul>
-  <p>
-    pipelinekit defaults to Blacksmith runners in all generated and templated workflow YAML. The lint rule R5
-    (in <code>claude/skills/create-plan/SKILL.md</code> Step 4.5) enforces this default at plan-creation time.
-  </p>
+<p>Blacksmith provides ephemeral, performant runners for GitHub Actions that are faster and more cost-effective than GitHub-hosted runners for most workloads. Key advantages:</p>
+<ul>
+<li>Faster cache warm-up through persistent runner-local caching via <code>useblacksmith/cache</code></li>
+<li>Reduced per-minute compute cost compared to GitHub-hosted runners at equivalent vCPU tiers</li>
+<li>Drop-in compatibility: most jobs need only one <code>runs-on:</code> line change</li>
+<li>Ecosystem-native drop-in actions for common setup tasks (<code>cache</code>, <code>setup-node</code>, <code>setup-python</code>, <code>setup-go</code>)</li>
+</ul>
+<p>pipelinekit defaults to Blacksmith runners in all generated and templated workflow YAML. The lint rule R5 (in <code>claude/skills/create-plan/SKILL.md</code> Step 4.5) enforces this default at plan-creation time.</p>
+<h2 id="2-account-runner-registration">2. Account &amp; runner registration</h2>
+<ol>
+<li>Sign up at <code>blacksmith.sh</code> and create an organisation.</li>
+<li>Register an organisation runner via <code>blacksmith register</code> in your GitHub organisation settings.</li>
+<li>Store the runner authentication token as a GitHub Actions secret named <code>BLACKSMITH_TOKEN</code> only if a specific Blacksmith action requires it. Most jobs auto-authenticate via the registered runner — no per-job secret token is required for <code>useblacksmith/*</code> actions.</li>
+<li>Optionally set the <code>BLACKSMITH_RUNNER</code> GitHub Actions variable at the repository or organisation level to select a non-default runner tier (see Section 3).</li>
+</ol>
+<h2 id="3-the-blacksmith-runner-env-var-override">3. The <code>BLACKSMITH_RUNNER</code> env-var override</h2>
+<p>Every <code>runs-on:</code> line in pipelinekit-generated workflows uses the fallback expression:</p>
+<div class="codehilite"><pre><span></span><code>runs-on: ${{ vars.BLACKSMITH_RUNNER || &#39;blacksmith-4vcpu-ubuntu-2204&#39; }}
+</code></pre></div>
 
-  <h2 id="2-account-amp-runner-registration">2. Account &amp; runner registration</h2>
-  <ol>
-    <li>Sign up at <code>blacksmith.sh</code> and create an organisation.</li>
-    <li>Register an organisation runner via <code>blacksmith register</code> in your GitHub organisation settings.</li>
-    <li>
-      Store the runner authentication token as a GitHub Actions secret named <code>BLACKSMITH_TOKEN</code> only
-      if a specific Blacksmith action requires it. Most jobs auto-authenticate via the registered runner — no
-      per-job secret token is required for <code>useblacksmith/*</code> actions.
-    </li>
-    <li>Optionally set the <code>BLACKSMITH_RUNNER</code> GitHub Actions variable at the repository or organisation
-      level to select a non-default runner tier (see Section 3).</li>
-  </ol>
+<p>Set the <code>BLACKSMITH_RUNNER</code> GitHub Actions variable (repo or org level) to one of the available runner tiers:</p>
+<ul>
+<li><code>blacksmith-2vcpu-ubuntu-2204</code> — small jobs (linting, quick unit tests)</li>
+<li><code>blacksmith-4vcpu-ubuntu-2204</code> — default tier (balanced cost/performance)</li>
+<li><code>blacksmith-8vcpu-ubuntu-2204</code> — heavier builds (multi-module monorepos, Docker builds)</li>
+<li><code>blacksmith-16vcpu-ubuntu-2204</code> — very heavy / parallel matrix jobs</li>
+</ul>
+<p>When <code>BLACKSMITH_RUNNER</code> is unset, the fallback literal <code>blacksmith-4vcpu-ubuntu-2204</code> is used. To switch all jobs in a repository to a larger tier, set the variable once at the repository level — no YAML changes required.</p>
+<h2 id="4-drop-in-action-matrix">4. Drop-in action matrix</h2>
+<p>Blacksmith publishes optimised drop-in replacements for common GitHub Actions setup steps. Use the drop-ins where available; retain upstream actions and annotate with the gap-comment pattern (see Section 5) where no drop-in exists.</p>
+<table>
+<thead>
+<tr>
+<th>Upstream action</th>
+<th>Blacksmith drop-in</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>actions/cache@v3,v4</code></td>
+<td><code>useblacksmith/cache@v5</code></td>
+<td>swap</td>
+</tr>
+<tr>
+<td><code>actions/setup-node@v3,v4</code></td>
+<td><code>useblacksmith/setup-node@v5</code></td>
+<td>swap</td>
+</tr>
+<tr>
+<td><code>actions/setup-python@v2,v4,v5</code></td>
+<td><code>useblacksmith/setup-python@v6</code></td>
+<td>swap</td>
+</tr>
+<tr>
+<td><code>actions/setup-go@v4,v5</code></td>
+<td><code>useblacksmith/setup-go@v6</code></td>
+<td>swap</td>
+</tr>
+<tr>
+<td><code>actions/checkout@v2,v4</code></td>
+<td>(no drop-in needed)</td>
+<td>keep + annotate</td>
+</tr>
+<tr>
+<td><code>actions/upload-artifact@v3,v4</code></td>
+<td>(no drop-in published)</td>
+<td>keep + annotate</td>
+</tr>
+<tr>
+<td><code>codecov/codecov-action@v2,v3,v4</code></td>
+<td>(no drop-in)</td>
+<td>keep + annotate</td>
+</tr>
+<tr>
+<td><code>aquasecurity/trivy-action@master</code></td>
+<td>(no drop-in)</td>
+<td>keep + annotate</td>
+</tr>
+<tr>
+<td><code>github/codeql-action/*</code></td>
+<td>(no drop-in)</td>
+<td>keep + annotate</td>
+</tr>
+<tr>
+<td><code>SonarSource/sonarcloud-github-action@master</code></td>
+<td>(no drop-in)</td>
+<td>keep + annotate</td>
+</tr>
+<tr>
+<td><code>snyk/actions/node@master</code></td>
+<td>(no drop-in)</td>
+<td>keep + annotate</td>
+</tr>
+<tr>
+<td><code>aws-actions/configure-aws-credentials@v2,v4</code></td>
+<td>(no drop-in)</td>
+<td>keep + annotate</td>
+</tr>
+</tbody>
+</table>
+<h2 id="5-gap-annotation-pattern">5. Gap-annotation pattern</h2>
+<p>When no Blacksmith drop-in exists for an upstream action, retain the upstream action and add a same-line comment using exactly this format (three spaces before <code>#</code>, em-dash, action name without the <code>@vN</code> pin):</p>
+<div class="codehilite"><pre><span></span><code>- uses: codecov/codecov-action@v3   # No Blacksmith drop-in — using upstream codecov/codecov-action
+</code></pre></div>
 
-  <h2 id="3-the-blacksmith-runner-env-var-override">3. The <code>BLACKSMITH_RUNNER</code> env-var override</h2>
-  <p>Every <code>runs-on:</code> line in pipelinekit-generated workflows uses the fallback expression:</p>
-  <pre><code>runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}</code></pre>
-  <p>
-    Set the <code>BLACKSMITH_RUNNER</code> GitHub Actions variable (repo or org level) to one of the
-    available runner tiers:
-  </p>
-  <ul>
-    <li><code>blacksmith-2vcpu-ubuntu-2204</code> — small jobs (linting, quick unit tests)</li>
-    <li><code>blacksmith-4vcpu-ubuntu-2204</code> — default tier (balanced cost/performance)</li>
-    <li><code>blacksmith-8vcpu-ubuntu-2204</code> — heavier builds (multi-module monorepos, Docker builds)</li>
-    <li><code>blacksmith-16vcpu-ubuntu-2204</code> — very heavy / parallel matrix jobs</li>
-  </ul>
-  <p>
-    When <code>BLACKSMITH_RUNNER</code> is unset, the fallback literal
-    <code>blacksmith-4vcpu-ubuntu-2204</code> is used. To switch all jobs in a repository to a larger tier,
-    set the variable once at the repository level — no YAML changes required.
-  </p>
+<p>The annotation communicates to reviewers and future maintainers that the upstream action was intentionally retained because no Blacksmith optimised equivalent is available, not because the migration was missed.</p>
+<h2 id="6-secrets-policy">6. Secrets policy</h2>
+<p>Never commit Blacksmith account credentials, billing tokens, or runner registration tokens to any YAML, Markdown, or config file in the repository. All secrets must be stored in the GitHub Actions secrets store at the repository or organisation level and referenced via <code>${{ secrets.&lt;NAME&gt; }}</code>.</p>
+<p>The pipelinekit lint rule R5 does not check for secret exposure — use standard secret-scanning tooling (e.g., <code>github/codeql-action/init</code> with secret scanning enabled, or <code>aquasecurity/trivy-action</code>) to enforce this policy in CI.</p>
+<h2 id="7-lint-enforcement-r5">7. Lint enforcement (R5)</h2>
+<p>The pipelinekit plan-mode lint gate (<code>claude/skills/create-plan/SKILL.md</code> Step 4.5, rule <strong>R5</strong>) rejects any plan task whose <code>**Files:**</code> list creates or modifies a <code>.github/workflows/*.yml</code> or <code>.github/workflows/*.yaml</code> file with a non-<code>blacksmith-*</code> runner, unless the task body documents the gap via a <code>BLACKSMITH_DOES_NOT_SUPPORT_&lt;reason&gt;:</code> line in the <code>**Context:**</code> field.</p>
+<p>The companion smoke test at <code>tests/test_blacksmith_lint_r5.sh</code> exercises the R5 rule against six fixture plans covering the violation, compliant, documented-gap, non-workflow-file, yaml-extension, and non-ubuntu-hosted-runner cases.</p>
+<p>The <code>BLACKSMITH_RUNNER</code> variable name also appears in the R5 remediation hint inside <code>claude/skills/create-plan/SKILL.md</code> Step 4.5, and throughout the drop-in matrix examples in this document.</p>
+<h2 id="8-documented-gap-escape-hatch">8. Documented-gap escape hatch</h2>
+<p>Use this escape hatch only when the workflow legitimately cannot run on Blacksmith — for example, when the job requires a Windows or macOS host, or custom hardware that Blacksmith does not support. Add a single line to the task's <code>**Context:**</code> field:</p>
+<div class="codehilite"><pre><span></span><code>BLACKSMITH_DOES_NOT_SUPPORT_HOST_ARCH: windows-2022
+</code></pre></div>
 
-  <h2 id="4-drop-in-action-matrix">4. Drop-in action matrix</h2>
-  <p>
-    Blacksmith publishes optimised drop-in replacements for common GitHub Actions setup steps.
-    Use the drop-ins where available; retain upstream actions and annotate with the gap-comment pattern
-    (see Section 5) where no drop-in exists.
-  </p>
-  <table>
-    <thead>
-      <tr>
-        <th>Upstream action</th>
-        <th>Blacksmith drop-in</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr><td><code>actions/cache@v3,v4</code></td><td><code>useblacksmith/cache@v5</code></td><td>swap</td></tr>
-      <tr><td><code>actions/setup-node@v3,v4</code></td><td><code>useblacksmith/setup-node@v5</code></td><td>swap</td></tr>
-      <tr><td><code>actions/setup-python@v2,v4,v5</code></td><td><code>useblacksmith/setup-python@v6</code></td><td>swap</td></tr>
-      <tr><td><code>actions/setup-go@v4,v5</code></td><td><code>useblacksmith/setup-go@v6</code></td><td>swap</td></tr>
-      <tr><td><code>actions/checkout@v2,v4</code></td><td>(no drop-in needed)</td><td>keep + annotate</td></tr>
-      <tr><td><code>actions/upload-artifact@v3,v4</code></td><td>(no drop-in published)</td><td>keep + annotate</td></tr>
-      <tr><td><code>codecov/codecov-action@v2,v3,v4</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>aquasecurity/trivy-action@master</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>github/codeql-action/*</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>SonarSource/sonarcloud-github-action@master</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>snyk/actions/node@master</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>aws-actions/configure-aws-credentials@v2,v4</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-    </tbody>
-  </table>
-
-  <h2 id="5-gap-annotation-pattern">5. Gap-annotation pattern</h2>
-  <p>
-    When no Blacksmith drop-in exists for an upstream action, retain the upstream action and add a same-line
-    comment using exactly this format (three spaces before <code>#</code>, em-dash, action name without
-    the <code>@vN</code> pin):
-  </p>
-  <pre><code>- uses: codecov/codecov-action@v3   # No Blacksmith drop-in — using upstream codecov/codecov-action</code></pre>
-  <p>
-    The annotation communicates to reviewers and future maintainers that the upstream action was intentionally
-    retained because no Blacksmith optimised equivalent is available, not because the migration was missed.
-  </p>
-
-  <h2 id="6-secrets-policy">6. Secrets policy</h2>
-  <p>
-    Never commit Blacksmith account credentials, billing tokens, or runner registration tokens to any
-    YAML, Markdown, or config file in the repository. All secrets must be stored in the GitHub Actions
-    secrets store at the repository or organisation level and referenced via
-    <code>${{ secrets.&lt;NAME&gt; }}</code>.
-  </p>
-  <p>
-    The pipelinekit lint rule R5 does not check for secret exposure — use standard secret-scanning tooling
-    (e.g., <code>github/codeql-action/init</code> with secret scanning enabled, or
-    <code>aquasecurity/trivy-action</code>) to enforce this policy in CI.
-  </p>
-
-  <h2 id="7-lint-enforcement-r5">7. Lint enforcement (R5)</h2>
-  <p>
-    The pipelinekit plan-mode lint gate (<code>claude/skills/create-plan/SKILL.md</code> Step 4.5, rule
-    <strong>R5</strong>) rejects any plan task whose <code>**Files:**</code> list creates or modifies a
-    <code>.github/workflows/*.yml</code> or <code>.github/workflows/*.yaml</code> file with a
-    non-<code>blacksmith-*</code> runner, unless the task body documents the gap via a
-    <code>BLACKSMITH_DOES_NOT_SUPPORT_&lt;reason&gt;:</code> line in the <code>**Context:**</code> field.
-  </p>
-  <p>
-    The companion smoke test at <code>tests/test_blacksmith_lint_r5.sh</code> exercises the R5 rule against
-    six fixture plans covering the violation, compliant, documented-gap, non-workflow-file, yaml-extension,
-    and non-ubuntu-hosted-runner cases.
-  </p>
-  <p>
-    The <code>BLACKSMITH_RUNNER</code> variable name also appears in the R5 remediation hint inside
-    <code>claude/skills/create-plan/SKILL.md</code> Step 4.5, and throughout the drop-in matrix examples
-    in this document.
-  </p>
-
-  <h2 id="8-documented-gap-escape-hatch">8. Documented-gap escape hatch</h2>
-  <p>
-    Use this escape hatch only when the workflow legitimately cannot run on Blacksmith — for example, when
-    the job requires a Windows or macOS host, or custom hardware that Blacksmith does not support.
-    Add a single line to the task's <code>**Context:**</code> field:
-  </p>
-  <pre><code>BLACKSMITH_DOES_NOT_SUPPORT_HOST_ARCH: windows-2022</code></pre>
-  <p>
-    R5 reads this as an explicit acknowledgement that the non-Blacksmith runner is intentional, and lets
-    the task pass the lint gate. Choose the <code>&lt;reason&gt;</code> suffix to communicate why
-    Blacksmith is not applicable (e.g., <code>HOST_ARCH</code>, <code>GPU_REQUIRED</code>,
-    <code>MACOS_KEYCHAIN</code>).
-  </p>
-  <p>
-    Do not use this escape hatch for convenience — only for genuine technical incompatibilities.
-    Every use of the escape hatch should be reviewable: a future reader of the plan should be able to
-    understand why Blacksmith was not used for that specific task.
-  </p>
+<p>R5 reads this as an explicit acknowledgement that the non-Blacksmith runner is intentional, and lets the task pass the lint gate. Choose the <code>&lt;reason&gt;</code> suffix to communicate why Blacksmith is not applicable (e.g., <code>HOST_ARCH</code>, <code>GPU_REQUIRED</code>, <code>MACOS_KEYCHAIN</code>).</p>
+<p>Do not use this escape hatch for convenience — only for genuine technical incompatibilities. Every use of the escape hatch should be reviewable: a future reader of the plan should be able to understand why Blacksmith was not used for that specific task.</p>
     </div>
 
     <div class="no-results" id="no-results">
@@ -1073,7 +836,7 @@ footer {
 </div>
 
 <footer>
-  <div>Generated by <a href="https://github.com/Bruce188/pipelinekit">pipelinekit</a> · <code>docs-writer/2</code></div>
+  <div>Generated by <a href="https://github.com/Bruce188/pipelinekit">pipelinekit</a> · <code>docs-writer/2</code> · <a href="credits.html">Credits</a></div>
   <div>Self-contained HTML · no CDN · no remote assets</div>
 </footer>
 

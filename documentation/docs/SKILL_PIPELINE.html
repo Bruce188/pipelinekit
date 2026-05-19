@@ -1,0 +1,1758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skill Production Pipeline — claude-skills — pipelinekit</title>
+<meta name="description" content="Every skill MUST go through this pipeline. No exceptions.">
+<meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
+<style>
+/* === Reset + variables === */
+*, *::before, *::after { box-sizing: border-box; }
+:root {
+  --bg: #ffffff;
+  --bg-elev: #fafbfc;
+  --bg-code: #f4f5f7;
+  --bg-sel: #e3f2fd;
+  --fg: #1a1d23;
+  --fg-muted: #5a6172;
+  --fg-subtle: #8b94a3;
+  --border: #e1e5eb;
+  --border-strong: #c5cbd4;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-soft: #dbeafe;
+  --success: #059669;
+  --warn: #d97706;
+  --danger: #dc2626;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --radius: 6px;
+  --radius-sm: 4px;
+  --mono: ui-monospace, "JetBrains Mono", "SF Mono", "Cascadia Code", "Consolas", monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --transition: 150ms ease;
+  /* Syntax highlight colors (light) */
+  --syn-kw: #7c3aed;     /* keyword purple */
+  --syn-str: #059669;    /* string green */
+  --syn-num: #d97706;    /* number orange */
+  --syn-com: #6b7280;    /* comment gray */
+  --syn-fn: #2563eb;     /* function blue */
+  --syn-cls: #db2777;    /* class pink */
+  --syn-op: #1f2937;     /* operator near-fg */
+}
+html[data-theme="dark"], :root[data-theme="dark"] {
+  --bg: #0b0f1a;
+  --bg-elev: #131825;
+  --bg-code: #161c2c;
+  --bg-sel: #1e3a5f;
+  --fg: #e8ecf3;
+  --fg-muted: #9aa3b3;
+  --fg-subtle: #6b7589;
+  --border: #1f2638;
+  --border-strong: #2a3349;
+  --accent: #60a5fa;
+  --accent-hover: #93c5fd;
+  --accent-soft: #1e3a8a33;
+  --success: #34d399;
+  --warn: #fbbf24;
+  --danger: #f87171;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+  --syn-kw: #c084fc;
+  --syn-str: #4ade80;
+  --syn-num: #fbbf24;
+  --syn-com: #94a3b8;
+  --syn-fn: #60a5fa;
+  --syn-cls: #f472b6;
+  --syn-op: #e8ecf3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b0f1a;
+    --bg-elev: #131825;
+    --bg-code: #161c2c;
+    --bg-sel: #1e3a5f;
+    --fg: #e8ecf3;
+    --fg-muted: #9aa3b3;
+    --fg-subtle: #6b7589;
+    --border: #1f2638;
+    --border-strong: #2a3349;
+    --accent: #60a5fa;
+    --accent-hover: #93c5fd;
+    --accent-soft: #1e3a8a33;
+    --success: #34d399;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+    --syn-kw: #c084fc;
+    --syn-str: #4ade80;
+    --syn-num: #fbbf24;
+    --syn-com: #94a3b8;
+    --syn-fn: #60a5fa;
+    --syn-cls: #f472b6;
+    --syn-op: #e8ecf3;
+  }
+}
+html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+body {
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.65;
+  background: var(--bg);
+  color: var(--fg);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background var(--transition), color var(--transition);
+}
+::selection { background: var(--bg-sel); }
+
+/* === Top bar === */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: saturate(180%) blur(10px);
+}
+.topbar .brand {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--fg);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.topbar .brand .logo {
+  width: 22px; height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: white;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.7rem;
+}
+.topbar .crumbs {
+  color: var(--fg-muted);
+  font-size: 0.85rem;
+  flex: 1;
+}
+.topbar .crumbs a { color: var(--fg-muted); text-decoration: none; }
+.topbar .crumbs a:hover { color: var(--accent); }
+.search-box {
+  position: relative;
+  flex: 0 1 280px;
+}
+.search-box input {
+  width: 100%;
+  padding: 0.4rem 0.7rem 0.4rem 2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  transition: border-color var(--transition);
+}
+.search-box input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.search-box .icon {
+  position: absolute;
+  left: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fg-subtle);
+  pointer-events: none;
+}
+.theme-toggle {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg-muted);
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  transition: all var(--transition);
+}
+.theme-toggle:hover { color: var(--fg); border-color: var(--border-strong); }
+
+/* === Layout === */
+.layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  max-width: 1280px;
+  margin: 0 auto;
+  gap: 2rem;
+  padding: 2rem 1.5rem;
+}
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; }
+  .toc { display: none; }
+  .toc.open { display: block; position: fixed; top: 60px; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 99; padding: 1.5rem; overflow-y: auto; }
+  .toc-mobile-btn { display: inline-flex; }
+}
+.toc-mobile-btn {
+  display: none;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg-muted);
+  padding: 0.35rem 0.7rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.85rem;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* === ToC sidebar === */
+.toc {
+  position: sticky;
+  top: 80px;
+  align-self: start;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  font-size: 0.85rem;
+  padding-right: 0.5rem;
+}
+.toc-heading {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-subtle);
+  font-weight: 700;
+  margin: 0 0 0.7rem 0.5rem;
+}
+.toc ul { list-style: none; padding: 0; margin: 0; }
+.toc li { margin: 0; }
+.toc a {
+  display: block;
+  padding: 0.3rem 0.5rem;
+  color: var(--fg-muted);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  transition: all var(--transition);
+  line-height: 1.4;
+}
+.toc a:hover { color: var(--fg); background: var(--bg-elev); }
+.toc a.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 500;
+}
+.toc .lvl-3 a { padding-left: 1.4rem; font-size: 0.8rem; }
+
+/* === Main content === */
+main { min-width: 0; }
+.page-header { margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+.page-header h1 { font-size: 2rem; font-weight: 700; line-height: 1.2; margin: 0 0 0.5rem; letter-spacing: -0.01em; }
+.page-header .description { color: var(--fg-muted); font-size: 1.05rem; line-height: 1.5; margin: 0; }
+.page-meta { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; font-size: 0.8rem; color: var(--fg-subtle); }
+.page-meta .meta-item { display: inline-flex; align-items: center; gap: 0.3rem; }
+.page-meta code { background: var(--bg-code); padding: 0.05rem 0.4rem; border-radius: var(--radius-sm); font-size: 0.8rem; }
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--fg);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  position: relative;
+}
+h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; padding-top: 0.5rem; }
+h3 { font-size: 1.25rem; margin: 2rem 0 0.8rem; }
+h4 { font-size: 1.05rem; margin: 1.5rem 0 0.5rem; color: var(--fg-muted); }
+h5, h6 { font-size: 0.95rem; margin: 1rem 0 0.4rem; color: var(--fg-muted); }
+h2 .anchor, h3 .anchor, h4 .anchor {
+  position: absolute;
+  left: -1.3rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fg-subtle);
+  opacity: 0;
+  text-decoration: none;
+  font-weight: 400;
+  transition: opacity var(--transition);
+  font-size: 0.9em;
+}
+h2:hover .anchor, h3:hover .anchor, h4:hover .anchor { opacity: 1; }
+h2 .anchor:hover, h3 .anchor:hover, h4 .anchor:hover { color: var(--accent); }
+p { margin: 0.9rem 0; }
+a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color var(--transition); }
+a:hover { border-bottom-color: var(--accent); }
+strong { font-weight: 600; color: var(--fg); }
+em { font-style: italic; }
+hr { border: none; border-top: 1px solid var(--border); margin: 2.5rem 0; }
+
+/* === Code === */
+code {
+  font-family: var(--mono);
+  font-size: 0.88em;
+  background: var(--bg-code);
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  color: var(--fg);
+}
+pre {
+  position: relative;
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.2rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+  box-shadow: var(--shadow-sm);
+}
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--fg);
+}
+pre .lang-label {
+  position: absolute;
+  top: 0.5rem;
+  right: 3rem;
+  font-size: 0.7rem;
+  color: var(--fg-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--sans);
+  font-weight: 600;
+  user-select: none;
+}
+pre .copy-btn {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.5rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  border-radius: var(--radius-sm);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: all var(--transition);
+  font-family: var(--sans);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+pre:hover .copy-btn { opacity: 1; }
+pre .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+pre .copy-btn.copied { color: var(--success); border-color: var(--success); }
+
+/* Pygments syntax classes */
+.codehilite .k, .codehilite .kn, .codehilite .kd, .codehilite .kr, .codehilite .kt { color: var(--syn-kw); font-weight: 500; }
+.codehilite .s, .codehilite .s1, .codehilite .s2, .codehilite .sb { color: var(--syn-str); }
+.codehilite .mi, .codehilite .mf, .codehilite .mh, .codehilite .mo { color: var(--syn-num); }
+.codehilite .c, .codehilite .c1, .codehilite .cm, .codehilite .ch { color: var(--syn-com); font-style: italic; }
+.codehilite .nf, .codehilite .fm { color: var(--syn-fn); font-weight: 500; }
+.codehilite .nc, .codehilite .ne { color: var(--syn-cls); font-weight: 500; }
+.codehilite .o, .codehilite .ow { color: var(--syn-op); }
+.codehilite .nv, .codehilite .vc, .codehilite .vg, .codehilite .vi { color: var(--syn-fn); }
+.codehilite .nb { color: var(--syn-fn); }
+.codehilite .gp { color: var(--syn-com); user-select: none; }
+
+/* === Tables === */
+.table-wrap { overflow-x: auto; margin: 1rem 0; border: 1px solid var(--border); border-radius: var(--radius); }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+thead { background: var(--bg-elev); border-bottom: 1px solid var(--border); }
+th {
+  text-align: left;
+  padding: 0.6rem 0.9rem;
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+th.sortable::after {
+  content: "↕";
+  margin-left: 0.4rem;
+  color: var(--fg-subtle);
+  font-size: 0.75rem;
+}
+th.sortable.asc::after { content: "↑"; color: var(--accent); }
+th.sortable.desc::after { content: "↓"; color: var(--accent); }
+td { padding: 0.6rem 0.9rem; border-top: 1px solid var(--border); vertical-align: top; }
+tbody tr:hover { background: var(--bg-elev); }
+tbody tr.filtered-out { display: none; }
+
+/* === Lists === */
+ul, ol { padding-left: 1.5rem; margin: 0.8rem 0; }
+ul li, ol li { margin: 0.3rem 0; }
+ul ul, ol ol, ul ol, ol ul { margin: 0.2rem 0; }
+
+/* === Blockquotes === */
+blockquote {
+  border-left: 3px solid var(--accent);
+  background: var(--bg-elev);
+  padding: 0.7rem 1.1rem;
+  margin: 1rem 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  color: var(--fg);
+}
+blockquote p:first-child { margin-top: 0; }
+blockquote p:last-child { margin-bottom: 0; }
+
+/* === Callouts (auto-detected from blockquote first line) === */
+.callout {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.85rem 1.1rem;
+  border-radius: var(--radius);
+  margin: 1rem 0;
+  border-left: 3px solid;
+  background: var(--bg-elev);
+}
+.callout-icon { font-size: 1.1rem; line-height: 1.4; flex-shrink: 0; }
+.callout-body { flex: 1; min-width: 0; }
+.callout-body p:first-child { margin-top: 0; font-weight: 600; }
+.callout-body p:last-child { margin-bottom: 0; }
+.callout.info { border-left-color: var(--accent); }
+.callout.info .callout-icon { color: var(--accent); }
+.callout.warn { border-left-color: var(--warn); }
+.callout.warn .callout-icon { color: var(--warn); }
+.callout.danger { border-left-color: var(--danger); }
+.callout.danger .callout-icon { color: var(--danger); }
+.callout.success { border-left-color: var(--success); }
+.callout.success .callout-icon { color: var(--success); }
+
+/* === Details/Summary === */
+details {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0;
+  margin: 1rem 0;
+}
+details[open] { border-color: var(--border-strong); }
+summary {
+  padding: 0.7rem 1rem;
+  cursor: pointer;
+  font-weight: 600;
+  user-select: none;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+summary::before { content: "▶"; transition: transform var(--transition); font-size: 0.75rem; color: var(--fg-subtle); }
+details[open] summary::before { transform: rotate(90deg); }
+summary::-webkit-details-marker { display: none; }
+details > *:not(summary) { padding: 0 1rem 0.8rem; }
+
+/* === Highlights (search) === */
+.search-hit { background: rgba(255, 230, 0, 0.45); border-radius: 2px; padding: 0 2px; }
+html[data-theme="dark"] .search-hit, :root[data-theme="dark"] .search-hit { background: rgba(255, 200, 0, 0.35); }
+
+/* === Footer === */
+footer {
+  margin: 4rem auto 0;
+  padding: 2rem 1.5rem;
+  max-width: 1280px;
+  border-top: 1px solid var(--border);
+  font-size: 0.82rem;
+  color: var(--fg-subtle);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+/* === No-result state for search === */
+.no-results {
+  display: none;
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--fg-muted);
+}
+.no-results.visible { display: block; }
+
+/* === Print === */
+@media print {
+  .topbar, .toc, .toc-mobile-btn, .copy-btn, .theme-toggle, .search-box, footer { display: none !important; }
+  .layout { display: block; padding: 0; max-width: none; }
+  body { font-size: 11pt; }
+  pre { page-break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <span class="logo">P</span>
+    <span>pipelinekit docs</span>
+  </a>
+  <div class="crumbs">
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <a href="credits.html">Credits</a> &nbsp;/&nbsp; <span>Skill Production Pipeline — claude-skills</span>
+  </div>
+  <div class="search-box">
+    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="search" id="page-search" placeholder="Filter page (/)" aria-label="Filter content on this page">
+  </div>
+  <button class="toc-mobile-btn" id="toc-toggle" aria-label="Toggle table of contents">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    Contents
+  </button>
+  <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
+    <svg id="theme-icon-light" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+    <svg id="theme-icon-dark" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <span id="theme-label">Auto</span>
+  </button>
+</header>
+
+<div class="layout">
+  <aside class="toc" id="toc">
+    <h2 class="toc-heading">On this page</h2>
+    <ul>
+      <li class="lvl-2"><a href="#mandatory-pipeline">Mandatory Pipeline</a></li>
+      <li class="lvl-3"><a href="#tool-anthropic-skill-creator-v2025-03">Tool: Anthropic Skill Creator (v2025-03+)</a></li>
+      <li class="lvl-3"><a href="#dependencies">Dependencies</a></li>
+      <li class="lvl-3"><a href="#iteration-limits">Iteration Limits</a></li>
+      <li class="lvl-2"><a href="#phase-1-intent-research">Phase 1: Intent &amp; Research</a></li>
+      <li class="lvl-2"><a href="#phase-2-draft-skill-md">Phase 2: Draft SKILL.md</a></li>
+      <li class="lvl-3"><a href="#required-structure">Required Structure</a></li>
+      <li class="lvl-3"><a href="#skill-md-rules">SKILL.md Rules</a></li>
+      <li class="lvl-2"><a href="#phase-3-eval-benchmark">Phase 3: Eval &amp; Benchmark</a></li>
+      <li class="lvl-3"><a href="#3a-create-test-cases">3a. Create Test Cases</a></li>
+      <li class="lvl-3"><a href="#3b-run-evals">3b. Run Evals</a></li>
+      <li class="lvl-3"><a href="#3c-aggregate-review">3c. Aggregate &amp; Review</a></li>
+      <li class="lvl-3"><a href="#3d-quality-gate">3d. Quality Gate</a></li>
+      <li class="lvl-2"><a href="#phase-4-iterate-until-done">Phase 4: Iterate Until Done</a></li>
+      <li class="lvl-2"><a href="#phase-5-description-optimization">Phase 5: Description Optimization</a></li>
+      <li class="lvl-2"><a href="#phase-6-compliance-check-claude-code">Phase 6: Compliance Check (Claude Code)</a></li>
+      <li class="lvl-2"><a href="#phase-7-package-for-all-platforms">Phase 7: Package for All Platforms</a></li>
+      <li class="lvl-3"><a href="#7a-claude-code-plugin">7a. Claude Code Plugin</a></li>
+      <li class="lvl-3"><a href="#7b-codex-cli-version">7b. Codex CLI Version</a></li>
+      <li class="lvl-3"><a href="#7c-openclaw-skill">7c. OpenClaw Skill</a></li>
+      <li class="lvl-3"><a href="#7d-gemini-cli-skill">7d. Gemini CLI Skill</a></li>
+      <li class="lvl-2"><a href="#phase-8-deploy">Phase 8: Deploy</a></li>
+      <li class="lvl-3"><a href="#marketplace">Marketplace</a></li>
+      <li class="lvl-3"><a href="#gemini-cli-setup">Gemini CLI setup</a></li>
+      <li class="lvl-3"><a href="#github-release">GitHub Release</a></li>
+      <li class="lvl-3"><a href="#clawhub">ClawHub</a></li>
+      <li class="lvl-3"><a href="#codex-cli-registry">Codex CLI Registry</a></li>
+      <li class="lvl-2"><a href="#agent-command-requirements">Agent &amp; Command Requirements</a></li>
+      <li class="lvl-3"><a href="#every-skill-should-have">Every Skill SHOULD Have:</a></li>
+      <li class="lvl-3"><a href="#agent-format">Agent Format:</a></li>
+      <li class="lvl-3"><a href="#command-format">Command Format:</a></li>
+      <li class="lvl-2"><a href="#phase-9-real-world-verification-never-skip">Phase 9: Real-World Verification (NEVER SKIP)</a></li>
+      <li class="lvl-3"><a href="#9a-marketplace-installation-test">9a. Marketplace Installation Test</a></li>
+      <li class="lvl-3"><a href="#9b-trigger-test">9b. Trigger Test</a></li>
+      <li class="lvl-3"><a href="#9c-functional-test">9c. Functional Test</a></li>
+      <li class="lvl-3"><a href="#9d-bug-fix-protocol">9d. Bug Fix Protocol</a></li>
+      <li class="lvl-3"><a href="#9e-cross-platform-verify">9e. Cross-Platform Verify</a></li>
+      <li class="lvl-2"><a href="#documentation-requirements-continuous">Documentation Requirements (Continuous)</a></li>
+      <li class="lvl-3"><a href="#per-commit-updates">Per-Commit Updates</a></li>
+      <li class="lvl-3"><a href="#per-skill-updates">Per-Skill Updates</a></li>
+      <li class="lvl-3"><a href="#per-release-updates">Per-Release Updates</a></li>
+      <li class="lvl-3"><a href="#github-pages">GitHub Pages</a></li>
+      <li class="lvl-2"><a href="#versioning">Versioning</a></li>
+      <li class="lvl-3"><a href="#semantic-versioning-strict">Semantic Versioning (STRICT)</a></li>
+      <li class="lvl-3"><a href="#current-version-targets-update-as-releases-ship">Current Version Targets (update as releases ship)</a></li>
+      <li class="lvl-3"><a href="#rollback-protocol">Rollback Protocol</a></li>
+      <li class="lvl-3"><a href="#changelog-md-format">CHANGELOG.md Format</a></li>
+      <li class="lvl-2"><a href="#quality-tiers">Quality Tiers</a></li>
+      <li class="lvl-2"><a href="#checklist-copy-per-skill">Checklist (copy per skill)</a></li>
+      <li class="lvl-3"><a href="#required-blocks-merge">Required (blocks merge)</a></li>
+      <li class="lvl-3"><a href="#recommended-nice-to-have-don-t-block">Recommended (nice-to-have, don&#x27;t block)</a></li>
+      <li class="lvl-2"><a href="#notifications">Notifications</a></li>
+      <li class="lvl-3"><a href="#enabling">Enabling</a></li>
+      <li class="lvl-3"><a href="#what-gets-notified">What gets notified</a></li>
+      <li class="lvl-3"><a href="#per-run-opt-out">Per-run opt-out</a></li>
+      <li class="lvl-3"><a href="#reference">Reference</a></li>
+      <li class="lvl-2"><a href="#human-review-gate">Human-Review Gate</a></li>
+      <li class="lvl-3"><a href="#enabling-2">Enabling</a></li>
+      <li class="lvl-3"><a href="#responding-to-the-gate">Responding to the gate</a></li>
+      <li class="lvl-3"><a href="#timeout-behavior">Timeout behavior</a></li>
+      <li class="lvl-3"><a href="#reference-2">Reference</a></li>
+    </ul>
+  </aside>
+
+  <main>
+    <header class="page-header">
+      <h1>Skill Production Pipeline — claude-skills</h1>
+      <p class="description">Every skill MUST go through this pipeline. No exceptions.</p>
+      <div class="page-meta"></div>
+    </header>
+
+    <div id="page-content">
+<!--
+Vendored from alirezarezvani/claude-skills @ 0d477a06589aa730b98e351f46985c5c937de0bf
+Upstream path: SKILL_PIPELINE.md
+License: MIT — Copyright (c) 2025 Alireza Rezvani
+Source: https://github.com/alirezarezvani/claude-skills/blob/0d477a06589aa730b98e351f46985c5c937de0bf/SKILL_PIPELINE.md
+Do not edit in place — re-vendor from upstream and bump the SHA in documentation/NOTICE.md.
+-->
+
+<blockquote>
+</blockquote>
+<!-- snippet:live-linter
+     Paste-your-SKILL.md textarea + live scoring against the 10-pattern
+     skill authoring standard. Per-pattern green/amber/red badges with
+     specific suggestions. Pure client-side; no network call.
+
+     Used on documentation/docs/SKILL-AUTHORING-STANDARD.html.
+
+     Placeholder usage:
+       <div data-snippet="live-linter"></div>
+-->
+<div class="pkit-linter" data-snippet-mount="live-linter">
+  <style>
+    .pkit-linter { margin: 1.5rem 0; padding: 1.5rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); display: grid; grid-template-columns: 1fr 340px; gap: 1rem; }
+    @media (max-width: 800px) { .pkit-linter { grid-template-columns: 1fr; } }
+    .pkit-linter .pkit-ll-input { display: flex; flex-direction: column; gap: 0.5rem; }
+    .pkit-linter .pkit-ll-label { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-subtle); font-weight: 600; }
+    .pkit-linter .pkit-ll-actions { display: flex; gap: 0.4rem; }
+    .pkit-linter .pkit-ll-btn { padding: 0.25rem 0.55rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--fg-muted); font-family: var(--sans); font-size: 0.72rem; cursor: pointer; text-transform: none; letter-spacing: 0; transition: all var(--transition); }
+    .pkit-linter .pkit-ll-btn:hover { color: var(--fg); border-color: var(--accent); }
+    .pkit-linter textarea { width: 100%; min-height: 320px; padding: 0.7rem 0.9rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--fg); font-family: var(--mono); font-size: 0.85rem; line-height: 1.5; resize: vertical; }
+    .pkit-linter textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .pkit-linter .pkit-ll-output { background: var(--bg); border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 0.9rem; display: flex; flex-direction: column; }
+    .pkit-linter .pkit-ll-score { display: flex; flex-direction: column; padding-bottom: 0.7rem; margin-bottom: 0.7rem; border-bottom: 1px solid var(--border); }
+    .pkit-linter .pkit-ll-score .num { font-family: var(--mono); font-size: 2rem; font-weight: 700; color: var(--accent); line-height: 1; }
+    .pkit-linter .pkit-ll-score .num .of { font-size: 1.1rem; color: var(--fg-muted); font-weight: 400; }
+    .pkit-linter .pkit-ll-score .grade { font-size: 0.78rem; font-weight: 600; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.3rem; }
+    .pkit-linter .pkit-ll-rows { display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; max-height: 380px; }
+    .pkit-linter .pkit-ll-row { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.82rem; line-height: 1.4; }
+    .pkit-linter .pkit-ll-row .badge { flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; color: white; margin-top: 1px; }
+    .pkit-linter .pkit-ll-row .badge.pass { background: var(--success); }
+    .pkit-linter .pkit-ll-row .badge.warn { background: var(--warn); }
+    .pkit-linter .pkit-ll-row .badge.fail { background: var(--danger); }
+    .pkit-linter .pkit-ll-row .pattern { font-weight: 600; color: var(--fg); }
+    .pkit-linter .pkit-ll-row .hint { color: var(--fg-muted); font-size: 0.78rem; display: block; margin-top: 0.1rem; }
+  </style>
+
+  <div class="pkit-ll-input">
+    <div class="pkit-ll-label">
+      <span>Paste your SKILL.md content</span>
+      <div class="pkit-ll-actions">
+        <button class="pkit-ll-btn" data-act="example">Load example</button>
+        <button class="pkit-ll-btn" data-act="clear">Clear</button>
+      </div>
+    </div>
+    <textarea id="pkit-ll-input" placeholder="---
+name: my-skill
+description: What this skill does and when to use it. ...
+---
+
+# my-skill — short title
+
+## When this skill fires
+...
+
+## What it does
+...
+
+## Output
+...
+
+## Example
+...
+" spellcheck="false"></textarea>
+  </div>
+
+  <div class="pkit-ll-output">
+    <div class="pkit-ll-score">
+      <span class="num" id="pkit-ll-num">0<span class="of">/10</span></span>
+      <span class="grade" id="pkit-ll-grade">no input</span>
+    </div>
+    <div class="pkit-ll-rows" id="pkit-ll-rows"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  const lts = document.querySelectorAll('.pkit-linter[data-snippet-mount="live-linter"]');
+  const lt = lts[lts.length - 1];
+  if (!lt || lt.dataset.pkitInit) return;
+  lt.dataset.pkitInit = '1';
+
+  const input = lt.querySelector('#pkit-ll-input');
+  const num = lt.querySelector('#pkit-ll-num');
+  const grade = lt.querySelector('#pkit-ll-grade');
+  const rows = lt.querySelector('#pkit-ll-rows');
+
+  // 10-pattern skill DNA checklist. Each pattern has:
+  //   name, regex (or function), hint.
+  // Returns 'pass' / 'warn' / 'fail' per pattern.
+  const PATTERNS = [
+    {
+      name: "YAML frontmatter (---)",
+      test: (s) => /^---\s*\n[\s\S]*?\n---\s*\n/.test(s) ? 'pass' : 'fail',
+      hint: "Skill files start with a `---` fenced YAML block. Required for Claude Code to discover the skill."
+    },
+    {
+      name: "Frontmatter has `name:`",
+      test: (s) => /^---[\s\S]*?\nname:\s*\S/.test(s) ? 'pass' : 'fail',
+      hint: "Lowercase letters, digits, hyphens only. Max 64 chars. If omitted, falls back to directory name."
+    },
+    {
+      name: "Frontmatter has `description:`",
+      test: (s) => /^---[\s\S]*?\ndescription:\s*\S/.test(s) ? 'pass' : 'fail',
+      hint: "Recommended. Claude reads this to decide when to load the skill. Combined cap of 1,536 chars with `when_to_use`."
+    },
+    {
+      name: "Description ≤ 1,536 chars",
+      test: (s) => {
+        const m = s.match(/^---[\s\S]*?\ndescription:\s*(.+)/);
+        if (!m) return 'fail';
+        const len = m[1].length;
+        return len <= 1536 ? 'pass' : 'warn';
+      },
+      hint: "If over the cap, Claude Code truncates in the skill listing, stripping keywords."
+    },
+    {
+      name: "Title (H1) below frontmatter",
+      test: (s) => {
+        const body = s.replace(/^---[\s\S]*?\n---\s*\n/, '');
+        return /^#\s+\S/.test(body) ? 'pass' : 'warn';
+      },
+      hint: "Conventional H1 below the frontmatter as the skill's narrative title."
+    },
+    {
+      name: "Has a `## When` (or trigger) section",
+      test: (s) => /^##\s+When|^##\s+Triggers?|^##\s+Trigger/.test(s.split('\n').join('\n')) ? 'pass' : 'warn',
+      hint: "Document when the skill fires (manual `/name` invocation, auto-discovery by Claude, hook event)."
+    },
+    {
+      name: "Has a `## Constraints` or AVOID list",
+      test: (s) => /^##\s+(Constraints?|Rules?|AVOID|Don[’']?t)|^##\s+The\s+\w+\s+rules?/im.test(s) ? 'pass' : 'warn',
+      hint: "Explicit constraints prevent mis-application by Claude. Capture the don't-do-this surface."
+    },
+    {
+      name: "Has an `## Example` or worked example",
+      test: (s) => /^##\s+Example|^###?\s+Example/im.test(s) ? 'pass' : 'warn',
+      hint: "Concrete example anchors abstract instructions."
+    },
+    {
+      name: "References supporting files (reference.md, scripts, etc.)",
+      test: (s) => /reference\.md|scripts\/|\bsupporting files\b|\bsnippets?\b/i.test(s) ? 'pass' : 'warn',
+      hint: "Large reference material moves out to supporting files (loaded only when needed)."
+    },
+    {
+      name: "No `Co-Authored-By` or AI attribution leak",
+      test: (s) => /Co-Authored-By|Generated with|Claude AI|🤖/i.test(s) ? 'fail' : 'pass',
+      hint: "Skill content must not include AI attribution lines (they'd propagate into commits)."
+    }
+  ];
+
+  function evaluate(text) {
+    return PATTERNS.map(p => ({
+      name: p.name,
+      result: p.test(text),
+      hint: p.hint,
+    }));
+  }
+
+  function render(text) {
+    const results = evaluate(text);
+    const passCount = results.filter(r => r.result === 'pass').length;
+    const warnCount = results.filter(r => r.result === 'warn').length;
+    num.innerHTML = `${passCount}<span class="of">/${results.length}</span>`;
+    let g;
+    if (text.trim().length === 0) g = 'no input';
+    else if (passCount === results.length) g = 'all clear';
+    else if (passCount >= 8) g = 'solid';
+    else if (passCount >= 5) g = `${warnCount} warning${warnCount === 1 ? '' : 's'}`;
+    else g = 'needs work';
+    grade.textContent = g;
+
+    rows.innerHTML = '';
+    results.forEach(r => {
+      const div = document.createElement('div');
+      div.className = 'pkit-ll-row';
+      const symbol = r.result === 'pass' ? '✓' : r.result === 'warn' ? '!' : '✕';
+      div.innerHTML = `
+        <span class="badge ${r.result}">${symbol}</span>
+        <div>
+          <span class="pattern">${r.name}</span>
+          <span class="hint">${r.hint}</span>
+        </div>
+      `;
+      rows.appendChild(div);
+    });
+  }
+
+  let debounce;
+  input.addEventListener('input', (e) => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => render(e.target.value), 120);
+  });
+
+  lt.querySelector('[data-act="clear"]').addEventListener('click', () => {
+    input.value = '';
+    render('');
+    input.focus();
+  });
+
+  lt.querySelector('[data-act="example"]').addEventListener('click', () => {
+    input.value = `---
+name: deploy-helper
+description: Deploy the current branch via the project's standard CI flow. Use when the user says "ship it", "deploy to staging", or asks to "push live".
+allowed-tools: Bash, Read, Edit
+disable-model-invocation: true
+---
+
+# deploy-helper
+
+A purpose-built deploy command for this project.
+
+## When this skill fires
+
+User explicitly types \`/deploy-helper\`. The \`disable-model-invocation: true\` frontmatter prevents Claude from auto-firing it (deploys are user-initiated).
+
+## Constraints
+
+- Refuse to deploy if working tree is dirty.
+- Refuse to deploy from \`main\` directly — the user must be on a feature branch.
+- Do NOT skip CI hooks (no \`--no-verify\`).
+- Do NOT force-push.
+
+## Example
+
+\`\`\`
+/deploy-helper staging
+\`\`\`
+
+Triggers \`scripts/deploy.sh staging\` after the working-tree-clean and not-on-main checks pass.
+
+## See also
+
+- \`scripts/deploy.sh\` — the underlying shell script
+- \`docs/deploy-runbook.md\` — operational reference
+`;
+    render(input.value);
+  });
+
+  render('');
+})();
+</script>
+
+
+<hr>
+<h2 id="mandatory-pipeline">Mandatory Pipeline</h2>
+<p>Every skill MUST go through this pipeline. No exceptions.</p>
+<div class="codehilite"><pre><span></span><code>Intent → Research → Draft → Eval → Iterate → Compliance → Package → Deploy → Verify → Rollback-Ready
+</code></pre></div>
+
+<h3 id="tool-anthropic-skill-creator-v2025-03">Tool: Anthropic Skill Creator (v2025-03+)</h3>
+<p><strong>Location:</strong> <code>~/.openclaw/workspace/skills/skill-creator/</code>
+<strong>Components:</strong> SKILL.md, 3 agents (grader, comparator, analyzer), 10 scripts, eval-viewer, schemas</p>
+<h3 id="dependencies">Dependencies</h3>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Version</th>
+<th>Install</th>
+<th>Fallback</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tessl CLI</td>
+<td>v0.70.0</td>
+<td><code>tessl login</code> (auth: rezarezvani)</td>
+<td>Manual 8-point compliance check</td>
+</tr>
+<tr>
+<td>ClawHub CLI</td>
+<td>latest</td>
+<td><code>npm i -g @openclaw/clawhub</code></td>
+<td>Skip OpenClaw publish, do manually later</td>
+</tr>
+<tr>
+<td>Claude Code</td>
+<td>2.1+</td>
+<td>Already installed</td>
+<td>Required, no fallback</td>
+</tr>
+<tr>
+<td>Python</td>
+<td>3.10+</td>
+<td>System</td>
+<td>Required for scripts</td>
+</tr>
+</tbody>
+</table>
+<h3 id="iteration-limits">Iteration Limits</h3>
+<ul>
+<li><strong>Max 5 iterations</strong> per skill before escalation</li>
+<li><strong>Max 3 hours</strong> per skill in eval loop</li>
+<li>If stuck → log issue, move to next skill, revisit in next batch</li>
+</ul>
+<hr>
+<h2 id="phase-1-intent-research">Phase 1: Intent &amp; Research</h2>
+<ol>
+<li><strong>Capture intent</strong> — What should this skill enable? When should it trigger? Expected output format?</li>
+<li><strong>Interview</strong> — Edge cases, input/output formats, success criteria, dependencies</li>
+<li><strong>Research</strong> — Check competing skills, market gaps, related domain standards</li>
+<li><strong>Define domain expertise level</strong> — Skills must be POWERFUL tier (expert-level, not generic)</li>
+</ol>
+<h2 id="phase-2-draft-skill-md">Phase 2: Draft SKILL.md</h2>
+<p>Using Anthropic's skill-creator workflow:</p>
+<h3 id="required-structure">Required Structure</h3>
+<div class="codehilite"><pre><span></span><code>skill-name/
+├── SKILL.md              # Core instructions (YAML frontmatter required)
+│   ├── name: (kebab-case)
+│   ├── description: (pushy triggers, when-to-use)
+│   └── Body (&lt;500 lines ideal)
+├── scripts/              # Python CLI tools (no ML/LLM calls, stdlib only)
+├── references/           # Expert knowledge bases (loaded on demand)
+├── assets/               # Templates, sample data, expected outputs
+├── agents/               # Sub-agent definitions (if applicable)
+├── commands/             # Slash commands (if applicable)
+└── evals/
+    └── evals.json        # Test cases + assertions
+</code></pre></div>
+
+<h3 id="skill-md-rules">SKILL.md Rules</h3>
+<ul>
+<li>YAML frontmatter: <code>name</code> + <code>description</code> required</li>
+<li>Description must be "pushy" — include trigger phrases, edge cases, competing contexts</li>
+<li>Under 500 lines; overflow → reference files with clear pointers</li>
+<li>Explain WHY, not just WHAT — theory of mind over rigid MUSTs</li>
+<li>Include examples with Input/Output patterns</li>
+<li>Define output format explicitly</li>
+</ul>
+<h2 id="phase-3-eval-benchmark">Phase 3: Eval &amp; Benchmark</h2>
+<h3 id="3a-create-test-cases">3a. Create Test Cases</h3>
+<ul>
+<li>2-3 realistic test prompts (what real users would actually say)</li>
+<li>Save to <code>evals/evals.json</code> (schema: <code>references/schemas.md</code>)</li>
+<li>Include <code>files</code> for file-dependent skills</li>
+</ul>
+<h3 id="3b-run-evals">3b. Run Evals</h3>
+<ul>
+<li>Spawn with-skill AND baseline (without-skill) runs in parallel</li>
+<li>Save to <code>&lt;skill&gt;-workspace/iteration-N/eval-&lt;ID&gt;/</code></li>
+<li>Capture <code>timing.json</code> from completion notifications</li>
+<li>Grade using <code>agents/grader.md</code> → <code>grading.json</code></li>
+</ul>
+<h3 id="3c-aggregate-review">3c. Aggregate &amp; Review</h3>
+<div class="codehilite"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>scripts.aggregate_benchmark<span class="w"> </span>&lt;workspace&gt;/iteration-N<span class="w"> </span>--skill-name<span class="w"> </span>&lt;name&gt;
+python<span class="w"> </span>&lt;skill-creator&gt;/eval-viewer/generate_review.py<span class="w"> </span>&lt;workspace&gt;/iteration-N<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--skill-name<span class="w"> </span><span class="s2">&quot;&lt;name&gt;&quot;</span><span class="w"> </span>--benchmark<span class="w"> </span>&lt;workspace&gt;/iteration-N/benchmark.json<span class="w"> </span>--static<span class="w"> </span>&lt;output.html&gt;
+</code></pre></div>
+
+<ul>
+<li>Analyst pass (agents/analyzer.md): non-discriminating assertions, variance, tradeoffs</li>
+<li>User reviews outputs + benchmark in viewer</li>
+<li>Read <code>feedback.json</code> → improve → repeat</li>
+</ul>
+<h3 id="3d-quality-gate">3d. Quality Gate</h3>
+<ul>
+<li><strong>Pass rate ≥ 85%</strong> with-skill</li>
+<li><strong>Delta vs baseline ≥ +30%</strong> on key assertions</li>
+<li>No flaky evals (variance &lt; 20%)</li>
+</ul>
+<h2 id="phase-4-iterate-until-done">Phase 4: Iterate Until Done</h2>
+<ul>
+<li>Generalize from feedback (don't overfit to test cases)</li>
+<li>Keep prompt lean — remove what doesn't pull its weight</li>
+<li>Bundle repeated helper scripts into <code>scripts/</code></li>
+<li>Repeat eval loop until user satisfied + metrics pass</li>
+</ul>
+<h2 id="phase-5-description-optimization">Phase 5: Description Optimization</h2>
+<p>After skill is finalized:</p>
+<ol>
+<li>Generate 20 trigger eval queries (10 should-trigger, 10 should-not)</li>
+<li>User reviews via <code>assets/eval_review.html</code></li>
+<li>Run optimization loop:
+   <code>bash
+   python -m scripts.run_loop \
+     --eval-set &lt;trigger-eval.json&gt; --skill-path &lt;path&gt; \
+     --model anthropic/claude-opus-4-6 --max-iterations 5 --verbose</code></li>
+<li>Apply <code>best_description</code> to SKILL.md frontmatter</li>
+</ol>
+<h2 id="phase-6-compliance-check-claude-code">Phase 6: Compliance Check (Claude Code)</h2>
+<p><strong>Mandatory.</strong> Every skill inspected by Claude Code before merge:</p>
+<div class="codehilite"><pre><span></span><code><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Review this skill for Anthropic compliance:</span>
+<span class="s2">1. No malware, exploit code, or security risks</span>
+<span class="s2">2. No hardcoded secrets or credentials</span>
+<span class="s2">3. Description is accurate (no surprise behavior)</span>
+<span class="s2">4. Scripts are stdlib-only (no undeclared dependencies)</span>
+<span class="s2">5. YAML frontmatter valid (name + description)</span>
+<span class="s2">6. File references all resolve correctly</span>
+<span class="s2">7. Under 500 lines SKILL.md (or justified)</span>
+<span class="s2">8. Assets include sample data + expected output&quot;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>claude<span class="w"> </span>--output-format<span class="w"> </span>text
+</code></pre></div>
+
+<p>Additionally run Tessl quality check:</p>
+<div class="codehilite"><pre><span></span><code>tessl<span class="w"> </span>skill<span class="w"> </span>review<span class="w"> </span>&lt;skill-path&gt;
+</code></pre></div>
+
+<p><strong>Minimum score: 85%</strong></p>
+<h2 id="phase-7-package-for-all-platforms">Phase 7: Package for All Platforms</h2>
+<h3 id="7a-claude-code-plugin">7a. Claude Code Plugin</h3>
+<div class="codehilite"><pre><span></span><code>skill-name/
+├── .claude-plugin/
+│   └── plugin.json    # name, version, description, skills, commands, agents
+├── SKILL.md
+├── commands/          # /command-name.md definitions
+├── agents/            # Agent definitions
+└── (scripts, references, assets, evals)
+</code></pre></div>
+
+<p><strong>plugin.json format (STRICT):</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;skill-name&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;One-line description&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;author&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alirezarezvani&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;homepage&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://github.com/alirezarezvani/claude-skills&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;repository&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://github.com/alirezarezvani/claude-skills&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;license&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MIT&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;skills&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;./&quot;</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p><strong>Only these fields. Nothing else.</strong></p>
+<h3 id="7b-codex-cli-version">7b. Codex CLI Version</h3>
+<div class="codehilite"><pre><span></span><code>skill-name/
+├── AGENTS.md          # Codex-compatible agent instructions
+├── codex.md           # Codex CLI skill format
+└── (same scripts, references, assets)
+</code></pre></div>
+
+<ul>
+<li>Convert SKILL.md patterns to Codex-native format</li>
+<li>Test with <code>codex --full-auto "test prompt"</code></li>
+</ul>
+<h3 id="7c-openclaw-skill">7c. OpenClaw Skill</h3>
+<div class="codehilite"><pre><span></span><code>skill-name/
+├── SKILL.md           # OpenClaw-compatible (same base)
+├── openclaw.json      # OpenClaw skill metadata (optional)
+└── (same scripts, references, assets)
+</code></pre></div>
+
+<ul>
+<li>Ensure compatible with OpenClaw's skill loading (YAML frontmatter triggers)</li>
+<li>Publish to ClawHub: <code>clawhub publish ./skill-name</code></li>
+</ul>
+<h3 id="7d-gemini-cli-skill">7d. Gemini CLI Skill</h3>
+<div class="codehilite"><pre><span></span><code>skill-name/
+├── SKILL.md           # Gemini-compatible (same base)
+└── (same scripts, references, assets)
+</code></pre></div>
+
+<ul>
+<li>Ensure compatible with Gemini CLI's <code>activate_skill</code> tool.</li>
+<li>Run <code>./scripts/gemini-install.sh</code> to update the local <code>.gemini/skills/</code> index.</li>
+</ul>
+<h2 id="phase-8-deploy">Phase 8: Deploy</h2>
+<h3 id="marketplace">Marketplace</h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Claude Code marketplace (via plugin in repo)</span>
+<span class="c1"># Users install with:</span>
+/plugin<span class="w"> </span>marketplace<span class="w"> </span>add<span class="w"> </span>alirezarezvani/claude-skills
+/plugin<span class="w"> </span>install<span class="w"> </span>skill-name@claude-code-skills
+</code></pre></div>
+
+<h3 id="gemini-cli-setup">Gemini CLI setup</h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Users setup with:</span>
+./scripts/gemini-install.sh
+</code></pre></div>
+
+<h3 id="github-release">GitHub Release</h3>
+<ul>
+<li>Feature branch from <code>dev</code> → PR to <code>dev</code> → merge → PR to <code>main</code></li>
+<li>Conventional commits: <code>feat(category): add skill-name skill</code></li>
+<li>Update category <code>plugin.json</code> skill count + version</li>
+<li>Update <code>marketplace.json</code> if new plugin entry</li>
+</ul>
+<h3 id="clawhub">ClawHub</h3>
+<div class="codehilite"><pre><span></span><code>clawhub<span class="w"> </span>publish<span class="w"> </span>./category/skill-name
+</code></pre></div>
+
+<h3 id="codex-cli-registry">Codex CLI Registry</h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Users install with:</span>
+npx<span class="w"> </span>agent-skills-cli<span class="w"> </span>add<span class="w"> </span>alirezarezvani/claude-skills<span class="w"> </span>--skill<span class="w"> </span>skill-name
+</code></pre></div>
+
+<hr>
+<h2 id="agent-command-requirements">Agent &amp; Command Requirements</h2>
+<h3 id="every-skill-should-have">Every Skill SHOULD Have:</h3>
+<ul>
+<li><strong>Agent definition</strong> (<code>agents/cs-&lt;role&gt;.md</code>) — persona, capabilities, workflows</li>
+<li><strong>Slash command</strong> (<code>commands/&lt;action&gt;.md</code>) — simplified user entry point</li>
+</ul>
+<h3 id="agent-format">Agent Format:</h3>
+<div class="codehilite"><pre><span></span><code>---
+name: cs-&lt;role-name&gt;
+<span class="gu">description: &lt;when to spawn this agent&gt;</span>
+<span class="gu">---</span>
+<span class="gh"># cs-&lt;role-name&gt;</span>
+<span class="gu">## Role &amp; Expertise</span>
+<span class="gu">## Core Workflows</span>
+<span class="gu">## Tools &amp; Scripts Available</span>
+<span class="gu">## Output Standards</span>
+</code></pre></div>
+
+<h3 id="command-format">Command Format:</h3>
+<div class="codehilite"><pre><span></span><code>---
+name: &lt;command-name&gt;
+<span class="gu">description: &lt;what this command does&gt;</span>
+<span class="gu">---</span>
+<span class="gh"># /&lt;command-name&gt;</span>
+<span class="gu">## Usage</span>
+<span class="gu">## Arguments</span>
+<span class="gu">## Examples</span>
+</code></pre></div>
+
+<hr>
+<h2 id="phase-9-real-world-verification-never-skip">Phase 9: Real-World Verification (NEVER SKIP)</h2>
+<p><strong>Every skill must pass real-world testing before merge. No exceptions.</strong></p>
+<h3 id="9a-marketplace-installation-test">9a. Marketplace Installation Test</h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 1. Register marketplace (if not already)</span>
+<span class="c1"># In Claude Code:</span>
+/plugin<span class="w"> </span>marketplace<span class="w"> </span>add<span class="w"> </span>alirezarezvani/claude-skills
+
+<span class="c1"># 2. Install the skill</span>
+/plugin<span class="w"> </span>install<span class="w"> </span>&lt;skill-name&gt;@claude-code-skills
+
+<span class="c1"># 3. Verify installation</span>
+/plugin<span class="w"> </span>list<span class="w">  </span><span class="c1"># skill must appear</span>
+
+<span class="c1"># 4. Load/reload test</span>
+/plugin<span class="w"> </span>reload<span class="w">  </span><span class="c1"># must load without errors</span>
+</code></pre></div>
+
+<h3 id="9b-trigger-test">9b. Trigger Test</h3>
+<ul>
+<li>Send 3 realistic prompts that SHOULD trigger the skill</li>
+<li>Send 2 prompts that should NOT trigger it</li>
+<li>Verify correct trigger/no-trigger behavior</li>
+</ul>
+<h3 id="9c-functional-test">9c. Functional Test</h3>
+<ul>
+<li>Execute the skill's primary workflow end-to-end</li>
+<li>Run each script with sample data</li>
+<li>Verify output format matches spec</li>
+<li>Check all file references resolve correctly</li>
+</ul>
+<h3 id="9d-bug-fix-protocol">9d. Bug Fix Protocol</h3>
+<ul>
+<li><strong>Every bug found → fix immediately</strong> (no "known issues" parking)</li>
+<li>Document bug + fix in CHANGELOG.md</li>
+<li>Re-run full eval suite after fix</li>
+<li>Re-verify marketplace install after fix</li>
+</ul>
+<h3 id="9e-cross-platform-verify">9e. Cross-Platform Verify</h3>
+<ul>
+<li><strong>Claude Code</strong>: Install from marketplace, trigger, run workflow</li>
+<li><strong>Gemini CLI</strong>: Run <code>scripts/gemini-install.sh</code>, activate skill, verify instructions</li>
+<li><strong>Codex CLI</strong>: Load AGENTS.md, run test prompt</li>
+<li><strong>OpenClaw</strong>: Load skill, verify frontmatter triggers</li>
+</ul>
+<hr>
+<h2 id="documentation-requirements-continuous">Documentation Requirements (Continuous)</h2>
+<p><strong>All changes MUST update these files. Every commit, every merge.</strong></p>
+<h3 id="per-commit-updates">Per-Commit Updates</h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>What to update</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CHANGELOG.md</code></td>
+<td>Every change, every fix, every improvement</td>
+</tr>
+<tr>
+<td>Category <code>README.md</code></td>
+<td>Skill list, descriptions, install commands</td>
+</tr>
+<tr>
+<td>Category <code>CLAUDE.md</code></td>
+<td>Navigation, skill count, architecture notes</td>
+</tr>
+</tbody>
+</table>
+<h3 id="per-skill-updates">Per-Skill Updates</h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>What to update</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SKILL.md</code></td>
+<td>Frontmatter, body, references</td>
+</tr>
+<tr>
+<td><code>plugin.json</code></td>
+<td>Version, description</td>
+</tr>
+<tr>
+<td><code>evals/evals.json</code></td>
+<td>Test cases + assertions</td>
+</tr>
+</tbody>
+</table>
+<h3 id="per-release-updates">Per-Release Updates</h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>What to update</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Root <code>README.md</code></td>
+<td>Total skill count, category summary, install guide</td>
+</tr>
+<tr>
+<td>Root <code>CLAUDE.md</code></td>
+<td>Navigation map, architecture, skill counts</td>
+</tr>
+<tr>
+<td><code>agents/CLAUDE.md</code></td>
+<td>Agent catalog</td>
+</tr>
+<tr>
+<td><code>marketplace.json</code></td>
+<td>Plugin entries</td>
+</tr>
+<tr>
+<td><code>docs/</code> (GitHub Pages)</td>
+<td>Run <code>scripts/generate-docs.py</code></td>
+</tr>
+<tr>
+<td><code>STORE.md</code></td>
+<td>Marketplace listing</td>
+</tr>
+</tbody>
+</table>
+<h3 id="github-pages">GitHub Pages</h3>
+<p>After every batch merge — generate docs and deploy:</p>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>~/workspace/projects/claude-skills
+<span class="c1"># NOTE: generate-docs.py and static.yml workflow must be created first (Phase 0 task)</span>
+<span class="c1"># If not yet available, manually update docs/ folder</span>
+python<span class="w"> </span>scripts/generate-docs.py<span class="w"> </span><span class="m">2</span>&gt;/dev/null<span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;generate-docs.py not yet created — update docs manually&quot;</span>
+</code></pre></div>
+
+<hr>
+<h2 id="versioning">Versioning</h2>
+<h3 id="semantic-versioning-strict">Semantic Versioning (STRICT)</h3>
+<table>
+<thead>
+<tr>
+<th>Change Type</th>
+<th>Version Bump</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Existing skill improvement</strong> (Tessl optimization, trigger fixes, content trim)</td>
+<td><strong>2.1.x</strong> (patch)</td>
+<td>2.1.0 → 2.1.1</td>
+</tr>
+<tr>
+<td><strong>Enhancement + new skills</strong> (new scripts, agents, commands, new skills)</td>
+<td><strong>2.7.0</strong> (minor)</td>
+<td>2.6.x → 2.7.0</td>
+</tr>
+<tr>
+<td><strong>Breaking changes</strong> (restructure, removed skills, API changes)</td>
+<td><strong>3.0.0</strong> (major)</td>
+<td>2.x → 3.0.0</td>
+</tr>
+</tbody>
+</table>
+<h3 id="current-version-targets-update-as-releases-ship">Current Version Targets (update as releases ship)</h3>
+<ul>
+<li><strong>v2.1.1</strong> — Existing skill improvements (Tessl #285-#287, compliance fixes)</li>
+<li><strong>v2.7.0</strong> — New skills + agents + commands + multi-platform packaging</li>
+</ul>
+<h3 id="rollback-protocol">Rollback Protocol</h3>
+<p>If a deployed skill breaks:
+1. <strong>Immediate</strong>: <code>git revert &lt;commit&gt;</code> on dev, fast-merge to main
+2. <strong>Marketplace</strong>: Users re-install from updated main (auto-resolves)
+3. <strong>ClawHub</strong>: <code>clawhub unpublish &lt;skill-name&gt;@&lt;broken-version&gt;</code> if published
+4. <strong>Notification</strong>: Update CHANGELOG.md with <code>### Reverted</code> section
+5. <strong>Post-mortem</strong>: Document what broke and why in the skill's evals/</p>
+<h3 id="changelog-md-format">CHANGELOG.md Format</h3>
+<div class="codehilite"><pre><span></span><code><span class="gu">## [2.7.0] - YYYY-MM-DD</span>
+<span class="gu">### Added</span>
+<span class="k">-</span><span class="w"> </span>New skill: <span class="sb">`category/skill-name`</span> — description
+<span class="k">-</span><span class="w"> </span>Agent: <span class="sb">`cs-role-name`</span> — capabilities
+<span class="k">-</span><span class="w"> </span>Command: <span class="sb">`/command-name`</span> — usage
+
+<span class="gu">### Changed</span>
+<span class="k">-</span><span class="w"> </span><span class="sb">`category/skill-name`</span> — what changed (Tessl: X% → Y%)
+
+<span class="gu">### Fixed</span>
+<span class="k">-</span><span class="w"> </span>Bug description — root cause — fix applied
+
+<span class="gu">### Verified</span>
+<span class="k">-</span><span class="w"> </span>Marketplace install: ✅ all skills loadable
+<span class="k">-</span><span class="w"> </span>Trigger tests: ✅ X/Y correct triggers
+<span class="k">-</span><span class="w"> </span>Cross-platform: ✅ Claude Code / Codex / OpenClaw
+</code></pre></div>
+
+<hr>
+<h2 id="quality-tiers">Quality Tiers</h2>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Score</th>
+<th>Criteria</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>POWERFUL</strong> ⭐</td>
+<td>85%+</td>
+<td>Expert-level, scripts, refs, evals pass, real-world utility</td>
+</tr>
+<tr>
+<td><strong>SOLID</strong></td>
+<td>70-84%</td>
+<td>Good knowledge, some automation, useful</td>
+</tr>
+<tr>
+<td><strong>GENERIC</strong></td>
+<td>55-69%</td>
+<td>Too general, needs domain depth</td>
+</tr>
+<tr>
+<td><strong>WEAK</strong></td>
+<td>&lt;55%</td>
+<td>Reject or complete rewrite</td>
+</tr>
+</tbody>
+</table>
+<p><strong>We only ship POWERFUL. Everything else goes back to iteration.</strong></p>
+<hr>
+<p><em>This pipeline is non-negotiable for all claude-skills repo work.</em></p>
+<hr>
+<h2 id="checklist-copy-per-skill">Checklist (copy per skill)</h2>
+<h3 id="required-blocks-merge">Required (blocks merge)</h3>
+<div class="codehilite"><pre><span></span><code>[ ] SKILL.md drafted (&lt;500 lines, YAML frontmatter, pushy description)
+[ ] Scripts: Python CLI tools (stdlib only) — or justified exception
+[ ] References: expert knowledge bases
+[ ] Evals: evals.json with 2-3+ test cases + assertions (must fail without skill)
+[ ] Tessl: score ≥85% (or manual 8-point check if tessl unavailable)
+[ ] Claude Code compliance: 8-point check passed
+[ ] Plugin: plugin.json (strict format)
+[ ] Marketplace install: /plugin install works, /plugin reload no errors
+[ ] Trigger test: 3 should-trigger + 2 should-not
+[ ] Functional test: end-to-end workflow verified
+[ ] Bug fixes: all resolved, re-tested
+[ ] CHANGELOG.md updated
+[ ] PR created: dev branch, conventional commit
+</code></pre></div>
+
+<h3 id="recommended-nice-to-have-don-t-block">Recommended (nice-to-have, don't block)</h3>
+<div class="codehilite"><pre><span></span><code>[ ] Agent: cs-&lt;role&gt;.md defined
+[ ] Command: /&lt;action&gt;.md defined
+[ ] Assets: templates, sample data, expected outputs
+[ ] Benchmark: with-skill vs baseline, pass rate ≥85%, delta ≥30%
+[ ] Description optimization: run_loop.py, 20 trigger queries
+[ ] Gemini CLI: ./scripts/gemini-install.sh, activate_skill(name=&quot;skill-name&quot;) verified
+[ ] Codex: AGENTS.md / codex.md
+[ ] OpenClaw: frontmatter triggers verified
+[ ] README.md updated (category + root)
+[ ] CLAUDE.md updated
+[ ] docs/ regenerated
+</code></pre></div>
+
+<h2 id="notifications">Notifications</h2>
+<p><code>/pipeline</code> surfaces push notifications when it reaches a state requiring user attention: budget breach, error, end-of-feature, human-review checkpoint, or permission prompt. Notifications use native Claude Code surfaces only — there is no custom config file or rate limiter.</p>
+<h3 id="enabling">Enabling</h3>
+<ol>
+<li><strong>Mobile push notifications</strong> — enable Remote Control in your Claude Code mobile app and toggle "Push when Claude decides" in your preferences. Requires Claude Code 2.1.110 or later. See the upstream Claude Code Remote Control settings page for the latest setup instructions.</li>
+<li><strong>Desktop terminal notifications</strong> — automatically emitted via the <code>Notification</code> hook's <code>terminalSequence</code> (OSC 777). No additional setup needed; works in any terminal that supports OSC 777 escape sequences.</li>
+<li><strong>Channels (managed-org inbound delivery)</strong> — set <code>channelsEnabled: true</code> in <code>~/.claude/settings.json</code> (Claude Code 2.1.121+, console-API-key auth orgs). Used for webhook-delivered events such as budget bump approvals.</li>
+</ol>
+<h3 id="what-gets-notified">What gets notified</h3>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>When</th>
+<th>Surface</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>feature-done</code></td>
+<td>End-of-feature (<code>Stop</code> hook fires)</td>
+<td>PushNotification (interactive) or terminalSequence (fallback)</td>
+</tr>
+<tr>
+<td><code>question</code></td>
+<td>Pipeline about to request a permission grant (<code>PermissionRequest</code> hook)</td>
+<td>terminalSequence</td>
+</tr>
+<tr>
+<td><code>error</code> / <code>budget-breach</code> / <code>dropped</code></td>
+<td>Budget breach, error halt, dropped-run watcher</td>
+<td>terminalSequence (OSC 777)</td>
+</tr>
+<tr>
+<td><code>human-review</code></td>
+<td>Path B / Path C re-route (re-implement / re-plan), context-fill warning</td>
+<td>terminalSequence</td>
+</tr>
+</tbody>
+</table>
+<h3 id="per-run-opt-out">Per-run opt-out</h3>
+<p>Set <code>PIPELINE_NO_NOTIFICATIONS=1</code> in your environment for the duration of a <code>/pipeline</code> run to suppress all notifications. The pipeline emits no notification for that run, regardless of Remote Control / Channels settings.</p>
+<h3 id="reference">Reference</h3>
+<ul>
+<li>Hook event mapping is documented in <code>~/.claude/CLAUDE.md § Notifications</code> (canonical user-side reference).</li>
+<li>Payload schema (6 fields, 200-char text cap) is documented in <code>~/.claude/skills/pipeline/reference.md § Notification payload schema</code>.</li>
+<li>The canonical emit helper lives at <code>claude/hooks/notify-emit.sh</code> — it is the cross-feature contract; <code>feat/integrate-openhuman</code> (F10) is the second consumer.</li>
+</ul>
+<h2 id="human-review-gate">Human-Review Gate</h2>
+<p><code>/pipeline</code> ships an opt-in human-in-the-loop approval gate that pauses before destructive actions — today the only wired trigger is <code>git merge --squash</code> (the auto-merge step in Path A). When enabled, the pipeline waits for an out-of-band human approval signal before letting the merge proceed.</p>
+<h3 id="enabling-2">Enabling</h3>
+<table>
+<thead>
+<tr>
+<th>Invocation</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/pipeline</code> (no flag)</td>
+<td>Gate disabled — squash-merge proceeds without pause. This is the default (0 minutes).</td>
+</tr>
+<tr>
+<td><code>/pipeline --human-review</code></td>
+<td>Gate enabled with <strong>30-minute</strong> timeout.</td>
+</tr>
+<tr>
+<td><code>/pipeline --human-review 60</code></td>
+<td>Gate enabled with <strong>60-minute</strong> timeout (any positive integer minutes).</td>
+</tr>
+<tr>
+<td><code>/pipeline --no-human-review</code></td>
+<td>Explicit-disable form. Same effect as flag absence.</td>
+</tr>
+</tbody>
+</table>
+<p><code>--human-review</code> and <code>--no-human-review</code> are mutually exclusive — passing both stops the run with <code>ERROR: --human-review and --no-human-review are mutually exclusive</code>.</p>
+<h3 id="responding-to-the-gate">Responding to the gate</h3>
+<p>When the gate fires, <code>/pipeline</code> emits a <code>human-review</code> notification (PushNotification when an interactive session has Remote Control enabled, terminalSequence OSC 777 otherwise) carrying the signal-file path in the <code>action_link</code> field. To approve, write a JSON file at the signal-file path:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;decision&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;allow&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;reason&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Reviewed diff; safe to merge.&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;reviewer&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bruce&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;ts&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-05-18T20:30:00Z&quot;</span><span class="p">}</span>
+</code></pre></div>
+
+<p>To deny: <code>{"decision": "deny"}</code>. Only <code>decision</code> is required; <code>reason</code>, <code>reviewer</code>, and <code>ts</code> are optional.</p>
+<p><strong>Atomic write</strong> (required to avoid the polling loop reading a half-written file):</p>
+<div class="codehilite"><pre><span></span><code><span class="nb">printf</span><span class="w"> </span><span class="s1">&#39;%s&#39;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$JSON</span><span class="s2">&quot;</span><span class="w"> </span>&gt;<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SIGNAL</span><span class="s2">.tmp&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>mv<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SIGNAL</span><span class="s2">.tmp&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SIGNAL</span><span class="s2">&quot;</span>
+</code></pre></div>
+
+<p>Signal-file path convention: <code>.claude/openhuman/&lt;feature-name&gt;-&lt;unix-timestamp&gt;.json</code>. The <code>.claude/</code> directory is gitignored per the standard pipelinekit never-stage list — signal files are never committed.</p>
+<h3 id="timeout-behavior">Timeout behavior</h3>
+<p>If no signal file is written within the timeout window, the gate <strong>denies</strong> the merge:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;hookSpecificOutput&quot;</span><span class="p">:{</span><span class="nt">&quot;permissionDecision&quot;</span><span class="p">:</span><span class="s2">&quot;deny&quot;</span><span class="p">,</span>
+<span class="w">                       </span><span class="nt">&quot;permissionDecisionReason&quot;</span><span class="p">:</span><span class="s2">&quot;OPENHUMAN_TIMEOUT: &lt;minutes&gt; minutes elapsed without approval&quot;</span><span class="p">}}</span>
+</code></pre></div>
+
+<p>This is <strong>fail-safe</strong> — the pipeline never auto-approves on timeout. The orchestrator routes the failure into Path B remediation (or feature-fail per Step 5.7).</p>
+<p>The default of <strong>0</strong> minutes (gate off when the flag is absent) is intentional — per the 2026-05-18 native-Claude-Code-compliance audit, defaulting to a non-zero timeout with auto-approve would create a silent-auto-approve drift hazard.</p>
+<h3 id="reference-2">Reference</h3>
+<ul>
+<li>Skill body: <code>~/.claude/skills/openhuman/SKILL.md</code> (canonical contract).</li>
+<li>Hook wiring + appendix: <code>~/.claude/skills/pipeline/reference.md § Human-Review Gate (--human-review)</code>.</li>
+<li>Upstream attribution (concept-only): <code>~/.claude/skills/openhuman/NOTICE.md</code>.</li>
+</ul>
+    </div>
+
+    <div class="no-results" id="no-results">
+      <p>No matches on this page. Clear the filter to see all content.</p>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div>Generated by <a href="https://github.com/Bruce188/pipelinekit">pipelinekit</a> · <code>docs-writer/2</code> · <a href="credits.html">Credits</a></div>
+  <div>Self-contained HTML · no CDN · no remote assets</div>
+</footer>
+
+<script>
+(function() {
+  'use strict';
+
+  // ============ Theme toggle (auto → light → dark cycle) ============
+  const themeToggle = document.getElementById('theme-toggle');
+  const themeLabel = document.getElementById('theme-label');
+  const iconLight = document.getElementById('theme-icon-light');
+  const iconDark = document.getElementById('theme-icon-dark');
+  const root = document.documentElement;
+  const STORE_KEY = 'pkit-docs-theme';
+
+  function applyTheme(mode) {
+    if (mode === 'auto') {
+      root.removeAttribute('data-theme');
+      themeLabel.textContent = 'Auto';
+      iconLight.style.display = 'none';
+      iconDark.style.display = '';
+    } else {
+      root.setAttribute('data-theme', mode);
+      themeLabel.textContent = mode === 'dark' ? 'Dark' : 'Light';
+      iconLight.style.display = mode === 'dark' ? 'none' : '';
+      iconDark.style.display = mode === 'dark' ? '' : 'none';
+    }
+  }
+  applyTheme(localStorage.getItem(STORE_KEY) || 'auto');
+  themeToggle.addEventListener('click', () => {
+    const cur = localStorage.getItem(STORE_KEY) || 'auto';
+    const next = cur === 'auto' ? 'light' : cur === 'light' ? 'dark' : 'auto';
+    localStorage.setItem(STORE_KEY, next);
+    applyTheme(next);
+  });
+
+  // ============ Anchor links on headings ============
+  document.querySelectorAll('h2[id], h3[id], h4[id]').forEach(h => {
+    const a = document.createElement('a');
+    a.href = '#' + h.id;
+    a.className = 'anchor';
+    a.setAttribute('aria-label', 'Permalink to ' + h.textContent);
+    a.textContent = '#';
+    h.insertBefore(a, h.firstChild);
+  });
+
+  // ============ Copy-code buttons ============
+  document.querySelectorAll('pre').forEach(pre => {
+    const code = pre.querySelector('code');
+    if (!code) return;
+    // Try to detect language from class
+    const cls = code.className || pre.className || '';
+    const langMatch = cls.match(/language-(\w+)|codehilite/) || cls.match(/\b(\w+)\b/);
+    let lang = '';
+    const cm = cls.match(/language-(\w+)/);
+    if (cm) lang = cm[1];
+    if (lang && lang !== 'codehilite') {
+      const label = document.createElement('span');
+      label.className = 'lang-label';
+      label.textContent = lang;
+      pre.appendChild(label);
+    }
+    const btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.type = 'button';
+    btn.setAttribute('aria-label', 'Copy code');
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy';
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(code.innerText);
+        btn.classList.add('copied');
+        btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Copied';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy';
+        }, 1800);
+      } catch (e) {
+        btn.textContent = 'Press Ctrl+C';
+      }
+    });
+    pre.appendChild(btn);
+  });
+
+  // ============ Sortable tables ============
+  document.querySelectorAll('table').forEach(table => {
+    const thead = table.querySelector('thead');
+    if (!thead) return;
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+    // Wrap in scroll container
+    if (!table.parentElement.classList.contains('table-wrap')) {
+      const wrap = document.createElement('div');
+      wrap.className = 'table-wrap';
+      table.parentNode.insertBefore(wrap, table);
+      wrap.appendChild(table);
+    }
+    thead.querySelectorAll('th').forEach((th, idx) => {
+      th.classList.add('sortable');
+      th.addEventListener('click', () => sortByColumn(table, idx, th));
+    });
+  });
+  function sortByColumn(table, colIdx, th) {
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const isAsc = !th.classList.contains('asc');
+    table.querySelectorAll('th').forEach(h => h.classList.remove('asc', 'desc'));
+    th.classList.toggle('asc', isAsc);
+    th.classList.toggle('desc', !isAsc);
+    rows.sort((a, b) => {
+      const av = (a.children[colIdx]?.innerText || '').trim();
+      const bv = (b.children[colIdx]?.innerText || '').trim();
+      const an = parseFloat(av);
+      const bn = parseFloat(bv);
+      let cmp;
+      if (!isNaN(an) && !isNaN(bn)) cmp = an - bn;
+      else cmp = av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
+      return isAsc ? cmp : -cmp;
+    });
+    rows.forEach(r => tbody.appendChild(r));
+  }
+
+  // ============ ScrollSpy for ToC ============
+  const tocLinks = document.querySelectorAll('.toc a');
+  const headings = document.querySelectorAll('main h2[id], main h3[id]');
+  if (tocLinks.length && headings.length && 'IntersectionObserver' in window) {
+    const linkByHash = {};
+    tocLinks.forEach(a => { linkByHash[a.getAttribute('href')] = a; });
+    const visible = new Set();
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        const h = '#' + e.target.id;
+        if (e.isIntersecting) visible.add(h);
+        else visible.delete(h);
+      });
+      tocLinks.forEach(a => a.classList.remove('active'));
+      // Pick the topmost-visible heading
+      const candidates = Array.from(headings).filter(h => visible.has('#' + h.id));
+      const first = candidates[0] || headings[0];
+      if (first && linkByHash['#' + first.id]) linkByHash['#' + first.id].classList.add('active');
+    }, { rootMargin: '-100px 0px -60% 0px', threshold: 0 });
+    headings.forEach(h => io.observe(h));
+  }
+
+  // ============ In-page search filter ============
+  const searchInput = document.getElementById('page-search');
+  const noResults = document.getElementById('no-results');
+  const pageContent = document.getElementById('page-content');
+  function clearHighlights() {
+    pageContent.querySelectorAll('.search-hit').forEach(el => {
+      const t = document.createTextNode(el.textContent);
+      el.parentNode.replaceChild(t, el);
+    });
+    pageContent.normalize();
+  }
+  function highlightInNode(node, regex) {
+    if (node.nodeType === 3) {
+      const txt = node.nodeValue;
+      const m = txt.match(regex);
+      if (!m) return false;
+      const frag = document.createDocumentFragment();
+      let last = 0;
+      txt.replace(regex, (match, _g, off) => {
+        if (off > last) frag.appendChild(document.createTextNode(txt.slice(last, off)));
+        const span = document.createElement('span');
+        span.className = 'search-hit';
+        span.textContent = match;
+        frag.appendChild(span);
+        last = off + match.length;
+      });
+      if (last < txt.length) frag.appendChild(document.createTextNode(txt.slice(last)));
+      node.parentNode.replaceChild(frag, node);
+      return true;
+    }
+    if (node.nodeType !== 1) return false;
+    if (['SCRIPT','STYLE','PRE','CODE'].includes(node.tagName)) return false;
+    let any = false;
+    Array.from(node.childNodes).forEach(c => { if (highlightInNode(c, regex)) any = true; });
+    return any;
+  }
+  function filter(q) {
+    clearHighlights();
+    // Filter table rows
+    document.querySelectorAll('table tbody tr').forEach(tr => tr.classList.remove('filtered-out'));
+    if (!q) { noResults.classList.remove('visible'); return; }
+    const lc = q.toLowerCase();
+    const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    let anyHit = false;
+    if (highlightInNode(pageContent, regex)) anyHit = true;
+    // Table filtering
+    document.querySelectorAll('table tbody tr').forEach(tr => {
+      const txt = tr.innerText.toLowerCase();
+      if (!txt.includes(lc)) tr.classList.add('filtered-out');
+      else anyHit = true;
+    });
+    noResults.classList.toggle('visible', !anyHit);
+  }
+  if (searchInput) {
+    let debounce;
+    searchInput.addEventListener('input', (e) => {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => filter(e.target.value.trim()), 80);
+    });
+  }
+  // Keyboard: / focuses search
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '/' && document.activeElement !== searchInput && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      searchInput.focus();
+    }
+    if (e.key === 'Escape' && document.activeElement === searchInput) {
+      searchInput.value = '';
+      filter('');
+      searchInput.blur();
+    }
+  });
+
+  // ============ Mobile ToC drawer ============
+  const tocToggle = document.getElementById('toc-toggle');
+  const toc = document.getElementById('toc');
+  if (tocToggle && toc) {
+    tocToggle.addEventListener('click', () => toc.classList.toggle('open'));
+    toc.addEventListener('click', (e) => {
+      if (e.target.tagName === 'A') toc.classList.remove('open');
+    });
+  }
+
+  // ============ Auto-detect callouts from blockquotes starting with [NOTE]/[INFO]/etc ============
+  document.querySelectorAll('blockquote').forEach(bq => {
+    const first = bq.querySelector('p:first-child');
+    if (!first) return;
+    const m = first.textContent.match(/^\[(NOTE|INFO|TIP|WARN|WARNING|DANGER|ALERT|SUCCESS|OK)\]\s*/i);
+    if (!m) return;
+    const kind = m[1].toUpperCase();
+    const klass = ['WARN','WARNING','ALERT'].includes(kind) ? 'warn'
+                 : ['DANGER'].includes(kind) ? 'danger'
+                 : ['SUCCESS','OK'].includes(kind) ? 'success' : 'info';
+    const icon = klass === 'warn' ? '⚠' : klass === 'danger' ? '✕' : klass === 'success' ? '✓' : 'ℹ';
+    first.textContent = first.textContent.slice(m[0].length);
+    const wrap = document.createElement('div');
+    wrap.className = 'callout ' + klass;
+    wrap.innerHTML = '<span class="callout-icon">' + icon + '</span><div class="callout-body"></div>';
+    const body = wrap.querySelector('.callout-body');
+    while (bq.firstChild) body.appendChild(bq.firstChild);
+    bq.parentNode.replaceChild(wrap, bq);
+  });
+
+})();
+</script>
+
+</body>
+</html>

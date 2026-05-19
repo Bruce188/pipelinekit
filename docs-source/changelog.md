@@ -2,6 +2,8 @@
 
 The complete development history of pipelinekit, organized by theme. This is the first version (v0.0.1, not yet released as a tag). PRs are linked to GitHub; the bullet summary is the one-line headline.
 
+<div data-snippet="timeline-scrubber"></div>
+
 ## /pipeline orchestrator
 
 The autonomous Charter → Analyze → Plan → Implement → Review → Merge loop. The user provides a feature description; pipelinekit ships a merged PR.

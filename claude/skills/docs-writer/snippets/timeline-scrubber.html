@@ -81,18 +81,17 @@
     .pkit-timeline .pkit-tl-stats .stat strong { color: var(--accent); font-family: var(--mono); }
   </style>
 
-  <div class="pkit-tl-controls" id="pkit-tl-filters"></div>
+  <div class="pkit-tl-controls" data-tl-filters></div>
 
-  <div class="pkit-tl-track" id="pkit-tl-track"></div>
+  <div class="pkit-tl-track" data-tl-track></div>
 
-  <div class="pkit-tl-stats" id="pkit-tl-stats"></div>
+  <div class="pkit-tl-stats" data-tl-stats></div>
 
-  <div class="pkit-tl-detail" id="pkit-tl-detail">
+  <div class="pkit-tl-detail" data-tl-detail>
     <p class="empty">Click any commit on the timeline to see its details.</p>
   </div>
-</div>
 
-<script type="application/json" id="pkit-tl-data">
+  <script type="application/json" data-tl-data>
 {
   "themes": [
     {"id": "pipeline",   "label": "Pipeline orchestrator", "color": "#3b82f6"},
@@ -183,22 +182,25 @@
     {"pr": 74, "theme": "docs",      "title": "docs-writer/2 rich-interactive snippets + richness enforcement"}
   ]
 }
-</script>
+  </script>
+</div>
 
 <script>
 (function() {
   'use strict';
-  const tls = document.querySelectorAll('.pkit-timeline[data-snippet-mount="timeline-scrubber"]');
-  const tl = tls[tls.length - 1];
-  if (!tl || tl.dataset.pkitInit) return;
+  document.querySelectorAll('.pkit-timeline[data-snippet-mount="timeline-scrubber"]').forEach(tl => {
+  if (tl.dataset.pkitInit) return;
   tl.dataset.pkitInit = '1';
 
-  const data = JSON.parse(tl.querySelector('#pkit-tl-data').textContent);
+  const dataEl = tl.querySelector('script[data-tl-data]');
+  if (!dataEl) return;
+  const data = JSON.parse(dataEl.textContent);
   const themesById = Object.fromEntries(data.themes.map(t => [t.id, t]));
-  const track = tl.querySelector('#pkit-tl-track');
-  const filtersEl = tl.querySelector('#pkit-tl-filters');
-  const detail = tl.querySelector('#pkit-tl-detail');
-  const stats = tl.querySelector('#pkit-tl-stats');
+  const track = tl.querySelector('[data-tl-track]');
+  const filtersEl = tl.querySelector('[data-tl-filters]');
+  const detail = tl.querySelector('[data-tl-detail]');
+  const stats = tl.querySelector('[data-tl-stats]');
+  if (!track || !filtersEl || !detail || !stats) return;
 
   const minPR = Math.min(...data.items.map(i => i.pr));
   const maxPR = Math.max(...data.items.map(i => i.pr));
@@ -280,5 +282,6 @@
   });
 
   updateStats('all');
+  });
 })();
 </script>

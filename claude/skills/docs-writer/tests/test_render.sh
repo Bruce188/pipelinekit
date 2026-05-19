@@ -255,6 +255,143 @@ else
   RESULTS+=("  FAIL  richness_check ignored exempt marker")
 fi
 
+# ============ Test 6: ToC integrity (code-fence headings + duplicate ids) ============
+cat > "$TMP/toc-test.md" <<'EOF'
+# ToC test page
+
+## Real section A
+
+Some text.
+
+```bash
+cat > docs/charter.md <<'CHARTER'
+## MVP boundary
+- one feature
+## Non-goals
+- this section heading is INSIDE a code fence
+CHARTER
+```
+
+## Real section B
+
+### Setup
+
+First setup block.
+
+## Tutorial 2
+
+### Setup
+
+Second setup block.
+
+### Setup
+
+Third setup block.
+EOF
+
+python3 claude/skills/docs-writer/render.py "$TMP/toc-test.md" "$TMP/toc-test.html" > /dev/null
+
+if grep -q 'href="#mvp-boundary"' "$TMP/toc-test.html"; then
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  ToC includes #mvp-boundary from inside a code fence")
+else
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  ToC excludes code-fence headings")
+fi
+
+if grep -q '<h2 id="mvp-boundary"' "$TMP/toc-test.html"; then
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  body parsed code-fence content as a heading")
+else
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  body keeps code-fence content as code")
+fi
+
+if grep -q 'href="#real-section-a"' "$TMP/toc-test.html"; then
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  real section in ToC")
+else
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  real section missing from ToC")
+fi
+
+# Sequence-based dedup: three "Setup" h3s -> setup, setup-2, setup-3
+for slug in setup setup-2 setup-3; do
+  if grep -q "<h3 id=\"$slug\"" "$TMP/toc-test.html"; then
+    PASS=$((PASS + 1))
+    RESULTS+=("  PASS  h3 id=\"$slug\" present (sequence dedup)")
+  else
+    FAIL=$((FAIL + 1))
+    RESULTS+=("  FAIL  h3 id=\"$slug\" missing")
+  fi
+done
+
+if python3 claude/skills/docs-writer/verify_toc.py "$TMP/toc-test.html" > /dev/null 2>&1; then
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  verify_toc.py reports 0 broken links on synthetic test page")
+else
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  verify_toc.py reported issues on synthetic test page")
+fi
+
+if python3 claude/skills/docs-writer/verify_toc.py > "$TMP/verify-real.txt" 2>&1; then
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  verify_toc.py reports 0 broken links across all documentation/")
+else
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  verify_toc.py reported issues in documentation/:")
+  cat "$TMP/verify-real.txt" | sed 's/^/    /'
+fi
+
+# Regression: H4 headings in HTML must NOT shift H2/H3 slug assignments.
+# Bug fixed in render.py § fix_heading_ids — pre-fix, an H4 ate a slot from
+# the slug sequence and offset every subsequent H2/H3 id by one. Surfaced by
+# docs-source/cloud-setup.md where H4 "Path 1: ..." sits between H3 "Bootstrap"
+# and H3 "Environment variables".
+cat > "$TMP/h4-shift-test.md" <<'EOF'
+# H4 shift test
+
+This page mixes H3 and H4 around bash blocks with comment-shaped lines.
+
+## First h2
+
+### Alpha
+
+#### Subitem one
+
+```bash
+# Comment-shaped line
+# Another comment
+```
+
+### Beta
+
+#### Subitem two
+
+```bash
+# Third comment
+```
+
+### Gamma
+
+## Second h2
+
+### Delta
+EOF
+
+python3 claude/skills/docs-writer/render.py "$TMP/h4-shift-test.md" "$TMP/h4-shift-test.html" > /dev/null 2>&1
+for slug_pair in "alpha:Alpha" "beta:Beta" "gamma:Gamma" "delta:Delta" "first-h2:First h2" "second-h2:Second h2"; do
+  slug="${slug_pair%:*}"
+  expected_text="${slug_pair#*:}"
+  if grep -qE "<h[23] id=\"${slug}\">${expected_text}</h" "$TMP/h4-shift-test.html"; then
+    PASS=$((PASS + 1))
+    RESULTS+=("  PASS  h2/h3 id=\"$slug\" matches heading text \"$expected_text\" (no H4-shift)")
+  else
+    FAIL=$((FAIL + 1))
+    RESULTS+=("  FAIL  h2/h3 id=\"$slug\" misaligned (expected text: $expected_text)")
+  fi
+done
+
 # ============ Summary ============
 printf '%s\n' "${RESULTS[@]}"
 echo

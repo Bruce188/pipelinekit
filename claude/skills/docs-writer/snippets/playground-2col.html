@@ -38,36 +38,36 @@
     .pkit-pg2 .pkit-p2-issue .lbl { font-size: 0.7rem; padding: 0.1rem 0.45rem; border-radius: 999px; background: rgba(59,130,246,0.18); color: #3b82f6; font-weight: 600; }
   </style>
 
-  <div id="pkit-p2-mount"></div>
-</div>
+  <div data-p2-mount></div>
 
-<script type="application/json" id="pkit-p2-charter-presets">
+  <script type="application/json" data-p2-charter-presets>
 [
   {"label": "current (no drift)", "charter": "Deployment target: vercel", "repo": "docs/charter.md says deployment_target: vercel. vercel.json exists at repo root."},
   {"label": "drifted (changed)", "charter": "MVP boundary: single-feature batch", "repo": "docs/features-v2.md has 23 features. Multiple features batched in one /pipeline run."},
   {"label": "obsolete (removed)", "charter": "Use /interview-prp for new project setup", "repo": "claude/skills/interview-prp/ no longer exists (removed in PR #68)."}
 ]
-</script>
+  </script>
 
-<script type="application/json" id="pkit-p2-issue-presets">
+  <script type="application/json" data-p2-issue-presets>
 [
   {"label": "label:bug", "issues": [{"num": 142, "title": "validate-commit-msg.sh rejects body lines starting with #"}, {"num": 138, "title": "tdd-red-phase-gate fires twice on amend"}]},
   {"label": "label:enhancement", "issues": [{"num": 141, "title": "Add --dry-run to /post-merge"}, {"num": 135, "title": "Charter discovery: skip Topic 10 when no deploy config present"}]},
   {"label": "milestone:v0.1.0", "issues": [{"num": 140, "title": "Charter Stakeholders section beyond Users"}, {"num": 132, "title": "Interactive smoke for charter discovery"}, {"num": 128, "title": "Auto-extract charter from existing analysis/plan"}]},
   {"label": "all", "issues": [{"num": 142, "title": "validate-commit-msg.sh rejects body lines starting with #"}, {"num": 141, "title": "Add --dry-run to /post-merge"}, {"num": 140, "title": "Charter Stakeholders section beyond Users"}, {"num": 138, "title": "tdd-red-phase-gate fires twice on amend"}, {"num": 135, "title": "Charter discovery: skip Topic 10 when no deploy config present"}]}
 ]
-</script>
+  </script>
+</div>
 
 <script>
 (function() {
   'use strict';
-  const pgs = document.querySelectorAll('.pkit-pg2[data-snippet-mount="playground-2col"]');
-  const pg = pgs[pgs.length - 1];
-  if (!pg || pg.dataset.pkitInit) return;
+  document.querySelectorAll('.pkit-pg2[data-snippet-mount="playground-2col"]').forEach(pg => {
+  if (pg.dataset.pkitInit) return;
   pg.dataset.pkitInit = '1';
 
   const mode = pg.dataset.mode || 'charter-revalidation';
-  const mount = pg.querySelector('#pkit-p2-mount');
+  const mount = pg.querySelector('[data-p2-mount]');
+  if (!mount) return;
 
   if (mode === 'charter-revalidation') {
     renderCharter();
@@ -78,7 +78,9 @@
   }
 
   function renderCharter() {
-    const presets = JSON.parse(pg.querySelector('#pkit-p2-charter-presets').textContent);
+    const presetsEl = pg.querySelector('script[data-p2-charter-presets]');
+    if (!presetsEl) return;
+    const presets = JSON.parse(presetsEl.textContent);
     let presetsHtml = '<div class="pkit-p2-presets"><span style="font-size:0.72rem;color:var(--fg-subtle);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;padding-right:0.3rem;align-self:center">Try preset:</span>';
     presets.forEach((p, i) => {
       presetsHtml += `<button class="pkit-p2-preset" data-preset-idx="${i}">${p.label}</button>`;
@@ -152,7 +154,9 @@
   }
 
   function renderIssues() {
-    const presets = JSON.parse(pg.querySelector('#pkit-p2-issue-presets').textContent);
+    const presetsEl = pg.querySelector('script[data-p2-issue-presets]');
+    if (!presetsEl) return;
+    const presets = JSON.parse(presetsEl.textContent);
     let presetsHtml = '<div class="pkit-p2-presets"><span style="font-size:0.72rem;color:var(--fg-subtle);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;padding-right:0.3rem;align-self:center">Try preset:</span>';
     presets.forEach((p, i) => {
       presetsHtml += `<button class="pkit-p2-preset" data-preset-idx="${i}">${p.label}</button>`;
@@ -195,5 +199,6 @@
       });
     });
   }
+  });
 })();
 </script>

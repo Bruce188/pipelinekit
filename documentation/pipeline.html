@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pipeline workflow — pipelinekit</title>
+<title>/pipeline — pipelinekit</title>
 <meta name="description" content="The /pipeline autonomous orchestrator: charter discovery, analyze, plan, implement, review, merge. Per-phase reference.">
-<meta name="generator" content="pipelinekit docs-writer/2 — rich-template + snippets (preview)">
+<meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
 *, *::before, *::after { box-sizing: border-box; }
@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Pipeline workflow</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <a href="credits.html">Credits</a> &nbsp;/&nbsp; <span>/pipeline</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -537,7 +537,7 @@ footer {
 
   <main>
     <header class="page-header">
-      <h1>Pipeline workflow</h1>
+      <h1>/pipeline</h1>
       <p class="description">The /pipeline autonomous orchestrator: charter discovery, analyze, plan, implement, review, merge. Per-phase reference.</p>
       <div class="page-meta"></div>
     </header>
@@ -831,68 +831,6 @@ footer {
 </script>
 
 
-<header class="topbar">
-  <a class="brand" href="index.html">
-    <span class="logo">P</span>
-    <span>pipelinekit docs</span>
-  </a>
-  <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>/pipeline</span>
-  </div>
-  <div class="search-box">
-    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-    <input type="search" id="page-search" placeholder="Filter page (/)" aria-label="Filter content on this page">
-  </div>
-  <button class="toc-mobile-btn" id="toc-toggle" aria-label="Toggle table of contents">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-    Contents
-  </button>
-  <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
-    <svg id="theme-icon-light" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
-    <svg id="theme-icon-dark" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-    <span id="theme-label">Auto</span>
-  </button>
-</header>
-
-<div class="layout">
-  <aside class="toc" id="toc">
-    <h2 id="on-this-page" class="toc-heading">On this page</h2>
-    <ul>
-      <li class="lvl-2"><a href="#invocation">Invocation</a></li>
-      <li class="lvl-2"><a href="#feature-file-docs-features-md">Feature file (docs/features.md)</a></li>
-      <li class="lvl-2"><a href="#feat-user-auth">feat/user-auth</a></li>
-      <li class="lvl-2"><a href="#docs-onboarding-guide">docs/onboarding-guide</a></li>
-      <li class="lvl-2"><a href="#chore-dep-bump">chore/dep-bump</a></li>
-      <li class="lvl-2"><a href="#tdd-routing-dev-vs-non-dev">TDD routing (dev vs non-dev)</a></li>
-      <li class="lvl-2"><a href="#chore-critical-migration">chore/critical-migration</a></li>
-      <li class="lvl-2"><a href="#phases">Phases</a></li>
-      <li class="lvl-2"><a href="#charter-mode">Charter Mode</a></li>
-      <li class="lvl-3"><a href="#when-it-runs">When it runs</a></li>
-      <li class="lvl-3"><a href="#opt-out-flags">Opt-out flags</a></li>
-      <li class="lvl-3"><a href="#subprocess-mode-constraint">Subprocess-mode constraint</a></li>
-      <li class="lvl-3"><a href="#charter-file-shape">Charter file shape</a></li>
-      <li class="lvl-3"><a href="#how-downstream-phases-consume-the-charter">How downstream phases consume the charter</a></li>
-      <li class="lvl-2"><a href="#relationship-to-native-goal">Relationship to native /goal</a></li>
-      <li class="lvl-2"><a href="#documentation-update-phase">Documentation Update Phase</a></li>
-      <li class="lvl-2"><a href="#worker-delegation">Worker Delegation</a></li>
-      <li class="lvl-3"><a href="#worker-classes">Worker classes</a></li>
-      <li class="lvl-3"><a href="#opt-in-format">Opt-in format</a></li>
-      <li class="lvl-3"><a href="#task-1-1-build-the-thing">Task 1.1: Build the thing</a></li>
-      <li class="lvl-2"><a href="#sandbox-provider">Sandbox Provider</a></li>
-      <li class="lvl-3"><a href="#shell-injection-hardening-exec-style-argv">Shell-injection hardening (exec-style argv)</a></li>
-      <li class="lvl-3"><a href="#build-pull">Build &amp; Pull</a></li>
-      <li class="lvl-2"><a href="#optional-subprocess-driver">Optional subprocess driver</a></li>
-      <li class="lvl-2"><a href="#what-was-removed-in-the-portable-build">What was removed in the portable build</a></li>
-    </ul>
-  </aside>
-
-  <main>
-    <header class="page-header">
-      <p class="description">In-process feature pipeline. Single entry point. No subprocess driver (orchestrate.sh was removed for the portable build).</p>
-      <div class="page-meta"><span class="meta-item">Source: <a href="https://github.com/Bruce188/pipelinekit/blob/main/docs/pipeline.md">https://github.com/Bruce188/pipelinekit/blob/main/docs/pipeline.md</a></span></div>
-    </header>
-
-    <div id="page-content">
 <h2 id="invocation">Invocation</h2>
 <div class="codehilite"><pre><span></span><code>/pipeline                  # uses docs/features.md in current project
 /pipeline path/to/features.md
@@ -1238,265 +1176,7 @@ re-implement the full pipeline loop.</p>
 </div>
 
 <footer>
-  <div>Generated by <a href="https://github.com/Bruce188/pipelinekit">pipelinekit</a> · <code>docs-writer/2</code></div>
-  <div>Self-contained HTML · no CDN · no remote assets</div>
-</footer>
-
-<script>
-(function() {
-  'use strict';
-
-  // ============ Theme toggle (auto → light → dark cycle) ============
-  const themeToggle = document.getElementById('theme-toggle');
-  const themeLabel = document.getElementById('theme-label');
-  const iconLight = document.getElementById('theme-icon-light');
-  const iconDark = document.getElementById('theme-icon-dark');
-  const root = document.documentElement;
-  const STORE_KEY = 'pkit-docs-theme';
-
-  function applyTheme(mode) {
-    if (mode === 'auto') {
-      root.removeAttribute('data-theme');
-      themeLabel.textContent = 'Auto';
-      iconLight.style.display = 'none';
-      iconDark.style.display = '';
-    } else {
-      root.setAttribute('data-theme', mode);
-      themeLabel.textContent = mode === 'dark' ? 'Dark' : 'Light';
-      iconLight.style.display = mode === 'dark' ? 'none' : '';
-      iconDark.style.display = mode === 'dark' ? '' : 'none';
-    }
-  }
-  applyTheme(localStorage.getItem(STORE_KEY) || 'auto');
-  themeToggle.addEventListener('click', () => {
-    const cur = localStorage.getItem(STORE_KEY) || 'auto';
-    const next = cur === 'auto' ? 'light' : cur === 'light' ? 'dark' : 'auto';
-    localStorage.setItem(STORE_KEY, next);
-    applyTheme(next);
-  });
-
-  // ============ Anchor links on headings ============
-  document.querySelectorAll('h2[id], h3[id], h4[id]').forEach(h => {
-    const a = document.createElement('a');
-    a.href = '#' + h.id;
-    a.className = 'anchor';
-    a.setAttribute('aria-label', 'Permalink to ' + h.textContent);
-    a.textContent = '#';
-    h.insertBefore(a, h.firstChild);
-  });
-
-  // ============ Copy-code buttons ============
-  document.querySelectorAll('pre').forEach(pre => {
-    const code = pre.querySelector('code');
-    if (!code) return;
-    // Try to detect language from class
-    const cls = code.className || pre.className || '';
-    const langMatch = cls.match(/language-(\w+)|codehilite/) || cls.match(/\b(\w+)\b/);
-    let lang = '';
-    const cm = cls.match(/language-(\w+)/);
-    if (cm) lang = cm[1];
-    if (lang && lang !== 'codehilite') {
-      const label = document.createElement('span');
-      label.className = 'lang-label';
-      label.textContent = lang;
-      pre.appendChild(label);
-    }
-    const btn = document.createElement('button');
-    btn.className = 'copy-btn';
-    btn.type = 'button';
-    btn.setAttribute('aria-label', 'Copy code');
-    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy';
-    btn.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(code.innerText);
-        btn.classList.add('copied');
-        btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Copied';
-        setTimeout(() => {
-          btn.classList.remove('copied');
-          btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy';
-        }, 1800);
-      } catch (e) {
-        btn.textContent = 'Press Ctrl+C';
-      }
-    });
-    pre.appendChild(btn);
-  });
-
-  // ============ Sortable tables ============
-  document.querySelectorAll('table').forEach(table => {
-    const thead = table.querySelector('thead');
-    if (!thead) return;
-    const tbody = table.querySelector('tbody');
-    if (!tbody) return;
-    // Wrap in scroll container
-    if (!table.parentElement.classList.contains('table-wrap')) {
-      const wrap = document.createElement('div');
-      wrap.className = 'table-wrap';
-      table.parentNode.insertBefore(wrap, table);
-      wrap.appendChild(table);
-    }
-    thead.querySelectorAll('th').forEach((th, idx) => {
-      th.classList.add('sortable');
-      th.addEventListener('click', () => sortByColumn(table, idx, th));
-    });
-  });
-  function sortByColumn(table, colIdx, th) {
-    const tbody = table.querySelector('tbody');
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    const isAsc = !th.classList.contains('asc');
-    table.querySelectorAll('th').forEach(h => h.classList.remove('asc', 'desc'));
-    th.classList.toggle('asc', isAsc);
-    th.classList.toggle('desc', !isAsc);
-    rows.sort((a, b) => {
-      const av = (a.children[colIdx]?.innerText || '').trim();
-      const bv = (b.children[colIdx]?.innerText || '').trim();
-      const an = parseFloat(av);
-      const bn = parseFloat(bv);
-      let cmp;
-      if (!isNaN(an) && !isNaN(bn)) cmp = an - bn;
-      else cmp = av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
-      return isAsc ? cmp : -cmp;
-    });
-    rows.forEach(r => tbody.appendChild(r));
-  }
-
-  // ============ ScrollSpy for ToC ============
-  const tocLinks = document.querySelectorAll('.toc a');
-  const headings = document.querySelectorAll('main h2[id], main h3[id]');
-  if (tocLinks.length && headings.length && 'IntersectionObserver' in window) {
-    const linkByHash = {};
-    tocLinks.forEach(a => { linkByHash[a.getAttribute('href')] = a; });
-    const visible = new Set();
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach(e => {
-        const h = '#' + e.target.id;
-        if (e.isIntersecting) visible.add(h);
-        else visible.delete(h);
-      });
-      tocLinks.forEach(a => a.classList.remove('active'));
-      // Pick the topmost-visible heading
-      const candidates = Array.from(headings).filter(h => visible.has('#' + h.id));
-      const first = candidates[0] || headings[0];
-      if (first && linkByHash['#' + first.id]) linkByHash['#' + first.id].classList.add('active');
-    }, { rootMargin: '-100px 0px -60% 0px', threshold: 0 });
-    headings.forEach(h => io.observe(h));
-  }
-
-  // ============ In-page search filter ============
-  const searchInput = document.getElementById('page-search');
-  const noResults = document.getElementById('no-results');
-  const pageContent = document.getElementById('page-content');
-  function clearHighlights() {
-    pageContent.querySelectorAll('.search-hit').forEach(el => {
-      const t = document.createTextNode(el.textContent);
-      el.parentNode.replaceChild(t, el);
-    });
-    pageContent.normalize();
-  }
-  function highlightInNode(node, regex) {
-    if (node.nodeType === 3) {
-      const txt = node.nodeValue;
-      const m = txt.match(regex);
-      if (!m) return false;
-      const frag = document.createDocumentFragment();
-      let last = 0;
-      txt.replace(regex, (match, _g, off) => {
-        if (off > last) frag.appendChild(document.createTextNode(txt.slice(last, off)));
-        const span = document.createElement('span');
-        span.className = 'search-hit';
-        span.textContent = match;
-        frag.appendChild(span);
-        last = off + match.length;
-      });
-      if (last < txt.length) frag.appendChild(document.createTextNode(txt.slice(last)));
-      node.parentNode.replaceChild(frag, node);
-      return true;
-    }
-    if (node.nodeType !== 1) return false;
-    if (['SCRIPT','STYLE','PRE','CODE'].includes(node.tagName)) return false;
-    let any = false;
-    Array.from(node.childNodes).forEach(c => { if (highlightInNode(c, regex)) any = true; });
-    return any;
-  }
-  function filter(q) {
-    clearHighlights();
-    // Filter table rows
-    document.querySelectorAll('table tbody tr').forEach(tr => tr.classList.remove('filtered-out'));
-    if (!q) { noResults.classList.remove('visible'); return; }
-    const lc = q.toLowerCase();
-    const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-    let anyHit = false;
-    if (highlightInNode(pageContent, regex)) anyHit = true;
-    // Table filtering
-    document.querySelectorAll('table tbody tr').forEach(tr => {
-      const txt = tr.innerText.toLowerCase();
-      if (!txt.includes(lc)) tr.classList.add('filtered-out');
-      else anyHit = true;
-    });
-    noResults.classList.toggle('visible', !anyHit);
-  }
-  if (searchInput) {
-    let debounce;
-    searchInput.addEventListener('input', (e) => {
-      clearTimeout(debounce);
-      debounce = setTimeout(() => filter(e.target.value.trim()), 80);
-    });
-  }
-  // Keyboard: / focuses search
-  document.addEventListener('keydown', (e) => {
-    if (e.key === '/' && document.activeElement !== searchInput && !e.ctrlKey && !e.metaKey) {
-      e.preventDefault();
-      searchInput.focus();
-    }
-    if (e.key === 'Escape' && document.activeElement === searchInput) {
-      searchInput.value = '';
-      filter('');
-      searchInput.blur();
-    }
-  });
-
-  // ============ Mobile ToC drawer ============
-  const tocToggle = document.getElementById('toc-toggle');
-  const toc = document.getElementById('toc');
-  if (tocToggle && toc) {
-    tocToggle.addEventListener('click', () => toc.classList.toggle('open'));
-    toc.addEventListener('click', (e) => {
-      if (e.target.tagName === 'A') toc.classList.remove('open');
-    });
-  }
-
-  // ============ Auto-detect callouts from blockquotes starting with [NOTE]/[INFO]/etc ============
-  document.querySelectorAll('blockquote').forEach(bq => {
-    const first = bq.querySelector('p:first-child');
-    if (!first) return;
-    const m = first.textContent.match(/^\[(NOTE|INFO|TIP|WARN|WARNING|DANGER|ALERT|SUCCESS|OK)\]\s*/i);
-    if (!m) return;
-    const kind = m[1].toUpperCase();
-    const klass = ['WARN','WARNING','ALERT'].includes(kind) ? 'warn'
-                 : ['DANGER'].includes(kind) ? 'danger'
-                 : ['SUCCESS','OK'].includes(kind) ? 'success' : 'info';
-    const icon = klass === 'warn' ? '⚠' : klass === 'danger' ? '✕' : klass === 'success' ? '✓' : 'ℹ';
-    first.textContent = first.textContent.slice(m[0].length);
-    const wrap = document.createElement('div');
-    wrap.className = 'callout ' + klass;
-    wrap.innerHTML = '<span class="callout-icon">' + icon + '</span><div class="callout-body"></div>';
-    const body = wrap.querySelector('.callout-body');
-    while (bq.firstChild) body.appendChild(bq.firstChild);
-    bq.parentNode.replaceChild(wrap, bq);
-  });
-
-})();
-</script>
-    </div>
-
-    <div class="no-results" id="no-results">
-      <p>No matches on this page. Clear the filter to see all content.</p>
-    </div>
-  </main>
-</div>
-
-<footer>
-  <div>Generated by <a href="https://github.com/Bruce188/pipelinekit">pipelinekit</a> · <code>docs-writer/2</code></div>
+  <div>Generated by <a href="https://github.com/Bruce188/pipelinekit">pipelinekit</a> · <code>docs-writer/2</code> · <a href="credits.html">Credits</a></div>
   <div>Self-contained HTML · no CDN · no remote assets</div>
 </footer>
 

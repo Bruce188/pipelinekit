@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Azure Deployment Provider — pipelinekit</title>
-<meta name="description" content="Azure account setup, subscription configuration, CLI install posture, pipelinekit integration via Charter Topic 10, resource group management, runtime verification commands, auth posture, and provider comparison for Azure-hosted workloads.">
+<meta name="description" content="Azure deployment via App Service, Container Apps, Function Apps. Auth (Managed Identity), Key Vault, Bicep/ARM, environment config, runtime verification, and provider comparison.">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Azure Deployment Provider</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <a href="credits.html">Credits</a> &nbsp;/&nbsp; <span>Azure Deployment Provider</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -532,7 +532,7 @@ footer {
     <h2 class="toc-heading">On this page</h2>
     <ul>
       <li class="lvl-2"><a href="#1-what-is-the-azure-provider-integration">1. What is the Azure provider integration</a></li>
-      <li class="lvl-2"><a href="#2-account-amp-subscription-setup">2. Account &amp;amp; subscription setup</a></li>
+      <li class="lvl-2"><a href="#2-account-subscription-setup">2. Account &amp; subscription setup</a></li>
       <li class="lvl-2"><a href="#3-install-the-azure-cli">3. Install the Azure CLI</a></li>
       <li class="lvl-2"><a href="#4-authenticate-to-azure">4. Authenticate to Azure</a></li>
       <li class="lvl-2"><a href="#5-create-an-app-service-container-app-function-app">5. Create an App Service / Container App / Function App</a></li>
@@ -547,7 +547,7 @@ footer {
       <li class="lvl-3"><a href="#view-deployment-history">View deployment history</a></li>
       <li class="lvl-3"><a href="#roll-back-to-a-previous-deployment">Roll back to a previous deployment</a></li>
       <li class="lvl-3"><a href="#monitor-application-performance">Monitor application performance</a></li>
-      <li class="lvl-2"><a href="#10-auth-posture-amp-secret-hygiene">10. Auth posture &amp;amp; secret hygiene</a></li>
+      <li class="lvl-2"><a href="#10-auth-posture-secret-hygiene">10. Auth posture &amp; secret hygiene</a></li>
       <li class="lvl-2"><a href="#11-comparison-with-other-providers">11. Comparison with other providers</a></li>
       <li class="lvl-2"><a href="#12-troubleshooting">12. Troubleshooting</a></li>
       <li class="lvl-3"><a href="#deployment-fails-with-resource-group-not-found">Deployment fails with &quot;Resource group not found&quot;</a></li>
@@ -561,7 +561,7 @@ footer {
   <main>
     <header class="page-header">
       <h1>Azure Deployment Provider</h1>
-      <p class="description">Azure account setup, subscription configuration, CLI install posture, pipelinekit integration via Charter Topic 10, resource group management, runtime verification commands, auth posture, and provider comparison for Azure-hosted workloads.</p>
+      <p class="description">Azure deployment via App Service, Container Apps, Function Apps. Auth (Managed Identity), Key Vault, Bicep/ARM, environment config, runtime verification, and provider comparison.</p>
       <div class="page-meta"></div>
     </header>
 
@@ -599,12 +599,11 @@ footer {
     .pkit-cmp .pkit-cmp-note { font-size: 0.78rem; color: var(--fg-subtle); margin-top: 0.8rem; font-style: italic; }
   </style>
 
-  <div class="pkit-cmp-tabs" id="pkit-cmp-tabs"></div>
-  <div class="pkit-cmp-grid" id="pkit-cmp-grid"></div>
+  <div class="pkit-cmp-tabs" data-cmp-tabs></div>
+  <div class="pkit-cmp-grid" data-cmp-grid></div>
   <p class="pkit-cmp-note">Click any tab to compare this page's provider against another. Compare against → switches the right column.</p>
-</div>
 
-<script type="application/json" id="pkit-cmp-data">
+  <script type="application/json" data-cmp-data>
 {
   "providers": {
     "vercel": {
@@ -659,19 +658,21 @@ footer {
     }
   }
 }
-</script>
+  </script>
+</div>
 
 <script>
 (function() {
   'use strict';
-  const cmps = document.querySelectorAll('.pkit-cmp[data-snippet-mount="comparison-tabs"]');
-  const cmp = cmps[cmps.length - 1];
-  if (!cmp || cmp.dataset.pkitInit) return;
-  cmp.dataset.pkitInit = '1';
+  document.querySelectorAll('.pkit-cmp[data-snippet-mount="comparison-tabs"]').forEach(cmp => {
+    if (cmp.dataset.pkitInit) return;
+    cmp.dataset.pkitInit = '1';
 
-  const data = JSON.parse(cmp.querySelector('#pkit-cmp-data').textContent);
-  const tabsEl = cmp.querySelector('#pkit-cmp-tabs');
-  const gridEl = cmp.querySelector('#pkit-cmp-grid');
+    const dataEl = cmp.querySelector('script[data-cmp-data]');
+    const tabsEl = cmp.querySelector('[data-cmp-tabs]');
+    const gridEl = cmp.querySelector('[data-cmp-grid]');
+    if (!dataEl || !tabsEl || !gridEl) return;
+    const data = JSON.parse(dataEl.textContent);
 
   // Detect "home" provider from <title>
   const title = (document.title || '').toLowerCase();
@@ -714,365 +715,281 @@ footer {
     gridEl.innerHTML = colHtml(homeProv, true) + colHtml(otherProv, false);
   }
 
-  render();
+    render();
+  });
 })();
 </script>
 
-<p>
-    pipelinekit integrates Azure as a first-class deployment provider on the same footing as Vercel, Railway, Render, and DigitalOcean.
-    When your project charter selects <code>azure</code> as the deployment target (Charter Topic 10),
-    pipelinekit routes deployment work to the <code>@azure-deployment-engineer</code> agent and the
-    <code>azure-ops</code> skill automatically.
-  </p>
 
-  <h2 id="1-what-is-the-azure-provider-integration">1. What is the Azure provider integration</h2>
-  <p>
-    Azure is Microsoft's cloud platform offering infrastructure-as-a-service (IaaS), platform-as-a-service (PaaS),
-    and serverless compute. pipelinekit supports three Azure hosting models:
-  </p>
-  <ul>
-    <li>
-      <strong>App Service</strong> — Managed web hosting for Node.js, Python, .NET, Java, PHP, and Ruby.
-      Zero container knowledge required; Azure handles runtime patching, scaling, and SSL.
-    </li>
-    <li>
-      <strong>Container Apps</strong> — Managed container runtime with automatic scaling, networking, and secrets management.
-      Bridges the gap between App Service (simplicity) and Kubernetes (flexibility).
-    </li>
-    <li>
-      <strong>Function Apps</strong> — Serverless compute for event-driven workloads (HTTP triggers, timers, queues, blob storage).
-      Pay only for execution time; no servers to manage.
-    </li>
-  </ul>
-  <p>
-    The pipelinekit Azure integration consists of three components:
-  </p>
-  <ul>
-    <li>
-      <strong><code>claude/skills/azure-ops/SKILL.md</code></strong> — the operational skill that wraps the
-      Azure CLI (<code>az</code>) for day-to-day ops: resource listing, app service restart, deployment history,
-      log streaming, and health checks. Enforces the auth-posture contract (never auto-authenticates, always starts
-      with <code>az account show</code>).
-    </li>
-    <li>
-      <strong><code>claude/agents/azure-deployment-engineer.md</code></strong> — the deployment-engineer
-      agent that covers Azure subscription topology, resource group strategy, app service / container apps / function
-      app configuration, managed identity setup, Key Vault integration, observability wiring, and the full provider-native
-      verification chain.
-    </li>
-    <li>
-      <strong>Charter Topic 10 integration</strong> — selecting <code>azure</code> as the deployment
-      provider in the project charter automatically routes <code>/pipeline</code> deployment phases to the
-      agent and skill above.
-    </li>
-  </ul>
+<p>Azure deployment via App Service, Container Apps, Function Apps. Auth (Managed Identity), Key Vault, Bicep/ARM, environment config, runtime verification, and provider comparison.</p>
+<p>pipelinekit integrates Azure as a first-class deployment provider on the same footing as Vercel, Railway, Render, and DigitalOcean. When your project charter selects <code>azure</code> as the deployment target (Charter Topic 10), pipelinekit routes deployment work to the <code>@azure-deployment-engineer</code> agent and the <code>azure-ops</code> skill automatically.</p>
+<h2 id="1-what-is-the-azure-provider-integration">1. What is the Azure provider integration</h2>
+<p>Azure is Microsoft's cloud platform offering infrastructure-as-a-service (IaaS), platform-as-a-service (PaaS), and serverless compute. pipelinekit supports three Azure hosting models:</p>
+<ul>
+<li><strong>App Service</strong> — Managed web hosting for Node.js, Python, .NET, Java, PHP, and Ruby. Zero container knowledge required; Azure handles runtime patching, scaling, and SSL.</li>
+<li><strong>Container Apps</strong> — Managed container runtime with automatic scaling, networking, and secrets management. Bridges the gap between App Service (simplicity) and Kubernetes (flexibility).</li>
+<li><strong>Function Apps</strong> — Serverless compute for event-driven workloads (HTTP triggers, timers, queues, blob storage). Pay only for execution time; no servers to manage.</li>
+</ul>
+<p>The pipelinekit Azure integration consists of three components:</p>
+<ul>
+<li><strong><code>claude/skills/azure-ops/SKILL.md</code></strong> — the operational skill that wraps the Azure CLI (<code>az</code>) for day-to-day ops: resource listing, app service restart, deployment history, log streaming, and health checks. Enforces the auth-posture contract (never auto-authenticates, always starts with <code>az account show</code>).</li>
+<li><strong><code>claude/agents/azure-deployment-engineer.md</code></strong> — the deployment-engineer agent that covers Azure subscription topology, resource group strategy, app service / container apps / function app configuration, managed identity setup, Key Vault integration, observability wiring, and the full provider-native verification chain.</li>
+<li><strong>Charter Topic 10 integration</strong> — selecting <code>azure</code> as the deployment provider in the project charter automatically routes <code>/pipeline</code> deployment phases to the agent and skill above.</li>
+</ul>
+<h2 id="2-account-subscription-setup">2. Account &amp; subscription setup</h2>
+<ol>
+<li>
+<p>Create an Azure account at <a href="https://azure.microsoft.com">azure.microsoft.com</a>. New accounts receive \$200 in free credits for 30 days; always-free tier includes App Service (B1 tier, 1 GB RAM), Azure SQL Database (20 GB), Azure Cosmos DB, and Function Apps (1M invocations/month).</p>
+</li>
+<li>
+<p>Create a subscription (or use the default subscription created with your account). All Azure resources belong to exactly one subscription; resource groups organize resources within a subscription.</p>
+</li>
+<li>
+<p>Create a resource group in your subscription using the Azure Portal or CLI:</p>
+<div class="codehilite"><pre><span></span><code>az group create --name myapp-rg --location eastus
+</code></pre></div>
 
-  <h2 id="2-account-amp-subscription-setup">2. Account &amp; subscription setup</h2>
-  <ol>
-    <li>
-      Create an Azure account at <a href="https://azure.microsoft.com">azure.microsoft.com</a>.
-      New accounts receive $200 in free credits for 30 days; always-free tier includes App Service (B1 tier, 1 GB RAM),
-      Azure SQL Database (20 GB), Azure Cosmos DB, and Function Apps (1M invocations/month).
-    </li>
-    <li>
-      Create a subscription (or use the default subscription created with your account).
-      All Azure resources belong to exactly one subscription; resource groups organize resources within a subscription.
-    </li>
-    <li>
-      Create a resource group in your subscription using the Azure Portal or CLI:
-      <pre><code>az group create --name myapp-rg --location eastus</code></pre>
-      Resource group names must be unique within your subscription. Choose a location close to your users.
-    </li>
-  </ol>
+<p>Resource group names must be unique within your subscription. Choose a location close to your users.</p>
+</li>
+</ol>
+<h2 id="3-install-the-azure-cli">3. Install the Azure CLI</h2>
+<p>The Azure CLI (<code>az</code>) is the primary interface for pipelinekit's Azure ops. <code>pipelinekit/scripts/install.sh</code> auto-installs <code>az</code> on Debian / Ubuntu hosts. On other platforms (macOS, Fedora, etc.), follow Microsoft's installation guide: <a href="https://learn.microsoft.com/en-us/cli/azure/install-azure-cli">Install the Azure CLI</a>.</p>
+<p>After install, verify the CLI is on your PATH:</p>
+<div class="codehilite"><pre><span></span><code>az version
+</code></pre></div>
 
-  <h2 id="3-install-the-azure-cli">3. Install the Azure CLI</h2>
-  <p>
-    The Azure CLI (<code>az</code>) is the primary interface for pipelinekit's Azure ops.
-    <code>pipelinekit/scripts/install.sh</code> auto-installs <code>az</code> on Debian / Ubuntu hosts.
-    On other platforms (macOS, Fedora, etc.), follow Microsoft's installation guide:
-    <a href="https://learn.microsoft.com/en-us/cli/azure/install-azure-cli">Install the Azure CLI</a>.
-  </p>
-  <p>
-    After install, verify the CLI is on your PATH:
-  </p>
-  <pre><code>az version</code></pre>
+<h2 id="4-authenticate-to-azure">4. Authenticate to Azure</h2>
+<p>Before running any deployment via pipelinekit, authenticate to Azure outside of Claude:</p>
+<div class="codehilite"><pre><span></span><code>az login
+</code></pre></div>
 
-  <h2 id="4-authenticate-to-azure">4. Authenticate to Azure</h2>
-  <p>
-    Before running any deployment via pipelinekit, authenticate to Azure outside of Claude:
-  </p>
-  <pre><code>az login</code></pre>
-  <p>
-    This opens a browser for interactive login. After authentication, the CLI stores your credentials
-    in <code>~/.azure/</code> (never in shell history, env vars, or transcript).
-  </p>
-  <p>
-    Verify authentication with:
-  </p>
-  <pre><code>az account show</code></pre>
-  <p>
-    If multiple subscriptions are available, set the default:
-  </p>
-  <pre><code>az account set --subscription "My Subscription Name"</code></pre>
-  <p>
-    The <code>@azure-deployment-engineer</code> agent runs <code>az account show</code> as a preflight
-    check before any deployment operation. If authentication is not set up, the agent STOPS and instructs
-    you to authenticate outside Claude.
-  </p>
+<p>This opens a browser for interactive login. After authentication, the CLI stores your credentials in <code>~/.azure/</code> (never in shell history, env vars, or transcript).</p>
+<p>Verify authentication with:</p>
+<div class="codehilite"><pre><span></span><code>az account show
+</code></pre></div>
 
-  <h2 id="5-create-an-app-service-container-app-function-app">5. Create an App Service / Container App / Function App</h2>
+<p>If multiple subscriptions are available, set the default:</p>
+<div class="codehilite"><pre><span></span><code>az account set --subscription &quot;My Subscription Name&quot;
+</code></pre></div>
 
-  <h3 id="app-service-web-app">App Service (Web App)</h3>
-  <p>
-    For a Node.js web application:
-  </p>
-  <pre><code>az appservice plan create --name myapp-plan --resource-group myapp-rg --sku B1 --is-linux
-az webapp create --resource-group myapp-rg --plan myapp-plan --name myapp-web --runtime "Node|20-lts"</code></pre>
-  <p>
-    Replace <code>myapp-web</code> with a globally unique name. The app will be accessible at
-    <code>https://myapp-web.azurewebsites.net</code>.
-  </p>
+<p>The <code>@azure-deployment-engineer</code> agent runs <code>az account show</code> as a preflight check before any deployment operation. If authentication is not set up, the agent STOPS and instructs you to authenticate outside Claude.</p>
+<h2 id="5-create-an-app-service-container-app-function-app">5. Create an App Service / Container App / Function App</h2>
+<h3 id="app-service-web-app">App Service (Web App)</h3>
+<p>For a Node.js web application:</p>
+<div class="codehilite"><pre><span></span><code>az appservice plan create --name myapp-plan --resource-group myapp-rg --sku B1 --is-linux
+az webapp create --resource-group myapp-rg --plan myapp-plan --name myapp-web --runtime &quot;Node|20-lts&quot;
+</code></pre></div>
 
-  <h3 id="container-apps">Container Apps</h3>
-  <p>
-    For a containerized application:
-  </p>
-  <pre><code>az containerapp create --name myapp-container --resource-group myapp-rg \
-  --image myregistry.azurecr.io/myapp:latest --target-port 3000 --ingress external</code></pre>
+<p>Replace <code>myapp-web</code> with a globally unique name. The app will be accessible at <code>https://myapp-web.azurewebsites.net</code>.</p>
+<h3 id="container-apps">Container Apps</h3>
+<p>For a containerized application:</p>
+<div class="codehilite"><pre><span></span><code>az containerapp create --name myapp-container --resource-group myapp-rg \
+  --image myregistry.azurecr.io/myapp:latest --target-port 3000 --ingress external
+</code></pre></div>
 
-  <h3 id="function-app">Function App</h3>
-  <p>
-    For a serverless function:
-  </p>
-  <pre><code>az functionapp create --resource-group myapp-rg --consumption-plan-location eastus \
-  --runtime node --runtime-version 20 --functions-version 4 --name myapp-func</code></pre>
+<h3 id="function-app">Function App</h3>
+<p>For a serverless function:</p>
+<div class="codehilite"><pre><span></span><code>az functionapp create --resource-group myapp-rg --consumption-plan-location eastus \
+  --runtime node --runtime-version 20 --functions-version 4 --name myapp-func
+</code></pre></div>
 
-  <h2 id="6-integrate-with-pipelinekit-charter">6. Integrate with pipelinekit Charter</h2>
-  <p>
-    When creating a new project via <code>/pipeline</code>, Step 0 (Charter Discovery) asks about
-    deployment target (Topic 10). Select <code>azure</code> to route deployment tasks to the
-    <code>@azure-deployment-engineer</code> agent.
-  </p>
-  <p>
-    For existing projects, ensure your charter includes:
-  </p>
-  <pre><code>**Deployment Target:** azure</code></pre>
+<h2 id="6-integrate-with-pipelinekit-charter">6. Integrate with pipelinekit Charter</h2>
+<p>When creating a new project via <code>/pipeline</code>, Step 0 (Charter Discovery) asks about deployment target (Topic 10). Select <code>azure</code> to route deployment tasks to the <code>@azure-deployment-engineer</code> agent.</p>
+<p>For existing projects, ensure your charter includes:</p>
+<div class="codehilite"><pre><span></span><code>**Deployment Target:** azure
+</code></pre></div>
 
-  <h2 id="7-runtime-verification">7. Runtime verification</h2>
-  <p>
-    After deployment, pipelinekit verifies the application with a three-step chain:
-  </p>
-  <ol>
-    <li>
-      <strong>Deployment state probe:</strong> Check app service status via Azure CLI
-      <pre><code>az webapp show --resource-group myapp-rg --name myapp-web --query "state"</code></pre>
-    </li>
-    <li>
-      <strong>Log tail (60 seconds):</strong> Stream application logs to catch cold-start failures
-      <pre><code>az webapp log tail --resource-group myapp-rg --name myapp-web</code></pre>
-    </li>
-    <li>
-      <strong>Health-endpoint polling:</strong> Hit your application's health endpoint with exponential backoff
-      <pre><code>for i in 1 2 4 8 16 32; do
-  curl --fail --silent "https://myapp-web.azurewebsites.net/health" && break
-  echo "Health check failed — retrying in ${i}s"
-  sleep "$i"
-done</code></pre>
-    </li>
-  </ol>
+<h2 id="7-runtime-verification">7. Runtime verification</h2>
+<p>After deployment, pipelinekit verifies the application with a three-step chain:</p>
+<ol>
+<li>
+<p><strong>Deployment state probe:</strong> Check app service status via Azure CLI</p>
+<div class="codehilite"><pre><span></span><code>az webapp show --resource-group myapp-rg --name myapp-web --query &quot;state&quot;
+</code></pre></div>
 
-  <h2 id="8-secret-management">8. Secret management</h2>
-  <p>
-    Never commit secrets (API keys, database passwords, tokens) to source code.
-    Azure offers two solutions:
-  </p>
-  <ul>
-    <li>
-      <strong>Application Settings (easier):</strong> Store secrets as encrypted environment variables in App Service.
-      Access via <code>process.env.MY_SECRET</code> (Node.js) or <code>os.environ['MY_SECRET']</code> (Python).
-      <pre><code>az webapp config appsettings set --resource-group myapp-rg --name myapp-web \
-  --settings API_KEY="secret-value" DATABASE_URL="postgres://..."</code></pre>
-    </li>
-    <li>
-      <strong>Azure Key Vault (recommended for enterprise):</strong> Centralized secret storage with audit logging.
-      Create a vault:
-      <pre><code>az keyvault create --resource-group myapp-rg --name myapp-kv</code></pre>
-      Store a secret:
-      <pre><code>az keyvault secret set --vault-name myapp-kv --name database-password --value "secret-value"</code></pre>
-      Grant your app access via managed identity (Agent will guide).
-    </li>
-  </ul>
+</li>
+<li>
+<p><strong>Log tail (60 seconds):</strong> Stream application logs to catch cold-start failures</p>
+<div class="codehilite"><pre><span></span><code>az webapp log tail --resource-group myapp-rg --name myapp-web
+</code></pre></div>
 
-  <h2 id="9-common-deployment-tasks">9. Common deployment tasks</h2>
+</li>
+<li>
+<p><strong>Health-endpoint polling:</strong> Hit your application's health endpoint with exponential backoff</p>
+<div class="codehilite"><pre><span></span><code>for i in 1 2 4 8 16 32; do
+  curl --fail --silent &quot;https://myapp-web.azurewebsites.net/health&quot; &amp;&amp; break
+  echo &quot;Health check failed — retrying in ${i}s&quot;
+  sleep &quot;$i&quot;
+done
+</code></pre></div>
 
-  <h3 id="redeploy-from-git">Redeploy from Git</h3>
-  <p>
-    If your app is connected to a GitHub repository, trigger a redeploy:
-  </p>
-  <pre><code>az webapp deployment source sync --resource-group myapp-rg --name myapp-web</code></pre>
+</li>
+</ol>
+<h2 id="8-secret-management">8. Secret management</h2>
+<p>Never commit secrets (API keys, database passwords, tokens) to source code. Azure offers two solutions:</p>
+<ul>
+<li>
+<p><strong>Application Settings (easier):</strong> Store secrets as encrypted environment variables in App Service. Access via <code>process.env.MY_SECRET</code> (Node.js) or <code>os.environ['MY_SECRET']</code> (Python).</p>
+<p>az webapp config appsettings set --resource-group myapp-rg --name myapp-web \
+    --settings API_KEY="secret-value" DATABASE_URL="postgres://..."</p>
+</li>
+<li>
+<p><strong>Azure Key Vault (recommended for enterprise):</strong> Centralized secret storage with audit logging. Create a vault:</p>
+<p>az keyvault create --resource-group myapp-rg --name myapp-kv</p>
+</li>
+</ul>
+<p>Store a secret:</p>
+<div class="codehilite"><pre><span></span><code>  az keyvault secret set --vault-name myapp-kv --name database-password --value &quot;secret-value&quot;
+</code></pre></div>
 
-  <h3 id="view-deployment-history">View deployment history</h3>
-  <pre><code>az webapp deployment list --resource-group myapp-rg --name myapp-web</code></pre>
+<p>Grant your app access via managed identity (Agent will guide).</p>
+<h2 id="9-common-deployment-tasks">9. Common deployment tasks</h2>
+<h3 id="redeploy-from-git">Redeploy from Git</h3>
+<p>If your app is connected to a GitHub repository, trigger a redeploy:</p>
+<div class="codehilite"><pre><span></span><code>az webapp deployment source sync --resource-group myapp-rg --name myapp-web
+</code></pre></div>
 
-  <h3 id="roll-back-to-a-previous-deployment">Roll back to a previous deployment</h3>
-  <pre><code>az webapp deployment slot swap --resource-group myapp-rg --name myapp-web --slot staging</code></pre>
+<h3 id="view-deployment-history">View deployment history</h3>
+<div class="codehilite"><pre><span></span><code>az webapp deployment list --resource-group myapp-rg --name myapp-web
+</code></pre></div>
 
-  <h3 id="monitor-application-performance">Monitor application performance</h3>
-  <p>
-    Enable Application Insights (Azure's built-in observability service):
-  </p>
-  <pre><code>az monitor app-insights component create --app myapp-insights --location eastus --resource-group myapp-rg</code></pre>
+<h3 id="roll-back-to-a-previous-deployment">Roll back to a previous deployment</h3>
+<div class="codehilite"><pre><span></span><code>az webapp deployment slot swap --resource-group myapp-rg --name myapp-web --slot staging
+</code></pre></div>
 
-  <h2 id="10-auth-posture-amp-secret-hygiene">10. Auth posture &amp; secret hygiene</h2>
-  <p>
-    The <code>@azure-deployment-engineer</code> agent enforces:
-  </p>
-  <ul>
-    <li>
-      <strong>Authentication is your responsibility.</strong> You run <code>az login</code> outside Claude.
-      The agent verifies authentication with <code>az account show</code> and STOPS if not authenticated.
-    </li>
-    <li>
-      <strong>No credential env vars.</strong> The agent never reads <code>AZURE_SUBSCRIPTION_ID</code>,
-      <code>AZURE_TENANT_ID</code>, <code>AZURE_CLIENT_ID</code>, <code>AZURE_CLIENT_SECRET</code>, or any
-      <code>AZURE_*</code> credential. All credentials live in <code>~/.azure/</code> (on-disk encrypted).
-    </li>
-    <li>
-      <strong>No token logging.</strong> Secrets never appear in logs, comments, or debug output.
-      If a token leaks, rotate it immediately via the Azure Portal or CLI.
-    </li>
-    <li>
-      <strong>Application secrets in Key Vault.</strong> Production API keys, database passwords, and third-party
-      tokens belong in Azure Key Vault or Application Settings, never in source code or env vars.
-    </li>
-  </ul>
+<h3 id="monitor-application-performance">Monitor application performance</h3>
+<p>Enable Application Insights (Azure's built-in observability service):</p>
+<div class="codehilite"><pre><span></span><code>az monitor app-insights component create --app myapp-insights --location eastus --resource-group myapp-rg
+</code></pre></div>
 
-  <h2 id="11-comparison-with-other-providers">11. Comparison with other providers</h2>
-  <table border="1" cellpadding="8" style="border-collapse: collapse; width: 100%; margin-top: 1rem;">
-    <tr style="background: #f0f0f0;">
-      <th>Dimension</th>
-      <th>Azure</th>
-      <th>Vercel</th>
-      <th>Railway</th>
-      <th>Render</th>
-      <th>DigitalOcean</th>
-    </tr>
-    <tr>
-      <td><strong>Primary Use Case</strong></td>
-      <td>Enterprise; multi-service; managed containers</td>
-      <td>Frontend; edge functions; serverless</td>
-      <td>Any runtime; persistent volumes; cron</td>
-      <td>Any runtime; simple PaaS; persistent storage</td>
-      <td>Any runtime; simple PaaS; managed databases</td>
-    </tr>
-    <tr>
-      <td><strong>Hosting Models</strong></td>
-      <td>App Service, Container Apps, Function Apps, VMs</td>
-      <td>Static hosting, Serverless Functions</td>
-      <td>PaaS (auto-scaling)</td>
-      <td>PaaS (auto-scaling)</td>
-      <td>App Platform (managed containers)</td>
-    </tr>
-    <tr>
-      <td><strong>Dockerfile Required</strong></td>
-      <td>No (App Service) / Yes (Container Apps)</td>
-      <td>No</td>
-      <td>No</td>
-      <td>No</td>
-      <td>No</td>
-    </tr>
-    <tr>
-      <td><strong>Free Tier</strong></td>
-      <td>$200 credit × 30 days + always-free tier</td>
-      <td>Pro: 100 GB bandwidth; Functions: 1M invocations</td>
-      <td>$5/month credit (trial)</td>
-      <td>Free tier exists (limited)</td>
-      <td>$5/month credit</td>
-    </tr>
-    <tr>
-      <td><strong>Min Cost (Production)</strong></td>
-      <td>~$15/month (B1 App Service)</td>
-      <td>~$20/month (Pro)</td>
-      <td>~$7/month</td>
-      <td>~$7/month</td>
-      <td>~$12/month (basic droplet)</td>
-    </tr>
-    <tr>
-      <td><strong>CLI Tool</strong></td>
-      <td>az (Microsoft)</td>
-      <td>vercel (Vercel)</td>
-      <td>railway (Railway)</td>
-      <td>render (Render)</td>
-      <td>doctl (DigitalOcean)</td>
-    </tr>
-    <tr>
-      <td><strong>IaC Support</strong></td>
-      <td>Bicep, ARM, Terraform</td>
-      <td>vercel.json</td>
-      <td>railway.toml</td>
-      <td>render.yaml</td>
-      <td>.do/app.yaml</td>
-    </tr>
-    <tr>
-      <td><strong>Scaling</strong></td>
-      <td>Auto (Premium SKUs)</td>
-      <td>Auto (edge network)</td>
-      <td>Auto (PaaS)</td>
-      <td>Auto (PaaS)</td>
-      <td>Manual or via App Platform</td>
-    </tr>
-  </table>
+<h2 id="10-auth-posture-secret-hygiene">10. Auth posture &amp; secret hygiene</h2>
+<p>The <code>@azure-deployment-engineer</code> agent enforces:</p>
+<ul>
+<li><strong>Authentication is your responsibility.</strong> You run <code>az login</code> outside Claude. The agent verifies authentication with <code>az account show</code> and STOPS if not authenticated.</li>
+<li><strong>No credential env vars.</strong> The agent never reads <code>AZURE_SUBSCRIPTION_ID</code>, <code>AZURE_TENANT_ID</code>, <code>AZURE_CLIENT_ID</code>, <code>AZURE_CLIENT_SECRET</code>, or any <code>AZURE_*</code> credential. All credentials live in <code>~/.azure/</code> (on-disk encrypted).</li>
+<li><strong>No token logging.</strong> Secrets never appear in logs, comments, or debug output. If a token leaks, rotate it immediately via the Azure Portal or CLI.</li>
+<li><strong>Application secrets in Key Vault.</strong> Production API keys, database passwords, and third-party tokens belong in Azure Key Vault or Application Settings, never in source code or env vars.</li>
+</ul>
+<h2 id="11-comparison-with-other-providers">11. Comparison with other providers</h2>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Azure</th>
+<th>Vercel</th>
+<th>Railway</th>
+<th>Render</th>
+<th>DigitalOcean</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Primary Use Case</strong></td>
+<td>Enterprise; multi-service; managed containers</td>
+<td>Frontend; edge functions; serverless</td>
+<td>Any runtime; persistent volumes; cron</td>
+<td>Any runtime; simple PaaS; persistent storage</td>
+<td>Any runtime; simple PaaS; managed databases</td>
+</tr>
+<tr>
+<td><strong>Hosting Models</strong></td>
+<td>App Service, Container Apps, Function Apps, VMs</td>
+<td>Static hosting, Serverless Functions</td>
+<td>PaaS (auto-scaling)</td>
+<td>PaaS (auto-scaling)</td>
+<td>App Platform (managed containers)</td>
+</tr>
+<tr>
+<td><strong>Dockerfile Required</strong></td>
+<td>No (App Service) / Yes (Container Apps)</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Free Tier</strong></td>
+<td>\$200 credit × 30 days + always-free tier</td>
+<td>Pro: 100 GB bandwidth; Functions: 1M invocations</td>
+<td>\$5/month credit (trial)</td>
+<td>Free tier exists (limited)</td>
+<td>\$5/month credit</td>
+</tr>
+<tr>
+<td><strong>Min Cost (Production)</strong></td>
+<td>~\$15/month (B1 App Service)</td>
+<td>~\$20/month (Pro)</td>
+<td>~\$7/month</td>
+<td>~\$7/month</td>
+<td>~\$12/month (basic droplet)</td>
+</tr>
+<tr>
+<td><strong>CLI Tool</strong></td>
+<td>az (Microsoft)</td>
+<td>vercel (Vercel)</td>
+<td>railway (Railway)</td>
+<td>render (Render)</td>
+<td>doctl (DigitalOcean)</td>
+</tr>
+<tr>
+<td><strong>IaC Support</strong></td>
+<td>Bicep, ARM, Terraform</td>
+<td>vercel.json</td>
+<td>railway.toml</td>
+<td>render.yaml</td>
+<td>.do/app.yaml</td>
+</tr>
+<tr>
+<td><strong>Scaling</strong></td>
+<td>Auto (Premium SKUs)</td>
+<td>Auto (edge network)</td>
+<td>Auto (PaaS)</td>
+<td>Auto (PaaS)</td>
+<td>Manual or via App Platform</td>
+</tr>
+</tbody>
+</table>
+<h2 id="12-troubleshooting">12. Troubleshooting</h2>
+<h3 id="deployment-fails-with-resource-group-not-found">Deployment fails with "Resource group not found"</h3>
+<p>Verify the resource group exists:</p>
+<div class="codehilite"><pre><span></span><code>az group list --output table
+</code></pre></div>
 
-  <h2 id="12-troubleshooting">12. Troubleshooting</h2>
+<p>Create it if missing:</p>
+<div class="codehilite"><pre><span></span><code>az group create --name myapp-rg --location eastus
+</code></pre></div>
 
-  <h3 id="deployment-fails-with-resource-group-not-found">Deployment fails with "Resource group not found"</h3>
-  <p>
-    Verify the resource group exists:
-  </p>
-  <pre><code>az group list --output table</code></pre>
-  <p>
-    Create it if missing:
-  </p>
-  <pre><code>az group create --name myapp-rg --location eastus</code></pre>
+<h3 id="application-crashes-after-deployment">Application crashes after deployment</h3>
+<p>Check application logs:</p>
+<div class="codehilite"><pre><span></span><code>az webapp log tail --resource-group myapp-rg --name myapp-web
+</code></pre></div>
 
-  <h3 id="application-crashes-after-deployment">Application crashes after deployment</h3>
-  <p>
-    Check application logs:
-  </p>
-  <pre><code>az webapp log tail --resource-group myapp-rg --name myapp-web</code></pre>
-  <p>
-    Common causes:
-  </p>
-  <ul>
-    <li>Missing environment variables (set via Application Settings)</li>
-    <li>Database connection string incorrect</li>
-    <li>Port mismatch (Azure expects app to listen on port from <code>WEBSITES_PORT</code> env var, default 8080)</li>
-  </ul>
+<p>Common causes:</p>
+<ul>
+<li>Missing environment variables (set via Application Settings)</li>
+<li>Database connection string incorrect</li>
+<li>Port mismatch (Azure expects app to listen on port from <code>WEBSITES_PORT</code> env var, default 8080)</li>
+</ul>
+<h3 id="health-check-times-out">Health check times out</h3>
+<p>If your app is starting slowly, increase the health-check timeout:</p>
+<div class="codehilite"><pre><span></span><code>for i in 1 2 4 8 16 32 60; do
+  curl --fail --silent --max-time 10 &quot;https://myapp-web.azurewebsites.net/health&quot; &amp;&amp; break
+  echo &quot;Retrying in ${i}s...&quot;
+  sleep &quot;$i&quot;
+done
+</code></pre></div>
 
-  <h3 id="health-check-times-out">Health check times out</h3>
-  <p>
-    If your app is starting slowly, increase the health-check timeout:
-  </p>
-  <pre><code>for i in 1 2 4 8 16 32 60; do
-  curl --fail --silent --max-time 10 "https://myapp-web.azurewebsites.net/health" && break
-  echo "Retrying in ${i}s..."
-  sleep "$i"
-done</code></pre>
-
-  <h3 id="not-authenticated-to-azure">"Not authenticated to Azure"</h3>
-  <p>
-    Run <code>az login</code> outside Claude, then verify with <code>az account show</code>.
-  </p>
-
-  <h2 id="13-additional-resources">13. Additional resources</h2>
-  <ul>
-    <li><a href="https://learn.microsoft.com/en-us/azure/">Microsoft Learn — Azure Docs</a></li>
-    <li><a href="https://learn.microsoft.com/en-us/cli/azure/">Azure CLI Documentation</a></li>
-    <li><a href="https://learn.microsoft.com/en-us/azure/app-service/">App Service Documentation</a></li>
-    <li><a href="https://learn.microsoft.com/en-us/azure/container-apps/">Container Apps Documentation</a></li>
-    <li><a href="https://learn.microsoft.com/en-us/azure/azure-functions/">Azure Functions Documentation</a></li>
-    <li><a href="https://learn.microsoft.com/en-us/azure/key-vault/">Azure Key Vault Documentation</a></li>
-  </ul>
+<h3 id="not-authenticated-to-azure">"Not authenticated to Azure"</h3>
+<p>Run <code>az login</code> outside Claude, then verify with <code>az account show</code>.</p>
+<h2 id="13-additional-resources">13. Additional resources</h2>
+<ul>
+<li><a href="https://learn.microsoft.com/en-us/azure/">Microsoft Learn — Azure Docs</a></li>
+<li><a href="https://learn.microsoft.com/en-us/cli/azure/">Azure CLI Documentation</a></li>
+<li><a href="https://learn.microsoft.com/en-us/azure/app-service/">App Service Documentation</a></li>
+<li><a href="https://learn.microsoft.com/en-us/azure/container-apps/">Container Apps Documentation</a></li>
+<li><a href="https://learn.microsoft.com/en-us/azure/azure-functions/">Azure Functions Documentation</a></li>
+<li><a href="https://learn.microsoft.com/en-us/azure/key-vault/">Azure Key Vault Documentation</a></li>
+</ul>
     </div>
 
     <div class="no-results" id="no-results">
@@ -1082,7 +999,7 @@ done</code></pre>
 </div>
 
 <footer>
-  <div>Generated by <a href="https://github.com/Bruce188/pipelinekit">pipelinekit</a> · <code>docs-writer/2</code></div>
+  <div>Generated by <a href="https://github.com/Bruce188/pipelinekit">pipelinekit</a> · <code>docs-writer/2</code> · <a href="credits.html">Credits</a></div>
   <div>Self-contained HTML · no CDN · no remote assets</div>
 </footer>
 
