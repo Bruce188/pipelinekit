@@ -54,45 +54,14 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 COST_LOG="claude/hooks/cost_log.py"
 
 # ---------------------------------------------------------------------------
-# Sandbox envelope — source provider library and resolve active backend.
-# Mirrors claude/skills/pipeline/orchestrate.sh lines 35-53. Inline copy of
-# sandbox_wrap follows below; extraction to a shared lib is deferred (see
-# analysis-v54 §6 Option B) until a third caller appears.
+# Sandbox envelope — source the shared sandbox_wrap library.
+# Provides sandbox_wrap (primary) and _sandbox_wrap (alias) plus all
+# provider infrastructure. Extracts the formerly inline provider-sourcing
+# block and _sandbox_wrap() definition per analysis-v68 §6 Option A.
 # ---------------------------------------------------------------------------
 _LOOP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
-LIB_DIR="$(cd "$_LOOP_DIR/../../lib/sandbox" && pwd)"
-# shellcheck source=../../lib/sandbox/SandboxProvider.sh
-. "$LIB_DIR/SandboxProvider.sh"
-__provider="$(provider_detect)"
-case "$__provider" in
-  podman|docker|worktree-only)
-    # shellcheck disable=SC1090
-    . "$LIB_DIR/providers/${__provider}.sh"
-    ;;
-  *)
-    echo "research-loop.sh: unknown provider '$__provider'" >&2
-    return 1 2>/dev/null || exit 1
-    ;;
-esac
-
-# Inline copy of claude/skills/pipeline/orchestrate.sh sandbox_wrap (lines
-# 69-83). Underscore prefix signals "local helper, do not import". Keep
-# bodies in sync until a shared claude/lib/sandbox/sandbox_wrap.sh is extracted.
-_sandbox_wrap() {
-  local task_id="${1:?task id required}"
-  local worktree="${2:?worktree path required}"
-  shift 2
-  local image rc
-  image="${SANDBOX_PODMAN_IMAGE:-${SANDBOX_DOCKER_IMAGE:-${PIPELINEKIT_SANDBOX_TAG:-none}}}"
-  if [ "$__provider" = "worktree-only" ]; then
-    image="none"
-  fi
-  echo "SANDBOX_ENTER: provider=$__provider, task=$task_id, image=$image" >&2
-  sandbox_enter "$worktree" "$@"
-  rc=$?
-  sandbox_exit "$task_id" || true
-  return "$rc"
-}
+# shellcheck source=../../lib/sandbox/sandbox_wrap.sh
+. "$_LOOP_DIR/../../lib/sandbox/sandbox_wrap.sh"
 
 # ---------------------------------------------------------------------------
 # Allow tests to source this file for unit-testing the inline helpers without

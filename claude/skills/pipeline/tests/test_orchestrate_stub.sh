@@ -41,11 +41,12 @@ else
   fail=1
 fi
 
-# AC4: sources SandboxProvider.sh
-if grep -q "SandboxProvider.sh" "$ORCH"; then
-  echo "PASS orchestrate.sh sources SandboxProvider.sh"
+# AC4: sources the sandbox infrastructure (either directly via SandboxProvider.sh
+# or via the shared sandbox_wrap.sh library which itself sources SandboxProvider.sh)
+if grep -q "SandboxProvider.sh" "$ORCH" || grep -q "sandbox_wrap.sh" "$ORCH"; then
+  echo "PASS orchestrate.sh sources sandbox infrastructure"
 else
-  echo "FAIL orchestrate.sh does not source SandboxProvider.sh"
+  echo "FAIL orchestrate.sh does not source sandbox infrastructure"
   fail=1
 fi
 
@@ -73,9 +74,12 @@ else
   fail=1
 fi
 
-# AC8: emits SANDBOX_ENTER observability log token
-if grep -q 'SANDBOX_ENTER:' "$ORCH"; then
-  echo "PASS orchestrate.sh emits SANDBOX_ENTER: log token"
+# AC8: SANDBOX_ENTER observability log token is emitted either by orchestrate.sh
+# directly or by the shared sandbox_wrap.sh library it sources
+SANDBOX_WRAP_LIB="$REPO_ROOT/claude/lib/sandbox/sandbox_wrap.sh"
+if grep -q 'SANDBOX_ENTER:' "$ORCH" || \
+   { [ -f "$SANDBOX_WRAP_LIB" ] && grep -q 'SANDBOX_ENTER:' "$SANDBOX_WRAP_LIB"; }; then
+  echo "PASS orchestrate.sh emits SANDBOX_ENTER: log token (directly or via shared lib)"
 else
   echo "FAIL orchestrate.sh missing SANDBOX_ENTER: log token"
   fail=1
