@@ -180,6 +180,12 @@ test_06_other_hosted_runner_blocked() {
     "test_06_other_hosted_runner_blocked"
 }
 
+test_07_matrix_os_label_blocked() {
+  assert_violation \
+    "$FIXTURES_DIR/plan-violation-matrix-os.md" \
+    "test_07_matrix_os_label_blocked"
+}
+
 # Run all tests
 test_01_violation_ubuntu_latest
 test_02_compliant_blacksmith_runner
@@ -187,6 +193,7 @@ test_03_documented_gap_passes
 test_04_non_workflow_file_ignored
 test_05_yaml_extension_also_caught
 test_06_other_hosted_runner_blocked
+test_07_matrix_os_label_blocked
 
 echo ""
 echo "Total: $PASS PASS, $FAIL FAIL"
