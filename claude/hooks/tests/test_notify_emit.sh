@@ -218,6 +218,31 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# test_10: hook-mode output is JSON with exactly key "terminalSequence" whose
+# value embeds the OSC 777 sequence (regression-lock for the JSON envelope).
+# ---------------------------------------------------------------------------
+out=$(
+  NOTIFY_FEATURE_INDEX="9/23" \
+  NOTIFY_STEP="review" \
+  NOTIFY_EVENT_TYPE="feature-done" \
+  NOTIFY_TEXT="regression-lock" \
+  NOTIFY_FEATURE_NAME="feat/x" \
+  "$HELPER"
+)
+if python3 -c '
+import json, sys
+d = json.loads(sys.argv[1])
+assert list(d.keys()) == ["terminalSequence"], f"keys={list(d.keys())}"
+v = d["terminalSequence"]
+assert v.startswith("\x1b]777;"), f"prefix={v[:8]!r}"
+assert v.endswith("\x07"), f"suffix={v[-2:]!r}"
+' "$out" 2>/dev/null; then
+  record "test_10_terminal_sequence_json_key" PASS
+else
+  record "test_10_terminal_sequence_json_key" FAIL "out=$out"
+fi
+
+# ---------------------------------------------------------------------------
 echo "Results: $PASS PASS / $FAIL FAIL"
 if [ "$FAIL" -ne 0 ]; then
   echo "Failed: ${FAILED_NAMES[*]}"
