@@ -8,7 +8,9 @@ set -euo pipefail
 #
 # TSV columns: commit	metric	memory	status	description
 # Commit prefix: chore: research <tag> iter N — metric=<value>
-# cost_log.py dispatch-mode: subagent (subprocess is rejected by argparse choices at cost_log.py line 224)
+# cost_log.py dispatch-mode: subagent for start/end bookends; the per-iter claude invocation
+# uses JSON output format and its stdout is piped through cost_log.py (the parse_json subcommand)
+# which writes an end event with dispatch_mode=subprocess and real cost_usd.
 # This script NEVER calls `git push`. Branches stay local.
 #
 # Usage:
@@ -451,8 +453,16 @@ Do not modify any file other than $TARGET_FILE."
   # --- Invoke claude -p (mutate step) — aggregation always runs in-session ---
   CLAUDE_OUTPUT=""
   MUTATION_EXIT=0
-  if ! CLAUDE_OUTPUT=$(claude -p "$HYPOTHESIS_PROMPT" 2>"$ITER_LOG"); then
+  if ! CLAUDE_OUTPUT=$(claude -p --output-format json "$HYPOTHESIS_PROMPT" 2>"$ITER_LOG"); then
     MUTATION_EXIT=$?
+  fi
+
+  # Pipe the captured JSON to cost_log.py (parse_json subcommand) — captures real cost_usd.
+  # `|| true` keeps the loop alive on malformed JSON; the trailing `end` event
+  # at line 533 then fires as zero-cost fallback (additive zero is harmless).
+  if [[ "$MUTATION_EXIT" -eq 0 && -n "$CLAUDE_OUTPUT" ]]; then
+    printf '%s' "$CLAUDE_OUTPUT" | python3 "$COST_LOG" parse-json - \
+        "research/$RESEARCH_TAG" "iter-$iter" --agent-id "$AGENT_ID" 2>/dev/null || true
   fi
 
   if [[ "$MUTATION_EXIT" -ne 0 ]]; then
@@ -465,8 +475,21 @@ Do not modify any file other than $TARGET_FILE."
     continue
   fi
 
-  # Extract description from claude output (last non-empty line)
-  DESCRIPTION=$(printf '%s' "$CLAUDE_OUTPUT" | grep -v '^$' | tail -1 || echo "iter $iter mutation")
+  # Extract description from claude output (result field from JSON output)
+  DESCRIPTION=$(python3 -c '
+import json, sys
+try:
+    d = json.loads(sys.stdin.read())
+    text = (d.get("result") or "").strip()
+except Exception:
+    text = ""
+# last non-empty line
+for line in reversed(text.splitlines()):
+    line = line.strip()
+    if line:
+        print(line)
+        break
+' <<< "$CLAUDE_OUTPUT" || echo "iter $iter mutation")
   DESCRIPTION=$(_sanitize_desc "$DESCRIPTION")
 
   # --- Run benchmark ---
