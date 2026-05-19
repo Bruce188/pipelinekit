@@ -148,6 +148,24 @@ The mobile toolchain ships by default. `claude/agents/mobile-dev.md`, `claude/sk
 
 The Azure toolchain ships by default. `@azure-deployment-engineer` and the `azure-ops` skill are always available. Azure CLI auto-install runs at `scripts/install.sh` time on Debian / Ubuntu hosts; on other hosts the installer prints the Homebrew / Microsoft-docs link and continues without failure.
 
+## Azure Mode
+
+Per-project workflow overlay for Azure deployments. Use when a project ships to Azure (App Service, Container Apps, Function Apps, or Azure DB). Routes deployment-shaped work through `@azure-deployment-engineer` and the `azure-ops` skill; non-deployment phases continue to use the default pipeline agents.
+
+| Phase | Agents / Skills | Notes |
+|-------|-----------------|-------|
+| analyze | default `/analyze` | No Azure-specific gating at analyze-time. |
+| plan | default `/create-plan` | If plan touches Azure deploy config, include explicit `@azure-deployment-engineer` task per resource. |
+| implement | `@azure-deployment-engineer` for ARM / Bicep / `az` CLI / pipeline YAML tasks; default agents otherwise | Use the `azure-ops` skill for day-to-day ops against an already-authenticated context. |
+| review | default `/review` + `@azure-deployment-engineer` consulted on Azure-touching diffs | Security-auditor remains primary on auth / secret / RBAC changes. |
+| merge | default `/ppr` | No Azure-specific merge gate. |
+
+**Gotchas:**
+- `azure-ops` STOPS and prompts if `az account show` fails — never auto-authenticates. Run `az login` (or the CI service-principal equivalent) before invoking deploy commands.
+- Azure CLI auto-install runs at `scripts/install.sh` time on Debian / Ubuntu only. On macOS / RHEL / Arch hosts the installer prints the Homebrew / Microsoft-docs link and continues; install the CLI manually before first use.
+- Secrets (connection strings, SAS tokens, service-principal JSON) NEVER go in committed files. Use Key Vault references in App Settings, or store under names matched by `~/.claude/config/never-stage.txt` so `block-stage-sensitive.sh` refuses to stage them.
+- App Service / Container Apps deploys are not idempotent across regions — confirm the target `--resource-group` + `--name` before re-running a deploy command.
+
 ## Vercel Workflows
 
 The Vercel toolchain ships by default. `@vercel-deployment-engineer` and the `vercel-ops` skill are always available. The Vercel CLI itself is user-driven (`npm i -g vercel`); the skill stops cleanly with an install prompt if the CLI is absent.
