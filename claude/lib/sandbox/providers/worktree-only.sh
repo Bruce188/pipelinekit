@@ -2,9 +2,10 @@
 # claude/lib/sandbox/providers/worktree-only.sh — No-op default sandbox provider.
 #
 # This provider is selected when:
-#   - PIPELINE_NO_SANDBOX=1 (escape hatch — unconditional short-circuit)
-#   - SANDBOX_PROVIDER is unset or set to "worktree-only"
-#   - SANDBOX_PROVIDER=auto and neither podman nor docker is available on PATH
+#   - PIPELINE_NO_SANDBOX=1 (escape hatch — unconditional short-circuit, overrides any SANDBOX_PROVIDER)
+#   - SANDBOX_PROVIDER is unset (dispatcher default; no behavior change from pre-sandbox pipelinekit)
+#   - SANDBOX_PROVIDER=worktree-only (explicit opt-in)
+#   - SANDBOX_PROVIDER=auto AND neither podman nor docker is available on PATH (discovery fallback)
 #
 # Public interface (implements the SandboxProvider contract):
 #   sandbox_enter <worktree-path> <command...>   — cd into worktree and exec the command
