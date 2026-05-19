@@ -297,6 +297,10 @@ per the contract in `~/.claude/skills/pipeline/reference.md`. Forks are
 expected to extend the stub; the upstream stub deliberately does not
 re-implement the full pipeline loop.
 
+**Wrap surface (multi-callsite).** `orchestrate.sh` exposes three wrap helpers: `run_phase` (wraps `claude -p`), `run_host_adapter` (wraps `host-adapters/<host>.sh`), and `run_mcp` (wraps an MCP-server launch — interface-first scaffolding, no consumer ships using it today). All three dispatch via the public `sandbox_wrap <task-id> <worktree> <command...>` helper, which emits `SANDBOX_ENTER: provider=<X>, task=<task-id>, image=<image>` to stderr at wrap time. Forks adding new external-subprocess entry points should reuse `sandbox_wrap`.
+
+**Worktree-only delegation (in-process Skill).** When `provider_detect` resolves to `worktree-only`, the in-process Skill should prefer the native `EnterWorktree` tool (Claude Code `>= 2.1.143`) with `worktree.bgIsolation` and `worktree.baseRef` settings, instead of bash worktree plumbing. The subprocess driver itself remains bash-only (the legacy `(cd "$wt" && exec "$@")` body in `providers/worktree-only.sh`) — this delegation note is for the in-process Skill path. See the [Claude Code changelog](https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md) for the `worktree.bgIsolation` (2.1.143) and `worktree.baseRef` (2.1.133) entries. Actual delegation in the in-process Skill is deferred to a follow-up feature.
+
 ## What was removed in the portable build
 
 - `claude -p` subprocess invocations as the **primary** phase-dispatch mechanism.
