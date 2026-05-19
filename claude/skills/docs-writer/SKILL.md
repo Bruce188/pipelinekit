@@ -14,18 +14,20 @@ allowed-tools:
 
 `docs-writer` is the canonical surface for application documentation in pipelinekit. It renders markdown source to **interactive, self-contained HTML** wrapped in the shipped template, with sticky-ToC sidebar, in-page search, code-copy buttons, sortable tables, scrollspy, smooth-scroll anchors, light/dark theme toggle, mobile responsiveness, and Pygments syntax highlighting. Every emitted file is a single self-contained `.html` (no CDN, no remote assets) that renders identically when served from any origin, copied to disk, or opened via `file://` URL.
 
-The skill ships two assets:
+The skill ships three assets:
 
 - **`claude/skills/docs-writer/template.html`** — the canonical HTML shell. Inlines all CSS + JS + SVG icons (~30 KB). Placeholders: `{{TITLE}}`, `{{DESCRIPTION}}`, `{{TOC}}`, `{{CONTENT}}`, `{{META}}`, `{{FOOTER_RIGHT}}`.
-- **`claude/skills/docs-writer/render.py`** — Python renderer. Reads markdown (or HTML in rewrap mode), generates ToC from headings, fills the template, writes the output file.
+- **`claude/skills/docs-writer/render.py`** — Python renderer. Reads markdown (or HTML in rewrap mode), generates ToC from headings, expands `data-snippet` placeholders, fills the template, writes the output file.
+- **`claude/skills/docs-writer/snippets/`** — library of self-contained rich-interactive HTML fragments (SVG flowcharts, calculators, decision trees, card grids, …). Markdown sources reference them via `<div data-snippet="<name>"></div>` placeholders; `render.py` inlines them. See § Snippets catalog below.
 
-## The three rules
+## The four rules
 
 These are non-negotiable. The compliance hook (see § Enforcement) blocks staging of any file that violates them.
 
 1. **Every page in `documentation/` is HTML.** No `.md` files. No exceptions — vendored standards live as HTML in `documentation/docs/`.
 2. **Every page is generated via `render.py`.** Do not hand-write HTML files; do not bypass the template. Hand-edits to emitted files are tolerated for small fixes but the page must remain template-compliant (the `<meta name="generator" content="pipelinekit docs-writer/2 — rich-template">` tag is the marker).
 3. **`docs/` is AI-workflow-only and gitignored.** Never write reader-facing content to `docs/`. AI-internal artifacts (`analysis-vN.md`, `plan-vN.md`, `prompts-vN.md`, `review-vN.md`, `charter.md`, `progress.md`, `pipeline-state.md`, `features.md`, `features-vN.md`, `features-master.md`, `pipeline-intel.json`, `.last-verify.json`, `context-dump.md`) are local-only, never committed. User-authored feature lists may be committed only via explicit `git add -f`.
+4. **Rich-content contract: every reader-facing page MUST include ≥1 interactive snippet from the catalog.** A page that is just "rendered markdown with a sidebar" defeats the purpose of HTML over markdown. Acceptable patterns: SVG flowchart, calculator widget, decision-tree quiz, comparison-tabs, card grid, timeline scrubber, live linter playground, custom diff viewer. The `richness_check.py` linter enforces this; staging fails for pages below the bar unless `# richness-exempt: <reason>` appears in the page's `<head>`.
 
 ## Usage
 
@@ -69,6 +71,56 @@ python3 claude/skills/docs-writer/render.py docs-source/index.md documentation/i
   --title "pipelinekit documentation" \
   --description "Complete user-facing documentation for pipelinekit."
 ```
+
+## Snippets catalog (mandatory for rich content)
+
+The `claude/skills/docs-writer/snippets/` directory ships ready-to-embed
+interactive HTML components. Each is self-contained: inline `<style>` (scoped
+to its mount root), inline `<script>` (IIFE), inline SVG icons. All snippets
+inherit the parent template's CSS custom properties (`--bg`, `--accent`,
+`--fg-muted`, etc.) so they auto-theme with the page.
+
+Reference a snippet in any markdown source with:
+
+```html
+<div data-snippet="<snippet-name>"></div>
+```
+
+…and `render.py` inlines the snippet content at render time. Extra
+`data-*` attributes on the placeholder are forwarded to the snippet's
+mount root for per-instance configuration.
+
+### Available snippets
+
+| Snippet name | Demonstrates HTML > markdown via | Use on |
+|--------------|----------------------------------|--------|
+| `pipeline-phase-diagram` | Animated SVG flow, hover tooltips, click-to-scroll, path-filter buttons | `pipeline.html` (and anywhere explaining /pipeline) |
+| `cost-calculator` | Live sliders + toggles + dropdowns; real-time numeric output; export-as-JSON | `review-cost.html`, any cost/budget reference |
+| `tutorial-cards` | Card grid with hover effects + colored top borders + meta badges; click-to-anchor | `getting-started.html`, any tutorial index |
+| `architecture-diagram` | 4-layer stack visualization with hover-tooltips and layer-filter | `index.html`, `architecture.html` |
+
+When a use case isn't covered, build a new snippet rather than falling back to
+plain markdown. See § Authoring a new snippet below for the contract.
+
+### Authoring a new snippet
+
+1. Create `claude/skills/docs-writer/snippets/<kebab-case-name>.html`.
+2. The root element MUST carry `class="pkit-<short-tag>"` and
+   `data-snippet-mount="<name>"` (matches the file basename without `.html`).
+3. Inline `<style>` immediately after the root element open; scope all
+   selectors to `.pkit-<short-tag>` to avoid cross-snippet collisions.
+4. Inline `<script>` immediately after the root element close; wrap as an IIFE
+   `(function() { 'use strict'; … })();`. Use
+   `document.querySelectorAll('[data-snippet-mount="<name>"]')` to find the
+   instance(s); guard against double-init via `dataset.pkitInit`.
+5. Use ONLY the parent template's CSS custom properties for colors / radii /
+   transitions / fonts. Do not hard-code colors; do not import fonts.
+6. No remote assets. No CDN scripts. No `<link rel="stylesheet">`.
+7. Add a one-line header comment with usage and a row to the catalog table
+   above.
+8. Add at least one richness test case to
+   `claude/skills/docs-writer/tests/test_render.sh` that confirms the snippet
+   substitutes cleanly.
 
 ## Output directory contract
 

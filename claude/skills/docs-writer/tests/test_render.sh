@@ -156,6 +156,105 @@ else
   RESULTS+=("  FAIL  body lead paragraph stripped despite explicit --description")
 fi
 
+# ============ Test 4: snippet substitution ============
+cat > "$TMP/snippet-test.md" <<'EOF'
+# Snippet substitution test
+
+Body paragraph.
+
+<div data-snippet="pipeline-phase-diagram"></div>
+
+## Section
+
+More text.
+EOF
+
+python3 claude/skills/docs-writer/render.py "$TMP/snippet-test.md" "$TMP/snippet-test.html" > "$TMP/snippet-stderr.txt" 2>&1
+
+assert_contains "$TMP/snippet-test.html" 'data-snippet-mount="pipeline-phase-diagram"' 'snippet placeholder substituted with mount root'
+assert_contains "$TMP/snippet-test.html" 'pkit-pipeline-diagram' 'snippet inline CSS class present'
+assert_contains "$TMP/snippet-test.html" 'pkit-pd-flow-anim' 'snippet inline animation keyframes present'
+
+# Verify the placeholder is GONE from the page body (the snippet's documentation
+# comment contains the same string as an example, so we restrict the check to
+# the <div id="page-content"> region only).
+PLACEHOLDER_HITS=$(awk '/<div id="page-content">/{flag=1; next} flag && /^<!--/{flag=2} flag==1{print}' "$TMP/snippet-test.html" | grep -c '<div data-snippet="pipeline-phase-diagram"></div>' || true)
+if [ "$PLACEHOLDER_HITS" -eq 0 ]; then
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  snippet placeholder removed after substitution (in body)")
+else
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  $PLACEHOLDER_HITS placeholder remains in body (substitution failed)")
+fi
+
+# Verify stderr logs the snippet name
+if grep -q 'snippets: pipeline-phase-diagram' "$TMP/snippet-stderr.txt"; then
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  snippet name logged to stderr")
+else
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  snippet name not logged to stderr")
+fi
+
+# Missing snippet → error exit
+cat > "$TMP/missing-snippet.md" <<'EOF'
+# Missing snippet test
+
+<div data-snippet="nonexistent-snippet-name"></div>
+EOF
+
+if python3 claude/skills/docs-writer/render.py "$TMP/missing-snippet.md" "$TMP/missing-snippet.html" 2>/dev/null; then
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  missing snippet did not raise (expected non-zero exit)")
+else
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  missing snippet raises (FileNotFoundError)")
+fi
+
+# ============ Test 5: richness check linter ============
+# Check on the snippet-test output we just produced (should pass — has a snippet)
+if python3 claude/skills/docs-writer/richness_check.py "$TMP/snippet-test.html" > "$TMP/richness-pass.txt" 2>&1; then
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  richness_check passes on snippet-using page")
+else
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  richness_check incorrectly failed on snippet-using page")
+fi
+
+# Now write a page that has no rich content (just rendered markdown)
+cat > "$TMP/thin.md" <<'EOF'
+# Thin page
+
+Just a paragraph.
+
+## Section
+
+Just another paragraph.
+EOF
+python3 claude/skills/docs-writer/render.py "$TMP/thin.md" "$TMP/thin.html" > /dev/null
+
+# Move thin.html to a path that's NOT in DEFAULT_EXEMPT_FILES so the check fires
+mkdir -p "$TMP/check_dir"
+cp "$TMP/thin.html" "$TMP/check_dir/thin-test.html"
+
+if python3 claude/skills/docs-writer/richness_check.py "$TMP/check_dir/thin-test.html" > "$TMP/richness-fail.txt" 2>&1; then
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  richness_check should have failed on thin page")
+else
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  richness_check fails on thin page (rendered markdown only)")
+fi
+
+# Exempt marker should let the thin page pass
+sed -i 's|</head>|<!-- richness-exempt: test exemption -->\n</head>|' "$TMP/check_dir/thin-test.html"
+if python3 claude/skills/docs-writer/richness_check.py "$TMP/check_dir/thin-test.html" > "$TMP/richness-exempt.txt" 2>&1; then
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  richness_check passes when exempt marker present")
+else
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  richness_check ignored exempt marker")
+fi
+
 # ============ Summary ============
 printf '%s\n' "${RESULTS[@]}"
 echo

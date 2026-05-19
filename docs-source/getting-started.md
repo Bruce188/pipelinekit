@@ -44,6 +44,10 @@ start documentation/index.html        # Windows / WSL
 
 For headless / VPS install (Oracle Cloud, Hetzner, Codespaces), see [cloud-setup.html](cloud-setup.html). For per-host install variants (mobile, devcontainer), see [installation.html](installation.html).
 
+## Choose your tutorial
+
+<div data-snippet="tutorial-cards"></div>
+
 ## Tutorial 1 — Hello world: ship a one-line feature autonomously
 
 The smallest possible /pipeline run. You write a one-line feature description; /pipeline ships a merged PR.
