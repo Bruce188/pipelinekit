@@ -80,7 +80,7 @@ railway logs --tail
 
 # 3. Health endpoint probe with exponential backoff (60s timeout)
 RAILWAY_URL="${RAILWAY_URL:-$(railway status --json 2>/dev/null | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("url",""))' 2>/dev/null)}"
-for i in 1 2 4 8 16 32; do
+for i in 1 2 4 8 16 29; do
   curl --fail --silent "$RAILWAY_URL/health" && break
   echo "Health check failed — retrying in ${i}s (exponential backoff)..."
   sleep "$i"
@@ -146,7 +146,7 @@ railway status
 # 4. Tail logs for 60s post-deploy
 railway logs --tail
 # 5. Health endpoint probe with exponential backoff (60s timeout)
-for i in 1 2 4 8 16 32; do
+for i in 1 2 4 8 16 29; do
   curl --fail --silent "$RAILWAY_URL/health" && break
   echo "Health check failed — retrying in ${i}s (exponential backoff)..."
   sleep "$i"
@@ -170,7 +170,7 @@ railway logs --tail
 # If railway whoami fails: run `railway login` outside Claude, then re-invoke.
 railway whoami || { echo "Railway auth missing — see Installation Requirements"; exit 1; }
 # 2. Probe /health with exponential backoff (60s total window)
-for i in 1 2 4 8 16 32; do
+for i in 1 2 4 8 16 29; do
   curl --fail --silent "$RAILWAY_URL/health" && break
   echo "Health check failed — retrying in ${i}s (exponential backoff)..."
   sleep "$i"
