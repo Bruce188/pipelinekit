@@ -1,7 +1,13 @@
 ---
 name: docs-writer
 description: HTML-emitting documentation skill — writes self-contained styled HTML to documentation/, never markdown for new files
-allowed-tools: Read, Write, Edit, Bash, Glob, Grep
+allowed-tools:
+  - Read
+  - Write
+  - Edit
+  - Bash
+  - Glob
+  - Grep
 ---
 
 # docs-writer — HTML-emitting documentation skill

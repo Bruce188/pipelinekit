@@ -3,7 +3,10 @@ name: new-branch
 description: Create a conventional feature branch from main/master. Use when starting new work, before first commit, or when on main/master.
 argument-hint: <type/name> (e.g., feat/auth, fix/login-bug, refactor/cleanup) OR --research-tag <slug> for research/<slug>-YYYY-MM-DD
 disable-model-invocation: true
-allowed-tools: Bash, Read, AskUserQuestion
+allowed-tools:
+  - Bash
+  - Read
+  - AskUserQuestion
 ---
 
 # Create Feature Branch

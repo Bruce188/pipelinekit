@@ -1,7 +1,9 @@
 ---
 name: digitalocean-ops
 description: Deploy and verify DigitalOcean App Platform apps when the charter targets digitalocean
-allowed-tools: Bash(doctl *), Bash(curl --fail *)
+allowed-tools:
+  - Bash(doctl *)
+  - Bash(curl --fail *)
 paths: documentation/deployment-digitalocean.html, claude/skills/digitalocean-ops/**
 ---
 

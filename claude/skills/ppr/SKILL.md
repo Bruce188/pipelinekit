@@ -2,7 +2,9 @@
 name: ppr
 description: Push + PR. Push committed changes to origin and open a pull request. Run after /review passes. Human approves the PR separately.
 argument-hint: (no arguments needed)
-allowed-tools: Bash, Read
+allowed-tools:
+  - Bash
+  - Read
 ---
 
 # PPR — Push + PR

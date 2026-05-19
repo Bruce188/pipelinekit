@@ -3,7 +3,11 @@ name: code-health
 description: Comprehensive codebase health assessment with quality metrics, test coverage, documentation, and maintainability analysis. Use for quality gates, pre-release checks, or periodic health monitoring.
 argument-hint: [--scope quality,tests,docs,all] [--quick] [--threshold N]
 disable-model-invocation: true
-allowed-tools: Bash, Read, Grep, Glob
+allowed-tools:
+  - Bash
+  - Read
+  - Grep
+  - Glob
 ---
 
 # Codebase Health Assessment

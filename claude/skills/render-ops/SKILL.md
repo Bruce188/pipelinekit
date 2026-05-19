@@ -1,7 +1,9 @@
 ---
 name: render-ops
 description: Deploy and verify Render services when the charter targets render
-allowed-tools: Bash(render *), Bash(curl --fail *)
+allowed-tools:
+  - Bash(render *)
+  - Bash(curl --fail *)
 paths: documentation/deployment-render.html, claude/skills/render-ops/**
 ---
 

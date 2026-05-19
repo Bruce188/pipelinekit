@@ -1,7 +1,10 @@
 ---
 name: caveman-mode
 description: Toggle response verbosity (caveman-style terse fragments vs normal English). Default wenyan-ultra.
-allowed-tools: Read, Write, Bash
+allowed-tools:
+  - Read
+  - Write
+  - Bash
 ---
 
 # Caveman mode

@@ -3,7 +3,12 @@ name: incident
 description: Triage a failing post-merge verification gate using @incident-responder. Gathers failure context from logs and dispatches the incident-responder agent with a structured prompt. Use when /post-merge reports a verification failure or any post-merge anomaly.
 argument-hint: [path-to-log-file] (optional)
 disable-model-invocation: true
-allowed-tools: Bash, Read, Grep, Glob, Agent
+allowed-tools:
+  - Bash
+  - Read
+  - Grep
+  - Glob
+  - Agent
 ---
 
 # /incident — Triage post-merge verification failure
