@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CI on Blacksmith — pipelinekit</title>
-<meta name="description" content="Blacksmith runner registration, env-var override pattern, drop-in action matrix, and gap-comment policy for pipelinekit-generated GitHub Actions workflows.">
-<meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
+<title>Vercel Deployment Provider — pipelinekit</title>
+<meta name="description" content="Vercel account setup, project linking, CLI install posture, pipelinekit integration via Charter Topic 10, environment configuration, runtime verification commands, auth posture, and provider comparison for edge-optimized workloads.">
+<meta name="generator" content="pipelinekit docs-writer/2 — rich-template (preview)">
 <style>
 /* === Reset + variables === */
 *, *::before, *::after { box-sizing: border-box; }
@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>CI on Blacksmith</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Vercel Deployment Provider</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -531,165 +531,445 @@ footer {
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
     <ul>
-      <li class="lvl-2"><a href="#1-why-blacksmith">1. Why Blacksmith</a></li>
-      <li class="lvl-2"><a href="#2-account-amp-runner-registration">2. Account &amp;amp; runner registration</a></li>
-      <li class="lvl-2"><a href="#3-the-blacksmith-runner-env-var-override">3. The BLACKSMITH_RUNNER env-var override</a></li>
-      <li class="lvl-2"><a href="#4-drop-in-action-matrix">4. Drop-in action matrix</a></li>
-      <li class="lvl-2"><a href="#5-gap-annotation-pattern">5. Gap-annotation pattern</a></li>
-      <li class="lvl-2"><a href="#6-secrets-policy">6. Secrets policy</a></li>
-      <li class="lvl-2"><a href="#7-lint-enforcement-r5">7. Lint enforcement (R5)</a></li>
-      <li class="lvl-2"><a href="#8-documented-gap-escape-hatch">8. Documented-gap escape hatch</a></li>
+      <li class="lvl-2"><a href="#1-what-is-the-vercel-provider-integration">1. What is the Vercel provider integration</a></li>
+      <li class="lvl-2"><a href="#2-account-amp-project-setup">2. Account &amp;amp; project setup</a></li>
+      <li class="lvl-2"><a href="#3-install-the-vercel-cli">3. Install the Vercel CLI</a></li>
+      <li class="lvl-2"><a href="#4-authenticate-to-vercel">4. Authenticate to Vercel</a></li>
+      <li class="lvl-2"><a href="#5-environment-variables-amp-secrets">5. Environment variables &amp;amp; secrets</a></li>
+      <li class="lvl-2"><a href="#6-deploy-from-git-automatic">6. Deploy from Git (automatic)</a></li>
+      <li class="lvl-2"><a href="#7-deploy-from-cli-manual">7. Deploy from CLI (manual)</a></li>
+      <li class="lvl-2"><a href="#8-integrate-with-pipelinekit-charter">8. Integrate with pipelinekit Charter</a></li>
+      <li class="lvl-2"><a href="#9-runtime-verification">9. Runtime verification</a></li>
+      <li class="lvl-2"><a href="#10-common-deployment-tasks">10. Common deployment tasks</a></li>
+      <li class="lvl-3"><a href="#redeploy-production">Redeploy production</a></li>
+      <li class="lvl-3"><a href="#view-deployment-history">View deployment history</a></li>
+      <li class="lvl-3"><a href="#inspect-a-specific-deployment">Inspect a specific deployment</a></li>
+      <li class="lvl-3"><a href="#check-build-settings">Check build settings</a></li>
+      <li class="lvl-3"><a href="#view-function-logs">View function logs</a></li>
+      <li class="lvl-2"><a href="#11-preview-deployments-amp-pr-workflow">11. Preview deployments &amp;amp; PR workflow</a></li>
+      <li class="lvl-2"><a href="#12-auth-posture-amp-secret-hygiene">12. Auth posture &amp;amp; secret hygiene</a></li>
+      <li class="lvl-2"><a href="#13-performance-amp-cost-optimization">13. Performance &amp;amp; cost optimization</a></li>
+      <li class="lvl-3"><a href="#vercel-analytics">Vercel Analytics</a></li>
+      <li class="lvl-3"><a href="#bandwidth-monitoring">Bandwidth monitoring</a></li>
+      <li class="lvl-3"><a href="#function-execution">Function execution</a></li>
+      <li class="lvl-2"><a href="#14-comparison-with-other-providers">14. Comparison with other providers</a></li>
+      <li class="lvl-2"><a href="#15-troubleshooting">15. Troubleshooting</a></li>
+      <li class="lvl-3"><a href="#build-fails-with-command-failed">Build fails with &quot;Command failed&quot;</a></li>
+      <li class="lvl-3"><a href="#function-times-out-504-gateway-timeout">Function times out (504 Gateway Timeout)</a></li>
+      <li class="lvl-3"><a href="#not-authenticated-to-vercel">&quot;Not authenticated to Vercel&quot;</a></li>
+      <li class="lvl-3"><a href="#preview-deployment-not-showing">Preview deployment not showing</a></li>
+      <li class="lvl-2"><a href="#16-additional-resources">16. Additional resources</a></li>
     </ul>
   </aside>
 
   <main>
     <header class="page-header">
-      <h1>CI on Blacksmith</h1>
-      <p class="description">Blacksmith runner registration, env-var override pattern, drop-in action matrix, and gap-comment policy for pipelinekit-generated GitHub Actions workflows.</p>
+      <h1>Vercel Deployment Provider</h1>
+      <p class="description">Vercel account setup, project linking, CLI install posture, pipelinekit integration via Charter Topic 10, environment configuration, runtime verification commands, auth posture, and provider comparison for edge-optimized workloads.</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
-<h2 id="1-why-blacksmith">1. Why Blacksmith</h2>
-  <p>
-    Blacksmith provides ephemeral, performant runners for GitHub Actions that are faster and more cost-effective than
-    GitHub-hosted runners for most workloads. Key advantages:
-  </p>
-  <ul>
-    <li>Faster cache warm-up through persistent runner-local caching via <code>useblacksmith/cache</code></li>
-    <li>Reduced per-minute compute cost compared to GitHub-hosted runners at equivalent vCPU tiers</li>
-    <li>Drop-in compatibility: most jobs need only one <code>runs-on:</code> line change</li>
-    <li>Ecosystem-native drop-in actions for common setup tasks (<code>cache</code>, <code>setup-node</code>, <code>setup-python</code>, <code>setup-go</code>)</li>
-  </ul>
-  <p>
-    pipelinekit defaults to Blacksmith runners in all generated and templated workflow YAML. The lint rule R5
-    (in <code>claude/skills/create-plan/SKILL.md</code> Step 4.5) enforces this default at plan-creation time.
+<p>
+    pipelinekit integrates Vercel as a first-class deployment provider on the same footing as Azure, Railway, Render, and DigitalOcean.
+    When your project charter selects <code>vercel</code> as the deployment target (Charter Topic 10),
+    pipelinekit routes deployment work to the <code>@vercel-deployment-engineer</code> agent and the
+    <code>vercel-ops</code> skill automatically.
   </p>
 
-  <h2 id="2-account-amp-runner-registration">2. Account &amp; runner registration</h2>
-  <ol>
-    <li>Sign up at <code>blacksmith.sh</code> and create an organisation.</li>
-    <li>Register an organisation runner via <code>blacksmith register</code> in your GitHub organisation settings.</li>
+  <h2 id="1-what-is-the-vercel-provider-integration">1. What is the Vercel provider integration</h2>
+  <p>
+    Vercel is a deployment platform optimized for frontend frameworks (Next.js, React, Vue, Svelte) and serverless functions.
+    It offers edge-network acceleration, preview deployments per pull request, and zero-configuration deployments from Git.
+  </p>
+  <p>
+    The pipelinekit Vercel integration consists of three components:
+  </p>
+  <ul>
     <li>
-      Store the runner authentication token as a GitHub Actions secret named <code>BLACKSMITH_TOKEN</code> only
-      if a specific Blacksmith action requires it. Most jobs auto-authenticate via the registered runner — no
-      per-job secret token is required for <code>useblacksmith/*</code> actions.
+      <strong><code>claude/skills/vercel-ops/SKILL.md</code></strong> — the operational skill that wraps the
+      Vercel CLI (<code>vercel</code>) for day-to-day ops: deployment, status checks, environment variable management,
+      domain configuration, and production/preview environment switching. Enforces the auth-posture contract
+      (never auto-authenticates, always starts with <code>vercel whoami</code>).
     </li>
-    <li>Optionally set the <code>BLACKSMITH_RUNNER</code> GitHub Actions variable at the repository or organisation
-      level to select a non-default runner tier (see Section 3).</li>
+    <li>
+      <strong><code>claude/agents/vercel-deployment-engineer.md</code></strong> — the deployment-engineer
+      agent that covers Vercel project setup, environment configuration, performance optimization, preview-deployment
+      workflows, team collaboration, billing guardrails, and the full provider-native verification chain.
+    </li>
+    <li>
+      <strong>Charter Topic 10 integration</strong> — selecting <code>vercel</code> as the deployment
+      provider in the project charter automatically routes <code>/pipeline</code> deployment phases to the
+      agent and skill above.
+    </li>
+  </ul>
+
+  <h2 id="2-account-amp-project-setup">2. Account &amp; project setup</h2>
+  <ol>
+    <li>
+      Create a Vercel account at <a href="https://vercel.com">vercel.com</a>. You can sign up with GitHub for
+      seamless Git integration.
+    </li>
+    <li>
+      Create a Vercel project either via the Vercel Dashboard (import from GitHub / GitLab / Bitbucket) or the CLI:
+      <pre><code>vercel</code></pre>
+      This command launches an interactive setup that detects your framework and configures build settings automatically.
+    </li>
+    <li>
+      Link your Git repository (GitHub / GitLab / Bitbucket). Vercel will watch this repo and deploy automatically
+      on every push to the production branch (default: <code>main</code>).
+    </li>
+    <li>
+      Configure the production branch and preview branches in the Vercel Dashboard:
+      <ul>
+        <li><code>Production</code> — branch that deploys to your primary domain (e.g., <code>myapp.vercel.app</code>)</li>
+        <li><code>Preview</code> — every PR gets a unique preview URL for testing</li>
+      </ul>
+    </li>
   </ol>
 
-  <h2 id="3-the-blacksmith-runner-env-var-override">3. The <code>BLACKSMITH_RUNNER</code> env-var override</h2>
-  <p>Every <code>runs-on:</code> line in pipelinekit-generated workflows uses the fallback expression:</p>
-  <pre><code>runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}</code></pre>
+  <h2 id="3-install-the-vercel-cli">3. Install the Vercel CLI</h2>
   <p>
-    Set the <code>BLACKSMITH_RUNNER</code> GitHub Actions variable (repo or org level) to one of the
-    available runner tiers:
+    The Vercel CLI (<code>vercel</code>) is the primary interface for pipelinekit's Vercel ops.
+    Install it globally via npm:
+  </p>
+  <pre><code>npm install -g vercel</code></pre>
+  <p>
+    Verify the installation:
+  </p>
+  <pre><code>vercel --version</code></pre>
+
+  <h2 id="4-authenticate-to-vercel">4. Authenticate to Vercel</h2>
+  <p>
+    Before running any deployment via pipelinekit, authenticate to Vercel outside of Claude:
+  </p>
+  <pre><code>vercel login</code></pre>
+  <p>
+    This opens a browser for interactive login or email verification. After authentication,
+    the CLI stores your credentials in <code>~/.vercel/</code> (never in shell history, env vars, or transcript).
+  </p>
+  <p>
+    Verify authentication with:
+  </p>
+  <pre><code>vercel whoami</code></pre>
+  <p>
+    The <code>@vercel-deployment-engineer</code> agent runs <code>vercel whoami</code> as a preflight
+    check before any deployment operation. If authentication is not set up, the agent STOPS and instructs
+    you to authenticate outside Claude.
+  </p>
+
+  <h2 id="5-environment-variables-amp-secrets">5. Environment variables &amp; secrets</h2>
+  <p>
+    Store environment variables in the Vercel Dashboard or via CLI:
+  </p>
+  <pre><code>vercel env add</code></pre>
+  <p>
+    This prompts for variable name and value, then asks which environments to target
+    (Development, Preview, Production — select all or subset).
+  </p>
+  <p>
+    Example: Setting up a database connection string
+  </p>
+  <pre><code>vercel env add DATABASE_URL</code></pre>
+  <p>
+    Then paste the connection string when prompted. Vercel encrypts the value and makes it available
+    to your application during build and runtime.
+  </p>
+  <p>
+    View all env vars:
+  </p>
+  <pre><code>vercel env ls</code></pre>
+
+  <h2 id="6-deploy-from-git-automatic">6. Deploy from Git (automatic)</h2>
+  <p>
+    Once your Vercel project is linked to GitHub, every push to the production branch triggers an automatic deployment:
+  </p>
+  <ol>
+    <li>Push code to your production branch (e.g., <code>git push origin main</code>)</li>
+    <li>Vercel detects the push and starts a build</li>
+    <li>Build completes and app is live at your domain</li>
+    <li>Preview deployments are created for every PR automatically</li>
+  </ol>
+
+  <h2 id="7-deploy-from-cli-manual">7. Deploy from CLI (manual)</h2>
+  <p>
+    For urgent hotfixes or testing, deploy directly from the CLI:
+  </p>
+  <pre><code>vercel --prod</code></pre>
+  <p>
+    This deploys your current working directory to production. Omit <code>--prod</code> to create a preview deployment.
+  </p>
+
+  <h2 id="8-integrate-with-pipelinekit-charter">8. Integrate with pipelinekit Charter</h2>
+  <p>
+    When creating a new project via <code>/pipeline</code>, Step 0 (Charter Discovery) asks about
+    deployment target (Topic 10). Select <code>vercel</code> to route deployment tasks to the
+    <code>@vercel-deployment-engineer</code> agent.
+  </p>
+  <p>
+    For existing projects, ensure your charter includes:
+  </p>
+  <pre><code>**Deployment Target:** vercel</code></pre>
+
+  <h2 id="9-runtime-verification">9. Runtime verification</h2>
+  <p>
+    After deployment, pipelinekit verifies the application with a three-step chain:
+  </p>
+  <ol>
+    <li>
+      <strong>Deployment state probe:</strong> Check deployment status via Vercel CLI
+      <pre><code>vercel ls --prod</code></pre>
+    </li>
+    <li>
+      <strong>Log tail (60 seconds):</strong> Stream build and function logs to catch errors
+      <pre><code>vercel logs $(vercel inspect) --since 60s</code></pre>
+    </li>
+    <li>
+      <strong>Health-endpoint polling:</strong> Hit your application's health endpoint with exponential backoff
+      <pre><code>for i in 1 2 4 8 16 32; do
+  curl --fail --silent "https://myapp.vercel.app/health" && break
+  echo "Health check failed — retrying in ${i}s"
+  sleep "$i"
+done</code></pre>
+    </li>
+  </ol>
+
+  <h2 id="10-common-deployment-tasks">10. Common deployment tasks</h2>
+
+  <h3 id="redeploy-production">Redeploy production</h3>
+  <pre><code>vercel --prod --force</code></pre>
+
+  <h3 id="view-deployment-history">View deployment history</h3>
+  <pre><code>vercel ls</code></pre>
+
+  <h3 id="inspect-a-specific-deployment">Inspect a specific deployment</h3>
+  <pre><code>vercel inspect https://myapp.vercel.app</code></pre>
+
+  <h3 id="check-build-settings">Check build settings</h3>
+  <pre><code>vercel inspect --meta</code></pre>
+
+  <h3 id="view-function-logs">View function logs</h3>
+  <pre><code>vercel logs --follow</code></pre>
+
+  <h2 id="11-preview-deployments-amp-pr-workflow">11. Preview deployments &amp; PR workflow</h2>
+  <p>
+    Every pull request linked to your Vercel project automatically gets a preview deployment.
+    This allows reviewers to test changes in a live environment before merging.
+  </p>
+  <p>
+    Vercel adds a comment to your PR showing:
   </p>
   <ul>
-    <li><code>blacksmith-2vcpu-ubuntu-2204</code> — small jobs (linting, quick unit tests)</li>
-    <li><code>blacksmith-4vcpu-ubuntu-2204</code> — default tier (balanced cost/performance)</li>
-    <li><code>blacksmith-8vcpu-ubuntu-2204</code> — heavier builds (multi-module monorepos, Docker builds)</li>
-    <li><code>blacksmith-16vcpu-ubuntu-2204</code> — very heavy / parallel matrix jobs</li>
+    <li>Preview URL (e.g., <code>myapp-pr-123.vercel.app</code>)</li>
+    <li>Build status (success / failure)</li>
+    <li>Performance impact (Lighthouse scores)</li>
   </ul>
   <p>
-    When <code>BLACKSMITH_RUNNER</code> is unset, the fallback literal
-    <code>blacksmith-4vcpu-ubuntu-2204</code> is used. To switch all jobs in a repository to a larger tier,
-    set the variable once at the repository level — no YAML changes required.
+    Preview environments inherit env vars from the Preview environment settings in the Vercel Dashboard.
   </p>
 
-  <h2 id="4-drop-in-action-matrix">4. Drop-in action matrix</h2>
+  <h2 id="12-auth-posture-amp-secret-hygiene">12. Auth posture &amp; secret hygiene</h2>
   <p>
-    Blacksmith publishes optimised drop-in replacements for common GitHub Actions setup steps.
-    Use the drop-ins where available; retain upstream actions and annotate with the gap-comment pattern
-    (see Section 5) where no drop-in exists.
+    The <code>@vercel-deployment-engineer</code> agent enforces:
   </p>
-  <table>
-    <thead>
-      <tr>
-        <th>Upstream action</th>
-        <th>Blacksmith drop-in</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr><td><code>actions/cache@v3,v4</code></td><td><code>useblacksmith/cache@v5</code></td><td>swap</td></tr>
-      <tr><td><code>actions/setup-node@v3,v4</code></td><td><code>useblacksmith/setup-node@v5</code></td><td>swap</td></tr>
-      <tr><td><code>actions/setup-python@v2,v4,v5</code></td><td><code>useblacksmith/setup-python@v6</code></td><td>swap</td></tr>
-      <tr><td><code>actions/setup-go@v4,v5</code></td><td><code>useblacksmith/setup-go@v6</code></td><td>swap</td></tr>
-      <tr><td><code>actions/checkout@v2,v4</code></td><td>(no drop-in needed)</td><td>keep + annotate</td></tr>
-      <tr><td><code>actions/upload-artifact@v3,v4</code></td><td>(no drop-in published)</td><td>keep + annotate</td></tr>
-      <tr><td><code>codecov/codecov-action@v2,v3,v4</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>aquasecurity/trivy-action@master</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>github/codeql-action/*</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>SonarSource/sonarcloud-github-action@master</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>snyk/actions/node@master</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>aws-actions/configure-aws-credentials@v2,v4</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-    </tbody>
+  <ul>
+    <li>
+      <strong>Authentication is your responsibility.</strong> You run <code>vercel login</code> outside Claude.
+      The agent verifies authentication with <code>vercel whoami</code> and STOPS if not authenticated.
+    </li>
+    <li>
+      <strong>No credential env vars.</strong> The agent never reads <code>VERCEL_TOKEN</code> or
+      <code>VERCEL_AUTH_SECRET</code>. All credentials live in <code>~/.vercel/</code> (on-disk encrypted).
+    </li>
+    <li>
+      <strong>No token logging.</strong> Secrets never appear in logs, comments, or debug output.
+      If a token leaks, rotate it immediately via the Vercel Dashboard.
+    </li>
+    <li>
+      <strong>Application secrets in Vercel env vars.</strong> Production API keys, database passwords, and third-party
+      tokens belong in the Vercel Dashboard (Environment Variables), never in source code or .env files.
+    </li>
+    <li>
+      <strong>Separate prod/preview secrets.</strong> Production secrets are never shared with preview environments.
+      Configure preview-specific env vars separately in the Dashboard.
+    </li>
+  </ul>
+
+  <h2 id="13-performance-amp-cost-optimization">13. Performance &amp; cost optimization</h2>
+
+  <h3 id="vercel-analytics">Vercel Analytics</h3>
+  <p>
+    Enable Vercel Analytics to monitor Web Vitals (LCP, FID, CLS) and identify performance bottlenecks:
+  </p>
+  <pre><code>npm install @vercel/analytics</code></pre>
+  <p>
+    Then import and enable in your app:
+  </p>
+  <pre><code>import { Analytics } from '@vercel/analytics/react';
+
+export default function App() {
+  return (
+    &lt;&gt;
+      {/* Your app */}
+      &lt;Analytics /&gt;
+    &lt;/&gt;
+  );
+}</code></pre>
+
+  <h3 id="bandwidth-monitoring">Bandwidth monitoring</h3>
+  <p>
+    The free tier includes 100 GB bandwidth per month. Monitor usage in the Vercel Dashboard
+    under Settings → Usage. Overage costs $0.15 per GB.
+  </p>
+
+  <h3 id="function-execution">Function execution</h3>
+  <p>
+    Serverless Functions have a default timeout of 60 seconds (300 seconds on Pro plan).
+    Long-running tasks (data processing, video transcoding) should be offloaded to external queues
+    (e.g., AWS SQS, Bull queue, Firebase Cloud Tasks).
+  </p>
+
+  <h2 id="14-comparison-with-other-providers">14. Comparison with other providers</h2>
+  <table border="1" cellpadding="8" style="border-collapse: collapse; width: 100%; margin-top: 1rem;">
+    <tr style="background: #f0f0f0;">
+      <th>Dimension</th>
+      <th>Vercel</th>
+      <th>Azure</th>
+      <th>Railway</th>
+      <th>Render</th>
+      <th>DigitalOcean</th>
+    </tr>
+    <tr>
+      <td><strong>Primary Use Case</strong></td>
+      <td>Frontend; edge functions; serverless</td>
+      <td>Enterprise; multi-service; managed containers</td>
+      <td>Any runtime; persistent volumes; cron</td>
+      <td>Any runtime; simple PaaS; persistent storage</td>
+      <td>Any runtime; simple PaaS; managed databases</td>
+    </tr>
+    <tr>
+      <td><strong>Best For</strong></td>
+      <td>Next.js, React, Svelte apps</td>
+      <td>.NET, Java, complex services</td>
+      <td>Full-stack; microservices</td>
+      <td>Web apps; simple backends</td>
+      <td>Simple web apps; prototypes</td>
+    </tr>
+    <tr>
+      <td><strong>Framework Support</strong></td>
+      <td>Next.js (native), all SPA frameworks</td>
+      <td>Language-agnostic (containers)</td>
+      <td>Language-agnostic</td>
+      <td>Language-agnostic</td>
+      <td>Language-agnostic</td>
+    </tr>
+    <tr>
+      <td><strong>Edge Computing</strong></td>
+      <td>Yes (Edge Functions, edge middleware)</td>
+      <td>No native edge</td>
+      <td>No</td>
+      <td>No</td>
+      <td>No</td>
+    </tr>
+    <tr>
+      <td><strong>Free Tier</strong></td>
+      <td>100 GB bandwidth, 1M Function invocations</td>
+      <td>$200 credit × 30 days + always-free tier</td>
+      <td>$5/month credit (trial)</td>
+      <td>Free tier (limited)</td>
+      <td>$5/month credit</td>
+    </tr>
+    <tr>
+      <td><strong>Min Cost (Production)</strong></td>
+      <td>~$20/month (Pro)</td>
+      <td>~$15/month (B1 App Service)</td>
+      <td>~$7/month</td>
+      <td>~$7/month</td>
+      <td>~$12/month (basic droplet)</td>
+    </tr>
+    <tr>
+      <td><strong>Git Integration</strong></td>
+      <td>Automatic (GitHub, GitLab, Bitbucket)</td>
+      <td>Manual (via GitHub Actions)</td>
+      <td>Automatic (Git branch → service)</td>
+      <td>Automatic (GitHub, GitLab, Bitbucket)</td>
+      <td>Manual (via GitHub Actions)</td>
+    </tr>
+    <tr>
+      <td><strong>Preview Deployments</strong></td>
+      <td>Yes (per PR, automatic)</td>
+      <td>Manual (staging slots)</td>
+      <td>Manual (branch-based services)</td>
+      <td>Manual</td>
+      <td>Manual</td>
+    </tr>
+    <tr>
+      <td><strong>CLI Tool</strong></td>
+      <td>vercel (Vercel)</td>
+      <td>az (Microsoft)</td>
+      <td>railway (Railway)</td>
+      <td>render (Render)</td>
+      <td>doctl (DigitalOcean)</td>
+    </tr>
   </table>
 
-  <h2 id="5-gap-annotation-pattern">5. Gap-annotation pattern</h2>
+  <h2 id="15-troubleshooting">15. Troubleshooting</h2>
+
+  <h3 id="build-fails-with-command-failed">Build fails with "Command failed"</h3>
   <p>
-    When no Blacksmith drop-in exists for an upstream action, retain the upstream action and add a same-line
-    comment using exactly this format (three spaces before <code>#</code>, em-dash, action name without
-    the <code>@vN</code> pin):
+    Check the build logs in the Vercel Dashboard:
   </p>
-  <pre><code>- uses: codecov/codecov-action@v3   # No Blacksmith drop-in — using upstream codecov/codecov-action</code></pre>
+  <ol>
+    <li>Navigate to your project</li>
+    <li>Click the failed deployment</li>
+    <li>View the build log for error details</li>
+  </ol>
   <p>
-    The annotation communicates to reviewers and future maintainers that the upstream action was intentionally
-    retained because no Blacksmith optimised equivalent is available, not because the migration was missed.
+    Common causes:
+  </p>
+  <ul>
+    <li>Missing build script in <code>package.json</code> — add <code>"build": "next build"</code></li>
+    <li>Env var not set — add it in Dashboard → Settings → Environment Variables</li>
+    <li>File size too large — default limit is 50 MB per function, 100 MB deployment</li>
+  </ul>
+
+  <h3 id="function-times-out-504-gateway-timeout">Function times out (504 Gateway Timeout)</h3>
+  <p>
+    Your function is taking longer than the timeout limit (60 seconds on free tier, 300 on Pro).
+  </p>
+  <p>
+    Solutions:
+  </p>
+  <ul>
+    <li>Optimize the function (reduce database queries, cache results)</li>
+    <li>Offload to async queue (e.g., AWS SQS, Bull, Firebase Cloud Tasks)</li>
+    <li>Upgrade to Pro plan for longer timeout</li>
+  </ul>
+
+  <h3 id="not-authenticated-to-vercel">"Not authenticated to Vercel"</h3>
+  <p>
+    Run <code>vercel login</code> outside Claude, then verify with <code>vercel whoami</code>.
   </p>
 
-  <h2 id="6-secrets-policy">6. Secrets policy</h2>
+  <h3 id="preview-deployment-not-showing">Preview deployment not showing</h3>
   <p>
-    Never commit Blacksmith account credentials, billing tokens, or runner registration tokens to any
-    YAML, Markdown, or config file in the repository. All secrets must be stored in the GitHub Actions
-    secrets store at the repository or organisation level and referenced via
-    <code>${{ secrets.&lt;NAME&gt; }}</code>.
+    Ensure your GitHub PR is linked to a Vercel project:
   </p>
-  <p>
-    The pipelinekit lint rule R5 does not check for secret exposure — use standard secret-scanning tooling
-    (e.g., <code>github/codeql-action/init</code> with secret scanning enabled, or
-    <code>aquasecurity/trivy-action</code>) to enforce this policy in CI.
-  </p>
+  <ol>
+    <li>Check the Vercel Dashboard → Settings → Integrations</li>
+    <li>Ensure the GitHub app is installed and authorized</li>
+    <li>Re-push to the PR branch to trigger a new deployment</li>
+  </ol>
 
-  <h2 id="7-lint-enforcement-r5">7. Lint enforcement (R5)</h2>
-  <p>
-    The pipelinekit plan-mode lint gate (<code>claude/skills/create-plan/SKILL.md</code> Step 4.5, rule
-    <strong>R5</strong>) rejects any plan task whose <code>**Files:**</code> list creates or modifies a
-    <code>.github/workflows/*.yml</code> or <code>.github/workflows/*.yaml</code> file with a
-    non-<code>blacksmith-*</code> runner, unless the task body documents the gap via a
-    <code>BLACKSMITH_DOES_NOT_SUPPORT_&lt;reason&gt;:</code> line in the <code>**Context:**</code> field.
-  </p>
-  <p>
-    The companion smoke test at <code>tests/test_blacksmith_lint_r5.sh</code> exercises the R5 rule against
-    six fixture plans covering the violation, compliant, documented-gap, non-workflow-file, yaml-extension,
-    and non-ubuntu-hosted-runner cases.
-  </p>
-  <p>
-    The <code>BLACKSMITH_RUNNER</code> variable name also appears in the R5 remediation hint inside
-    <code>claude/skills/create-plan/SKILL.md</code> Step 4.5, and throughout the drop-in matrix examples
-    in this document.
-  </p>
-
-  <h2 id="8-documented-gap-escape-hatch">8. Documented-gap escape hatch</h2>
-  <p>
-    Use this escape hatch only when the workflow legitimately cannot run on Blacksmith — for example, when
-    the job requires a Windows or macOS host, or custom hardware that Blacksmith does not support.
-    Add a single line to the task's <code>**Context:**</code> field:
-  </p>
-  <pre><code>BLACKSMITH_DOES_NOT_SUPPORT_HOST_ARCH: windows-2022</code></pre>
-  <p>
-    R5 reads this as an explicit acknowledgement that the non-Blacksmith runner is intentional, and lets
-    the task pass the lint gate. Choose the <code>&lt;reason&gt;</code> suffix to communicate why
-    Blacksmith is not applicable (e.g., <code>HOST_ARCH</code>, <code>GPU_REQUIRED</code>,
-    <code>MACOS_KEYCHAIN</code>).
-  </p>
-  <p>
-    Do not use this escape hatch for convenience — only for genuine technical incompatibilities.
-    Every use of the escape hatch should be reviewable: a future reader of the plan should be able to
-    understand why Blacksmith was not used for that specific task.
-  </p>
+  <h2 id="16-additional-resources">16. Additional resources</h2>
+  <ul>
+    <li><a href="https://vercel.com/docs">Vercel Documentation</a></li>
+    <li><a href="https://vercel.com/docs/cli">Vercel CLI Reference</a></li>
+    <li><a href="https://nextjs.org/docs">Next.js Documentation</a></li>
+    <li><a href="https://vercel.com/docs/concepts/functions/serverless-functions">Serverless Functions Guide</a></li>
+    <li><a href="https://vercel.com/docs/concepts/edge-network/overview">Edge Network Overview</a></li>
+    <li><a href="https://vercel.com/docs/concepts/analytics/web-vitals">Web Vitals Monitoring</a></li>
+  </ul>
     </div>
 
     <div class="no-results" id="no-results">

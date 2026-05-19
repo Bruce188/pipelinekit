@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CI on Blacksmith — pipelinekit</title>
-<meta name="description" content="Blacksmith runner registration, env-var override pattern, drop-in action matrix, and gap-comment policy for pipelinekit-generated GitHub Actions workflows.">
+<title>Changelog — pipelinekit v0.0.1 — pipelinekit</title>
+<meta name="description" content="Complete development history organized by theme. 78 commits, 72 numbered PRs, the entire v0.0.1 release cycle.">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>CI on Blacksmith</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Changelog — pipelinekit v0.0.1</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -531,165 +531,174 @@ footer {
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
     <ul>
-      <li class="lvl-2"><a href="#1-why-blacksmith">1. Why Blacksmith</a></li>
-      <li class="lvl-2"><a href="#2-account-amp-runner-registration">2. Account &amp;amp; runner registration</a></li>
-      <li class="lvl-2"><a href="#3-the-blacksmith-runner-env-var-override">3. The BLACKSMITH_RUNNER env-var override</a></li>
-      <li class="lvl-2"><a href="#4-drop-in-action-matrix">4. Drop-in action matrix</a></li>
-      <li class="lvl-2"><a href="#5-gap-annotation-pattern">5. Gap-annotation pattern</a></li>
-      <li class="lvl-2"><a href="#6-secrets-policy">6. Secrets policy</a></li>
-      <li class="lvl-2"><a href="#7-lint-enforcement-r5">7. Lint enforcement (R5)</a></li>
-      <li class="lvl-2"><a href="#8-documented-gap-escape-hatch">8. Documented-gap escape hatch</a></li>
+      <li class="lvl-2"><a href="#pipeline-orchestrator">/pipeline orchestrator</a></li>
+      <li class="lvl-2"><a href="#multi-agent-review-system">Multi-agent /review system</a></li>
+      <li class="lvl-2"><a href="#skills-agents-catalog">Skills + agents catalog</a></li>
+      <li class="lvl-2"><a href="#cloud-deployment-providers">Cloud deployment providers</a></li>
+      <li class="lvl-2"><a href="#sandbox-infrastructure">Sandbox infrastructure</a></li>
+      <li class="lvl-2"><a href="#research-loop-research">Research loop + /research</a></li>
+      <li class="lvl-2"><a href="#mobile-azure-specialized-overlays">Mobile + Azure + specialized overlays</a></li>
+      <li class="lvl-2"><a href="#hooks-enforcement">Hooks + enforcement</a></li>
+      <li class="lvl-2"><a href="#mcp-integrations">MCP integrations</a></li>
+      <li class="lvl-2"><a href="#bootstrap-install">Bootstrap + install</a></li>
+      <li class="lvl-2"><a href="#worker-abstraction">Worker abstraction</a></li>
+      <li class="lvl-2"><a href="#bug-fixes">Bug fixes</a></li>
+      <li class="lvl-2"><a href="#skill-removals-breaking">Skill removals (breaking)</a></li>
+      <li class="lvl-2"><a href="#documentation-system">Documentation system</a></li>
+      <li class="lvl-2"><a href="#counts-at-end-of-v0-0-1">Counts at end of v0.0.1</a></li>
     </ul>
   </aside>
 
   <main>
     <header class="page-header">
-      <h1>CI on Blacksmith</h1>
-      <p class="description">Blacksmith runner registration, env-var override pattern, drop-in action matrix, and gap-comment policy for pipelinekit-generated GitHub Actions workflows.</p>
+      <h1>Changelog — pipelinekit v0.0.1</h1>
+      <p class="description">Complete development history organized by theme. 78 commits, 72 numbered PRs, the entire v0.0.1 release cycle.</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
-<h2 id="1-why-blacksmith">1. Why Blacksmith</h2>
-  <p>
-    Blacksmith provides ephemeral, performant runners for GitHub Actions that are faster and more cost-effective than
-    GitHub-hosted runners for most workloads. Key advantages:
-  </p>
-  <ul>
-    <li>Faster cache warm-up through persistent runner-local caching via <code>useblacksmith/cache</code></li>
-    <li>Reduced per-minute compute cost compared to GitHub-hosted runners at equivalent vCPU tiers</li>
-    <li>Drop-in compatibility: most jobs need only one <code>runs-on:</code> line change</li>
-    <li>Ecosystem-native drop-in actions for common setup tasks (<code>cache</code>, <code>setup-node</code>, <code>setup-python</code>, <code>setup-go</code>)</li>
-  </ul>
-  <p>
-    pipelinekit defaults to Blacksmith runners in all generated and templated workflow YAML. The lint rule R5
-    (in <code>claude/skills/create-plan/SKILL.md</code> Step 4.5) enforces this default at plan-creation time.
-  </p>
-
-  <h2 id="2-account-amp-runner-registration">2. Account &amp; runner registration</h2>
-  <ol>
-    <li>Sign up at <code>blacksmith.sh</code> and create an organisation.</li>
-    <li>Register an organisation runner via <code>blacksmith register</code> in your GitHub organisation settings.</li>
-    <li>
-      Store the runner authentication token as a GitHub Actions secret named <code>BLACKSMITH_TOKEN</code> only
-      if a specific Blacksmith action requires it. Most jobs auto-authenticate via the registered runner — no
-      per-job secret token is required for <code>useblacksmith/*</code> actions.
-    </li>
-    <li>Optionally set the <code>BLACKSMITH_RUNNER</code> GitHub Actions variable at the repository or organisation
-      level to select a non-default runner tier (see Section 3).</li>
-  </ol>
-
-  <h2 id="3-the-blacksmith-runner-env-var-override">3. The <code>BLACKSMITH_RUNNER</code> env-var override</h2>
-  <p>Every <code>runs-on:</code> line in pipelinekit-generated workflows uses the fallback expression:</p>
-  <pre><code>runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}</code></pre>
-  <p>
-    Set the <code>BLACKSMITH_RUNNER</code> GitHub Actions variable (repo or org level) to one of the
-    available runner tiers:
-  </p>
-  <ul>
-    <li><code>blacksmith-2vcpu-ubuntu-2204</code> — small jobs (linting, quick unit tests)</li>
-    <li><code>blacksmith-4vcpu-ubuntu-2204</code> — default tier (balanced cost/performance)</li>
-    <li><code>blacksmith-8vcpu-ubuntu-2204</code> — heavier builds (multi-module monorepos, Docker builds)</li>
-    <li><code>blacksmith-16vcpu-ubuntu-2204</code> — very heavy / parallel matrix jobs</li>
-  </ul>
-  <p>
-    When <code>BLACKSMITH_RUNNER</code> is unset, the fallback literal
-    <code>blacksmith-4vcpu-ubuntu-2204</code> is used. To switch all jobs in a repository to a larger tier,
-    set the variable once at the repository level — no YAML changes required.
-  </p>
-
-  <h2 id="4-drop-in-action-matrix">4. Drop-in action matrix</h2>
-  <p>
-    Blacksmith publishes optimised drop-in replacements for common GitHub Actions setup steps.
-    Use the drop-ins where available; retain upstream actions and annotate with the gap-comment pattern
-    (see Section 5) where no drop-in exists.
-  </p>
-  <table>
-    <thead>
-      <tr>
-        <th>Upstream action</th>
-        <th>Blacksmith drop-in</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr><td><code>actions/cache@v3,v4</code></td><td><code>useblacksmith/cache@v5</code></td><td>swap</td></tr>
-      <tr><td><code>actions/setup-node@v3,v4</code></td><td><code>useblacksmith/setup-node@v5</code></td><td>swap</td></tr>
-      <tr><td><code>actions/setup-python@v2,v4,v5</code></td><td><code>useblacksmith/setup-python@v6</code></td><td>swap</td></tr>
-      <tr><td><code>actions/setup-go@v4,v5</code></td><td><code>useblacksmith/setup-go@v6</code></td><td>swap</td></tr>
-      <tr><td><code>actions/checkout@v2,v4</code></td><td>(no drop-in needed)</td><td>keep + annotate</td></tr>
-      <tr><td><code>actions/upload-artifact@v3,v4</code></td><td>(no drop-in published)</td><td>keep + annotate</td></tr>
-      <tr><td><code>codecov/codecov-action@v2,v3,v4</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>aquasecurity/trivy-action@master</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>github/codeql-action/*</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>SonarSource/sonarcloud-github-action@master</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>snyk/actions/node@master</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>aws-actions/configure-aws-credentials@v2,v4</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-    </tbody>
-  </table>
-
-  <h2 id="5-gap-annotation-pattern">5. Gap-annotation pattern</h2>
-  <p>
-    When no Blacksmith drop-in exists for an upstream action, retain the upstream action and add a same-line
-    comment using exactly this format (three spaces before <code>#</code>, em-dash, action name without
-    the <code>@vN</code> pin):
-  </p>
-  <pre><code>- uses: codecov/codecov-action@v3   # No Blacksmith drop-in — using upstream codecov/codecov-action</code></pre>
-  <p>
-    The annotation communicates to reviewers and future maintainers that the upstream action was intentionally
-    retained because no Blacksmith optimised equivalent is available, not because the migration was missed.
-  </p>
-
-  <h2 id="6-secrets-policy">6. Secrets policy</h2>
-  <p>
-    Never commit Blacksmith account credentials, billing tokens, or runner registration tokens to any
-    YAML, Markdown, or config file in the repository. All secrets must be stored in the GitHub Actions
-    secrets store at the repository or organisation level and referenced via
-    <code>${{ secrets.&lt;NAME&gt; }}</code>.
-  </p>
-  <p>
-    The pipelinekit lint rule R5 does not check for secret exposure — use standard secret-scanning tooling
-    (e.g., <code>github/codeql-action/init</code> with secret scanning enabled, or
-    <code>aquasecurity/trivy-action</code>) to enforce this policy in CI.
-  </p>
-
-  <h2 id="7-lint-enforcement-r5">7. Lint enforcement (R5)</h2>
-  <p>
-    The pipelinekit plan-mode lint gate (<code>claude/skills/create-plan/SKILL.md</code> Step 4.5, rule
-    <strong>R5</strong>) rejects any plan task whose <code>**Files:**</code> list creates or modifies a
-    <code>.github/workflows/*.yml</code> or <code>.github/workflows/*.yaml</code> file with a
-    non-<code>blacksmith-*</code> runner, unless the task body documents the gap via a
-    <code>BLACKSMITH_DOES_NOT_SUPPORT_&lt;reason&gt;:</code> line in the <code>**Context:**</code> field.
-  </p>
-  <p>
-    The companion smoke test at <code>tests/test_blacksmith_lint_r5.sh</code> exercises the R5 rule against
-    six fixture plans covering the violation, compliant, documented-gap, non-workflow-file, yaml-extension,
-    and non-ubuntu-hosted-runner cases.
-  </p>
-  <p>
-    The <code>BLACKSMITH_RUNNER</code> variable name also appears in the R5 remediation hint inside
-    <code>claude/skills/create-plan/SKILL.md</code> Step 4.5, and throughout the drop-in matrix examples
-    in this document.
-  </p>
-
-  <h2 id="8-documented-gap-escape-hatch">8. Documented-gap escape hatch</h2>
-  <p>
-    Use this escape hatch only when the workflow legitimately cannot run on Blacksmith — for example, when
-    the job requires a Windows or macOS host, or custom hardware that Blacksmith does not support.
-    Add a single line to the task's <code>**Context:**</code> field:
-  </p>
-  <pre><code>BLACKSMITH_DOES_NOT_SUPPORT_HOST_ARCH: windows-2022</code></pre>
-  <p>
-    R5 reads this as an explicit acknowledgement that the non-Blacksmith runner is intentional, and lets
-    the task pass the lint gate. Choose the <code>&lt;reason&gt;</code> suffix to communicate why
-    Blacksmith is not applicable (e.g., <code>HOST_ARCH</code>, <code>GPU_REQUIRED</code>,
-    <code>MACOS_KEYCHAIN</code>).
-  </p>
-  <p>
-    Do not use this escape hatch for convenience — only for genuine technical incompatibilities.
-    Every use of the escape hatch should be reviewable: a future reader of the plan should be able to
-    understand why Blacksmith was not used for that specific task.
-  </p>
+<p>The complete development history of pipelinekit, organized by theme. This is the first version (v0.0.1, not yet released as a tag). PRs are linked to GitHub; the bullet summary is the one-line headline.</p>
+<h2 id="pipeline-orchestrator">/pipeline orchestrator</h2>
+<p>The autonomous Charter → Analyze → Plan → Implement → Review → Merge loop. The user provides a feature description; pipelinekit ships a merged PR.</p>
+<ul>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/2">#2</a> — Charter Discovery mode (Step 0 of /pipeline)</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/26">#26</a> — Charter re-validation pass on <code>/pipeline --renew</code></li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/28">#28</a> — Charter auto-extract Step 0 skip condition</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/31">#31</a> — Agent-teams toggle lifted from /review to /pipeline orchestrator</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/35">#35</a> — Path M inline-fix expansion in post-review routing</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/36">#36</a> — Parallelize implement phase via single-message multi-Agent dispatch</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/37">#37</a> — Unified Run Log entry format across all pipeline writes</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/38">#38</a> — Eliminate overlay pattern from pipelinekit</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/39">#39</a> — GitHub Issues integration (<code>--issues</code> mode + <code>Closes #N</code> PR body)</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/44">#44</a> — <code>/pipeline --renew</code> charter revalidation with 3-valued status + <code>--auto</code> flag</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/46">#46</a> — Charter Topic 10 deployment-target classifier</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/47">#47</a> — Decomposition compliance gate for <code>/create-plan</code> and <code>/analyze</code></li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/57">#57</a> — Step 0 Topic 10 auto-detect probes monorepo sub-dirs</li>
+</ul>
+<h2 id="multi-agent-review-system">Multi-agent /review system</h2>
+<p>Configurable multi-agent review with auto-scaling agent selection, charter-aware classification, and findings routing.</p>
+<ul>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/10">#10</a> — Karpathy-reviewer anti-hallucination agent (Agent 6 in /review)</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/27">#27</a> — Charter-aware finding classification in /review</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/45">#45</a> — Two-axis review finding classification (scope × intent)</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/65">#65</a> — Hooks <code>args: string[]</code> exec form migration + <code>terminalSequence</code> regression test</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/67">#67</a> — Native surface docs + bundled NB cleanup from v3/v4 reviews</li>
+</ul>
+<h2 id="skills-agents-catalog">Skills + agents catalog</h2>
+<p>Vendored ecosystems + native pipelinekit skills.</p>
+<ul>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/9">#9</a> — Vendor mattpocock/skills TDD doctrine pack + wire <code>tdd-test-writer</code> + <code>tdd-implementer</code> agents</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/11">#11</a> — Absorb gstack patterns — model-overlays, host-adapters, /learn, /landing-report</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/12">#12</a> — Vendor wshobson agent pack + add /incident skill</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/13">#13</a> — Vendor ClaudeForge claude-md-enhancer skill + guardian agent</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/14">#14</a> — Vendor alirezarezvani/claude-skills authoring standard + /code-health reference</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/18">#18</a> — Vendor alirezarezvani/claude-skills persona pack + wire /interview-prp + /analyze</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/42">#42</a> — openhuman skill — human-in-the-loop gate for /pipeline destructive actions</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/41">#41</a> — pipeline-mobile-notifications — native PushNotification + Channels integration</li>
+</ul>
+<h2 id="cloud-deployment-providers">Cloud deployment providers</h2>
+<p>Five first-class providers, all driven from Charter Topic 10. Each ships a <code>&lt;provider&gt;-ops</code> skill, a <code>&lt;provider&gt;-deployment-engineer</code> agent, and an HTML user guide.</p>
+<ul>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/5">#5</a> — Azure CLI overlay (skill + agent + install gate + post-merge advisory)</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/25">#25</a> — Azure Mode overlay in CLAUDE.md.template</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/30">#30</a> — Vercel deployment-provider selector scaffolding</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/53">#53</a> — Azure Mode overlay in CLAUDE.md.template (v2 refresh)</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/59">#59</a> — Railway as first-class deployment provider</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/60">#60</a> — Render as first-class deployment provider</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/61">#61</a> — DigitalOcean App Platform as first-class deployment provider</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/62">#62</a> — Extract shared deployment principles into <code>deployment-engineer.md</code> base</li>
+</ul>
+<h2 id="sandbox-infrastructure">Sandbox infrastructure</h2>
+<p>Pluggable execution sandboxes for /pipeline subprocess invocations.</p>
+<ul>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/7">#7</a> — Pluggable SandboxProvider library with 8-agent fan-out cap</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/21">#21</a> — Switch sandbox providers to exec-style argv (eliminates shell-injection surface)</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/22">#22</a> — Optional <code>orchestrate.sh</code> subprocess driver stub</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/23">#23</a> — Fail-closed when <code>env-scrub.py</code> returns unexpected output</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/24">#24</a> — Versioned sandbox base image + build script</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/48">#48</a> — Sandbox unset-default contradiction — <code>worktree-only</code> is the correct default</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/49">#49</a> — Sandbox orchestrate wrapper — <code>sandbox_wrap</code> helper + <code>run_host_adapter</code> + <code>run_mcp</code></li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/50">#50</a> — Sandbox providers runtime-injection assertion test coverage</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/58">#58</a> — Add <code>ripgrep</code> and <code>fd-find</code> to sandbox base image</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/70">#70</a> — Extract <code>sandbox_wrap</code> into shared library</li>
+</ul>
+<h2 id="research-loop-research">Research loop + /research</h2>
+<p>Karpathy-style autoresearch loop (hypothesize → mutate → benchmark → keep-or-reset).</p>
+<ul>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/8">#8</a> — /research skill — Karpathy autoresearch loop driver</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/54">#54</a> — Add <code>parse-json</code> subcommand to <code>cost_log.py</code> + wire into research-loop</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/55">#55</a> — <code>--restart-from-iter &lt;N&gt;</code> flag for research-loop.sh</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/56">#56</a> — Wrap <code>claude -p</code> invocations in research-loop.sh with sandbox provider</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/69">#69</a> — <code>--research</code> flag on /ppr to publish research keep-rows to a branch</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/71">#71</a> — Research-results TSV viewer (sortable / filterable HTML)</li>
+</ul>
+<h2 id="mobile-azure-specialized-overlays">Mobile + Azure + specialized overlays</h2>
+<p>Workload-specific overlays.</p>
+<ul>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/4">#4</a> — Mobile-app workload overlay (Expo / iOS / mobile-dev agent)</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/5">#5</a> — Azure CLI overlay (also in deployment providers above)</li>
+</ul>
+<h2 id="hooks-enforcement">Hooks + enforcement</h2>
+<p>PreToolUse / PostToolUse / SessionStart / etc. hooks that enforce contracts at the Claude Code surface.</p>
+<ul>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/19">#19</a> — Worker-delegation phase 2 — CodexWorker spec + routing</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/20">#20</a> — Worker-delegation phases 4–5 + <code>validate-task-spec</code> hook</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/33">#33</a> — Subagent docs-write block via heredoc convention</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/40">#40</a> — Blacksmith runners as default CI/CD target + R5 plan-lint guard</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/52">#52</a> — R5 lint coverage for <code>${{ matrix.os }}</code> runner label</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/63">#63</a> — Normalize skill frontmatter <code>allowed-tools</code> to YAML list</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/64">#64</a> — <code>permissionMode: default</code> on azure + vercel deployment-engineers</li>
+</ul>
+<h2 id="mcp-integrations">MCP integrations</h2>
+<p>Model Context Protocol servers shipped or wired.</p>
+<ul>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/16">#16</a> — claude-context community MCP as opt-in codebase semantic RAG</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/32">#32</a> — agentmemory opt-in vendoring skeleton</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/34">#34</a> — agentmemory part of standard install (drop opt-in gate)</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/66">#66</a> — Harden <code>.mcp.json.template</code> (pin git refs, move agentmemory to <code>_pending</code>)</li>
+</ul>
+<h2 id="bootstrap-install">Bootstrap + install</h2>
+<p>Getting pipelinekit running on different hosts.</p>
+<ul>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/3">#3</a> — Oracle Cloud + Hetzner cloud bootstrap scripts</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/15">#15</a> — EnterWorktree / ExitWorktree guidance + Claude Code v2.1.72 version-floor gate</li>
+</ul>
+<h2 id="worker-abstraction">Worker abstraction</h2>
+<p>Pluggable worker layer so /pipeline can dispatch to alternate Claude SDKs or external tools.</p>
+<ul>
+<li>(Phase 1 commit) — Worker-provider abstraction layer (phase 1 docs)</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/19">#19</a> — CodexWorker spec + routing (phase 2)</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/20">#20</a> — Phases 4–5 + <code>validate-task-spec</code> hook</li>
+</ul>
+<h2 id="bug-fixes">Bug fixes</h2>
+<ul>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/51">#51</a> — codex.sh exec bugs — exit-code propagation, output dir, stderr, positional prompt</li>
+</ul>
+<h2 id="skill-removals-breaking">Skill removals (breaking)</h2>
+<ul>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/29">#29</a> — Deprecate <code>/interview-prp</code> in favor of <code>/pipeline</code> Step 0 Charter Discovery (banner + migration notice; skill still installed)</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/68">#68</a> — Remove deprecated <code>/interview-prp</code> skill entirely (second half of 2-release deprecation)</li>
+</ul>
+<h2 id="documentation-system">Documentation system</h2>
+<p>The system that produces this very page.</p>
+<ul>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/6">#6</a> — docs-writer post-merge phase + /document-release skill</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/43">#43</a> — docs-vs-documentation format split (markdown for LLMs, HTML for humans)</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/67">#67</a> — Native surface docs + bundled NB cleanup</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/72">#72</a> — Docs refresh post-PR44-to-PR71 (cloud providers, /ppr --research, skill/agent counts)</li>
+<li><em>This PR</em> — docs-writer/2 rich-template + interactive HTML throughout <code>documentation/</code></li>
+</ul>
+<h2 id="counts-at-end-of-v0-0-1">Counts at end of v0.0.1</h2>
+<ul>
+<li><strong>78</strong> commits on <code>main</code></li>
+<li><strong>72</strong> numbered pull requests</li>
+<li><strong>43</strong> native skills</li>
+<li><strong>31</strong> specialized agents</li>
+<li><strong>24</strong> hooks</li>
+<li><strong>5</strong> cloud deployment providers (Azure, Vercel, Railway, Render, DigitalOcean) on a shared <code>deployment-engineer.md</code> base</li>
+<li><strong>18</strong> documentation pages (all self-contained HTML, no CDN, file://-openable)</li>
+<li><strong>128</strong> unit + shell tests, all green</li>
+</ul>
     </div>
 
     <div class="no-results" id="no-results">

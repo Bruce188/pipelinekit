@@ -6,6 +6,8 @@
 .cache/
 
 # Claude runtime (never commit)
+# Project-local worktree directory created by Claude Code (worktree isolation).
+.claude/
 claude/.credentials.json
 claude/projects/
 claude/sessions/
@@ -59,3 +61,9 @@ Thumbs.db
 # Documentation archive (rollback surface for .md -> .html migrations)
 documentation/_md_archive/
 documentation/research-results.html
+
+# docs/ is AI-workflow-only (analysis-vN, plan-vN, prompts-vN, review-vN,
+# charter, progress, pipeline-state, features-vN, etc.) — never committed.
+# User-facing docs live in documentation/. Use `git add -f` to commit a
+# specific docs/ file (rarely needed).
+docs/

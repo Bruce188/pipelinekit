@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Getting started — pipelinekit</title>
+<meta name="description" content="A tutorial-driven walkthrough. Install pipelinekit, run your first autonomous /pipeline, then work through three real-world scenarios + a meta-walkthrough.">
+<meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
+<style>
+/* === Reset + variables === */
+*, *::before, *::after { box-sizing: border-box; }
+:root {
+  --bg: #ffffff;
+  --bg-elev: #fafbfc;
+  --bg-code: #f4f5f7;
+  --bg-sel: #e3f2fd;
+  --fg: #1a1d23;
+  --fg-muted: #5a6172;
+  --fg-subtle: #8b94a3;
+  --border: #e1e5eb;
+  --border-strong: #c5cbd4;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-soft: #dbeafe;
+  --success: #059669;
+  --warn: #d97706;
+  --danger: #dc2626;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --radius: 6px;
+  --radius-sm: 4px;
+  --mono: ui-monospace, "JetBrains Mono", "SF Mono", "Cascadia Code", "Consolas", monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --transition: 150ms ease;
+  /* Syntax highlight colors (light) */
+  --syn-kw: #7c3aed;     /* keyword purple */
+  --syn-str: #059669;    /* string green */
+  --syn-num: #d97706;    /* number orange */
+  --syn-com: #6b7280;    /* comment gray */
+  --syn-fn: #2563eb;     /* function blue */
+  --syn-cls: #db2777;    /* class pink */
+  --syn-op: #1f2937;     /* operator near-fg */
+}
+html[data-theme="dark"], :root[data-theme="dark"] {
+  --bg: #0b0f1a;
+  --bg-elev: #131825;
+  --bg-code: #161c2c;
+  --bg-sel: #1e3a5f;
+  --fg: #e8ecf3;
+  --fg-muted: #9aa3b3;
+  --fg-subtle: #6b7589;
+  --border: #1f2638;
+  --border-strong: #2a3349;
+  --accent: #60a5fa;
+  --accent-hover: #93c5fd;
+  --accent-soft: #1e3a8a33;
+  --success: #34d399;
+  --warn: #fbbf24;
+  --danger: #f87171;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+  --syn-kw: #c084fc;
+  --syn-str: #4ade80;
+  --syn-num: #fbbf24;
+  --syn-com: #94a3b8;
+  --syn-fn: #60a5fa;
+  --syn-cls: #f472b6;
+  --syn-op: #e8ecf3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b0f1a;
+    --bg-elev: #131825;
+    --bg-code: #161c2c;
+    --bg-sel: #1e3a5f;
+    --fg: #e8ecf3;
+    --fg-muted: #9aa3b3;
+    --fg-subtle: #6b7589;
+    --border: #1f2638;
+    --border-strong: #2a3349;
+    --accent: #60a5fa;
+    --accent-hover: #93c5fd;
+    --accent-soft: #1e3a8a33;
+    --success: #34d399;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+    --syn-kw: #c084fc;
+    --syn-str: #4ade80;
+    --syn-num: #fbbf24;
+    --syn-com: #94a3b8;
+    --syn-fn: #60a5fa;
+    --syn-cls: #f472b6;
+    --syn-op: #e8ecf3;
+  }
+}
+html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+body {
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.65;
+  background: var(--bg);
+  color: var(--fg);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background var(--transition), color var(--transition);
+}
+::selection { background: var(--bg-sel); }
+
+/* === Top bar === */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: saturate(180%) blur(10px);
+}
+.topbar .brand {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--fg);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.topbar .brand .logo {
+  width: 22px; height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: white;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.7rem;
+}
+.topbar .crumbs {
+  color: var(--fg-muted);
+  font-size: 0.85rem;
+  flex: 1;
+}
+.topbar .crumbs a { color: var(--fg-muted); text-decoration: none; }
+.topbar .crumbs a:hover { color: var(--accent); }
+.search-box {
+  position: relative;
+  flex: 0 1 280px;
+}
+.search-box input {
+  width: 100%;
+  padding: 0.4rem 0.7rem 0.4rem 2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  transition: border-color var(--transition);
+}
+.search-box input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.search-box .icon {
+  position: absolute;
+  left: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fg-subtle);
+  pointer-events: none;
+}
+.theme-toggle {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg-muted);
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  transition: all var(--transition);
+}
+.theme-toggle:hover { color: var(--fg); border-color: var(--border-strong); }
+
+/* === Layout === */
+.layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  max-width: 1280px;
+  margin: 0 auto;
+  gap: 2rem;
+  padding: 2rem 1.5rem;
+}
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; }
+  .toc { display: none; }
+  .toc.open { display: block; position: fixed; top: 60px; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 99; padding: 1.5rem; overflow-y: auto; }
+  .toc-mobile-btn { display: inline-flex; }
+}
+.toc-mobile-btn {
+  display: none;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg-muted);
+  padding: 0.35rem 0.7rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.85rem;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* === ToC sidebar === */
+.toc {
+  position: sticky;
+  top: 80px;
+  align-self: start;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  font-size: 0.85rem;
+  padding-right: 0.5rem;
+}
+.toc-heading {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-subtle);
+  font-weight: 700;
+  margin: 0 0 0.7rem 0.5rem;
+}
+.toc ul { list-style: none; padding: 0; margin: 0; }
+.toc li { margin: 0; }
+.toc a {
+  display: block;
+  padding: 0.3rem 0.5rem;
+  color: var(--fg-muted);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  transition: all var(--transition);
+  line-height: 1.4;
+}
+.toc a:hover { color: var(--fg); background: var(--bg-elev); }
+.toc a.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 500;
+}
+.toc .lvl-3 a { padding-left: 1.4rem; font-size: 0.8rem; }
+
+/* === Main content === */
+main { min-width: 0; }
+.page-header { margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+.page-header h1 { font-size: 2rem; font-weight: 700; line-height: 1.2; margin: 0 0 0.5rem; letter-spacing: -0.01em; }
+.page-header .description { color: var(--fg-muted); font-size: 1.05rem; line-height: 1.5; margin: 0; }
+.page-meta { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; font-size: 0.8rem; color: var(--fg-subtle); }
+.page-meta .meta-item { display: inline-flex; align-items: center; gap: 0.3rem; }
+.page-meta code { background: var(--bg-code); padding: 0.05rem 0.4rem; border-radius: var(--radius-sm); font-size: 0.8rem; }
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--fg);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  position: relative;
+}
+h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; padding-top: 0.5rem; }
+h3 { font-size: 1.25rem; margin: 2rem 0 0.8rem; }
+h4 { font-size: 1.05rem; margin: 1.5rem 0 0.5rem; color: var(--fg-muted); }
+h5, h6 { font-size: 0.95rem; margin: 1rem 0 0.4rem; color: var(--fg-muted); }
+h2 .anchor, h3 .anchor, h4 .anchor {
+  position: absolute;
+  left: -1.3rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fg-subtle);
+  opacity: 0;
+  text-decoration: none;
+  font-weight: 400;
+  transition: opacity var(--transition);
+  font-size: 0.9em;
+}
+h2:hover .anchor, h3:hover .anchor, h4:hover .anchor { opacity: 1; }
+h2 .anchor:hover, h3 .anchor:hover, h4 .anchor:hover { color: var(--accent); }
+p { margin: 0.9rem 0; }
+a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color var(--transition); }
+a:hover { border-bottom-color: var(--accent); }
+strong { font-weight: 600; color: var(--fg); }
+em { font-style: italic; }
+hr { border: none; border-top: 1px solid var(--border); margin: 2.5rem 0; }
+
+/* === Code === */
+code {
+  font-family: var(--mono);
+  font-size: 0.88em;
+  background: var(--bg-code);
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  color: var(--fg);
+}
+pre {
+  position: relative;
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.2rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+  box-shadow: var(--shadow-sm);
+}
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--fg);
+}
+pre .lang-label {
+  position: absolute;
+  top: 0.5rem;
+  right: 3rem;
+  font-size: 0.7rem;
+  color: var(--fg-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--sans);
+  font-weight: 600;
+  user-select: none;
+}
+pre .copy-btn {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.5rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  border-radius: var(--radius-sm);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: all var(--transition);
+  font-family: var(--sans);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+pre:hover .copy-btn { opacity: 1; }
+pre .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+pre .copy-btn.copied { color: var(--success); border-color: var(--success); }
+
+/* Pygments syntax classes */
+.codehilite .k, .codehilite .kn, .codehilite .kd, .codehilite .kr, .codehilite .kt { color: var(--syn-kw); font-weight: 500; }
+.codehilite .s, .codehilite .s1, .codehilite .s2, .codehilite .sb { color: var(--syn-str); }
+.codehilite .mi, .codehilite .mf, .codehilite .mh, .codehilite .mo { color: var(--syn-num); }
+.codehilite .c, .codehilite .c1, .codehilite .cm, .codehilite .ch { color: var(--syn-com); font-style: italic; }
+.codehilite .nf, .codehilite .fm { color: var(--syn-fn); font-weight: 500; }
+.codehilite .nc, .codehilite .ne { color: var(--syn-cls); font-weight: 500; }
+.codehilite .o, .codehilite .ow { color: var(--syn-op); }
+.codehilite .nv, .codehilite .vc, .codehilite .vg, .codehilite .vi { color: var(--syn-fn); }
+.codehilite .nb { color: var(--syn-fn); }
+.codehilite .gp { color: var(--syn-com); user-select: none; }
+
+/* === Tables === */
+.table-wrap { overflow-x: auto; margin: 1rem 0; border: 1px solid var(--border); border-radius: var(--radius); }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+thead { background: var(--bg-elev); border-bottom: 1px solid var(--border); }
+th {
+  text-align: left;
+  padding: 0.6rem 0.9rem;
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+th.sortable::after {
+  content: "↕";
+  margin-left: 0.4rem;
+  color: var(--fg-subtle);
+  font-size: 0.75rem;
+}
+th.sortable.asc::after { content: "↑"; color: var(--accent); }
+th.sortable.desc::after { content: "↓"; color: var(--accent); }
+td { padding: 0.6rem 0.9rem; border-top: 1px solid var(--border); vertical-align: top; }
+tbody tr:hover { background: var(--bg-elev); }
+tbody tr.filtered-out { display: none; }
+
+/* === Lists === */
+ul, ol { padding-left: 1.5rem; margin: 0.8rem 0; }
+ul li, ol li { margin: 0.3rem 0; }
+ul ul, ol ol, ul ol, ol ul { margin: 0.2rem 0; }
+
+/* === Blockquotes === */
+blockquote {
+  border-left: 3px solid var(--accent);
+  background: var(--bg-elev);
+  padding: 0.7rem 1.1rem;
+  margin: 1rem 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  color: var(--fg);
+}
+blockquote p:first-child { margin-top: 0; }
+blockquote p:last-child { margin-bottom: 0; }
+
+/* === Callouts (auto-detected from blockquote first line) === */
+.callout {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.85rem 1.1rem;
+  border-radius: var(--radius);
+  margin: 1rem 0;
+  border-left: 3px solid;
+  background: var(--bg-elev);
+}
+.callout-icon { font-size: 1.1rem; line-height: 1.4; flex-shrink: 0; }
+.callout-body { flex: 1; min-width: 0; }
+.callout-body p:first-child { margin-top: 0; font-weight: 600; }
+.callout-body p:last-child { margin-bottom: 0; }
+.callout.info { border-left-color: var(--accent); }
+.callout.info .callout-icon { color: var(--accent); }
+.callout.warn { border-left-color: var(--warn); }
+.callout.warn .callout-icon { color: var(--warn); }
+.callout.danger { border-left-color: var(--danger); }
+.callout.danger .callout-icon { color: var(--danger); }
+.callout.success { border-left-color: var(--success); }
+.callout.success .callout-icon { color: var(--success); }
+
+/* === Details/Summary === */
+details {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0;
+  margin: 1rem 0;
+}
+details[open] { border-color: var(--border-strong); }
+summary {
+  padding: 0.7rem 1rem;
+  cursor: pointer;
+  font-weight: 600;
+  user-select: none;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+summary::before { content: "▶"; transition: transform var(--transition); font-size: 0.75rem; color: var(--fg-subtle); }
+details[open] summary::before { transform: rotate(90deg); }
+summary::-webkit-details-marker { display: none; }
+details > *:not(summary) { padding: 0 1rem 0.8rem; }
+
+/* === Highlights (search) === */
+.search-hit { background: rgba(255, 230, 0, 0.45); border-radius: 2px; padding: 0 2px; }
+html[data-theme="dark"] .search-hit, :root[data-theme="dark"] .search-hit { background: rgba(255, 200, 0, 0.35); }
+
+/* === Footer === */
+footer {
+  margin: 4rem auto 0;
+  padding: 2rem 1.5rem;
+  max-width: 1280px;
+  border-top: 1px solid var(--border);
+  font-size: 0.82rem;
+  color: var(--fg-subtle);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+/* === No-result state for search === */
+.no-results {
+  display: none;
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--fg-muted);
+}
+.no-results.visible { display: block; }
+
+/* === Print === */
+@media print {
+  .topbar, .toc, .toc-mobile-btn, .copy-btn, .theme-toggle, .search-box, footer { display: none !important; }
+  .layout { display: block; padding: 0; max-width: none; }
+  body { font-size: 11pt; }
+  pre { page-break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <span class="logo">P</span>
+    <span>pipelinekit docs</span>
+  </a>
+  <div class="crumbs">
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Getting started</span>
+  </div>
+  <div class="search-box">
+    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="search" id="page-search" placeholder="Filter page (/)" aria-label="Filter content on this page">
+  </div>
+  <button class="toc-mobile-btn" id="toc-toggle" aria-label="Toggle table of contents">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    Contents
+  </button>
+  <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
+    <svg id="theme-icon-light" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+    <svg id="theme-icon-dark" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <span id="theme-label">Auto</span>
+  </button>
+</header>
+
+<div class="layout">
+  <aside class="toc" id="toc">
+    <h2 class="toc-heading">On this page</h2>
+    <ul>
+      <li class="lvl-2"><a href="#what-pipelinekit-gives-you">What pipelinekit gives you</a></li>
+      <li class="lvl-2"><a href="#prerequisites">Prerequisites</a></li>
+      <li class="lvl-2"><a href="#install">Install</a></li>
+      <li class="lvl-2"><a href="#tutorial-1-hello-world-ship-a-one-line-feature-autonomously">Tutorial 1 — Hello world: ship a one-line feature autonomously</a></li>
+      <li class="lvl-3"><a href="#setup">Setup</a></li>
+      <li class="lvl-2"><a href="#fix-readme-typo">fix/readme-typo</a></li>
+      <li class="lvl-3"><a href="#run-log">Run Log</a></li>
+      <li class="lvl-3"><a href="#run">Run</a></li>
+      <li class="lvl-3"><a href="#what-happens">What happens</a></li>
+      <li class="lvl-3"><a href="#inspect-the-artifacts">Inspect the artifacts</a></li>
+      <li class="lvl-2"><a href="#tutorial-2-tdd-add-a-unit-aware-temperature-parser">Tutorial 2 — TDD: add a unit-aware temperature parser</a></li>
+      <li class="lvl-3"><a href="#setup-2">Setup</a></li>
+      <li class="lvl-2"><a href="#feat-temperature-parser">feat/temperature-parser</a></li>
+      <li class="lvl-3"><a href="#run-log-2">Run Log</a></li>
+      <li class="lvl-3"><a href="#run-2">Run</a></li>
+      <li class="lvl-3"><a href="#what-happens-differently-from-tutorial-1">What happens differently from Tutorial 1</a></li>
+      <li class="lvl-3"><a href="#inspect">Inspect</a></li>
+      <li class="lvl-2"><a href="#tutorial-3-ship-a-next-js-app-to-vercel">Tutorial 3 — Ship a Next.js app to Vercel</a></li>
+      <li class="lvl-3"><a href="#setup-3">Setup</a></li>
+      <li class="lvl-2"><a href="#goal">Goal</a></li>
+      <li class="lvl-2"><a href="#users">Users</a></li>
+      <li class="lvl-2"><a href="#problem">Problem</a></li>
+      <li class="lvl-2"><a href="#success">Success</a></li>
+      <li class="lvl-2"><a href="#non-goals">Non-goals</a></li>
+      <li class="lvl-2"><a href="#constraints">Constraints</a></li>
+      <li class="lvl-2"><a href="#mvp-boundary">MVP boundary</a></li>
+      <li class="lvl-2"><a href="#prior-art">Prior art</a></li>
+      <li class="lvl-2"><a href="#open-questions">Open questions</a></li>
+      <li class="lvl-2"><a href="#deployment-target">Deployment target</a></li>
+      <li class="lvl-2"><a href="#review-style">Review style</a></li>
+      <li class="lvl-2"><a href="#feat-landing-hero">feat/landing-hero</a></li>
+      <li class="lvl-3"><a href="#run-log-3">Run Log</a></li>
+      <li class="lvl-3"><a href="#run-3">Run</a></li>
+      <li class="lvl-3"><a href="#what-happens-2">What happens</a></li>
+      <li class="lvl-3"><a href="#inspect-2">Inspect</a></li>
+      <li class="lvl-2"><a href="#tutorial-4-meta-how-pipelinekit-built-one-of-its-own-features">Tutorial 4 — Meta: how pipelinekit built one of its own features</a></li>
+      <li class="lvl-3"><a href="#the-feature-feat-pipeline-renew-charter-revalidation-pr-44">The feature: feat/pipeline-renew-charter-revalidation (PR #44)</a></li>
+      <li class="lvl-3"><a href="#read-the-artifacts">Read the artifacts</a></li>
+      <li class="lvl-3"><a href="#read-the-pr">Read the PR</a></li>
+      <li class="lvl-3"><a href="#read-the-skill-changes">Read the SKILL changes</a></li>
+      <li class="lvl-3"><a href="#what-this-tells-you">What this tells you</a></li>
+      <li class="lvl-2"><a href="#where-to-go-next">Where to go next</a></li>
+      <li class="lvl-2"><a href="#status">Status</a></li>
+      <li class="lvl-2"><a href="#troubleshooting">Troubleshooting</a></li>
+      <li class="lvl-3"><a href="#pipeline-not-found-in-my-claude-code-session">/pipeline not found in my Claude Code session</a></li>
+      <li class="lvl-3"><a href="#pipeline-halted-at-a-cloud-provider-step">/pipeline halted at a cloud-provider step</a></li>
+      <li class="lvl-3"><a href="#review-keeps-cycling-without-converging">Review keeps cycling without converging</a></li>
+      <li class="lvl-3"><a href="#a-specific-skill-isn-t-firing-when-i-expect">A specific skill isn&#x27;t firing when I expect</a></li>
+    </ul>
+  </aside>
+
+  <main>
+    <header class="page-header">
+      <h1>Getting started</h1>
+      <p class="description">A tutorial-driven walkthrough. Install pipelinekit, run your first autonomous /pipeline, then work through three real-world scenarios + a meta-walkthrough.</p>
+      <div class="page-meta"></div>
+    </header>
+
+    <div id="page-content">
+<p>A tutorial-driven walkthrough. You'll install pipelinekit, run your first autonomous <code>/pipeline</code>, then work through three real-world scenarios — a TDD feature, a Vercel deploy, and a meta-walkthrough of how pipelinekit built one of its own features.</p>
+<h2 id="what-pipelinekit-gives-you">What pipelinekit gives you</h2>
+<blockquote>
+<p>[INFO] <strong>pipelinekit</strong> is an autonomous orchestrator for Claude Code. You write a one-line feature description; it ships a merged PR. Charter Discovery → Analyze → Plan → Implement → Review → Merge, all driven by multi-agent dispatch with no human in the loop unless you opt in.</p>
+</blockquote>
+<p>The 30-second pitch:</p>
+<ul>
+<li><strong>43 skills + 31 agents + 24 hooks</strong> wired together so <code>/pipeline</code> can take a feature from charter to merged PR without intervention.</li>
+<li><strong>5 cloud deployment providers</strong> (Azure, Vercel, Railway, Render, DigitalOcean) on a shared <code>deployment-engineer.md</code> base — your charter selects one, /pipeline routes deployment automatically.</li>
+<li><strong>Sandbox-isolated execution</strong> — every subprocess in a podman/docker/worktree sandbox with auto-detected provider chain.</li>
+<li><strong>TDD doctrine baked in</strong> — <code>dev</code>-class features auto-route through <code>tdd-test-writer</code> → <code>tdd-implementer</code> for red/green pairing.</li>
+<li><strong>Multi-agent /review</strong> — 2-6 specialized review agents (test-engineer, security-auditor, karpathy-reviewer, spec-tracer, code-reviewer) with charter-aware finding classification + Path A/B/M/N routing.</li>
+<li><strong>No CDN, no remote assets</strong> — every documentation page you're reading is a single self-contained HTML file. Clone the repo, open <code>documentation/index.html</code> directly via <code>file://</code>, no server needed.</li>
+</ul>
+<h2 id="prerequisites">Prerequisites</h2>
+<ul>
+<li>A POSIX shell environment: Linux, macOS, or WSL2 on Windows. (Native Windows via Git Bash works for most things; some hooks assume bash/POSIX semantics.)</li>
+<li><a href="https://code.claude.com">Claude Code</a> installed. Pipelinekit currently floor-pins Claude Code <code>&gt;= 2.1.72</code> for <code>EnterWorktree</code> / <code>ExitWorktree</code> and other native surfaces.</li>
+<li>Node.js 20+ (recommended) for some MCP servers and tooling.</li>
+<li><code>git</code> and <code>gh</code> (GitHub CLI), authenticated against your GitHub account if you want /pipeline to open and merge PRs.</li>
+<li>Python 3.11+ for hooks and the docs-writer renderer.</li>
+</ul>
+<h2 id="install">Install</h2>
+<div class="codehilite"><pre><span></span><code><span class="c1"># 1. Clone</span>
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/Bruce188/pipelinekit<span class="w"> </span>~/pipelinekit
+<span class="nb">cd</span><span class="w"> </span>~/pipelinekit
+
+<span class="c1"># 2. Run the installer (sets up ~/.claude/ skills/agents/hooks/configs)</span>
+bash<span class="w"> </span>scripts/install.sh
+
+<span class="c1"># 3. Verify</span>
+ls<span class="w"> </span>~/.claude/skills/pipeline<span class="w"> </span>~/.claude/agents/code-reviewer
+
+<span class="c1"># 4. Open the documentation index</span>
+xdg-open<span class="w"> </span>documentation/index.html<span class="w">    </span><span class="c1"># Linux</span>
+open<span class="w"> </span>documentation/index.html<span class="w">         </span><span class="c1"># macOS</span>
+start<span class="w"> </span>documentation/index.html<span class="w">        </span><span class="c1"># Windows / WSL</span>
+</code></pre></div>
+
+<p>For headless / VPS install (Oracle Cloud, Hetzner, Codespaces), see <a href="cloud-setup.html">cloud-setup.html</a>. For per-host install variants (mobile, devcontainer), see <a href="installation.html">installation.html</a>.</p>
+<h2 id="tutorial-1-hello-world-ship-a-one-line-feature-autonomously">Tutorial 1 — Hello world: ship a one-line feature autonomously</h2>
+<p>The smallest possible /pipeline run. You write a one-line feature description; /pipeline ships a merged PR.</p>
+<h3 id="setup-3">Setup</h3>
+<p>In any git repo (your own, or a sandbox), create a <code>docs/features.md</code> with a single feature:</p>
+<div class="codehilite"><pre><span></span><code><span class="gu">## fix/readme-typo</span>
+
+<span class="gs">**Description:**</span> Fix the typo in README.md where &quot;occured&quot; should be &quot;occurred&quot;.
+
+<span class="gs">**Constraints:**</span> Single-file edit. No new tests. Non-dev feature class (no TDD routing). Verify the fix landed by re-reading README.md.
+
+<span class="gu">### Run Log</span>
+</code></pre></div>
+
+<h3 id="run-3">Run</h3>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>~/your-repo
+claude<span class="w">    </span><span class="c1"># open an interactive Claude Code session</span>
+</code></pre></div>
+
+<p>In the Claude session:</p>
+<div class="codehilite"><pre><span></span><code>/pipeline docs/features.md
+</code></pre></div>
+
+<h3 id="what-happens-2">What happens</h3>
+<blockquote>
+<p>[INFO] Charter Discovery (Step 0) opens with 10 structured questions to align you and the pipeline on what you're building. For a one-line typo fix you can answer with <code>--no-charter</code> to skip discovery, or <code>ship the charter now</code> partway through to write whatever's collected and continue.</p>
+</blockquote>
+<p>Behind the scenes:</p>
+<ol>
+<li><strong>Analyze</strong> subagent reads <code>docs/features.md</code>, identifies <code>README.md</code> as the target, finds "occured", produces <code>docs/analysis-v1.md</code>.</li>
+<li><strong>Plan</strong> subagent writes a 1-task plan and prompts file.</li>
+<li><strong>Branch</strong> — <code>fix/readme-typo</code> created from <code>main</code> via the <code>new-branch</code> skill.</li>
+<li><strong>Implement</strong> subagent edits README, commits with conventional-commit prefix.</li>
+<li><strong>Review</strong> subagent runs a (lightweight, since it's a tiny diff) review pass; 0 blockers expected.</li>
+<li><strong>Path A</strong> — push the branch, open the PR via <code>gh pr create</code>, squash-merge via <code>gh pr merge --auto --delete-branch</code>.</li>
+</ol>
+<p>Total runtime: ~3–5 minutes. You watch the orchestrator's state transitions in real time.</p>
+<h3 id="inspect-the-artifacts">Inspect the artifacts</h3>
+<p>After the merge:</p>
+<div class="codehilite"><pre><span></span><code>git<span class="w"> </span>log<span class="w"> </span>main<span class="w"> </span>--oneline<span class="w"> </span>-3<span class="w">      </span><span class="c1"># the typo fix should be the latest commit</span>
+cat<span class="w"> </span>docs/analysis-v1.md<span class="w">         </span><span class="c1"># the analyze phase&#39;s output</span>
+cat<span class="w"> </span>docs/plan-v1.md<span class="w">             </span><span class="c1"># the plan</span>
+cat<span class="w"> </span>docs/review-v1.md<span class="w">           </span><span class="c1"># the review pass</span>
+</code></pre></div>
+
+<p>The <code>docs/</code> artifacts are gitignored — they're per-feature scratch that won't pollute your PR.</p>
+<h2 id="tutorial-2-tdd-add-a-unit-aware-temperature-parser">Tutorial 2 — TDD: add a unit-aware temperature parser</h2>
+<p>Demonstrates the <code>dev</code>-class TDD routing. /pipeline detects this is a <code>dev</code> feature and pairs <code>tdd-test-writer</code> (red phase: failing tests first) with <code>tdd-implementer</code> (green phase: implementation that passes the tests).</p>
+<h3 id="setup-3">Setup</h3>
+<p>Imagine a Python project that already has a <code>weather/</code> module. Create the feature:</p>
+<div class="codehilite"><pre><span></span><code><span class="gu">## feat/temperature-parser</span>
+
+<span class="gs">**Type:**</span> dev
+
+<span class="gs">**Description:**</span> Add a <span class="sb">`parse_temperature`</span> function that takes a string like <span class="sb">`&quot;23.5°C&quot;`</span> or <span class="sb">`&quot;74°F&quot;`</span> and returns a <span class="sb">`Temperature`</span> dataclass with <span class="sb">`value: float`</span> and <span class="sb">`unit: Literal[&quot;C&quot;, &quot;F&quot;]`</span>. Round to one decimal place. Raise <span class="sb">`ValueError`</span> for unparseable input (e.g., <span class="sb">`&quot;hot&quot;`</span>, <span class="sb">`&quot;&quot;`</span>, <span class="sb">`&quot;23 degrees&quot;`</span>).
+
+<span class="gs">**Constraints:**</span> Add <span class="sb">`weather/temperature.py`</span> with the function + dataclass. Add <span class="sb">`weather/tests/test_temperature.py`</span> with at least 8 test cases covering: valid Celsius, valid Fahrenheit, whitespace tolerance, decimal precision, missing unit symbol, invalid string, empty string, and the rounding boundary. Use <span class="sb">`pytest`</span> test framework (already in this project). No new dependencies.
+
+<span class="gu">### Run Log</span>
+</code></pre></div>
+
+<h3 id="run-3">Run</h3>
+<div class="codehilite"><pre><span></span><code>/pipeline docs/features.md
+</code></pre></div>
+
+<h3 id="what-happens-differently-from-tutorial-1">What happens differently from Tutorial 1</h3>
+<p>The orchestrator detects <code>**Type:** dev</code> and routes the implement phase through the TDD pairing:</p>
+<ol>
+<li><strong>Plan</strong> phase produces tasks tagged with <code>worker: tdd-test-writer</code> for test tasks and <code>worker: tdd-implementer</code> for implementation tasks.</li>
+<li><strong>Implement</strong> dispatches <code>tdd-test-writer</code> first, with strict instructions to ONLY write failing tests (it cannot modify the implementation).</li>
+<li>Once red-phase tests are in place, <strong>Implement</strong> dispatches <code>tdd-implementer</code> with the failing tests as input. The implementer can ONLY edit implementation files, not the tests, until tests pass.</li>
+<li><strong><code>tdd-red-phase-gate.sh</code> hook</strong> enforces the contract: any commit that touches both test files and implementation files in a TDD phase is rejected.</li>
+<li><strong>Review</strong> then runs across the full feature, with <code>test-engineer</code> in the agent pool verifying coverage and test quality.</li>
+</ol>
+<h3 id="inspect-2">Inspect</h3>
+<div class="codehilite"><pre><span></span><code>git<span class="w"> </span>log<span class="w"> </span>main<span class="w"> </span>--oneline<span class="w"> </span>-3<span class="w">      </span><span class="c1"># both tdd-test-writer&#39;s &quot;test:&quot; commits and tdd-implementer&#39;s &quot;feat:&quot; commits</span>
+cat<span class="w"> </span>weather/tests/test_temperature.py
+cat<span class="w"> </span>weather/temperature.py
+</code></pre></div>
+
+<p>You'll see the test file landed first (red), then implementation (green), with separate commits.</p>
+<h2 id="tutorial-3-ship-a-next-js-app-to-vercel">Tutorial 3 — Ship a Next.js app to Vercel</h2>
+<p>Demonstrates end-to-end cloud-provider integration. Charter targets <code>vercel</code>; /pipeline wires deployment automatically through the <code>vercel-deployment-engineer</code> agent and the <code>vercel-ops</code> skill.</p>
+<h3 id="setup-3">Setup</h3>
+<div class="codehilite"><pre><span></span><code>npx<span class="w"> </span>create-next-app@latest<span class="w"> </span>my-app
+<span class="nb">cd</span><span class="w"> </span>my-app
+git<span class="w"> </span>init<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>add<span class="w"> </span>.<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;feat: initial Next.js scaffold&quot;</span>
+
+<span class="c1"># Pipelinekit-init: write a charter that targets Vercel</span>
+mkdir<span class="w"> </span>-p<span class="w"> </span>docs
+cat<span class="w"> </span>&gt;<span class="w"> </span>docs/charter.md<span class="w"> </span><span class="s">&lt;&lt;&#39;CHARTER&#39;</span>
+<span class="s">---</span>
+<span class="s">created: 2026-05-19</span>
+<span class="s">status: ratified</span>
+<span class="s">---</span>
+<span class="s"># Project charter</span>
+
+<span class="s">## Goal</span>
+<span class="s">A Next.js landing page for my SaaS.</span>
+
+<span class="s">## Users</span>
+<span class="s">Visitors evaluating the product.</span>
+
+<span class="s">## Problem</span>
+<span class="s">We need a fast, SEO-friendly landing page deployed to a global edge network.</span>
+
+<span class="s">## Success</span>
+<span class="s">First-paint &lt; 800ms in Lighthouse mobile.</span>
+
+<span class="s">## Non-goals</span>
+<span class="s">- Authentication (separate app)</span>
+<span class="s">- Server-side databases (use a 3rd-party API)</span>
+
+<span class="s">## Constraints</span>
+<span class="s">- Tailwind for styling</span>
+<span class="s">- Server components by default</span>
+
+<span class="s">## MVP boundary</span>
+<span class="s">- One landing route</span>
+<span class="s">- Hero + features + CTA + footer</span>
+
+<span class="s">## Prior art</span>
+<span class="s">- Vercel &quot;Solid Templates&quot; gallery</span>
+
+<span class="s">## Open questions</span>
+<span class="s">- Final brand colors (deferred)</span>
+
+<span class="s">## Deployment target</span>
+<span class="s">`vercel`</span>
+
+<span class="s">## Review style</span>
+<span class="s">orchestrator decides</span>
+<span class="s">CHARTER</span>
+
+<span class="c1"># Write the feature</span>
+cat<span class="w"> </span>&gt;<span class="w"> </span>docs/features.md<span class="w"> </span><span class="s">&lt;&lt;&#39;FEATURES&#39;</span>
+<span class="s">## feat/landing-hero</span>
+
+<span class="s">**Description:** Add a hero section to the landing page with a headline, subhead, and primary CTA button. Use Tailwind for styling. Server component.</span>
+
+<span class="s">**Constraints:** Edit `app/page.tsx`. No new dependencies. Lighthouse first-paint must not regress.</span>
+
+<span class="s">### Run Log</span>
+<span class="s">FEATURES</span>
+</code></pre></div>
+
+<h3 id="run-3">Run</h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Authenticate Vercel first (one-time, browser-based)</span>
+vercel<span class="w"> </span>login
+
+<span class="c1"># Then in Claude Code:</span>
+claude
+</code></pre></div>
+
+<p>In the session:</p>
+<div class="codehilite"><pre><span></span><code>/pipeline docs/features.md --charter docs/charter.md
+</code></pre></div>
+
+<h3 id="what-happens-2">What happens</h3>
+<ol>
+<li><strong>Step 0 Charter Discovery</strong> is skipped because <code>--charter</code> was provided.</li>
+<li><strong>Step 0 Topic 10 auto-detect</strong> finds <code>vercel.json</code> (or <code>next.config.js</code> with Next.js signals) in the working tree and auto-selects Vercel without asking.</li>
+<li><strong>Implement</strong> phase ships the hero component.</li>
+<li><strong><code>/pipeline</code> Step 7 "deploy" phase</strong> dispatches the <code>@vercel-deployment-engineer</code> agent, which:
+   - Runs <code>vercel whoami</code> to confirm auth posture (refuses to proceed if not logged in).
+   - Runs <code>vercel --prod</code> to deploy to production.
+   - Runs <code>vercel inspect</code> for deployment verification.
+   - Polls <code>$VERCEL_URL/_health</code> (or the landing route directly) until 200.</li>
+<li><strong>Review</strong> then runs across the full diff with <code>vercel-deployment-engineer</code> consulted for any deployment-related findings.</li>
+</ol>
+<h3 id="inspect-2">Inspect</h3>
+<div class="codehilite"><pre><span></span><code>vercel<span class="w"> </span>ls<span class="w">                       </span><span class="c1"># the new deployment shows up</span>
+git<span class="w"> </span>log<span class="w"> </span>main<span class="w"> </span>--oneline<span class="w"> </span>-3<span class="w">       </span><span class="c1"># the merged PR</span>
+cat<span class="w"> </span>docs/review-v1.md<span class="w">           </span><span class="c1"># the review findings</span>
+</code></pre></div>
+
+<p>For non-Vercel deployment, replace <code>vercel</code> with <code>railway</code> / <code>render</code> / <code>digitalocean</code> / <code>azure</code> in the charter's <code>## Deployment target</code> section. See the <a href="index.html#deployment-providers">provider guides</a>.</p>
+<h2 id="tutorial-4-meta-how-pipelinekit-built-one-of-its-own-features">Tutorial 4 — Meta: how pipelinekit built one of its own features</h2>
+<p>The most revealing tutorial: walk through <code>/pipeline</code>'s actual output for a feature shipped in this very repo. You'll read the real artifacts.</p>
+<h3 id="the-feature-feat-pipeline-renew-charter-revalidation-pr-44">The feature: <code>feat/pipeline-renew-charter-revalidation</code> (PR #44)</h3>
+<p>Per the v0.0.1 development log, this feature extended <code>/pipeline --renew</code> to revalidate charter lines against current repo state before regenerating feature files. Key constraint: drift detection had to be repo-introspection-only (no network calls).</p>
+<h3 id="read-the-artifacts">Read the artifacts</h3>
+<p>Each artifact is on <code>main</code>. They show what each phase produced.</p>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Artifact</th>
+<th>What it contains</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Analyze</td>
+<td>(would be <code>docs/analysis-v42.md</code> — gitignored, but in the <a href="https://github.com/Bruce188/pipelinekit/pull/44">PR description</a>)</td>
+<td>Audit-first findings: F12 EXTENDS an existing surface, gap analysis vs current implementation, 3 gaps to close</td>
+</tr>
+<tr>
+<td>Plan</td>
+<td>(<code>docs/plan-v43.md</code>)</td>
+<td>3 phases / 8 tasks / 23 ACs; Phase 1 sequential ×4; Phase 2 parallel-safe ×3; Phase 3 sequential gate</td>
+</tr>
+<tr>
+<td>Implement</td>
+<td>7 commits squashed into PR #44</td>
+<td>charter_revalidate.py extension + reference.md sub-step 6.5 + SKILL.md --auto flag + tests</td>
+</tr>
+<tr>
+<td>Review</td>
+<td>(<code>docs/review-v44.md</code> to <code>review-v47.md</code>)</td>
+<td>4 review cycles, ended 0 blocking / 4 NB / 2 nits / 38/38 ACs PASS</td>
+</tr>
+<tr>
+<td>Merge</td>
+<td><a href="https://github.com/Bruce188/pipelinekit/commit/267f0bf">#44 a203c93</a></td>
+<td>Path A direct merge</td>
+</tr>
+</tbody>
+</table>
+<h3 id="read-the-pr">Read the PR</h3>
+<p>Open <a href="https://github.com/Bruce188/pipelinekit/pull/44">#44 on GitHub</a>. The PR body has the AC matrix and the final review summary inline.</p>
+<h3 id="read-the-skill-changes">Read the SKILL changes</h3>
+<div class="codehilite"><pre><span></span><code>git<span class="w"> </span>show<span class="w"> </span>267f0bf<span class="w"> </span>--<span class="w"> </span>claude/skills/pipeline/SKILL.md<span class="w">          </span><span class="c1"># the --auto flag wire-up</span>
+git<span class="w"> </span>show<span class="w"> </span>267f0bf<span class="w"> </span>--<span class="w"> </span>claude/skills/pipeline/reference.md<span class="w">      </span><span class="c1"># sub-step 6.5 extension</span>
+git<span class="w"> </span>show<span class="w"> </span>267f0bf<span class="w"> </span>--<span class="w"> </span>claude/lib/pipeline/charter_revalidate.py<span class="w"> </span><span class="c1"># 3-valued status + freshness</span>
+</code></pre></div>
+
+<h3 id="what-this-tells-you">What this tells you</h3>
+<p>A real /pipeline run is not magic. It's:</p>
+<ol>
+<li>A subagent reading the feature spec + the relevant repo files (analyze phase).</li>
+<li>A subagent producing a structured plan with tasks, ACs, and per-phase parallelism hints (plan phase).</li>
+<li>A subagent (or multiple, when phases are parallel-safe) editing source files and committing (implement phase).</li>
+<li>A subagent (or 5 in <code>--teams</code> mode) reading the diff and producing findings (review phase).</li>
+<li>The orchestrator routing based on findings: Path A (merge), Path B (re-implement), Path M (inline fix), Path N (nit-only).</li>
+<li>Push, PR, squash-merge.</li>
+</ol>
+<p>Each artifact is on disk for you to read. The whole flow is auditable.</p>
+<h2 id="where-to-go-next">Where to go next</h2>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Read</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Full per-feature documentation</td>
+<td><a href="index.html">Documentation index</a></td>
+</tr>
+<tr>
+<td>/pipeline workflow reference</td>
+<td><a href="pipeline.html">pipeline.html</a></td>
+</tr>
+<tr>
+<td>Install variants (devcontainer, mobile, etc.)</td>
+<td><a href="installation.html">installation.html</a></td>
+</tr>
+<tr>
+<td>Cloud / VPS bootstrap</td>
+<td><a href="cloud-setup.html">cloud-setup.html</a></td>
+</tr>
+<tr>
+<td>Cloud deployment providers</td>
+<td><a href="deployment-vercel.html">Vercel</a> · <a href="deployment-azure.html">Azure</a> · <a href="deployment-railway.html">Railway</a> · <a href="deployment-render.html">Render</a> · <a href="deployment-digitalocean.html">DigitalOcean</a></td>
+</tr>
+<tr>
+<td>Research loop (<code>/research</code> skill)</td>
+<td><a href="tsv-viewer.html">tsv-viewer.html</a> · <a href="ppr-research-flag.html">/ppr --research</a></td>
+</tr>
+<tr>
+<td>GitHub Issues integration (<code>--issues</code> mode)</td>
+<td><a href="github-issues-integration.html">github-issues-integration.html</a></td>
+</tr>
+<tr>
+<td>Charter revalidation (<code>--renew</code>)</td>
+<td><a href="pipeline-charter-revalidation.html">pipeline-charter-revalidation.html</a></td>
+</tr>
+<tr>
+<td>CI on Blacksmith runners</td>
+<td><a href="ci-blacksmith.html">ci-blacksmith.html</a></td>
+</tr>
+<tr>
+<td>Full changelog (v0.0.1)</td>
+<td><a href="changelog.html">changelog.html</a></td>
+</tr>
+<tr>
+<td>Reference: skill authoring standard</td>
+<td><a href="docs/SKILL-AUTHORING-STANDARD.html">docs/SKILL-AUTHORING-STANDARD.html</a></td>
+</tr>
+<tr>
+<td>Reference: SKILL pipeline lifecycle</td>
+<td><a href="docs/SKILL_PIPELINE.html">docs/SKILL_PIPELINE.html</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="status">Status</h2>
+<blockquote>
+<p>[WARN] <strong>Pre-release.</strong> This is v0.0.1 — actively developed, API not yet stable. Pin to a specific commit SHA when integrating into your own workflows. Breaking changes may land in v0.0.2.</p>
+</blockquote>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="pipeline-not-found-in-my-claude-code-session"><code>/pipeline</code> not found in my Claude Code session</h3>
+<p>The skill resolution is <code>$HOME/.claude/skills/</code>. If <code>bash scripts/install.sh</code> ran but the skills aren't visible, check:</p>
+<ul>
+<li>Did <code>~/.claude/skills/pipeline/SKILL.md</code> get written? <code>ls -la ~/.claude/skills/pipeline/</code></li>
+<li>Is your Claude Code session new (not a resumed one from before install)? Skill discovery happens at session start.</li>
+<li>On Windows + WSL: a Claude Desktop session running under Windows has <code>HOME=C:\Users\&lt;you&gt;</code>, which is a different skills root than your WSL <code>/home/&lt;you&gt;</code>. Install into both, or run Claude from inside WSL.</li>
+</ul>
+<h3 id="pipeline-halted-at-a-cloud-provider-step"><code>/pipeline</code> halted at a cloud-provider step</h3>
+<p>The provider's CLI auth is the user's responsibility. Run <code>vercel login</code> / <code>railway login</code> / <code>render login</code> / <code>doctl auth init</code> / <code>az login</code> interactively (outside Claude), then resume:</p>
+<div class="codehilite"><pre><span></span><code>/pipeline docs/features.md --restart-from implement
+</code></pre></div>
+
+<h3 id="review-keeps-cycling-without-converging">Review keeps cycling without converging</h3>
+<p>Path B has a default cap of 5 cycles. If you're hitting it, the planned scope is likely too large for an autonomous one-shot. Split the feature into smaller pieces with explicit ACs, or run with <code>--teams</code> for a wider review pool.</p>
+<h3 id="a-specific-skill-isn-t-firing-when-i-expect">A specific skill isn't firing when I expect</h3>
+<p>Check <code>~/.claude/skills/&lt;name&gt;/SKILL.md</code> frontmatter — the <code>description</code> is what Claude reads to decide when to invoke the skill. Strengthen the keywords if it's misfiring.</p>
+    </div>
+
+    <div class="no-results" id="no-results">
+      <p>No matches on this page. Clear the filter to see all content.</p>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div>Generated by <a href="https://github.com/Bruce188/pipelinekit">pipelinekit</a> · <code>docs-writer/2</code></div>
+  <div>Self-contained HTML · no CDN · no remote assets</div>
+</footer>
+
+<script>
+(function() {
+  'use strict';
+
+  // ============ Theme toggle (auto → light → dark cycle) ============
+  const themeToggle = document.getElementById('theme-toggle');
+  const themeLabel = document.getElementById('theme-label');
+  const iconLight = document.getElementById('theme-icon-light');
+  const iconDark = document.getElementById('theme-icon-dark');
+  const root = document.documentElement;
+  const STORE_KEY = 'pkit-docs-theme';
+
+  function applyTheme(mode) {
+    if (mode === 'auto') {
+      root.removeAttribute('data-theme');
+      themeLabel.textContent = 'Auto';
+      iconLight.style.display = 'none';
+      iconDark.style.display = '';
+    } else {
+      root.setAttribute('data-theme', mode);
+      themeLabel.textContent = mode === 'dark' ? 'Dark' : 'Light';
+      iconLight.style.display = mode === 'dark' ? 'none' : '';
+      iconDark.style.display = mode === 'dark' ? '' : 'none';
+    }
+  }
+  applyTheme(localStorage.getItem(STORE_KEY) || 'auto');
+  themeToggle.addEventListener('click', () => {
+    const cur = localStorage.getItem(STORE_KEY) || 'auto';
+    const next = cur === 'auto' ? 'light' : cur === 'light' ? 'dark' : 'auto';
+    localStorage.setItem(STORE_KEY, next);
+    applyTheme(next);
+  });
+
+  // ============ Anchor links on headings ============
+  document.querySelectorAll('h2[id], h3[id], h4[id]').forEach(h => {
+    const a = document.createElement('a');
+    a.href = '#' + h.id;
+    a.className = 'anchor';
+    a.setAttribute('aria-label', 'Permalink to ' + h.textContent);
+    a.textContent = '#';
+    h.insertBefore(a, h.firstChild);
+  });
+
+  // ============ Copy-code buttons ============
+  document.querySelectorAll('pre').forEach(pre => {
+    const code = pre.querySelector('code');
+    if (!code) return;
+    // Try to detect language from class
+    const cls = code.className || pre.className || '';
+    const langMatch = cls.match(/language-(\w+)|codehilite/) || cls.match(/\b(\w+)\b/);
+    let lang = '';
+    const cm = cls.match(/language-(\w+)/);
+    if (cm) lang = cm[1];
+    if (lang && lang !== 'codehilite') {
+      const label = document.createElement('span');
+      label.className = 'lang-label';
+      label.textContent = lang;
+      pre.appendChild(label);
+    }
+    const btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.type = 'button';
+    btn.setAttribute('aria-label', 'Copy code');
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy';
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(code.innerText);
+        btn.classList.add('copied');
+        btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Copied';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy';
+        }, 1800);
+      } catch (e) {
+        btn.textContent = 'Press Ctrl+C';
+      }
+    });
+    pre.appendChild(btn);
+  });
+
+  // ============ Sortable tables ============
+  document.querySelectorAll('table').forEach(table => {
+    const thead = table.querySelector('thead');
+    if (!thead) return;
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+    // Wrap in scroll container
+    if (!table.parentElement.classList.contains('table-wrap')) {
+      const wrap = document.createElement('div');
+      wrap.className = 'table-wrap';
+      table.parentNode.insertBefore(wrap, table);
+      wrap.appendChild(table);
+    }
+    thead.querySelectorAll('th').forEach((th, idx) => {
+      th.classList.add('sortable');
+      th.addEventListener('click', () => sortByColumn(table, idx, th));
+    });
+  });
+  function sortByColumn(table, colIdx, th) {
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const isAsc = !th.classList.contains('asc');
+    table.querySelectorAll('th').forEach(h => h.classList.remove('asc', 'desc'));
+    th.classList.toggle('asc', isAsc);
+    th.classList.toggle('desc', !isAsc);
+    rows.sort((a, b) => {
+      const av = (a.children[colIdx]?.innerText || '').trim();
+      const bv = (b.children[colIdx]?.innerText || '').trim();
+      const an = parseFloat(av);
+      const bn = parseFloat(bv);
+      let cmp;
+      if (!isNaN(an) && !isNaN(bn)) cmp = an - bn;
+      else cmp = av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
+      return isAsc ? cmp : -cmp;
+    });
+    rows.forEach(r => tbody.appendChild(r));
+  }
+
+  // ============ ScrollSpy for ToC ============
+  const tocLinks = document.querySelectorAll('.toc a');
+  const headings = document.querySelectorAll('main h2[id], main h3[id]');
+  if (tocLinks.length && headings.length && 'IntersectionObserver' in window) {
+    const linkByHash = {};
+    tocLinks.forEach(a => { linkByHash[a.getAttribute('href')] = a; });
+    const visible = new Set();
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        const h = '#' + e.target.id;
+        if (e.isIntersecting) visible.add(h);
+        else visible.delete(h);
+      });
+      tocLinks.forEach(a => a.classList.remove('active'));
+      // Pick the topmost-visible heading
+      const candidates = Array.from(headings).filter(h => visible.has('#' + h.id));
+      const first = candidates[0] || headings[0];
+      if (first && linkByHash['#' + first.id]) linkByHash['#' + first.id].classList.add('active');
+    }, { rootMargin: '-100px 0px -60% 0px', threshold: 0 });
+    headings.forEach(h => io.observe(h));
+  }
+
+  // ============ In-page search filter ============
+  const searchInput = document.getElementById('page-search');
+  const noResults = document.getElementById('no-results');
+  const pageContent = document.getElementById('page-content');
+  function clearHighlights() {
+    pageContent.querySelectorAll('.search-hit').forEach(el => {
+      const t = document.createTextNode(el.textContent);
+      el.parentNode.replaceChild(t, el);
+    });
+    pageContent.normalize();
+  }
+  function highlightInNode(node, regex) {
+    if (node.nodeType === 3) {
+      const txt = node.nodeValue;
+      const m = txt.match(regex);
+      if (!m) return false;
+      const frag = document.createDocumentFragment();
+      let last = 0;
+      txt.replace(regex, (match, _g, off) => {
+        if (off > last) frag.appendChild(document.createTextNode(txt.slice(last, off)));
+        const span = document.createElement('span');
+        span.className = 'search-hit';
+        span.textContent = match;
+        frag.appendChild(span);
+        last = off + match.length;
+      });
+      if (last < txt.length) frag.appendChild(document.createTextNode(txt.slice(last)));
+      node.parentNode.replaceChild(frag, node);
+      return true;
+    }
+    if (node.nodeType !== 1) return false;
+    if (['SCRIPT','STYLE','PRE','CODE'].includes(node.tagName)) return false;
+    let any = false;
+    Array.from(node.childNodes).forEach(c => { if (highlightInNode(c, regex)) any = true; });
+    return any;
+  }
+  function filter(q) {
+    clearHighlights();
+    // Filter table rows
+    document.querySelectorAll('table tbody tr').forEach(tr => tr.classList.remove('filtered-out'));
+    if (!q) { noResults.classList.remove('visible'); return; }
+    const lc = q.toLowerCase();
+    const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    let anyHit = false;
+    if (highlightInNode(pageContent, regex)) anyHit = true;
+    // Table filtering
+    document.querySelectorAll('table tbody tr').forEach(tr => {
+      const txt = tr.innerText.toLowerCase();
+      if (!txt.includes(lc)) tr.classList.add('filtered-out');
+      else anyHit = true;
+    });
+    noResults.classList.toggle('visible', !anyHit);
+  }
+  if (searchInput) {
+    let debounce;
+    searchInput.addEventListener('input', (e) => {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => filter(e.target.value.trim()), 80);
+    });
+  }
+  // Keyboard: / focuses search
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '/' && document.activeElement !== searchInput && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      searchInput.focus();
+    }
+    if (e.key === 'Escape' && document.activeElement === searchInput) {
+      searchInput.value = '';
+      filter('');
+      searchInput.blur();
+    }
+  });
+
+  // ============ Mobile ToC drawer ============
+  const tocToggle = document.getElementById('toc-toggle');
+  const toc = document.getElementById('toc');
+  if (tocToggle && toc) {
+    tocToggle.addEventListener('click', () => toc.classList.toggle('open'));
+    toc.addEventListener('click', (e) => {
+      if (e.target.tagName === 'A') toc.classList.remove('open');
+    });
+  }
+
+  // ============ Auto-detect callouts from blockquotes starting with [NOTE]/[INFO]/etc ============
+  document.querySelectorAll('blockquote').forEach(bq => {
+    const first = bq.querySelector('p:first-child');
+    if (!first) return;
+    const m = first.textContent.match(/^\[(NOTE|INFO|TIP|WARN|WARNING|DANGER|ALERT|SUCCESS|OK)\]\s*/i);
+    if (!m) return;
+    const kind = m[1].toUpperCase();
+    const klass = ['WARN','WARNING','ALERT'].includes(kind) ? 'warn'
+                 : ['DANGER'].includes(kind) ? 'danger'
+                 : ['SUCCESS','OK'].includes(kind) ? 'success' : 'info';
+    const icon = klass === 'warn' ? '⚠' : klass === 'danger' ? '✕' : klass === 'success' ? '✓' : 'ℹ';
+    first.textContent = first.textContent.slice(m[0].length);
+    const wrap = document.createElement('div');
+    wrap.className = 'callout ' + klass;
+    wrap.innerHTML = '<span class="callout-icon">' + icon + '</span><div class="callout-body"></div>';
+    const body = wrap.querySelector('.callout-body');
+    while (bq.firstChild) body.appendChild(bq.firstChild);
+    bq.parentNode.replaceChild(wrap, bq);
+  });
+
+})();
+</script>
+
+</body>
+</html>

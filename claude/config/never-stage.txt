@@ -25,6 +25,13 @@ docs/archive/*
 docs/active-persona
 docs/active-deployment
 
+# documentation/ contract (docs-writer/2 — v0.0.1+):
+# Every page in documentation/ is HTML. No markdown. Vendored standards
+# (NOTICE, SKILL-AUTHORING-STANDARD, SKILL_PIPELINE) live as HTML in
+# documentation/docs/. To bypass for a legitimate reason: git add -f.
+documentation/*.md
+documentation/**/*.md
+
 # Misc workflow artifacts
 whats-next.md
 .review-diff*

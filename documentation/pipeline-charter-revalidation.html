@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CI on Blacksmith — pipelinekit</title>
-<meta name="description" content="Blacksmith runner registration, env-var override pattern, drop-in action matrix, and gap-comment policy for pipelinekit-generated GitHub Actions workflows.">
+<title>Pipeline Charter Revalidation — pipelinekit</title>
+<meta name="description" content="/pipeline --renew now revalidates docs/charter.md against the current repository state before regenerating feature files. This page describes the revalidation pass, the drift report artifact, the --auto flag, and the 7-day freshness skip.">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>CI on Blacksmith</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Pipeline Charter Revalidation</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -531,165 +531,371 @@ footer {
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
     <ul>
-      <li class="lvl-2"><a href="#1-why-blacksmith">1. Why Blacksmith</a></li>
-      <li class="lvl-2"><a href="#2-account-amp-runner-registration">2. Account &amp;amp; runner registration</a></li>
-      <li class="lvl-2"><a href="#3-the-blacksmith-runner-env-var-override">3. The BLACKSMITH_RUNNER env-var override</a></li>
-      <li class="lvl-2"><a href="#4-drop-in-action-matrix">4. Drop-in action matrix</a></li>
-      <li class="lvl-2"><a href="#5-gap-annotation-pattern">5. Gap-annotation pattern</a></li>
-      <li class="lvl-2"><a href="#6-secrets-policy">6. Secrets policy</a></li>
-      <li class="lvl-2"><a href="#7-lint-enforcement-r5">7. Lint enforcement (R5)</a></li>
-      <li class="lvl-2"><a href="#8-documented-gap-escape-hatch">8. Documented-gap escape hatch</a></li>
+      <li class="lvl-2"><a href="#overview">Overview</a></li>
+      <li class="lvl-2"><a href="#invocation">Invocation</a></li>
+      <li class="lvl-2"><a href="#freshness-skip">Freshness Skip</a></li>
+      <li class="lvl-2"><a href="#probe-surface">Probe Surface</a></li>
+      <li class="lvl-2"><a href="#status-enum">Status Enum</a></li>
+      <li class="lvl-2"><a href="#drift-report-artifact">Drift Report Artifact</a></li>
+      <li class="lvl-2"><a href="#drift-resolution-loop">Drift-Resolution Loop</a></li>
+      <li class="lvl-3"><a href="#interactive-mode-default">Interactive mode (default)</a></li>
+      <li class="lvl-3"><a href="#auto-mode">--auto mode</a></li>
+      <li class="lvl-2"><a href="#clean-path">Clean Path</a></li>
+      <li class="lvl-2"><a href="#log-tokens">Log Tokens</a></li>
+      <li class="lvl-2"><a href="#python-api">Python API</a></li>
+      <li class="lvl-2"><a href="#shell-helper">Shell Helper</a></li>
+      <li class="lvl-2"><a href="#related-files">Related Files</a></li>
     </ul>
   </aside>
 
   <main>
     <header class="page-header">
-      <h1>CI on Blacksmith</h1>
-      <p class="description">Blacksmith runner registration, env-var override pattern, drop-in action matrix, and gap-comment policy for pipelinekit-generated GitHub Actions workflows.</p>
+      <h1>Pipeline Charter Revalidation</h1>
+      <p class="description">/pipeline --renew now revalidates docs/charter.md against the current repository state before regenerating feature files. This page describes the revalidation pass, the drift report artifact, the --auto flag, and the 7-day freshness skip.</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
-<h2 id="1-why-blacksmith">1. Why Blacksmith</h2>
-  <p>
-    Blacksmith provides ephemeral, performant runners for GitHub Actions that are faster and more cost-effective than
-    GitHub-hosted runners for most workloads. Key advantages:
-  </p>
-  <ul>
-    <li>Faster cache warm-up through persistent runner-local caching via <code>useblacksmith/cache</code></li>
-    <li>Reduced per-minute compute cost compared to GitHub-hosted runners at equivalent vCPU tiers</li>
-    <li>Drop-in compatibility: most jobs need only one <code>runs-on:</code> line change</li>
-    <li>Ecosystem-native drop-in actions for common setup tasks (<code>cache</code>, <code>setup-node</code>, <code>setup-python</code>, <code>setup-go</code>)</li>
-  </ul>
-  <p>
-    pipelinekit defaults to Blacksmith runners in all generated and templated workflow YAML. The lint rule R5
-    (in <code>claude/skills/create-plan/SKILL.md</code> Step 4.5) enforces this default at plan-creation time.
-  </p>
+<hr>
+<h2 id="overview">Overview</h2>
+<p>When you run <code>/pipeline --renew</code>, the pipeline regenerates <code>docs/features-renewed.md</code> from deferred and failed items. As of this extension, the pipeline first checks whether the active charter still reflects the current codebase. Lines or sections of the charter that no longer match repo reality are flagged as <strong>drifted</strong> or <strong>obsolete</strong>, and a drift report is written to <code>docs/charter-drift.md</code>.</p>
+<p>This pass runs inside Step 6.5 of the <code>--renew</code> flow, between the Step 6 renewal log and the Step 7 proceed gate. It does not run when <code>--no-charter</code> is in effect.</p>
+<hr>
+<h2 id="invocation">Invocation</h2>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Interactive revalidation — pipeline pauses to ask about each drifted feature</span>
+/pipeline<span class="w"> </span>--renew
 
-  <h2 id="2-account-amp-runner-registration">2. Account &amp; runner registration</h2>
-  <ol>
-    <li>Sign up at <code>blacksmith.sh</code> and create an organisation.</li>
-    <li>Register an organisation runner via <code>blacksmith register</code> in your GitHub organisation settings.</li>
-    <li>
-      Store the runner authentication token as a GitHub Actions secret named <code>BLACKSMITH_TOKEN</code> only
-      if a specific Blacksmith action requires it. Most jobs auto-authenticate via the registered runner — no
-      per-job secret token is required for <code>useblacksmith/*</code> actions.
-    </li>
-    <li>Optionally set the <code>BLACKSMITH_RUNNER</code> GitHub Actions variable at the repository or organisation
-      level to select a non-default runner tier (see Section 3).</li>
-  </ol>
+<span class="c1"># Autonomous revalidation — accept all drift entries without prompting</span>
+/pipeline<span class="w"> </span>--renew<span class="w"> </span>--auto
+</code></pre></div>
 
-  <h2 id="3-the-blacksmith-runner-env-var-override">3. The <code>BLACKSMITH_RUNNER</code> env-var override</h2>
-  <p>Every <code>runs-on:</code> line in pipelinekit-generated workflows uses the fallback expression:</p>
-  <pre><code>runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}</code></pre>
-  <p>
-    Set the <code>BLACKSMITH_RUNNER</code> GitHub Actions variable (repo or org level) to one of the
-    available runner tiers:
-  </p>
-  <ul>
-    <li><code>blacksmith-2vcpu-ubuntu-2204</code> — small jobs (linting, quick unit tests)</li>
-    <li><code>blacksmith-4vcpu-ubuntu-2204</code> — default tier (balanced cost/performance)</li>
-    <li><code>blacksmith-8vcpu-ubuntu-2204</code> — heavier builds (multi-module monorepos, Docker builds)</li>
-    <li><code>blacksmith-16vcpu-ubuntu-2204</code> — very heavy / parallel matrix jobs</li>
-  </ul>
-  <p>
-    When <code>BLACKSMITH_RUNNER</code> is unset, the fallback literal
-    <code>blacksmith-4vcpu-ubuntu-2204</code> is used. To switch all jobs in a repository to a larger tier,
-    set the variable once at the repository level — no YAML changes required.
-  </p>
+<p><code>--auto</code> is a sub-option of <code>--renew</code>. Passing <code>--auto</code> without <code>--renew</code> has no effect.</p>
+<hr>
+<h2 id="freshness-skip">Freshness Skip</h2>
+<p>If the active charter was created within the last <strong>7 days</strong>, the revalidation pass is skipped entirely. The pipeline reads the <code>created:</code> field from the charter's YAML frontmatter and computes the age using the host's <code>date -d</code> command (GNU coreutils). When the charter is fresh, the pipeline emits:</p>
+<div class="codehilite"><pre><span></span><code>CHARTER_REVALIDATE: fresh — charter created &lt;ISO date&gt; (&lt;N&gt; days ago); skipping re-validation pass
+</code></pre></div>
 
-  <h2 id="4-drop-in-action-matrix">4. Drop-in action matrix</h2>
-  <p>
-    Blacksmith publishes optimised drop-in replacements for common GitHub Actions setup steps.
-    Use the drop-ins where available; retain upstream actions and annotate with the gap-comment pattern
-    (see Section 5) where no drop-in exists.
-  </p>
-  <table>
-    <thead>
-      <tr>
-        <th>Upstream action</th>
-        <th>Blacksmith drop-in</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr><td><code>actions/cache@v3,v4</code></td><td><code>useblacksmith/cache@v5</code></td><td>swap</td></tr>
-      <tr><td><code>actions/setup-node@v3,v4</code></td><td><code>useblacksmith/setup-node@v5</code></td><td>swap</td></tr>
-      <tr><td><code>actions/setup-python@v2,v4,v5</code></td><td><code>useblacksmith/setup-python@v6</code></td><td>swap</td></tr>
-      <tr><td><code>actions/setup-go@v4,v5</code></td><td><code>useblacksmith/setup-go@v6</code></td><td>swap</td></tr>
-      <tr><td><code>actions/checkout@v2,v4</code></td><td>(no drop-in needed)</td><td>keep + annotate</td></tr>
-      <tr><td><code>actions/upload-artifact@v3,v4</code></td><td>(no drop-in published)</td><td>keep + annotate</td></tr>
-      <tr><td><code>codecov/codecov-action@v2,v3,v4</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>aquasecurity/trivy-action@master</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>github/codeql-action/*</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>SonarSource/sonarcloud-github-action@master</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>snyk/actions/node@master</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>aws-actions/configure-aws-credentials@v2,v4</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-    </tbody>
-  </table>
+<p>and advances directly to Step 7 without writing a drift report or prompting the user.</p>
+<p><strong>Fall-through conditions.</strong> The freshness check falls through (treats the charter as not fresh) when:
+- The charter has no <code>---</code>-fenced frontmatter.
+- The frontmatter has no <code>created:</code> key.
+- The <code>created:</code> value fails to parse as a date.
+- The host does not have GNU <code>date -d</code> (BSD <code>date</code> is not supported).
+- The computed date is in the future.</p>
+<p>Charters in any fall-through state proceed to the full revalidation pass.</p>
+<p><strong>Adding a <code>created:</code> field to your charter:</strong></p>
+<div class="codehilite"><pre><span></span><code>---
+<span class="gu">created: 2026-05-19</span>
+<span class="gu">---</span>
 
-  <h2 id="5-gap-annotation-pattern">5. Gap-annotation pattern</h2>
-  <p>
-    When no Blacksmith drop-in exists for an upstream action, retain the upstream action and add a same-line
-    comment using exactly this format (three spaces before <code>#</code>, em-dash, action name without
-    the <code>@vN</code> pin):
-  </p>
-  <pre><code>- uses: codecov/codecov-action@v3   # No Blacksmith drop-in — using upstream codecov/codecov-action</code></pre>
-  <p>
-    The annotation communicates to reviewers and future maintainers that the upstream action was intentionally
-    retained because no Blacksmith optimised equivalent is available, not because the migration was missed.
-  </p>
+<span class="gh"># Charter: My Project</span>
+...
+</code></pre></div>
 
-  <h2 id="6-secrets-policy">6. Secrets policy</h2>
-  <p>
-    Never commit Blacksmith account credentials, billing tokens, or runner registration tokens to any
-    YAML, Markdown, or config file in the repository. All secrets must be stored in the GitHub Actions
-    secrets store at the repository or organisation level and referenced via
-    <code>${{ secrets.&lt;NAME&gt; }}</code>.
-  </p>
-  <p>
-    The pipelinekit lint rule R5 does not check for secret exposure — use standard secret-scanning tooling
-    (e.g., <code>github/codeql-action/init</code> with secret scanning enabled, or
-    <code>aquasecurity/trivy-action</code>) to enforce this policy in CI.
-  </p>
+<hr>
+<h2 id="probe-surface">Probe Surface</h2>
+<p>The revalidation pass inspects all 10 standard charter H2 sections. Sections with no repo-introspectable facts are probed as <code>current</code> automatically (narrative-only). Sections backed by filesystem artifacts are probed with read-only Glob and file-existence checks.</p>
+<table>
+<thead>
+<tr>
+<th>Charter Section</th>
+<th>Probe Strategy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Goal</code></td>
+<td>Narrative — always <code>current</code></td>
+</tr>
+<tr>
+<td><code>Users</code></td>
+<td>Narrative — always <code>current</code></td>
+</tr>
+<tr>
+<td><code>Problem</code></td>
+<td>Narrative — always <code>current</code></td>
+</tr>
+<tr>
+<td><code>Success</code></td>
+<td>Glob filename mentions; existence check under repo root</td>
+</tr>
+<tr>
+<td><code>Non-Goals</code></td>
+<td>Token-overlap against feature descriptions</td>
+</tr>
+<tr>
+<td><code>Constraints</code></td>
+<td>Glob filename mentions; package-manager file lookups for library mentions</td>
+</tr>
+<tr>
+<td><code>MVP Boundary</code></td>
+<td><code>**Out (deferred):**</code> — token-overlap; <code>**In:**</code> — always <code>current</code></td>
+</tr>
+<tr>
+<td><code>Prior Art</code></td>
+<td>External URLs — not probed; internal paths — existence check</td>
+</tr>
+<tr>
+<td><code>Open Questions</code></td>
+<td>Narrative — always <code>current</code></td>
+</tr>
+<tr>
+<td><code>Decision Log</code></td>
+<td>Historical — always <code>current</code></td>
+</tr>
+</tbody>
+</table>
+<p>Sections missing from the charter or with empty bodies are logged as a warning and treated as empty (zero drift produced):</p>
+<div class="codehilite"><pre><span></span><code>CHARTER_REVALIDATE: warn — charter missing Non-Goals or MVP Boundary section; treating as empty
+</code></pre></div>
 
-  <h2 id="7-lint-enforcement-r5">7. Lint enforcement (R5)</h2>
-  <p>
-    The pipelinekit plan-mode lint gate (<code>claude/skills/create-plan/SKILL.md</code> Step 4.5, rule
-    <strong>R5</strong>) rejects any plan task whose <code>**Files:**</code> list creates or modifies a
-    <code>.github/workflows/*.yml</code> or <code>.github/workflows/*.yaml</code> file with a
-    non-<code>blacksmith-*</code> runner, unless the task body documents the gap via a
-    <code>BLACKSMITH_DOES_NOT_SUPPORT_&lt;reason&gt;:</code> line in the <code>**Context:**</code> field.
-  </p>
-  <p>
-    The companion smoke test at <code>tests/test_blacksmith_lint_r5.sh</code> exercises the R5 rule against
-    six fixture plans covering the violation, compliant, documented-gap, non-workflow-file, yaml-extension,
-    and non-ubuntu-hosted-runner cases.
-  </p>
-  <p>
-    The <code>BLACKSMITH_RUNNER</code> variable name also appears in the R5 remediation hint inside
-    <code>claude/skills/create-plan/SKILL.md</code> Step 4.5, and throughout the drop-in matrix examples
-    in this document.
-  </p>
+<hr>
+<h2 id="status-enum">Status Enum</h2>
+<p>Every drift entry carries one of three status values:</p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>current</code></td>
+<td>The fact still holds — the file exists, the claim string is present, the library is still pinned.</td>
+</tr>
+<tr>
+<td><code>drifted</code></td>
+<td>The fact partially holds — the file exists but the claim is no longer accurate (for example, <code>orchestrate.sh</code> is present but is a stub).</td>
+</tr>
+<tr>
+<td><code>obsolete</code></td>
+<td>The entity the charter line references no longer exists at all — the file is gone or the library is uninstalled.</td>
+</tr>
+</tbody>
+</table>
+<p>Only <code>drifted</code> and <code>obsolete</code> entries appear in the drift report artifact. <code>current</code> entries are tallied but not enumerated.</p>
+<hr>
+<h2 id="drift-report-artifact">Drift Report Artifact</h2>
+<p>After the probe pass completes, the pipeline writes a drift report to <code>docs/charter-drift.md</code>. On subsequent runs the file is versioned per the project's Versioning Convention: <code>docs/charter-drift-v2.md</code>, <code>docs/charter-drift-v3.md</code>, etc.</p>
+<p>The report is a markdown table with four columns:</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>section</code></td>
+<td>string</td>
+<td>Charter H2 section where the drift originated (<code>Non-Goals</code>, <code>Success</code>, <code>Prior Art</code>, etc.)</td>
+</tr>
+<tr>
+<td><code>line</code></td>
+<td>string</td>
+<td>The feature header that flagged drift (lower-cased, whitespace-collapsed)</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>enum</td>
+<td><code>drifted</code> or <code>obsolete</code></td>
+</tr>
+<tr>
+<td><code>evidence</code></td>
+<td>string</td>
+<td>Free-form explanation — e.g. <code>"feature blob token-overlaps Non-Goal phrase 'no auth ui'"</code> or <code>"file src/auth/handler.py absent under repo root"</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example report:</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="gh"># Charter Drift Report</span>
 
-  <h2 id="8-documented-gap-escape-hatch">8. Documented-gap escape hatch</h2>
-  <p>
-    Use this escape hatch only when the workflow legitimately cannot run on Blacksmith — for example, when
-    the job requires a Windows or macOS host, or custom hardware that Blacksmith does not support.
-    Add a single line to the task's <code>**Context:**</code> field:
-  </p>
-  <pre><code>BLACKSMITH_DOES_NOT_SUPPORT_HOST_ARCH: windows-2022</code></pre>
-  <p>
-    R5 reads this as an explicit acknowledgement that the non-Blacksmith runner is intentional, and lets
-    the task pass the lint gate. Choose the <code>&lt;reason&gt;</code> suffix to communicate why
-    Blacksmith is not applicable (e.g., <code>HOST_ARCH</code>, <code>GPU_REQUIRED</code>,
-    <code>MACOS_KEYCHAIN</code>).
-  </p>
-  <p>
-    Do not use this escape hatch for convenience — only for genuine technical incompatibilities.
-    Every use of the escape hatch should be reviewable: a future reader of the plan should be able to
-    understand why Blacksmith was not used for that specific task.
-  </p>
+Generated: 2026-05-19T14:30:00Z
+Charter: docs/charter.md
+Features scanned: 8
+Drift entries: 2
+
+| section | line | status | evidence |
+|---------|------|--------|----------|
+| Non-Goals | feat/add-oauth-login | drifted | feature blob token-overlaps Non-Goal phrase &#39;no third-party auth&#39; |
+| Prior Art | feat/migrate-storage | obsolete | internal path docs/prior-art/s3-spike.md absent under repo root |
+</code></pre></div>
+
+<p>The drift report is a workflow artifact. It lives in <code>docs/</code> and is never staged or committed (covered by the standard never-stage list).</p>
+<hr>
+<h2 id="drift-resolution-loop">Drift-Resolution Loop</h2>
+<h3 id="interactive-mode-default">Interactive mode (default)</h3>
+<p>When drift entries are found, the pipeline prompts you for each <code>(feature_header, drift_reason, status, evidence)</code> tuple via <code>AskUserQuestion</code>:</p>
+<div class="codehilite"><pre><span></span><code>Feature `feat/add-oauth-login` may drift outside the charter.
+Reason: feature blob token-overlaps Non-Goal phrase &#39;no third-party auth&#39; [status: drifted].
+How do you want to proceed?
+
+A) Proceed    — keep this feature; run it through the pipeline unchanged.
+B) Drop feature — remove this feature block from docs/features-renewed.md.
+C) Edit charter — stop the pipeline so you can hand-edit the charter, then re-run.
+</code></pre></div>
+
+<p>Choosing <strong>C (Edit charter)</strong> stops the pipeline immediately and prints the charter path and the re-run command:</p>
+<div class="codehilite"><pre><span></span><code>Charter file: docs/charter.md
+Edit the Non-Goals or MVP Boundary section, then resume via:
+  /pipeline --charter docs/charter.md --renew
+</code></pre></div>
+
+<h3 id="auto-mode">--auto mode</h3>
+<p>When <code>--auto</code> is set, every drift entry is auto-accepted without prompting. After the loop, an HTML-comment header block is prepended to <code>docs/features-renewed.md</code> recording the accepted entries:</p>
+<div class="codehilite"><pre><span></span><code><span class="cm">&lt;!-- auto-accept: charter drift accepted without prompting; --renew --auto invoked at 2026-05-19T14:30:00Z</span>
+<span class="cm">  drift entries:</span>
+<span class="cm">    - feature: feat/add-oauth-login | section: Non-Goals | status: drifted | evidence: feature blob token-overlaps Non-Goal phrase &#39;no third-party auth&#39;</span>
+<span class="cm">    - feature: feat/migrate-storage | section: Prior Art | status: obsolete | evidence: internal path docs/prior-art/s3-spike.md absent under repo root</span>
+<span class="cm">--&gt;</span>
+</code></pre></div>
+
+<p>The pipeline then logs:</p>
+<div class="codehilite"><pre><span></span><code>CHARTER_REVALIDATE: auto-accepted 2 drift entries
+</code></pre></div>
+
+<p>and advances to Step 7.</p>
+<p>Use <code>--auto</code> when running the pipeline unattended (CI, cron) and you want drift to be noted but not block the run.</p>
+<hr>
+<h2 id="clean-path">Clean Path</h2>
+<p>If no drift entries are found (all probed sections resolve as <code>current</code>), the pipeline logs:</p>
+<div class="codehilite"><pre><span></span><code>CHARTER_REVALIDATE: clean — N features in scope
+</code></pre></div>
+
+<p>and advances directly to Step 7 without prompting or writing a drift report.</p>
+<hr>
+<h2 id="log-tokens">Log Tokens</h2>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>When emitted</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CHARTER_REVALIDATE: fresh — charter created &lt;date&gt; (&lt;N&gt; days ago); skipping re-validation pass</code></td>
+<td>7-day freshness skip fired</td>
+</tr>
+<tr>
+<td><code>CHARTER_REVALIDATE: skipped — no charter in effect</code></td>
+<td>Charter pointer is <code>(none)</code>, absent, or points to a missing file</td>
+</tr>
+<tr>
+<td><code>CHARTER_REVALIDATE: warn — charter missing Non-Goals or MVP Boundary section; treating as empty</code></td>
+<td>Expected charter section not found</td>
+</tr>
+<tr>
+<td><code>CHARTER_REVALIDATE: clean — N features in scope</code></td>
+<td>Probe pass found zero drift entries</td>
+</tr>
+<tr>
+<td><code>CHARTER_REVALIDATE: auto-accepted N drift entries</code></td>
+<td><code>--auto</code> mode accepted drift without prompting</td>
+</tr>
+<tr>
+<td><code>CHARTER_REVALIDATE: user chose edit-charter for &lt;feature_header&gt;</code></td>
+<td>User chose option C in interactive mode</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="python-api">Python API</h2>
+<p>The revalidation logic is implemented in <code>claude/lib/pipeline/charter_revalidate.py</code>. The public surface is pure stdlib (<code>re</code>, <code>pathlib</code>, <code>datetime</code>) with no module-level I/O. The only filesystem write in the module is <code>write_drift_report</code>.</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span> <span class="nn">claude.lib.pipeline.charter_revalidate</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">detect_drift</span><span class="p">,</span>          <span class="c1"># 4-tuple: (header, reason, status, evidence)</span>
+    <span class="n">detect_drift_legacy</span><span class="p">,</span>   <span class="c1"># 2-tuple shim for older consumers</span>
+    <span class="n">parse_charter_frontmatter</span><span class="p">,</span>
+    <span class="n">is_fresh</span><span class="p">,</span>
+    <span class="n">write_drift_report</span><span class="p">,</span>
+    <span class="n">probe_narrative</span><span class="p">,</span>
+    <span class="n">probe_success</span><span class="p">,</span>
+    <span class="n">probe_constraints</span><span class="p">,</span>
+    <span class="n">probe_prior_art</span><span class="p">,</span>
+    <span class="n">STATUS_CURRENT</span><span class="p">,</span>
+    <span class="n">STATUS_DRIFTED</span><span class="p">,</span>
+    <span class="n">STATUS_OBSOLETE</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+
+<p><strong><code>detect_drift(charter_text, features_text)</code></strong> returns <code>list[tuple[str, str, str, str]]</code> — each entry is <code>(feature_header, drift_reason, status, evidence)</code>.</p>
+<p><strong><code>detect_drift_legacy(charter_text, features_text)</code></strong> returns <code>list[tuple[str, str]]</code> — strips status and evidence. Use this if you have existing code that unpacks 2-tuples and cannot migrate yet.</p>
+<p><strong><code>is_fresh(charter_text, today_iso, threshold_days=7)</code></strong> returns <code>True</code> when the charter frontmatter <code>created:</code> date is within <code>threshold_days</code> of <code>today_iso</code>. Returns <code>False</code> on any parse failure.</p>
+<p><strong><code>write_drift_report(drift_entries, docs_dir)</code></strong> writes the versioned drift report and returns the <code>pathlib.Path</code> of the written file.</p>
+<hr>
+<h2 id="shell-helper">Shell Helper</h2>
+<p><code>claude/lib/pipeline/charter_revalidate_skip.sh</code> implements the outer skip logic (missing charter + freshness check) as a standalone shell script. It is called by the pipeline orchestrator before dispatching the Python probe. Exit codes:</p>
+<table>
+<thead>
+<tr>
+<th>Exit</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code> with <code>CHARTER_REVALIDATE: fresh</code> on stdout</td>
+<td>7-day skip fired — caller should skip the Python probe</td>
+</tr>
+<tr>
+<td><code>0</code> with <code>CHARTER_REVALIDATE: skipped</code> on stdout</td>
+<td>No charter in effect — caller should skip the Python probe</td>
+</tr>
+<tr>
+<td><code>0</code> with <code>CHARTER_REVALIDATE: charter found at &lt;path&gt;</code> on stdout</td>
+<td>Charter is present and stale — caller should run the Python probe</td>
+</tr>
+</tbody>
+</table>
+<p>The script uses GNU <code>date -d</code> for the freshness computation. On BSD hosts (macOS without GNU coreutils) the freshness check falls through silently and the Python probe runs.</p>
+<hr>
+<h2 id="related-files">Related Files</h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>claude/lib/pipeline/charter_revalidate.py</code></td>
+<td>Core Python implementation — drift detection, probes, report writer</td>
+</tr>
+<tr>
+<td><code>claude/lib/pipeline/charter_revalidate_skip.sh</code></td>
+<td>Shell skip helper — missing-charter and freshness checks</td>
+</tr>
+<tr>
+<td><code>claude/lib/pipeline/tests/test_charter_revalidate.py</code></td>
+<td>Python unit tests for the 4-tuple API, freshness, frontmatter parsing, and legacy shim</td>
+</tr>
+<tr>
+<td><code>claude/skills/pipeline/tests/test_renew_auto_flag.sh</code></td>
+<td>Shell smoke tests for <code>--renew --auto</code> contract (fresh fixture, stale fixture, auto-accept header)</td>
+</tr>
+<tr>
+<td><code>claude/skills/pipeline/reference.md</code></td>
+<td>Canonical sub-step 6.5 spec (freshness skip, probe table, status enum, drift-report schema, --auto bypass)</td>
+</tr>
+<tr>
+<td><code>claude/skills/pipeline/SKILL.md</code></td>
+<td><code>--auto</code> flag enumeration and Step 1.6 pointer to drift artifact</td>
+</tr>
+<tr>
+<td><code>docs/charter-drift.md</code></td>
+<td>First drift report (workflow artifact — not committed)</td>
+</tr>
+<tr>
+<td><code>docs/charter-drift-vN.md</code></td>
+<td>Subsequent versioned drift reports</td>
+</tr>
+</tbody>
+</table>
     </div>
 
     <div class="no-results" id="no-results">
