@@ -57,6 +57,30 @@ else
   fail=1
 fi
 
+# AC6: declares run_host_adapter function
+if grep -qE '^(run_host_adapter|function run_host_adapter)' "$ORCH"; then
+  echo "PASS orchestrate.sh declares run_host_adapter()"
+else
+  echo "FAIL orchestrate.sh missing run_host_adapter()"
+  fail=1
+fi
+
+# AC7: declares run_mcp function
+if grep -qE '^(run_mcp|function run_mcp)' "$ORCH"; then
+  echo "PASS orchestrate.sh declares run_mcp()"
+else
+  echo "FAIL orchestrate.sh missing run_mcp()"
+  fail=1
+fi
+
+# AC8: emits SANDBOX_ENTER observability log token
+if grep -q 'SANDBOX_ENTER:' "$ORCH"; then
+  echo "PASS orchestrate.sh emits SANDBOX_ENTER: log token"
+else
+  echo "FAIL orchestrate.sh missing SANDBOX_ENTER: log token"
+  fail=1
+fi
+
 if [ $fail -ne 0 ]; then
   echo ""
   echo "TEST FAILED"

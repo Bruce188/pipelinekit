@@ -53,6 +53,36 @@ case "$__provider" in
 esac
 
 # ---------------------------------------------------------------------------
+# sandbox_wrap <task-id> <worktree> <command...>
+#
+# Public wrap helper: emits the SANDBOX_ENTER log line, calls sandbox_enter,
+# captures the exit code, then calls sandbox_exit. Forks adding new
+# external-subprocess entry points (e.g., run_db_migration) should call
+# sandbox_wrap rather than re-implementing the envelope.
+#
+# The SANDBOX_ENTER log line shape is:
+#   SANDBOX_ENTER: provider=<X>, task=<task-id>, image=<image>
+# Where <image> is the resolved sandbox image (SANDBOX_PODMAN_IMAGE →
+# SANDBOX_DOCKER_IMAGE → PIPELINEKIT_SANDBOX_TAG) or the literal "none"
+# when the resolved provider is worktree-only.
+# ---------------------------------------------------------------------------
+sandbox_wrap() {
+  local task_id="${1:?task id required}"
+  local worktree="${2:?worktree path required}"
+  shift 2
+  local image rc
+  image="${SANDBOX_PODMAN_IMAGE:-${SANDBOX_DOCKER_IMAGE:-${PIPELINEKIT_SANDBOX_TAG:-none}}}"
+  if [ "$__provider" = "worktree-only" ]; then
+    image="none"
+  fi
+  echo "SANDBOX_ENTER: provider=$__provider, task=$task_id, image=$image" >&2
+  sandbox_enter "$worktree" "$@"
+  rc=$?
+  sandbox_exit "$task_id" || true
+  return "$rc"
+}
+
+# ---------------------------------------------------------------------------
 # run_phase <phase-name> <prompt-file> <worktree-path>
 #
 # Reads a phase prompt from <prompt-file> and dispatches `claude -p` inside
@@ -84,10 +114,64 @@ run_phase() {
   prompt="$(cat "$prompt_file")"
   echo "orchestrate.sh: phase=$phase provider=$__provider worktree=$worktree" >&2
 
-  sandbox_enter "$worktree" claude -p "$prompt"
+  sandbox_wrap "$phase-$$" "$worktree" claude -p "$prompt"
   rc=$?
-  sandbox_exit "$phase-$$" || true
   return "$rc"
+}
+
+# ---------------------------------------------------------------------------
+# run_host_adapter <host> <worktree> <prompt-file> <output-file> [args...]
+#
+# Resolves claude/host-adapters/<host>.sh relative to this stub, validates
+# presence (stderr error + exit 2 if missing), and wraps the adapter
+# invocation in sandbox_wrap. The adapter contract is documented in
+# claude/host-adapters/README.md.
+#
+# Exit codes:
+#   2 — host adapter file not found
+#   1 — worktree directory not found
+#   * — forwarded from the adapter
+# ---------------------------------------------------------------------------
+run_host_adapter() {
+  local host="${1:?host name required}"
+  local worktree="${2:?worktree path required}"
+  local prompt_file="${3:?prompt file required}"
+  local output_file="${4:?output file required}"
+  shift 4
+  local adapter_path="$ORCH_DIR/../../host-adapters/${host}.sh"
+  if [ ! -f "$adapter_path" ]; then
+    echo "orchestrate.sh: host adapter not found: $adapter_path" >&2
+    return 2
+  fi
+  if [ ! -d "$worktree" ]; then
+    echo "orchestrate.sh: worktree not found: $worktree" >&2
+    return 1
+  fi
+  sandbox_wrap "host:${host}:$$" "$worktree" \
+    "$adapter_path" "$prompt_file" "$output_file" "$@"
+}
+
+# ---------------------------------------------------------------------------
+# run_mcp <server-name> <worktree> <command...>
+#
+# Wraps an MCP-server launch in sandbox_wrap. SCAFFOLDING ONLY — no
+# pipelinekit consumer ships using this helper today; MCP servers are
+# launched by the Claude Code host. Forks that spawn MCP servers from a
+# subprocess driver should use this entry point.
+#
+# Exit codes:
+#   1 — worktree directory not found
+#   * — forwarded from the wrapped command
+# ---------------------------------------------------------------------------
+run_mcp() {
+  local server="${1:?server name required}"
+  local worktree="${2:?worktree path required}"
+  shift 2
+  if [ ! -d "$worktree" ]; then
+    echo "orchestrate.sh: worktree not found: $worktree" >&2
+    return 1
+  fi
+  sandbox_wrap "mcp:${server}:$$" "$worktree" "$@"
 }
 
 # When invoked directly with --help, print usage and exit. When sourced, this

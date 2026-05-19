@@ -2,7 +2,7 @@
 
 Interface contract for routing pipeline phase dispatches to alternate hosts.
 
-**v1 scope: interface scaffold only.** Only `claude.sh` is functional. `codex.sh`, `cursor.sh`, `gemini.sh` are stubs that exit 2 with `not implemented`. There is no current orchestrator call site in pipelinekit — these scripts exist to fix the interface so a future `orchestrate.sh` (subprocess pipeline driver) can shell out as `host-adapters/${PIPELINE_HOST:-claude}.sh`.
+**v1 scope: interface scaffold + orchestrator call site.** Only `claude.sh` is functional. `codex.sh`, `cursor.sh`, `gemini.sh` are stubs that exit 2 with `not implemented`. The subprocess driver `claude/skills/pipeline/orchestrate.sh` wires host adapters via the public helper `run_host_adapter <host> <worktree> <prompt-file> <output-file> [args...]`. The helper resolves `host-adapters/${host}.sh`, refuses to execute when the adapter is missing (stderr + exit `2`), and wraps the invocation in `sandbox_enter` / `sandbox_exit` with a `SANDBOX_ENTER: provider=<X>, task=host:<host>:<pid>, image=<image>` observability line.
 
 ## Interface
 
