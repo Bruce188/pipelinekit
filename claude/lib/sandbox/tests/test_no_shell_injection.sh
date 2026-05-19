@@ -106,10 +106,11 @@ docker_status="SKIP"
 
 runtime_fail=0
 
-# assert_no_injection <provider-name> <provider-source-path>
-#   Sources the provider, invokes sandbox_enter with a shell-injection payload,
-#   and asserts the side-effect file was NOT created.
-#   Sets the named status variable in the caller's scope via eval.
+# assert_no_injection_<provider>()
+#   Sources the named provider, invokes sandbox_enter with a shell-injection
+#   payload, and asserts the side-effect file was NOT created. Returns 0 on
+#   PASS/SKIP, non-zero on FAIL. Status is collected by the caller via
+#   command substitution of stdout (see § Run the three runtime branches).
 assert_no_injection_worktree() {
   local tmpdir
   tmpdir=$(mktemp -d)
