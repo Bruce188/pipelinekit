@@ -3,6 +3,7 @@ name: azure-deployment-engineer
 description: Expert Azure deployment engineer specializing in Azure CLI (`az`) operations, App Service / Container Apps / Function Apps / AKS deployment, Bicep + ARM IaC, Log Analytics + Application Insights observability, and RBAC + Managed Identity security. Use when deploying or operating Azure-hosted workloads.
 tools: Read, Write, Edit, Grep, Glob, Bash, WebFetch, Agent, Skill
 model: sonnet
+permissionMode: default
 maxTurns: 30
 ---
 
