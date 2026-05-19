@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>/review cost profile — pipelinekit</title>
-<meta name="description" content="/review dispatches up to 6 parallel agents per invocation (medium and large tiers).">
+<meta name="description" content="Live cost calculator + token + wall-time estimates for the multi-agent /review surface.">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -541,11 +541,387 @@ footer {
   <main>
     <header class="page-header">
       <h1>/review cost profile</h1>
-      <p class="description">/review dispatches up to 6 parallel agents per invocation (medium and large tiers).</p>
+      <p class="description">Live cost calculator + token + wall-time estimates for the multi-agent /review surface.</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
+<p><code>/review</code> dispatches up to 6 parallel agents per invocation (medium and large tiers).</p>
+<!-- snippet:cost-calculator
+     Live /review cost estimator. Sliders for diff size; toggles for --teams /
+     --design-pass / --health; dropdown for model. Computes estimated tokens,
+     dollars, and wall-time. Export-as-JSON button.
+
+     Placeholder usage in markdown source:
+       <div data-snippet="cost-calculator"></div>
+
+     All estimates are illustrative — actual costs depend on the diff's
+     content + your charter + your provider's pricing.
+-->
+<div class="pkit-cost-calc" data-snippet-mount="cost-calculator">
+  <style>
+    .pkit-cost-calc {
+      margin: 1.5rem 0;
+      padding: 1.5rem;
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 1.5rem;
+    }
+    @media (max-width: 720px) {
+      .pkit-cost-calc { grid-template-columns: 1fr; }
+    }
+    .pkit-cost-calc .pkit-cc-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .pkit-cost-calc .pkit-cc-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .pkit-cost-calc .pkit-cc-field label {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--fg-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .pkit-cost-calc .pkit-cc-field label .value {
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      color: var(--accent);
+      text-transform: none;
+      letter-spacing: 0;
+      background: var(--accent-soft);
+      padding: 0.1rem 0.5rem;
+      border-radius: var(--radius-sm);
+    }
+    .pkit-cost-calc input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .pkit-cost-calc select {
+      width: 100%;
+      padding: 0.4rem 0.7rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--sans);
+      font-size: 0.85rem;
+    }
+    .pkit-cost-calc .pkit-cc-toggles {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .pkit-cost-calc .pkit-cc-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.7rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--fg-muted);
+      font-size: 0.8rem;
+      cursor: pointer;
+      user-select: none;
+      transition: all var(--transition);
+    }
+    .pkit-cost-calc .pkit-cc-toggle input { margin: 0; accent-color: var(--accent); }
+    .pkit-cost-calc .pkit-cc-toggle:has(input:checked) {
+      color: var(--fg);
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .pkit-cost-calc .pkit-cc-output {
+      background: var(--bg);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius);
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.7rem;
+    }
+    .pkit-cost-calc .pkit-cc-metric {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px dashed var(--border);
+    }
+    .pkit-cost-calc .pkit-cc-metric:last-of-type { border-bottom: none; }
+    .pkit-cost-calc .pkit-cc-metric .key {
+      font-size: 0.78rem;
+      color: var(--fg-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+    }
+    .pkit-cost-calc .pkit-cc-metric .val {
+      font-family: var(--mono);
+      font-weight: 600;
+      color: var(--fg);
+      font-size: 1rem;
+      text-align: right;
+    }
+    .pkit-cost-calc .pkit-cc-metric .val .sub {
+      font-size: 0.72rem;
+      color: var(--fg-subtle);
+      font-weight: 400;
+      margin-left: 0.3rem;
+    }
+    .pkit-cost-calc .pkit-cc-metric.total .val { color: var(--accent); font-size: 1.4rem; }
+    .pkit-cost-calc .pkit-cc-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.4rem;
+    }
+    .pkit-cost-calc .pkit-cc-btn {
+      flex: 1;
+      padding: 0.45rem 0.7rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg-elev);
+      color: var(--fg-muted);
+      font-family: var(--sans);
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all var(--transition);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+    }
+    .pkit-cost-calc .pkit-cc-btn:hover { color: var(--fg); border-color: var(--accent); }
+    .pkit-cost-calc .pkit-cc-btn.copied { color: var(--success); border-color: var(--success); }
+    .pkit-cost-calc .pkit-cc-note {
+      font-size: 0.72rem;
+      color: var(--fg-subtle);
+      font-style: italic;
+      margin-top: 0.3rem;
+    }
+  </style>
+
+  <div class="pkit-cc-controls">
+    <div class="pkit-cc-field">
+      <label>Diff size (lines) <span class="value" data-out="diff">200</span></label>
+      <input type="range" min="50" max="5000" step="50" value="200" data-in="diff">
+    </div>
+    <div class="pkit-cc-field">
+      <label>File count <span class="value" data-out="files">5</span></label>
+      <input type="range" min="1" max="50" step="1" value="5" data-in="files">
+    </div>
+    <div class="pkit-cc-field">
+      <label>Reviewer model</label>
+      <select data-in="model">
+        <option value="opus">Opus 4.7 (default for review)</option>
+        <option value="sonnet" selected>Sonnet 4.6</option>
+        <option value="haiku">Haiku 4.5</option>
+      </select>
+    </div>
+    <div class="pkit-cc-field">
+      <label>Flags</label>
+      <div class="pkit-cc-toggles">
+        <label class="pkit-cc-toggle"><input type="checkbox" data-in="teams"> --teams (5 agents)</label>
+        <label class="pkit-cc-toggle"><input type="checkbox" data-in="design-pass"> --design-pass</label>
+        <label class="pkit-cc-toggle"><input type="checkbox" data-in="health"> --health</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="pkit-cc-output">
+    <div class="pkit-cc-metric">
+      <span class="key">Agents</span>
+      <span class="val" data-out="agents">2</span>
+    </div>
+    <div class="pkit-cc-metric">
+      <span class="key">Input tokens</span>
+      <span class="val" data-out="in-tokens">12k <span class="sub">cached: 80%</span></span>
+    </div>
+    <div class="pkit-cc-metric">
+      <span class="key">Output tokens</span>
+      <span class="val" data-out="out-tokens">3k</span>
+    </div>
+    <div class="pkit-cc-metric">
+      <span class="key">Wall time</span>
+      <span class="val" data-out="time">~2m</span>
+    </div>
+    <div class="pkit-cc-metric total">
+      <span class="key">Estimated $</span>
+      <span class="val" data-out="dollars">$0.04</span>
+    </div>
+    <div class="pkit-cc-actions">
+      <button class="pkit-cc-btn" data-act="copy">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        Copy JSON
+      </button>
+      <button class="pkit-cc-btn" data-act="reset">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.74 9.74 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        Reset
+      </button>
+    </div>
+    <p class="pkit-cc-note">Estimates use Anthropic public per-1M-token pricing (Opus $15 in / $75 out; Sonnet $3 / $15; Haiku $0.80 / $4). Cache hit rate assumed 80%. Actual costs vary by content.</p>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  const calcs = document.querySelectorAll('.pkit-cost-calc[data-snippet-mount="cost-calculator"]');
+  const calc = calcs[calcs.length - 1];
+  if (!calc || calc.dataset.pkitInit) return;
+  calc.dataset.pkitInit = '1';
+
+  // Pricing per 1M tokens (input cached / input uncached / output)
+  const PRICING = {
+    opus:   { inCached: 1.50, inUncached: 15.00, out: 75.00 },
+    sonnet: { inCached: 0.30, inUncached:  3.00, out: 15.00 },
+    haiku:  { inCached: 0.08, inUncached:  0.80, out:  4.00 },
+  };
+
+  // Per-agent token budget (illustrative)
+  // Each reviewer agent reads: full diff + plan + analysis + charter ≈ 8k tokens base
+  // Plus per-line overhead: ~2 tokens/diff-line (model "sees" the diff)
+  // Plus per-file overhead: ~50 tokens/file (file headers, line metadata)
+  // Output: ~1k tokens per agent for the findings (more with --teams, --design-pass)
+
+  const $ = (sel) => calc.querySelector(sel);
+  const inputs = {
+    diff:        $('[data-in="diff"]'),
+    files:       $('[data-in="files"]'),
+    model:       $('[data-in="model"]'),
+    teams:       $('[data-in="teams"]'),
+    designPass:  $('[data-in="design-pass"]'),
+    health:      $('[data-in="health"]'),
+  };
+  const outputs = {
+    diff:      $('[data-out="diff"]'),
+    files:     $('[data-out="files"]'),
+    agents:    $('[data-out="agents"]'),
+    inTokens:  $('[data-out="in-tokens"]'),
+    outTokens: $('[data-out="out-tokens"]'),
+    time:      $('[data-out="time"]'),
+    dollars:   $('[data-out="dollars"]'),
+  };
+
+  function format(n) {
+    if (n < 1000) return n.toFixed(0);
+    if (n < 1000000) return (n / 1000).toFixed(1) + 'k';
+    return (n / 1000000).toFixed(2) + 'M';
+  }
+  function dollars(d) {
+    if (d < 0.01) return '$' + d.toFixed(4);
+    if (d < 1)    return '$' + d.toFixed(3);
+    return '$' + d.toFixed(2);
+  }
+
+  function compute() {
+    const diff = +inputs.diff.value;
+    const files = +inputs.files.value;
+    const model = inputs.model.value;
+    const teams = inputs.teams.checked;
+    const designPass = inputs.designPass.checked;
+    const health = inputs.health.checked;
+
+    // Agent count
+    let agents;
+    if (diff < 500) agents = 2;           // lightweight (small diff)
+    else if (diff < 5000) agents = 5;     // standard
+    else agents = 6;                       // large
+    if (teams) agents = Math.max(agents, 5);  // --teams floor
+    if (designPass) agents += 1;
+    if (health) agents += 1;
+
+    // Per-agent input budget
+    const baseInput = 8000;                 // prompt + system
+    const diffOverhead = diff * 2;          // ~2 tokens / diff line
+    const fileOverhead = files * 50;
+    const perAgentInput = baseInput + diffOverhead + fileOverhead;
+    const totalInput = perAgentInput * agents;
+
+    // Per-agent output (findings)
+    const baseOutput = 1500;
+    const perAgentOutput = baseOutput + (teams ? 500 : 0) + (designPass ? 800 : 0);
+    const totalOutput = perAgentOutput * agents;
+
+    // Cache hit rate (80% by default — first agent uncached, subsequent agents cached)
+    const cacheHitRate = 0.80;
+    const cachedInput = totalInput * cacheHitRate;
+    const uncachedInput = totalInput * (1 - cacheHitRate);
+
+    // Cost
+    const p = PRICING[model];
+    const inputCost = (cachedInput * p.inCached + uncachedInput * p.inUncached) / 1_000_000;
+    const outputCost = (totalOutput * p.out) / 1_000_000;
+    const totalCost = inputCost + outputCost;
+
+    // Wall time: agents run in parallel, so time = base + per-agent serial overhead
+    // For --teams (5 agents parallel), time is dominated by the slowest agent
+    const baseTime = 90;                    // 90s minimum
+    const tokensPerSecond = model === 'opus' ? 40 : model === 'sonnet' ? 80 : 150;
+    const perAgentTimeSec = (perAgentInput / 5 + perAgentOutput) / tokensPerSecond;
+    const totalTimeSec = baseTime + perAgentTimeSec;  // parallel: max agent time
+    const timeStr = totalTimeSec < 60 ? `~${Math.round(totalTimeSec)}s`
+                  : totalTimeSec < 600 ? `~${Math.round(totalTimeSec / 60)}m`
+                  : `~${(totalTimeSec / 60).toFixed(1)}m`;
+
+    // Update outputs
+    outputs.diff.textContent = diff.toString();
+    outputs.files.textContent = files.toString();
+    outputs.agents.textContent = agents.toString();
+    outputs.inTokens.innerHTML = `${format(totalInput)} <span class="sub">cached: ${Math.round(cacheHitRate * 100)}%</span>`;
+    outputs.outTokens.textContent = format(totalOutput);
+    outputs.time.textContent = timeStr;
+    outputs.dollars.textContent = dollars(totalCost);
+
+    return {
+      input: { diff, files, model, teams, designPass, health },
+      agents,
+      tokens: { input: totalInput, output: totalOutput, cached_pct: cacheHitRate * 100 },
+      time_seconds: Math.round(totalTimeSec),
+      cost_usd: +totalCost.toFixed(4),
+    };
+  }
+
+  Object.values(inputs).forEach(el => el.addEventListener('input', compute));
+
+  const copyBtn = $('[data-act="copy"]');
+  copyBtn.addEventListener('click', async () => {
+    const result = compute();
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(result, null, 2));
+      copyBtn.classList.add('copied');
+      const orig = copyBtn.innerHTML;
+      copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Copied';
+      setTimeout(() => { copyBtn.classList.remove('copied'); copyBtn.innerHTML = orig; }, 1800);
+    } catch (e) { copyBtn.textContent = 'Press Ctrl+C'; }
+  });
+
+  $('[data-act="reset"]').addEventListener('click', () => {
+    inputs.diff.value = 200;
+    inputs.files.value = 5;
+    inputs.model.value = 'sonnet';
+    inputs.teams.checked = false;
+    inputs.designPass.checked = false;
+    inputs.health.checked = false;
+    compute();
+  });
+
+  compute();
+})();
+</script>
+
+
 <h2 id="per-agent-default-model-and-relative-cost">Per-agent default model and relative cost</h2>
 <table>
 <thead>

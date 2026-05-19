@@ -2,6 +2,10 @@
 
 The complete user-facing documentation for pipelinekit \(autonomous `/pipeline` orchestrator + skills + agents + hooks\). Every page below is self-contained HTML \(no CDN, no remote assets\) — clone the repo and open any page directly via `file://` URL, or serve the folder via any static HTTP server.
 
+## System architecture
+
+<div data-snippet="architecture-diagram"></div>
+
 ## Start here
 
 - **[Getting started](getting-started.html)** — the master guide. Install + 4 worked tutorials \(hello-world / TDD / Vercel deploy / meta-walkthrough\). Read this first.

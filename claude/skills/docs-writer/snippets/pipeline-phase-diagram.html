@@ -1,0 +1,286 @@
+<!-- snippet:pipeline-phase-diagram
+     Interactive SVG flow showing the /pipeline orchestrator phases.
+     Hover any phase for details; click to scroll to its section (data-anchor).
+     Path A (clean merge), Path B (re-implement), Path M (inline mini-fix), Path N (nit-attack)
+     are all rendered with distinct colors and toggleable visibility.
+     Inherits parent template's CSS custom properties for theming.
+
+     Placeholder usage in markdown source:
+       <div data-snippet="pipeline-phase-diagram"></div>
+-->
+<div class="pkit-pipeline-diagram" data-snippet-mount="pipeline-phase-diagram">
+  <style>
+    .pkit-pipeline-diagram {
+      margin: 1.5rem 0;
+      padding: 1.5rem;
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .pkit-pipeline-diagram .pkit-pd-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+      align-items: center;
+    }
+    .pkit-pipeline-diagram .pkit-pd-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--fg-subtle);
+      font-weight: 600;
+    }
+    .pkit-pipeline-diagram .pkit-pd-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.3rem 0.7rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--fg-muted);
+      font-size: 0.8rem;
+      cursor: pointer;
+      user-select: none;
+      transition: all var(--transition);
+    }
+    .pkit-pipeline-diagram .pkit-pd-toggle .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+    .pkit-pipeline-diagram .pkit-pd-toggle:hover { color: var(--fg); border-color: var(--border-strong); }
+    .pkit-pipeline-diagram .pkit-pd-toggle.active { color: var(--fg); border-color: var(--accent); background: var(--accent-soft); }
+    .pkit-pipeline-diagram svg {
+      width: 100%;
+      max-width: 880px;
+      display: block;
+      margin: 0 auto;
+      height: auto;
+    }
+    .pkit-pipeline-diagram .pkit-pd-node rect {
+      fill: var(--bg);
+      stroke: var(--border-strong);
+      stroke-width: 1.5;
+      transition: stroke var(--transition), fill var(--transition);
+    }
+    .pkit-pipeline-diagram .pkit-pd-node:hover rect {
+      stroke: var(--accent);
+      fill: var(--accent-soft);
+      cursor: pointer;
+    }
+    .pkit-pipeline-diagram .pkit-pd-node text {
+      fill: var(--fg);
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 600;
+      text-anchor: middle;
+      dominant-baseline: middle;
+      pointer-events: none;
+    }
+    .pkit-pipeline-diagram .pkit-pd-node .step-num {
+      fill: var(--fg-subtle);
+      font-size: 9px;
+      font-weight: 700;
+    }
+    .pkit-pipeline-diagram .pkit-pd-path {
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      transition: opacity var(--transition);
+    }
+    .pkit-pipeline-diagram .pkit-pd-path.dimmed { opacity: 0.15; }
+    .pkit-pipeline-diagram .pkit-pd-path.path-main { stroke: var(--fg-subtle); stroke-dasharray: none; }
+    .pkit-pipeline-diagram .pkit-pd-path.path-a { stroke: #10b981; }
+    .pkit-pipeline-diagram .pkit-pd-path.path-b { stroke: #f59e0b; stroke-dasharray: 6 4; }
+    .pkit-pipeline-diagram .pkit-pd-path.path-m { stroke: #3b82f6; stroke-dasharray: 3 3; }
+    .pkit-pipeline-diagram .pkit-pd-path.path-n { stroke: #a855f7; stroke-dasharray: 2 5; }
+    .pkit-pipeline-diagram .pkit-pd-arrow { fill: currentColor; }
+    .pkit-pipeline-diagram .pkit-pd-flow {
+      stroke-dasharray: 6;
+      animation: pkit-pd-flow-anim 1.5s linear infinite;
+    }
+    @keyframes pkit-pd-flow-anim {
+      to { stroke-dashoffset: -12; }
+    }
+    .pkit-pipeline-diagram .pkit-pd-tooltip {
+      position: absolute;
+      background: var(--fg);
+      color: var(--bg);
+      padding: 0.45rem 0.7rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.78rem;
+      max-width: 260px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 120ms ease;
+      z-index: 10;
+      box-shadow: var(--shadow-md);
+      line-height: 1.4;
+    }
+    .pkit-pipeline-diagram .pkit-pd-tooltip.visible { opacity: 1; }
+    .pkit-pipeline-diagram .pkit-pd-legend {
+      margin-top: 0.8rem;
+      font-size: 0.78rem;
+      color: var(--fg-muted);
+      text-align: center;
+    }
+  </style>
+
+  <div class="pkit-pd-controls">
+    <span class="pkit-pd-label">Highlight path:</span>
+    <button class="pkit-pd-toggle active" data-path="all"><span class="swatch" style="background:#94a3b8"></span>All</button>
+    <button class="pkit-pd-toggle" data-path="a"><span class="swatch" style="background:#10b981"></span>Path A (merge)</button>
+    <button class="pkit-pd-toggle" data-path="b"><span class="swatch" style="background:#f59e0b"></span>Path B (re-implement)</button>
+    <button class="pkit-pd-toggle" data-path="m"><span class="swatch" style="background:#3b82f6"></span>Path M (inline fix)</button>
+    <button class="pkit-pd-toggle" data-path="n"><span class="swatch" style="background:#a855f7"></span>Path N (nit-attack)</button>
+  </div>
+
+  <svg viewBox="0 0 880 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="/pipeline phase diagram">
+    <defs>
+      <marker id="pkit-pd-arrow-main" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="pkit-pd-arrow" /></marker>
+      <marker id="pkit-pd-arrow-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#10b981" /></marker>
+      <marker id="pkit-pd-arrow-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#f59e0b" /></marker>
+      <marker id="pkit-pd-arrow-m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6" /></marker>
+      <marker id="pkit-pd-arrow-n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#a855f7" /></marker>
+    </defs>
+
+    <!-- Main happy path: Charter -> Analyze -> Plan -> Branch -> Implement -> Review -> Merge -->
+    <path class="pkit-pd-path path-main pkit-pd-flow" d="M 100 100 L 220 100" marker-end="url(#pkit-pd-arrow-main)"/>
+    <path class="pkit-pd-path path-main pkit-pd-flow" d="M 320 100 L 440 100" marker-end="url(#pkit-pd-arrow-main)"/>
+    <path class="pkit-pd-path path-main pkit-pd-flow" d="M 540 100 L 660 100" marker-end="url(#pkit-pd-arrow-main)"/>
+    <path class="pkit-pd-path path-main pkit-pd-flow" d="M 760 100 L 760 175" marker-end="url(#pkit-pd-arrow-main)"/>
+    <path class="pkit-pd-path path-main pkit-pd-flow" d="M 760 225 L 760 280" marker-end="url(#pkit-pd-arrow-main)"/>
+
+    <!-- Path A: Review -> Merge (clean) -->
+    <path class="pkit-pd-path path-a" d="M 760 225 Q 800 250 800 280 L 800 280" marker-end="url(#pkit-pd-arrow-a)" opacity="0"/>
+
+    <!-- Path B: Review -> back to Implement (re-cycle) -->
+    <path class="pkit-pd-path path-b" d="M 700 200 Q 540 240 500 130" marker-end="url(#pkit-pd-arrow-b)"/>
+
+    <!-- Path M: Review -> Review (inline mini-fix, small loop) -->
+    <path class="pkit-pd-path path-m" d="M 740 175 Q 690 150 720 175 L 720 175" marker-end="url(#pkit-pd-arrow-m)"/>
+
+    <!-- Path N: Review -> Review (nit-attack, even smaller loop) -->
+    <path class="pkit-pd-path path-n" d="M 790 175 Q 850 150 820 200" marker-end="url(#pkit-pd-arrow-n)"/>
+
+    <!-- Phase nodes -->
+    <g class="pkit-pd-node" data-anchor="step-0-charter-discovery" data-info="Step 0 — Charter Discovery. 10 structured questions; writes docs/charter.md. Skipped with --no-charter.">
+      <rect x="40" y="70" width="120" height="60" rx="8" />
+      <text x="100" y="90" class="step-num">STEP 0</text>
+      <text x="100" y="108">Charter</text>
+    </g>
+    <g class="pkit-pd-node" data-anchor="step-5-2-write-analysis-file" data-info="Step 5.2 — Analyze. Subagent reads feature file + relevant repo files; produces docs/analysis-vN.md.">
+      <rect x="220" y="70" width="100" height="60" rx="8" />
+      <text x="270" y="90" class="step-num">STEP 5.2</text>
+      <text x="270" y="108">Analyze</text>
+    </g>
+    <g class="pkit-pd-node" data-anchor="step-5-3-write-plan-file" data-info="Step 5.3 — Plan. Subagent produces docs/plan-vN.md + docs/prompts-vN.md with phase decomposition, ACs, parallelism hints.">
+      <rect x="440" y="70" width="100" height="60" rx="8" />
+      <text x="490" y="90" class="step-num">STEP 5.3</text>
+      <text x="490" y="108">Plan</text>
+    </g>
+    <g class="pkit-pd-node" data-anchor="step-5-5-implement" data-info="Step 5.5 — Implement. Subagent(s) edit source, commit per task. Parallel-safe phases dispatch via single-message multi-Agent.">
+      <rect x="660" y="70" width="100" height="60" rx="8" />
+      <text x="710" y="90" class="step-num">STEP 5.5</text>
+      <text x="710" y="108">Implement</text>
+    </g>
+    <g class="pkit-pd-node" data-anchor="step-5-6-review" data-info="Step 5.6 — Review. 2-6 reviewer subagents (test-engineer, security-auditor, karpathy-reviewer, spec-tracer, code-reviewer). Charter-aware finding classification.">
+      <rect x="710" y="175" width="100" height="50" rx="8" />
+      <text x="760" y="194" class="step-num">STEP 5.6</text>
+      <text x="760" y="210">Review</text>
+    </g>
+    <g class="pkit-pd-node" data-anchor="step-5-9-merge" data-info="Step 5.9 — Merge. gh pr create + gh pr merge --squash --auto --delete-branch. Path A only.">
+      <rect x="710" y="280" width="100" height="50" rx="8" />
+      <text x="760" y="299" class="step-num">STEP 5.9</text>
+      <text x="760" y="315">Merge</text>
+    </g>
+
+    <!-- Path labels -->
+    <text x="500" y="270" font-family="ui-monospace, monospace" font-size="10" fill="#f59e0b" font-weight="600">Path B (re-implement)</text>
+    <text x="660" y="135" font-family="ui-monospace, monospace" font-size="10" fill="#3b82f6" font-weight="600">Path M (inline)</text>
+    <text x="830" y="135" font-family="ui-monospace, monospace" font-size="10" fill="#a855f7" font-weight="600">Path N (nit)</text>
+    <text x="800" y="265" font-family="ui-monospace, monospace" font-size="10" fill="#10b981" font-weight="600">Path A</text>
+  </svg>
+
+  <div class="pkit-pd-tooltip" id="pkit-pd-tooltip-{{id}}"></div>
+
+  <p class="pkit-pd-legend">
+    Hover any phase for details. Click a path button to highlight that routing. Click any phase to jump to its docs.
+  </p>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  // Scope queries to the most recently mounted diagram instance
+  const diagrams = document.querySelectorAll('.pkit-pipeline-diagram[data-snippet-mount="pipeline-phase-diagram"]');
+  const diagram = diagrams[diagrams.length - 1];
+  if (!diagram) return;
+  if (diagram.dataset.pkitInit) return;
+  diagram.dataset.pkitInit = '1';
+
+  const tooltip = diagram.querySelector('.pkit-pd-tooltip');
+  const nodes = diagram.querySelectorAll('.pkit-pd-node');
+  const paths = diagram.querySelectorAll('.pkit-pd-path');
+  const toggles = diagram.querySelectorAll('.pkit-pd-toggle');
+
+  // Tooltip handling
+  nodes.forEach(node => {
+    const info = node.dataset.info;
+    if (!info) return;
+    node.addEventListener('mouseenter', (e) => {
+      tooltip.textContent = info;
+      tooltip.classList.add('visible');
+    });
+    node.addEventListener('mousemove', (e) => {
+      const rect = diagram.getBoundingClientRect();
+      tooltip.style.left = (e.clientX - rect.left + 14) + 'px';
+      tooltip.style.top = (e.clientY - rect.top + 14) + 'px';
+    });
+    node.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
+
+    // Click → scroll to anchor
+    const anchor = node.dataset.anchor;
+    if (anchor) {
+      node.addEventListener('click', () => {
+        const target = document.getElementById(anchor);
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        else {
+          // Fallback: search by heading text matching the phase name
+          const heading = Array.from(document.querySelectorAll('h2, h3'))
+            .find(h => h.textContent.toLowerCase().includes(anchor.replace(/-/g, ' ').slice(0, 15)));
+          if (heading) heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    }
+  });
+
+  // Path-highlight toggles
+  toggles.forEach(btn => {
+    btn.addEventListener('click', () => {
+      toggles.forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      const want = btn.dataset.path;
+      paths.forEach(p => {
+        if (want === 'all') {
+          p.classList.remove('dimmed');
+          if (p.classList.contains('path-a')) p.style.opacity = '0'; // path-a only shows when alone
+          else p.style.opacity = '';
+          return;
+        }
+        const cls = 'path-' + want;
+        const isMain = p.classList.contains('path-main');
+        if (p.classList.contains(cls) || (want === 'a' && isMain)) {
+          p.classList.remove('dimmed');
+          p.style.opacity = '';
+        } else {
+          p.classList.add('dimmed');
+        }
+      });
+    });
+  });
+})();
+</script>

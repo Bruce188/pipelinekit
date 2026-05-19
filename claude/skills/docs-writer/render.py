@@ -35,6 +35,7 @@ except ImportError:
 
 SKILL_DIR = Path(__file__).resolve().parent
 TEMPLATE_PATH = SKILL_DIR / "template.html"
+SNIPPETS_DIR = SKILL_DIR / "snippets"
 
 # H2 / H3 capture regex (used to build the ToC and to seed `id=` attrs)
 HEADING_RE = re.compile(r'^(#{2,3})\s+(.+?)\s*$', re.MULTILINE)
@@ -290,6 +291,58 @@ def strip_first_h1(html_body: str) -> str:
     return re.sub(r"<h1[^>]*>.*?</h1>\s*", "", html_body, count=1, flags=re.DOTALL)
 
 
+# Snippet substitution
+# Replaces `<div data-snippet="<name>" ...></div>` (in markdown or HTML source)
+# with the inlined content of `snippets/<name>.html`. Data attributes other
+# than `data-snippet` are forwarded to the snippet's mount root, so a source
+# can pass per-instance config:
+#   <div data-snippet="chooser-quiz" data-question-set="cloud"></div>
+
+_SNIPPET_PLACEHOLDER_RE = re.compile(
+    r'<div\s+data-snippet="([^"]+)"([^>]*)></div>',
+    re.IGNORECASE,
+)
+
+
+def substitute_snippets(html_body: str, *, missing_ok: bool = False) -> tuple[str, list[str]]:
+    """Replace <div data-snippet="..."> placeholders with the corresponding
+    snippet content from claude/skills/docs-writer/snippets/<name>.html.
+
+    Returns (new_html, snippet_names_used). Raises FileNotFoundError on
+    missing snippet unless missing_ok=True (in which case the placeholder
+    is left in place and the missing name is still recorded).
+    """
+    used: list[str] = []
+
+    def replace(match: re.Match) -> str:
+        name = match.group(1).strip()
+        extra_attrs = match.group(2).strip()
+        snippet_path = SNIPPETS_DIR / f"{name}.html"
+        if not snippet_path.exists():
+            if missing_ok:
+                used.append(name + " (MISSING)")
+                return match.group(0)
+            raise FileNotFoundError(
+                f"snippet not found: {snippet_path} (referenced from data-snippet={name!r})"
+            )
+        used.append(name)
+        content = snippet_path.read_text(encoding="utf-8")
+        # Forward extra data-attrs to the snippet's mount root by injecting
+        # them into the first element with `data-snippet-mount`. If the
+        # snippet has no mount marker, just prepend a wrapping comment.
+        if extra_attrs:
+            content = re.sub(
+                r'(data-snippet-mount="[^"]+")',
+                rf'\1 {extra_attrs}',
+                content,
+                count=1,
+            )
+        return content
+
+    new_html = _SNIPPET_PLACEHOLDER_RE.sub(replace, html_body)
+    return new_html, used
+
+
 def strip_first_paragraph(html_body: str) -> str:
     """Remove the first <p>...</p> from the rendered body (used when description was auto-derived from it)."""
     return re.sub(r"<p[^>]*>.*?</p>\s*", "", html_body, count=1, flags=re.DOTALL)
@@ -349,6 +402,7 @@ def main() -> int:
                 first_text = re.sub(r"\s+", " ", first_text)
                 if first_text[:120] == description[:120]:
                     body_html = strip_first_paragraph(body_html)
+        body_html, snippets_used = substitute_snippets(body_html)
         toc_html = extract_toc_from_html(body_html)
     else:
         # Markdown render mode (default).
@@ -364,7 +418,12 @@ def main() -> int:
         if description_was_derived:
             body_html = strip_first_paragraph(body_html)
         body_html = fix_heading_ids(body_html, slug_map)
+        body_html, snippets_used = substitute_snippets(body_html)
         toc_html = extract_toc(md_text)
+
+    # Log snippets used to stderr (visible to caller, not embedded in output)
+    if snippets_used:
+        print(f"  snippets: {', '.join(snippets_used)}", file=sys.stderr)
 
     # Meta-line items
     meta_items = []

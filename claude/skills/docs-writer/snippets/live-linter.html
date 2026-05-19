@@ -1,0 +1,242 @@
+<!-- snippet:live-linter
+     Paste-your-SKILL.md textarea + live scoring against the 10-pattern
+     skill authoring standard. Per-pattern green/amber/red badges with
+     specific suggestions. Pure client-side; no network call.
+
+     Used on documentation/docs/SKILL-AUTHORING-STANDARD.html.
+
+     Placeholder usage:
+       <div data-snippet="live-linter"></div>
+-->
+<div class="pkit-linter" data-snippet-mount="live-linter">
+  <style>
+    .pkit-linter { margin: 1.5rem 0; padding: 1.5rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); display: grid; grid-template-columns: 1fr 340px; gap: 1rem; }
+    @media (max-width: 800px) { .pkit-linter { grid-template-columns: 1fr; } }
+    .pkit-linter .pkit-ll-input { display: flex; flex-direction: column; gap: 0.5rem; }
+    .pkit-linter .pkit-ll-label { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-subtle); font-weight: 600; }
+    .pkit-linter .pkit-ll-actions { display: flex; gap: 0.4rem; }
+    .pkit-linter .pkit-ll-btn { padding: 0.25rem 0.55rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--fg-muted); font-family: var(--sans); font-size: 0.72rem; cursor: pointer; text-transform: none; letter-spacing: 0; transition: all var(--transition); }
+    .pkit-linter .pkit-ll-btn:hover { color: var(--fg); border-color: var(--accent); }
+    .pkit-linter textarea { width: 100%; min-height: 320px; padding: 0.7rem 0.9rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--fg); font-family: var(--mono); font-size: 0.85rem; line-height: 1.5; resize: vertical; }
+    .pkit-linter textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .pkit-linter .pkit-ll-output { background: var(--bg); border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 0.9rem; display: flex; flex-direction: column; }
+    .pkit-linter .pkit-ll-score { display: flex; flex-direction: column; padding-bottom: 0.7rem; margin-bottom: 0.7rem; border-bottom: 1px solid var(--border); }
+    .pkit-linter .pkit-ll-score .num { font-family: var(--mono); font-size: 2rem; font-weight: 700; color: var(--accent); line-height: 1; }
+    .pkit-linter .pkit-ll-score .num .of { font-size: 1.1rem; color: var(--fg-muted); font-weight: 400; }
+    .pkit-linter .pkit-ll-score .grade { font-size: 0.78rem; font-weight: 600; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.3rem; }
+    .pkit-linter .pkit-ll-rows { display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; max-height: 380px; }
+    .pkit-linter .pkit-ll-row { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.82rem; line-height: 1.4; }
+    .pkit-linter .pkit-ll-row .badge { flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; color: white; margin-top: 1px; }
+    .pkit-linter .pkit-ll-row .badge.pass { background: var(--success); }
+    .pkit-linter .pkit-ll-row .badge.warn { background: var(--warn); }
+    .pkit-linter .pkit-ll-row .badge.fail { background: var(--danger); }
+    .pkit-linter .pkit-ll-row .pattern { font-weight: 600; color: var(--fg); }
+    .pkit-linter .pkit-ll-row .hint { color: var(--fg-muted); font-size: 0.78rem; display: block; margin-top: 0.1rem; }
+  </style>
+
+  <div class="pkit-ll-input">
+    <div class="pkit-ll-label">
+      <span>Paste your SKILL.md content</span>
+      <div class="pkit-ll-actions">
+        <button class="pkit-ll-btn" data-act="example">Load example</button>
+        <button class="pkit-ll-btn" data-act="clear">Clear</button>
+      </div>
+    </div>
+    <textarea id="pkit-ll-input" placeholder="---
+name: my-skill
+description: What this skill does and when to use it. ...
+---
+
+# my-skill — short title
+
+## When this skill fires
+...
+
+## What it does
+...
+
+## Output
+...
+
+## Example
+...
+" spellcheck="false"></textarea>
+  </div>
+
+  <div class="pkit-ll-output">
+    <div class="pkit-ll-score">
+      <span class="num" id="pkit-ll-num">0<span class="of">/10</span></span>
+      <span class="grade" id="pkit-ll-grade">no input</span>
+    </div>
+    <div class="pkit-ll-rows" id="pkit-ll-rows"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  const lts = document.querySelectorAll('.pkit-linter[data-snippet-mount="live-linter"]');
+  const lt = lts[lts.length - 1];
+  if (!lt || lt.dataset.pkitInit) return;
+  lt.dataset.pkitInit = '1';
+
+  const input = lt.querySelector('#pkit-ll-input');
+  const num = lt.querySelector('#pkit-ll-num');
+  const grade = lt.querySelector('#pkit-ll-grade');
+  const rows = lt.querySelector('#pkit-ll-rows');
+
+  // 10-pattern skill DNA checklist. Each pattern has:
+  //   name, regex (or function), hint.
+  // Returns 'pass' / 'warn' / 'fail' per pattern.
+  const PATTERNS = [
+    {
+      name: "YAML frontmatter (---)",
+      test: (s) => /^---\s*\n[\s\S]*?\n---\s*\n/.test(s) ? 'pass' : 'fail',
+      hint: "Skill files start with a `---` fenced YAML block. Required for Claude Code to discover the skill."
+    },
+    {
+      name: "Frontmatter has `name:`",
+      test: (s) => /^---[\s\S]*?\nname:\s*\S/.test(s) ? 'pass' : 'fail',
+      hint: "Lowercase letters, digits, hyphens only. Max 64 chars. If omitted, falls back to directory name."
+    },
+    {
+      name: "Frontmatter has `description:`",
+      test: (s) => /^---[\s\S]*?\ndescription:\s*\S/.test(s) ? 'pass' : 'fail',
+      hint: "Recommended. Claude reads this to decide when to load the skill. Combined cap of 1,536 chars with `when_to_use`."
+    },
+    {
+      name: "Description ≤ 1,536 chars",
+      test: (s) => {
+        const m = s.match(/^---[\s\S]*?\ndescription:\s*(.+)/);
+        if (!m) return 'fail';
+        const len = m[1].length;
+        return len <= 1536 ? 'pass' : 'warn';
+      },
+      hint: "If over the cap, Claude Code truncates in the skill listing, stripping keywords."
+    },
+    {
+      name: "Title (H1) below frontmatter",
+      test: (s) => {
+        const body = s.replace(/^---[\s\S]*?\n---\s*\n/, '');
+        return /^#\s+\S/.test(body) ? 'pass' : 'warn';
+      },
+      hint: "Conventional H1 below the frontmatter as the skill's narrative title."
+    },
+    {
+      name: "Has a `## When` (or trigger) section",
+      test: (s) => /^##\s+When|^##\s+Triggers?|^##\s+Trigger/.test(s.split('\n').join('\n')) ? 'pass' : 'warn',
+      hint: "Document when the skill fires (manual `/name` invocation, auto-discovery by Claude, hook event)."
+    },
+    {
+      name: "Has a `## Constraints` or AVOID list",
+      test: (s) => /^##\s+(Constraints?|Rules?|AVOID|Don[’']?t)|^##\s+The\s+\w+\s+rules?/im.test(s) ? 'pass' : 'warn',
+      hint: "Explicit constraints prevent mis-application by Claude. Capture the don't-do-this surface."
+    },
+    {
+      name: "Has an `## Example` or worked example",
+      test: (s) => /^##\s+Example|^###?\s+Example/im.test(s) ? 'pass' : 'warn',
+      hint: "Concrete example anchors abstract instructions."
+    },
+    {
+      name: "References supporting files (reference.md, scripts, etc.)",
+      test: (s) => /reference\.md|scripts\/|\bsupporting files\b|\bsnippets?\b/i.test(s) ? 'pass' : 'warn',
+      hint: "Large reference material moves out to supporting files (loaded only when needed)."
+    },
+    {
+      name: "No `Co-Authored-By` or AI attribution leak",
+      test: (s) => /Co-Authored-By|Generated with|Claude AI|🤖/i.test(s) ? 'fail' : 'pass',
+      hint: "Skill content must not include AI attribution lines (they'd propagate into commits)."
+    }
+  ];
+
+  function evaluate(text) {
+    return PATTERNS.map(p => ({
+      name: p.name,
+      result: p.test(text),
+      hint: p.hint,
+    }));
+  }
+
+  function render(text) {
+    const results = evaluate(text);
+    const passCount = results.filter(r => r.result === 'pass').length;
+    const warnCount = results.filter(r => r.result === 'warn').length;
+    num.innerHTML = `${passCount}<span class="of">/${results.length}</span>`;
+    let g;
+    if (text.trim().length === 0) g = 'no input';
+    else if (passCount === results.length) g = 'all clear';
+    else if (passCount >= 8) g = 'solid';
+    else if (passCount >= 5) g = `${warnCount} warning${warnCount === 1 ? '' : 's'}`;
+    else g = 'needs work';
+    grade.textContent = g;
+
+    rows.innerHTML = '';
+    results.forEach(r => {
+      const div = document.createElement('div');
+      div.className = 'pkit-ll-row';
+      const symbol = r.result === 'pass' ? '✓' : r.result === 'warn' ? '!' : '✕';
+      div.innerHTML = `
+        <span class="badge ${r.result}">${symbol}</span>
+        <div>
+          <span class="pattern">${r.name}</span>
+          <span class="hint">${r.hint}</span>
+        </div>
+      `;
+      rows.appendChild(div);
+    });
+  }
+
+  let debounce;
+  input.addEventListener('input', (e) => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => render(e.target.value), 120);
+  });
+
+  lt.querySelector('[data-act="clear"]').addEventListener('click', () => {
+    input.value = '';
+    render('');
+    input.focus();
+  });
+
+  lt.querySelector('[data-act="example"]').addEventListener('click', () => {
+    input.value = `---
+name: deploy-helper
+description: Deploy the current branch via the project's standard CI flow. Use when the user says "ship it", "deploy to staging", or asks to "push live".
+allowed-tools: Bash, Read, Edit
+disable-model-invocation: true
+---
+
+# deploy-helper
+
+A purpose-built deploy command for this project.
+
+## When this skill fires
+
+User explicitly types \`/deploy-helper\`. The \`disable-model-invocation: true\` frontmatter prevents Claude from auto-firing it (deploys are user-initiated).
+
+## Constraints
+
+- Refuse to deploy if working tree is dirty.
+- Refuse to deploy from \`main\` directly — the user must be on a feature branch.
+- Do NOT skip CI hooks (no \`--no-verify\`).
+- Do NOT force-push.
+
+## Example
+
+\`\`\`
+/deploy-helper staging
+\`\`\`
+
+Triggers \`scripts/deploy.sh staging\` after the working-tree-clean and not-on-main checks pass.
+
+## See also
+
+- \`scripts/deploy.sh\` — the underlying shell script
+- \`docs/deploy-runbook.md\` — operational reference
+`;
+    render(input.value);
+  });
+
+  render('');
+})();
+</script>

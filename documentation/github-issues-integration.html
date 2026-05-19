@@ -554,6 +554,206 @@ footer {
     </header>
 
     <div id="page-content">
+<!-- snippet:playground-2col
+     Two-column live playground. Default mode "charter-revalidation":
+     left textarea = charter line, right textarea = current repo state.
+     Output bar shows status (current/drifted/obsolete) + evidence.
+
+     Alternative mode "issues-query": left input = label selector,
+     right shows simulated filtered issues. (Used on github-issues page.)
+
+     Placeholder usage:
+       <div data-snippet="playground-2col"></div>                          (default: charter-revalidation)
+       <div data-snippet="playground-2col" data-mode="issues-query"></div>
+-->
+<div class="pkit-pg2" data-snippet-mount="playground-2col" data-mode="issues-query" data-mode="charter-revalidation">
+  <style>
+    .pkit-pg2 { margin: 1.5rem 0; padding: 1.5rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); }
+    .pkit-pg2 .pkit-p2-title { font-size: 0.92rem; font-weight: 600; color: var(--fg); margin: 0 0 0.8rem; }
+    .pkit-pg2 .pkit-p2-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+    @media (max-width: 720px) { .pkit-pg2 .pkit-p2-cols { grid-template-columns: 1fr; } }
+    .pkit-pg2 .pkit-p2-col { display: flex; flex-direction: column; gap: 0.4rem; }
+    .pkit-pg2 .pkit-p2-col label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-subtle); font-weight: 600; }
+    .pkit-pg2 textarea, .pkit-pg2 input[type="text"] { width: 100%; padding: 0.7rem 0.9rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--fg); font-family: var(--mono); font-size: 0.85rem; line-height: 1.5; resize: vertical; }
+    .pkit-pg2 textarea:focus, .pkit-pg2 input[type="text"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .pkit-pg2 textarea { min-height: 130px; }
+    .pkit-pg2 .pkit-p2-output { margin-top: 1rem; padding: 0.9rem 1rem; background: var(--bg); border: 1px solid var(--border-strong); border-radius: var(--radius); }
+    .pkit-pg2 .pkit-p2-status { display: flex; align-items: center; gap: 0.5rem; font-size: 0.95rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .pkit-pg2 .pkit-p2-status .pill { padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .pkit-pg2 .pkit-p2-status.current .pill { background: rgba(16,185,129,0.18); color: var(--success); }
+    .pkit-pg2 .pkit-p2-status.drifted .pill { background: rgba(217,119,6,0.18); color: var(--warn); }
+    .pkit-pg2 .pkit-p2-status.obsolete .pill { background: rgba(220,38,38,0.18); color: var(--danger); }
+    .pkit-pg2 .pkit-p2-evidence { font-size: 0.82rem; color: var(--fg-muted); line-height: 1.5; }
+    .pkit-pg2 .pkit-p2-evidence code { background: var(--bg-elev); padding: 0.05rem 0.4rem; border-radius: var(--radius-sm); font-size: 0.78rem; border: 1px solid var(--border); }
+    .pkit-pg2 .pkit-p2-presets { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+    .pkit-pg2 .pkit-p2-preset { padding: 0.25rem 0.55rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--fg-muted); font-family: var(--sans); font-size: 0.72rem; cursor: pointer; transition: all var(--transition); }
+    .pkit-pg2 .pkit-p2-preset:hover { color: var(--fg); border-color: var(--accent); }
+    .pkit-pg2 .pkit-p2-issue-list { display: flex; flex-direction: column; gap: 0.4rem; }
+    .pkit-pg2 .pkit-p2-issue { padding: 0.5rem 0.7rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-sm); display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
+    .pkit-pg2 .pkit-p2-issue .num { font-family: var(--mono); color: var(--fg-subtle); font-size: 0.78rem; }
+    .pkit-pg2 .pkit-p2-issue .lbl { font-size: 0.7rem; padding: 0.1rem 0.45rem; border-radius: 999px; background: rgba(59,130,246,0.18); color: #3b82f6; font-weight: 600; }
+  </style>
+
+  <div id="pkit-p2-mount"></div>
+</div>
+
+<script type="application/json" id="pkit-p2-charter-presets">
+[
+  {"label": "current (no drift)", "charter": "Deployment target: vercel", "repo": "docs/charter.md says deployment_target: vercel. vercel.json exists at repo root."},
+  {"label": "drifted (changed)", "charter": "MVP boundary: single-feature batch", "repo": "docs/features-v2.md has 23 features. Multiple features batched in one /pipeline run."},
+  {"label": "obsolete (removed)", "charter": "Use /interview-prp for new project setup", "repo": "claude/skills/interview-prp/ no longer exists (removed in PR #68)."}
+]
+</script>
+
+<script type="application/json" id="pkit-p2-issue-presets">
+[
+  {"label": "label:bug", "issues": [{"num": 142, "title": "validate-commit-msg.sh rejects body lines starting with #"}, {"num": 138, "title": "tdd-red-phase-gate fires twice on amend"}]},
+  {"label": "label:enhancement", "issues": [{"num": 141, "title": "Add --dry-run to /post-merge"}, {"num": 135, "title": "Charter discovery: skip Topic 10 when no deploy config present"}]},
+  {"label": "milestone:v0.1.0", "issues": [{"num": 140, "title": "Charter Stakeholders section beyond Users"}, {"num": 132, "title": "Interactive smoke for charter discovery"}, {"num": 128, "title": "Auto-extract charter from existing analysis/plan"}]},
+  {"label": "all", "issues": [{"num": 142, "title": "validate-commit-msg.sh rejects body lines starting with #"}, {"num": 141, "title": "Add --dry-run to /post-merge"}, {"num": 140, "title": "Charter Stakeholders section beyond Users"}, {"num": 138, "title": "tdd-red-phase-gate fires twice on amend"}, {"num": 135, "title": "Charter discovery: skip Topic 10 when no deploy config present"}]}
+]
+</script>
+
+<script>
+(function() {
+  'use strict';
+  const pgs = document.querySelectorAll('.pkit-pg2[data-snippet-mount="playground-2col"]');
+  const pg = pgs[pgs.length - 1];
+  if (!pg || pg.dataset.pkitInit) return;
+  pg.dataset.pkitInit = '1';
+
+  const mode = pg.dataset.mode || 'charter-revalidation';
+  const mount = pg.querySelector('#pkit-p2-mount');
+
+  if (mode === 'charter-revalidation') {
+    renderCharter();
+  } else if (mode === 'issues-query') {
+    renderIssues();
+  } else {
+    mount.innerHTML = `<p>Unknown mode: ${mode}</p>`;
+  }
+
+  function renderCharter() {
+    const presets = JSON.parse(pg.querySelector('#pkit-p2-charter-presets').textContent);
+    let presetsHtml = '<div class="pkit-p2-presets"><span style="font-size:0.72rem;color:var(--fg-subtle);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;padding-right:0.3rem;align-self:center">Try preset:</span>';
+    presets.forEach((p, i) => {
+      presetsHtml += `<button class="pkit-p2-preset" data-preset-idx="${i}">${p.label}</button>`;
+    });
+    presetsHtml += '</div>';
+    mount.innerHTML = `
+      <p class="pkit-p2-title">Charter revalidation playground — paste a charter line and the current repo state to see the 3-valued drift verdict.</p>
+      ${presetsHtml}
+      <div class="pkit-p2-cols">
+        <div class="pkit-p2-col">
+          <label>Charter line</label>
+          <textarea id="pkit-p2-left" spellcheck="false" placeholder="e.g. Deployment target: vercel"></textarea>
+        </div>
+        <div class="pkit-p2-col">
+          <label>Current repo state (the evidence)</label>
+          <textarea id="pkit-p2-right" spellcheck="false" placeholder="e.g. vercel.json exists at repo root; docs/charter.md says deployment_target: vercel"></textarea>
+        </div>
+      </div>
+      <div class="pkit-p2-output" id="pkit-p2-out">
+        <div class="pkit-p2-status"><span class="pill">awaiting input</span></div>
+        <div class="pkit-p2-evidence">Paste a charter line + the current state. The drift classifier returns one of: <code>current</code> (still true), <code>drifted</code> (partially valid, content changed), <code>obsolete</code> (no longer applies).</div>
+      </div>
+    `;
+    const left = mount.querySelector('#pkit-p2-left');
+    const right = mount.querySelector('#pkit-p2-right');
+    const out = mount.querySelector('#pkit-p2-out');
+
+    function classify() {
+      const a = (left.value || '').trim().toLowerCase();
+      const b = (right.value || '').trim().toLowerCase();
+      if (!a || !b) {
+        out.innerHTML = `<div class="pkit-p2-status"><span class="pill">awaiting input</span></div>
+                        <div class="pkit-p2-evidence">Paste both fields to classify.</div>`;
+        return;
+      }
+      // Toy heuristic for demo purposes (the real charter_revalidate.py is more sophisticated)
+      const tokensA = new Set(a.match(/\w+/g) || []);
+      const tokensB = new Set(b.match(/\w+/g) || []);
+      let overlap = 0;
+      tokensA.forEach(t => { if (tokensB.has(t)) overlap++; });
+      const ratio = tokensA.size ? overlap / tokensA.size : 0;
+      const obsoleteSignals = /no longer|removed|deleted|deprecated|gone|absent/.test(b);
+      const driftedSignals = /changed|different|now|instead|multiple|batch/.test(b);
+
+      let status, klass, why;
+      if (obsoleteSignals && ratio < 0.6) {
+        status = 'obsolete'; klass = 'obsolete';
+        why = `The repo state mentions removal/deprecation signals (<code>no longer</code> / <code>removed</code> / <code>deprecated</code>) and only ${(ratio*100).toFixed(0)}% token overlap with the charter line. <strong>Charter line should be removed</strong> when /pipeline --renew regenerates feature files.`;
+      } else if (driftedSignals || (ratio >= 0.3 && ratio < 0.85)) {
+        status = 'drifted'; klass = 'drifted';
+        why = `${(ratio*100).toFixed(0)}% token overlap + drift signals (<code>changed</code> / <code>different</code> / <code>now</code>). <strong>Charter line should be updated</strong> to match current repo state.`;
+      } else if (ratio >= 0.85) {
+        status = 'current'; klass = 'current';
+        why = `${(ratio*100).toFixed(0)}% token overlap with the repo state, no drift signals. <strong>Charter line is still accurate</strong>. No action needed.`;
+      } else {
+        status = 'drifted'; klass = 'drifted';
+        why = `Low overlap (${(ratio*100).toFixed(0)}%) but no explicit removal signal. <strong>Probably drifted</strong> — worth a manual review in the drift report.`;
+      }
+      out.innerHTML = `<div class="pkit-p2-status ${klass}">Status: <span class="pill">${status}</span></div>
+                      <div class="pkit-p2-evidence">${why}</div>`;
+    }
+
+    left.addEventListener('input', classify);
+    right.addEventListener('input', classify);
+    mount.querySelectorAll('.pkit-p2-preset').forEach(b => {
+      b.addEventListener('click', () => {
+        const p = presets[+b.dataset.presetIdx];
+        left.value = p.charter; right.value = p.repo; classify();
+      });
+    });
+  }
+
+  function renderIssues() {
+    const presets = JSON.parse(pg.querySelector('#pkit-p2-issue-presets').textContent);
+    let presetsHtml = '<div class="pkit-p2-presets"><span style="font-size:0.72rem;color:var(--fg-subtle);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;padding-right:0.3rem;align-self:center">Try preset:</span>';
+    presets.forEach((p, i) => {
+      presetsHtml += `<button class="pkit-p2-preset" data-preset-idx="${i}">${p.label}</button>`;
+    });
+    presetsHtml += '</div>';
+    mount.innerHTML = `
+      <p class="pkit-p2-title">Issues-mode playground — try a selector and see which (simulated) issues would be ingested into the feature file.</p>
+      ${presetsHtml}
+      <div class="pkit-p2-cols">
+        <div class="pkit-p2-col">
+          <label>Selector (--issues argument)</label>
+          <input type="text" id="pkit-p2-sel" placeholder="e.g. label:bug or milestone:v0.1.0 or all" />
+          <p style="font-size:0.78rem;color:var(--fg-muted);margin:0.4rem 0 0">Valid forms: <code>label:&lt;name&gt;</code> · <code>milestone:&lt;name&gt;</code> · <code>all</code> · bare <code>&lt;name&gt;</code> (defaults to label:)</p>
+        </div>
+        <div class="pkit-p2-col">
+          <label>Filtered issues (simulated)</label>
+          <div class="pkit-p2-issue-list" id="pkit-p2-issues">
+            <div style="color:var(--fg-muted);font-size:0.85rem;font-style:italic;">Pick a preset or type a selector.</div>
+          </div>
+        </div>
+      </div>
+    `;
+    const sel = mount.querySelector('#pkit-p2-sel');
+    const list = mount.querySelector('#pkit-p2-issues');
+
+    function render() {
+      const q = (sel.value || '').trim();
+      if (!q) { list.innerHTML = '<div style="color:var(--fg-muted);font-size:0.85rem;font-style:italic;">Pick a preset or type a selector.</div>'; return; }
+      const match = presets.find(p => p.label.toLowerCase() === q.toLowerCase() || p.label.toLowerCase().endsWith(':' + q.toLowerCase())) || presets[3];
+      list.innerHTML = match.issues.map(i =>
+        `<div class="pkit-p2-issue"><span class="num">#${i.num}</span> <span class="lbl">${match.label}</span> ${i.title}</div>`
+      ).join('');
+    }
+
+    sel.addEventListener('input', render);
+    mount.querySelectorAll('.pkit-p2-preset').forEach(b => {
+      b.addEventListener('click', () => {
+        sel.value = presets[+b.dataset.presetIdx].label;
+        render();
+      });
+    });
+  }
+})();
+</script>
+
 <h2 id="overview">Overview</h2>
 <p><strong>When to use <code>--issues</code> vs <code>docs/features.md</code>:</strong></p>
 <ul>
