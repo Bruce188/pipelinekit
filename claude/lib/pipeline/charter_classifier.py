@@ -132,13 +132,6 @@ def _scope_tag_to_scope(scope_tag: str) -> str:
 # F14 — Deployment-target parsing + mismatch helpers (Task 1.2)
 # ---------------------------------------------------------------------------
 
-# Strip leading bullet marker (- or *), optional backticks, and whitespace.
-_DEPLOYMENT_STRIP_RE = re.compile(
-    r"^[\s*\-]*`?([^`\n]+?)`?\s*$",
-    re.MULTILINE,
-)
-
-
 def _parse_deployment_target(body: str) -> str:
     """Parse the ``## Deployment target`` section body into a normalized slug.
 
