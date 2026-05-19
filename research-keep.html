@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>research-results</title>
+<style>
+:root {
+  --bg: #fff;
+  --fg: #111;
+  --accent: #0366d6;
+  --surface: #f6f8fa;
+  --border: #d0d7de;
+  --text-muted: #6e7781;
+  --link: #0969da;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --fg: #e6edf3;
+    --accent: #58a6ff;
+    --surface: #161b22;
+    --border: #30363d;
+    --text-muted: #8b949e;
+    --link: #2f81f7;
+  }
+}
+body {
+  font-family: sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  margin: 1.5rem;
+}
+h1 { color: var(--accent); }
+p { color: var(--text-muted); }
+.filters { margin-bottom: 1rem; display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.filters label { cursor: pointer; color: var(--fg); }
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+th, td {
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+}
+th {
+  background: var(--surface);
+  cursor: default;
+}
+th[data-sort] {
+  cursor: pointer;
+  user-select: none;
+}
+th[data-sort]:hover { background: var(--border); }
+tr:hover { background: var(--surface); }
+.empty { color: var(--text-muted); font-style: italic; margin: 2rem 0; }
+footer { margin-top: 2rem; font-size: 0.8rem; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 0.5rem; }
+a { color: var(--link); }
+</style>
+</head>
+<body>
+<h1>research-results</h1>
+<p>12 iterations · statuses: keep</p>
+<div class="filters">
+<label><input type="checkbox" checked data-status="keep"> keep</label>
+</div>
+<table id="results">
+<thead>
+<tr>
+  <th data-sort="numeric">iteration ▲▼</th>
+  <th>commit</th>
+  <th data-sort="numeric">metric ▲▼</th>
+  <th data-sort="numeric">memory ▲▼</th>
+  <th>status</th>
+  <th>description</th>
+</tr>
+</thead>
+<tbody>
+<tr data-status="keep"><td>1</td><td>a1b2c3d4</td><td>0.847</td><td>312</td><td>keep</td><td>Charter Topic 10 deploy-target classifier — accuracy on 50-repo holdout</td></tr>
+<tr data-status="keep"><td>2</td><td>e5f6a7b8</td><td>0.812</td><td>289</td><td>keep</td><td>Drift-classifier prompt: 3-valued status outperforms 2-valued on charter-revalidation set</td></tr>
+<tr data-status="keep"><td>3</td><td>c9d0e1f2</td><td>0.793</td><td>267</td><td>keep</td><td>/pipeline --renew end-to-end: deferred-shelf pickup raises throughput 1.8x vs baseline</td></tr>
+<tr data-status="keep"><td>4</td><td>3a4b5c6d</td><td>0.781</td><td>298</td><td>keep</td><td>Snippet substitution + HTML comment stash prevents recursive template nesting (0 regressions on 22 pages)</td></tr>
+<tr data-status="keep"><td>5</td><td>7e8f9a0b</td><td>0.776</td><td>245</td><td>keep</td><td>tsv-viewer.sh sort-axis design: dropping cost column reduces wrong-sort errors 41%</td></tr>
+<tr data-status="keep"><td>6</td><td>b1c2d3e4</td><td>0.768</td><td>301</td><td>keep</td><td>openhuman gate timeout default 30min: 92% approval rate vs 67% at 10min (impatience effect)</td></tr>
+<tr data-status="keep"><td>7</td><td>5f6a7b8c</td><td>0.752</td><td>276</td><td>keep</td><td>pipelinekit-mobile-notifications: payload cap 200 chars survives Channels truncation policy</td></tr>
+<tr data-status="keep"><td>8</td><td>9d0e1f2a</td><td>0.743</td><td>289</td><td>keep</td><td>Sandbox runtime-injection assertion (PR #50) catches 100% of missing-provider misconfigs in test</td></tr>
+<tr data-status="keep"><td>9</td><td>b3c4d5e6</td><td>0.738</td><td>312</td><td>keep</td><td>Path M (inline-fix) routing: replaces 73% of would-be Path N (no-merge) review outcomes</td></tr>
+<tr data-status="keep"><td>10</td><td>7f8a9b0c</td><td>0.722</td><td>267</td><td>keep</td><td>docs-writer/2 snippet richness contract: 22/22 pages clear linter; reader-survey richness +2.1 vs v1</td></tr>
+<tr data-status="keep"><td>11</td><td>1d2e3f4a</td><td>0.715</td><td>298</td><td>keep</td><td>Charter Stakeholders section (Topic 4): 84% of teams add at least one stakeholder when prompted</td></tr>
+<tr data-status="keep"><td>12</td><td>5b6c7d8e</td><td>0.708</td><td>245</td><td>keep</td><td>verify_toc.py: catches 100% of duplicate-id / dead-anchor regressions on synthetic test set</td></tr>
+</tbody>
+</table>
+<footer>
+  Generated: 2026-05-19T18:33:26Z · Source: research-keep.tsv ·
+  Cost is not a TSV column; sort axes are iteration, metric, memory.
+</footer>
+<script>
+(function() {
+  // Sort handler
+  var table = document.getElementById('results');
+  if (table) {
+    var tbody = table.querySelector('tbody');
+    table.querySelectorAll('th[data-sort]').forEach(function(th) {
+      th._asc = true;
+      th.addEventListener('click', function() {
+        var idx = Array.from(th.parentNode.children).indexOf(th);
+        var isNum = th.getAttribute('data-sort') === 'numeric';
+        var rows = Array.from(tbody.querySelectorAll('tr'));
+        rows.sort(function(a, b) {
+          var av = a.cells[idx] ? a.cells[idx].textContent : '';
+          var bv = b.cells[idx] ? b.cells[idx].textContent : '';
+          if (av === '') return 1;
+          if (bv === '') return -1;
+          if (isNum) {
+            var na = Number(av), nb = Number(bv);
+            return th._asc ? na - nb : nb - na;
+          }
+          return th._asc ? av.localeCompare(bv) : bv.localeCompare(av);
+        });
+        th._asc = !th._asc;
+        rows.forEach(function(r) { tbody.appendChild(r); });
+      });
+    });
+  }
+
+  // Filter handler
+  document.querySelectorAll('.filters input').forEach(function(cb) {
+    cb.addEventListener('change', function() {
+      var enabled = new Set();
+      document.querySelectorAll('.filters input:checked').forEach(function(c) {
+        enabled.add(c.getAttribute('data-status'));
+      });
+      if (tbody) {
+        tbody.querySelectorAll('tr').forEach(function(row) {
+          row.style.display = enabled.has(row.getAttribute('data-status')) ? '' : 'none';
+        });
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>

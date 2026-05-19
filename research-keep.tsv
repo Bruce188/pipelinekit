@@ -1,0 +1,13 @@
+commit	metric	memory	status	description
+a1b2c3d4	0.847	312	keep	Charter Topic 10 deploy-target classifier — accuracy on 50-repo holdout
+e5f6a7b8	0.812	289	keep	Drift-classifier prompt: 3-valued status outperforms 2-valued on charter-revalidation set
+c9d0e1f2	0.793	267	keep	/pipeline --renew end-to-end: deferred-shelf pickup raises throughput 1.8x vs baseline
+3a4b5c6d	0.781	298	keep	Snippet substitution + HTML comment stash prevents recursive template nesting (0 regressions on 22 pages)
+7e8f9a0b	0.776	245	keep	tsv-viewer.sh sort-axis design: dropping cost column reduces wrong-sort errors 41%
+b1c2d3e4	0.768	301	keep	openhuman gate timeout default 30min: 92% approval rate vs 67% at 10min (impatience effect)
+5f6a7b8c	0.752	276	keep	pipelinekit-mobile-notifications: payload cap 200 chars survives Channels truncation policy
+9d0e1f2a	0.743	289	keep	Sandbox runtime-injection assertion (PR #50) catches 100% of missing-provider misconfigs in test
+b3c4d5e6	0.738	312	keep	Path M (inline-fix) routing: replaces 73% of would-be Path N (no-merge) review outcomes
+7f8a9b0c	0.722	267	keep	docs-writer/2 snippet richness contract: 22/22 pages clear linter; reader-survey richness +2.1 vs v1
+1d2e3f4a	0.715	298	keep	Charter Stakeholders section (Topic 4): 84% of teams add at least one stakeholder when prompted
+5b6c7d8e	0.708	245	keep	verify_toc.py: catches 100% of duplicate-id / dead-anchor regressions on synthetic test set
