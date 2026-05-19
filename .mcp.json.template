@@ -17,19 +17,11 @@
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/oraios/serena@main",
+        "git+https://github.com/oraios/serena@<PIN-TO-COMMIT-SHA>",
         "serena-mcp-server",
         "--project",
         "."
       ]
-    },
-    "agentmemory": {
-      "type": "stdio",
-      "_pending_real_mcp_shape": "Upstream rohitg00/agentmemory has not shipped an MCP server binary as of F2. Replace this key with the real { command, args } block when upstream lands. See claude/lib/agentmemory/README.md § Upstream tracking.",
-      "env": {
-        "AGENTMEMORY_STORE_MODE": "",
-        "AGENTMEMORY_DATA_DIR": ""
-      }
     }
   },
   "_mobile_instructions": "Optional iOS-development MCPs. Uncomment-and-move into 'mcpServers' to enable. Both require Xcode on host. ios-simulator-mcp uses git+https — PIN the ref (replace @main with a commit SHA) before sandbox use.",
@@ -44,7 +36,7 @@
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/joshuayoes/ios-simulator-mcp@main",
+        "git+https://github.com/joshuayoes/ios-simulator-mcp@<PIN-TO-COMMIT-SHA>",
         "ios-simulator-mcp"
       ]
     }
@@ -62,5 +54,16 @@
       }
     }
   },
-  "_agentmemory_note": "COMMUNITY MCP / LIBRARY — rohitg00/agentmemory is a community project (NOT Anthropic-official). Default-present since F2 — the agentmemory entry above sits inside mcpServers but is inert (no command yet — see _pending_real_mcp_shape). Complementarity: flat-file remains the canonical write path; agentmemory is a secondary retrieval index. Plain-markdown inspectability via cat/Read/grep is preserved. When upstream ships an MCP server, replace _pending_real_mcp_shape with a real { command, args } block AND pin the ref to a fixed commit SHA or release before sandbox use."
+  "_pending_instructions": "Opt-in MCPs whose upstream has not yet shipped a runnable server binary. Each entry is structurally inert (no command/args) until upstream lands. When the real shape is known, replace the _pending_real_mcp_shape note with a real { command, args } block AND move the entry into 'mcpServers'. PIN any git+https ref to a fixed commit SHA before sandbox use.",
+  "_pending_mcpServers": {
+    "agentmemory": {
+      "type": "stdio",
+      "_pending_real_mcp_shape": "Upstream rohitg00/agentmemory has not shipped an MCP server binary as of F2. Replace this key with the real { command, args } block when upstream lands. See claude/lib/agentmemory/README.md § Upstream tracking.",
+      "env": {
+        "AGENTMEMORY_STORE_MODE": "",
+        "AGENTMEMORY_DATA_DIR": ""
+      }
+    }
+  },
+  "_agentmemory_note": "COMMUNITY MCP / LIBRARY — rohitg00/agentmemory is a community project (NOT Anthropic-official). Default-present since F2 — the agentmemory entry above sits inside _pending_mcpServers and is inert (no command yet — see _pending_real_mcp_shape). Move into 'mcpServers' once upstream ships a runnable binary. Complementarity: flat-file remains the canonical write path; agentmemory is a secondary retrieval index. Plain-markdown inspectability via cat/Read/grep is preserved. When upstream ships an MCP server, replace _pending_real_mcp_shape with a real { command, args } block AND pin the ref to a fixed commit SHA or release before sandbox use."
 }
