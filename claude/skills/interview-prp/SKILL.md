@@ -2,7 +2,11 @@
 name: interview-prp
 description: [DEPRECATED] Interview the user about a project idea to produce a complete PRP/spec document. Charter Discovery via /pipeline Step 0 is the recommended replacement.
 disable-model-invocation: true
-allowed-tools: Read, Write, Bash, AskUserQuestion
+allowed-tools:
+  - Read
+  - Write
+  - Bash
+  - AskUserQuestion
 ---
 
 ## Migration notice (deprecation)

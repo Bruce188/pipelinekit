@@ -2,7 +2,14 @@
 ---
 name: claude-md-enhancer
 description: Analyzes, generates, and enhances CLAUDE.md files for any project type using best practices, modular architecture support, and tech stack customization. Use when setting up new projects, improving existing CLAUDE.md files, or establishing AI-assisted development standards.
-allowed-tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+allowed-tools:
+  - Read
+  - Write
+  - Edit
+  - Bash
+  - Glob
+  - Grep
+  - AskUserQuestion
 disable-model-invocation: false
 ---
 

@@ -1,7 +1,12 @@
 ---
 name: simplify
 description: "Post-green reductive refactor: remove unused helpers, dead branches, over-generalized abstractions, and redundant null checks; revert on test failure."
-allowed-tools: Read, Edit, Bash, Grep, Glob
+allowed-tools:
+  - Read
+  - Edit
+  - Bash
+  - Grep
+  - Glob
 context: fork
 ---
 

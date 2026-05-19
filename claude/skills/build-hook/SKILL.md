@@ -3,7 +3,11 @@ name: build-hook
 description: Generate a Claude Code hook from a description. Creates the shell script and settings.json entry. Use when user wants to add workflow automation, enforce a rule, or react to Claude Code events.
 argument-hint: <description of what the hook should do>
 disable-model-invocation: true
-allowed-tools: Bash, Read, Write, Edit
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
 context: fork
 effort: medium
 ---

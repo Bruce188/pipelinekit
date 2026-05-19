@@ -1,7 +1,9 @@
 ---
 name: dependency-auditor
 description: Check dependencies for known vulnerabilities using npm audit, pip-audit, etc. Use when package.json or requirements.txt changes, or before deployments. Alerts on vulnerable dependencies. Triggers on dependency file changes, deployment prep, security mentions.
-allowed-tools: Bash, Read
+allowed-tools:
+  - Bash
+  - Read
 paths:
   - "**/package.json"
   - "**/requirements.txt"

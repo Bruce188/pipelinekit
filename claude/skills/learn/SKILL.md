@@ -3,7 +3,9 @@ name: learn
 description: Read interface for pipelinekit's per-project learnings journal. Reads ~/.pipelinekit/projects/<slug>/learnings.jsonl. The write path is the inline shell helper at claude/lib/learn-append.sh — invoked best-effort from pipeline Path A at post-review and post-merge.
 argument-hint: [show|recent N|search <term>]
 disable-model-invocation: true
-allowed-tools: Bash, Read
+allowed-tools:
+  - Bash
+  - Read
 ---
 
 # Learn — Per-Project Learnings Journal (Read Interface)

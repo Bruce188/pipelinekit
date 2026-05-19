@@ -2,7 +2,13 @@
 name: handoff-create
 description: Analyze the current conversation and create a handoff document for continuing this work in a fresh context
 argument-hint: (no arguments)
-allowed-tools: Read, Write, Bash, WebSearch, WebFetch, Glob
+allowed-tools:
+  - Read
+  - Write
+  - Bash
+  - WebSearch
+  - WebFetch
+  - Glob
 model: inherit
 ---
 

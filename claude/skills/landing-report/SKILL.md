@@ -3,7 +3,10 @@ name: landing-report
 description: Pre-push version-slot collision detector. Reads VERSION or package.json:version, compares against existing git tags, prints a one-line status. Silent skip when neither marker is present. Invoked from /ppr Step 1.6.
 argument-hint: (no arguments needed)
 disable-model-invocation: true
-allowed-tools: Bash, Read, Write
+allowed-tools:
+  - Bash
+  - Read
+  - Write
 ---
 
 # Landing report
