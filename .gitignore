@@ -58,3 +58,4 @@ Thumbs.db
 
 # Documentation archive (rollback surface for .md -> .html migrations)
 documentation/_md_archive/
+documentation/research-results.html
