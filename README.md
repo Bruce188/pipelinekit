@@ -88,6 +88,7 @@ pipelinekit/
 │   └── config/
 ├── scripts/
 │   ├── install.sh        # Idempotent installer
+│   ├── sandbox/          # Container base image build (Containerfile + build.sh)
 │   └── verify.sh         # Smoke test the install
 ├── docs/
 │   ├── installation.md
