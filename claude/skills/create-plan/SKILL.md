@@ -261,6 +261,37 @@ This catches the failure mode where a plan is syntactically valid Markdown but s
 
 ---
 
+### Step 4.6: Decomposition Compliance Gate
+
+This gate audits the just-written plan against three work-decomposition axes (TDD pairing, parallelization, slice strategy) and appends a `## Decomposition Compliance` section in-place to the plan file. The gate is INFORMATIONAL on first release.
+
+Run the audit helper immediately after `lint_plan.sh` passes:
+
+```python
+import os
+from claude.lib.pipeline.decomposition_check import audit_plan, render_compliance_section, format_ac_line, should_block
+
+result = audit_plan(plan_path, charter_path="docs/charter.md" if os.path.exists("docs/charter.md") else None)
+compliance_md = render_compliance_section(result)
+# Append compliance_md to plan_path
+with open(plan_path, "a", encoding="utf-8") as f:
+    f.write("\n\n" + compliance_md + "\n")
+ac_line = format_ac_line(result)
+print(ac_line)  # Echoed to stdout / Run Log
+if should_block() and not all([result["tdd_pairing"], result["parallel_marked"], result["slice_strategy"]]):
+    raise SystemExit(f"DECOMPOSITION_COMPLIANCE_BLOCKING=true and gate failed: {ac_line}")
+```
+
+**Slice-strategy axis rationale:** For the rationale behind the slice-strategy axis, see `claude/skills/tdd/SKILL.md` lines 26–49 (vendored from upstream — do not edit in place).
+
+**Parallel-marked axis:** The parallel-marked axis re-uses the F4 zero-overlap heuristic documented in `claude/skills/pipeline/SKILL.md` Step 5.5.3a. The gate does not re-detect overlap — it only checks whether the planner explicitly marked phases that meet the heuristic.
+
+**Env flag:** `DECOMPOSITION_COMPLIANCE_BLOCKING` env var, default `false`. When `false`, gate emits a warning to stdout and the AC-DECOMP Run Log line but does not block progression to Step 5. When `true`, gate hard-stops via `SystemExit` if any axis fails. Migration plan: default flips to `true` after one release cycle.
+
+**Run Log contract:** Emit `AC-DECOMP: TDD-pairing PASS|FAIL | parallel-marked PASS|FAIL | slice-strategy PASS|FAIL` to stdout for the `/pipeline` orchestrator's Run Log writer to pick up.
+
+---
+
 ### Step 5: Initialize or Amend docs/progress.md
 
 **progress.md is NEVER overwritten.** It is the single source of truth for task history across plan iterations.

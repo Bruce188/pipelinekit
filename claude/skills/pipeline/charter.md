@@ -25,6 +25,7 @@ Required sections (10 topics in order):
 5. `## Non-Goals`
 6. `## Constraints`
 7. `## MVP Boundary`
+7.5. `## Slice Strategy`
 8. `## Prior Art`
 9. `## Open Questions`
 10. `## Deployment target`
@@ -61,6 +62,7 @@ The 10 topics enumerated by the convergence check (in order):
 - Topic 5 — Non-Goals
 - Topic 6 — Constraints
 - Topic 7 — MVP Boundary
+- Topic 7.5 — Slice Strategy
 - Topic 8 — Prior Art
 - Topic 9 — Open Questions
 - Topic 10 — Deployment target
@@ -159,6 +161,26 @@ Options:
 - A) `[User provides free-form answer]`
 - B) `Help me distinguish In vs Out`
 - C) `Ship the charter now`
+
+---
+
+### Topic 7.5: Slice Strategy
+
+> "How should implementation work be sliced? (a) **Vertical** — each task touches all layers thinly (database + API + UI), tracer-bullet style, fast end-to-end feedback. (b) **Horizontal** — phase 1 is all database, phase 2 is all API, etc. Requires explicit justification. (c) **Flexible** — planner picks per-task based on analysis."
+
+The answer feeds the Decomposition Compliance gate in `/create-plan` Step 4.6:
+- `vertical` → every plan task must include a `**Touches:**` line listing ≥2 architectural layers.
+- `horizontal` → plan Overview must include a justification paragraph (Pocock's "reprimand" rule).
+- `flexible` (default) → gate auto-PASSes the slice-strategy axis; planner picks per task.
+
+Default when the user skips this topic: `flexible`.
+
+Options:
+- A) `vertical`
+- B) `horizontal`
+- C) `flexible` (default)
+- D) `[User provides free-form answer]`
+- E) `Ship the charter now`
 
 ---
 
@@ -264,6 +286,9 @@ status: draft
 
 ## MVP Boundary
 [MVP Boundary content]
+
+## Slice Strategy
+[Either `vertical`, `horizontal`, or `flexible` (default).]
 
 ## Prior Art
 [Prior Art content]

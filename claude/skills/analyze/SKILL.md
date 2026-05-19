@@ -168,6 +168,16 @@ Report facts. Do not infer design decisions.
 
 ---
 
+### Step 4.7: Layer Map (optional)
+
+Optional step — when the codebase exposes ≥2 architectural layers relevant to the task, emit a Layer Map to seed vertical slicing during `/create-plan`'s Step 4.6 Decomposition Compliance Gate.
+
+**Detection rule:** Identify candidate layers from Step 4's Key Files. Examples: `schema` (migration / model files), `API endpoint` (controller / route files), `service` (business-logic modules), `UI / form component` (frontend files), `CLI handler`, `subagent prompt`, `hook script`. If fewer than 2 candidate layers are present, SKIP this step — do not emit the `## Layer Map` section.
+
+**Emission:** When ≥2 layers are present, the Step 5 template's `## Layer Map` block populates with the layers as a bulleted list. Each bullet pairs a layer with 1–2 representative file paths (e.g., `- API endpoint — src/api/orders.py, src/api/auth.py`).
+
+---
+
 ### Step 4.5: Version Check & Archive
 
 Follow the **Versioning Convention** from `~/.claude/rules/workflow.md` for analysis files.
@@ -213,6 +223,14 @@ Create `docs/` if it doesn't exist. Write to the filename determined in Step 4.5
 ## Key Files (task-relevant)
 - path/to/file.py — [why it's relevant]
 - ...
+
+## Layer Map
+(Emitted only when Step 4.7 identified ≥2 architectural layers. Seeds the vertical-slice axis of the Decomposition Compliance Gate in `/create-plan` Step 4.6.)
+
+- [layer] — [representative file paths]
+- ...
+
+(Omit this section entirely when fewer than 2 candidate layers were identified.)
 
 ## Existing Progress
 [in-progress or recently completed tasks from docs/progress.md, or "None"]
