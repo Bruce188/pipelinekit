@@ -1,6 +1,6 @@
 ---
 name: create-plan
-description: Generate docs/plan.md AND docs/prompts.md together — always both, never one without the other. Initializes or amends docs/progress.md. Use after /analyze (existing project) or after /clear following /pipeline Step 0 Charter Discovery (new project — preferred) or /interview-prp (legacy, deprecated).
+description: Generate docs/plan.md AND docs/prompts.md together — always both, never one without the other. Initializes or amends docs/progress.md. Use after /analyze (existing project) or after /clear following /pipeline Step 0 Charter Discovery (new project — preferred).
 argument-hint:
 allowed-tools:
   - Read
@@ -33,11 +33,11 @@ Check for input documents in this order:
 1. `docs/progress.md` → check for `**Analysis:**` pointer, `**Review:**` pointer, in-progress tasks, and deferred items
 2. Analysis file → follow the `**Analysis:**` pointer from progress.md. If no pointer exists, fall back to `docs/analysis.md`. **Verify the file exists** after resolving. If it doesn't exist, fall back to `docs/analysis.md`, then `docs/prp.md`, with warning: "Analysis file [pointer target] not found, falling back to [fallback]." This is the existing project path (after `/analyze`).
 3. `docs/charter.md` → new project path (after `/pipeline` Step 0 Charter Discovery; preferred for new projects)
-4. `docs/prp.md` → legacy new-project path (after deprecated `/interview-prp` + `/clear`)
+4. `docs/prp.md` → legacy new-project path (PRP-style input)
 5. Review findings → follow the `**Review:**` pointer from progress.md, or check for `docs/review*.md` files. If this follows a `/review` cycle, incorporate findings into the plan.
 
 If neither the analysis file nor `charter.md` nor `prp.md` exists, stop and output:
-> "No analysis, charter, or PRP found. Run `/analyze` for an existing project or `/pipeline` Step 0 for a new project first. (Legacy `/interview-prp` is deprecated but still installed.)"
+> "No analysis, charter, or PRP found. Run `/analyze` for an existing project or `/pipeline` Step 0 for a new project first."
 
 Also read `.claude/CLAUDE.md` for project-specific constraints (if it exists).
 

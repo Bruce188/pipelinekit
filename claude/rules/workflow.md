@@ -55,7 +55,7 @@ When `--no-parallel` is present on `/implement-plan`:
 1. Scaffold + `.claude/CLAUDE.md` + `.gitignore`. Claude exclusions → `.git/info/exclude`.
    - **Base branch init:** If no git repo exists: `git init && git checkout -b main && git commit --allow-empty -m "init: empty base"`. If a repo exists but has no `main` or `master` branch and no remote: `git branch main $(git rev-list --max-parents=0 HEAD | tail -1)` to create `main` at the first commit. Feature branches are created later by `/new-branch`.
 2. Check tools: `~/.claude/skills/`, `~/.claude/agents/`, MCPs. Ask about tool libraries (`~/claude-library/`, `~/claude-skills/`, `~/.claude/tresor-resources/`).
-3. Run `/pipeline` and step through Charter Discovery (Step 0) to capture requirements as `docs/charter.md`. (Legacy `/interview-prp` is deprecated but still installed for one release.)
+3. Run `/pipeline` and step through Charter Discovery (Step 0) to capture requirements as `docs/charter.md`.
 
 **Existing project / defined task — pre-check:**
 Before running `/analyze`, verify a base branch exists using the Base Branch Detection snippet (see § Base Branch Detection below). If detection fails and there's no remote, prompt the user to create one: `git branch main <first-commit-hash>`. This prevents `/review` from blocking later in the pipeline.
@@ -101,7 +101,6 @@ Not all pipeline transitions need `/clear`. Use the right tool for each transiti
 | From | To | Action | Reason |
 |------|----|--------|--------|
 | `/pipeline` Step 0 | `/create-plan` | `/compact` | Charter Discovery output is the input — keep in context |
-| `/interview-prp` (deprecated) | `/create-plan` | `/compact` | Legacy PRP path — use `/pipeline` Step 0 going forward |
 | `/analyze` | `/create-plan` | `/compact` | Analysis output is the input — keep in context |
 | `/create-plan` | `/new-branch` | (none) | Trivial operation, context still relevant |
 | `/new-branch` | `/implement-plan` | `/clear` | Fresh context for implementation, plan is on disk |
@@ -254,7 +253,6 @@ Compact routing table for each pipeline phase. Native tools (Read, Write, Edit, 
 
 | Phase | MCPs | Agent Types | Sub-Skills | Memory Reads | Hooks | WorkerProvider |
 |-------|------|-------------|------------|--------------|-------|----------------|
-| `/interview-prp` (DEPRECATED — use `/pipeline` Step 0) | — | — | — | `user_profile.md` | block-stage-sensitive, block-dangerous-commands | — |
 | `/analyze` | context7 (resolve + query), local-rag (query + ingest) | — | — | `user_profile.md`, `feedback_plan_trust.md`, `reference_claude_skills.md`, `reference_tresor.md` | block-stage-sensitive, block-dangerous-commands | — |
 | `/create-plan` | context7 (resolve + query), local-rag (query) | — | — | `feedback_workflow.md`, `feedback_plan_trust.md`, `project_env_cleanup.md` | block-stage-sensitive | — |
 | `/implement-plan` | context7 (API lookups), local-rag (query per phase), RepoMapper (structural nav), sequential-thinking (complex logic) | tdd-test-writer, tdd-implementer, worktree agents, docs-writer, trading-bot-developer, data-pipeline-engineer | `/simplify` | `feedback_worktree_commit.md`, `feedback_parallel_sessions.md`, `feedback_hooks_jq.md` | pre-edit-protect, tdd-order-check, post-edit-format, test-logger, block-stage-sensitive, block-dangerous-commands, stop-completion-gate | WorkerProvider (claude default) |
@@ -269,7 +267,7 @@ How acquired memories (`~/.claude/projects/<project-slug>/memory/`) inform each 
 
 | Memory File | Phases | How It's Used |
 |-------------|--------|---------------|
-| `user_profile.md` | analyze, interview-prp (deprecated) | Tailors question depth and phrasing to user's role and expertise. Charter Discovery (`/pipeline` Step 0) does not re-read this memory yet. |
+| `user_profile.md` | analyze | Tailors question depth and phrasing to user's role and expertise. |
 | `feedback_plan_trust.md` | analyze, create-plan | Avoids over-exploration; sets plan detail level (from a past over-exploration incident) |
 | `feedback_workflow.md` | create-plan | Respects user preference for explicit agent control vs auto-spawning |
 | `feedback_worktree_commit.md` | implement-plan | Ensures worktree agents commit before reporting done |
@@ -312,6 +310,6 @@ The vendored `claude/lib/agentmemory/` skeleton enables a structured-retrieval l
 ## Per-Project Evaluation
 
 - **Anti-rationalization hook**: For complex multi-phase projects (adds latency per tool call).
-- **On-demand skills**: Charter Discovery via `/pipeline` Step 0 for product discovery (legacy `/interview-prp` deprecated — PRP-style artifact still available there), `/ascii-diagram` for architecture.
+- **On-demand skills**: Charter Discovery via `/pipeline` Step 0 for product discovery, `/ascii-diagram` for architecture.
 - **Context status line**: Real-time context usage monitoring via `/statusline`.
 - **LSP plugins**: `pyright-lsp` active globally. Per-project: `typescript-lsp`, `csharp-lsp`, etc.

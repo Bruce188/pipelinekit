@@ -19,7 +19,7 @@ allowed-tools:
 
 Scoped analysis for an existing project or defined task. Produces `docs/analysis.md` as input for `/create-plan`.
 
-New-project discovery: prefer `/pipeline` Step 0 (Charter Discovery) which writes `docs/charter.md`. Legacy `/interview-prp` is deprecated but still installed. This `/analyze` skill is a quick scope check for existing work.
+New-project discovery: prefer `/pipeline` Step 0 (Charter Discovery) which writes `docs/charter.md`. This `/analyze` skill is a quick scope check for existing work.
 
 ---
 
@@ -82,7 +82,7 @@ In this order:
 1. `.claude/CLAUDE.md` — project-specific rules and constraints
 2. `docs/progress.md` — in-progress or completed tasks (don't re-analyze done work)
 3. `docs/charter.md` — if this follows `/pipeline` Step 0 Charter Discovery (preferred for new projects)
-4. `docs/prp.md` — legacy: if this follows a prior `/interview-prp` (deprecated)
+4. `docs/prp.md` — legacy PRP-style input (if present)
 5. Root `CLAUDE.md` — if no `.claude/CLAUDE.md` exists
 
 ---
