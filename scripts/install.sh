@@ -59,8 +59,8 @@ import json, os, sys
 
 h = sys.argv[1]
 
-def hook(cmd):
-    return [{"type": "command", "command": cmd}]
+def hook(cmd, args=None):
+    return [{"type": "command", "command": cmd, "args": args or []}]
 
 settings = {
     "hooks": {
@@ -84,6 +84,7 @@ settings = {
             {"matcher": "Write",      "hooks": hook(f"{h}/hooks/block-bare-repo-markers.py")},
             {"matcher": "Bash",       "hooks": [{"type": "command",
                                                   "command": f"{h}/skills/openhuman/handler.sh",
+                                                  "args": [],
                                                   "if": "Bash(git merge --squash *)"}]}
         ],
         "PostCompact": [
