@@ -86,3 +86,216 @@ if [ $fail -ne 0 ]; then
 fi
 echo ""
 echo "all pass"
+
+# ---------------------------------------------------------------------------
+# Runtime injection assertions (AC3, AC4, AC5, AC9, AC10, AC11)
+#
+# Each branch sources a provider, invokes sandbox_enter with a shell-metachar
+# payload as a single argv element, and asserts the side-effect file was NOT
+# created. Because all providers use exec-style argv dispatch (exec "$@" for
+# worktree-only, "${prefix[@]}" "$@" for podman/docker), the payload is passed
+# as a literal string to /bin/echo — the shell never sees it as code.
+# ---------------------------------------------------------------------------
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROVIDERS_DIR="$SCRIPT_DIR/../providers"
+
+wt_status="SKIP"
+podman_status="SKIP"
+docker_status="SKIP"
+
+runtime_fail=0
+
+# assert_no_injection <provider-name> <provider-source-path>
+#   Sources the provider, invokes sandbox_enter with a shell-injection payload,
+#   and asserts the side-effect file was NOT created.
+#   Sets the named status variable in the caller's scope via eval.
+assert_no_injection_worktree() {
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  # Cleanup on return — works in both success and failure paths.
+  # shellcheck disable=SC2064
+  trap "rm -rf '$tmpdir'" RETURN
+
+  # Construct payload: when passed as a single argv element to /bin/echo,
+  # this string must reach /bin/echo verbatim. If the provider were using
+  # sh -c or eval it would re-tokenize and execute the touch command.
+  local payload="hello'; touch ${tmpdir}/pwned; echo '"
+
+  # Source the provider in a subshell to avoid leaking sandbox_enter.
+  (
+    # shellcheck source=/dev/null
+    source "${PROVIDERS_DIR}/worktree-only.sh"
+    sandbox_enter "$tmpdir" /bin/echo "$payload" >/dev/null
+  )
+  local rc=$?
+
+  if [ "$rc" -ne 0 ]; then
+    echo "FAIL: worktree-only sandbox_enter exited non-zero (rc=$rc)"
+    return 1
+  fi
+
+  if [ -e "$tmpdir/pwned" ]; then
+    echo "FAIL: worktree-only runtime injection — $tmpdir/pwned was created (exec-argv boundary violated)"
+    return 1
+  fi
+
+  echo "PASS: worktree-only runtime injection asserted (no $tmpdir/pwned)"
+  return 0
+}
+
+assert_no_injection_podman() {
+  # Skip checks
+  command -v podman >/dev/null 2>&1 || { echo "SKIP podman not on PATH"; return 0; }
+
+  local image="${SANDBOX_PODMAN_IMAGE:-${PIPELINEKIT_SANDBOX_TAG:-localhost/pipelinekit/sandbox-base:latest}}"
+  podman image inspect "$image" >/dev/null 2>&1 || { echo "SKIP no sandbox image ($image)"; return 0; }
+
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  # shellcheck disable=SC2064
+  trap "rm -rf '$tmpdir'" RETURN
+
+  # Sentinel bind-mount probe: write a 1-byte file from inside the container.
+  # If the bind-mount is broken (SELinux relabel, rootless uid mapping, etc.)
+  # the touch inside the container would silently fail — which would also
+  # cause the payload's touch to silently fail, producing a false PASS.
+  # We must probe first and SKIP rather than false-PASS.
+  if ! podman run --rm \
+       --userns=keep-id \
+       --volume "$tmpdir:$tmpdir:rw,Z" \
+       --workdir "$tmpdir" \
+       "$image" \
+       /bin/sh -c "touch ${tmpdir}/sentinel" >/dev/null 2>&1; then
+    echo "SKIP podman cannot write to bind mount in this environment"
+    return 0
+  fi
+  if [ ! -e "$tmpdir/sentinel" ]; then
+    echo "SKIP podman cannot write to bind mount in this environment"
+    return 0
+  fi
+
+  local payload="hello'; touch ${tmpdir}/pwned; echo '"
+
+  # Source provider in subshell to avoid leaking sandbox_enter definitions.
+  (
+    export SANDBOX_PODMAN_IMAGE="$image"
+    # shellcheck source=/dev/null
+    source "${PROVIDERS_DIR}/podman.sh"
+    sandbox_enter "$tmpdir" /bin/echo "$payload" >/dev/null
+  )
+  local rc=$?
+
+  if [ "$rc" -ne 0 ]; then
+    echo "FAIL: podman sandbox_enter exited non-zero (rc=$rc)"
+    return 1
+  fi
+
+  if [ -e "$tmpdir/pwned" ]; then
+    echo "FAIL: podman runtime injection — $tmpdir/pwned was created (exec-argv boundary violated)"
+    return 1
+  fi
+
+  echo "PASS: podman runtime injection asserted (no $tmpdir/pwned)"
+  return 0
+}
+
+assert_no_injection_docker() {
+  # Skip checks
+  command -v docker >/dev/null 2>&1 || { echo "SKIP docker not on PATH"; return 0; }
+
+  local image="${SANDBOX_DOCKER_IMAGE:-${PIPELINEKIT_SANDBOX_TAG:-localhost/pipelinekit/sandbox-base:latest}}"
+  docker image inspect "$image" >/dev/null 2>&1 || { echo "SKIP no sandbox image ($image)"; return 0; }
+
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  # shellcheck disable=SC2064
+  trap "rm -rf '$tmpdir'" RETURN
+
+  # Sentinel bind-mount probe — same logic as podman branch.
+  if ! docker run --rm \
+       --volume "$tmpdir:$tmpdir:rw" \
+       --workdir "$tmpdir" \
+       "$image" \
+       /bin/sh -c "touch ${tmpdir}/sentinel" >/dev/null 2>&1; then
+    echo "SKIP docker cannot write to bind mount in this environment"
+    return 0
+  fi
+  if [ ! -e "$tmpdir/sentinel" ]; then
+    echo "SKIP docker cannot write to bind mount in this environment"
+    return 0
+  fi
+
+  local payload="hello'; touch ${tmpdir}/pwned; echo '"
+
+  (
+    export SANDBOX_DOCKER_IMAGE="$image"
+    # shellcheck source=/dev/null
+    source "${PROVIDERS_DIR}/docker.sh"
+    sandbox_enter "$tmpdir" /bin/echo "$payload" >/dev/null
+  )
+  local rc=$?
+
+  if [ "$rc" -ne 0 ]; then
+    echo "FAIL: docker sandbox_enter exited non-zero (rc=$rc)"
+    return 1
+  fi
+
+  if [ -e "$tmpdir/pwned" ]; then
+    echo "FAIL: docker runtime injection — $tmpdir/pwned was created (exec-argv boundary violated)"
+    return 1
+  fi
+
+  echo "PASS: docker runtime injection asserted (no $tmpdir/pwned)"
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# Run the three runtime branches and collect statuses.
+# ---------------------------------------------------------------------------
+
+_wt_out=$(assert_no_injection_worktree 2>&1)
+echo "$_wt_out"
+if echo "$_wt_out" | grep -q "^PASS:"; then
+  wt_status="PASS"
+elif echo "$_wt_out" | grep -q "^SKIP"; then
+  wt_status="SKIP"
+else
+  wt_status="FAIL"
+  runtime_fail=1
+fi
+
+_podman_out=$(assert_no_injection_podman 2>&1)
+echo "$_podman_out"
+if echo "$_podman_out" | grep -q "^PASS:"; then
+  podman_status="PASS"
+elif echo "$_podman_out" | grep -q "^SKIP"; then
+  podman_status="SKIP"
+else
+  podman_status="FAIL"
+  runtime_fail=1
+fi
+
+_docker_out=$(assert_no_injection_docker 2>&1)
+echo "$_docker_out"
+if echo "$_docker_out" | grep -q "^PASS:"; then
+  docker_status="PASS"
+elif echo "$_docker_out" | grep -q "^SKIP"; then
+  docker_status="SKIP"
+else
+  docker_status="FAIL"
+  runtime_fail=1
+fi
+
+echo ""
+echo "runtime: worktree=$wt_status, podman=$podman_status, docker=$docker_status"
+
+if [ "$wt_status" = "SKIP" ] && [ "$podman_status" = "SKIP" ] && [ "$docker_status" = "SKIP" ]; then
+  echo "WARNING: all three runtime branches SKIPped — runtime injection assertion was not actually exercised" >&2
+fi
+
+if [ "$runtime_fail" -ne 0 ]; then
+  echo ""
+  echo "RUNTIME INJECTION TEST FAILED"
+  exit 1
+fi
