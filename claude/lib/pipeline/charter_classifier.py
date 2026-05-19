@@ -5,7 +5,7 @@ Classifies review findings against the charter Non-Goals + MVP Boundary into in_
 Public surface:
     classify_finding(finding, charter_sections)         -> str
     classify_findings(findings, charter_text)           -> list[dict]
-    classifier_should_skip(progress_md_path, charter_path) -> tuple[bool, str]
+    classifier_should_skip(progress_md_path) -> tuple[bool, str]
     DEPLOYMENT_PROVIDER_TOKENS                          -> dict[str, frozenset[str]]
 
 F14 extension — deployment-target mismatch (Topic 10):
@@ -333,19 +333,19 @@ def classify_finding(finding: dict, charter_sections: dict) -> str:
 
     # Rule 3a — `**In:**` bullets, short-circuit on hit.
     mvp_in_phrases = _surviving_phrases(_extract_in_bullets(mvp_body))
-    for _normalized, phrase_tokens in mvp_in_phrases:
+    for _, phrase_tokens in mvp_in_phrases:
         if _phrase_matches_blob(phrase_tokens, blob_tokens):
             return _tag_for_match(severity, "mvp_in")
 
     # Rule 3b — Non-Goal bullets, severity-aware.
     non_goal_phrases = _surviving_phrases(_extract_non_goal_bullets(non_goals_body))
-    for _normalized, phrase_tokens in non_goal_phrases:
+    for _, phrase_tokens in non_goal_phrases:
         if _phrase_matches_blob(phrase_tokens, blob_tokens):
             return _tag_for_match(severity, "non_goal")
 
     # Rule 3c — `**Out (deferred):**` bullets, severity-agnostic.
     mvp_out_phrases = _surviving_phrases(_extract_out_deferred_bullets(mvp_body))
-    for _normalized, phrase_tokens in mvp_out_phrases:
+    for _, phrase_tokens in mvp_out_phrases:
         if _phrase_matches_blob(phrase_tokens, blob_tokens):
             return _tag_for_match(severity, "mvp_out")
 
@@ -477,7 +477,6 @@ def classify_findings(
         return list(findings)
 
     sections = parse_charter_sections(charter_text)
-    is_unset = two_axis is _TWO_AXIS_UNSET
 
     decorated: List[dict] = []
     for finding in findings:
@@ -498,7 +497,6 @@ def classify_findings(
 
 def classifier_should_skip(
     progress_md_path: str = "docs/progress.md",
-    charter_path: str = "docs/charter.md",
 ) -> Tuple[bool, str]:
     """Inline skip-check (analysis-v25 § 6). Returns ``(skip_bool, log_line)``.
 
@@ -511,11 +509,6 @@ def classifier_should_skip(
     The canonical log token is
     ``"CHARTER_ABSENT_CLASSIFIER_SKIPPED: <reason>"``. When skip is False the
     second element is the empty string.
-
-    ``charter_path`` is the fallback used only when the progress.md pointer
-    is absent or empty (it is NOT consulted when the pointer parses cleanly;
-    the pointer takes precedence so the per-pipeline charter wiring stays
-    authoritative).
     """
     if not os.path.exists(progress_md_path):
         return (True, "CHARTER_ABSENT_CLASSIFIER_SKIPPED: progress.md not found")
