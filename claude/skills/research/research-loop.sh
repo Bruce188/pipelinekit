@@ -54,6 +54,53 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 COST_LOG="claude/hooks/cost_log.py"
 
 # ---------------------------------------------------------------------------
+# Sandbox envelope — source provider library and resolve active backend.
+# Mirrors claude/skills/pipeline/orchestrate.sh lines 35-53. Inline copy of
+# sandbox_wrap follows below; extraction to a shared lib is deferred (see
+# analysis-v54 §6 Option B) until a third caller appears.
+# ---------------------------------------------------------------------------
+_LOOP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+LIB_DIR="$(cd "$_LOOP_DIR/../../lib/sandbox" && pwd)"
+# shellcheck source=../../lib/sandbox/SandboxProvider.sh
+. "$LIB_DIR/SandboxProvider.sh"
+__provider="$(provider_detect)"
+case "$__provider" in
+  podman|docker|worktree-only)
+    # shellcheck disable=SC1090
+    . "$LIB_DIR/providers/${__provider}.sh"
+    ;;
+  *)
+    echo "research-loop.sh: unknown provider '$__provider'" >&2
+    return 1 2>/dev/null || exit 1
+    ;;
+esac
+
+# Inline copy of claude/skills/pipeline/orchestrate.sh sandbox_wrap (lines
+# 69-83). Underscore prefix signals "local helper, do not import". Keep
+# bodies in sync until a shared claude/lib/sandbox/sandbox_wrap.sh is extracted.
+_sandbox_wrap() {
+  local task_id="${1:?task id required}"
+  local worktree="${2:?worktree path required}"
+  shift 2
+  local image rc
+  image="${SANDBOX_PODMAN_IMAGE:-${SANDBOX_DOCKER_IMAGE:-${PIPELINEKIT_SANDBOX_TAG:-none}}}"
+  if [ "$__provider" = "worktree-only" ]; then
+    image="none"
+  fi
+  echo "SANDBOX_ENTER: provider=$__provider, task=$task_id, image=$image" >&2
+  sandbox_enter "$worktree" "$@"
+  rc=$?
+  sandbox_exit "$task_id" || true
+  return "$rc"
+}
+
+# ---------------------------------------------------------------------------
+# Allow tests to source this file for unit-testing the inline helpers without
+# running the main loop. The sentinel must be set BEFORE sourcing.
+# ---------------------------------------------------------------------------
+[[ "${RESEARCH_LOOP_NO_RUN:-0}" = "1" ]] && return 0 2>/dev/null
+
+# ---------------------------------------------------------------------------
 # Arg parser
 # ---------------------------------------------------------------------------
 GOAL=""
@@ -487,7 +534,7 @@ Do not modify any file other than $TARGET_FILE."
   # --- Invoke claude -p (mutate step) — aggregation always runs in-session ---
   CLAUDE_OUTPUT=""
   MUTATION_EXIT=0
-  if ! CLAUDE_OUTPUT=$(claude -p --output-format json "$HYPOTHESIS_PROMPT" 2>"$ITER_LOG"); then
+  if ! CLAUDE_OUTPUT=$(_sandbox_wrap "research-iter-${iter}" "$REPO_ROOT" claude -p --output-format json "$HYPOTHESIS_PROMPT" 2>"$ITER_LOG"); then
     MUTATION_EXIT=$?
   fi
 
