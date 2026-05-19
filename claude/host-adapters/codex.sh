@@ -38,7 +38,7 @@ TASK_ID=""
 OUTPUT_DIR=""
 if echo "$PROMPT_FILE" | grep -qE '\.claude/tasks/([^/]+)/'; then
   TASK_ID=$(echo "$PROMPT_FILE" | sed -E 's|.*\.claude/tasks/([^/]+)/.*|\1|')
-  OUTPUT_DIR="$(dirname "$PROMPT_FILE")/../output"
+  OUTPUT_DIR="$(dirname "$PROMPT_FILE")/output"
   OUTPUT_DIR=$(realpath "$OUTPUT_DIR" 2>/dev/null || echo "$OUTPUT_DIR")
   mkdir -p "$OUTPUT_DIR"
 fi
@@ -50,15 +50,19 @@ ARGS=()
 
 # Run codex exec, capturing stdout and stderr
 if [ -n "$OUTPUT_DIR" ]; then
-  codex exec "${ARGS[@]}" < "$PROMPT_FILE" \
+  EC=0
+  codex exec "${ARGS[@]}" "$(cat "$PROMPT_FILE")" \
     > "$OUTPUT_DIR/stdout" \
     2> "$OUTPUT_DIR/stderr" \
-    ; EC=$?
+    || EC=$?
   echo "$EC" > "$OUTPUT_DIR/exit"
   # Also write to the canonical output-file
   cp "$OUTPUT_DIR/stdout" "$OUTPUT_FILE"
   exit "$EC"
 else
-  # No task-id derivable — write only to <output-file>
-  codex exec "${ARGS[@]}" < "$PROMPT_FILE" > "$OUTPUT_FILE"
+  # No task-id derivable — write only to <output-file>;
+  # stderr passes through to caller, exit code is captured + propagated.
+  EC=0
+  codex exec "${ARGS[@]}" "$(cat "$PROMPT_FILE")" > "$OUTPUT_FILE" || EC=$?
+  exit "$EC"
 fi
