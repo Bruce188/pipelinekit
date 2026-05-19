@@ -1,0 +1,182 @@
+<!-- snippet:chooser-quiz
+     Multi-step decision tree. Default question set: "Which deployment
+     provider fits my workload?". Pass data-question-set="install" to
+     switch to the per-platform install chooser.
+
+     Placeholder usage:
+       <div data-snippet="chooser-quiz"></div>
+       <div data-snippet="chooser-quiz" data-question-set="install"></div>
+-->
+<div class="pkit-chooser" data-snippet-mount="chooser-quiz" data-question-set="deploy">
+  <style>
+    .pkit-chooser { margin: 1.5rem 0; padding: 1.5rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); }
+    .pkit-chooser .pkit-cq-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1rem; }
+    .pkit-chooser .pkit-cq-title { font-size: 1.05rem; font-weight: 600; color: var(--fg); margin: 0; }
+    .pkit-chooser .pkit-cq-progress { font-family: var(--mono); font-size: 0.78rem; color: var(--fg-muted); }
+    .pkit-chooser .pkit-cq-bar { height: 4px; background: var(--border); border-radius: 2px; margin-bottom: 1.2rem; overflow: hidden; }
+    .pkit-chooser .pkit-cq-bar-fill { height: 100%; background: var(--accent); transition: width 200ms ease; border-radius: 2px; }
+    .pkit-chooser .pkit-cq-question { font-size: 1rem; font-weight: 600; margin: 0 0 0.9rem; color: var(--fg); }
+    .pkit-chooser .pkit-cq-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.6rem; }
+    .pkit-chooser .pkit-cq-option { padding: 0.8rem 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; text-align: left; transition: all var(--transition); font-family: var(--sans); font-size: 0.88rem; color: var(--fg); display: flex; flex-direction: column; gap: 0.25rem; }
+    .pkit-chooser .pkit-cq-option:hover { border-color: var(--accent); background: var(--accent-soft); transform: translateY(-1px); }
+    .pkit-chooser .pkit-cq-option .label { font-weight: 600; }
+    .pkit-chooser .pkit-cq-option .hint { font-size: 0.75rem; color: var(--fg-muted); }
+    .pkit-chooser .pkit-cq-actions { margin-top: 1rem; display: flex; gap: 0.5rem; }
+    .pkit-chooser .pkit-cq-btn { padding: 0.4rem 0.9rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--fg-muted); font-family: var(--sans); font-size: 0.82rem; cursor: pointer; transition: all var(--transition); }
+    .pkit-chooser .pkit-cq-btn:hover { color: var(--fg); border-color: var(--accent); }
+    .pkit-chooser .pkit-cq-result { padding: 1.2rem; background: var(--bg); border: 1px solid var(--accent); border-radius: var(--radius); }
+    .pkit-chooser .pkit-cq-result .pkit-cq-r-pick { font-size: 1.4rem; font-weight: 700; color: var(--accent); margin: 0 0 0.4rem; display: flex; align-items: center; gap: 0.5rem; }
+    .pkit-chooser .pkit-cq-result .pkit-cq-r-pick svg { width: 24px; height: 24px; }
+    .pkit-chooser .pkit-cq-result .pkit-cq-r-why { font-size: 0.92rem; color: var(--fg); line-height: 1.55; margin: 0.4rem 0; }
+    .pkit-chooser .pkit-cq-result .pkit-cq-r-runners { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0.6rem 0 0; }
+    .pkit-chooser .pkit-cq-result .pkit-cq-r-runner { font-size: 0.8rem; padding: 0.1rem 0.55rem; border-radius: 999px; background: var(--bg-elev); border: 1px solid var(--border); color: var(--fg-muted); }
+    .pkit-chooser .pkit-cq-result a.pkit-cq-r-link { display: inline-block; margin-top: 0.6rem; font-weight: 600; }
+    .pkit-chooser .pkit-cq-trail { font-family: var(--mono); font-size: 0.78rem; color: var(--fg-subtle); margin-top: 0.8rem; }
+  </style>
+
+  <div class="pkit-cq-header">
+    <h3 class="pkit-cq-title" id="pkit-cq-title">Quiz</h3>
+    <span class="pkit-cq-progress" id="pkit-cq-progress">Question 1</span>
+  </div>
+  <div class="pkit-cq-bar"><div class="pkit-cq-bar-fill" id="pkit-cq-bar-fill" style="width: 0"></div></div>
+  <div id="pkit-cq-body"></div>
+</div>
+
+<script type="application/json" id="pkit-cq-data-deploy">
+{
+  "title": "Which deployment provider fits my project?",
+  "questions": [
+    {"key": "type", "prompt": "What are you deploying?", "options": [
+      {"value": "frontend", "label": "Frontend / static site / SSR app", "hint": "Next.js, SvelteKit, Astro, plain static"},
+      {"value": "fullstack", "label": "Full-stack web app", "hint": "API + DB + frontend together"},
+      {"value": "worker", "label": "Background worker / cron", "hint": "Long-running jobs, queue consumer"},
+      {"value": "containerized", "label": "Already-containerized service", "hint": "I have a Dockerfile, want it deployed"}
+    ]},
+    {"key": "budget", "prompt": "Budget tier?", "options": [
+      {"value": "free", "label": "Free tier only", "hint": "Just experimenting"},
+      {"value": "low", "label": "$5-50 / month", "hint": "Small side project"},
+      {"value": "scale", "label": "$50+ / month", "hint": "Production with real traffic"}
+    ]},
+    {"key": "complexity", "prompt": "How much infra control do you want?", "options": [
+      {"value": "minimal", "label": "Minimal — just deploy", "hint": "Push code, get URL"},
+      {"value": "moderate", "label": "Moderate — config files OK", "hint": "vercel.json / railway.toml"},
+      {"value": "full", "label": "Full IaC", "hint": "Bicep / Terraform / ARM"}
+    ]}
+  ],
+  "recommend": [
+    {"match": {"type": "frontend"}, "pick": "Vercel", "icon": "▲", "why": "Vercel is purpose-built for Next.js/SvelteKit/Astro. Zero config for those frameworks; edge-deployed by default; preview URLs per branch.", "runners": ["Edge", "Serverless", "ISR"], "link": "deployment-vercel.html"},
+    {"match": {"type": "fullstack", "budget": "free"}, "pick": "Railway", "icon": "⚡", "why": "Railway has the smoothest free tier for full-stack apps — provisions Postgres / Redis / workers from a single dashboard with zero Dockerfile needed.", "runners": ["Nixpacks", "Postgres", "Redis"], "link": "deployment-railway.html"},
+    {"match": {"type": "fullstack", "budget": "low"}, "pick": "Render", "icon": "🎨", "why": "Render handles full-stack on a small budget cleanly. Managed Postgres + Redis + workers in one platform with predictable per-service pricing.", "runners": ["Native runtime", "Docker", "Managed DBs"], "link": "deployment-render.html"},
+    {"match": {"type": "fullstack", "budget": "scale"}, "pick": "Azure", "icon": "☁", "why": "At scale, Azure offers App Service, Container Apps, Function Apps, plus AKS for full Kubernetes. Best for teams already on the Microsoft stack.", "runners": ["App Service", "Container Apps", "Function Apps", "AKS"], "link": "deployment-azure.html"},
+    {"match": {"type": "containerized", "complexity": "moderate"}, "pick": "DigitalOcean App Platform", "icon": "🌊", "why": "DO App Platform is the cleanest container-deploy story when you already have a Dockerfile. Predictable pricing, good defaults, doctl CLI.", "runners": ["Docker", "Buildpacks", "Managed DBs"], "link": "deployment-digitalocean.html"},
+    {"match": {"type": "containerized", "complexity": "full"}, "pick": "Azure", "icon": "☁", "why": "For full IaC (Bicep / ARM / Terraform) over containers, Azure Container Apps + AKS give the most control without leaving the autonomous /pipeline flow.", "runners": ["Container Apps", "AKS", "Bicep IaC"], "link": "deployment-azure.html"},
+    {"match": {"type": "worker"}, "pick": "Railway", "icon": "⚡", "why": "Railway has first-class support for cron + workers next to your web service in the same project. Easiest worker deploy in the lineup.", "runners": ["Workers", "Cron triggers"], "link": "deployment-railway.html"},
+    {"match": {}, "pick": "Vercel", "icon": "▲", "why": "Fallback recommendation. Vercel works well for most web workloads.", "runners": ["Edge", "Serverless"], "link": "deployment-vercel.html"}
+  ]
+}
+</script>
+
+<script type="application/json" id="pkit-cq-data-install">
+{
+  "title": "How should I install pipelinekit?",
+  "questions": [
+    {"key": "where", "prompt": "Where will you run it?", "options": [
+      {"value": "local-linux", "label": "Local Linux", "hint": "Ubuntu / Debian / Arch"},
+      {"value": "local-mac", "label": "Local macOS", "hint": "Apple Silicon or Intel"},
+      {"value": "local-windows", "label": "Local Windows + WSL2", "hint": "Recommended for Windows"},
+      {"value": "cloud", "label": "Cloud VPS", "hint": "Oracle, Hetzner, fresh VM"},
+      {"value": "codespaces", "label": "GitHub Codespaces", "hint": "Cloud devcontainer"}
+    ]},
+    {"key": "purpose", "prompt": "Primary use?", "options": [
+      {"value": "evaluate", "label": "Evaluate quickly", "hint": "Just want to try /pipeline"},
+      {"value": "daily", "label": "Daily driver", "hint": "Use on real projects"},
+      {"value": "fleet", "label": "Team / fleet of VMs", "hint": "Reproducible install across machines"}
+    ]}
+  ],
+  "recommend": [
+    {"match": {"where": "cloud"}, "pick": "Cloud bootstrap script", "icon": "☁", "why": "Run the Oracle Cloud or Hetzner one-liner. Both are idempotent; secrets read from env, never baked in.", "runners": ["Oracle ARM A1", "Hetzner CX22", "cloud-init"], "link": "cloud-setup.html"},
+    {"match": {"where": "codespaces"}, "pick": "Codespaces (zero setup)", "icon": "▣", "why": "Open the repo in Codespaces. The devcontainer post-create runs install.sh automatically. Best for evaluation with zero local install.", "runners": ["Devcontainer", "post-create"], "link": "installation.html"},
+    {"match": {"where": "local-windows"}, "pick": "WSL2 + scripts/install.sh", "icon": "🪟", "why": "Pipelinekit assumes POSIX. Run install.sh inside WSL2 (Ubuntu), not Git Bash. Claude Code itself can run from either side.", "runners": ["WSL2 Ubuntu", "install.sh"], "link": "installation.html"},
+    {"match": {"where": "local-mac"}, "pick": "scripts/install.sh", "icon": "🍎", "why": "Standard local install: clone, cd, run scripts/install.sh. Idempotent; re-run to update.", "runners": ["bash", "homebrew (optional)"], "link": "installation.html"},
+    {"match": {"where": "local-linux"}, "pick": "scripts/install.sh", "icon": "🐧", "why": "Standard local install. Apt-based systems auto-install Azure CLI; other distros print install hints.", "runners": ["bash", "apt (auto-detect)"], "link": "installation.html"},
+    {"match": {"purpose": "fleet"}, "pick": "Cloud-init via cloud bootstrap", "icon": "⚙", "why": "For fleet provisioning, use the cloud-init YAMLs that the Oracle / Hetzner bootstrap scripts wrap. Reproducible across many VMs.", "runners": ["cloud-init YAML", "Terraform-friendly"], "link": "cloud-setup.html"},
+    {"match": {}, "pick": "scripts/install.sh", "icon": "📦", "why": "Default recommendation: clone the repo and run scripts/install.sh.", "runners": ["bash"], "link": "installation.html"}
+  ]
+}
+</script>
+
+<script>
+(function() {
+  'use strict';
+  const quizzes = document.querySelectorAll('.pkit-chooser[data-snippet-mount="chooser-quiz"]');
+  const q = quizzes[quizzes.length - 1];
+  if (!q || q.dataset.pkitInit) return;
+  q.dataset.pkitInit = '1';
+
+  const set = q.dataset.questionSet || 'deploy';
+  const dataEl = q.querySelector(`#pkit-cq-data-${set}`);
+  if (!dataEl) {
+    q.querySelector('#pkit-cq-body').innerHTML = `<p>(unknown question set: ${set})</p>`;
+    return;
+  }
+  const data = JSON.parse(dataEl.textContent);
+  const body = q.querySelector('#pkit-cq-body');
+  const progress = q.querySelector('#pkit-cq-progress');
+  const bar = q.querySelector('#pkit-cq-bar-fill');
+  q.querySelector('#pkit-cq-title').textContent = data.title;
+
+  let step = 0;
+  const answers = {};
+
+  function render() {
+    if (step < data.questions.length) {
+      const question = data.questions[step];
+      progress.textContent = `Question ${step + 1} of ${data.questions.length}`;
+      bar.style.width = ((step) / data.questions.length * 100) + '%';
+      let html = `<p class="pkit-cq-question">${question.prompt}</p><div class="pkit-cq-options">`;
+      question.options.forEach(opt => {
+        html += `<button class="pkit-cq-option" data-value="${opt.value}">
+                   <span class="label">${opt.label}</span>
+                   <span class="hint">${opt.hint || ''}</span>
+                 </button>`;
+      });
+      html += `</div>`;
+      if (step > 0) {
+        html += `<div class="pkit-cq-actions"><button class="pkit-cq-btn" data-act="back">← Back</button></div>`;
+      }
+      body.innerHTML = html;
+      body.querySelectorAll('.pkit-cq-option').forEach(b => {
+        b.addEventListener('click', () => { answers[question.key] = b.dataset.value; step++; render(); });
+      });
+      const back = body.querySelector('[data-act="back"]');
+      if (back) back.addEventListener('click', () => { step--; render(); });
+    } else {
+      // Find matching recommendation
+      progress.textContent = `Result`;
+      bar.style.width = '100%';
+      const match = data.recommend.find(r => {
+        return Object.entries(r.match).every(([k, v]) => answers[k] === v);
+      }) || data.recommend[data.recommend.length - 1];
+      const runnersHtml = match.runners.map(r => `<span class="pkit-cq-r-runner">${r}</span>`).join('');
+      const trail = Object.entries(answers).map(([k, v]) => `${k}=${v}`).join(' · ');
+      body.innerHTML = `
+        <div class="pkit-cq-result">
+          <h3 class="pkit-cq-r-pick">${match.icon || '•'} ${match.pick}</h3>
+          <p class="pkit-cq-r-why">${match.why}</p>
+          <div class="pkit-cq-r-runners">${runnersHtml}</div>
+          ${match.link ? `<a class="pkit-cq-r-link" href="${match.link}">Read the full guide →</a>` : ''}
+          <p class="pkit-cq-trail">Your answers: ${trail}</p>
+        </div>
+        <div class="pkit-cq-actions"><button class="pkit-cq-btn" data-act="restart">↻ Start over</button></div>
+      `;
+      body.querySelector('[data-act="restart"]').addEventListener('click', () => {
+        step = 0;
+        Object.keys(answers).forEach(k => delete answers[k]);
+        render();
+      });
+    }
+  }
+
+  render();
+})();
+</script>

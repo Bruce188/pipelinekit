@@ -65,43 +65,21 @@ RICHNESS_PATTERNS: list[tuple[str, str]] = [
     ("collapsible-details", r'<details(?:\s|>)'),
 ]
 
-# Pages that legitimately cannot be rich (reference / archive content) OR that
-# are baseline-v0.0.1 pending enrichment in a follow-up PR.
+# Pages that legitimately cannot be rich (reference / archive content).
 #
-# The "v0.0.1 baseline" group should be migrated to per-page <!-- richness-exempt: ... -->
-# markers OR (preferably) actually enriched with appropriate snippets. Each page below
-# should be reviewed for the most fitting snippet pattern:
-#   - changelog.html        → timeline-scrubber (filterable by theme + date)
-#   - cloud-setup.html      → chooser-quiz (which provider + which size)
-#   - installation.html     → tutorial-cards (per-platform: Linux / macOS / WSL / Codespaces)
-#   - ci-blacksmith.html    → cost-calculator (runner cost vs GitHub-hosted)
-#   - deployment-*.html (5) → cost-calculator + comparison-tabs (vs other providers)
-#   - github-issues-integration.html → playground (paste a label query, see filtered issues)
-#   - pipeline-charter-revalidation.html → 3-status playground (charter line + repo state)
-#   - ppr-research-flag.html → terminal-simulator (dry-run output preview)
-#   - tsv-viewer.html       → live demo (the viewer IS the rich content; consider auto-pass)
-#   - SKILL-AUTHORING-STANDARD / SKILL_PIPELINE → live-linter (paste SKILL.md, get scored)
+# The v0.0.1 baseline-pending group is now empty — every reader-facing page
+# has been enriched with at least one interactive snippet. New entries here
+# should be rare and require justification (audit reports and vendored
+# attribution are the only natural fits).
 DEFAULT_EXEMPT_FILES: set[str] = {
-    # Legitimately exempt
-    "documentation/docs/NOTICE.html",                                       # Attribution-only
-    "documentation/audits/claude-code-compliance-features-2026-05-18.html", # Archived earlier audit
-    # v0.0.1 baseline — remove from this set as each page is enriched
+    # Vendored attribution — not a reader experience, just a license + SHA pin.
+    "documentation/docs/NOTICE.html",
+    # Archived earlier audit — kept as a historical artifact, not actively maintained.
+    "documentation/audits/claude-code-compliance-features-2026-05-18.html",
+    # Current audit — a linear compliance report; the report format itself is the value.
+    # If we want it interactive (sortable findings table, filter by dimension), remove
+    # from this list and apply a snippet.
     "documentation/audits/claude-code-compliance-2026-05-19.html",
-    "documentation/changelog.html",
-    "documentation/ci-blacksmith.html",
-    "documentation/cloud-setup.html",
-    "documentation/deployment-azure.html",
-    "documentation/deployment-digitalocean.html",
-    "documentation/deployment-railway.html",
-    "documentation/deployment-render.html",
-    "documentation/deployment-vercel.html",
-    "documentation/docs/SKILL-AUTHORING-STANDARD.html",
-    "documentation/docs/SKILL_PIPELINE.html",
-    "documentation/github-issues-integration.html",
-    "documentation/installation.html",
-    "documentation/pipeline-charter-revalidation.html",
-    "documentation/ppr-research-flag.html",
-    "documentation/tsv-viewer.html",
 }
 
 EXEMPT_MARKER_RE = re.compile(r'<!--\s*richness-exempt:\s*([^>]+?)\s*-->', re.IGNORECASE)
