@@ -287,10 +287,28 @@ def _usage() -> None:
     )
 
 
+def _safe_float(v, default=0.0):
+    try:
+        return float(v) if v is not None else default
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_int(v, default=0):
+    try:
+        return int(v) if v is not None else default
+    except (TypeError, ValueError):
+        return default
+
+
 def parse_json_event(path: str, feature: str, phase: str, agent_id: str | None = None) -> int:
     """Read JSON from <path> ('-' for stdin), extract cost_usd + token usage, forward to write_event."""
     try:
-        text = sys.stdin.read() if path == "-" else open(path, "r").read()
+        if path == "-":
+            text = sys.stdin.read()
+        else:
+            with open(path, "r") as fh:
+                text = fh.read()
     except OSError as e:
         print(f"parse-json: cannot read {path!r}: {e}", file=sys.stderr)
         return 2
@@ -302,12 +320,12 @@ def parse_json_event(path: str, feature: str, phase: str, agent_id: str | None =
     if not isinstance(data, dict):
         print("parse-json: JSON root must be an object", file=sys.stderr)
         return 2
-    cost = float(data.get("cost_usd", 0.0) or 0.0)
+    cost = _safe_float(data.get("cost_usd"))
     usage = data.get("usage") or {}
     if not isinstance(usage, dict):
         usage = {}
-    in_tok = int(usage.get("input_tokens", 0) or 0)
-    out_tok = int(usage.get("output_tokens", 0) or 0)
+    in_tok = _safe_int(usage.get("input_tokens"))
+    out_tok = _safe_int(usage.get("output_tokens"))
     return write_event(
         feature, phase, "end",
         input_tokens=in_tok,

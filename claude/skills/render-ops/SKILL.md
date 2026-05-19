@@ -75,7 +75,7 @@ render services list
 render logs --tail
 
 # 3. Health endpoint probe with exponential backoff (60s timeout)
-for i in 1 2 4 8 16 32; do
+for i in 1 2 4 8 16 29; do
   curl --fail --silent "$RENDER_URL/health" && break
   echo "Health check failed — retrying in ${i}s (exponential backoff)..."
   sleep "$i"
@@ -141,7 +141,7 @@ render services list
 # 4. Tail logs for 60s post-deploy
 render logs --tail
 # 5. Health endpoint probe with exponential backoff (60s timeout)
-for i in 1 2 4 8 16 32; do
+for i in 1 2 4 8 16 29; do
   curl --fail --silent "$RENDER_URL/health" && break
   echo "Health check failed — retrying in ${i}s (exponential backoff)..."
   sleep "$i"
@@ -165,7 +165,7 @@ render logs --tail
 # If render whoami fails: run `render login` outside Claude, then re-invoke.
 render whoami || { echo "Render auth missing — see Installation Requirements"; exit 1; }
 # 2. Probe /health with exponential backoff (60s total window)
-for i in 1 2 4 8 16 32; do
+for i in 1 2 4 8 16 29; do
   curl --fail --silent "$RENDER_URL/health" && break
   echo "Health check failed — retrying in ${i}s (exponential backoff)..."
   sleep "$i"

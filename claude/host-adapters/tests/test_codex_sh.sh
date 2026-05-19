@@ -52,7 +52,7 @@ test_ac1_nonzero_exit_propagates() {
   echo "test prompt" > "$PROMPT_FILE"
 
   local ACTUAL_EC
-  PATH="$STUB_DIR:$PATH" bash "$ADAPTER" "$PROMPT_FILE" "$OUTPUT_FILE"; ACTUAL_EC=$?
+  PATH="$STUB_DIR:$PATH" bash "$ADAPTER" "$PROMPT_FILE" "$OUTPUT_FILE" 2>/dev/null; ACTUAL_EC=$?
 
   assert_eq "$ACTUAL_EC" "42" "AC1: exit code propagated (42)"
   assert_file_contains "$TASK_ROOT/.claude/tasks/T_abc/output/exit" "42" "AC1: output/exit contains 42"

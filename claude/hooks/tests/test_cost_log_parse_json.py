@@ -145,6 +145,81 @@ def test_fixture_d_parse_json_malformed_returns_nonzero():
     print("PASS fixture (d): malformed JSON returns non-zero and writes nothing")
 
 
+def test_fixture_e_parse_json_file_path_nonexistent_returns_2():
+    """Fixture (e): nonexistent file path → exit code 2; no event written."""
+    tmp = _make_tmp_log()
+    try:
+        with contextlib.redirect_stderr(io.StringIO()):
+            rc = cost_log.main(["parse-json", "/nonexistent/path/file.json", "research/test", "iter-e"])
+        assert rc == 2, f"Expected rc==2, got {rc}"
+        with open(tmp) as f:
+            content = f.read().strip()
+        assert content == "", f"Expected empty log, got: {content!r}"
+    finally:
+        _cleanup(tmp)
+    print("PASS fixture (e): nonexistent file path returns 2")
+
+
+def test_fixture_f_parse_json_root_not_object_returns_2():
+    """Fixture (f): JSON root is not a dict (e.g. list) → exit code 2."""
+    tmp = _make_tmp_log()
+    _orig_stdin = sys.stdin
+    try:
+        sys.stdin = io.StringIO("[1,2,3]")
+        with contextlib.redirect_stderr(io.StringIO()):
+            rc = cost_log.main(["parse-json", "-", "research/test", "iter-f"])
+        assert rc == 2, f"Expected rc==2, got {rc}"
+        with open(tmp) as f:
+            content = f.read().strip()
+        assert content == "", f"Expected empty log, got: {content!r}"
+    finally:
+        sys.stdin = _orig_stdin
+        _cleanup(tmp)
+    print("PASS fixture (f): JSON root not object returns 2")
+
+
+def test_fixture_g_parse_json_usage_not_dict_defaults_to_zero():
+    """Fixture (g): usage is not a dict → defaults to zero for tokens."""
+    tmp = _make_tmp_log()
+    _orig_stdin = sys.stdin
+    try:
+        sys.stdin = io.StringIO('{"cost_usd": 0.05, "usage": "not a dict"}')
+        rc = cost_log.main(["parse-json", "-", "research/test", "iter-g"])
+        assert rc == 0, f"Expected rc==0, got {rc}"
+        with open(tmp) as f:
+            events = [json.loads(ln) for ln in f if ln.strip()]
+        assert len(events) == 1, f"Expected 1 event, got {len(events)}"
+        ev = events[0]
+        assert ev.get("estimated_usd") == 0.05, f"estimated_usd mismatch: {ev.get('estimated_usd')!r}"
+        assert ev.get("input_tokens") == 0, f"input_tokens mismatch: {ev.get('input_tokens')!r}"
+        assert ev.get("output_tokens") == 0, f"output_tokens mismatch: {ev.get('output_tokens')!r}"
+    finally:
+        sys.stdin = _orig_stdin
+        _cleanup(tmp)
+    print("PASS fixture (g): usage not dict defaults tokens to zero")
+
+
+def test_fixture_h_parse_json_non_numeric_cost_does_not_crash():
+    """Fixture (h, bonus): non-numeric cost_usd and input_tokens → defaults to 0.0/0."""
+    tmp = _make_tmp_log()
+    _orig_stdin = sys.stdin
+    try:
+        sys.stdin = io.StringIO('{"cost_usd": "abc", "usage": {"input_tokens": "xyz"}}')
+        rc = cost_log.main(["parse-json", "-", "research/test", "iter-h"])
+        assert rc == 0, f"Expected rc==0, got {rc}"
+        with open(tmp) as f:
+            events = [json.loads(ln) for ln in f if ln.strip()]
+        assert len(events) == 1, f"Expected 1 event, got {len(events)}"
+        ev = events[0]
+        assert ev.get("estimated_usd") == 0.0, f"estimated_usd mismatch: {ev.get('estimated_usd')!r}"
+        assert ev.get("input_tokens") == 0, f"input_tokens mismatch: {ev.get('input_tokens')!r}"
+        assert ev.get("output_tokens") == 0, f"output_tokens mismatch: {ev.get('output_tokens')!r}"
+    finally:
+        sys.stdin = _orig_stdin
+        _cleanup(tmp)
+    print("PASS fixture (h, bonus): non-numeric cost/tokens default to zero")
+
+
 def main():
     failures: list[str] = []
     tests = [
@@ -152,6 +227,10 @@ def main():
         test_fixture_b_parse_json_from_file_path_writes_event,
         test_fixture_c_parse_json_missing_optional_fields_defaults_to_zero,
         test_fixture_d_parse_json_malformed_returns_nonzero,
+        test_fixture_e_parse_json_file_path_nonexistent_returns_2,
+        test_fixture_f_parse_json_root_not_object_returns_2,
+        test_fixture_g_parse_json_usage_not_dict_defaults_to_zero,
+        test_fixture_h_parse_json_non_numeric_cost_does_not_crash,
     ]
     for t in tests:
         try:
@@ -166,7 +245,7 @@ def main():
             print(f"FAIL: {f}", file=sys.stderr)
         sys.exit(1)
 
-    print("\nAll 4 fixtures passed.")
+    print(f"\nAll {len(tests)} fixtures passed.")
     sys.exit(0)
 
 

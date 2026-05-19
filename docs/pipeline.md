@@ -132,6 +132,20 @@ Versioning follows the same convention as `plan.md` and `analysis.md` — see `c
 | `/review` | Classifies findings as in-scope or out-of-scope per charter; defers out-of-scope findings |
 | `/ppr` | Derives PR `## Summary` opening line from charter Goal |
 
+## Relationship to native /goal
+
+`/pipeline` charter goals and the native `/goal` feature coexist independently — they serve different lifecycle scopes and have no integration today.
+
+Charter goals (written to `docs/charter.md` during Step 0 and referenced in `docs/pipeline-state.md`) are **feature-bound**: they persist across session restarts, survive `/compact` and context resets, and are re-evaluated once per pipeline phase by the phase subagent. Native `/goal` conditions are **session-bound**: the model re-evaluates the goal predicate on every turn, and the goal is lost when the session ends.
+
+| Use /pipeline charter goals when… | Use /goal when… |
+| --- | --- |
+| Work spans multiple phases or sessions (feature-bound, multi-phase lifecycle) | Completion can be checked in the current session without persistence (session-bound, ephemeral) |
+| Goal state must survive resume — stored in `docs/charter.md` and `docs/pipeline-state.md` | Goal lives in-memory only — no on-disk artifact |
+| Evaluation is structured per-phase with explicit Acceptance Criteria | Evaluation is a per-turn model self-check with no structured AC format |
+
+F15 historically considered native `/goal` integration as a pipeline-level stop condition. The current integration surface is none — `/pipeline` charter goals and `/goal` coexist independently.
+
 ## Documentation Update Phase
 
 After a feature's squash-merge passes the **Post-Merge Verification Gate**

@@ -172,11 +172,107 @@ test_error_cases() {
 }
 
 # ---------------------------------------------------------------------------
+# test_restart_from_iter_zero_accepted_as_off
+# Invoke with --restart-from-iter 0 --dry-run.
+# The guard short-circuits on "0" (RESTART_FROM_ITER != "0" is false).
+# Assert: exit 0, stdout contains "restart-from-iter = 0", no error about
+# "must be a positive integer".
+# ---------------------------------------------------------------------------
+test_restart_from_iter_zero_accepted_as_off() {
+  local T="zero_accepted_as_off"
+  local tmp
+  tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' RETURN
+
+  mkdir -p "$tmp/docs"
+  printf '%s\n' "$TSV_HEADER" > "$tmp/docs/research-results.tsv"
+
+  local out stderr_out rc
+  rc=0
+  stderr_out=$(mktemp)
+  out=$(cd "$tmp" && bash "$RESEARCH_LOOP" \
+    --goal "test goal" \
+    --target-file "src/x.py" \
+    --benchmark-cmd "echo bench" \
+    --metric-regex "metric=([0-9.]+)" \
+    --restart-from-iter 0 \
+    --dry-run 2>"$stderr_out") || rc=$?
+
+  local combined="$out$(cat "$stderr_out")"
+  rm -f "$stderr_out"
+
+  if [[ "$rc" -ne 0 ]]; then
+    fail "$T" "exit non-zero ($rc), output: $combined"
+    return
+  fi
+
+  if echo "$combined" | grep -q "must be a positive integer"; then
+    fail "$T" "unexpected validation error; output: $combined"
+    return
+  fi
+
+  if echo "$out" | grep -q "restart-from-iter = 0"; then
+    pass "$T"
+  else
+    fail "$T" "stdout missing 'restart-from-iter = 0'; got: $out"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# test_restart_from_iter_empty_string_accepted_as_off
+# Invoke with --restart-from-iter "" --dry-run.
+# The guard short-circuits on empty string (-n "" is false).
+# Assert: exit 0, the run proceeds, no validation-error line in stderr.
+# ---------------------------------------------------------------------------
+test_restart_from_iter_empty_string_accepted_as_off() {
+  local T="empty_string_accepted_as_off"
+  local tmp
+  tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' RETURN
+
+  mkdir -p "$tmp/docs"
+  printf '%s\n' "$TSV_HEADER" > "$tmp/docs/research-results.tsv"
+
+  local out stderr_out rc
+  rc=0
+  stderr_out=$(mktemp)
+  out=$(cd "$tmp" && bash "$RESEARCH_LOOP" \
+    --goal "test goal" \
+    --target-file "src/x.py" \
+    --benchmark-cmd "echo bench" \
+    --metric-regex "metric=([0-9.]+)" \
+    --restart-from-iter "" \
+    --dry-run 2>"$stderr_out") || rc=$?
+
+  local stderr_content
+  stderr_content=$(cat "$stderr_out")
+  rm -f "$stderr_out"
+
+  if [[ "$rc" -ne 0 ]]; then
+    fail "$T" "exit non-zero ($rc), stderr: $stderr_content"
+    return
+  fi
+
+  if echo "$stderr_content" | grep -q "must be a positive integer"; then
+    fail "$T" "unexpected validation error; stderr: $stderr_content"
+    return
+  fi
+
+  if echo "$out" | grep -q "DRY-RUN"; then
+    pass "$T"
+  else
+    fail "$T" "dry-run did not proceed; got: $out"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # Run all tests
 # ---------------------------------------------------------------------------
 test_skip_iters_initializes_counter
 test_restart_from_iter_1_equivalent_to_no_flag
 test_error_cases
+test_restart_from_iter_zero_accepted_as_off
+test_restart_from_iter_empty_string_accepted_as_off
 
 echo ""
 echo "Results: $FAILURES failure(s)"
