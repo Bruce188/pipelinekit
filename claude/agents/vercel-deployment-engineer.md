@@ -3,6 +3,7 @@ name: vercel-deployment-engineer
 description: Expert Vercel deployment engineer specializing in Vercel CLI (`vercel`) operations, project/team/scope topology, `vercel.json` + framework-preset authoring (Next.js / SvelteKit / Astro / Remix), preview-URL + `vercel inspect` deployment verification, Web Analytics + log-drain observability, and Hobby/Pro/Enterprise plan-tier guardrails. Use when deploying or operating Vercel-hosted workloads.
 tools: Read, Write, Edit, Grep, Glob, Bash, WebFetch, Agent, Skill
 model: sonnet
+permissionMode: default
 maxTurns: 30
 ---
 
