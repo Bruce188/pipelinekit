@@ -32,10 +32,7 @@ _source_loop() {
   # Reset any prior sandbox state so tests are isolated.
   unset SANDBOX_PROVIDER PIPELINE_NO_SANDBOX __provider 2>/dev/null || true
 
-  RESEARCH_LOOP_NO_RUN=1 \
-  GOAL="test-goal" TARGET_FILE="src/x.py" \
-  BENCHMARK_CMD="echo bench" METRIC_REGEX="metric=([0-9.]+)" \
-    . "$RESEARCH_LOOP"
+  RESEARCH_LOOP_NO_RUN=1 . "$RESEARCH_LOOP"
 }
 
 # Source once for all tests.
