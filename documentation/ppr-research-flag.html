@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>/ppr --research flag</title>
+  <meta name="description" content="Reference for the --research flag on /ppr: publishing research keep-rows from a TSV to a dedicated branch.">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111111;
+      --muted: #555555;
+      --border: #dddddd;
+      --link: #0050b3;
+      --code-bg: #f5f5f5;
+      --header-bg: #fafafa;
+      --warn-bg: #fffbe6;
+      --warn-border: #ffe58f;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0d1117;
+        --fg: #e6edf3;
+        --muted: #8b949e;
+        --border: #30363d;
+        --link: #58a6ff;
+        --code-bg: #161b22;
+        --header-bg: #161b22;
+        --warn-bg: #2a2400;
+        --warn-border: #6b5000;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.6; background: var(--bg); color: var(--fg); margin: 0 auto; padding: 2rem; max-width: 900px; }
+    h1 { margin-top: 0; font-size: 1.85rem; }
+    h2 { margin-top: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+    h3 { margin-top: 1.5rem; }
+    p { margin: 0.7rem 0; }
+    a { color: var(--link); }
+    code { background: var(--code-bg); border: 1px solid var(--border); border-radius: 3px; padding: 0.1rem 0.35rem; font-family: ui-monospace, "Cascadia Code", "Consolas", monospace; font-size: 0.9em; }
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 4px; padding: 1rem; overflow-x: auto; font-family: ui-monospace, "Cascadia Code", "Consolas", monospace; font-size: 0.9em; line-height: 1.5; }
+    pre code { background: none; border: none; padding: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+    th, td { border: 1px solid var(--border); padding: 0.5rem 0.75rem; text-align: left; }
+    th { background: var(--header-bg); font-weight: 600; }
+    .note { background: var(--warn-bg); border: 1px solid var(--warn-border); border-radius: 4px; padding: 0.75rem 1rem; margin: 1rem 0; }
+    .muted { color: var(--muted); }
+    ul { padding-left: 1.4rem; }
+    li { margin: 0.4rem 0; }
+    @media (max-width: 768px) { body { padding: 1rem; } }
+  </style>
+</head>
+<body>
+
+<h1><code>/ppr --research</code> flag</h1>
+<p class="muted">Added in commit <code>1d4489c</code> &mdash; May 2026</p>
+
+<p>
+  The <code>--research</code> flag extends the <code>/ppr</code> skill with a separate publish path for
+  research output. When present, <code>/ppr</code> skips the normal push-and-PR flow entirely and instead
+  reads the "keep" rows from <code>docs/research-results.tsv</code>, creates a dedicated branch, and
+  pushes just those rows. <strong>Dry-run is on by default</strong> — no writes happen unless you pass
+  <code>--no-dry-run</code> explicitly.
+</p>
+
+<h2>Synopsis</h2>
+
+<pre><code>/ppr --research [--dry-run | --no-dry-run] [--research-tag &lt;slug&gt;]</code></pre>
+
+<h2>Flags</h2>
+
+<table>
+  <thead>
+    <tr><th>Flag</th><th>Default</th><th>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>--research</code></td>
+      <td>(required)</td>
+      <td>Activates research-publish mode. The standard push-and-PR steps do not run.</td>
+    </tr>
+    <tr>
+      <td><code>--dry-run</code></td>
+      <td><strong>on</strong></td>
+      <td>Preview only. Prints the planned branch name, keep-row count, and the exact git commands that would run. No branch is created, no files are written.</td>
+    </tr>
+    <tr>
+      <td><code>--no-dry-run</code></td>
+      <td>off</td>
+      <td>Perform the real publish: create branch, write filtered TSV, commit, push. Requires <code>--research-tag</code>.</td>
+    </tr>
+    <tr>
+      <td><code>--research-tag &lt;slug&gt;</code></td>
+      <td>(required with <code>--no-dry-run</code>)</td>
+      <td>Slug appended to the branch name: <code>research/&lt;slug&gt;-YYYY-MM-DD</code>. Must match <code>^[a-zA-Z0-9._-]+$</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Behavior</h2>
+
+<h3>Source file</h3>
+<p>
+  Reads <code>docs/research-results.tsv</code> (produced by the <code>/research-loop</code> skill).
+  Only rows where <code>status == keep</code> are included; the header line is always preserved.
+  If no keep rows exist, the command prints a warning and exits cleanly without creating a branch.
+</p>
+
+<h3>Branch naming</h3>
+<p>
+  Branch name: <code>research/&lt;tag&gt;-YYYY-MM-DD</code> (UTC date at run time).
+  If that branch already exists locally or on <code>origin</code>, suffixes <code>-2</code> through
+  <code>-9</code> are tried in order. If all nine slots are taken, the command exits non-zero and
+  prints instructions to clean up the old branches or choose a different tag.
+</p>
+
+<h3>Commit message</h3>
+<pre><code>chore: publish research keeps for &lt;tag&gt; (&lt;N&gt; rows)</code></pre>
+
+<h3>Push behavior</h3>
+<p>
+  Uses <code>git push -u origin &lt;branch&gt;</code>. No <code>--force</code>. No PR is opened.
+</p>
+
+<h2>Examples</h2>
+
+<h3>Preview before committing (safe default)</h3>
+<pre><code># --dry-run is the default, so both forms are equivalent:
+/ppr --research --research-tag my-experiment
+/ppr --research --dry-run --research-tag my-experiment</code></pre>
+
+<p>Output includes the planned branch name, keep-row count, and the exact git commands
+that <em>would</em> run. Nothing is written.</p>
+
+<h3>Publish for real</h3>
+<pre><code>/ppr --research --no-dry-run --research-tag my-experiment</code></pre>
+
+<p>Creates <code>research/my-experiment-2026-05-19</code>, writes the filtered TSV, commits,
+and pushes. Exits 0 on success.</p>
+
+<h2>Exit codes</h2>
+
+<table>
+  <thead>
+    <tr><th>Code</th><th>Meaning</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>0</code></td><td>Success (including dry-run and zero-keep-rows cases).</td></tr>
+    <tr><td><code>1</code></td><td>Missing required argument, branch name exhausted, push failure, or source file not found.</td></tr>
+  </tbody>
+</table>
+
+<h2>Relationship to normal /ppr</h2>
+
+<div class="note">
+  <strong>Important:</strong> <code>--research</code> is a <em>mode selector</em>. When it is present,
+  the standard Steps 1&ndash;4 of <code>/ppr</code> (safety checks, push, open PR) are completely
+  skipped. The two modes are mutually exclusive in a single invocation.
+</div>
+
+<ul>
+  <li>Normal <code>/ppr</code>: push committed changes + open PR against the base branch.</li>
+  <li><code>/ppr --research</code>: publish filtered research TSV to a <code>research/*</code> branch. No PR.</li>
+</ul>
+
+<h2>Prerequisites</h2>
+<ul>
+  <li><code>docs/research-results.tsv</code> must exist and contain at least a header row.</li>
+  <li>The working directory must be a git repository with a configured <code>origin</code> remote.</li>
+  <li>You must be authenticated to push to <code>origin</code>.</li>
+</ul>
+
+<p class="muted">See <code>claude/skills/ppr/SKILL.md</code> for the full skill specification and
+<code>claude/skills/ppr/ppr_research_flag.sh</code> for the implementation.</p>
+
+</body>
+</html>

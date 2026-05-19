@@ -33,54 +33,12 @@ set -uo pipefail
 # Resolve paths relative to this file so the stub works whether sourced from
 # the repo root, an absolute path, or a `claude/` overlay.
 ORCH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
-LIB_DIR="$(cd "$ORCH_DIR/../../lib/sandbox" && pwd)"
 
-# shellcheck source=../../lib/sandbox/SandboxProvider.sh
-. "$LIB_DIR/SandboxProvider.sh"
-
-# Resolve and source the selected provider so sandbox_enter / sandbox_exit
-# come from the active backend (podman.sh / docker.sh / worktree-only.sh).
-__provider="$(provider_detect)"
-case "$__provider" in
-  podman|docker|worktree-only)
-    # shellcheck disable=SC1090
-    . "$LIB_DIR/providers/${__provider}.sh"
-    ;;
-  *)
-    echo "orchestrate.sh: unknown provider '$__provider'" >&2
-    return 1 2>/dev/null || exit 1
-    ;;
-esac
-
-# ---------------------------------------------------------------------------
-# sandbox_wrap <task-id> <worktree> <command...>
-#
-# Public wrap helper: emits the SANDBOX_ENTER log line, calls sandbox_enter,
-# captures the exit code, then calls sandbox_exit. Forks adding new
-# external-subprocess entry points (e.g., run_db_migration) should call
-# sandbox_wrap rather than re-implementing the envelope.
-#
-# The SANDBOX_ENTER log line shape is:
-#   SANDBOX_ENTER: provider=<X>, task=<task-id>, image=<image>
-# Where <image> is the resolved sandbox image (SANDBOX_PODMAN_IMAGE →
-# SANDBOX_DOCKER_IMAGE → PIPELINEKIT_SANDBOX_TAG) or the literal "none"
-# when the resolved provider is worktree-only.
-# ---------------------------------------------------------------------------
-sandbox_wrap() {
-  local task_id="${1:?task id required}"
-  local worktree="${2:?worktree path required}"
-  shift 2
-  local image rc
-  image="${SANDBOX_PODMAN_IMAGE:-${SANDBOX_DOCKER_IMAGE:-${PIPELINEKIT_SANDBOX_TAG:-none}}}"
-  if [ "$__provider" = "worktree-only" ]; then
-    image="none"
-  fi
-  echo "SANDBOX_ENTER: provider=$__provider, task=$task_id, image=$image" >&2
-  sandbox_enter "$worktree" "$@"
-  rc=$?
-  sandbox_exit "$task_id" || true
-  return "$rc"
-}
+# Source the shared sandbox_wrap library (provides sandbox_wrap + _sandbox_wrap
+# + all provider infrastructure). Replaces the former inline LIB_DIR / provider
+# sourcing block and inline sandbox_wrap() definition.
+# shellcheck source=../../lib/sandbox/sandbox_wrap.sh
+. "$ORCH_DIR/../../lib/sandbox/sandbox_wrap.sh"
 
 # ---------------------------------------------------------------------------
 # run_phase <phase-name> <prompt-file> <worktree-path>
@@ -112,7 +70,7 @@ run_phase() {
   fi
 
   prompt="$(cat "$prompt_file")"
-  echo "orchestrate.sh: phase=$phase provider=$__provider worktree=$worktree" >&2
+  echo "orchestrate.sh: phase=$phase provider=$(provider_detect) worktree=$worktree" >&2
 
   sandbox_wrap "$phase-$$" "$worktree" claude -p "$prompt"
   rc=$?
