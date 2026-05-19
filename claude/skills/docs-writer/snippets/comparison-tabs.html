@@ -31,12 +31,11 @@
     .pkit-cmp .pkit-cmp-note { font-size: 0.78rem; color: var(--fg-subtle); margin-top: 0.8rem; font-style: italic; }
   </style>
 
-  <div class="pkit-cmp-tabs" id="pkit-cmp-tabs"></div>
-  <div class="pkit-cmp-grid" id="pkit-cmp-grid"></div>
+  <div class="pkit-cmp-tabs" data-cmp-tabs></div>
+  <div class="pkit-cmp-grid" data-cmp-grid></div>
   <p class="pkit-cmp-note">Click any tab to compare this page's provider against another. Compare against → switches the right column.</p>
-</div>
 
-<script type="application/json" id="pkit-cmp-data">
+  <script type="application/json" data-cmp-data>
 {
   "providers": {
     "vercel": {
@@ -91,19 +90,21 @@
     }
   }
 }
-</script>
+  </script>
+</div>
 
 <script>
 (function() {
   'use strict';
-  const cmps = document.querySelectorAll('.pkit-cmp[data-snippet-mount="comparison-tabs"]');
-  const cmp = cmps[cmps.length - 1];
-  if (!cmp || cmp.dataset.pkitInit) return;
-  cmp.dataset.pkitInit = '1';
+  document.querySelectorAll('.pkit-cmp[data-snippet-mount="comparison-tabs"]').forEach(cmp => {
+    if (cmp.dataset.pkitInit) return;
+    cmp.dataset.pkitInit = '1';
 
-  const data = JSON.parse(cmp.querySelector('#pkit-cmp-data').textContent);
-  const tabsEl = cmp.querySelector('#pkit-cmp-tabs');
-  const gridEl = cmp.querySelector('#pkit-cmp-grid');
+    const dataEl = cmp.querySelector('script[data-cmp-data]');
+    const tabsEl = cmp.querySelector('[data-cmp-tabs]');
+    const gridEl = cmp.querySelector('[data-cmp-grid]');
+    if (!dataEl || !tabsEl || !gridEl) return;
+    const data = JSON.parse(dataEl.textContent);
 
   // Detect "home" provider from <title>
   const title = (document.title || '').toLowerCase();
@@ -146,6 +147,7 @@
     gridEl.innerHTML = colHtml(homeProv, true) + colHtml(otherProv, false);
   }
 
-  render();
+    render();
+  });
 })();
 </script>

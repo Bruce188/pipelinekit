@@ -239,6 +239,28 @@ The vendored `agentmemory` MCP layer adds structured retrieval (semantic similar
 
 ---
 
+## Credits
+
+Pipelinekit stands on the shoulders of several upstream projects, plus inspiration from individual researchers and the Claude platform itself.
+
+**Inspirational-but-not-vendored:**
+
+- **[Andrej Karpathy](https://karpathy.ai/)** — the autoresearch-loop pattern (hypothesize → mutate one file → benchmark → keep-or-reset → append row → repeat) is the design behind `/research` and the namesake of the `karpathy-reviewer` anti-hallucination agent (Agent 6 of `/review` on medium+ diffs).
+- **[Anthropic](https://www.anthropic.com/)** — the entire runtime: Claude Code, the Agent SDK, multi-agent dispatch, Skills, Hooks, MCP, `PushNotification`, and the underlying Claude models that every pipelinekit phase calls. Pipelinekit is a workflow overlay on Claude Code — without Anthropic's platform, there's no pipelinekit.
+
+**Vendored upstreams** (full table with pinned SHAs + licenses + scope + re-vendor procedures at [documentation/credits.html](documentation/credits.html)):
+
+- [wshobson/agents](https://github.com/wshobson/agents) — 10 specialist agents (MIT, © 2024 Seth Hobson)
+- [alirezarezvani/claude-skills](https://github.com/alirezarezvani/claude-skills) — skill-authoring DNA + lifecycle reference + personas (MIT, © 2025 Alireza Rezvani)
+- [alirezarezvani/ClaudeForge](https://github.com/alirezarezvani/ClaudeForge) — claude-md-guardian + claude-md-enhancer (MIT, © 2025 Alireza Rezvani)
+- [mattpocock/skills](https://github.com/mattpocock/skills) — TDD doctrine pack + write-a-skill + zoom-out (MIT, © Matt Pocock)
+- [tinyhumansai/openhuman](https://github.com/tinyhumansai/openhuman) — name and concept only; pipelinekit's openhuman is original code under the root MIT (upstream GPL-3.0)
+- [rohitg00/agentmemory](https://github.com/rohitg00/agentmemory) — optional retrieval layer (MIT, © rohitg00; vendoring skeleton — SHA pinning lands in a follow-up iteration)
+
+Per-directory `NOTICE.md` files carry the full upstream license text and re-vendor procedures.
+
+---
+
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). Pipelinekit's own original code (orchestrator, hooks, docs-writer, install scripts, documentation) is MIT-licensed; vendored upstream files retain their original licenses linked above.

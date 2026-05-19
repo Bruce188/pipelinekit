@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cloud Setup — pipelinekit</title>
-<meta name="description" content="This file covers two distinct topics:">
+<title>openhuman — Human-in-the-Loop Approval Gate — pipelinekit</title>
+<meta name="description" content="A PreToolUse hook that pauses /pipeline before destructive actions (today: git merge --squash) and waits for an out-of-band human approval signal. Default is off — the gate only engages when you pass --human-review to /pipeline. Fail-safe…">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <a href="credits.html">Credits</a> &nbsp;/&nbsp; <span>Cloud Setup</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <a href="credits.html">Credits</a> &nbsp;/&nbsp; <span>openhuman — Human-in-the-Loop Approval Gate</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -531,37 +531,22 @@ footer {
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
     <ul>
-      <li class="lvl-2"><a href="#cloud-deployment-providers">Cloud deployment providers</a></li>
-      <li class="lvl-2"><a href="#vm-bootstrap">VM bootstrap</a></li>
-      <li class="lvl-2"><a href="#oracle-cloud-free-tier-arm-ampere-a1">Oracle Cloud Free Tier (ARM Ampere A1)</a></li>
-      <li class="lvl-3"><a href="#image">Image</a></li>
-      <li class="lvl-3"><a href="#ssh">SSH</a></li>
-      <li class="lvl-3"><a href="#firewall">Firewall</a></li>
-      <li class="lvl-3"><a href="#swap">Swap</a></li>
-      <li class="lvl-3"><a href="#bootstrap">Bootstrap</a></li>
-      <li class="lvl-3"><a href="#environment-variables">Environment variables</a></li>
-      <li class="lvl-3"><a href="#verify">Verify</a></li>
-      <li class="lvl-2"><a href="#hetzner-cloud-cx22-x86-64">Hetzner Cloud CX22 (x86_64)</a></li>
-      <li class="lvl-3"><a href="#image-2">Image</a></li>
-      <li class="lvl-3"><a href="#ssh-2">SSH</a></li>
-      <li class="lvl-3"><a href="#firewall-2">Firewall</a></li>
-      <li class="lvl-3"><a href="#swap-2">Swap</a></li>
-      <li class="lvl-3"><a href="#bootstrap-2">Bootstrap</a></li>
-      <li class="lvl-3"><a href="#environment-variables-2">Environment variables</a></li>
-      <li class="lvl-3"><a href="#verify-2">Verify</a></li>
-      <li class="lvl-2"><a href="#troubleshooting">Troubleshooting</a></li>
-      <li class="lvl-3"><a href="#uname-m-mismatch">uname -m mismatch</a></li>
-      <li class="lvl-3"><a href="#claude-command-not-found-after-bootstrap">claude: command not found after bootstrap</a></li>
-      <li class="lvl-3"><a href="#npm-oom-during-install-sh">npm OOM during install.sh</a></li>
-      <li class="lvl-3"><a href="#lsp-failures-warning-on-arm-oracle-a1">LSP_FAILURES warning on ARM (Oracle A1)</a></li>
-      <li class="lvl-3"><a href="#re-running-the-bootstrap-to-recover-from-a-partial-install">Re-running the bootstrap to recover from a partial install</a></li>
+      <li class="lvl-2"><a href="#what-it-does">What it does</a></li>
+      <li class="lvl-2"><a href="#when-to-enable-it">When to enable it</a></li>
+      <li class="lvl-2"><a href="#how-to-enable">How to enable</a></li>
+      <li class="lvl-2"><a href="#the-signal-file-mechanism">The signal-file mechanism</a></li>
+      <li class="lvl-2"><a href="#timeout-semantics">Timeout semantics</a></li>
+      <li class="lvl-2"><a href="#cross-feature-payload-contract">Cross-feature payload contract</a></li>
+      <li class="lvl-2"><a href="#what-openhuman-does-not-do">What openhuman does NOT do</a></li>
+      <li class="lvl-2"><a href="#failure-modes">Failure modes</a></li>
+      <li class="lvl-2"><a href="#see-also">See also</a></li>
     </ul>
   </aside>
 
   <main>
     <header class="page-header">
-      <h1>Cloud Setup</h1>
-      <p class="description">This file covers two distinct topics:</p>
+      <h1>openhuman — Human-in-the-Loop Approval Gate</h1>
+      <p class="description">A PreToolUse hook that pauses /pipeline before destructive actions (today: git merge --squash) and waits for an out-of-band human approval signal. Default is off — the gate only engages when you pass --human-review to /pipeline. Fail-safe…</p>
       <div class="page-meta"></div>
     </header>
 
@@ -576,7 +561,7 @@ footer {
        &lt;div data-snippet="chooser-quiz"&gt;&lt;/div&gt;
        &lt;div data-snippet="chooser-quiz" data-question-set="install"&gt;&lt;/div&gt;
 -->
-<div class="pkit-chooser" data-snippet-mount="chooser-quiz" data-set="cloud-provider" data-question-set="deploy" data-question-set="deploy">
+<div class="pkit-chooser" data-snippet-mount="chooser-quiz" data-question-set="openhuman" data-question-set="deploy">
   <style>
     .pkit-chooser { margin: 1.5rem 0; padding: 1.5rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); }
     .pkit-chooser .pkit-cq-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1rem; }
@@ -616,6 +601,10 @@ footer {
 
   <script type="application/json" data-cq-set="install">
 {"title":"How should I install pipelinekit?","questions":[{"key":"where","prompt":"Where will you run it?","options":[{"value":"local-linux","label":"Local Linux","hint":"Ubuntu / Debian / Arch"},{"value":"local-mac","label":"Local macOS","hint":"Apple Silicon or Intel"},{"value":"local-windows","label":"Local Windows + WSL2","hint":"Recommended for Windows"},{"value":"cloud","label":"Cloud VPS","hint":"Oracle, Hetzner, fresh VM"},{"value":"codespaces","label":"GitHub Codespaces","hint":"Cloud devcontainer"}]},{"key":"purpose","prompt":"Primary use?","options":[{"value":"evaluate","label":"Evaluate quickly","hint":"Just want to try /pipeline"},{"value":"daily","label":"Daily driver","hint":"Use on real projects"},{"value":"fleet","label":"Team / fleet of VMs","hint":"Reproducible install across machines"}]}],"recommend":[{"match":{"where":"cloud"},"pick":"Cloud bootstrap script","icon":"☁","why":"Run the Oracle Cloud or Hetzner one-liner. Both are idempotent; secrets read from env, never baked in.","runners":["Oracle ARM A1","Hetzner CX22","cloud-init"],"link":"cloud-setup.html"},{"match":{"where":"codespaces"},"pick":"Codespaces (zero setup)","icon":"▣","why":"Open the repo in Codespaces. The devcontainer post-create runs install.sh automatically. Best for evaluation with zero local install.","runners":["Devcontainer","post-create"],"link":"installation.html"},{"match":{"where":"local-windows"},"pick":"WSL2 + scripts/install.sh","icon":"🪟","why":"Pipelinekit assumes POSIX. Run install.sh inside WSL2 (Ubuntu), not Git Bash. Claude Code itself can run from either side.","runners":["WSL2 Ubuntu","install.sh"],"link":"installation.html"},{"match":{"where":"local-mac"},"pick":"scripts/install.sh","icon":"🍎","why":"Standard local install: clone, cd, run scripts/install.sh. Idempotent; re-run to update.","runners":["bash","homebrew (optional)"],"link":"installation.html"},{"match":{"where":"local-linux"},"pick":"scripts/install.sh","icon":"🐧","why":"Standard local install. Apt-based systems auto-install Azure CLI; other distros print install hints.","runners":["bash","apt (auto-detect)"],"link":"installation.html"},{"match":{"purpose":"fleet"},"pick":"Cloud-init via cloud bootstrap","icon":"⚙","why":"For fleet provisioning, use the cloud-init YAMLs that the Oracle / Hetzner bootstrap scripts wrap.","runners":["cloud-init YAML","Terraform-friendly"],"link":"cloud-setup.html"},{"match":{},"pick":"scripts/install.sh","icon":"📦","why":"Default recommendation: clone the repo and run scripts/install.sh.","runners":["bash"],"link":"installation.html"}]}
+  </script>
+
+  <script type="application/json" data-cq-set="openhuman">
+{"title":"Should I enable the openhuman gate?","questions":[{"key":"mode","prompt":"How are you running /pipeline?","options":[{"value":"interactive","label":"Interactive at the terminal","hint":"You watch every PR open and merge it yourself"},{"value":"unattended","label":"Unattended (overnight / CI)","hint":"You start /pipeline and step away"},{"value":"team","label":"Team / shared infrastructure","hint":"Multiple people share the same VM or runner"}]},{"key":"target","prompt":"What does the merge land in?","options":[{"value":"prod","label":"main of a prod-shipping repo","hint":"Customers feel every merge"},{"value":"shared","label":"main of an internal / experimental repo","hint":"Used by other people but not by paying customers"},{"value":"solo","label":"Solo / sandbox / scratch repo","hint":"You're the only consumer"}]},{"key":"tolerance","prompt":"How long can a merge wait for your approval?","options":[{"value":"low","label":"< 15 min","hint":"You want to keep momentum overnight"},{"value":"med","label":"15-60 min","hint":"Comfortable letting the run pause briefly"},{"value":"high","label":"Hours OK","hint":"Manual review per merge is fine"}]}],"recommend":[{"match":{"mode":"interactive","target":"solo"},"pick":"Skip openhuman","icon":"⏭","why":"You're at the terminal watching every PR open. Adding a human-review pause before each squash-merge buys nothing — you would approve every prompt instantly. Use --no-human-review (or just omit the flag — gate-off is the default).","runners":["--no-human-review","gate off"],"link":"pipeline.html"},{"match":{"mode":"interactive","target":"shared"},"pick":"Skip openhuman (use review evidence instead)","icon":"⏭","why":"Interactive runs already let you read the multi-agent /review output before /ppr opens the PR. Add reviewer rules on GitHub instead of openhuman — the gate happens at the GitHub merge button, not before the PR is created.","runners":["GitHub branch protection","required reviewers"],"link":"review-cost.html"},{"match":{"mode":"unattended","target":"prod","tolerance":"low"},"pick":"Enable: --human-review 60","icon":"✓","why":"Overnight + prod-shipping is the bull's-eye use case for openhuman. 60 minutes gives you enough margin to wake up, eyeball the diff, and approve via the mobile PushNotification surface without the pipeline timing out. Fail-safe abort on timeout keeps prod safe.","runners":["--human-review 60","PushNotification","signal file"],"link":"openhuman.html"},{"match":{"mode":"unattended","target":"prod","tolerance":"med"},"pick":"Enable: --human-review 30 (default)","icon":"✓","why":"30 minutes is the bare-flag default — perfect when you want the safety gate but expect to be reachable within half an hour. Approve via the mobile app or by writing the signal-file via SSH.","runners":["--human-review","30 min default","mobile approval"],"link":"openhuman.html"},{"match":{"mode":"unattended","target":"prod","tolerance":"high"},"pick":"Enable: --human-review 180","icon":"✓","why":"Hours-of-tolerance + prod-shipping pairs with --human-review 180 (or larger). The runtime clamp is 60 minutes minimum, but minutes are a positive integer with no upper bound — pick whatever matches your actual response time.","runners":["--human-review 180","extended window"],"link":"openhuman.html"},{"match":{"mode":"unattended","target":"shared"},"pick":"Enable: --human-review 30","icon":"✓","why":"Unattended runs against shared infra benefit from openhuman even when the blast radius is smaller than prod. Default 30 min is a good starting point — increase if your team can't respond that fast.","runners":["--human-review","30 min default"],"link":"openhuman.html"},{"match":{"mode":"unattended","target":"solo"},"pick":"Optional: enable for habit","icon":"≈","why":"Solo + unattended: openhuman is optional. The blast radius is just your own work. Enable it if you want the habit; skip it if you trust /review enough to merge without a human pause.","runners":["--human-review (optional)","or skip"],"link":"openhuman.html"},{"match":{"mode":"team"},"pick":"Enable: --human-review 60 + signal-file ACL","icon":"✓","why":"Multi-tenant infra needs both the gate AND tight permissions on the .claude/openhuman/ signal-file directory. Make sure only the responsible reviewer can write to the signal path.","runners":["--human-review 60","filesystem ACLs","reviewer rotation"],"link":"openhuman.html"},{"match":{},"pick":"Enable: --human-review (default 30)","icon":"✓","why":"Fallback recommendation: when in doubt, enable the gate with the default 30-minute window. The gate is fail-safe (deny-on-timeout), so the cost of enabling-when-unneeded is just a possible delay; the cost of disabling-when-needed is an unreviewed merge to prod.","runners":["--human-review","30 min default"],"link":"openhuman.html"}]}
   </script>
 </div>
 
@@ -691,293 +680,201 @@ footer {
 </script>
 
 
-<ol>
-<li><strong>VM bootstrap</strong> — provisioning a development VM (Oracle Cloud Free Tier ARM A1 or Hetzner CX22) where you run pipelinekit itself.</li>
-<li><strong>Cloud deployment providers</strong> — configuring Railway, Render, DigitalOcean, Azure, or Vercel as the deployment target for your projects.</li>
-</ol>
-<hr>
-<h2 id="cloud-deployment-providers">Cloud deployment providers</h2>
-<p>pipelinekit ships five first-class deployment-provider integrations. Charter Topic 10 selects the active provider; <code>/pipeline</code> routes all deployment-shaped tasks to the matching agent and ops skill automatically.</p>
-<table>
-<thead>
-<tr>
-<th>Provider</th>
-<th>Agent</th>
-<th>Skill</th>
-<th>CLI install</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Azure</td>
-<td><code>@azure-deployment-engineer</code></td>
-<td><code>azure-ops</code></td>
-<td>Auto-installed by <code>scripts/install.sh</code> on Debian/Ubuntu</td>
-</tr>
-<tr>
-<td>Vercel</td>
-<td><code>@vercel-deployment-engineer</code></td>
-<td><code>vercel-ops</code></td>
-<td><code>npm i -g vercel</code></td>
-</tr>
-<tr>
-<td>Railway</td>
-<td><code>@railway-deployment-engineer</code></td>
-<td><code>railway-ops</code></td>
-<td><code>npm i -g @railway/cli</code></td>
-</tr>
-<tr>
-<td>Render</td>
-<td><code>@render-deployment-engineer</code></td>
-<td><code>render-ops</code></td>
-<td>See <a href="https://render.com/docs/cli">render.com/docs/cli</a></td>
-</tr>
-<tr>
-<td>DigitalOcean</td>
-<td><code>@digitalocean-deployment-engineer</code></td>
-<td><code>digitalocean-ops</code></td>
-<td><code>snap install doctl</code> or <a href="https://github.com/digitalocean/doctl">github.com/digitalocean/doctl</a></td>
-</tr>
-</tbody>
-</table>
-<p>Each ops skill stops and prompts if its CLI is not authenticated — never auto-authenticates.</p>
-<p>Provider-specific setup guides:
-- <code>documentation/deployment-railway.html</code> — Railway account setup, project link, auth posture
-- <code>documentation/deployment-render.html</code> — Render account setup, service link, render.yaml Blueprint
-- <code>documentation/deployment-digitalocean.html</code> — DigitalOcean account setup, app link, App Spec (.do/app.yaml)</p>
-<p>Azure and Vercel mode overlays are documented in <code>claude/CLAUDE.md.template</code> under <code>## Azure Mode</code> and <code>## Vercel Workflows</code>.</p>
-<hr>
-<h2 id="vm-bootstrap">VM bootstrap</h2>
-<p>Provision pipelinekit on a fresh Oracle Cloud Free Tier ARM A1 instance or a fresh Hetzner CX22 instance. Each section covers image selection, SSH, firewall, swap, bootstrap (two paths), and verification.</p>
-<hr>
-<h2 id="oracle-cloud-free-tier-arm-ampere-a1">Oracle Cloud Free Tier (ARM Ampere A1)</h2>
-<p>Oracle Free Tier includes Always Free Ampere A1 instances: up to 4 OCPU and 24 GB RAM total (combinable across up to 4 VMs). All A1 instances run on aarch64.</p>
-<h3 id="image">Image</h3>
-<p>Select <strong>Ubuntu 22.04</strong> or <strong>Ubuntu 24.04 LTS</strong> (Canonical image). Choose the ARM64 variant. Minimum recommended shape: <strong>VM.Standard.A1.Flex</strong> with 1 OCPU / 6 GB RAM; the bootstrap works on any A1 shape.</p>
-<h3 id="ssh">SSH</h3>
-<p>Upload your public key when creating the instance (Compute → Instances → Create Instance → Add SSH keys). The default login user is <code>ubuntu</code>.</p>
-<p>For key generation, see <a href="https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent">GitHub's SSH key guide</a>.</p>
-<h3 id="firewall">Firewall</h3>
-<p>Oracle's default Security List allows inbound port 22 only. The bootstrap does not require additional inbound ports. If you plan to expose services later, add ingress rules in <strong>Networking → Virtual Cloud Networks → your VCN → Security Lists</strong>.</p>
-<p>Note: Oracle also has OS-level iptables rules on Ubuntu images. If port 22 is unreachable after instance creation, check <code>sudo iptables -L INPUT -n</code> and flush or adjust.</p>
-<h3 id="swap">Swap</h3>
-<p>A1 has 24 GB RAM — swap is not required. The bootstrap skips swap by default. To enable a 4 GB swapfile (useful if you run memory-intensive workloads alongside pipelinekit):</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># Pass --with-swap to oracle-bootstrap.sh</span>
-curl<span class="w"> </span>-fsSL<span class="w"> </span>https://raw.githubusercontent.com/Bruce188/pipelinekit/main/scripts/cloud/oracle-bootstrap.sh<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="p">|</span><span class="w"> </span>bash<span class="w"> </span>-s<span class="w"> </span>--<span class="w"> </span>--with-swap
-</code></pre></div>
-
-<h3 id="bootstrap">Bootstrap</h3>
-<p>Two equivalent paths — pick one.</p>
-<h4>Path 1: Cloud-init at instance creation (fully unattended)</h4>
-<ol>
-<li>Copy the contents of <a href="../scripts/cloud/oracle-cloud-init.yaml"><code>scripts/cloud/oracle-cloud-init.yaml</code></a>.</li>
-<li>In Oracle Cloud Console → Create Instance → Advanced options → Management tab → paste the YAML into the <strong>Cloud-init script</strong> field.</li>
-<li>Click <strong>Create</strong>. The bootstrap runs automatically at first boot (typically 3–8 minutes).</li>
-<li>To inject env vars without typing them in the terminal, uncomment and fill the <code>write_files</code> block in the YAML before pasting.</li>
-</ol>
-<p>Trade-offs: cloud-init is fully unattended (no SSH needed), but output is only visible via <code>sudo cat /var/log/pipelinekit-cloud-init.log</code> after the instance is up. Harder to debug mid-run.</p>
-<h4>Path 2: Post-boot via SSH (interactive)</h4>
-<div class="codehilite"><pre><span></span><code>ssh<span class="w"> </span>ubuntu@&lt;your-oracle-ip&gt;
-<span class="c1"># Optional: set env vars before running the bootstrap</span>
-<span class="c1"># export USER_EMAIL=&quot;you@example.com&quot;</span>
-<span class="c1"># export USER_NAME=&quot;Your Name&quot;</span>
-<span class="c1"># export CLAUDE_CLI_SHA256=&quot;&quot;          # set for a pinned install</span>
-curl<span class="w"> </span>-fsSL<span class="w"> </span>https://raw.githubusercontent.com/Bruce188/pipelinekit/main/scripts/cloud/oracle-bootstrap.sh<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="p">|</span><span class="w"> </span>bash
-</code></pre></div>
-
-<p>Trade-off: you see the output in real time and can interrupt if something goes wrong. Requires an SSH session.</p>
-<h3 id="environment-variables">Environment variables</h3>
-<table>
-<thead>
-<tr>
-<th>Variable</th>
-<th>Default</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>USER_EMAIL</code></td>
-<td>(none — warned)</td>
-<td>Substituted into <code>CLAUDE.md</code></td>
-</tr>
-<tr>
-<td><code>USER_NAME</code></td>
-<td>(none — warned)</td>
-<td>Substituted into <code>CLAUDE.md</code></td>
-</tr>
-<tr>
-<td><code>CLAUDE_INSTALL_OPTIONALS</code></td>
-<td><code>tresor,lsp,mcp</code></td>
-<td>Comma list of install.sh optional components</td>
-</tr>
-<tr>
-<td><code>CLAUDE_CLI_SHA256</code></td>
-<td>(none — warned)</td>
-<td>SHA256 of <code>claude.ai/install.sh</code> for pinned installs</td>
-</tr>
-<tr>
-<td><code>PIPELINEKIT_DIR</code></td>
-<td><code>$HOME/pipelinekit</code></td>
-<td>Repo clone target directory</td>
-</tr>
-<tr>
-<td><code>GH_TOKEN</code></td>
-<td>(none — warned)</td>
-<td>GitHub token (only needed for private forks)</td>
-</tr>
-<tr>
-<td><code>ANTHROPIC_API_KEY</code></td>
-<td>(none — warned)</td>
-<td>Set later via <code>claude login</code></td>
-</tr>
-</tbody>
-</table>
-<p>Set them in the shell before <code>curl | bash</code>, or uncomment the <code>write_files</code> block in the cloud-init YAML.</p>
-<h3 id="verify">Verify</h3>
-<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span><span class="nv">$HOME</span>/pipelinekit
-bash<span class="w"> </span>scripts/verify.sh
-</code></pre></div>
-
-<p>On ARM, you may see a <code>LSP_FAILURES</code> line listing <code>csharp-ls</code> — this is expected and benign (see Troubleshooting below).</p>
-<hr>
-<h2 id="hetzner-cloud-cx22-x86-64">Hetzner Cloud CX22 (x86_64)</h2>
-<p>CX22 is a shared-vCPU server: 2 vCPU, 4 GB RAM, 40 GB SSD, running Ubuntu. It is x86_64. The 4 GB RAM ceiling requires a swapfile before npm install — the bootstrap handles this automatically.</p>
-<h3 id="image-2">Image</h3>
-<p>Select <strong>Ubuntu 22.04</strong> or <strong>Ubuntu 24.04 LTS</strong> from the Hetzner image list. The default login user is <code>root</code>.</p>
-<h3 id="ssh-2">SSH</h3>
-<p>Add your public SSH key in Hetzner Cloud Console → SSH Keys before creating the server, or paste it during creation. The key is injected automatically into <code>/root/.ssh/authorized_keys</code>.</p>
-<h3 id="firewall-2">Firewall</h3>
-<p>Hetzner servers have no firewall by default (all ports reachable). If you create a firewall rule set, allow inbound TCP 22. The bootstrap does not require additional inbound ports.</p>
-<h3 id="swap-2">Swap</h3>
-<p><strong>Mandatory.</strong> CX22 has only 4 GB RAM. Without swap, <code>npm install</code> for <code>typescript-language-server</code> can OOM and fail. The bootstrap creates a 2 GB swapfile by default before running apt-get.</p>
-<p>To skip swap (not recommended):</p>
-<div class="codehilite"><pre><span></span><code>curl<span class="w"> </span>-fsSL<span class="w"> </span>https://raw.githubusercontent.com/Bruce188/pipelinekit/main/scripts/cloud/hetzner-bootstrap.sh<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="p">|</span><span class="w"> </span>bash<span class="w"> </span>-s<span class="w"> </span>--<span class="w"> </span>--no-swap
-</code></pre></div>
-
-<p>The script guards against duplicate swapfile creation: if <code>/swapfile</code> is already active in <code>swapon --show</code>, it skips creation.</p>
-<h3 id="bootstrap-2">Bootstrap</h3>
-<p>Two equivalent paths — pick one.</p>
-<h4>Path 1: Cloud-init at server creation (fully unattended)</h4>
-<ol>
-<li>Copy the contents of <a href="../scripts/cloud/hetzner-cloud-init.yaml"><code>scripts/cloud/hetzner-cloud-init.yaml</code></a>.</li>
-<li>In Hetzner Cloud Console → Create Server → (bottom of page) → <strong>User data</strong> field, paste the YAML.</li>
-<li>Click <strong>Create &amp; Buy now</strong>. The bootstrap runs at first boot (typically 4–10 minutes, including swap setup and apt operations).</li>
-<li>To inject env vars without typing them in the terminal, uncomment and fill the <code>write_files</code> block in the YAML before pasting.</li>
-</ol>
-<h4>Path 2: Post-boot via SSH (interactive)</h4>
-<div class="codehilite"><pre><span></span><code>ssh<span class="w"> </span>root@&lt;your-hetzner-ip&gt;
-<span class="c1"># Optional: set env vars</span>
-<span class="c1"># export USER_EMAIL=&quot;you@example.com&quot;</span>
-<span class="c1"># export USER_NAME=&quot;Your Name&quot;</span>
-<span class="c1"># export CLAUDE_CLI_SHA256=&quot;&quot;</span>
-curl<span class="w"> </span>-fsSL<span class="w"> </span>https://raw.githubusercontent.com/Bruce188/pipelinekit/main/scripts/cloud/hetzner-bootstrap.sh<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span><span class="p">|</span><span class="w"> </span>bash
-</code></pre></div>
-
-<h3 id="environment-variables-2">Environment variables</h3>
-<table>
-<thead>
-<tr>
-<th>Variable</th>
-<th>Default</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>USER_EMAIL</code></td>
-<td>(none — warned)</td>
-<td>Substituted into <code>CLAUDE.md</code></td>
-</tr>
-<tr>
-<td><code>USER_NAME</code></td>
-<td>(none — warned)</td>
-<td>Substituted into <code>CLAUDE.md</code></td>
-</tr>
-<tr>
-<td><code>CLAUDE_INSTALL_OPTIONALS</code></td>
-<td><code>tresor,lsp,mcp</code></td>
-<td>Comma list of install.sh optional components</td>
-</tr>
-<tr>
-<td><code>CLAUDE_CLI_SHA256</code></td>
-<td>(none — warned)</td>
-<td>SHA256 of <code>claude.ai/install.sh</code> for pinned installs</td>
-</tr>
-<tr>
-<td><code>PIPELINEKIT_DIR</code></td>
-<td><code>$HOME/pipelinekit</code></td>
-<td>Repo clone target directory</td>
-</tr>
-<tr>
-<td><code>GH_TOKEN</code></td>
-<td>(none — warned)</td>
-<td>GitHub token (only needed for private forks)</td>
-</tr>
-<tr>
-<td><code>ANTHROPIC_API_KEY</code></td>
-<td>(none — warned)</td>
-<td>Set later via <code>claude login</code></td>
-</tr>
-</tbody>
-</table>
-<h3 id="verify-2">Verify</h3>
-<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span><span class="nv">$HOME</span>/pipelinekit
-bash<span class="w"> </span>scripts/verify.sh
-</code></pre></div>
-
-<p>On x86_64, all LSP tools should install cleanly. If you see <code>LSP_FAILURES</code>, check <code>~/.cache/pipelinekit-install.log</code>.</p>
-<hr>
-<h2 id="troubleshooting">Troubleshooting</h2>
-<h3 id="uname-m-mismatch"><code>uname -m</code> mismatch</h3>
-<p>Each bootstrap asserts the target architecture and exits immediately on mismatch:</p>
+<h2 id="what-it-does">What it does</h2>
+<p>When <code>git merge --squash</code> is about to run inside a <code>/pipeline</code> execution AND the gate is enabled, the openhuman hook intercepts the tool call, mints a signal-file path, fires a notification through the standard pipelinekit notification chain (PushNotification → terminalSequence → no-op fallback), and polls the filesystem every 5 seconds for a JSON response from a human reviewer. If the human writes <code>{"decision":"allow"}</code> to the signal path, the merge proceeds. If they write <code>{"decision":"deny"}</code>, the merge is denied. If neither happens before the timeout elapses, the merge is denied (fail-safe abort).</p>
+<p>The skill is invoked <strong>only</strong> by the hook handler — never by model invocation (the SKILL frontmatter sets <code>disable-model-invocation: true</code>). The concept and name are borrowed from <a href="https://github.com/tinyhumansai/openhuman">tinyhumansai/openhuman</a> (a personal AI desktop agent, GPL-3.0); <strong>zero source code is imported</strong> — pipelinekit's implementation is original Bash + Python under the project's root MIT license. See <a href="https://github.com/Bruce188/pipelinekit/blob/main/claude/skills/openhuman/NOTICE.md"><code>claude/skills/openhuman/NOTICE.md</code></a> for the full audit trail.</p>
+<h2 id="when-to-enable-it">When to enable it</h2>
+<p>The gate has the same operational cost regardless of whether anyone is watching: the pipeline pauses, fires a notification, and waits. The judgment call is whether you actually need a human gating the merge.</p>
+<p><strong>Enable openhuman when:</strong></p>
 <ul>
-<li><code>oracle-bootstrap.sh</code> exits with an error if <code>uname -m</code> is not <code>aarch64</code>.</li>
-<li><code>hetzner-bootstrap.sh</code> exits with an error if <code>uname -m</code> is not <code>x86_64</code>.</li>
+<li>You're running <code>/pipeline</code> <strong>unattended</strong> (overnight, on a CI runner, or while you sleep) AND the merge target is something where a bad merge costs more than the time spent reviewing.</li>
+<li>You're on <strong>shared infrastructure</strong> where a runaway autonomous run could affect other people's work.</li>
+<li>The repo ships to <strong>production</strong> customers, regardless of whether you're at the terminal.</li>
 </ul>
-<p>If you see this error, you are running the wrong script for your instance type.</p>
-<h3 id="claude-command-not-found-after-bootstrap"><code>claude: command not found</code> after bootstrap</h3>
-<p>The Claude CLI is installed to a path that may not be in your shell's <code>PATH</code> yet. Run:</p>
-<div class="codehilite"><pre><span></span><code><span class="nb">source</span><span class="w"> </span>~/.bashrc<span class="w">   </span><span class="c1"># or ~/.profile, or start a new shell session</span>
-claude<span class="w"> </span>--version
-</code></pre></div>
-
-<p>If <code>claude</code> is still not found, the CLI install may have failed. Check the bootstrap log:</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># Cloud-init path:</span>
-sudo<span class="w"> </span>cat<span class="w"> </span>/var/log/pipelinekit-cloud-init.log
-<span class="c1"># SSH path:</span>
-cat<span class="w"> </span>~/.cache/pipelinekit-bootstrap.log
-</code></pre></div>
-
-<p>Then re-run <code>claude login</code>.</p>
-<h3 id="npm-oom-during-install-sh">npm OOM during install.sh</h3>
-<p>Symptom: install.sh fails during <code>npm install -g typescript-language-server</code> or similar, with a killed/OOM message.</p>
-<p>Fix: ensure swap is active. Check with <code>swapon --show</code>. If no swap is listed:</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># Hetzner — re-run bootstrap (idempotent, will create swap):</span>
-curl<span class="w"> </span>-fsSL<span class="w"> </span>https://raw.githubusercontent.com/Bruce188/pipelinekit/main/scripts/cloud/hetzner-bootstrap.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>bash
-
-<span class="c1"># Oracle — re-run with explicit swap flag:</span>
-curl<span class="w"> </span>-fsSL<span class="w"> </span>https://raw.githubusercontent.com/Bruce188/pipelinekit/main/scripts/cloud/oracle-bootstrap.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>bash<span class="w"> </span>-s<span class="w"> </span>--<span class="w"> </span>--with-swap
-</code></pre></div>
-
-<p>Then re-run <code>scripts/install.sh</code> from inside the <code>pipelinekit</code> directory.</p>
-<h3 id="lsp-failures-warning-on-arm-oracle-a1"><code>LSP_FAILURES</code> warning on ARM (Oracle A1)</h3>
-<p><code>scripts/verify.sh</code> may print <code>LSP_FAILURES: csharp-ls</code> on aarch64. This is expected: the <code>csharp-ls</code> binary distribution does not ship an ARM64 native binary. All other LSP tools (pyright, typescript-language-server, gopls, rust-analyzer) install correctly on ARM64.</p>
-<p>The warning is non-blocking: <code>install.sh</code> continues and <code>verify.sh</code> exits 0 for this case. Logs at <code>~/.cache/pipelinekit-install.log</code>.</p>
-<h3 id="re-running-the-bootstrap-to-recover-from-a-partial-install">Re-running the bootstrap to recover from a partial install</h3>
-<p>All bootstrap scripts are idempotent: re-running on a partially-provisioned instance converges cleanly. Every step is guarded:</p>
+<p><strong>Skip openhuman when:</strong></p>
 <ul>
-<li><code>dpkg -s &lt;pkg&gt;</code> before apt installs</li>
-<li><code>command -v node</code> before NodeSource setup</li>
-<li><code>command -v claude</code> before CLI install</li>
-<li><code>git -C &lt;dir&gt; pull</code> instead of re-cloning if the repo directory exists</li>
-<li><code>swapon --show</code> before swapfile creation</li>
+<li>You're running <code>/pipeline</code> <strong>interactively</strong> at the terminal — you already eyeball every PR open and merge manually.</li>
+<li>The repo is a <strong>solo sandbox</strong> with no consumers — the blast radius is zero.</li>
+<li>You've already configured <strong>GitHub branch protection</strong> with required reviewers; the human-review pause then happens at the GitHub merge button, not before the PR opens. (openhuman gates the local squash, not the GitHub merge — these are different events.)</li>
 </ul>
-<p>Simply re-run the same <code>curl | bash</code> command you used the first time.</p>
+<h2 id="how-to-enable">How to enable</h2>
+<p>Pass <code>--human-review</code> to <code>/pipeline</code> at invocation time:</p>
+<div class="codehilite"><pre><span></span><code>/pipeline<span class="w">                              </span><span class="c1"># gate off (default — same as --no-human-review)</span>
+/pipeline<span class="w"> </span>--no-human-review<span class="w">            </span><span class="c1"># explicit: gate off</span>
+/pipeline<span class="w"> </span>--human-review<span class="w">               </span><span class="c1"># bare flag → 30 minute default timeout</span>
+/pipeline<span class="w"> </span>--human-review<span class="w"> </span><span class="m">60</span><span class="w">            </span><span class="c1"># explicit 60 minute timeout</span>
+/pipeline<span class="w"> </span>--human-review<span class="w"> </span><span class="m">180</span><span class="w">           </span><span class="c1"># 3 hours</span>
+</code></pre></div>
+
+<p>The argument parser exports <code>PIPELINE_HUMAN_REVIEW=&lt;minutes&gt;</code> from one of these forms. The <code>PreToolUse</code> hook handler reads the env var: <code>0</code> (unset or explicit) means passthrough; positive integer means engage with that timeout.</p>
+<p><code>--human-review</code> and <code>--no-human-review</code> are mutually exclusive — passing both is a CLI error.</p>
+<h2 id="the-signal-file-mechanism">The signal-file mechanism</h2>
+<p>When the gate fires, the handler mints a path:</p>
+<div class="codehilite"><pre><span></span><code>.claude/openhuman/&lt;feature-name&gt;-&lt;unix-timestamp&gt;.json
+</code></pre></div>
+
+<p><code>.claude/</code> is gitignored per pipelinekit's never-stage list, so signal files are <strong>never committed</strong>. The handler polls this path every 5 seconds.</p>
+<p>To <strong>approve</strong>, a human writes the following JSON to the signal path:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;decision&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;allow&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;reason&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Reviewed diff; safe to merge.&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;reviewer&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bruce&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;ts&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-05-18T20:30:00Z&quot;</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>To <strong>deny</strong>: <code>{"decision":"deny"}</code>. Only <code>decision</code> is required; <code>reason</code>, <code>reviewer</code>, and <code>ts</code> are optional.</p>
+<p><strong>Atomic write is required</strong> to avoid the polling loop reading a half-written file:</p>
+<div class="codehilite"><pre><span></span><code><span class="nb">printf</span><span class="w"> </span><span class="s1">&#39;%s&#39;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$JSON</span><span class="s2">&quot;</span><span class="w"> </span>&gt;<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SIGNAL</span><span class="s2">.tmp&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>mv<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SIGNAL</span><span class="s2">.tmp&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SIGNAL</span><span class="s2">&quot;</span>
+</code></pre></div>
+
+<p>The notification fires through three surfaces in priority order:</p>
+<ol>
+<li><strong>PushNotification</strong> — interactive session + Remote Control enabled in the Claude Code mobile app. Delivers the prompt to your phone. You tap the notification, read the prompt, and respond.</li>
+<li><strong>terminalSequence (OSC 777)</strong> — terminal-attached fallback. Surfaces as a desktop notification on hosts that support OSC 777.</li>
+<li><strong>Filesystem signal-file (always)</strong> — the canonical response channel. Even when neither notification surface reaches you, the handler still polls the signal file. You can write the approval JSON via any out-of-band path: SSH, file-share, web UI, a teammate writing it for you, whatever works.</li>
+</ol>
+<h2 id="timeout-semantics">Timeout semantics</h2>
+<p>The timeout is the maximum time the handler will wait for a signal-file before giving up. <strong>Fail-safe: deny on timeout. Never auto-approve.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Invocation</th>
+<th>Timeout</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/pipeline</code> (no flag)</td>
+<td><code>0</code> — gate disabled (no pause, merge proceeds)</td>
+</tr>
+<tr>
+<td><code>/pipeline --no-human-review</code></td>
+<td><code>0</code> — same as above, explicit</td>
+</tr>
+<tr>
+<td><code>/pipeline --human-review</code></td>
+<td><code>30</code> minutes (bare-flag default)</td>
+</tr>
+<tr>
+<td><code>/pipeline --human-review &lt;N&gt;</code></td>
+<td><code>&lt;N&gt;</code> minutes (positive integer; regex <code>^[1-9][0-9]*$</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>When the timeout elapses without an approval, the handler emits:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;hookSpecificOutput&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;permissionDecision&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;deny&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;permissionDecisionReason&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OPENHUMAN_TIMEOUT: &lt;minutes&gt; elapsed without approval&quot;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p>The pipeline halts at that point. The feature is left in its pre-merge state — branch pushed, PR open, but not merged. You can manually merge the PR via GitHub afterward, or re-run <code>/pipeline</code> with the gate enabled (or disabled) on the next iteration.</p>
+<p>The fail-safe-abort default was driven by the 2026-05-18 native-Claude-Code-compliance audit Dimension 6 finding: "defaulting to a non-zero timeout with auto-approve creates a silent-auto-approve drift hazard." Auto-approve on timeout would let an inattentive operator effectively disable the gate by setting a long timeout and never responding.</p>
+<p><strong>Malformed signal-file</strong> (invalid JSON or missing <code>decision</code> field) is also treated as deny, with reason <code>OPENHUMAN_MALFORMED_SIGNAL: &lt;path&gt;</code>. The handler never guesses what the human meant.</p>
+<h2 id="cross-feature-payload-contract">Cross-feature payload contract</h2>
+<p>The handler binds to the canonical 6-field notification payload schema shared with the F9 pipeline-mobile-notifications surface. Field-by-field:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Source</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>feature_index</code></td>
+<td><code>PIPELINE_FEATURE_INDEX</code> env (e.g. <code>10/23</code>)</td>
+<td>Exported by <code>/pipeline</code> Step 1 from <code>docs/pipeline-state.md</code> line <code>**Feature:**</code>. Empty string for ad-hoc <code>/openhuman</code> outside an active pipeline run.</td>
+</tr>
+<tr>
+<td><code>step</code></td>
+<td>Hardcoded <code>5.8-pre-merge</code></td>
+<td>Identifies the gate firing point.</td>
+</tr>
+<tr>
+<td><code>event_type</code></td>
+<td><code>human-review</code></td>
+<td>F9 event-type taxonomy.</td>
+</tr>
+<tr>
+<td><code>text</code></td>
+<td>Composed by handler (≤ 200 bytes)</td>
+<td>The approval prompt body. <strong>Byte-based</strong> truncation — do not embed emoji or CJK characters; a 2-byte or 3-byte glyph may straddle the 200-byte boundary.</td>
+</tr>
+<tr>
+<td><code>action_link</code></td>
+<td>Signal-file path</td>
+<td>The reviewer writes JSON here.</td>
+</tr>
+<tr>
+<td><code>feature_name</code></td>
+<td><code>PIPELINE_FEATURE_NAME</code> env</td>
+<td>From the same <code>docs/pipeline-state.md</code> field.</td>
+</tr>
+</tbody>
+</table>
+<p>The 200-byte text cap is a hard limit. Full charter / analysis / plan / review file contents never appear in the notification — they're not in scope, and the cap would truncate them anyway. The handler reads payload data from env vars only — it never opens <code>docs/plan*.md</code>, <code>docs/charter*.md</code>, etc.</p>
+<h2 id="what-openhuman-does-not-do">What openhuman does NOT do</h2>
+<ul>
+<li><strong>Does NOT auto-approve on timeout.</strong> Fail-safe = abort.</li>
+<li><strong>Does NOT modify the F9 notification helper</strong> (<code>claude/hooks/notify-emit.sh</code>). The helper is consumed unchanged; the 6-field payload schema and the 200-byte text cap are the cross-feature contract.</li>
+<li><strong>Does NOT read</strong> <code>docs/plan*.md</code>, <code>docs/charter*.md</code>, <code>docs/review*.md</code>, or <code>docs/analysis*.md</code>. Notification payload comes from env vars only — no file contents leak.</li>
+<li><strong>Does NOT POST plan / charter / analysis / review content to external services.</strong> The handler's <code>allowed-tools</code> line includes <code>Bash(curl *)</code> for defensive reasons only; any <code>curl</code> invocation inside the handler MUST be localhost-only (enforced by AC12 in the original feature acceptance criteria).</li>
+<li><strong>Does NOT propagate <code>--human-review</code> to <code>/review</code>, <code>/implement-plan</code>, or any sub-skill.</strong> The flag belongs to <code>/pipeline</code> Step 1 only. Sub-skills receive the gate via the installed <code>PreToolUse</code> hook, not via flag propagation. This keeps the gate semantically anchored at the destructive action, not at intermediate phases.</li>
+<li><strong>Does NOT pause <code>/ppr</code> itself.</strong> <code>/ppr</code> opens the PR — that's non-destructive. The gate fires later when <code>/post-merge</code> (or whatever downstream skill) runs <code>git merge --squash</code>. PRs can always be opened; only the local squash is gated.</li>
+<li><strong>Does NOT pause GitHub's merge button.</strong> openhuman is a local hook; GitHub-side merge gating belongs to branch protection rules. Use both together for defense-in-depth.</li>
+</ul>
+<h2 id="failure-modes">Failure modes</h2>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gate disabled (<code>PIPELINE_HUMAN_REVIEW=0</code>)</td>
+<td>Passthrough. Handler emits <code>permissionDecision: "allow"</code> immediately.</td>
+</tr>
+<tr>
+<td>Timeout elapses with no signal file</td>
+<td><code>permissionDecision: "deny"</code> with reason <code>OPENHUMAN_TIMEOUT: &lt;minutes&gt; elapsed without approval</code>. Pipeline halts; PR is left open.</td>
+</tr>
+<tr>
+<td>Signal file appears with <code>{"decision":"allow"}</code></td>
+<td>Merge proceeds; pipeline continues.</td>
+</tr>
+<tr>
+<td>Signal file appears with <code>{"decision":"deny"}</code></td>
+<td><code>permissionDecision: "deny"</code> with reason <code>OPENHUMAN_DENIED_BY_REVIEWER: &lt;reviewer or "anonymous"&gt;</code>. Pipeline halts.</td>
+</tr>
+<tr>
+<td>Signal file is malformed (invalid JSON, missing <code>decision</code>)</td>
+<td><code>permissionDecision: "deny"</code> with reason <code>OPENHUMAN_MALFORMED_SIGNAL: &lt;path&gt;</code>. Pipeline halts.</td>
+</tr>
+<tr>
+<td><code>notify-emit.sh</code> fails to fire</td>
+<td>Handler still polls the filesystem signal path. The notification surface is best-effort; the signal-file path is the canonical response channel.</td>
+</tr>
+<tr>
+<td>Mobile app not enrolled / Remote Control off</td>
+<td>terminalSequence fallback fires. If that also fails (no OSC 777 support), the human can still write the signal-file via any out-of-band path.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><strong><a href="pipeline.html">/pipeline</a></strong> § Human-Review Gate — the orchestrator's flag parser + the <code>PIPELINE_HUMAN_REVIEW</code> env var contract.</li>
+<li><strong><a href="ppr.html">/ppr</a></strong> § Integration with <code>--human-review</code> — why <code>/ppr</code> itself is NOT gated (the squash is the gated action, not the PR open).</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/blob/main/claude/skills/openhuman/NOTICE.md"><code>claude/skills/openhuman/NOTICE.md</code></a> — full attribution to upstream <code>tinyhumansai/openhuman</code> and the concept-only vendoring scope.</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/blob/main/claude/hooks/notify-emit.sh"><code>claude/hooks/notify-emit.sh</code></a> — the F9 notification helper that openhuman consumes unchanged.</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/blob/main/claude/skills/pipeline/reference.md"><code>claude/skills/pipeline/reference.md</code></a> § Notification payload schema — the 6-field cross-feature contract.</li>
+</ul>
     </div>
 
     <div class="no-results" id="no-results">

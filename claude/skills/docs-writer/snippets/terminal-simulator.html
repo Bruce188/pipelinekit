@@ -51,11 +51,10 @@
       <button class="pkit-tm-btn" data-act="speed">1×</button>
     </div>
   </div>
-  <div class="pkit-tm-progress"><div class="pkit-tm-progress-fill"></div></div>
-  <pre class="pkit-tm-screen" id="pkit-tm-screen"></pre>
-</div>
+  <div class="pkit-tm-progress"><div class="pkit-tm-progress-fill" data-tm-progress></div></div>
+  <pre class="pkit-tm-screen" data-tm-screen></pre>
 
-<script type="application/json" id="pkit-tm-script">
+  <script type="application/json" data-tm-script>
 [
   {"type": "ps1", "text": "$ "},
   {"type": "cmd", "text": "claude\n"},
@@ -73,7 +72,7 @@
   {"type": "out-stdout", "text": "         git checkout -b research/temp-2026-05-19\n"},
   {"type": "out-stdout", "text": "         (filter 12 keep-rows from research-results.tsv into research-keep.tsv)\n"},
   {"type": "out-stdout", "text": "         git add research-keep.tsv\n"},
-  {"type": "out-stdout", "text": "         git commit -m 'research: keep-rows from 2026-05-19 run'\n"},
+  {"type": "out-stdout", "text": "         git commit -m 'chore: publish research keeps for temp (12 rows)'\n"},
   {"type": "out-stdout", "text": "         git push -u origin research/temp-2026-05-19\n"},
   {"type": "pause", "ms": 500},
   {"type": "out-info", "text": "[ppr] No PR opened — research branches are user-reviewed before merge.\n"},
@@ -93,24 +92,27 @@
   {"type": "out-success", "text": "[ppr] URL: https://github.com/Bruce188/pipelinekit/tree/research/temp-2026-05-19\n"},
   {"type": "out-info", "text": "[ppr] Review the branch and decide whether to merge.\n"}
 ]
-</script>
+  </script>
+</div>
 
 <script>
 (function() {
   'use strict';
-  const terms = document.querySelectorAll('.pkit-term[data-snippet-mount="terminal-simulator"]');
-  const term = terms[terms.length - 1];
-  if (!term || term.dataset.pkitInit) return;
+  document.querySelectorAll('.pkit-term[data-snippet-mount="terminal-simulator"]').forEach(term => {
+  if (term.dataset.pkitInit) return;
   term.dataset.pkitInit = '1';
 
-  const script = JSON.parse(term.querySelector('#pkit-tm-script').textContent);
-  const screen = term.querySelector('#pkit-tm-screen');
-  const progressFill = term.querySelector('.pkit-tm-progress-fill');
+  const dataEl = term.querySelector('script[data-tm-script]');
+  if (!dataEl) return;
+  const script = JSON.parse(dataEl.textContent);
+  const screen = term.querySelector('[data-tm-screen]');
+  const progressFill = term.querySelector('[data-tm-progress]');
   const playBtn = term.querySelector('[data-act="play"]');
   const pauseBtn = term.querySelector('[data-act="pause"]');
   const stepBtn = term.querySelector('[data-act="step"]');
   const restartBtn = term.querySelector('[data-act="restart"]');
   const speedBtn = term.querySelector('[data-act="speed"]');
+  if (!screen || !progressFill || !playBtn) return;
 
   let idx = 0;
   let playing = false;
@@ -210,5 +212,6 @@
     }, { threshold: 0.4 });
     io.observe(term);
   }
+  });
 })();
 </script>

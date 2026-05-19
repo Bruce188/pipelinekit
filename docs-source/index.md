@@ -27,10 +27,12 @@ The complete user-facing documentation for pipelinekit \(autonomous `/pipeline` 
 
 ## Skills + features
 
+- [`/ppr` push-PR flow](ppr.html) — everyday push + PR-open closing step of every pipeline feature.
 - [`/ppr --research` flag](ppr-research-flag.html) — publish research keep-rows to a dedicated branch.
 - [Research TSV viewer](tsv-viewer.html) — sortable / filterable HTML viewer for research-results TSVs.
 - [GitHub Issues integration](github-issues-integration.html) — `--issues` mode for `/pipeline`.
 - [`/pipeline --renew` charter revalidation](pipeline-charter-revalidation.html) — drift detection with 3-valued status + `--auto` bypass.
+- [openhuman — human-review gate](openhuman.html) — pause `/pipeline` before destructive actions for out-of-band human approval (`--human-review N`).
 
 ## Infrastructure
 
@@ -47,4 +49,13 @@ The complete user-facing documentation for pipelinekit \(autonomous `/pipeline` 
 - [SKILL authoring standard](docs/SKILL-AUTHORING-STANDARD.html) — the 10-pattern skill DNA template, originally vendored from alirezarezvani/claude-skills.
 - [SKILL pipeline lifecycle](docs/SKILL_PIPELINE.html) — Intent → ... → Verify lifecycle.
 - [Vendoring notice](docs/NOTICE.html) — attribution + license.
+
+## Built with / Inspired by
+
+Pipelinekit is MIT-licensed and stands on the shoulders of several upstream projects, plus inspiration from individual researchers and the Claude platform itself.
+
+- **[Andrej Karpathy](https://karpathy.ai/)** — the autoresearch-loop pattern (`/research`) and the namesake of the `karpathy-reviewer` anti-hallucination agent.
+- **[Anthropic](https://www.anthropic.com/)** — the entire runtime: Claude Code, the Agent SDK, multi-agent dispatch, Skills, Hooks, MCP, `PushNotification`, and the underlying Claude models that every pipelinekit phase calls.
+
+See the **[Credits page](credits.html)** for the full table of vendored upstreams (with pinned SHAs, licenses, scope, and re-vendor procedures) — wshobson/agents, alirezarezvani/{claude-skills, ClaudeForge}, mattpocock/skills, tinyhumansai/openhuman, rohitg00/agentmemory.
 

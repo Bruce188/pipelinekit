@@ -40,6 +40,23 @@ SNIPPETS_DIR = SKILL_DIR / "snippets"
 # H2 / H3 capture regex (used to build the ToC and to seed `id=` attrs)
 HEADING_RE = re.compile(r'^(#{2,3})\s+(.+?)\s*$', re.MULTILINE)
 
+# Fenced code block regex. Matches ``` and ~~~ fences (any language tag).
+# Used to strip code-fenced content before scanning for headings so that
+# `## MVP boundary` inside a bash heredoc doesn't become a ToC entry.
+_CODE_FENCE_RE = re.compile(r'^(```|~~~)[^\n]*\n.*?^\1[ \t]*$', re.MULTILINE | re.DOTALL)
+
+
+def strip_code_fences(md_text: str) -> str:
+    """Remove fenced code blocks (```...``` and ~~~...~~~). Preserves
+    surrounding whitespace and line counts (replaces with blank lines)
+    so subsequent heading-line offsets remain meaningful for debugging.
+    """
+    def blank_out(match: re.Match) -> str:
+        # Replace the matched block with the same number of newlines so
+        # downstream regex line semantics survive.
+        return "\n" * match.group(0).count("\n")
+    return _CODE_FENCE_RE.sub(blank_out, md_text)
+
 
 def slugify(text: str) -> str:
     """Lowercase, replace non-alphanumeric runs with '-', strip leading/trailing '-'."""
@@ -49,10 +66,13 @@ def slugify(text: str) -> str:
 
 
 def extract_toc(md_text: str) -> str:
-    """Build a ToC <li>...</li> list (no enclosing <ul>) from H2/H3 headings."""
+    """Build a ToC <li>...</li> list (no enclosing <ul>) from H2/H3 headings.
+    Strips fenced code blocks first so heading-shaped lines inside code don't
+    pollute the ToC (e.g., `## MVP boundary` inside a bash heredoc demo)."""
+    src = strip_code_fences(md_text)
     seen = set()
     items = []
-    for match in HEADING_RE.finditer(md_text):
+    for match in HEADING_RE.finditer(src):
         level = len(match.group(1))  # 2 or 3
         title = match.group(2)
         # Strip markdown inline syntax (backticks, bold, italic, links) for ToC label
@@ -74,31 +94,55 @@ def extract_toc(md_text: str) -> str:
     return "\n".join(items)
 
 
-def fix_heading_ids(html_body: str, slug_map: dict[str, str]) -> str:
+def fix_heading_ids(html_body: str, slug_sequence: list[str]) -> str:
     """
     python-markdown's 'toc' extension already adds id= to headings via slugify.
-    But we want OUR slug scheme. So we rewrite ids in the rendered HTML to match.
+    But we want OUR slug scheme. We rewrite ids in the rendered HTML by walking
+    headings in document order and assigning slugs from `slug_sequence` in the
+    same order — this preserves the per-occurrence dedup that the ToC builder
+    used (e.g. three identical "### Run" headings get "run", "run-2", "run-3").
     """
-    # Match <h2>Foo</h2> -> <h2 id="foo">Foo</h2>, and similar for h3/h4
+    counter = {"i": 0}
+
     def replace(match):
         tag = match.group(1)
         existing_attrs = match.group(2) or ""
         inner = match.group(3)
         # Strip any existing id= from existing_attrs
         existing_attrs = re.sub(r'\s*id="[^"]*"', "", existing_attrs)
-        # Compute slug from inner text (strip tags)
-        text = re.sub(r"<[^>]+>", "", inner).strip()
-        slug = slug_map.get(text, slugify(text))
+        # Assign the next slug from the sequence (matches document order).
+        idx = counter["i"]
+        if idx < len(slug_sequence):
+            slug = slug_sequence[idx]
+            counter["i"] += 1
+        else:
+            # Fallback if HTML has more headings than markdown sequence
+            # (shouldn't happen in practice).
+            text = re.sub(r"<[^>]+>", "", inner).strip()
+            slug = slugify(text)
         return f'<{tag} id="{slug}"{existing_attrs}>{inner}</{tag}>'
 
-    return re.sub(r"<(h[234])([^>]*)>(.*?)</\1>", replace, html_body, flags=re.DOTALL)
+    # Walk only H2 + H3 — matches HEADING_RE / build_slug_sequence / extract_toc scope.
+    # H4 keeps python-markdown's default toc-extension slug; H4s are not surfaced in
+    # the ToC sidebar so divergent slugs are harmless. Walking H4 here would consume
+    # a slug-sequence slot per H4 and shift all subsequent IDs (issue surfaced by
+    # docs-source/cloud-setup.md where bash code-fence content sits between H3s).
+    return re.sub(r"<(h[23])([^>]*)>(.*?)</\1>", replace, html_body, flags=re.DOTALL)
 
 
-def build_slug_map(md_text: str) -> dict[str, str]:
-    """Build {clean_heading_text: slug} mapping used by both ToC and heading-id rewrite."""
-    seen = set()
-    mapping = {}
-    for match in HEADING_RE.finditer(md_text):
+def build_slug_sequence(md_text: str) -> list[str]:
+    """Build an ordered list of slugs for H2/H3 headings in markdown source.
+    Slugs are dedup'd by appending -2, -3, etc. when the same text repeats.
+    Returns one slug per heading occurrence, in document order.
+
+    Code-fenced content is stripped before scanning so that heading-shaped
+    lines inside code blocks (e.g., `## MVP boundary` in a heredoc demo)
+    don't appear in the sequence.
+    """
+    src = strip_code_fences(md_text)
+    seen: set[str] = set()
+    sequence: list[str] = []
+    for match in HEADING_RE.finditer(src):
         title = match.group(2)
         clean = re.sub(r"`([^`]+)`", r"\1", title)
         clean = re.sub(r"\*\*([^*]+)\*\*", r"\1", clean)
@@ -111,6 +155,32 @@ def build_slug_map(md_text: str) -> dict[str, str]:
             slug = f"{base}-{n}"
             n += 1
         seen.add(slug)
+        sequence.append(slug)
+    return sequence
+
+
+# Backwards-compat alias for the dict-based slug_map (no longer used by fix_heading_ids
+# but kept available in case any caller imports it).
+def build_slug_map(md_text: str) -> dict[str, str]:
+    """Deprecated: prefer build_slug_sequence (sequence preserves dedup correctly)."""
+    src = strip_code_fences(md_text)
+    seen: set[str] = set()
+    mapping: dict[str, str] = {}
+    for match in HEADING_RE.finditer(src):
+        title = match.group(2)
+        clean = re.sub(r"`([^`]+)`", r"\1", title)
+        clean = re.sub(r"\*\*([^*]+)\*\*", r"\1", clean)
+        clean = re.sub(r"\*([^*]+)\*", r"\1", clean)
+        clean = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", clean)
+        slug = slugify(clean)
+        base = slug
+        n = 2
+        while slug in seen:
+            slug = f"{base}-{n}"
+            n += 1
+        seen.add(slug)
+        # Note: this overwrites earlier identical text — known-bad,
+        # use build_slug_sequence instead.
         mapping[clean] = slug
     return mapping
 
@@ -207,13 +277,17 @@ def derive_description_from_html(html_text: str, fallback: str) -> str:
 
 
 def extract_toc_from_html(html_text: str) -> str:
-    """Build ToC from h2/h3 ids (or text if id missing) in rendered HTML."""
+    """Build ToC from h2/h3 ids (or text if id missing) in rendered HTML.
+    Skips snippet-internal headings (class="pkit-*") so the page sidebar
+    doesn't pick up visual sub-headings from embedded snippets."""
     items = []
     for match in re.finditer(
         r"<(h[23])([^>]*)>(.*?)</\1>", html_text, re.DOTALL | re.IGNORECASE
     ):
         tag = match.group(1).lower()
         attrs = match.group(2) or ""
+        if _is_snippet_internal(attrs):
+            continue
         inner = match.group(3)
         text = re.sub(r"<[^>]+>", "", inner).strip()
         id_match = re.search(r'id="([^"]+)"', attrs)
@@ -223,15 +297,42 @@ def extract_toc_from_html(html_text: str) -> str:
     return "\n".join(items)
 
 
-def ensure_heading_ids(html_text: str) -> str:
-    """Ensure all h2/h3/h4 have id= attributes (slug-derived if absent)."""
+# Heading classes that mark snippet-internal hierarchy (h2/h3 used for VISUAL
+# structure inside a snippet, not as page-level sections). These are skipped
+# by the ToC builder and the id-dedup pass so:
+#   1. The page sidebar doesn't list snippet-internal headings like "Quiz"
+#      from chooser-quiz or "Compare" from comparison-tabs.
+#   2. The snippet's own id="pkit-cq-title" (used by its inline JS for
+#      hooks) isn't stripped or reassigned.
+_SNIPPET_INTERNAL_RE = re.compile(r'class="[^"]*\bpkit-[\w-]+\b')
+
+
+def _is_snippet_internal(attrs: str) -> bool:
+    """True if a heading's attrs mark it as snippet-internal (class="pkit-*")."""
+    return bool(_SNIPPET_INTERNAL_RE.search(attrs))
+
+
+def ensure_heading_ids(html_text: str, *, force_dedup: bool = True) -> str:
+    """Ensure page-level h2/h3/h4 have id= attributes (slug-derived from heading text).
+
+    When force_dedup=True (the default), STRIPS any existing id= and reassigns
+    via sequential dedup — fixes pages where the prior render produced
+    collisions (e.g., two `<h3 id="bootstrap-2">` from two parallel sections
+    that both contain a "### Bootstrap"). When False, preserves existing ids.
+
+    Snippet-internal headings (class="pkit-*") are left untouched — their ids
+    are used by the snippet's inline JS and must not change."""
     seen = set()
 
     def replace(match):
         tag = match.group(1)
         attrs = match.group(2) or ""
         inner = match.group(3)
-        if 'id="' in attrs:
+        if _is_snippet_internal(attrs):
+            return match.group(0)
+        if force_dedup:
+            attrs = re.sub(r'\s*id="[^"]*"', "", attrs)
+        elif 'id="' in attrs:
             return match.group(0)
         text = re.sub(r"<[^>]+>", "", inner).strip()
         slug = slugify(text)
@@ -264,15 +365,20 @@ def derive_title(md_text: str, fallback: str) -> str:
 
 
 def derive_description(md_text: str, fallback: str) -> str:
-    """First non-empty paragraph after H1 (or anywhere if no H1); otherwise fallback."""
+    """First non-empty paragraph after H1 (or anywhere if no H1); otherwise fallback.
+    Skips paragraphs that are:
+      - Headings, lists, code-fences, blockquotes, tables
+      - Raw HTML snippet placeholders (e.g., `<div data-snippet="...">`)
+      - Raw HTML tags in general (anything starting with `<`)
+    """
     # Skip the H1 line if present
     body = re.sub(r"^#\s+.+\n?", "", md_text, count=1, flags=re.MULTILINE)
-    # Find first paragraph that isn't a heading/list/code-fence/blockquote
+    # Find first paragraph that isn't markdown structure or a raw HTML tag
     for para in re.split(r"\n\s*\n", body):
         para = para.strip()
         if not para:
             continue
-        if para.startswith(("#", "-", "*", "+", "```", ">", "|")):
+        if para.startswith(("#", "-", "*", "+", "```", ">", "|", "<")):
             continue
         # Take first sentence (up to 240 chars)
         sentence = re.sub(r"\s+", " ", para)
@@ -308,11 +414,26 @@ def substitute_snippets(html_body: str, *, missing_ok: bool = False) -> tuple[st
     """Replace <div data-snippet="..."> placeholders with the corresponding
     snippet content from claude/skills/docs-writer/snippets/<name>.html.
 
+    HTML comments are stashed before substitution so that placeholder examples
+    inside snippet documentation comments (e.g., `<!-- usage: <div data-snippet=...> -->`)
+    don't get re-substituted on subsequent renders — that would compound
+    exponentially across re-renders.
+
     Returns (new_html, snippet_names_used). Raises FileNotFoundError on
     missing snippet unless missing_ok=True (in which case the placeholder
     is left in place and the missing name is still recorded).
     """
     used: list[str] = []
+
+    # Stash HTML comments to keep substitution from matching placeholder examples
+    # inside `<!-- ... -->`. Replace each with a sentinel; restore after substitution.
+    comments: list[str] = []
+
+    def stash(m: re.Match) -> str:
+        comments.append(m.group(0))
+        return f"\x00CMT_{len(comments) - 1}\x00"
+
+    stripped = re.sub(r"<!--.*?-->", stash, html_body, flags=re.DOTALL)
 
     def replace(match: re.Match) -> str:
         name = match.group(1).strip()
@@ -327,19 +448,27 @@ def substitute_snippets(html_body: str, *, missing_ok: bool = False) -> tuple[st
             )
         used.append(name)
         content = snippet_path.read_text(encoding="utf-8")
+        # The snippet content itself may have HTML comments containing
+        # placeholder examples; stash those too so the same substitution pass
+        # (over the assembled output) doesn't re-trigger on them.
+        content = re.sub(r"<!--.*?-->", stash, content, flags=re.DOTALL)
         # Forward extra data-attrs to the snippet's mount root by injecting
-        # them into the first element with `data-snippet-mount`. If the
-        # snippet has no mount marker, just prepend a wrapping comment.
+        # them into the first element with `data-snippet-mount`.
         if extra_attrs:
             content = re.sub(
                 r'(data-snippet-mount="[^"]+")',
-                rf'\1 {extra_attrs}',
+                lambda m: m.group(1) + " " + extra_attrs,
                 content,
                 count=1,
             )
         return content
 
-    new_html = _SNIPPET_PLACEHOLDER_RE.sub(replace, html_body)
+    new_html = _SNIPPET_PLACEHOLDER_RE.sub(replace, stripped)
+
+    # Restore stashed comments.
+    for i, c in enumerate(comments):
+        new_html = new_html.replace(f"\x00CMT_{i}\x00", c)
+
     return new_html, used
 
 
@@ -412,12 +541,12 @@ def main() -> int:
             md_text, f"{title} — pipelinekit application documentation"
         )
 
-        slug_map = build_slug_map(md_text)
+        slug_sequence = build_slug_sequence(md_text)
         body_html = render_markdown(md_text)
         body_html = strip_first_h1(body_html)
         if description_was_derived:
             body_html = strip_first_paragraph(body_html)
-        body_html = fix_heading_ids(body_html, slug_map)
+        body_html = fix_heading_ids(body_html, slug_sequence)
         body_html, snippets_used = substitute_snippets(body_html)
         toc_html = extract_toc(md_text)
 

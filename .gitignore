@@ -66,4 +66,6 @@ documentation/research-results.html
 # charter, progress, pipeline-state, features-vN, etc.) — never committed.
 # User-facing docs live in documentation/. Use `git add -f` to commit a
 # specific docs/ file (rarely needed).
-docs/
+# Anchor at the repo root so the pattern does NOT also catch
+# documentation/docs/ (the vendored skill-authoring reference pages).
+/docs/

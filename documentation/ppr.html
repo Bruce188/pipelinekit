@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{TITLE}} — pipelinekit</title>
-<meta name="description" content="{{DESCRIPTION}}">
+<title>/ppr — Push + PR — pipelinekit</title>
+<meta name="description" content="The closing step of every pipeline feature: push the committed branch to origin and open a pull request. Runs after /review passes. The human approves the PR separately — /ppr never auto-merges. This page documents the everyday push-PR…">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <a href="credits.html">Credits</a> &nbsp;/&nbsp; <span>{{TITLE}}</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <a href="credits.html">Credits</a> &nbsp;/&nbsp; <span>/ppr — Push + PR</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -530,18 +530,423 @@ footer {
 <div class="layout">
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
-    <ul>{{TOC}}</ul>
+    <ul>
+      <li class="lvl-2"><a href="#synopsis">Synopsis</a></li>
+      <li class="lvl-2"><a href="#prerequisites">Prerequisites</a></li>
+      <li class="lvl-2"><a href="#process">Process</a></li>
+      <li class="lvl-3"><a href="#step-1-safety-checks">Step 1: Safety checks</a></li>
+      <li class="lvl-3"><a href="#step-1-5-review-check">Step 1.5: Review check</a></li>
+      <li class="lvl-3"><a href="#step-1-6-landing-report-advisory">Step 1.6: Landing report (advisory)</a></li>
+      <li class="lvl-3"><a href="#step-1-7-auto-format-language-specific">Step 1.7: Auto-format (language-specific)</a></li>
+      <li class="lvl-3"><a href="#step-2-push">Step 2: Push</a></li>
+      <li class="lvl-3"><a href="#step-3-create-the-pr">Step 3: Create the PR</a></li>
+      <li class="lvl-3"><a href="#step-4-what-s-next">Step 4: What&#x27;s Next</a></li>
+      <li class="lvl-2"><a href="#integration-with-human-review">Integration with --human-review</a></li>
+      <li class="lvl-2"><a href="#branch-protection-compatibility">Branch protection compatibility</a></li>
+      <li class="lvl-2"><a href="#failure-modes">Failure modes</a></li>
+      <li class="lvl-2"><a href="#see-also">See also</a></li>
+    </ul>
   </aside>
 
   <main>
     <header class="page-header">
-      <h1>{{TITLE}}</h1>
-      <p class="description">{{DESCRIPTION}}</p>
-      <div class="page-meta">{{META}}</div>
+      <h1>/ppr — Push + PR</h1>
+      <p class="description">The closing step of every pipeline feature: push the committed branch to origin and open a pull request. Runs after /review passes. The human approves the PR separately — /ppr never auto-merges. This page documents the everyday push-PR…</p>
+      <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
-{{CONTENT}}
+<!-- snippet:terminal-simulator
+     Simulated terminal session. Plays back a scripted sequence of
+     commands + outputs at a configurable speed. Pause / play / step /
+     restart controls. Used on ppr-research-flag.html for a dry-run
+     preview without requiring the user to actually run /ppr --research.
+
+     The scripted session is JSON-embedded inline. Lines are typed
+     character-by-character for commands; output is dumped instantly.
+
+     Placeholder usage:
+       <div data-snippet="terminal-simulator"></div>
+-->
+<div class="pkit-term" data-snippet-mount="terminal-simulator">
+  <style>
+    .pkit-term { margin: 1.5rem 0; padding: 0; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .pkit-term .pkit-tm-bar { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.8rem; background: var(--bg); border-bottom: 1px solid var(--border); }
+    .pkit-term .pkit-tm-dots { display: flex; gap: 0.4rem; }
+    .pkit-term .pkit-tm-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--fg-subtle); opacity: 0.7; }
+    .pkit-term .pkit-tm-dot:nth-child(1) { background: #ef4444; }
+    .pkit-term .pkit-tm-dot:nth-child(2) { background: #f59e0b; }
+    .pkit-term .pkit-tm-dot:nth-child(3) { background: #10b981; }
+    .pkit-term .pkit-tm-title { font-family: var(--mono); font-size: 0.78rem; color: var(--fg-muted); }
+    .pkit-term .pkit-tm-controls { display: flex; gap: 0.3rem; }
+    .pkit-term .pkit-tm-btn { padding: 0.2rem 0.6rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--fg-muted); font-family: var(--sans); font-size: 0.75rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.25rem; transition: all var(--transition); }
+    .pkit-term .pkit-tm-btn:hover { color: var(--fg); border-color: var(--accent); }
+    .pkit-term .pkit-tm-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .pkit-term .pkit-tm-btn.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+    .pkit-term .pkit-tm-screen { background: #0a0e1a; color: #d4d7e0; font-family: var(--mono); font-size: 13px; line-height: 1.55; padding: 1rem 1.2rem; min-height: 280px; max-height: 480px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; }
+    .pkit-term .pkit-tm-screen .ps1 { color: #4ade80; }
+    .pkit-term .pkit-tm-screen .cmd { color: #fbbf24; }
+    .pkit-term .pkit-tm-screen .out-stdout { color: #cbd5e1; }
+    .pkit-term .pkit-tm-screen .out-stderr { color: #fb7185; }
+    .pkit-term .pkit-tm-screen .out-info { color: #60a5fa; }
+    .pkit-term .pkit-tm-screen .out-success { color: #34d399; font-weight: 600; }
+    .pkit-term .pkit-tm-screen .cursor { display: inline-block; width: 8px; height: 1em; background: #d4d7e0; vertical-align: text-bottom; animation: pkit-tm-blink 1s steps(2) infinite; }
+    @keyframes pkit-tm-blink { 50% { opacity: 0; } }
+    .pkit-term .pkit-tm-progress { height: 2px; background: var(--border); }
+    .pkit-term .pkit-tm-progress-fill { height: 100%; background: var(--accent); transition: width 100ms linear; width: 0; }
+  </style>
+
+  <div class="pkit-tm-bar">
+    <div class="pkit-tm-dots">
+      <span class="pkit-tm-dot"></span><span class="pkit-tm-dot"></span><span class="pkit-tm-dot"></span>
+    </div>
+    <div class="pkit-tm-title">/ppr --research — simulated</div>
+    <div class="pkit-tm-controls">
+      <button class="pkit-tm-btn" data-act="play">▶ Play</button>
+      <button class="pkit-tm-btn" data-act="pause" disabled>⏸ Pause</button>
+      <button class="pkit-tm-btn" data-act="step">⏭ Step</button>
+      <button class="pkit-tm-btn" data-act="restart">↻ Restart</button>
+      <button class="pkit-tm-btn" data-act="speed">1×</button>
+    </div>
+  </div>
+  <div class="pkit-tm-progress"><div class="pkit-tm-progress-fill" data-tm-progress></div></div>
+  <pre class="pkit-tm-screen" data-tm-screen></pre>
+
+  <script type="application/json" data-tm-script>
+[
+  {"type": "ps1", "text": "$ "},
+  {"type": "cmd", "text": "claude\n"},
+  {"type": "out-info", "text": "Claude Code 2.1.144  (interactive)\n"},
+  {"type": "pause", "ms": 400},
+  {"type": "ps1", "text": "> "},
+  {"type": "cmd", "text": "/ppr --research\n"},
+  {"type": "out-info", "text": "[ppr] --research mode active. Default: --dry-run.\n"},
+  {"type": "out-info", "text": "[ppr] Reading docs/research-results.tsv...\n"},
+  {"type": "pause", "ms": 400},
+  {"type": "out-stdout", "text": "[ppr] Found 12 keep-rows in TSV.\n"},
+  {"type": "out-stdout", "text": "[ppr] Branch name would be: research/temp-2026-05-19\n"},
+  {"type": "pause", "ms": 300},
+  {"type": "out-stdout", "text": "[ppr] Planned actions (dry-run):\n"},
+  {"type": "out-stdout", "text": "         git checkout -b research/temp-2026-05-19\n"},
+  {"type": "out-stdout", "text": "         (filter 12 keep-rows from research-results.tsv into research-keep.tsv)\n"},
+  {"type": "out-stdout", "text": "         git add research-keep.tsv\n"},
+  {"type": "out-stdout", "text": "         git commit -m 'chore: publish research keeps for temp (12 rows)'\n"},
+  {"type": "out-stdout", "text": "         git push -u origin research/temp-2026-05-19\n"},
+  {"type": "pause", "ms": 500},
+  {"type": "out-info", "text": "[ppr] No PR opened — research branches are user-reviewed before merge.\n"},
+  {"type": "out-success", "text": "[ppr] OK. Dry-run complete. Pass --no-dry-run --research-tag <slug> to publish.\n"},
+  {"type": "pause", "ms": 400},
+  {"type": "ps1", "text": "> "},
+  {"type": "cmd", "text": "/ppr --research --no-dry-run --research-tag temp\n"},
+  {"type": "out-info", "text": "[ppr] --no-dry-run + --research-tag=temp. Publishing.\n"},
+  {"type": "pause", "ms": 300},
+  {"type": "out-stdout", "text": "[ppr] Creating branch research/temp-2026-05-19...\n"},
+  {"type": "out-stdout", "text": "Switched to a new branch 'research/temp-2026-05-19'\n"},
+  {"type": "out-stdout", "text": "[ppr] Filtering 12 keep-rows...\n"},
+  {"type": "out-stdout", "text": "[ppr] Committing...\n"},
+  {"type": "out-stdout", "text": "[ppr] Pushing to origin...\n"},
+  {"type": "pause", "ms": 600},
+  {"type": "out-success", "text": "[ppr] OK. Branch research/temp-2026-05-19 published.\n"},
+  {"type": "out-success", "text": "[ppr] URL: https://github.com/Bruce188/pipelinekit/tree/research/temp-2026-05-19\n"},
+  {"type": "out-info", "text": "[ppr] Review the branch and decide whether to merge.\n"}
+]
+  </script>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  document.querySelectorAll('.pkit-term[data-snippet-mount="terminal-simulator"]').forEach(term => {
+  if (term.dataset.pkitInit) return;
+  term.dataset.pkitInit = '1';
+
+  const dataEl = term.querySelector('script[data-tm-script]');
+  if (!dataEl) return;
+  const script = JSON.parse(dataEl.textContent);
+  const screen = term.querySelector('[data-tm-screen]');
+  const progressFill = term.querySelector('[data-tm-progress]');
+  const playBtn = term.querySelector('[data-act="play"]');
+  const pauseBtn = term.querySelector('[data-act="pause"]');
+  const stepBtn = term.querySelector('[data-act="step"]');
+  const restartBtn = term.querySelector('[data-act="restart"]');
+  const speedBtn = term.querySelector('[data-act="speed"]');
+  if (!screen || !progressFill || !playBtn) return;
+
+  let idx = 0;
+  let playing = false;
+  let abort = false;
+  let speed = 1;
+  const speeds = [1, 2, 4, 0.5];
+  const cursor = '<span class="cursor"></span>';
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms / speed)); }
+
+  function escape(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function appendChunk(item) {
+    const html = `<span class="${item.type}">${escape(item.text)}</span>`;
+    if (screen.querySelector('.cursor')) {
+      screen.querySelector('.cursor').remove();
+    }
+    screen.insertAdjacentHTML('beforeend', html);
+    screen.insertAdjacentHTML('beforeend', cursor);
+    screen.scrollTop = screen.scrollHeight;
+  }
+
+  async function typeChunk(item) {
+    if (item.type === 'cmd') {
+      // Type char by char
+      if (screen.querySelector('.cursor')) screen.querySelector('.cursor').remove();
+      const span = document.createElement('span');
+      span.className = 'cmd';
+      screen.appendChild(span);
+      for (const ch of item.text) {
+        if (abort) return;
+        span.textContent += ch;
+        screen.scrollTop = screen.scrollHeight;
+        await sleep(40);
+      }
+      screen.insertAdjacentHTML('beforeend', cursor);
+    } else if (item.type === 'pause') {
+      await sleep(item.ms || 200);
+    } else {
+      appendChunk(item);
+      await sleep(60);
+    }
+  }
+
+  function setPlaying(p) {
+    playing = p;
+    playBtn.classList.toggle('active', p);
+    pauseBtn.disabled = !p;
+    playBtn.disabled = p;
+  }
+
+  async function play() {
+    setPlaying(true);
+    abort = false;
+    while (idx < script.length && playing && !abort) {
+      const item = script[idx];
+      idx++;
+      progressFill.style.width = (idx / script.length * 100) + '%';
+      await typeChunk(item);
+    }
+    if (idx >= script.length) setPlaying(false);
+  }
+
+  playBtn.addEventListener('click', () => { if (!playing) play(); });
+  pauseBtn.addEventListener('click', () => { setPlaying(false); abort = true; });
+  stepBtn.addEventListener('click', async () => {
+    if (idx >= script.length) return;
+    const wasPlaying = playing; setPlaying(false); abort = true;
+    await new Promise(r => setTimeout(r, 50));
+    const item = script[idx]; idx++; progressFill.style.width = (idx / script.length * 100) + '%';
+    await typeChunk(item);
+    if (wasPlaying && idx < script.length) play();
+  });
+  restartBtn.addEventListener('click', () => {
+    abort = true; setPlaying(false);
+    idx = 0; screen.innerHTML = cursor; progressFill.style.width = '0';
+  });
+  speedBtn.addEventListener('click', () => {
+    const i = (speeds.indexOf(speed) + 1) % speeds.length;
+    speed = speeds[i];
+    speedBtn.textContent = speed + '×';
+  });
+
+  screen.innerHTML = cursor;
+
+  // Auto-play on first scroll-into-view (if IntersectionObserver available)
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting && idx === 0 && !playing) {
+          play();
+          io.disconnect();
+        }
+      });
+    }, { threshold: 0.4 });
+    io.observe(term);
+  }
+  });
+})();
+</script>
+
+
+<h2 id="synopsis">Synopsis</h2>
+<div class="codehilite"><pre><span></span><code>/ppr                                 # everyday mode: push branch, open PR
+/ppr --research [--dry-run|--no-dry-run] --research-tag &lt;slug&gt;  # research-publish mode (separate page)
+</code></pre></div>
+
+<p>No arguments needed in everyday mode. The current branch is detected automatically. The PR body is auto-derived from <code>docs/progress.md</code>, the active charter (if any), the active plan, and the most recent <code>/review</code> file.</p>
+<h2 id="prerequisites">Prerequisites</h2>
+<p><code>/ppr</code> is the last step of a pipeline feature. It assumes:</p>
+<ol>
+<li><strong>Branch:</strong> You're on a feature branch, not on <code>main</code> / <code>master</code>. (Direct push to base is blocked.)</li>
+<li><strong>Changes:</strong> Everything is committed. Uncommitted changes cause a hard STOP — <code>/ppr</code> never auto-commits.</li>
+<li><strong>Review:</strong> <code>/review</code> has run and passed (zero findings at any severity, OR all nit-level findings auto-fixed).</li>
+<li><strong>Review freshness:</strong> HEAD has not advanced past the SHA recorded in the review file (<code>**HEAD:** &lt;sha&gt;</code> line). Re-run <code>/review</code> if you've committed since.</li>
+</ol>
+<p>If any prerequisite fails, <code>/ppr</code> STOPs with a descriptive error and does not push anything.</p>
+<h2 id="process">Process</h2>
+<h3 id="step-1-safety-checks">Step 1: Safety checks</h3>
+<div class="codehilite"><pre><span></span><code>git<span class="w"> </span>branch<span class="w"> </span>--show-current<span class="w">     </span><span class="c1"># must NOT equal $BASE</span>
+git<span class="w"> </span>status<span class="w"> </span>--short<span class="w">            </span><span class="c1"># must be clean (no uncommitted changes)</span>
+git<span class="w"> </span>diff<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$BASE</span><span class="s2">&quot;</span>...HEAD<span class="w"> </span>--stat<span class="w">  </span><span class="c1"># must be non-empty (real diff to push)</span>
+gh<span class="w"> </span>pr<span class="w"> </span>view<span class="w"> </span>--json<span class="w"> </span>state<span class="w">       </span><span class="c1"># must not already exist for this branch</span>
+</code></pre></div>
+
+<p>If a PR already exists for the branch, <code>/ppr</code> STOPs. If the branch has been pushed but no PR exists, <code>/ppr</code> skips ahead to Step 3 (Create PR).</p>
+<h3 id="step-1-5-review-check">Step 1.5: Review check</h3>
+<p>Reads <code>docs/progress.md</code> → follows the <code>**Review:**</code> pointer → opens the review file. Verifies:</p>
+<ul>
+<li><strong>Zero blocking, zero non-blocking, zero nit findings</strong> — anything unresolved STOPs the push.</li>
+<li><strong>Review-HEAD freshness</strong> — the review file's <code>**HEAD:** &lt;sha&gt;</code> is compared against <code>git rev-parse HEAD</code> via prefix match (short hashes vary in length). If they don't match, the review is stale and <code>/ppr</code> STOPs with a re-run hint.</li>
+</ul>
+<p>When <code>docs/progress.md</code> doesn't exist, <code>/ppr</code> warns and proceeds (workflow-overlay-optional mode). The warning is logged but is not a blocker.</p>
+<h3 id="step-1-6-landing-report-advisory">Step 1.6: Landing report (advisory)</h3>
+<p>If the repo has a <code>VERSION</code> file or a <code>package.json:version</code> field, <code>/ppr</code> invokes the <a href="https://github.com/Bruce188/pipelinekit/blob/main/claude/skills/landing-report/SKILL.md"><code>landing-report</code> skill</a> to detect version-slot collisions (e.g., a tag <code>v1.2.3</code> already exists upstream). The result is <strong>advisory only</strong> — collisions print a warning to stdout but do NOT stop the push. The author of the PR decides whether to bump the version before merging.</p>
+<p>When neither marker file is present, the step silently skips.</p>
+<h3 id="step-1-7-auto-format-language-specific">Step 1.7: Auto-format (language-specific)</h3>
+<p>Detect-by-marker, then run the project formatter so CI doesn't bounce the PR on whitespace:</p>
+<table>
+<thead>
+<tr>
+<th>Marker</th>
+<th>Formatter</th>
+<th>Detection</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>*.sln</code></td>
+<td><code>dotnet format</code></td>
+<td>.NET solution file at repo root</td>
+</tr>
+<tr>
+<td><code>package.json</code> with <code>format</code> script</td>
+<td><code>npm run format</code> (or <code>pnpm format</code> / <code>yarn format</code>)</td>
+<td>npm script present</td>
+</tr>
+<tr>
+<td><code>pyproject.toml</code> with Ruff/Black configured</td>
+<td><code>ruff format .</code> / <code>black .</code></td>
+<td>depending on config</td>
+</tr>
+<tr>
+<td><code>go.mod</code></td>
+<td><code>gofmt -w .</code> / <code>go fmt ./...</code></td>
+<td>Go module</td>
+</tr>
+</tbody>
+</table>
+<p>If the formatter touches anything, the changes are committed as <code>style: apply &lt;tool&gt;</code> so the PR's commit history reflects the auto-format step. If the formatter is a no-op (code already clean), nothing happens. <strong>Skipped entirely</strong> when no marker is detected.</p>
+<h3 id="step-2-push">Step 2: Push</h3>
+<div class="codehilite"><pre><span></span><code>git<span class="w"> </span>push<span class="w"> </span>-u<span class="w"> </span>origin<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>git<span class="w"> </span>branch<span class="w"> </span>--show-current<span class="k">)</span><span class="s2">&quot;</span><span class="w">   </span><span class="c1"># first push: sets upstream</span>
+</code></pre></div>
+
+<p><code>-u</code> is always passed — it's safe on subsequent pushes too. If push fails (auth error, branch protection rule, etc.), <code>/ppr</code> STOPs with the git error message. <strong>Never proceeds to PR creation on an unpushed branch</strong> — a half-success would leave a PR pointing at a branch the reviewer can't access.</p>
+<h3 id="step-3-create-the-pr">Step 3: Create the PR</h3>
+<p>The PR body is composed from multiple sources:</p>
+<ol>
+<li><strong><code>## Summary</code></strong> — starts with a <code>CHARTER_GOAL_LINE</code> excerpt if <code>docs/charter.md</code> has a <code>## Goal</code> section (truncated at 200 chars with <code>…</code> if longer). Followed by 2–3 bullets describing what changed and why, derived from the commit messages and progress.md.</li>
+<li><strong><code>Closes #N</code></strong> — auto-emitted when the branch name matches <code>^[a-z]+/issue-([0-9]+)-</code> (issue-mode pipeline runs). Exactly one close keyword for issue branches, zero for non-issue branches.</li>
+<li><strong><code>## Changes</code></strong> — key files modified with one-line descriptions per file.</li>
+<li><strong><code>## Verification</code></strong> — checkbox list: sanity gate, secret scan, review agents (code-reviewer, security-auditor, test-engineer, performance-tuner, spec-tracer).</li>
+<li><strong><code>## Review evidence</code></strong> — spec-tracer outcome verbatim (when the review file has one), alongside the other agent outcomes.</li>
+</ol>
+<p><strong>Title format:</strong> conventional commit — <code>&lt;type&gt;[(scope)]: &lt;description&gt;</code>, capped at 72 characters.</p>
+<p><strong>Hard rules on the PR body:</strong></p>
+<ul>
+<li>No AI attribution. No "Generated by", no "Co-authored by Claude", no "AI-assisted".</li>
+<li>No <code>Co-authored-by</code> trailers in commits or in the PR body.</li>
+<li>No workflow metadata — no task IDs ("1.1", "2.3"), no phase numbers, no review-file references ("review-v23"), no <code>reopened:</code> annotations, no pipeline-internal terminology. The PR should read as if a human authored it.</li>
+</ul>
+<p>If <code>gh pr create</code> fails (network, auth, repo permissions), <code>/ppr</code> STOPs with the gh error. The "What's Next" block in Step 4 only fires on success.</p>
+<h3 id="step-4-what-s-next">Step 4: What's Next</h3>
+<p>On success, <code>/ppr</code> prints:</p>
+<div class="codehilite"><pre><span></span><code>PR opened: &lt;URL&gt;
+
+Human action required:
+  - Review and approve the PR
+  - Merge when ready
+
+After merge: Run /post-merge to clean up, then /clear to reset context.
+</code></pre></div>
+
+<p>The human owns the merge decision. <code>/ppr</code> never auto-merges. There is no <code>--auto-merge</code> flag. The reviewer is expected to read the PR body, eyeball the diff, and click "Merge" themselves.</p>
+<h2 id="integration-with-human-review">Integration with <code>--human-review</code></h2>
+<p>When <code>/pipeline</code> was invoked with <code>--human-review &lt;N&gt;</code> (the <a href="https://github.com/Bruce188/pipelinekit/blob/main/claude/skills/openhuman/SKILL.md">openhuman</a> gate), the destructive action <code>git merge --squash</code> (run by <code>/post-merge</code>, not by <code>/ppr</code>) is the gated event — not the PR creation itself. <code>/ppr</code> runs to completion regardless of the openhuman gate; the human-review pause happens later, when the human clicks "Merge" on GitHub OR when <code>/post-merge</code> runs locally.</p>
+<p><code>/ppr</code> does NOT pause for openhuman approval. The PR creation is non-destructive — it can be closed without merging if the human decides not to ship.</p>
+<h2 id="branch-protection-compatibility">Branch protection compatibility</h2>
+<p><code>/ppr</code> respects whatever branch protection rules the repo has set up:</p>
+<ul>
+<li><strong>Required reviewers</strong> — the PR opens but cannot be merged until the required reviewer approves. <code>/ppr</code>'s job ends at PR-open; the merge happens later.</li>
+<li><strong>Required status checks</strong> — CI runs after push; the PR shows the status badges. <code>/ppr</code> does NOT poll for CI completion (that's a <code>/post-merge</code> concern, optionally).</li>
+<li><strong>Force-push protection</strong> — <code>/ppr</code> only does <code>git push -u origin &lt;branch&gt;</code>, never <code>--force</code>. If the branch already exists upstream with diverged history, the push fails cleanly.</li>
+<li><strong>Linear history</strong> — <code>/ppr</code> does not rebase. If the repo requires linear history, the human is expected to rebase manually (or <code>/post-merge --rebase</code> if available).</li>
+</ul>
+<h2 id="failure-modes">Failure modes</h2>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Behavior</th>
+<th>Recovery</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>On <code>main</code> / <code>master</code></td>
+<td>STOP</td>
+<td>Run <code>/new-branch &lt;feature-name&gt;</code> first</td>
+</tr>
+<tr>
+<td>Uncommitted changes</td>
+<td>STOP</td>
+<td>Run <code>/implement-plan</code> to finish, or <code>git commit</code> manually</td>
+</tr>
+<tr>
+<td>Diff against base is empty</td>
+<td>STOP</td>
+<td>Either nothing to ship, or commits were reverted — investigate</td>
+</tr>
+<tr>
+<td>PR already exists</td>
+<td>STOP</td>
+<td>Skip <code>/ppr</code> or close the existing PR first</td>
+</tr>
+<tr>
+<td><code>/review</code> not run or has findings</td>
+<td>STOP</td>
+<td>Run <code>/review</code>; address findings via <code>/implement-plan</code></td>
+</tr>
+<tr>
+<td>Review HEAD stale</td>
+<td>STOP</td>
+<td>Re-run <code>/review</code> to refresh the recorded HEAD</td>
+</tr>
+<tr>
+<td>Push fails (auth/branch protection)</td>
+<td>STOP with git error</td>
+<td>Fix the underlying issue (auth, force-push policy, etc.)</td>
+</tr>
+<tr>
+<td><code>gh pr create</code> fails</td>
+<td>STOP with gh error</td>
+<td>Usually auth (<code>gh auth status</code>) or rate-limit</td>
+</tr>
+</tbody>
+</table>
+<p>In every failure case <code>/ppr</code> exits non-zero and does NOT print the "What's Next" block, so the orchestrator (when <code>/ppr</code> is run via <code>/pipeline</code>) does not advance the pipeline state.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><strong><a href="ppr-research-flag.html">/ppr --research</a></strong> — separate mode for publishing research-loop keep-rows to a <code>research/&lt;tag&gt;-&lt;date&gt;</code> branch (no PR opened, parked for human review).</li>
+<li><strong><a href="review-cost.html">Review cost profile</a></strong> — the <code>/review</code> phase that gates <code>/ppr</code>.</li>
+<li><strong><a href="pipeline.html">Pipeline</a></strong> — the orchestrator that runs <code>/ppr</code> as Path A (clean-merge after review passes) of every feature.</li>
+</ul>
     </div>
 
     <div class="no-results" id="no-results">
@@ -552,7 +957,7 @@ footer {
 
 <footer>
   <div>Generated by <a href="https://github.com/Bruce188/pipelinekit">pipelinekit</a> · <code>docs-writer/2</code> · <a href="credits.html">Credits</a></div>
-  <div>{{FOOTER_RIGHT}}</div>
+  <div>Self-contained HTML · no CDN · no remote assets</div>
 </footer>
 
 <script>
