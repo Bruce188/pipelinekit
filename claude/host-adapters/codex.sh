@@ -43,6 +43,9 @@ if echo "$PROMPT_FILE" | grep -qE '\.claude/tasks/([^/]+)/'; then
   mkdir -p "$OUTPUT_DIR"
 fi
 
+# Read prompt preserving trailing newlines (command substitution would strip them).
+IFS= read -rd '' PROMPT_TEXT <"$PROMPT_FILE" || true
+
 # Build codex args
 ARGS=()
 [ -n "$MODEL" ] && ARGS+=(--model "$MODEL")
@@ -51,7 +54,7 @@ ARGS=()
 # Run codex exec, capturing stdout and stderr
 if [ -n "$OUTPUT_DIR" ]; then
   EC=0
-  codex exec "${ARGS[@]}" "$(cat "$PROMPT_FILE")" \
+  codex exec "${ARGS[@]}" "$PROMPT_TEXT" \
     > "$OUTPUT_DIR/stdout" \
     2> "$OUTPUT_DIR/stderr" \
     || EC=$?
@@ -63,6 +66,6 @@ else
   # No task-id derivable — write only to <output-file>;
   # stderr passes through to caller, exit code is captured + propagated.
   EC=0
-  codex exec "${ARGS[@]}" "$(cat "$PROMPT_FILE")" > "$OUTPUT_FILE" || EC=$?
+  codex exec "${ARGS[@]}" "$PROMPT_TEXT" > "$OUTPUT_FILE" || EC=$?
   exit "$EC"
 fi
