@@ -10,7 +10,8 @@
 #   1. PIPELINE_NO_SANDBOX=1            → worktree-only (unconditional short-circuit)
 #   2. SANDBOX_PROVIDER=<name>          → use that provider if binary exists; else log to stderr
 #                                          and fall back to worktree-only
-#   3. SANDBOX_PROVIDER=auto or unset   → try podman → docker → worktree-only
+#   3. SANDBOX_PROVIDER=auto            → try podman → docker → worktree-only
+#      SANDBOX_PROVIDER unset           → worktree-only (no behavior change from pre-sandbox default)
 #
 # Sourcing pattern (callers):
 #   source "$CLAUDE_HOME/lib/sandbox/SandboxProvider.sh"
@@ -25,7 +26,7 @@
 # This file is sourced, never executed directly.
 #
 # Env vars:
-#   SANDBOX_PROVIDER        — provider name: worktree-only | podman | docker | auto (default: auto)
+#   SANDBOX_PROVIDER        — provider name: worktree-only | podman | docker | auto (default: worktree-only)
 #   PIPELINE_NO_SANDBOX     — set to 1 to unconditionally skip container isolation
 #   SANDBOX_PODMAN_IMAGE    — per-engine image override for the podman provider
 #                             (highest precedence). Default fallback path:
@@ -51,7 +52,7 @@ provider_detect() {
     return 0
   fi
 
-  local req="${SANDBOX_PROVIDER:-auto}"
+  local req="${SANDBOX_PROVIDER:-worktree-only}"
   case "$req" in
     worktree-only)
       echo worktree-only
@@ -72,7 +73,7 @@ provider_detect() {
         echo worktree-only
       fi
       ;;
-    auto|*)
+    auto)
       if command -v podman >/dev/null 2>&1; then
         echo podman
       elif command -v docker >/dev/null 2>&1; then
@@ -80,6 +81,10 @@ provider_detect() {
       else
         echo worktree-only
       fi
+      ;;
+    *)
+      echo "sandbox: unknown SANDBOX_PROVIDER '$req', falling back to worktree-only" >&2
+      echo worktree-only
       ;;
   esac
 }
