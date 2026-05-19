@@ -12,11 +12,11 @@ import os
 import sys
 import tempfile
 
-# Locate ac_lint module — insert repo root (3 levels up from this file)
-_LIB_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.dirname(os.path.dirname(_LIB_DIR)))
+# Locate ac_lint module — insert claude/lib/pipeline/ into path
+_PIPELINE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _PIPELINE_DIR)
 
-from claude.lib.pipeline.ac_lint import lint_noisy_baseline, lint_plan_overcapture  # noqa: E402
+from ac_lint import lint_noisy_baseline, lint_plan_overcapture  # noqa: E402
 
 
 def _write_patterns(patterns: list[str]) -> str:
@@ -98,7 +98,7 @@ def test_lint_plan_overcapture_overcapturing_pattern_flagged():
 
 def test_all_exports():
     """__all__ must contain exactly the two public functions."""
-    from claude.lib.pipeline.ac_lint import __all__
+    from ac_lint import __all__
     assert sorted(__all__) == ["lint_noisy_baseline", "lint_plan_overcapture"], (
         f"Unexpected __all__: {sorted(__all__)!r}"
     )
