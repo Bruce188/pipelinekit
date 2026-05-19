@@ -170,6 +170,70 @@ Per-project workflow overlay for Azure deployments. Use when a project ships to 
 
 The Vercel toolchain ships by default. `@vercel-deployment-engineer` and the `vercel-ops` skill are always available. The Vercel CLI itself is user-driven (`npm i -g vercel`); the skill stops cleanly with an install prompt if the CLI is absent.
 
+## Railway Workflows
+
+The Railway toolchain ships by default. `@railway-deployment-engineer` and the `railway-ops` skill are always available. The Railway CLI itself is user-driven (`npm i -g @railway/cli`); the skill stops cleanly with an install prompt if the CLI is absent.
+
+## Railway Mode
+
+Per-project workflow overlay for Railway deployments. Use when a project ships to Railway. Routes deployment-shaped work through `@railway-deployment-engineer` and the `railway-ops` skill; non-deployment phases continue to use the default pipeline agents.
+
+| Phase | Agents / Skills | Notes |
+|-------|-----------------|-------|
+| analyze | default `/analyze` | No Railway-specific gating at analyze-time. |
+| plan | default `/create-plan` | If plan touches Railway deploy config, include explicit `@railway-deployment-engineer` task per service. |
+| implement | `@railway-deployment-engineer` for `railway.toml` / `railway` CLI / pipeline YAML tasks; default agents otherwise | Use the `railway-ops` skill for day-to-day ops against an already-authenticated context. |
+| review | default `/review` + `@railway-deployment-engineer` consulted on Railway-touching diffs | Security-auditor remains primary on auth / secret / env changes. |
+| merge | default `/ppr` | No Railway-specific merge gate. |
+
+**Gotchas:**
+- `railway-ops` STOPS and prompts if `railway whoami` fails — never auto-authenticates. Run `railway login` before invoking deploy commands.
+- Railway CLI is user-driven (`npm i -g @railway/cli`). The skill prints an install prompt and stops if the CLI is absent.
+- Secrets (env vars, service tokens) NEVER go in committed files. Use Railway's environment variable management in the dashboard, or store under names matched by `~/.claude/config/never-stage.txt`.
+
+## Render Workflows
+
+The Render toolchain ships by default. `@render-deployment-engineer` and the `render-ops` skill are always available. The Render CLI itself is user-driven; the skill stops cleanly with an install prompt if the CLI is absent.
+
+## Render Mode
+
+Per-project workflow overlay for Render deployments. Use when a project ships to Render (Web Services, Workers, Cron Jobs, or Static Sites). Routes deployment-shaped work through `@render-deployment-engineer` and the `render-ops` skill; non-deployment phases continue to use the default pipeline agents.
+
+| Phase | Agents / Skills | Notes |
+|-------|-----------------|-------|
+| analyze | default `/analyze` | No Render-specific gating at analyze-time. |
+| plan | default `/create-plan` | If plan touches Render deploy config, include explicit `@render-deployment-engineer` task per service. |
+| implement | `@render-deployment-engineer` for `render.yaml` Blueprint / `render` CLI tasks; default agents otherwise | Use the `render-ops` skill for day-to-day ops against an already-authenticated context. |
+| review | default `/review` + `@render-deployment-engineer` consulted on Render-touching diffs | Security-auditor remains primary on auth / secret / env changes. |
+| merge | default `/ppr` | No Render-specific merge gate. |
+
+**Gotchas:**
+- `render-ops` STOPS and prompts if authentication fails — never auto-authenticates. Set `RENDER_API_KEY` or run `render login` before invoking deploy commands.
+- Secrets (API keys, env vars) NEVER go in committed files. Use Render's environment group management in the dashboard.
+- `render.yaml` Blueprint deploys are not idempotent across services with the same name — confirm the target service before re-running a deploy command.
+
+## DigitalOcean Workflows
+
+The DigitalOcean toolchain ships by default. `@digitalocean-deployment-engineer` and the `digitalocean-ops` skill are always available. The DigitalOcean CLI (`doctl`) is user-driven; the skill stops cleanly with an install prompt if the CLI is absent.
+
+## DigitalOcean Mode
+
+Per-project workflow overlay for DigitalOcean App Platform deployments. Use when a project ships to DigitalOcean App Platform. Routes deployment-shaped work through `@digitalocean-deployment-engineer` and the `digitalocean-ops` skill; non-deployment phases continue to use the default pipeline agents.
+
+| Phase | Agents / Skills | Notes |
+|-------|-----------------|-------|
+| analyze | default `/analyze` | No DigitalOcean-specific gating at analyze-time. |
+| plan | default `/create-plan` | If plan touches App Platform config, include explicit `@digitalocean-deployment-engineer` task per component. |
+| implement | `@digitalocean-deployment-engineer` for `.do/app.yaml` App Spec / `doctl` CLI tasks; default agents otherwise | Use the `digitalocean-ops` skill for day-to-day ops against an already-authenticated context. |
+| review | default `/review` + `@digitalocean-deployment-engineer` consulted on DO-touching diffs | Security-auditor remains primary on auth / secret / env changes. |
+| merge | default `/ppr` | No DigitalOcean-specific merge gate. |
+
+**Gotchas:**
+- `digitalocean-ops` STOPS and prompts if `doctl auth status` fails — never auto-authenticates. Run `doctl auth init` before invoking deploy commands.
+- DigitalOcean CLI (`doctl`) is user-driven. The skill prints an install prompt and stops if the CLI is absent.
+- Secrets (API tokens, env vars) NEVER go in committed files. Use App Platform's environment variable management in the dashboard or `.do/app.yaml` with `value_from` references.
+- App Spec deploys (`doctl apps update`) are idempotent for env/config changes but create new deployments — confirm the target app ID before re-running.
+
 ## User Identity
 
 - Name: ${USER_NAME}

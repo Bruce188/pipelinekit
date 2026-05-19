@@ -1,5 +1,37 @@
 # Cloud Setup
 
+This file covers two distinct topics:
+
+1. **VM bootstrap** — provisioning a development VM (Oracle Cloud Free Tier ARM A1 or Hetzner CX22) where you run pipelinekit itself.
+2. **Cloud deployment providers** — configuring Railway, Render, DigitalOcean, Azure, or Vercel as the deployment target for your projects.
+
+---
+
+## Cloud deployment providers
+
+pipelinekit ships five first-class deployment-provider integrations. Charter Topic 10 selects the active provider; `/pipeline` routes all deployment-shaped tasks to the matching agent and ops skill automatically.
+
+| Provider | Agent | Skill | CLI install |
+|----------|-------|-------|-------------|
+| Azure | `@azure-deployment-engineer` | `azure-ops` | Auto-installed by `scripts/install.sh` on Debian/Ubuntu |
+| Vercel | `@vercel-deployment-engineer` | `vercel-ops` | `npm i -g vercel` |
+| Railway | `@railway-deployment-engineer` | `railway-ops` | `npm i -g @railway/cli` |
+| Render | `@render-deployment-engineer` | `render-ops` | See [render.com/docs/cli](https://render.com/docs/cli) |
+| DigitalOcean | `@digitalocean-deployment-engineer` | `digitalocean-ops` | `snap install doctl` or [github.com/digitalocean/doctl](https://github.com/digitalocean/doctl) |
+
+Each ops skill stops and prompts if its CLI is not authenticated — never auto-authenticates.
+
+Provider-specific setup guides:
+- `documentation/deployment-railway.html` — Railway account setup, project link, auth posture
+- `documentation/deployment-render.html` — Render account setup, service link, render.yaml Blueprint
+- `documentation/deployment-digitalocean.html` — DigitalOcean account setup, app link, App Spec (.do/app.yaml)
+
+Azure and Vercel mode overlays are documented in `claude/CLAUDE.md.template` under `## Azure Mode` and `## Vercel Workflows`.
+
+---
+
+## VM bootstrap
+
 Provision pipelinekit on a fresh Oracle Cloud Free Tier ARM A1 instance or a fresh Hetzner CX22 instance. Each section covers image selection, SSH, firewall, swap, bootstrap (two paths), and verification.
 
 ---

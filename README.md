@@ -48,8 +48,8 @@ claude
 | Layer | Contents |
 |-------|----------|
 | Rules | `CLAUDE.md`, `rules/workflow.md`, `rules/agents-worktrees.md` |
-| Skills | 38 native (analyze, create-plan, implement-plan, review, ppr, pipeline, expo, ios, azure-ops, document-release, tdd, zoom-out, write-a-skill, learn, landing-report, incident, claude-md-enhancer, ...) |
-| Agents | 31 specialized (architect, code-reviewer, security-auditor, karpathy-reviewer, tdd-test-writer, mobile-dev, azure-deployment-engineer, deployment-engineer, incident-responder, architect-review, cloud-architect, claude-md-guardian, personas/devops, personas/growth-marketer, personas/solo-founder, personas/startup-cto, ...) |
+| Skills | 43 native (analyze, create-plan, implement-plan, review, ppr, pipeline, expo, ios, azure-ops, railway-ops, render-ops, digitalocean-ops, document-release, tdd, zoom-out, write-a-skill, research, learn, landing-report, incident, claude-md-enhancer, ...) |
+| Agents | 31 specialized (architect, code-reviewer, security-auditor, karpathy-reviewer, tdd-test-writer, mobile-dev, azure-deployment-engineer, railway-deployment-engineer, render-deployment-engineer, digitalocean-deployment-engineer, deployment-engineer, incident-responder, architect-review, cloud-architect, claude-md-guardian, ...) |
 | Hooks | 22 production hooks (validate-commit-msg, strip-ai-attribution, block-push-main, tdd-order-check, claude-md-guard, ...) |
 | MCP | context7, serena (semantic), sequential-thinking, optional local-rag, claude-context (community — @zilliztech, codebase semantic RAG; uncomment in `.mcp.json.template` to enable) |
 | LSP | pyright, typescript, csharp, gopls, rust-analyzer |
@@ -77,12 +77,17 @@ pipelinekit/
 ├── claude/               # Overlay installed to ~/.claude/
 │   ├── CLAUDE.md.template
 │   ├── rules/
-│   ├── skills/           # 38 native skills
+│   ├── skills/           # 43 native skills
+│   │   ├── railway-ops/  # Railway deployment ops skill
+│   │   ├── render-ops/   # Render deployment ops skill
+│   │   ├── digitalocean-ops/ # DigitalOcean App Platform ops skill
+│   │   └── research/     # Research loop + tsv-viewer.sh
 │   ├── agents/           # 31 specialized agents
 │   ├── hooks/            # 22 production hooks
 │   ├── memory/           # Scaffold (empty by design)
 │   ├── tresor-resources/ # Prompt templates + standards
 │   ├── lib/sandbox/      # Pluggable SandboxProvider (worktree-only default, podman, docker)
+│   │   └── sandbox_wrap.sh # Shared sandbox wrapper (extracted from orchestrate.sh + research-loop.sh)
 │   ├── model-overlays/   # Per-model tuning hints (claude.md generic + opus/sonnet/haiku variants)
 │   ├── host-adapters/    # Host dispatch interface (claude.sh concrete, others stub)
 │   └── config/
@@ -98,6 +103,37 @@ pipelinekit/
 ├── LICENSE               # MIT
 └── README.md
 ```
+
+## Cloud deployment agents
+
+Five deployment-engineer agents cover the full provider matrix. All follow the same pattern: Charter Topic 10 selects the provider; `/pipeline` routes deployment-shaped tasks to the appropriate agent and ops skill automatically.
+
+| Agent | Skill | Provider |
+|-------|-------|----------|
+| `@azure-deployment-engineer` | `azure-ops` | Azure App Service / Container Apps / Function Apps |
+| `@vercel-deployment-engineer` | `vercel-ops` | Vercel |
+| `@railway-deployment-engineer` | `railway-ops` | Railway |
+| `@render-deployment-engineer` | `render-ops` | Render |
+| `@digitalocean-deployment-engineer` | `digitalocean-ops` | DigitalOcean App Platform |
+
+`claude/agents/deployment-engineer.md` is a documentation-only base file describing the shared contract. Each named agent above is a concrete variant that extends it for its provider.
+
+Provider-specific guides live in `documentation/`:
+- [Railway](documentation/deployment-railway.html)
+- [Render](documentation/deployment-render.html)
+- [DigitalOcean](documentation/deployment-digitalocean.html)
+
+## /ppr --research flag
+
+`/ppr` accepts an optional `--research` flag for publishing research keep-rows from a TSV to a dedicated branch. Dry-run by default; pass `--no-dry-run` to publish. The TSV viewer at `documentation/` lets you sort and filter research results in-browser.
+
+```
+/ppr --research                     # dry-run (default)
+/ppr --research --no-dry-run        # publish research/<tag>-YYYY-MM-DD branch
+/ppr --research --research-tag <t>  # custom tag
+```
+
+See [documentation/ppr-research-flag.html](documentation/ppr-research-flag.html) for the full reference.
 
 ## Caveman mode (wenyan-ultra)
 
