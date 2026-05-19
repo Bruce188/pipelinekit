@@ -14,7 +14,7 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Mapping, Optional, Union
 
 
 # ---------------------------------------------------------------------------
@@ -286,7 +286,7 @@ def format_ac_line(audit_result: Dict) -> str:
     )
 
 
-def should_block(env: Optional[Dict] = None) -> bool:
+def should_block(env: Optional[Mapping[str, str]] = None) -> bool:
     """Return True iff env has DECOMPOSITION_COMPLIANCE_BLOCKING=true."""
     if env is None:
         env = os.environ
