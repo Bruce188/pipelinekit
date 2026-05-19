@@ -3,7 +3,9 @@ name: post-merge
 description: Clean up after PR merge. Switches to main, pulls latest, deletes merged feature branch locally and remotely. Use after a PR has been merged on GitHub.
 argument-hint: [branch-to-delete] (optional, defaults to current branch)
 disable-model-invocation: true
-allowed-tools: Bash, Read
+allowed-tools:
+  - Bash
+  - Read
 ---
 
 # Post-Merge Cleanup

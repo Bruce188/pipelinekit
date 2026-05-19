@@ -2,7 +2,15 @@
 name: review
 description: Multi-agent parallel review with auto-scaling agent selection. Scales from 2 agents (small diffs) to 6-agent teams (large diffs). Supports --scope, --health, --force, --teams, and --design-pass.
 argument-hint: [--scope <task-id|path>] [--health] [--force] [--teams] [--design-pass]
-allowed-tools: Bash, Read, Write, Edit, Grep, Glob, Agent, Skill
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Grep
+  - Glob
+  - Agent
+  - Skill
 effort: high
 ---
 

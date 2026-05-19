@@ -2,7 +2,17 @@
 name: analyze
 description: Analyze an existing codebase or defined task. Asks 2 focused questions, then produces docs/analysis.md. Use at the start of an existing project workflow, before /create-plan.
 argument-hint:
-allowed-tools: Read, Glob, Grep, Bash, Write, AskUserQuestion, WebSearch, WebFetch, mcp__local-rag, mcp__context7
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
+  - Bash
+  - Write
+  - AskUserQuestion
+  - WebSearch
+  - WebFetch
+  - mcp__local-rag
+  - mcp__context7
 ---
 
 # Analyze — Codebase & Task Analysis

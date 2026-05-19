@@ -2,7 +2,13 @@
 name: annotate-plan
 description: Process inline annotations in the plan file. Address all notes without implementing. Iterate until clean.
 argument-hint: (no arguments)
-allowed-tools: Read, Write, Edit, Bash, Glob, Grep
+allowed-tools:
+  - Read
+  - Write
+  - Edit
+  - Bash
+  - Glob
+  - Grep
 effort: medium
 ---
 

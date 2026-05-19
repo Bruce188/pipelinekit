@@ -1,7 +1,9 @@
 ---
 name: vercel-ops
 description: Vercel CLI (`vercel`) wrapper for common ops — project listing, deploy (preview / production), `vercel inspect` verification, log tail, redeploy. STOPS and prompts the user if `vercel whoami` fails — never auto-authenticates. Use when running day-to-day Vercel operations against an already-authenticated context.
-allowed-tools: Read, Bash
+allowed-tools:
+  - Read
+  - Bash
 ---
 
 # Vercel Operations Skill

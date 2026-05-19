@@ -1,7 +1,9 @@
 ---
 name: secret-scanner
 description: Detect exposed secrets, API keys, credentials, and tokens in code. Use before commits, on file saves, or when security is mentioned. Prevents accidental secret exposure. Triggers on file changes, git commits, security checks, .env file modifications.
-allowed-tools: Read, Grep
+allowed-tools:
+  - Read
+  - Grep
 paths:
   - "**/.env*"
   - "**/*.config"

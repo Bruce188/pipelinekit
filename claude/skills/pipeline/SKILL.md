@@ -2,7 +2,16 @@
 name: pipeline
 description: Autonomous pipeline orchestrator. Processes a feature list through the full workflow (analyze → plan → implement → review → merge) with zero human intervention. Supports --dry-run and --restart-from.
 argument-hint: ([feature-file]|[--renew [--auto]]|[--adopt]|[--from "<text>"]|[--plan [<path>]]) [--restart-from analyze|plan|implement|review] [--dry-run] [--no-charter|--charter <path>|--max-questions <N>]
-allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, Skill, TodoWrite
+allowed-tools:
+  - Read
+  - Write
+  - Edit
+  - Bash
+  - Glob
+  - Grep
+  - Agent
+  - Skill
+  - TodoWrite
 effort: high
 ---
 

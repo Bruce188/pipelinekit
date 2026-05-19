@@ -2,7 +2,8 @@
 name: test-hooks
 description: Run hook tests and summarize results. Auto-loads when working on files under .claude/hooks/. Use to verify hook correctness after changes to hook scripts or tests.
 allowed-tools: Bash
-paths: ["**/.claude/hooks/**"]
+paths:
+  - "**/.claude/hooks/**"
 ---
 
 # Hook Test Runner

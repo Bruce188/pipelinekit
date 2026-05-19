@@ -2,7 +2,13 @@
 name: create-plan
 description: Generate docs/plan.md AND docs/prompts.md together — always both, never one without the other. Initializes or amends docs/progress.md. Use after /analyze (existing project) or after /clear following /pipeline Step 0 Charter Discovery (new project — preferred) or /interview-prp (legacy, deprecated).
 argument-hint:
-allowed-tools: Read, Write, Bash, AskUserQuestion, mcp__local-rag, mcp__context7
+allowed-tools:
+  - Read
+  - Write
+  - Bash
+  - AskUserQuestion
+  - mcp__local-rag
+  - mcp__context7
 effort: high
 ---
 

@@ -2,7 +2,15 @@
 name: implement-plan
 description: Execute all remaining tasks from docs/progress.md with verification after each. Parallelizes phases with independent tasks by default. Stops on verification failure. Run again to resume after fixing a failure.
 argument-hint: [task-id] [--no-parallel] (task-id: start at specific task, e.g. "2.1")
-allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, mcp__local-rag
+allowed-tools:
+  - Read
+  - Write
+  - Edit
+  - Bash
+  - Glob
+  - Grep
+  - Agent
+  - mcp__local-rag
 context: fork
 effort: high
 ---

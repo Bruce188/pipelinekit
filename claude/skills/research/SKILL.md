@@ -3,7 +3,12 @@ name: research
 description: Karpathy autoresearch loop — hypothesize, mutate one file, run benchmark, keep-or-reset, append TSV row. Repeat until budget or iteration cap.
 argument-hint: --goal <text> --target-file <path> --benchmark-cmd <cmd> --metric-regex <regex> [--memory-regex <regex>] [--max-iterations N] [--max-usd F] [--max-turns N] [--accept-when <expr>] [--stop-when <expr>]
 disable-model-invocation: true
-allowed-tools: Bash, Read, Edit, Grep, AskUserQuestion
+allowed-tools:
+  - Bash
+  - Read
+  - Edit
+  - Grep
+  - AskUserQuestion
 ---
 
 # Research — Karpathy autoresearch loop
