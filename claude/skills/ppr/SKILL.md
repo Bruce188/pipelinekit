@@ -15,6 +15,23 @@ Closes the implementation loop: push → open PR. Changes should already be comm
 
 ---
 
+## Mode Selector
+
+Check whether `--research` is present in `$ARGUMENTS` before running any step:
+
+```bash
+if echo "$ARGUMENTS" | grep -q '\-\-research'; then
+    bash claude/skills/ppr/ppr_research_flag.sh $ARGUMENTS
+    exit $?
+fi
+```
+
+If `--research` is present, the helper script handles everything and `/ppr` exits. The standard Steps 1–4 below do NOT run.
+
+If `--research` is absent, proceed with Step 1 as normal.
+
+---
+
 ## Process
 
 ### Step 1: Safety Checks
@@ -221,4 +238,45 @@ Human action required:
 After merge: Run /post-merge to clean up, then /clear to reset context.
 
 ---
+```
+
+---
+
+## Research Mode
+
+### Synopsis
+
+```
+/ppr --research [--dry-run | --no-dry-run] [--research-tag <slug>]
+```
+
+Publishes the "keep" rows from `docs/research-results.tsv` to a new branch `research/<tag>-YYYY-MM-DD` (UTC date). The standard push + PR flow (Steps 1–4) does NOT run in this mode.
+
+### Arguments
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--research` | (required) | Enables research-publish mode. |
+| `--dry-run` | **default** | Preview-only: print the planned git commands and row count; no branch or commits created. |
+| `--no-dry-run` | off | Perform the real publish: create branch, write filtered TSV, commit, push. |
+| `--research-tag <slug>` | required with `--no-dry-run` | Slug for the branch name (`research/<slug>-YYYY-MM-DD`). Must match `^[a-zA-Z0-9._-]+$`. |
+
+### Behavior
+
+1. **Source file:** `docs/research-results.tsv` must exist (produced by `/research-loop`). Rows with `status == keep` are extracted; the header line is always preserved.
+2. **Zero keep rows:** prints a warning and exits 0. No branch is created.
+3. **Branch naming:** `research/<tag>-YYYY-MM-DD` (UTC). If the branch already exists locally or on `origin`, suffixes `-2` through `-9` are tried. If all are taken, the command exits non-zero with instructions to clean up or pick a new tag.
+4. **Dry-run output:** lists the planned branch name, keep row count, and the exact git commands that would run. No filesystem writes.
+5. **Real publish:** checks out the branch from `$BASE` (main), writes the filtered TSV, commits with `chore: publish research keeps for <tag> (<N> rows)`, and pushes with `git push -u origin <branch>`. No PR is opened.
+6. **No force-push.** `git push -u origin <branch>` only — no `--force`.
+7. **No AI attribution** anywhere in output, commit messages, or branch names.
+
+### Examples
+
+```bash
+# Preview what would be published (safe — default mode)
+/ppr --research --research-tag my-experiment
+
+# Publish for real
+/ppr --research --no-dry-run --research-tag my-experiment
 ```
