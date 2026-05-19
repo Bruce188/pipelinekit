@@ -119,6 +119,38 @@ run_phase() {
   return "$rc"
 }
 
+# ---------------------------------------------------------------------------
+# run_host_adapter <host> <worktree> <prompt-file> <output-file> [args...]
+#
+# Resolves claude/host-adapters/<host>.sh relative to this stub, validates
+# presence (stderr error + exit 2 if missing), and wraps the adapter
+# invocation in sandbox_wrap. The adapter contract is documented in
+# claude/host-adapters/README.md.
+#
+# Exit codes:
+#   2 — host adapter file not found
+#   1 — worktree directory not found
+#   * — forwarded from the adapter
+# ---------------------------------------------------------------------------
+run_host_adapter() {
+  local host="${1:?host name required}"
+  local worktree="${2:?worktree path required}"
+  local prompt_file="${3:?prompt file required}"
+  local output_file="${4:?output file required}"
+  shift 4
+  local adapter_path="$ORCH_DIR/../../host-adapters/${host}.sh"
+  if [ ! -f "$adapter_path" ]; then
+    echo "orchestrate.sh: host adapter not found: $adapter_path" >&2
+    return 2
+  fi
+  if [ ! -d "$worktree" ]; then
+    echo "orchestrate.sh: worktree not found: $worktree" >&2
+    return 1
+  fi
+  sandbox_wrap "host:${host}:$$" "$worktree" \
+    "$adapter_path" "$prompt_file" "$output_file" "$@"
+}
+
 # When invoked directly with --help, print usage and exit. When sourced, this
 # block is skipped so callers can use run_phase as a library function.
 if [ "${BASH_SOURCE[0]:-$0}" = "$0" ]; then
