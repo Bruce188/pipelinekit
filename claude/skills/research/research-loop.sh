@@ -68,6 +68,7 @@ ACCEPT_WHEN=""
 STOP_WHEN=""
 RESEARCH_TAG=""
 WORKER_FLAG=""        # --worker <class> global flag; empty = use WORKER_CLASS env or claude
+RESTART_FROM_ITER=0   # 0 = off sentinel; positive int = skip iters 1..N-1
 DRY_RUN=0
 
 usage() {
@@ -94,6 +95,7 @@ Optional:
                           WORKER_CLASS env > default claude.
                           If resolved class unavailable (exit 2): WORKER_UNAVAILABLE
                           logged and in-session claude used as fallback.
+  --restart-from-iter N   Skip iterations 1..N-1 and begin at N (requires TSV row for iter N-1).
   --dry-run               Print resolved arg surface and exit 0 without side effects.
 EOF
   exit 2
@@ -113,6 +115,7 @@ while [[ $# -gt 0 ]]; do
     --stop-when)      STOP_WHEN="$2";        shift 2 ;;
     --research-tag)   RESEARCH_TAG="$2";     shift 2 ;;
     --worker)         WORKER_FLAG="$2";      shift 2 ;;
+    --restart-from-iter) RESTART_FROM_ITER="$2"; shift 2 ;;
     --dry-run)        DRY_RUN=1;             shift ;;
     --help|-h)        usage ;;
     *) echo "error: unknown argument: $1" >&2; usage ;;
@@ -146,6 +149,32 @@ if [[ -z "$RESEARCH_TAG" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Validation — --restart-from-iter (runs BEFORE dry-run short-circuit)
+# ---------------------------------------------------------------------------
+if [[ -n "$RESTART_FROM_ITER" && "$RESTART_FROM_ITER" != "0" ]]; then
+  if ! [[ "$RESTART_FROM_ITER" =~ ^[1-9][0-9]*$ ]]; then
+    echo "error: --restart-from-iter must be a positive integer, got: $RESTART_FROM_ITER" >&2
+    exit 2
+  fi
+  if [[ "$MAX_ITERATIONS" -ge 0 && "$RESTART_FROM_ITER" -gt "$MAX_ITERATIONS" ]]; then
+    echo "error: --restart-from-iter ($RESTART_FROM_ITER) > --max-iterations ($MAX_ITERATIONS)" >&2
+    exit 2
+  fi
+  if [[ "$RESTART_FROM_ITER" -gt 1 ]]; then
+    need=$((RESTART_FROM_ITER - 1))
+    have=0
+    if [[ -f "$TSV_PATH" ]]; then
+      have=$(( $(wc -l < "$TSV_PATH") - 1 ))
+      [[ "$have" -lt 0 ]] && have=0
+    fi
+    if [[ "$have" -lt "$need" ]]; then
+      echo "error: --restart-from-iter $RESTART_FROM_ITER requires TSV row for iter $need, have $have rows in $TSV_PATH" >&2
+      exit 2
+    fi
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 # Dry-run short-circuit
 # ---------------------------------------------------------------------------
 if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -163,6 +192,7 @@ DRY-RUN — resolved arg surface:
   stop-when       = ${STOP_WHEN:-(unset)}
   research-tag    = $RESEARCH_TAG
   worker          = ${WORKER_FLAG:-(default: WORKER_CLASS env or claude)}
+  restart-from-iter = $RESTART_FROM_ITER
   tsv-path        = $TSV_PATH
   cost-log        = $COST_LOG
   dispatch-mode   = subagent
@@ -359,6 +389,10 @@ PYEOF
 # Main loop
 # ---------------------------------------------------------------------------
 iter=0
+if [[ "$RESTART_FROM_ITER" -gt 0 ]]; then
+  iter=$((RESTART_FROM_ITER - 1))
+  echo "info: --restart-from-iter $RESTART_FROM_ITER — skipping iterations 1..$iter"
+fi
 LOOP_START_TS=$(date -u +%s)
 
 echo "info: research loop starting — tag=$RESEARCH_TAG target=$TARGET_FILE max-iter=$MAX_ITERATIONS"

@@ -104,7 +104,9 @@ Every iteration is independently resumable. The loop reads state exclusively fro
 - The prior TSV row (`tail -1 docs/research-results.tsv`) for hypothesis context.
 - The current `git status` (working tree should be clean at iteration start; any partial mutation is reset via `git reset --hard HEAD` before the iteration is re-attempted).
 
-Crash recovery procedure: re-run `bash claude/skills/research/research-loop.sh` with the same flags. The loop picks up at the next iteration automatically — the TSV row count tells it where it left off. No `--restart-from-iter` flag is needed for the common case.
+Crash recovery procedure: re-run `bash claude/skills/research/research-loop.sh` with the same flags. The loop picks up at the next iteration automatically — the TSV row count tells it where it left off.
+
+Optional `--restart-from-iter N` skips iterations 1..N-1 and begins normal execution at N. Useful when the TSV log is intact but you need to re-run a specific iteration window. Refuses when N exceeds `--max-iterations` or no TSV row exists for iter N-1.
 
 ## TSV columns
 
