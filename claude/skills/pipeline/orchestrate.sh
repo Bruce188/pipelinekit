@@ -53,6 +53,36 @@ case "$__provider" in
 esac
 
 # ---------------------------------------------------------------------------
+# sandbox_wrap <task-id> <worktree> <command...>
+#
+# Public wrap helper: emits the SANDBOX_ENTER log line, calls sandbox_enter,
+# captures the exit code, then calls sandbox_exit. Forks adding new
+# external-subprocess entry points (e.g., run_db_migration) should call
+# sandbox_wrap rather than re-implementing the envelope.
+#
+# The SANDBOX_ENTER log line shape is:
+#   SANDBOX_ENTER: provider=<X>, task=<task-id>, image=<image>
+# Where <image> is the resolved sandbox image (SANDBOX_PODMAN_IMAGE →
+# SANDBOX_DOCKER_IMAGE → PIPELINEKIT_SANDBOX_TAG) or the literal "none"
+# when the resolved provider is worktree-only.
+# ---------------------------------------------------------------------------
+sandbox_wrap() {
+  local task_id="${1:?task id required}"
+  local worktree="${2:?worktree path required}"
+  shift 2
+  local image rc
+  image="${SANDBOX_PODMAN_IMAGE:-${SANDBOX_DOCKER_IMAGE:-${PIPELINEKIT_SANDBOX_TAG:-none}}}"
+  if [ "$__provider" = "worktree-only" ]; then
+    image="none"
+  fi
+  echo "SANDBOX_ENTER: provider=$__provider, task=$task_id, image=$image" >&2
+  sandbox_enter "$worktree" "$@"
+  rc=$?
+  sandbox_exit "$task_id" || true
+  return "$rc"
+}
+
+# ---------------------------------------------------------------------------
 # run_phase <phase-name> <prompt-file> <worktree-path>
 #
 # Reads a phase prompt from <prompt-file> and dispatches `claude -p` inside
@@ -84,9 +114,8 @@ run_phase() {
   prompt="$(cat "$prompt_file")"
   echo "orchestrate.sh: phase=$phase provider=$__provider worktree=$worktree" >&2
 
-  sandbox_enter "$worktree" claude -p "$prompt"
+  sandbox_wrap "$phase-$$" "$worktree" claude -p "$prompt"
   rc=$?
-  sandbox_exit "$phase-$$" || true
   return "$rc"
 }
 
