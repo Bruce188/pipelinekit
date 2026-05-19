@@ -224,12 +224,13 @@ def _build_parser() -> argparse.ArgumentParser:
         sp.add_argument(
             "--dispatch-mode",
             dest="dispatch_mode",
-            choices=("inline", "subagent"),
+            choices=("inline", "subagent", "subprocess"),
             default="inline",
             help=(
                 "Phase dispatch mode: "
                 "inline \u2014 phase ran in the main pipeline context; "
-                "subagent \u2014 phase ran via the Agent tool (use returned subagent ID as --agent-id)."
+                "subagent \u2014 phase ran via the Agent tool (use returned subagent ID as --agent-id); "
+                "subprocess \u2014 phase ran in a child process (e.g. cost_log.py parse-json forwarding claude -p JSON output)."
             ),
         )
         sp.add_argument(
@@ -253,24 +254,67 @@ def _build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("report-current", add_help=False)
 
+    pj = sub.add_parser("parse-json", add_help=False)
+    pj.add_argument("path", help="JSON file path, or '-' for stdin")
+    pj.add_argument("feature")
+    pj.add_argument("phase")
+    pj.add_argument("--agent-id", dest="agent_id", default=None,
+                    type=lambda s: s[:128] if s else None)
+
     return p
 
 
 def _usage() -> None:
     print(
-        "usage: cost_log.py <start|end|report|report-current> [args...]\n"
+        "usage: cost_log.py <start|end|report|report-current|parse-json> [args...]\n"
         "       cost_log.py --self-test\n"
         "\n"
         "event args (start/end):\n"
         "  feature phase [--input N] [--output N] [--cache N] [--usd F]\n"
-        "                [--dispatch-mode {inline,subagent}]\n"
+        "                [--dispatch-mode {inline,subagent,subprocess}]\n"
         "                [--agent-id ID]\n"
         "\n"
+        "parse-json args:\n"
+        "  <path|-> feature phase [--agent-id ID]\n"
+        "  reads JSON from path (or stdin if '-'), extracts cost_usd / usage.input_tokens\n"
+        "  / usage.output_tokens, writes an 'end' event with dispatch_mode=subprocess.\n"
+        "\n"
         "--dispatch-mode values:\n"
-        "  inline   -- phase ran in the main pipeline context\n"
-        "  subagent -- phase ran via the Agent tool "
-        "(use returned subagent ID as --agent-id)",
+        "  inline     -- phase ran in the main pipeline context\n"
+        "  subagent   -- phase ran via the Agent tool (use returned subagent ID as --agent-id)\n"
+        "  subprocess -- phase ran in a child process (e.g. claude -p --output-format json via parse-json)",
         file=sys.stderr,
+    )
+
+
+def parse_json_event(path: str, feature: str, phase: str, agent_id: str | None = None) -> int:
+    """Read JSON from <path> ('-' for stdin), extract cost_usd + token usage, forward to write_event."""
+    try:
+        text = sys.stdin.read() if path == "-" else open(path, "r").read()
+    except OSError as e:
+        print(f"parse-json: cannot read {path!r}: {e}", file=sys.stderr)
+        return 2
+    try:
+        data = json.loads(text)
+    except (json.JSONDecodeError, ValueError) as e:
+        print(f"parse-json: invalid JSON: {e}", file=sys.stderr)
+        return 2
+    if not isinstance(data, dict):
+        print("parse-json: JSON root must be an object", file=sys.stderr)
+        return 2
+    cost = float(data.get("cost_usd", 0.0) or 0.0)
+    usage = data.get("usage") or {}
+    if not isinstance(usage, dict):
+        usage = {}
+    in_tok = int(usage.get("input_tokens", 0) or 0)
+    out_tok = int(usage.get("output_tokens", 0) or 0)
+    return write_event(
+        feature, phase, "end",
+        input_tokens=in_tok,
+        output_tokens=out_tok,
+        estimated_usd=cost,
+        dispatch_mode="subprocess",
+        agent_id=agent_id,
     )
 
 
@@ -319,6 +363,9 @@ def main(argv: list[str] | None = None) -> int:
             print("no current feature in pipeline-state.md", file=sys.stderr)
             return 1
         return report(feat)
+
+    if cmd == "parse-json":
+        return parse_json_event(args.path, args.feature, args.phase, agent_id=args.agent_id)
 
     _usage()
     return 2
