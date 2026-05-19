@@ -116,5 +116,5 @@ The handler binds to F9's 6-field payload schema (`feature_index`, `step`, `even
 - Handler script: `claude/skills/openhuman/handler.sh`.
 - F9 cross-feature contract: `claude/hooks/notify-emit.sh` + `claude/skills/pipeline/reference.md § Notification payload schema`.
 - Pipeline appendix: `claude/skills/pipeline/reference.md § Human-Review Gate (--human-review)`.
-- User-facing docs: `documentation/SKILL_PIPELINE.md ## Human-Review Gate`.
+- User-facing docs: `documentation/docs/SKILL_PIPELINE.html` § Human-Review Gate.
 - Upstream attribution: `claude/skills/openhuman/NOTICE.md`.

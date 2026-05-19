@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CI on Blacksmith — pipelinekit</title>
-<meta name="description" content="Blacksmith runner registration, env-var override pattern, drop-in action matrix, and gap-comment policy for pipelinekit-generated GitHub Actions workflows.">
+<title>TSV Viewer — pipelinekit</title>
+<meta name="description" content="tsv-viewer.sh reads a research-results TSV file and generates a self-contained HTML page with a sortable, filterable table, light/dark CSS, and an optional browser-open hook.">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>CI on Blacksmith</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>TSV Viewer</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -531,165 +531,134 @@ footer {
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
     <ul>
-      <li class="lvl-2"><a href="#1-why-blacksmith">1. Why Blacksmith</a></li>
-      <li class="lvl-2"><a href="#2-account-amp-runner-registration">2. Account &amp;amp; runner registration</a></li>
-      <li class="lvl-2"><a href="#3-the-blacksmith-runner-env-var-override">3. The BLACKSMITH_RUNNER env-var override</a></li>
-      <li class="lvl-2"><a href="#4-drop-in-action-matrix">4. Drop-in action matrix</a></li>
-      <li class="lvl-2"><a href="#5-gap-annotation-pattern">5. Gap-annotation pattern</a></li>
-      <li class="lvl-2"><a href="#6-secrets-policy">6. Secrets policy</a></li>
-      <li class="lvl-2"><a href="#7-lint-enforcement-r5">7. Lint enforcement (R5)</a></li>
-      <li class="lvl-2"><a href="#8-documented-gap-escape-hatch">8. Documented-gap escape hatch</a></li>
+      <li class="lvl-2"><a href="#synopsis">Synopsis</a></li>
+      <li class="lvl-2"><a href="#options">Options</a></li>
+      <li class="lvl-2"><a href="#how-to-run">How to Run</a></li>
+      <li class="lvl-2"><a href="#tsv-format">TSV Format</a></li>
+      <li class="lvl-2"><a href="#output-description">Output Description</a></li>
+      <li class="lvl-2"><a href="#browser-open-behavior">Browser Open Behavior</a></li>
+      <li class="lvl-2"><a href="#notes">Notes</a></li>
     </ul>
   </aside>
 
   <main>
     <header class="page-header">
-      <h1>CI on Blacksmith</h1>
-      <p class="description">Blacksmith runner registration, env-var override pattern, drop-in action matrix, and gap-comment policy for pipelinekit-generated GitHub Actions workflows.</p>
+      <h1>TSV Viewer</h1>
+      <p class="description">tsv-viewer.sh reads a research-results TSV file and generates a self-contained HTML page with a sortable, filterable table, light/dark CSS, and an optional browser-open hook.</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
-<h2 id="1-why-blacksmith">1. Why Blacksmith</h2>
-  <p>
-    Blacksmith provides ephemeral, performant runners for GitHub Actions that are faster and more cost-effective than
-    GitHub-hosted runners for most workloads. Key advantages:
-  </p>
-  <ul>
-    <li>Faster cache warm-up through persistent runner-local caching via <code>useblacksmith/cache</code></li>
-    <li>Reduced per-minute compute cost compared to GitHub-hosted runners at equivalent vCPU tiers</li>
-    <li>Drop-in compatibility: most jobs need only one <code>runs-on:</code> line change</li>
-    <li>Ecosystem-native drop-in actions for common setup tasks (<code>cache</code>, <code>setup-node</code>, <code>setup-python</code>, <code>setup-go</code>)</li>
-  </ul>
-  <p>
-    pipelinekit defaults to Blacksmith runners in all generated and templated workflow YAML. The lint rule R5
-    (in <code>claude/skills/create-plan/SKILL.md</code> Step 4.5) enforces this default at plan-creation time.
-  </p>
+<hr>
+<h2 id="synopsis">Synopsis</h2>
+<div class="codehilite"><pre><span></span><code>claude/skills/research/tsv-viewer.sh [OPTIONS]
+</code></pre></div>
 
-  <h2 id="2-account-amp-runner-registration">2. Account &amp; runner registration</h2>
-  <ol>
-    <li>Sign up at <code>blacksmith.sh</code> and create an organisation.</li>
-    <li>Register an organisation runner via <code>blacksmith register</code> in your GitHub organisation settings.</li>
-    <li>
-      Store the runner authentication token as a GitHub Actions secret named <code>BLACKSMITH_TOKEN</code> only
-      if a specific Blacksmith action requires it. Most jobs auto-authenticate via the registered runner — no
-      per-job secret token is required for <code>useblacksmith/*</code> actions.
-    </li>
-    <li>Optionally set the <code>BLACKSMITH_RUNNER</code> GitHub Actions variable at the repository or organisation
-      level to select a non-default runner tier (see Section 3).</li>
-  </ol>
+<h2 id="options">Options</h2>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Argument</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--input</code></td>
+<td><code>&lt;path&gt;</code></td>
+<td><code>docs/research-results.tsv</code></td>
+<td>TSV file to read</td>
+</tr>
+<tr>
+<td><code>--output</code></td>
+<td><code>&lt;path&gt;</code></td>
+<td><code>documentation/research-results.html</code></td>
+<td>HTML file to write</td>
+</tr>
+<tr>
+<td><code>--no-open</code></td>
+<td>—</td>
+<td>off</td>
+<td>Suppress the browser-open attempt after writing</td>
+</tr>
+<tr>
+<td><code>--help</code></td>
+<td>—</td>
+<td>—</td>
+<td>Print usage and exit</td>
+</tr>
+</tbody>
+</table>
+<h2 id="how-to-run">How to Run</h2>
+<p>From the repo root:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Default — reads docs/research-results.tsv, writes documentation/research-results.html</span>
+claude/skills/research/tsv-viewer.sh
 
-  <h2 id="3-the-blacksmith-runner-env-var-override">3. The <code>BLACKSMITH_RUNNER</code> env-var override</h2>
-  <p>Every <code>runs-on:</code> line in pipelinekit-generated workflows uses the fallback expression:</p>
-  <pre><code>runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}</code></pre>
-  <p>
-    Set the <code>BLACKSMITH_RUNNER</code> GitHub Actions variable (repo or org level) to one of the
-    available runner tiers:
-  </p>
-  <ul>
-    <li><code>blacksmith-2vcpu-ubuntu-2204</code> — small jobs (linting, quick unit tests)</li>
-    <li><code>blacksmith-4vcpu-ubuntu-2204</code> — default tier (balanced cost/performance)</li>
-    <li><code>blacksmith-8vcpu-ubuntu-2204</code> — heavier builds (multi-module monorepos, Docker builds)</li>
-    <li><code>blacksmith-16vcpu-ubuntu-2204</code> — very heavy / parallel matrix jobs</li>
-  </ul>
-  <p>
-    When <code>BLACKSMITH_RUNNER</code> is unset, the fallback literal
-    <code>blacksmith-4vcpu-ubuntu-2204</code> is used. To switch all jobs in a repository to a larger tier,
-    set the variable once at the repository level — no YAML changes required.
-  </p>
+<span class="c1"># Custom output path, no browser launch</span>
+claude/skills/research/tsv-viewer.sh<span class="w"> </span>--output<span class="w"> </span>/tmp/preview.html<span class="w"> </span>--no-open
 
-  <h2 id="4-drop-in-action-matrix">4. Drop-in action matrix</h2>
-  <p>
-    Blacksmith publishes optimised drop-in replacements for common GitHub Actions setup steps.
-    Use the drop-ins where available; retain upstream actions and annotate with the gap-comment pattern
-    (see Section 5) where no drop-in exists.
-  </p>
-  <table>
-    <thead>
-      <tr>
-        <th>Upstream action</th>
-        <th>Blacksmith drop-in</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr><td><code>actions/cache@v3,v4</code></td><td><code>useblacksmith/cache@v5</code></td><td>swap</td></tr>
-      <tr><td><code>actions/setup-node@v3,v4</code></td><td><code>useblacksmith/setup-node@v5</code></td><td>swap</td></tr>
-      <tr><td><code>actions/setup-python@v2,v4,v5</code></td><td><code>useblacksmith/setup-python@v6</code></td><td>swap</td></tr>
-      <tr><td><code>actions/setup-go@v4,v5</code></td><td><code>useblacksmith/setup-go@v6</code></td><td>swap</td></tr>
-      <tr><td><code>actions/checkout@v2,v4</code></td><td>(no drop-in needed)</td><td>keep + annotate</td></tr>
-      <tr><td><code>actions/upload-artifact@v3,v4</code></td><td>(no drop-in published)</td><td>keep + annotate</td></tr>
-      <tr><td><code>codecov/codecov-action@v2,v3,v4</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>aquasecurity/trivy-action@master</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>github/codeql-action/*</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>SonarSource/sonarcloud-github-action@master</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>snyk/actions/node@master</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>aws-actions/configure-aws-credentials@v2,v4</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-    </tbody>
-  </table>
+<span class="c1"># Point at a different TSV</span>
+claude/skills/research/tsv-viewer.sh<span class="w"> </span>--input<span class="w"> </span>docs/my-results.tsv
+</code></pre></div>
 
-  <h2 id="5-gap-annotation-pattern">5. Gap-annotation pattern</h2>
-  <p>
-    When no Blacksmith drop-in exists for an upstream action, retain the upstream action and add a same-line
-    comment using exactly this format (three spaces before <code>#</code>, em-dash, action name without
-    the <code>@vN</code> pin):
-  </p>
-  <pre><code>- uses: codecov/codecov-action@v3   # No Blacksmith drop-in — using upstream codecov/codecov-action</code></pre>
-  <p>
-    The annotation communicates to reviewers and future maintainers that the upstream action was intentionally
-    retained because no Blacksmith optimised equivalent is available, not because the migration was missed.
-  </p>
-
-  <h2 id="6-secrets-policy">6. Secrets policy</h2>
-  <p>
-    Never commit Blacksmith account credentials, billing tokens, or runner registration tokens to any
-    YAML, Markdown, or config file in the repository. All secrets must be stored in the GitHub Actions
-    secrets store at the repository or organisation level and referenced via
-    <code>${{ secrets.&lt;NAME&gt; }}</code>.
-  </p>
-  <p>
-    The pipelinekit lint rule R5 does not check for secret exposure — use standard secret-scanning tooling
-    (e.g., <code>github/codeql-action/init</code> with secret scanning enabled, or
-    <code>aquasecurity/trivy-action</code>) to enforce this policy in CI.
-  </p>
-
-  <h2 id="7-lint-enforcement-r5">7. Lint enforcement (R5)</h2>
-  <p>
-    The pipelinekit plan-mode lint gate (<code>claude/skills/create-plan/SKILL.md</code> Step 4.5, rule
-    <strong>R5</strong>) rejects any plan task whose <code>**Files:**</code> list creates or modifies a
-    <code>.github/workflows/*.yml</code> or <code>.github/workflows/*.yaml</code> file with a
-    non-<code>blacksmith-*</code> runner, unless the task body documents the gap via a
-    <code>BLACKSMITH_DOES_NOT_SUPPORT_&lt;reason&gt;:</code> line in the <code>**Context:**</code> field.
-  </p>
-  <p>
-    The companion smoke test at <code>tests/test_blacksmith_lint_r5.sh</code> exercises the R5 rule against
-    six fixture plans covering the violation, compliant, documented-gap, non-workflow-file, yaml-extension,
-    and non-ubuntu-hosted-runner cases.
-  </p>
-  <p>
-    The <code>BLACKSMITH_RUNNER</code> variable name also appears in the R5 remediation hint inside
-    <code>claude/skills/create-plan/SKILL.md</code> Step 4.5, and throughout the drop-in matrix examples
-    in this document.
-  </p>
-
-  <h2 id="8-documented-gap-escape-hatch">8. Documented-gap escape hatch</h2>
-  <p>
-    Use this escape hatch only when the workflow legitimately cannot run on Blacksmith — for example, when
-    the job requires a Windows or macOS host, or custom hardware that Blacksmith does not support.
-    Add a single line to the task's <code>**Context:**</code> field:
-  </p>
-  <pre><code>BLACKSMITH_DOES_NOT_SUPPORT_HOST_ARCH: windows-2022</code></pre>
-  <p>
-    R5 reads this as an explicit acknowledgement that the non-Blacksmith runner is intentional, and lets
-    the task pass the lint gate. Choose the <code>&lt;reason&gt;</code> suffix to communicate why
-    Blacksmith is not applicable (e.g., <code>HOST_ARCH</code>, <code>GPU_REQUIRED</code>,
-    <code>MACOS_KEYCHAIN</code>).
-  </p>
-  <p>
-    Do not use this escape hatch for convenience — only for genuine technical incompatibilities.
-    Every use of the escape hatch should be reviewable: a future reader of the plan should be able to
-    understand why Blacksmith was not used for that specific task.
-  </p>
+<p>The script requires Python 3 on <code>PATH</code>. It creates any missing parent directories for the output file automatically.</p>
+<h2 id="tsv-format">TSV Format</h2>
+<p>The input file must be tab-separated with a header row. Expected columns (0-indexed):</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Column</th>
+<th>Sortable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>commit</td>
+<td>no</td>
+</tr>
+<tr>
+<td>1</td>
+<td>metric</td>
+<td>yes (numeric)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>memory</td>
+<td>yes (numeric)</td>
+</tr>
+<tr>
+<td>3</td>
+<td>status</td>
+<td>filter only</td>
+</tr>
+<tr>
+<td>4</td>
+<td>description</td>
+<td>no</td>
+</tr>
+</tbody>
+</table>
+<p>A synthesized <code>iteration</code> column (1-based row index) is prepended in the HTML output and is also click-sortable.</p>
+<h2 id="output-description">Output Description</h2>
+<p>The generated HTML file is fully self-contained — no CDN or remote assets. It includes:</p>
+<ul>
+<li>A sortable table with click-to-sort headers on <code>iteration</code>, <code>metric</code>, and <code>memory</code> columns. Clicking the same header toggles ascending/descending order.</li>
+<li>Dynamic status filter checkboxes above the table. Each unique value in the <code>status</code> column gets its own checkbox; unchecking hides matching rows instantly.</li>
+<li>Light/dark CSS that follows the OS <code>prefers-color-scheme</code> media query with no JavaScript required for theming.</li>
+<li>A generation timestamp (UTC) and row count in the page footer.</li>
+</ul>
+<h2 id="browser-open-behavior">Browser Open Behavior</h2>
+<p>After writing the HTML file the script attempts to open it in the default browser using <code>xdg-open</code> (Linux), <code>open</code> (macOS), or <code>start</code> (Windows/WSL). Pass <code>--no-open</code> to suppress this. Tests must always pass <code>--no-open</code> to remain hermetic.</p>
+<h2 id="notes">Notes</h2>
+<ul>
+<li><code>cost</code> is intentionally absent from the table and is not a sort axis — it is not a TSV column.</li>
+<li>Passing an unknown flag exits with code 2.</li>
+<li>Passing a missing <code>--input</code> file exits with code 1.</li>
+</ul>
     </div>
 
     <div class="no-results" id="no-results">

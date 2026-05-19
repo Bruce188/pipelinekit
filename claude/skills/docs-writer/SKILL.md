@@ -1,6 +1,6 @@
 ---
 name: docs-writer
-description: HTML-emitting documentation skill — writes self-contained styled HTML to documentation/, never markdown for new files
+description: Documentation skill — renders markdown to rich, interactive, self-contained HTML for documentation/. Uses the shipped template + render.py. Refuses to write markdown to documentation/.
 allowed-tools:
   - Read
   - Write
@@ -10,177 +10,129 @@ allowed-tools:
   - Grep
 ---
 
-# docs-writer — HTML-emitting documentation skill
+# docs-writer — rich-template HTML documentation skill
 
-`docs-writer` is the slash-invocable, format-aware surface for application documentation. It writes **self-contained styled HTML** to `documentation/`, never `.md` for new files. The skill is declarative (`SKILL.md` plus three generator scripts) and coexists with the existing `claude/agents/docs-writer.md` agent, which remains the `Agent`-tool workhorse for prose-heavy multi-turn documentation work. Precedent: `claude-md-enhancer` skill + `claude-md-guardian` agent coexist for the same reason.
+`docs-writer` is the canonical surface for application documentation in pipelinekit. It renders markdown source to **interactive, self-contained HTML** wrapped in the shipped template, with sticky-ToC sidebar, in-page search, code-copy buttons, sortable tables, scrollspy, smooth-scroll anchors, light/dark theme toggle, mobile responsiveness, and Pygments syntax highlighting. Every emitted file is a single self-contained `.html` (no CDN, no remote assets) that renders identically when served from any origin, copied to disk, or opened via `file://` URL.
 
-The skill is benign — it writes only under `documentation/`, has no destructive side effects, and is therefore model-invocable (the `disable-model-invocation` frontmatter key is deliberately omitted, in contrast to the `openhuman` skill which gates destructive merges).
+The skill ships two assets:
 
-## When this skill fires
+- **`claude/skills/docs-writer/template.html`** — the canonical HTML shell. Inlines all CSS + JS + SVG icons (~30 KB). Placeholders: `{{TITLE}}`, `{{DESCRIPTION}}`, `{{TOC}}`, `{{CONTENT}}`, `{{META}}`, `{{FOOTER_RIGHT}}`.
+- **`claude/skills/docs-writer/render.py`** — Python renderer. Reads markdown (or HTML in rewrap mode), generates ToC from headings, fills the template, writes the output file.
 
-The skill is invoked in three contexts:
+## The three rules
 
-1. **Slash-invocation:** `/docs-writer` (user-initiated; produces one HTML file per request).
-2. **Pipeline Documentation Update Phase:** `/pipeline` dispatches the skill during the documentation-update phase that follows a feature merge, so the application docs stay in lock-step with the implemented surface.
-3. **`/document-release` post-merge:** the release-documentation skill calls into `docs-writer` to emit per-release HTML pages.
+These are non-negotiable. The compliance hook (see § Enforcement) blocks staging of any file that violates them.
 
-In every context the format-aware contract holds: `.html` output to `documentation/`, never `.md` for new application-doc files. Updates to vendored markdown files (see "Vendored-file exception" below) are off-limits.
+1. **Every page in `documentation/` is HTML.** No `.md` files. No exceptions — vendored standards live as HTML in `documentation/docs/`.
+2. **Every page is generated via `render.py`.** Do not hand-write HTML files; do not bypass the template. Hand-edits to emitted files are tolerated for small fixes but the page must remain template-compliant (the `<meta name="generator" content="pipelinekit docs-writer/2 — rich-template">` tag is the marker).
+3. **`docs/` is AI-workflow-only and gitignored.** Never write reader-facing content to `docs/`. AI-internal artifacts (`analysis-vN.md`, `plan-vN.md`, `prompts-vN.md`, `review-vN.md`, `charter.md`, `progress.md`, `pipeline-state.md`, `features.md`, `features-vN.md`, `features-master.md`, `pipeline-intel.json`, `.last-verify.json`, `context-dump.md`) are local-only, never committed. User-authored feature lists may be committed only via explicit `git add -f`.
+
+## Usage
+
+### Render a new page from markdown
+
+```bash
+python3 claude/skills/docs-writer/render.py docs-source/my-page.md documentation/my-page.html
+```
+
+### Render with explicit metadata
+
+```bash
+python3 claude/skills/docs-writer/render.py \
+  docs-source/my-page.md \
+  documentation/my-page.html \
+  --title "Custom title" \
+  --description "Custom description for OpenGraph + sidebar" \
+  --source-link "https://github.com/Bruce188/pipelinekit/blob/main/path/to/source" \
+  --meta "Section: deployment" \
+  --meta "Version: 0.0.1"
+```
+
+### Rewrap existing HTML (when source markdown isn't available)
+
+```bash
+python3 claude/skills/docs-writer/render.py --from-html \
+  documentation/some-page.html \
+  documentation/some-page.html.new && \
+  mv documentation/some-page.html.new documentation/some-page.html
+```
+
+Used during the bulk regeneration that brought existing pages onto the template. Going forward, prefer the markdown render path — rewrap mode preserves semantic HTML but can't generate syntax highlighting or other Pygments-rendered elements that markdown-mode produces.
+
+### Generate the landing-page index
+
+The landing page at `documentation/index.html` is generated like any other page — from a hand-curated markdown source listing all documentation pages by section. Re-render it whenever you add a new page:
+
+```bash
+# Edit /tmp/index-source.md (or commit a stable docs-source/index.md), then:
+python3 claude/skills/docs-writer/render.py docs-source/index.md documentation/index.html \
+  --title "pipelinekit documentation" \
+  --description "Complete user-facing documentation for pipelinekit."
+```
 
 ## Output directory contract
 
-The skill writes **HTML to documentation/** and nothing else. It NEVER writes markdown for new files in documentation/ once this contract is in force — every new application-doc file emitted by this skill is HTML. It writes NEVER any file to docs/ — that directory is reserved for AI workflow artifacts.
+The skill writes to **`documentation/`** and **`documentation/docs/`** only.
 
-To restate the three rules explicitly:
+| Path | Use case | Examples |
+|------|----------|----------|
+| `documentation/*.html` | Top-level reader-facing pages (install, features, deployment, etc.) | `installation.html`, `pipeline.html`, `deployment-vercel.html` |
+| `documentation/docs/*.html` | Reference standards. Originally vendored; converted to HTML in v0.0.1 with attribution preserved. | `SKILL-AUTHORING-STANDARD.html`, `SKILL_PIPELINE.html`, `NOTICE.html` |
+| `documentation/audits/*.html` | Compliance audit reports | `claude-code-compliance-2026-05-19.html` |
 
-- **HTML to documentation/** — all new application docs are HTML.
-- **NEVER markdown for new files in documentation/** — `.md` exists only as a vendored exception (see below) or as a pre-existing archived source in `documentation/_md_archive/`.
-- **NEVER any file to docs/** — `docs/` is reserved for AI-workflow files (`plan.md`, `prompts.md`, `analysis.md`, `progress.md`, `charter.md`, `review-*.md`, `pipeline-state.md`, `pipeline-intel.json`, `.last-verify.json`). These files are produced by the pipeline orchestrator and are excluded from commits by `claude/config/never-stage.txt` plus the `block-stage-sensitive.sh` hook. The `docs-writer` skill must never write into that namespace, even for trivial scratch output.
+Never write to `docs/`. Never write `.md` to `documentation/` or its subdirectories.
 
-`documentation/` is the human-readable application-docs surface: API references, user guides, architecture docs, audits, release notes. It IS committed (unlike `docs/`).
+## Template features (what the reader gets)
 
-## Vendored-file exception
+Every emitted page automatically has:
 
-Three files under `documentation/` remain markdown for the duration of the upstream vendoring contract:
+- **Top bar** with brand, breadcrumb, in-page search (`/` keyboard shortcut), and theme toggle (Auto / Light / Dark — preference persisted to `localStorage`).
+- **Sticky sidebar ToC** auto-generated from H2/H3 headings, with active-section highlighting via IntersectionObserver (scrollspy).
+- **Mobile drawer** — ToC collapses below 900px and surfaces via a "Contents" button.
+- **Code blocks** — Pygments syntax highlighting (language inferred from fenced-code language hint), copy-to-clipboard button on hover, language label.
+- **Tables** — sortable by clicking any column header (ascending → descending → no sort), responsive horizontal-scroll wrapper.
+- **Headings** — automatic `id=` attributes (slug-derived), hover anchor `#` for permalinks, smooth-scroll to fragment.
+- **Callouts** — blockquotes beginning with `[INFO]`, `[NOTE]`, `[TIP]`, `[WARN]`, `[WARNING]`, `[DANGER]`, `[ALERT]`, `[SUCCESS]`, `[OK]` are auto-styled with color-coded left border and icon.
+- **Details/Summary** — `<details><summary>` blocks render as collapsible sections with rotating arrow.
+- **Search filter** — `/` focuses the search box; typing highlights matches in body text and hides non-matching table rows. `Esc` clears.
+- **Theme** — 7 CSS custom properties for light + 7 for dark, with `prefers-color-scheme` respected as the default and user override persisted. WCAG 2.1 AA contrast on all primary text pairings (verified in [docs/NOTICE.html](../../../documentation/docs/NOTICE.html)).
+- **Self-contained** — no CDN, no external stylesheet, no remote font, no remote script. Reader can clone the repo and open `documentation/index.html` directly via `file://`.
 
-- `documentation/NOTICE.md` — documents the vendoring SHA pin and license for the other vendored markdown files.
-- `documentation/SKILL-AUTHORING-STANDARD.md` — vendored verbatim per `documentation/NOTICE.md` pinned SHA `0d477a06589aa730b98e351f46985c5c937de0bf`.
-- `documentation/SKILL_PIPELINE.md` — vendored verbatim per the same pinned SHA.
+## When this skill fires
 
-These files are byte-identical copies from `alirezarezvani/claude-skills` and CANNOT be migrated to HTML without breaking the re-vendor / SHA-traceability contract. The migration helper (`migrate-md-to-html.sh`) refuses to operate on any of the three filenames by hardcoded denylist; an attempted invocation exits 1 with `error: <name> is on the vendored-NOTICE list, refusing to migrate`.
+1. **Slash-invocation** — `/docs-writer <markdown-path> <html-path>` (user-initiated).
+2. **`/pipeline` Documentation Update Phase** — after a feature merges, `/pipeline` dispatches the skill to update any documentation/ pages affected by the change.
+3. **`/document-release` post-merge** — release-documentation calls into `docs-writer` to emit per-release HTML pages.
+4. **Author-triggered** — when committing a new feature, the implementer or follow-up author runs `render.py` directly to produce the user-facing page.
 
-Updates to vendored content land via a re-vendor commit (refresh the SHA pin in NOTICE.md, then re-copy the files), never via in-place edits.
+## Enforcement
 
-## Self-contained stylesheet (inline)
+The compliance contract is enforced via the existing `block-stage-sensitive.sh` PreToolUse hook and its data file `claude/config/never-stage.txt`. The following patterns refuse staging:
 
-Every HTML file the skill emits embeds the same self-contained stylesheet inline as a `<style>` block. The stylesheet uses no external font, no external CSS file, and no remote asset references of any kind — the entire stylesheet ships with each emitted page so the file renders identically when served from any origin, copied to disk, or viewed via the `file` URL scheme. Three patterns are forbidden anywhere in the emitted HTML: remote link references in the page head, remote import directives at the top of CSS rule sets, and any host string containing the `c d n` substring (spaces inserted here so this prose itself does not trigger AC7).
+- `documentation/**/*.md` — no markdown in documentation tree.
+- `docs/*` — no commits into docs/ (AI-workflow-only).
 
-The stylesheet uses seven CSS custom properties on `:root` (light defaults) and redefines all seven inside a `@media (prefers-color-scheme: dark)` block so the page auto-adapts to the reader's OS preference without JavaScript or runtime configuration. The body uses a fluid `max-width: 1200px` container so the layout is responsive across mobile and desktop viewports.
+If you have a legitimate need to commit a file matching either pattern (e.g., a docs-source markdown file that gets converted; or a user feature list under `docs/`), bypass the hook with `git add -f <path>` after confirming the intent.
 
-```html
-<style>
-  :root {
-    --bg: #ffffff;
-    --fg: #111111;
-    --muted: #555555;
-    --border: #dddddd;
-    --link: #0050b3;
-    --code-bg: #f5f5f5;
-    --header-bg: #fafafa;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0d1117;
-      --fg: #e6edf3;
-      --muted: #8b949e;
-      --border: #30363d;
-      --link: #58a6ff;
-      --code-bg: #161b22;
-      --header-bg: #161b22;
-    }
-  }
-  * { box-sizing: border-box; }
-  body {
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    line-height: 1.55;
-    background: var(--bg);
-    color: var(--fg);
-    margin: 0 auto;
-    padding: 2rem;
-    max-width: 1200px;
-  }
-  h1, h2, h3, h4 { color: var(--fg); }
-  h1 { margin-top: 0; font-size: 1.85rem; }
-  h2 { margin-top: 2.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; background: var(--header-bg); padding-top: 0.3rem; padding-left: 0.4rem; }
-  h3 { margin-top: 2rem; font-size: 1.15rem; }
-  h4 { margin: 1rem 0 0.4rem; font-size: 1rem; color: var(--muted); }
-  p { margin: 0.7rem 0; }
-  a { color: var(--link); }
-  code, pre {
-    background: var(--code-bg);
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
-  }
-  code { padding: 0.1rem 0.35rem; font-size: 0.92em; }
-  pre { padding: 0.8rem 1rem; overflow-x: auto; }
-  pre code { background: none; border: none; padding: 0; }
-  nav {
-    color: var(--muted);
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    padding: 0.6rem 1rem;
-    margin: 1rem 0;
-    background: var(--header-bg);
-  }
-  nav ul { padding-left: 1.2rem; margin: 0.2rem 0; }
-  nav a { color: var(--link); text-decoration: none; }
-  nav a:hover { text-decoration: underline; }
-  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
-  th, td { border: 1px solid var(--border); padding: 0.45rem 0.6rem; text-align: left; vertical-align: top; }
-  th { background: var(--header-bg); }
-  @media (max-width: 768px) {
-    body { padding: 1rem; }
-    nav { padding: 0.4rem 0.6rem; }
-  }
-</style>
-```
+## Migration from docs-writer/1
 
-Include a `<meta name="viewport" content="width=device-width, initial-scale=1">` in every page's `<head>` so the responsive `@media` block engages on mobile.
+v0.0.1 introduced the docs-writer/2 rich template (this skill). The previous version shipped three helper scripts and a basic stylesheet:
 
-## Contrast verification
+- `migrate-md-to-html.sh` (wrapped markdown in `<pre>`) — REMOVED. Replaced by `render.py` which parses markdown into semantic HTML.
+- `generate-index.sh` (basic index) — REMOVED. Replaced by `render.py` on a markdown index source.
+- `nav-from-headings.sh` (ToC generator) — REMOVED. ToC generation moved into `render.py`.
 
-The palette above is the F12-audit dark-mode palette, already audited against WCAG 2.1 AA at the upstream audit page (`documentation/audits/claude-code-compliance-features-2026-05-18.html`). The four primary pairings clear AA body text (≥ 4.5:1) and AA large text (≥ 3:1) thresholds in both modes:
-
-| Pair | Light ratio | Dark ratio | Threshold | Pass |
-|------|-------------|------------|-----------|------|
-| Body text (`--fg` on `--bg`) | 19.5:1 | 13.0:1 | ≥ 4.5:1 (AA body) | yes |
-| Muted text (`--muted` on `--bg`) | 7.4:1 | 6.4:1 | ≥ 4.5:1 (AA body) | yes |
-| Link text (`--link` on `--bg`) | 6.8:1 | 5.6:1 | ≥ 4.5:1 (AA body) | yes |
-| Large heading (`--fg` on `--header-bg`) | 18.6:1 | 13.0:1 | ≥ 3:1 (AA large) | yes |
-
-Recompute ratios with any external WCAG tool (e.g., webaim.org/resources/contrastchecker/) when changing the palette. Replacement palettes must clear the same thresholds before landing.
-
-## Nav-from-headings generator
-
-Every emitted HTML page carries a `<nav>` block at the top, auto-generated from the source markdown's heading hierarchy. The generator is `claude/skills/docs-writer/nav-from-headings.sh`.
-
-**Purpose:** read a markdown body on stdin, emit a `<nav>` element to stdout containing one `<a href="#<slug>">` link per `##` (h2) and `###` (h3) heading. The generator is invoked by `generate-index.sh` and `migrate-md-to-html.sh` to produce the in-page table of contents.
-
-**Invocation:**
+If you have a checkout from before v0.0.1, regenerate any pages produced by the old scripts via:
 
 ```bash
-bash claude/skills/docs-writer/nav-from-headings.sh < source.md > nav.html
+for f in documentation/*.html; do
+  python3 claude/skills/docs-writer/render.py --from-html "$f" "$f.new" && mv "$f.new" "$f"
+done
 ```
 
-**Anchor-slug rule:** lowercase the heading text, replace any non-alphanumeric run with a single hyphen (`-`), then strip leading and trailing hyphens. Examples:
+## Related
 
-| Heading text       | Slug             |
-|--------------------|------------------|
-| `## Quick start`   | `quick-start`    |
-| `### CLI surface`  | `cli-surface`    |
-| `## Q&A — Topic 7` | `q-a-topic-7`    |
-
-**Depth cap:** h2 and h3 only. h4 is reserved for muted subheadings (the existing F12-audit pattern) and is intentionally excluded from the nav. Deeper levels (h5, h6) are not used.
-
-**Empty-input behavior:** the generator emits an empty `<nav><ul></ul></nav>` shell when stdin is empty or contains no h2/h3 headings — the caller can decide to keep or strip the empty shell.
-
-The generator is `bash -n` clean, runs under `set -euo pipefail`, and is mode `0755`. The reference `nav-from-headings.sh` invocation appears in every consumer script's header comment.
-
-## Companion scripts
-
-The skill ships three generator scripts alongside this file:
-
-- **`nav-from-headings.sh`** — reads markdown body from stdin, emits a `<nav>` block with one `<a href="#<slug>">` per `##` or `###` heading.
-- **`generate-index.sh`** — crawls `documentation/**/*.html` (excluding `index.html`), reads each page's `<title>` and `<meta name="description">`, and emits a landing-page `documentation/index.html` listing every page.
-- **`migrate-md-to-html.sh`** — converts allowlisted project-native `.md` files to `.html` in place, archiving the source `.md` to `documentation/_md_archive/` first. Hard 2-file allowlist (`github-issues-integration.md`, `review-cost.md`) plus a hard 3-file denylist of vendored names.
-
-All three scripts honor the same self-contained stylesheet pattern: every CSS rule is inlined, with zero remote asset dependencies.
-
-## Relationship to the docs-writer agent
-
-The `docs-writer` agent at `claude/agents/docs-writer.md` is **untouched** by this skill — they coexist:
-
-- **Skill** (`claude/skills/docs-writer/SKILL.md`): slash-invocable, declarative, format-aware (HTML emission contract). Used by user-initiated `/docs-writer` invocations and by `/pipeline`'s documentation-update phase.
-- **Agent** (`claude/agents/docs-writer.md`): `Agent`-tool workhorse for multi-turn prose-heavy documentation drafts. Invoked by other agents and skills via `Agent(subagent_type="docs-writer", ...)`.
-
-The pipeline's existing `subagent_type: docs-writer` dispatch path continues to resolve to the agent; the skill is reached through the slash-command or skill-invocation surface only. Neither path supersedes the other.
+- The shipped template `claude/skills/docs-writer/template.html` — open it in a browser to see the CSS / JS surface.
+- The renderer `claude/skills/docs-writer/render.py` — `--help` for the full CLI.
+- [SKILL authoring standard](../../../documentation/docs/SKILL-AUTHORING-STANDARD.html) — the 10-pattern skill DNA template.
+- [Vendoring notice](../../../documentation/docs/NOTICE.html) — attribution + license for vendored standards.

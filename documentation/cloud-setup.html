@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CI on Blacksmith — pipelinekit</title>
-<meta name="description" content="Blacksmith runner registration, env-var override pattern, drop-in action matrix, and gap-comment policy for pipelinekit-generated GitHub Actions workflows.">
+<title>Cloud Setup — pipelinekit</title>
+<meta name="description" content="This file covers two distinct topics:">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>CI on Blacksmith</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Cloud Setup</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -531,165 +531,328 @@ footer {
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
     <ul>
-      <li class="lvl-2"><a href="#1-why-blacksmith">1. Why Blacksmith</a></li>
-      <li class="lvl-2"><a href="#2-account-amp-runner-registration">2. Account &amp;amp; runner registration</a></li>
-      <li class="lvl-2"><a href="#3-the-blacksmith-runner-env-var-override">3. The BLACKSMITH_RUNNER env-var override</a></li>
-      <li class="lvl-2"><a href="#4-drop-in-action-matrix">4. Drop-in action matrix</a></li>
-      <li class="lvl-2"><a href="#5-gap-annotation-pattern">5. Gap-annotation pattern</a></li>
-      <li class="lvl-2"><a href="#6-secrets-policy">6. Secrets policy</a></li>
-      <li class="lvl-2"><a href="#7-lint-enforcement-r5">7. Lint enforcement (R5)</a></li>
-      <li class="lvl-2"><a href="#8-documented-gap-escape-hatch">8. Documented-gap escape hatch</a></li>
+      <li class="lvl-2"><a href="#cloud-deployment-providers">Cloud deployment providers</a></li>
+      <li class="lvl-2"><a href="#vm-bootstrap">VM bootstrap</a></li>
+      <li class="lvl-2"><a href="#oracle-cloud-free-tier-arm-ampere-a1">Oracle Cloud Free Tier (ARM Ampere A1)</a></li>
+      <li class="lvl-3"><a href="#image">Image</a></li>
+      <li class="lvl-3"><a href="#ssh">SSH</a></li>
+      <li class="lvl-3"><a href="#firewall">Firewall</a></li>
+      <li class="lvl-3"><a href="#swap">Swap</a></li>
+      <li class="lvl-3"><a href="#bootstrap">Bootstrap</a></li>
+      <li class="lvl-3"><a href="#environment-variables">Environment variables</a></li>
+      <li class="lvl-3"><a href="#verify">Verify</a></li>
+      <li class="lvl-2"><a href="#hetzner-cloud-cx22-x86-64">Hetzner Cloud CX22 (x86_64)</a></li>
+      <li class="lvl-3"><a href="#image-2">Image</a></li>
+      <li class="lvl-3"><a href="#ssh-2">SSH</a></li>
+      <li class="lvl-3"><a href="#firewall-2">Firewall</a></li>
+      <li class="lvl-3"><a href="#swap-2">Swap</a></li>
+      <li class="lvl-3"><a href="#bootstrap-2">Bootstrap</a></li>
+      <li class="lvl-3"><a href="#environment-variables-2">Environment variables</a></li>
+      <li class="lvl-3"><a href="#verify-2">Verify</a></li>
+      <li class="lvl-2"><a href="#troubleshooting">Troubleshooting</a></li>
+      <li class="lvl-3"><a href="#uname-m-mismatch">uname -m mismatch</a></li>
+      <li class="lvl-3"><a href="#claude-command-not-found-after-bootstrap">claude: command not found after bootstrap</a></li>
+      <li class="lvl-3"><a href="#npm-oom-during-install-sh">npm OOM during install.sh</a></li>
+      <li class="lvl-3"><a href="#lsp-failures-warning-on-arm-oracle-a1">LSP_FAILURES warning on ARM (Oracle A1)</a></li>
+      <li class="lvl-3"><a href="#re-running-the-bootstrap-to-recover-from-a-partial-install">Re-running the bootstrap to recover from a partial install</a></li>
     </ul>
   </aside>
 
   <main>
     <header class="page-header">
-      <h1>CI on Blacksmith</h1>
-      <p class="description">Blacksmith runner registration, env-var override pattern, drop-in action matrix, and gap-comment policy for pipelinekit-generated GitHub Actions workflows.</p>
-      <div class="page-meta"></div>
+      <h1>Cloud Setup</h1>
+      <p class="description">This file covers two distinct topics:</p>
+      <div class="page-meta"><span class="meta-item">Source: <a href="https://github.com/Bruce188/pipelinekit/blob/main/docs/cloud-setup.md">https://github.com/Bruce188/pipelinekit/blob/main/docs/cloud-setup.md</a></span></div>
     </header>
 
     <div id="page-content">
-<h2 id="1-why-blacksmith">1. Why Blacksmith</h2>
-  <p>
-    Blacksmith provides ephemeral, performant runners for GitHub Actions that are faster and more cost-effective than
-    GitHub-hosted runners for most workloads. Key advantages:
-  </p>
-  <ul>
-    <li>Faster cache warm-up through persistent runner-local caching via <code>useblacksmith/cache</code></li>
-    <li>Reduced per-minute compute cost compared to GitHub-hosted runners at equivalent vCPU tiers</li>
-    <li>Drop-in compatibility: most jobs need only one <code>runs-on:</code> line change</li>
-    <li>Ecosystem-native drop-in actions for common setup tasks (<code>cache</code>, <code>setup-node</code>, <code>setup-python</code>, <code>setup-go</code>)</li>
-  </ul>
-  <p>
-    pipelinekit defaults to Blacksmith runners in all generated and templated workflow YAML. The lint rule R5
-    (in <code>claude/skills/create-plan/SKILL.md</code> Step 4.5) enforces this default at plan-creation time.
-  </p>
+<ol>
+<li><strong>VM bootstrap</strong> — provisioning a development VM (Oracle Cloud Free Tier ARM A1 or Hetzner CX22) where you run pipelinekit itself.</li>
+<li><strong>Cloud deployment providers</strong> — configuring Railway, Render, DigitalOcean, Azure, or Vercel as the deployment target for your projects.</li>
+</ol>
+<hr>
+<h2 id="cloud-deployment-providers">Cloud deployment providers</h2>
+<p>pipelinekit ships five first-class deployment-provider integrations. Charter Topic 10 selects the active provider; <code>/pipeline</code> routes all deployment-shaped tasks to the matching agent and ops skill automatically.</p>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Agent</th>
+<th>Skill</th>
+<th>CLI install</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Azure</td>
+<td><code>@azure-deployment-engineer</code></td>
+<td><code>azure-ops</code></td>
+<td>Auto-installed by <code>scripts/install.sh</code> on Debian/Ubuntu</td>
+</tr>
+<tr>
+<td>Vercel</td>
+<td><code>@vercel-deployment-engineer</code></td>
+<td><code>vercel-ops</code></td>
+<td><code>npm i -g vercel</code></td>
+</tr>
+<tr>
+<td>Railway</td>
+<td><code>@railway-deployment-engineer</code></td>
+<td><code>railway-ops</code></td>
+<td><code>npm i -g @railway/cli</code></td>
+</tr>
+<tr>
+<td>Render</td>
+<td><code>@render-deployment-engineer</code></td>
+<td><code>render-ops</code></td>
+<td>See <a href="https://render.com/docs/cli">render.com/docs/cli</a></td>
+</tr>
+<tr>
+<td>DigitalOcean</td>
+<td><code>@digitalocean-deployment-engineer</code></td>
+<td><code>digitalocean-ops</code></td>
+<td><code>snap install doctl</code> or <a href="https://github.com/digitalocean/doctl">github.com/digitalocean/doctl</a></td>
+</tr>
+</tbody>
+</table>
+<p>Each ops skill stops and prompts if its CLI is not authenticated — never auto-authenticates.</p>
+<p>Provider-specific setup guides:
+- <code>documentation/deployment-railway.html</code> — Railway account setup, project link, auth posture
+- <code>documentation/deployment-render.html</code> — Render account setup, service link, render.yaml Blueprint
+- <code>documentation/deployment-digitalocean.html</code> — DigitalOcean account setup, app link, App Spec (.do/app.yaml)</p>
+<p>Azure and Vercel mode overlays are documented in <code>claude/CLAUDE.md.template</code> under <code>## Azure Mode</code> and <code>## Vercel Workflows</code>.</p>
+<hr>
+<h2 id="vm-bootstrap">VM bootstrap</h2>
+<p>Provision pipelinekit on a fresh Oracle Cloud Free Tier ARM A1 instance or a fresh Hetzner CX22 instance. Each section covers image selection, SSH, firewall, swap, bootstrap (two paths), and verification.</p>
+<hr>
+<h2 id="oracle-cloud-free-tier-arm-ampere-a1">Oracle Cloud Free Tier (ARM Ampere A1)</h2>
+<p>Oracle Free Tier includes Always Free Ampere A1 instances: up to 4 OCPU and 24 GB RAM total (combinable across up to 4 VMs). All A1 instances run on aarch64.</p>
+<h3 id="image-2">Image</h3>
+<p>Select <strong>Ubuntu 22.04</strong> or <strong>Ubuntu 24.04 LTS</strong> (Canonical image). Choose the ARM64 variant. Minimum recommended shape: <strong>VM.Standard.A1.Flex</strong> with 1 OCPU / 6 GB RAM; the bootstrap works on any A1 shape.</p>
+<h3 id="ssh-2">SSH</h3>
+<p>Upload your public key when creating the instance (Compute → Instances → Create Instance → Add SSH keys). The default login user is <code>ubuntu</code>.</p>
+<p>For key generation, see <a href="https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent">GitHub's SSH key guide</a>.</p>
+<h3 id="firewall-2">Firewall</h3>
+<p>Oracle's default Security List allows inbound port 22 only. The bootstrap does not require additional inbound ports. If you plan to expose services later, add ingress rules in <strong>Networking → Virtual Cloud Networks → your VCN → Security Lists</strong>.</p>
+<p>Note: Oracle also has OS-level iptables rules on Ubuntu images. If port 22 is unreachable after instance creation, check <code>sudo iptables -L INPUT -n</code> and flush or adjust.</p>
+<h3 id="swap-2">Swap</h3>
+<p>A1 has 24 GB RAM — swap is not required. The bootstrap skips swap by default. To enable a 4 GB swapfile (useful if you run memory-intensive workloads alongside pipelinekit):</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Pass --with-swap to oracle-bootstrap.sh</span>
+curl<span class="w"> </span>-fsSL<span class="w"> </span>https://raw.githubusercontent.com/Bruce188/pipelinekit/main/scripts/cloud/oracle-bootstrap.sh<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="p">|</span><span class="w"> </span>bash<span class="w"> </span>-s<span class="w"> </span>--<span class="w"> </span>--with-swap
+</code></pre></div>
 
-  <h2 id="2-account-amp-runner-registration">2. Account &amp; runner registration</h2>
-  <ol>
-    <li>Sign up at <code>blacksmith.sh</code> and create an organisation.</li>
-    <li>Register an organisation runner via <code>blacksmith register</code> in your GitHub organisation settings.</li>
-    <li>
-      Store the runner authentication token as a GitHub Actions secret named <code>BLACKSMITH_TOKEN</code> only
-      if a specific Blacksmith action requires it. Most jobs auto-authenticate via the registered runner — no
-      per-job secret token is required for <code>useblacksmith/*</code> actions.
-    </li>
-    <li>Optionally set the <code>BLACKSMITH_RUNNER</code> GitHub Actions variable at the repository or organisation
-      level to select a non-default runner tier (see Section 3).</li>
-  </ol>
+<h3 id="bootstrap-2">Bootstrap</h3>
+<p>Two equivalent paths — pick one.</p>
+<h4 id="path-1-cloud-init-at-instance-creation-fully-unattended">Path 1: Cloud-init at instance creation (fully unattended)</h4>
+<ol>
+<li>Copy the contents of <a href="../scripts/cloud/oracle-cloud-init.yaml"><code>scripts/cloud/oracle-cloud-init.yaml</code></a>.</li>
+<li>In Oracle Cloud Console → Create Instance → Advanced options → Management tab → paste the YAML into the <strong>Cloud-init script</strong> field.</li>
+<li>Click <strong>Create</strong>. The bootstrap runs automatically at first boot (typically 3–8 minutes).</li>
+<li>To inject env vars without typing them in the terminal, uncomment and fill the <code>write_files</code> block in the YAML before pasting.</li>
+</ol>
+<p>Trade-offs: cloud-init is fully unattended (no SSH needed), but output is only visible via <code>sudo cat /var/log/pipelinekit-cloud-init.log</code> after the instance is up. Harder to debug mid-run.</p>
+<h4 id="path-2-post-boot-via-ssh-interactive">Path 2: Post-boot via SSH (interactive)</h4>
+<div class="codehilite"><pre><span></span><code>ssh<span class="w"> </span>ubuntu@&lt;your-oracle-ip&gt;
+<span class="c1"># Optional: set env vars before running the bootstrap</span>
+<span class="c1"># export USER_EMAIL=&quot;you@example.com&quot;</span>
+<span class="c1"># export USER_NAME=&quot;Your Name&quot;</span>
+<span class="c1"># export CLAUDE_CLI_SHA256=&quot;&quot;          # set for a pinned install</span>
+curl<span class="w"> </span>-fsSL<span class="w"> </span>https://raw.githubusercontent.com/Bruce188/pipelinekit/main/scripts/cloud/oracle-bootstrap.sh<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="p">|</span><span class="w"> </span>bash
+</code></pre></div>
 
-  <h2 id="3-the-blacksmith-runner-env-var-override">3. The <code>BLACKSMITH_RUNNER</code> env-var override</h2>
-  <p>Every <code>runs-on:</code> line in pipelinekit-generated workflows uses the fallback expression:</p>
-  <pre><code>runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}</code></pre>
-  <p>
-    Set the <code>BLACKSMITH_RUNNER</code> GitHub Actions variable (repo or org level) to one of the
-    available runner tiers:
-  </p>
-  <ul>
-    <li><code>blacksmith-2vcpu-ubuntu-2204</code> — small jobs (linting, quick unit tests)</li>
-    <li><code>blacksmith-4vcpu-ubuntu-2204</code> — default tier (balanced cost/performance)</li>
-    <li><code>blacksmith-8vcpu-ubuntu-2204</code> — heavier builds (multi-module monorepos, Docker builds)</li>
-    <li><code>blacksmith-16vcpu-ubuntu-2204</code> — very heavy / parallel matrix jobs</li>
-  </ul>
-  <p>
-    When <code>BLACKSMITH_RUNNER</code> is unset, the fallback literal
-    <code>blacksmith-4vcpu-ubuntu-2204</code> is used. To switch all jobs in a repository to a larger tier,
-    set the variable once at the repository level — no YAML changes required.
-  </p>
+<p>Trade-off: you see the output in real time and can interrupt if something goes wrong. Requires an SSH session.</p>
+<h3 id="environment-variables-2">Environment variables</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>USER_EMAIL</code></td>
+<td>(none — warned)</td>
+<td>Substituted into <code>CLAUDE.md</code></td>
+</tr>
+<tr>
+<td><code>USER_NAME</code></td>
+<td>(none — warned)</td>
+<td>Substituted into <code>CLAUDE.md</code></td>
+</tr>
+<tr>
+<td><code>CLAUDE_INSTALL_OPTIONALS</code></td>
+<td><code>tresor,lsp,mcp</code></td>
+<td>Comma list of install.sh optional components</td>
+</tr>
+<tr>
+<td><code>CLAUDE_CLI_SHA256</code></td>
+<td>(none — warned)</td>
+<td>SHA256 of <code>claude.ai/install.sh</code> for pinned installs</td>
+</tr>
+<tr>
+<td><code>PIPELINEKIT_DIR</code></td>
+<td><code>$HOME/pipelinekit</code></td>
+<td>Repo clone target directory</td>
+</tr>
+<tr>
+<td><code>GH_TOKEN</code></td>
+<td>(none — warned)</td>
+<td>GitHub token (only needed for private forks)</td>
+</tr>
+<tr>
+<td><code>ANTHROPIC_API_KEY</code></td>
+<td>(none — warned)</td>
+<td>Set later via <code>claude login</code></td>
+</tr>
+</tbody>
+</table>
+<p>Set them in the shell before <code>curl | bash</code>, or uncomment the <code>write_files</code> block in the cloud-init YAML.</p>
+<h3 id="verify-2">Verify</h3>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span><span class="nv">$HOME</span>/pipelinekit
+bash<span class="w"> </span>scripts/verify.sh
+</code></pre></div>
 
-  <h2 id="4-drop-in-action-matrix">4. Drop-in action matrix</h2>
-  <p>
-    Blacksmith publishes optimised drop-in replacements for common GitHub Actions setup steps.
-    Use the drop-ins where available; retain upstream actions and annotate with the gap-comment pattern
-    (see Section 5) where no drop-in exists.
-  </p>
-  <table>
-    <thead>
-      <tr>
-        <th>Upstream action</th>
-        <th>Blacksmith drop-in</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr><td><code>actions/cache@v3,v4</code></td><td><code>useblacksmith/cache@v5</code></td><td>swap</td></tr>
-      <tr><td><code>actions/setup-node@v3,v4</code></td><td><code>useblacksmith/setup-node@v5</code></td><td>swap</td></tr>
-      <tr><td><code>actions/setup-python@v2,v4,v5</code></td><td><code>useblacksmith/setup-python@v6</code></td><td>swap</td></tr>
-      <tr><td><code>actions/setup-go@v4,v5</code></td><td><code>useblacksmith/setup-go@v6</code></td><td>swap</td></tr>
-      <tr><td><code>actions/checkout@v2,v4</code></td><td>(no drop-in needed)</td><td>keep + annotate</td></tr>
-      <tr><td><code>actions/upload-artifact@v3,v4</code></td><td>(no drop-in published)</td><td>keep + annotate</td></tr>
-      <tr><td><code>codecov/codecov-action@v2,v3,v4</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>aquasecurity/trivy-action@master</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>github/codeql-action/*</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>SonarSource/sonarcloud-github-action@master</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>snyk/actions/node@master</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-      <tr><td><code>aws-actions/configure-aws-credentials@v2,v4</code></td><td>(no drop-in)</td><td>keep + annotate</td></tr>
-    </tbody>
-  </table>
+<p>On ARM, you may see a <code>LSP_FAILURES</code> line listing <code>csharp-ls</code> — this is expected and benign (see Troubleshooting below).</p>
+<hr>
+<h2 id="hetzner-cloud-cx22-x86-64">Hetzner Cloud CX22 (x86_64)</h2>
+<p>CX22 is a shared-vCPU server: 2 vCPU, 4 GB RAM, 40 GB SSD, running Ubuntu. It is x86_64. The 4 GB RAM ceiling requires a swapfile before npm install — the bootstrap handles this automatically.</p>
+<h3 id="image-2">Image</h3>
+<p>Select <strong>Ubuntu 22.04</strong> or <strong>Ubuntu 24.04 LTS</strong> from the Hetzner image list. The default login user is <code>root</code>.</p>
+<h3 id="ssh-2">SSH</h3>
+<p>Add your public SSH key in Hetzner Cloud Console → SSH Keys before creating the server, or paste it during creation. The key is injected automatically into <code>/root/.ssh/authorized_keys</code>.</p>
+<h3 id="firewall-2">Firewall</h3>
+<p>Hetzner servers have no firewall by default (all ports reachable). If you create a firewall rule set, allow inbound TCP 22. The bootstrap does not require additional inbound ports.</p>
+<h3 id="swap-2">Swap</h3>
+<p><strong>Mandatory.</strong> CX22 has only 4 GB RAM. Without swap, <code>npm install</code> for <code>typescript-language-server</code> can OOM and fail. The bootstrap creates a 2 GB swapfile by default before running apt-get.</p>
+<p>To skip swap (not recommended):</p>
+<div class="codehilite"><pre><span></span><code>curl<span class="w"> </span>-fsSL<span class="w"> </span>https://raw.githubusercontent.com/Bruce188/pipelinekit/main/scripts/cloud/hetzner-bootstrap.sh<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="p">|</span><span class="w"> </span>bash<span class="w"> </span>-s<span class="w"> </span>--<span class="w"> </span>--no-swap
+</code></pre></div>
 
-  <h2 id="5-gap-annotation-pattern">5. Gap-annotation pattern</h2>
-  <p>
-    When no Blacksmith drop-in exists for an upstream action, retain the upstream action and add a same-line
-    comment using exactly this format (three spaces before <code>#</code>, em-dash, action name without
-    the <code>@vN</code> pin):
-  </p>
-  <pre><code>- uses: codecov/codecov-action@v3   # No Blacksmith drop-in — using upstream codecov/codecov-action</code></pre>
-  <p>
-    The annotation communicates to reviewers and future maintainers that the upstream action was intentionally
-    retained because no Blacksmith optimised equivalent is available, not because the migration was missed.
-  </p>
+<p>The script guards against duplicate swapfile creation: if <code>/swapfile</code> is already active in <code>swapon --show</code>, it skips creation.</p>
+<h3 id="bootstrap-2">Bootstrap</h3>
+<p>Two equivalent paths — pick one.</p>
+<h4 id="path-1-cloud-init-at-server-creation-fully-unattended">Path 1: Cloud-init at server creation (fully unattended)</h4>
+<ol>
+<li>Copy the contents of <a href="../scripts/cloud/hetzner-cloud-init.yaml"><code>scripts/cloud/hetzner-cloud-init.yaml</code></a>.</li>
+<li>In Hetzner Cloud Console → Create Server → (bottom of page) → <strong>User data</strong> field, paste the YAML.</li>
+<li>Click <strong>Create &amp; Buy now</strong>. The bootstrap runs at first boot (typically 4–10 minutes, including swap setup and apt operations).</li>
+<li>To inject env vars without typing them in the terminal, uncomment and fill the <code>write_files</code> block in the YAML before pasting.</li>
+</ol>
+<h4 id="path-2-post-boot-via-ssh-interactive">Path 2: Post-boot via SSH (interactive)</h4>
+<div class="codehilite"><pre><span></span><code>ssh<span class="w"> </span>root@&lt;your-hetzner-ip&gt;
+<span class="c1"># Optional: set env vars</span>
+<span class="c1"># export USER_EMAIL=&quot;you@example.com&quot;</span>
+<span class="c1"># export USER_NAME=&quot;Your Name&quot;</span>
+<span class="c1"># export CLAUDE_CLI_SHA256=&quot;&quot;</span>
+curl<span class="w"> </span>-fsSL<span class="w"> </span>https://raw.githubusercontent.com/Bruce188/pipelinekit/main/scripts/cloud/hetzner-bootstrap.sh<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="p">|</span><span class="w"> </span>bash
+</code></pre></div>
 
-  <h2 id="6-secrets-policy">6. Secrets policy</h2>
-  <p>
-    Never commit Blacksmith account credentials, billing tokens, or runner registration tokens to any
-    YAML, Markdown, or config file in the repository. All secrets must be stored in the GitHub Actions
-    secrets store at the repository or organisation level and referenced via
-    <code>${{ secrets.&lt;NAME&gt; }}</code>.
-  </p>
-  <p>
-    The pipelinekit lint rule R5 does not check for secret exposure — use standard secret-scanning tooling
-    (e.g., <code>github/codeql-action/init</code> with secret scanning enabled, or
-    <code>aquasecurity/trivy-action</code>) to enforce this policy in CI.
-  </p>
+<h3 id="environment-variables-2">Environment variables</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>USER_EMAIL</code></td>
+<td>(none — warned)</td>
+<td>Substituted into <code>CLAUDE.md</code></td>
+</tr>
+<tr>
+<td><code>USER_NAME</code></td>
+<td>(none — warned)</td>
+<td>Substituted into <code>CLAUDE.md</code></td>
+</tr>
+<tr>
+<td><code>CLAUDE_INSTALL_OPTIONALS</code></td>
+<td><code>tresor,lsp,mcp</code></td>
+<td>Comma list of install.sh optional components</td>
+</tr>
+<tr>
+<td><code>CLAUDE_CLI_SHA256</code></td>
+<td>(none — warned)</td>
+<td>SHA256 of <code>claude.ai/install.sh</code> for pinned installs</td>
+</tr>
+<tr>
+<td><code>PIPELINEKIT_DIR</code></td>
+<td><code>$HOME/pipelinekit</code></td>
+<td>Repo clone target directory</td>
+</tr>
+<tr>
+<td><code>GH_TOKEN</code></td>
+<td>(none — warned)</td>
+<td>GitHub token (only needed for private forks)</td>
+</tr>
+<tr>
+<td><code>ANTHROPIC_API_KEY</code></td>
+<td>(none — warned)</td>
+<td>Set later via <code>claude login</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="verify-2">Verify</h3>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span><span class="nv">$HOME</span>/pipelinekit
+bash<span class="w"> </span>scripts/verify.sh
+</code></pre></div>
 
-  <h2 id="7-lint-enforcement-r5">7. Lint enforcement (R5)</h2>
-  <p>
-    The pipelinekit plan-mode lint gate (<code>claude/skills/create-plan/SKILL.md</code> Step 4.5, rule
-    <strong>R5</strong>) rejects any plan task whose <code>**Files:**</code> list creates or modifies a
-    <code>.github/workflows/*.yml</code> or <code>.github/workflows/*.yaml</code> file with a
-    non-<code>blacksmith-*</code> runner, unless the task body documents the gap via a
-    <code>BLACKSMITH_DOES_NOT_SUPPORT_&lt;reason&gt;:</code> line in the <code>**Context:**</code> field.
-  </p>
-  <p>
-    The companion smoke test at <code>tests/test_blacksmith_lint_r5.sh</code> exercises the R5 rule against
-    six fixture plans covering the violation, compliant, documented-gap, non-workflow-file, yaml-extension,
-    and non-ubuntu-hosted-runner cases.
-  </p>
-  <p>
-    The <code>BLACKSMITH_RUNNER</code> variable name also appears in the R5 remediation hint inside
-    <code>claude/skills/create-plan/SKILL.md</code> Step 4.5, and throughout the drop-in matrix examples
-    in this document.
-  </p>
+<p>On x86_64, all LSP tools should install cleanly. If you see <code>LSP_FAILURES</code>, check <code>~/.cache/pipelinekit-install.log</code>.</p>
+<hr>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="uname-m-mismatch"><code>uname -m</code> mismatch</h3>
+<p>Each bootstrap asserts the target architecture and exits immediately on mismatch:</p>
+<ul>
+<li><code>oracle-bootstrap.sh</code> exits with an error if <code>uname -m</code> is not <code>aarch64</code>.</li>
+<li><code>hetzner-bootstrap.sh</code> exits with an error if <code>uname -m</code> is not <code>x86_64</code>.</li>
+</ul>
+<p>If you see this error, you are running the wrong script for your instance type.</p>
+<h3 id="claude-command-not-found-after-bootstrap"><code>claude: command not found</code> after bootstrap</h3>
+<p>The Claude CLI is installed to a path that may not be in your shell's <code>PATH</code> yet. Run:</p>
+<div class="codehilite"><pre><span></span><code><span class="nb">source</span><span class="w"> </span>~/.bashrc<span class="w">   </span><span class="c1"># or ~/.profile, or start a new shell session</span>
+claude<span class="w"> </span>--version
+</code></pre></div>
 
-  <h2 id="8-documented-gap-escape-hatch">8. Documented-gap escape hatch</h2>
-  <p>
-    Use this escape hatch only when the workflow legitimately cannot run on Blacksmith — for example, when
-    the job requires a Windows or macOS host, or custom hardware that Blacksmith does not support.
-    Add a single line to the task's <code>**Context:**</code> field:
-  </p>
-  <pre><code>BLACKSMITH_DOES_NOT_SUPPORT_HOST_ARCH: windows-2022</code></pre>
-  <p>
-    R5 reads this as an explicit acknowledgement that the non-Blacksmith runner is intentional, and lets
-    the task pass the lint gate. Choose the <code>&lt;reason&gt;</code> suffix to communicate why
-    Blacksmith is not applicable (e.g., <code>HOST_ARCH</code>, <code>GPU_REQUIRED</code>,
-    <code>MACOS_KEYCHAIN</code>).
-  </p>
-  <p>
-    Do not use this escape hatch for convenience — only for genuine technical incompatibilities.
-    Every use of the escape hatch should be reviewable: a future reader of the plan should be able to
-    understand why Blacksmith was not used for that specific task.
-  </p>
+<p>If <code>claude</code> is still not found, the CLI install may have failed. Check the bootstrap log:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Cloud-init path:</span>
+sudo<span class="w"> </span>cat<span class="w"> </span>/var/log/pipelinekit-cloud-init.log
+<span class="c1"># SSH path:</span>
+cat<span class="w"> </span>~/.cache/pipelinekit-bootstrap.log
+</code></pre></div>
+
+<p>Then re-run <code>claude login</code>.</p>
+<h3 id="npm-oom-during-install-sh">npm OOM during install.sh</h3>
+<p>Symptom: install.sh fails during <code>npm install -g typescript-language-server</code> or similar, with a killed/OOM message.</p>
+<p>Fix: ensure swap is active. Check with <code>swapon --show</code>. If no swap is listed:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Hetzner — re-run bootstrap (idempotent, will create swap):</span>
+curl<span class="w"> </span>-fsSL<span class="w"> </span>https://raw.githubusercontent.com/Bruce188/pipelinekit/main/scripts/cloud/hetzner-bootstrap.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>bash
+
+<span class="c1"># Oracle — re-run with explicit swap flag:</span>
+curl<span class="w"> </span>-fsSL<span class="w"> </span>https://raw.githubusercontent.com/Bruce188/pipelinekit/main/scripts/cloud/oracle-bootstrap.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>bash<span class="w"> </span>-s<span class="w"> </span>--<span class="w"> </span>--with-swap
+</code></pre></div>
+
+<p>Then re-run <code>scripts/install.sh</code> from inside the <code>pipelinekit</code> directory.</p>
+<h3 id="lsp-failures-warning-on-arm-oracle-a1"><code>LSP_FAILURES</code> warning on ARM (Oracle A1)</h3>
+<p><code>scripts/verify.sh</code> may print <code>LSP_FAILURES: csharp-ls</code> on aarch64. This is expected: the <code>csharp-ls</code> binary distribution does not ship an ARM64 native binary. All other LSP tools (pyright, typescript-language-server, gopls, rust-analyzer) install correctly on ARM64.</p>
+<p>The warning is non-blocking: <code>install.sh</code> continues and <code>verify.sh</code> exits 0 for this case. Logs at <code>~/.cache/pipelinekit-install.log</code>.</p>
+<h3 id="re-running-the-bootstrap-to-recover-from-a-partial-install">Re-running the bootstrap to recover from a partial install</h3>
+<p>All bootstrap scripts are idempotent: re-running on a partially-provisioned instance converges cleanly. Every step is guarded:</p>
+<ul>
+<li><code>dpkg -s &lt;pkg&gt;</code> before apt installs</li>
+<li><code>command -v node</code> before NodeSource setup</li>
+<li><code>command -v claude</code> before CLI install</li>
+<li><code>git -C &lt;dir&gt; pull</code> instead of re-cloning if the repo directory exists</li>
+<li><code>swapon --show</code> before swapfile creation</li>
+</ul>
+<p>Simply re-run the same <code>curl | bash</code> command you used the first time.</p>
     </div>
 
     <div class="no-results" id="no-results">
