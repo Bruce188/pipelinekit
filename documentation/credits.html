@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <a href="credits.html">Credits</a> &nbsp;/&nbsp; <span>Credits</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Credits</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -547,187 +547,6 @@ footer {
     </header>
 
     <div id="page-content">
-<!-- snippet:tutorial-cards
-     2×2 card grid for tutorial selection. Click any card to scroll to that
-     tutorial's section on the page (data-anchor).
-
-     The card content is hard-coded for the getting-started.html page; adapt
-     anchors + descriptions per-page if reusing elsewhere.
-
-     Placeholder usage in markdown source:
-       <div data-snippet="tutorial-cards"></div>
--->
-<div class="pkit-tut-cards" data-snippet-mount="tutorial-cards">
-  <style>
-    .pkit-tut-cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 1rem;
-      margin: 1.5rem 0;
-    }
-    .pkit-tut-cards .pkit-tc-card {
-      display: flex;
-      flex-direction: column;
-      background: var(--bg-elev);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.2rem;
-      cursor: pointer;
-      transition: all var(--transition);
-      text-decoration: none;
-      color: inherit;
-      position: relative;
-      overflow: hidden;
-    }
-    .pkit-tut-cards .pkit-tc-card::before {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: var(--card-color, var(--accent));
-      transform: scaleX(0);
-      transform-origin: left;
-      transition: transform 200ms ease;
-    }
-    .pkit-tut-cards .pkit-tc-card:hover {
-      border-color: var(--card-color, var(--accent));
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-md);
-    }
-    .pkit-tut-cards .pkit-tc-card:hover::before { transform: scaleX(1); }
-    .pkit-tut-cards .pkit-tc-num {
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      font-weight: 700;
-      color: var(--fg-subtle);
-      letter-spacing: 0.05em;
-      margin-bottom: 0.4rem;
-    }
-    .pkit-tut-cards .pkit-tc-title {
-      font-size: 1.1rem;
-      font-weight: 600;
-      color: var(--fg);
-      margin: 0 0 0.5rem;
-      line-height: 1.3;
-    }
-    .pkit-tut-cards .pkit-tc-desc {
-      font-size: 0.85rem;
-      color: var(--fg-muted);
-      line-height: 1.4;
-      margin: 0 0 0.8rem;
-      flex: 1;
-    }
-    .pkit-tut-cards .pkit-tc-meta {
-      display: flex;
-      gap: 0.4rem;
-      flex-wrap: wrap;
-      margin-top: auto;
-    }
-    .pkit-tut-cards .pkit-tc-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.2rem;
-      padding: 0.15rem 0.5rem;
-      border-radius: 999px;
-      font-size: 0.7rem;
-      font-weight: 600;
-      background: var(--bg);
-      color: var(--fg-muted);
-      border: 1px solid var(--border);
-    }
-    .pkit-tut-cards .pkit-tc-badge.diff-easy { color: var(--success); border-color: var(--success); }
-    .pkit-tut-cards .pkit-tc-badge.diff-med  { color: var(--warn);    border-color: var(--warn); }
-    .pkit-tut-cards .pkit-tc-badge.diff-hard { color: var(--danger);  border-color: var(--danger); }
-    .pkit-tut-cards .pkit-tc-badge svg { width: 10px; height: 10px; }
-    .pkit-tut-cards .pkit-tc-arrow {
-      position: absolute;
-      top: 1rem;
-      right: 1rem;
-      color: var(--fg-subtle);
-      opacity: 0;
-      transform: translateX(-4px);
-      transition: all var(--transition);
-    }
-    .pkit-tut-cards .pkit-tc-card:hover .pkit-tc-arrow {
-      opacity: 1;
-      transform: translateX(0);
-      color: var(--card-color, var(--accent));
-    }
-  </style>
-
-  <a class="pkit-tc-card" data-anchor="tutorial-1-hello-world-ship-a-one-line-feature-autonomously" style="--card-color: #10b981">
-    <svg class="pkit-tc-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-    <div class="pkit-tc-num">TUTORIAL 1</div>
-    <h3 class="pkit-tc-title">Hello world</h3>
-    <p class="pkit-tc-desc">Ship a one-line feature description through the full autonomous /pipeline loop. Smallest possible run; see the autonomous loop in motion.</p>
-    <div class="pkit-tc-meta">
-      <span class="pkit-tc-badge diff-easy">⚡ Easy</span>
-      <span class="pkit-tc-badge">⏱ ~5 min</span>
-      <span class="pkit-tc-badge">no prereqs</span>
-    </div>
-  </a>
-
-  <a class="pkit-tc-card" data-anchor="tutorial-2-tdd-add-a-unit-aware-temperature-parser" style="--card-color: #f59e0b">
-    <svg class="pkit-tc-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-    <div class="pkit-tc-num">TUTORIAL 2</div>
-    <h3 class="pkit-tc-title">TDD with red/green pairing</h3>
-    <p class="pkit-tc-desc">Watch /pipeline route through tdd-test-writer (red) → tdd-implementer (green) for a dev-class feature. Shows the test pairing contract end-to-end.</p>
-    <div class="pkit-tc-meta">
-      <span class="pkit-tc-badge diff-med">⚡⚡ Medium</span>
-      <span class="pkit-tc-badge">⏱ ~20 min</span>
-      <span class="pkit-tc-badge">python + pytest</span>
-    </div>
-  </a>
-
-  <a class="pkit-tc-card" data-anchor="tutorial-3-ship-a-next-js-app-to-vercel" style="--card-color: #3b82f6">
-    <svg class="pkit-tc-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-    <div class="pkit-tc-num">TUTORIAL 3</div>
-    <h3 class="pkit-tc-title">Cloud deploy to Vercel</h3>
-    <p class="pkit-tc-desc">Charter targets Vercel; /pipeline does analyze + plan + implement + deploy. End-to-end cloud integration via the vercel-deployment-engineer agent.</p>
-    <div class="pkit-tc-meta">
-      <span class="pkit-tc-badge diff-med">⚡⚡ Medium</span>
-      <span class="pkit-tc-badge">⏱ ~30 min</span>
-      <span class="pkit-tc-badge">vercel acct</span>
-    </div>
-  </a>
-
-  <a class="pkit-tc-card" data-anchor="tutorial-4-meta-how-pipelinekit-built-one-of-its-own-features" style="--card-color: #a855f7">
-    <svg class="pkit-tc-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-    <div class="pkit-tc-num">TUTORIAL 4</div>
-    <h3 class="pkit-tc-title">Meta: how F12 was built</h3>
-    <p class="pkit-tc-desc">Walk through the real artifacts (analysis, plan, prompts, review) from PR #44 — the charter-revalidation feature shipped by pipelinekit's own /pipeline.</p>
-    <div class="pkit-tc-meta">
-      <span class="pkit-tc-badge diff-hard">⚡⚡⚡ Deep</span>
-      <span class="pkit-tc-badge">⏱ ~15 min read</span>
-      <span class="pkit-tc-badge">no install</span>
-    </div>
-  </a>
-</div>
-
-<script>
-(function() {
-  'use strict';
-  const grids = document.querySelectorAll('.pkit-tut-cards[data-snippet-mount="tutorial-cards"]');
-  const grid = grids[grids.length - 1];
-  if (!grid || grid.dataset.pkitInit) return;
-  grid.dataset.pkitInit = '1';
-
-  grid.querySelectorAll('.pkit-tc-card').forEach(card => {
-    card.addEventListener('click', () => {
-      const anchor = card.dataset.anchor;
-      const target = document.getElementById(anchor);
-      if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        history.pushState(null, '', '#' + anchor);
-      }
-    });
-  });
-})();
-</script>
-
-
 <h2 id="vendored-upstreams-legal-attribution">Vendored upstreams (legal attribution)</h2>
 <p>These projects contributed source code that lives inside the pipelinekit tree. Each has a per-directory <code>NOTICE.md</code> with the full upstream license text inline. Re-vendoring procedures are documented in each NOTICE so updates stay mechanical.</p>
 <table>
@@ -752,7 +571,7 @@ footer {
 <td><a href="https://github.com/alirezarezvani/claude-skills">alirezarezvani/claude-skills</a></td>
 <td><code>0d477a06</code></td>
 <td>MIT (© 2025 Alireza Rezvani)</td>
-<td><code>claude/agents/personas/</code>, <code>claude/skills/{write-a-skill,zoom-out}/</code> (via mattpocock), referenced by <code>documentation/docs/SKILL-AUTHORING-STANDARD.html</code> + <code>documentation/docs/SKILL_PIPELINE.html</code></td>
+<td><code>claude/agents/personas/</code>, <code>claude/skills/{write-a-skill,zoom-out}/</code> (via mattpocock), referenced by <code>documentation/SKILL-AUTHORING-STANDARD.html</code> + <code>documentation/SKILL_PIPELINE.html</code></td>
 <td>Skill-authoring DNA template (10 patterns), SKILL pipeline lifecycle reference, persona pack</td>
 </tr>
 <tr>

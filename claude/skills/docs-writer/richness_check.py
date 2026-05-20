@@ -2,7 +2,7 @@
 """
 docs-writer/2 richness checker — enforce the "rich content" rule.
 
-Scans documentation/*.html and documentation/docs/*.html, scores each
+Scans documentation/*.html, scores each
 page on interactive richness, and flags pages below the threshold.
 
 Pages can opt out by including a richness-exempt marker in their <head>:
@@ -73,13 +73,7 @@ RICHNESS_PATTERNS: list[tuple[str, str]] = [
 # attribution are the only natural fits).
 DEFAULT_EXEMPT_FILES: set[str] = {
     # Vendored attribution — not a reader experience, just a license + SHA pin.
-    "documentation/docs/NOTICE.html",
-    # Archived earlier audit — kept as a historical artifact, not actively maintained.
-    "documentation/audits/claude-code-compliance-features-2026-05-18.html",
-    # Current audit — a linear compliance report; the report format itself is the value.
-    # If we want it interactive (sortable findings table, filter by dimension), remove
-    # from this list and apply a snippet.
-    "documentation/audits/claude-code-compliance-2026-05-19.html",
+    "documentation/NOTICE.html",
 }
 
 EXEMPT_MARKER_RE = re.compile(r'<!--\s*richness-exempt:\s*([^>]+?)\s*-->', re.IGNORECASE)

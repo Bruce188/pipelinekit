@@ -11,8 +11,6 @@ Pipelinekit vendors source from several upstream projects. The authoritative att
 - [`claude/skills/zoom-out/NOTICE.md`](https://github.com/Bruce188/pipelinekit/blob/main/claude/skills/zoom-out/NOTICE.md) — `mattpocock/skills` zoom-out
 - [`claude/lib/agentmemory/NOTICE.md`](https://github.com/Bruce188/pipelinekit/blob/main/claude/lib/agentmemory/NOTICE.md) — `rohitg00/agentmemory` (vendoring skeleton — SHA pinning in a follow-up iteration)
 
-<div data-snippet="tutorial-cards"></div>
-
 ## For a consolidated view
 
 The [Credits page](credits.html) presents every upstream + pinned SHA + license + scope + pipelinekit-deltas in a single table, plus the inspirational-but-not-vendored credits (Andrej Karpathy, Anthropic).

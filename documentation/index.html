@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>pipelinekit documentation — pipelinekit</title>
-<meta name="description" content="The complete user-facing documentation for pipelinekit \(autonomous /pipeline orchestrator + skills + agents + hooks\). Every page below is self-contained HTML \(no CDN, no remote assets\) — clone the repo and open any page directly via…">
+<meta name="description" content="Complete user-facing documentation for pipelinekit.">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <a href="credits.html">Credits</a> &nbsp;/&nbsp; <span>pipelinekit documentation</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>pipelinekit documentation</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -534,10 +534,9 @@ footer {
       <li class="lvl-2"><a href="#system-architecture">System architecture</a></li>
       <li class="lvl-2"><a href="#start-here">Start here</a></li>
       <li class="lvl-2"><a href="#reference">Reference</a></li>
-      <li class="lvl-2"><a href="#deployment-providers">Deployment providers</a></li>
+      <li class="lvl-2"><a href="#deployment-ci-providers">Deployment + CI providers</a></li>
       <li class="lvl-2"><a href="#skills-features">Skills + features</a></li>
-      <li class="lvl-2"><a href="#infrastructure">Infrastructure</a></li>
-      <li class="lvl-2"><a href="#audits">Audits</a></li>
+      <li class="lvl-2"><a href="#cost-observability">Cost + observability</a></li>
       <li class="lvl-2"><a href="#reference-standards-vendored">Reference standards \(vendored\)</a></li>
       <li class="lvl-2"><a href="#built-with-inspired-by">Built with / Inspired by</a></li>
     </ul>
@@ -546,11 +545,12 @@ footer {
   <main>
     <header class="page-header">
       <h1>pipelinekit documentation</h1>
-      <p class="description">The complete user-facing documentation for pipelinekit \(autonomous /pipeline orchestrator + skills + agents + hooks\). Every page below is self-contained HTML \(no CDN, no remote assets\) — clone the repo and open any page directly via…</p>
+      <p class="description">Complete user-facing documentation for pipelinekit.</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
+<p>The complete user-facing documentation for pipelinekit (autonomous <code>/pipeline</code> orchestrator + skills + agents + hooks). Every page below is self-contained HTML (no CDN, no remote assets) — clone the repo and open any page directly via <code>file://</code> URL, or serve the folder via any static HTTP server.</p>
 <h2 id="system-architecture">System architecture</h2>
 <!-- snippet:architecture-diagram
      4-layer SVG taxonomy of pipelinekit: user-invocable slash commands,
@@ -841,13 +841,14 @@ footer {
 <li><a href="cloud-setup.html">Cloud setup</a> — VPS bootstrap (Oracle, Hetzner) for headless Claude Code execution.</li>
 <li><a href="pipeline.html">Pipeline workflow</a> — the <code>/pipeline</code> autonomous orchestrator: charter discovery, analyze, plan, implement, review, merge.</li>
 </ul>
-<h2 id="deployment-providers">Deployment providers</h2>
+<h2 id="deployment-ci-providers">Deployment + CI providers</h2>
 <ul>
 <li><a href="deployment-vercel.html">Vercel</a> — serverless / edge / Next.js / SvelteKit / Astro.</li>
 <li><a href="deployment-azure.html">Azure</a> — App Service / Container Apps / Function Apps / AKS.</li>
 <li><a href="deployment-railway.html">Railway</a> — container-based PaaS with zero-Dockerfile deploys.</li>
 <li><a href="deployment-render.html">Render</a> — container-based PaaS with managed services.</li>
 <li><a href="deployment-digitalocean.html">DigitalOcean App Platform</a> — container-based PaaS on DO.</li>
+<li><a href="ci-blacksmith.html">CI on Blacksmith</a> — Blacksmith runner registration, env-var overrides, drop-in actions.</li>
 </ul>
 <h2 id="skills-features">Skills + features</h2>
 <ul>
@@ -858,21 +859,15 @@ footer {
 <li><a href="pipeline-charter-revalidation.html"><code>/pipeline --renew</code> charter revalidation</a> — drift detection with 3-valued status + <code>--auto</code> bypass.</li>
 <li><a href="openhuman.html">openhuman — human-review gate</a> — pause <code>/pipeline</code> before destructive actions for out-of-band human approval (<code>--human-review N</code>).</li>
 </ul>
-<h2 id="infrastructure">Infrastructure</h2>
+<h2 id="cost-observability">Cost + observability</h2>
 <ul>
-<li><a href="ci-blacksmith.html">CI on Blacksmith</a> — Blacksmith runner registration, env-var overrides, drop-in actions.</li>
 <li><a href="review-cost.html"><code>/review</code> cost profile</a> — token + cost characteristics of the multi-agent review surface.</li>
-</ul>
-<h2 id="audits">Audits</h2>
-<ul>
-<li><a href="audits/claude-code-compliance-2026-05-19.html">Claude Code compliance audit — 2026-05-19</a> — 9-dimension audit of pipelinekit against Claude Code 2.1.144.</li>
-<li><a href="audits/claude-code-compliance-features-2026-05-18.html">Feature-entries audit — 2026-05-18</a> — earlier per-feature compliance slice.</li>
 </ul>
 <h2 id="reference-standards-vendored">Reference standards (vendored)</h2>
 <ul>
-<li><a href="docs/SKILL-AUTHORING-STANDARD.html">SKILL authoring standard</a> — the 10-pattern skill DNA template, originally vendored from alirezarezvani/claude-skills.</li>
-<li><a href="docs/SKILL_PIPELINE.html">SKILL pipeline lifecycle</a> — Intent → ... → Verify lifecycle.</li>
-<li><a href="docs/NOTICE.html">Vendoring notice</a> — attribution + license.</li>
+<li><a href="SKILL-AUTHORING-STANDARD.html">SKILL authoring standard</a> — the 10-pattern skill DNA template, originally vendored from alirezarezvani/claude-skills.</li>
+<li><a href="SKILL_PIPELINE.html">SKILL pipeline lifecycle</a> — Intent → ... → Verify lifecycle.</li>
+<li><a href="NOTICE.html">Vendoring notice</a> — attribution + license.</li>
 </ul>
 <h2 id="built-with-inspired-by">Built with / Inspired by</h2>
 <p>Pipelinekit is MIT-licensed and stands on the shoulders of several upstream projects, plus inspiration from individual researchers and the Claude platform itself.</p>
