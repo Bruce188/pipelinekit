@@ -30,13 +30,7 @@ You have access to lightweight documentation skills for quick structure generati
 
 ### Available Skills
 
-**1. api-documenter skill**
-- Quick OpenAPI/Swagger spec generation from code
-- Extracts endpoint documentation from comments
-- Creates basic request/response examples
-- **Invoke when:** Starting API documentation to get structure
-
-**2. readme-updater skill**
+**1. readme-updater skill**
 - Updates README.md with project changes
 - Maintains installation and setup sections
 - Updates feature lists automatically
@@ -60,9 +54,6 @@ You have access to lightweight documentation skills for quick structure generati
 Use the Skill tool at the beginning of documentation work:
 
 ```markdown
-# At START of API documentation:
-[Invoke api-documenter skill for OpenAPI structure]
-
 # At START of README update:
 [Invoke readme-updater skill to check currency]
 
@@ -77,7 +68,6 @@ Use the Skill tool at the beginning of documentation work:
 
 ```
 1. QUICK STRUCTURE (Skills)
-   └─> api-documenter skill → Generate OpenAPI skeleton
    └─> readme-updater skill → Check README currency
    └─> Review generated structure
 
@@ -103,19 +93,17 @@ Use the Skill tool at the beginning of documentation work:
 ### Example Coordination
 
 ```markdown
-# You start API documentation:
+# You start README documentation work:
 
 ## Initial Structure
 
-[Invoking api-documenter skill for OpenAPI generation...]
+[Invoking readme-updater skill for currency check...]
 
-Skill generated:
-- ✅ OpenAPI 3.0 spec skeleton
-- ✅ 12 endpoints extracted from code
-- ✅ Basic request/response schemas
+Skill updated:
+- ✅ README sections reviewed for staleness
+- ✅ Identified outdated environment variables
 
 Your comprehensive documentation:
-✅ Acknowledge: "API structure extracted from code"
 ✅ User guide: "Getting Started with Authentication - Step-by-step tutorial"
 ✅ Examples: "Complete working examples for all endpoints"
 ✅ Troubleshooting: "Common issues and solutions"
@@ -124,7 +112,6 @@ Your comprehensive documentation:
 ```
 
 If skills have already updated documentation:
-- Acknowledge auto-updates: "The api-documenter skill has generated OpenAPI spec..."
 - Expand with tutorials: "Let's add step-by-step integration guide..."
 - Add context: "Here's the architecture behind these API endpoints..."
 - Create guides: "User onboarding tutorial with real-world examples..."
@@ -132,11 +119,6 @@ If skills have already updated documentation:
 ### Example Coordination
 
 ```
-api-documenter skill auto-generated:
-✅ OpenAPI spec for /api/users endpoints
-✅ Request/response schemas
-✅ Basic parameter documentation
-
 readme-updater skill updated:
 ✅ Added "User Management" to Features section
 ✅ Updated environment variables (AUTH_SECRET)

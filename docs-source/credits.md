@@ -8,7 +8,7 @@ These projects contributed source code that lives inside the pipelinekit tree. E
 
 | Upstream | Pinned SHA | License | Vendored into | Scope |
 |---|---|---|---|---|
-| [wshobson/agents](https://github.com/wshobson/agents) | `08ded5e7` | MIT (© 2024 Seth Hobson) | `claude/agents/` | 10 specialist agents (deployment-engineer, incident-responder, dx-optimizer, terraform-specialist, cloud-architect, network-engineer, api-documenter, performance-engineer, test-automator, architect-review) |
+| [wshobson/agents](https://github.com/wshobson/agents) | `08ded5e7` | MIT (© 2024 Seth Hobson) | `claude/agents/` | 2 specialist agents (deployment-engineer, incident-responder) |
 | [alirezarezvani/claude-skills](https://github.com/alirezarezvani/claude-skills) | `0d477a06` | MIT (© 2025 Alireza Rezvani) | `claude/agents/personas/`, `claude/skills/{write-a-skill,zoom-out}/` (via mattpocock), referenced by `documentation/SKILL-AUTHORING-STANDARD.html` + `documentation/SKILL_PIPELINE.html` | Skill-authoring DNA template (10 patterns), SKILL pipeline lifecycle reference, persona pack |
 | [alirezarezvani/ClaudeForge](https://github.com/alirezarezvani/ClaudeForge) | `6eb741b4` | MIT (© 2025 Alireza Rezvani) | `claude/agents/claude-md-guardian.md`, `claude/skills/claude-md-enhancer/` | CLAUDE.md drift detection + best-practices audit; the parent claude-md-enhancer skill |
 | [mattpocock/skills](https://github.com/mattpocock/skills) | `e74f0061` | MIT (© Matt Pocock) | `claude/skills/tdd/`, `claude/skills/write-a-skill/`, `claude/skills/zoom-out/` | TDD doctrine pack (deep-modules, interface-design, mocking, refactoring, tests), skill-authoring helper, zoom-out reflection skill |

@@ -24,7 +24,7 @@ While no skill directly replicates your architectural expertise, you benefit fro
 **Skills Handle (Autonomous):**
 - Code-level patterns (code-reviewer skill)
 - Security vulnerabilities (security-auditor, secret-scanner, dependency-auditor skills)
-- API documentation (api-documenter skill)
+- API documentation
 - Basic testing needs (test-generator skill)
 
 **You Focus On (Strategic):**
