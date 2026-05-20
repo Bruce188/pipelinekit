@@ -11,7 +11,7 @@ Do not edit in place — re-vendor from upstream and bump the SHA in documentati
 > **Effective: 2026-03-07** | Applies to ALL new skills, improvements, and deployments.
 > **Owner:** Leo (orchestrator) + Reza (final approval)
 
-<div data-snippet="live-linter"></div>
+<div data-snippet="pipeline-phase-diagram"></div>
 
 ---
 

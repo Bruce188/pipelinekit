@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <a href="credits.html">Credits</a> &nbsp;/&nbsp; <span>Skill Production Pipeline — claude-skills</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Skill Production Pipeline — claude-skills</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -613,246 +613,290 @@ Do not edit in place — re-vendor from upstream and bump the SHA in documentati
 
 <blockquote>
 </blockquote>
-<!-- snippet:live-linter
-     Paste-your-SKILL.md textarea + live scoring against the 10-pattern
-     skill authoring standard. Per-pattern green/amber/red badges with
-     specific suggestions. Pure client-side; no network call.
+<!-- snippet:pipeline-phase-diagram
+     Interactive SVG flow showing the /pipeline orchestrator phases.
+     Hover any phase for details; click to scroll to its section (data-anchor).
+     Path A (clean merge), Path B (re-implement), Path M (inline mini-fix), Path N (nit-attack)
+     are all rendered with distinct colors and toggleable visibility.
+     Inherits parent template's CSS custom properties for theming.
 
-     Used on documentation/docs/SKILL-AUTHORING-STANDARD.html.
-
-     Placeholder usage:
-       <div data-snippet="live-linter"></div>
+     Placeholder usage in markdown source:
+       <div data-snippet="pipeline-phase-diagram"></div>
 -->
-<div class="pkit-linter" data-snippet-mount="live-linter">
+<div class="pkit-pipeline-diagram" data-snippet-mount="pipeline-phase-diagram">
   <style>
-    .pkit-linter { margin: 1.5rem 0; padding: 1.5rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); display: grid; grid-template-columns: 1fr 340px; gap: 1rem; }
-    @media (max-width: 800px) { .pkit-linter { grid-template-columns: 1fr; } }
-    .pkit-linter .pkit-ll-input { display: flex; flex-direction: column; gap: 0.5rem; }
-    .pkit-linter .pkit-ll-label { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-subtle); font-weight: 600; }
-    .pkit-linter .pkit-ll-actions { display: flex; gap: 0.4rem; }
-    .pkit-linter .pkit-ll-btn { padding: 0.25rem 0.55rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--fg-muted); font-family: var(--sans); font-size: 0.72rem; cursor: pointer; text-transform: none; letter-spacing: 0; transition: all var(--transition); }
-    .pkit-linter .pkit-ll-btn:hover { color: var(--fg); border-color: var(--accent); }
-    .pkit-linter textarea { width: 100%; min-height: 320px; padding: 0.7rem 0.9rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--fg); font-family: var(--mono); font-size: 0.85rem; line-height: 1.5; resize: vertical; }
-    .pkit-linter textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-    .pkit-linter .pkit-ll-output { background: var(--bg); border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 0.9rem; display: flex; flex-direction: column; }
-    .pkit-linter .pkit-ll-score { display: flex; flex-direction: column; padding-bottom: 0.7rem; margin-bottom: 0.7rem; border-bottom: 1px solid var(--border); }
-    .pkit-linter .pkit-ll-score .num { font-family: var(--mono); font-size: 2rem; font-weight: 700; color: var(--accent); line-height: 1; }
-    .pkit-linter .pkit-ll-score .num .of { font-size: 1.1rem; color: var(--fg-muted); font-weight: 400; }
-    .pkit-linter .pkit-ll-score .grade { font-size: 0.78rem; font-weight: 600; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.3rem; }
-    .pkit-linter .pkit-ll-rows { display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; max-height: 380px; }
-    .pkit-linter .pkit-ll-row { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.82rem; line-height: 1.4; }
-    .pkit-linter .pkit-ll-row .badge { flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; color: white; margin-top: 1px; }
-    .pkit-linter .pkit-ll-row .badge.pass { background: var(--success); }
-    .pkit-linter .pkit-ll-row .badge.warn { background: var(--warn); }
-    .pkit-linter .pkit-ll-row .badge.fail { background: var(--danger); }
-    .pkit-linter .pkit-ll-row .pattern { font-weight: 600; color: var(--fg); }
-    .pkit-linter .pkit-ll-row .hint { color: var(--fg-muted); font-size: 0.78rem; display: block; margin-top: 0.1rem; }
+    .pkit-pipeline-diagram {
+      margin: 1.5rem 0;
+      padding: 1.5rem;
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .pkit-pipeline-diagram .pkit-pd-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+      align-items: center;
+    }
+    .pkit-pipeline-diagram .pkit-pd-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--fg-subtle);
+      font-weight: 600;
+    }
+    .pkit-pipeline-diagram .pkit-pd-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.3rem 0.7rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--fg-muted);
+      font-size: 0.8rem;
+      cursor: pointer;
+      user-select: none;
+      transition: all var(--transition);
+    }
+    .pkit-pipeline-diagram .pkit-pd-toggle .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+    .pkit-pipeline-diagram .pkit-pd-toggle:hover { color: var(--fg); border-color: var(--border-strong); }
+    .pkit-pipeline-diagram .pkit-pd-toggle.active { color: var(--fg); border-color: var(--accent); background: var(--accent-soft); }
+    .pkit-pipeline-diagram svg {
+      width: 100%;
+      max-width: 880px;
+      display: block;
+      margin: 0 auto;
+      height: auto;
+    }
+    .pkit-pipeline-diagram .pkit-pd-node rect {
+      fill: var(--bg);
+      stroke: var(--border-strong);
+      stroke-width: 1.5;
+      transition: stroke var(--transition), fill var(--transition);
+    }
+    .pkit-pipeline-diagram .pkit-pd-node:hover rect {
+      stroke: var(--accent);
+      fill: var(--accent-soft);
+      cursor: pointer;
+    }
+    .pkit-pipeline-diagram .pkit-pd-node text {
+      fill: var(--fg);
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 600;
+      text-anchor: middle;
+      dominant-baseline: middle;
+      pointer-events: none;
+    }
+    .pkit-pipeline-diagram .pkit-pd-node .step-num {
+      fill: var(--fg-subtle);
+      font-size: 9px;
+      font-weight: 700;
+    }
+    .pkit-pipeline-diagram .pkit-pd-path {
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      transition: opacity var(--transition);
+    }
+    .pkit-pipeline-diagram .pkit-pd-path.dimmed { opacity: 0.15; }
+    .pkit-pipeline-diagram .pkit-pd-path.path-main { stroke: var(--fg-subtle); stroke-dasharray: none; }
+    .pkit-pipeline-diagram .pkit-pd-path.path-a { stroke: #10b981; }
+    .pkit-pipeline-diagram .pkit-pd-path.path-b { stroke: #f59e0b; stroke-dasharray: 6 4; }
+    .pkit-pipeline-diagram .pkit-pd-path.path-m { stroke: #3b82f6; stroke-dasharray: 3 3; }
+    .pkit-pipeline-diagram .pkit-pd-path.path-n { stroke: #a855f7; stroke-dasharray: 2 5; }
+    .pkit-pipeline-diagram .pkit-pd-arrow { fill: currentColor; }
+    .pkit-pipeline-diagram .pkit-pd-flow {
+      stroke-dasharray: 6;
+      animation: pkit-pd-flow-anim 1.5s linear infinite;
+    }
+    @keyframes pkit-pd-flow-anim {
+      to { stroke-dashoffset: -12; }
+    }
+    .pkit-pipeline-diagram .pkit-pd-tooltip {
+      position: absolute;
+      background: var(--fg);
+      color: var(--bg);
+      padding: 0.45rem 0.7rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.78rem;
+      max-width: 260px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 120ms ease;
+      z-index: 10;
+      box-shadow: var(--shadow-md);
+      line-height: 1.4;
+    }
+    .pkit-pipeline-diagram .pkit-pd-tooltip.visible { opacity: 1; }
+    .pkit-pipeline-diagram .pkit-pd-legend {
+      margin-top: 0.8rem;
+      font-size: 0.78rem;
+      color: var(--fg-muted);
+      text-align: center;
+    }
   </style>
 
-  <div class="pkit-ll-input">
-    <div class="pkit-ll-label">
-      <span>Paste your SKILL.md content</span>
-      <div class="pkit-ll-actions">
-        <button class="pkit-ll-btn" data-act="example">Load example</button>
-        <button class="pkit-ll-btn" data-act="clear">Clear</button>
-      </div>
-    </div>
-    <textarea id="pkit-ll-input" placeholder="---
-name: my-skill
-description: What this skill does and when to use it. ...
----
-
-# my-skill — short title
-
-## When this skill fires
-...
-
-## What it does
-...
-
-## Output
-...
-
-## Example
-...
-" spellcheck="false"></textarea>
+  <div class="pkit-pd-controls">
+    <span class="pkit-pd-label">Highlight path:</span>
+    <button class="pkit-pd-toggle active" data-path="all"><span class="swatch" style="background:#94a3b8"></span>All</button>
+    <button class="pkit-pd-toggle" data-path="a"><span class="swatch" style="background:#10b981"></span>Path A (merge)</button>
+    <button class="pkit-pd-toggle" data-path="b"><span class="swatch" style="background:#f59e0b"></span>Path B (re-implement)</button>
+    <button class="pkit-pd-toggle" data-path="m"><span class="swatch" style="background:#3b82f6"></span>Path M (inline fix)</button>
+    <button class="pkit-pd-toggle" data-path="n"><span class="swatch" style="background:#a855f7"></span>Path N (nit-attack)</button>
   </div>
 
-  <div class="pkit-ll-output">
-    <div class="pkit-ll-score">
-      <span class="num" id="pkit-ll-num">0<span class="of">/10</span></span>
-      <span class="grade" id="pkit-ll-grade">no input</span>
-    </div>
-    <div class="pkit-ll-rows" id="pkit-ll-rows"></div>
-  </div>
+  <svg viewBox="0 0 880 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="/pipeline phase diagram">
+    <defs>
+      <marker id="pkit-pd-arrow-main" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="pkit-pd-arrow" /></marker>
+      <marker id="pkit-pd-arrow-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#10b981" /></marker>
+      <marker id="pkit-pd-arrow-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#f59e0b" /></marker>
+      <marker id="pkit-pd-arrow-m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6" /></marker>
+      <marker id="pkit-pd-arrow-n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#a855f7" /></marker>
+    </defs>
+
+    <!-- Main happy path: Charter -> Analyze -> Plan -> Branch -> Implement -> Review -> Merge -->
+    <path class="pkit-pd-path path-main pkit-pd-flow" d="M 100 100 L 220 100" marker-end="url(#pkit-pd-arrow-main)"/>
+    <path class="pkit-pd-path path-main pkit-pd-flow" d="M 320 100 L 440 100" marker-end="url(#pkit-pd-arrow-main)"/>
+    <path class="pkit-pd-path path-main pkit-pd-flow" d="M 540 100 L 660 100" marker-end="url(#pkit-pd-arrow-main)"/>
+    <path class="pkit-pd-path path-main pkit-pd-flow" d="M 760 100 L 760 175" marker-end="url(#pkit-pd-arrow-main)"/>
+    <path class="pkit-pd-path path-main pkit-pd-flow" d="M 760 225 L 760 280" marker-end="url(#pkit-pd-arrow-main)"/>
+
+    <!-- Path A: Review -> Merge (clean) -->
+    <path class="pkit-pd-path path-a" d="M 760 225 Q 800 250 800 280 L 800 280" marker-end="url(#pkit-pd-arrow-a)" opacity="0"/>
+
+    <!-- Path B: Review -> back to Implement (re-cycle) -->
+    <path class="pkit-pd-path path-b" d="M 700 200 Q 540 240 500 130" marker-end="url(#pkit-pd-arrow-b)"/>
+
+    <!-- Path M: Review -> Review (inline mini-fix, small loop) -->
+    <path class="pkit-pd-path path-m" d="M 740 175 Q 690 150 720 175 L 720 175" marker-end="url(#pkit-pd-arrow-m)"/>
+
+    <!-- Path N: Review -> Review (nit-attack, even smaller loop) -->
+    <path class="pkit-pd-path path-n" d="M 790 175 Q 850 150 820 200" marker-end="url(#pkit-pd-arrow-n)"/>
+
+    <!-- Phase nodes -->
+    <g class="pkit-pd-node" data-anchor="step-0-charter-discovery" data-info="Step 0 — Charter Discovery. 10 structured questions; writes docs/charter.md. Skipped with --no-charter.">
+      <rect x="40" y="70" width="120" height="60" rx="8" />
+      <text x="100" y="90" class="step-num">STEP 0</text>
+      <text x="100" y="108">Charter</text>
+    </g>
+    <g class="pkit-pd-node" data-anchor="step-5-2-write-analysis-file" data-info="Step 5.2 — Analyze. Subagent reads feature file + relevant repo files; produces docs/analysis-vN.md.">
+      <rect x="220" y="70" width="100" height="60" rx="8" />
+      <text x="270" y="90" class="step-num">STEP 5.2</text>
+      <text x="270" y="108">Analyze</text>
+    </g>
+    <g class="pkit-pd-node" data-anchor="step-5-3-write-plan-file" data-info="Step 5.3 — Plan. Subagent produces docs/plan-vN.md + docs/prompts-vN.md with phase decomposition, ACs, parallelism hints.">
+      <rect x="440" y="70" width="100" height="60" rx="8" />
+      <text x="490" y="90" class="step-num">STEP 5.3</text>
+      <text x="490" y="108">Plan</text>
+    </g>
+    <g class="pkit-pd-node" data-anchor="step-5-5-implement" data-info="Step 5.5 — Implement. Subagent(s) edit source, commit per task. Parallel-safe phases dispatch via single-message multi-Agent.">
+      <rect x="660" y="70" width="100" height="60" rx="8" />
+      <text x="710" y="90" class="step-num">STEP 5.5</text>
+      <text x="710" y="108">Implement</text>
+    </g>
+    <g class="pkit-pd-node" data-anchor="step-5-6-review" data-info="Step 5.6 — Review. 2-6 reviewer subagents (test-engineer, security-auditor, karpathy-reviewer, spec-tracer, code-reviewer). Charter-aware finding classification.">
+      <rect x="710" y="175" width="100" height="50" rx="8" />
+      <text x="760" y="194" class="step-num">STEP 5.6</text>
+      <text x="760" y="210">Review</text>
+    </g>
+    <g class="pkit-pd-node" data-anchor="step-5-9-merge" data-info="Step 5.9 — Merge. gh pr create + gh pr merge --squash --auto --delete-branch. Path A only.">
+      <rect x="710" y="280" width="100" height="50" rx="8" />
+      <text x="760" y="299" class="step-num">STEP 5.9</text>
+      <text x="760" y="315">Merge</text>
+    </g>
+
+    <!-- Path labels -->
+    <text x="500" y="270" font-family="ui-monospace, monospace" font-size="10" fill="#f59e0b" font-weight="600">Path B (re-implement)</text>
+    <text x="660" y="135" font-family="ui-monospace, monospace" font-size="10" fill="#3b82f6" font-weight="600">Path M (inline)</text>
+    <text x="830" y="135" font-family="ui-monospace, monospace" font-size="10" fill="#a855f7" font-weight="600">Path N (nit)</text>
+    <text x="800" y="265" font-family="ui-monospace, monospace" font-size="10" fill="#10b981" font-weight="600">Path A</text>
+  </svg>
+
+  <div class="pkit-pd-tooltip" id="pkit-pd-tooltip-{{id}}"></div>
+
+  <p class="pkit-pd-legend">
+    Hover any phase for details. Click a path button to highlight that routing. Click any phase to jump to its docs.
+  </p>
 </div>
 
 <script>
 (function() {
   'use strict';
-  const lts = document.querySelectorAll('.pkit-linter[data-snippet-mount="live-linter"]');
-  const lt = lts[lts.length - 1];
-  if (!lt || lt.dataset.pkitInit) return;
-  lt.dataset.pkitInit = '1';
+  // Scope queries to the most recently mounted diagram instance
+  const diagrams = document.querySelectorAll('.pkit-pipeline-diagram[data-snippet-mount="pipeline-phase-diagram"]');
+  const diagram = diagrams[diagrams.length - 1];
+  if (!diagram) return;
+  if (diagram.dataset.pkitInit) return;
+  diagram.dataset.pkitInit = '1';
 
-  const input = lt.querySelector('#pkit-ll-input');
-  const num = lt.querySelector('#pkit-ll-num');
-  const grade = lt.querySelector('#pkit-ll-grade');
-  const rows = lt.querySelector('#pkit-ll-rows');
+  const tooltip = diagram.querySelector('.pkit-pd-tooltip');
+  const nodes = diagram.querySelectorAll('.pkit-pd-node');
+  const paths = diagram.querySelectorAll('.pkit-pd-path');
+  const toggles = diagram.querySelectorAll('.pkit-pd-toggle');
 
-  // 10-pattern skill DNA checklist. Each pattern has:
-  //   name, regex (or function), hint.
-  // Returns 'pass' / 'warn' / 'fail' per pattern.
-  const PATTERNS = [
-    {
-      name: "YAML frontmatter (---)",
-      test: (s) => /^---\s*\n[\s\S]*?\n---\s*\n/.test(s) ? 'pass' : 'fail',
-      hint: "Skill files start with a `---` fenced YAML block. Required for Claude Code to discover the skill."
-    },
-    {
-      name: "Frontmatter has `name:`",
-      test: (s) => /^---[\s\S]*?\nname:\s*\S/.test(s) ? 'pass' : 'fail',
-      hint: "Lowercase letters, digits, hyphens only. Max 64 chars. If omitted, falls back to directory name."
-    },
-    {
-      name: "Frontmatter has `description:`",
-      test: (s) => /^---[\s\S]*?\ndescription:\s*\S/.test(s) ? 'pass' : 'fail',
-      hint: "Recommended. Claude reads this to decide when to load the skill. Combined cap of 1,536 chars with `when_to_use`."
-    },
-    {
-      name: "Description ≤ 1,536 chars",
-      test: (s) => {
-        const m = s.match(/^---[\s\S]*?\ndescription:\s*(.+)/);
-        if (!m) return 'fail';
-        const len = m[1].length;
-        return len <= 1536 ? 'pass' : 'warn';
-      },
-      hint: "If over the cap, Claude Code truncates in the skill listing, stripping keywords."
-    },
-    {
-      name: "Title (H1) below frontmatter",
-      test: (s) => {
-        const body = s.replace(/^---[\s\S]*?\n---\s*\n/, '');
-        return /^#\s+\S/.test(body) ? 'pass' : 'warn';
-      },
-      hint: "Conventional H1 below the frontmatter as the skill's narrative title."
-    },
-    {
-      name: "Has a `## When` (or trigger) section",
-      test: (s) => /^##\s+When|^##\s+Triggers?|^##\s+Trigger/.test(s.split('\n').join('\n')) ? 'pass' : 'warn',
-      hint: "Document when the skill fires (manual `/name` invocation, auto-discovery by Claude, hook event)."
-    },
-    {
-      name: "Has a `## Constraints` or AVOID list",
-      test: (s) => /^##\s+(Constraints?|Rules?|AVOID|Don[’']?t)|^##\s+The\s+\w+\s+rules?/im.test(s) ? 'pass' : 'warn',
-      hint: "Explicit constraints prevent mis-application by Claude. Capture the don't-do-this surface."
-    },
-    {
-      name: "Has an `## Example` or worked example",
-      test: (s) => /^##\s+Example|^###?\s+Example/im.test(s) ? 'pass' : 'warn',
-      hint: "Concrete example anchors abstract instructions."
-    },
-    {
-      name: "References supporting files (reference.md, scripts, etc.)",
-      test: (s) => /reference\.md|scripts\/|\bsupporting files\b|\bsnippets?\b/i.test(s) ? 'pass' : 'warn',
-      hint: "Large reference material moves out to supporting files (loaded only when needed)."
-    },
-    {
-      name: "No `Co-Authored-By` or AI attribution leak",
-      test: (s) => /Co-Authored-By|Generated with|Claude AI|🤖/i.test(s) ? 'fail' : 'pass',
-      hint: "Skill content must not include AI attribution lines (they'd propagate into commits)."
-    }
-  ];
-
-  function evaluate(text) {
-    return PATTERNS.map(p => ({
-      name: p.name,
-      result: p.test(text),
-      hint: p.hint,
-    }));
-  }
-
-  function render(text) {
-    const results = evaluate(text);
-    const passCount = results.filter(r => r.result === 'pass').length;
-    const warnCount = results.filter(r => r.result === 'warn').length;
-    num.innerHTML = `${passCount}<span class="of">/${results.length}</span>`;
-    let g;
-    if (text.trim().length === 0) g = 'no input';
-    else if (passCount === results.length) g = 'all clear';
-    else if (passCount >= 8) g = 'solid';
-    else if (passCount >= 5) g = `${warnCount} warning${warnCount === 1 ? '' : 's'}`;
-    else g = 'needs work';
-    grade.textContent = g;
-
-    rows.innerHTML = '';
-    results.forEach(r => {
-      const div = document.createElement('div');
-      div.className = 'pkit-ll-row';
-      const symbol = r.result === 'pass' ? '✓' : r.result === 'warn' ? '!' : '✕';
-      div.innerHTML = `
-        <span class="badge ${r.result}">${symbol}</span>
-        <div>
-          <span class="pattern">${r.name}</span>
-          <span class="hint">${r.hint}</span>
-        </div>
-      `;
-      rows.appendChild(div);
+  // Tooltip handling
+  nodes.forEach(node => {
+    const info = node.dataset.info;
+    if (!info) return;
+    node.addEventListener('mouseenter', (e) => {
+      tooltip.textContent = info;
+      tooltip.classList.add('visible');
     });
-  }
+    node.addEventListener('mousemove', (e) => {
+      const rect = diagram.getBoundingClientRect();
+      tooltip.style.left = (e.clientX - rect.left + 14) + 'px';
+      tooltip.style.top = (e.clientY - rect.top + 14) + 'px';
+    });
+    node.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
 
-  let debounce;
-  input.addEventListener('input', (e) => {
-    clearTimeout(debounce);
-    debounce = setTimeout(() => render(e.target.value), 120);
+    // Click → scroll to anchor
+    const anchor = node.dataset.anchor;
+    if (anchor) {
+      node.addEventListener('click', () => {
+        const target = document.getElementById(anchor);
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        else {
+          // Fallback: search by heading text matching the phase name
+          const heading = Array.from(document.querySelectorAll('h2, h3'))
+            .find(h => h.textContent.toLowerCase().includes(anchor.replace(/-/g, ' ').slice(0, 15)));
+          if (heading) heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    }
   });
 
-  lt.querySelector('[data-act="clear"]').addEventListener('click', () => {
-    input.value = '';
-    render('');
-    input.focus();
+  // Path-highlight toggles
+  toggles.forEach(btn => {
+    btn.addEventListener('click', () => {
+      toggles.forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      const want = btn.dataset.path;
+      paths.forEach(p => {
+        if (want === 'all') {
+          p.classList.remove('dimmed');
+          if (p.classList.contains('path-a')) p.style.opacity = '0'; // path-a only shows when alone
+          else p.style.opacity = '';
+          return;
+        }
+        const cls = 'path-' + want;
+        const isMain = p.classList.contains('path-main');
+        if (p.classList.contains(cls) || (want === 'a' && isMain)) {
+          p.classList.remove('dimmed');
+          p.style.opacity = '';
+        } else {
+          p.classList.add('dimmed');
+        }
+      });
+    });
   });
-
-  lt.querySelector('[data-act="example"]').addEventListener('click', () => {
-    input.value = `---
-name: deploy-helper
-description: Deploy the current branch via the project's standard CI flow. Use when the user says "ship it", "deploy to staging", or asks to "push live".
-allowed-tools: Bash, Read, Edit
-disable-model-invocation: true
----
-
-# deploy-helper
-
-A purpose-built deploy command for this project.
-
-## When this skill fires
-
-User explicitly types \`/deploy-helper\`. The \`disable-model-invocation: true\` frontmatter prevents Claude from auto-firing it (deploys are user-initiated).
-
-## Constraints
-
-- Refuse to deploy if working tree is dirty.
-- Refuse to deploy from \`main\` directly — the user must be on a feature branch.
-- Do NOT skip CI hooks (no \`--no-verify\`).
-- Do NOT force-push.
-
-## Example
-
-\`\`\`
-/deploy-helper staging
-\`\`\`
-
-Triggers \`scripts/deploy.sh staging\` after the working-tree-clean and not-on-main checks pass.
-
-## See also
-
-- \`scripts/deploy.sh\` — the underlying shell script
-- \`docs/deploy-runbook.md\` — operational reference
-`;
-    render(input.value);
-  });
-
-  render('');
 })();
 </script>
 

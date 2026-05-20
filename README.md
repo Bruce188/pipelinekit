@@ -234,8 +234,8 @@ The vendored `agentmemory` MCP layer adds structured retrieval (semantic similar
 - [Documentation index](documentation/index.html) — every reader-facing page
 - [Changelog v0.0.1](documentation/changelog.html) — every PR organized by theme
 - [Pipeline workflow](documentation/pipeline.html) — /pipeline phase-by-phase reference
-- [SKILL authoring standard](documentation/docs/SKILL-AUTHORING-STANDARD.html) — vendored standard (10-pattern skill DNA)
-- [SKILL pipeline lifecycle](documentation/docs/SKILL_PIPELINE.html) — Intent → ... → Verify
+- [SKILL authoring standard](documentation/SKILL-AUTHORING-STANDARD.html) — vendored standard (10-pattern skill DNA)
+- [SKILL pipeline lifecycle](documentation/SKILL_PIPELINE.html) — Intent → ... → Verify
 
 ---
 

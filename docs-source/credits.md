@@ -2,8 +2,6 @@
 
 Pipelinekit ships under the MIT license and stands on the shoulders of several upstream projects, plus inspiration from individual researchers and the Claude platform itself. This page consolidates every vendored upstream + its pinned SHA + license, plus the inspirational-but-not-vendored credits.
 
-<div data-snippet="tutorial-cards"></div>
-
 ## Vendored upstreams (legal attribution)
 
 These projects contributed source code that lives inside the pipelinekit tree. Each has a per-directory `NOTICE.md` with the full upstream license text inline. Re-vendoring procedures are documented in each NOTICE so updates stay mechanical.
@@ -11,7 +9,7 @@ These projects contributed source code that lives inside the pipelinekit tree. E
 | Upstream | Pinned SHA | License | Vendored into | Scope |
 |---|---|---|---|---|
 | [wshobson/agents](https://github.com/wshobson/agents) | `08ded5e7` | MIT (© 2024 Seth Hobson) | `claude/agents/` | 10 specialist agents (deployment-engineer, incident-responder, dx-optimizer, terraform-specialist, cloud-architect, network-engineer, api-documenter, performance-engineer, test-automator, architect-review) |
-| [alirezarezvani/claude-skills](https://github.com/alirezarezvani/claude-skills) | `0d477a06` | MIT (© 2025 Alireza Rezvani) | `claude/agents/personas/`, `claude/skills/{write-a-skill,zoom-out}/` (via mattpocock), referenced by `documentation/docs/SKILL-AUTHORING-STANDARD.html` + `documentation/docs/SKILL_PIPELINE.html` | Skill-authoring DNA template (10 patterns), SKILL pipeline lifecycle reference, persona pack |
+| [alirezarezvani/claude-skills](https://github.com/alirezarezvani/claude-skills) | `0d477a06` | MIT (© 2025 Alireza Rezvani) | `claude/agents/personas/`, `claude/skills/{write-a-skill,zoom-out}/` (via mattpocock), referenced by `documentation/SKILL-AUTHORING-STANDARD.html` + `documentation/SKILL_PIPELINE.html` | Skill-authoring DNA template (10 patterns), SKILL pipeline lifecycle reference, persona pack |
 | [alirezarezvani/ClaudeForge](https://github.com/alirezarezvani/ClaudeForge) | `6eb741b4` | MIT (© 2025 Alireza Rezvani) | `claude/agents/claude-md-guardian.md`, `claude/skills/claude-md-enhancer/` | CLAUDE.md drift detection + best-practices audit; the parent claude-md-enhancer skill |
 | [mattpocock/skills](https://github.com/mattpocock/skills) | `e74f0061` | MIT (© Matt Pocock) | `claude/skills/tdd/`, `claude/skills/write-a-skill/`, `claude/skills/zoom-out/` | TDD doctrine pack (deep-modules, interface-design, mocking, refactoring, tests), skill-authoring helper, zoom-out reflection skill |
 | [tinyhumansai/openhuman](https://github.com/tinyhumansai/openhuman) | TBD | GPL-3.0 — **concept-only** | `claude/skills/openhuman/` (original implementation under root MIT) | **Name and concept only.** Pipelinekit's openhuman skill is an original Bash + Python 3 implementation under the root MIT LICENSE; **no GPL source is imported**. See `claude/skills/openhuman/NOTICE.md` for the audit trail that justified concept-only vendoring. |

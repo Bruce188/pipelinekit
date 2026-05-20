@@ -24,7 +24,7 @@ The skill ships three assets:
 
 These are non-negotiable. The compliance hook (see § Enforcement) blocks staging of any file that violates them.
 
-1. **Every page in `documentation/` is HTML.** No `.md` files. No exceptions — vendored standards live as HTML in `documentation/docs/`.
+1. **Every page in `documentation/` is HTML.** No `.md` files. No exceptions — vendored standards live as HTML at the `documentation/` root alongside reader-facing pages.
 2. **Every page is generated via `render.py`.** Do not hand-write HTML files; do not bypass the template. Hand-edits to emitted files are tolerated for small fixes but the page must remain template-compliant (the `<meta name="generator" content="pipelinekit docs-writer/2 — rich-template">` tag is the marker).
 3. **`docs/` is AI-workflow-only and gitignored.** Never write reader-facing content to `docs/`. AI-internal artifacts (`analysis-vN.md`, `plan-vN.md`, `prompts-vN.md`, `review-vN.md`, `charter.md`, `progress.md`, `pipeline-state.md`, `features.md`, `features-vN.md`, `features-master.md`, `pipeline-intel.json`, `.last-verify.json`, `context-dump.md`) are local-only, never committed. User-authored feature lists may be committed only via explicit `git add -f`.
 4. **Rich-content contract: every reader-facing page MUST include ≥1 interactive snippet from the catalog.** A page that is just "rendered markdown with a sidebar" defeats the purpose of HTML over markdown. Acceptable patterns: SVG flowchart, calculator widget, decision-tree quiz, comparison-tabs, card grid, timeline scrubber, live linter playground, custom diff viewer. The `richness_check.py` linter enforces this; staging fails for pages below the bar unless `# richness-exempt: <reason>` appears in the page's `<head>`.
@@ -124,15 +124,13 @@ plain markdown. See § Authoring a new snippet below for the contract.
 
 ## Output directory contract
 
-The skill writes to **`documentation/`** and **`documentation/docs/`** only.
+The skill writes to **`documentation/`** only.
 
 | Path | Use case | Examples |
 |------|----------|----------|
-| `documentation/*.html` | Top-level reader-facing pages (install, features, deployment, etc.) | `installation.html`, `pipeline.html`, `deployment-vercel.html` |
-| `documentation/docs/*.html` | Reference standards. Originally vendored; converted to HTML in v0.0.1 with attribution preserved. | `SKILL-AUTHORING-STANDARD.html`, `SKILL_PIPELINE.html`, `NOTICE.html` |
-| `documentation/audits/*.html` | Compliance audit reports | `claude-code-compliance-2026-05-19.html` |
+| `documentation/*.html` | Reader-facing pages and vendored reference standards. | `installation.html`, `pipeline.html`, `deployment-vercel.html`, `SKILL-AUTHORING-STANDARD.html`, `SKILL_PIPELINE.html`, `NOTICE.html` |
 
-Never write to `docs/`. Never write `.md` to `documentation/` or its subdirectories.
+Never write to `docs/`. Never write `.md` to `documentation/`. Compliance audit reports are workflow artifacts and belong under `docs/` (workflow-only) or `.claude/audits/`, not `documentation/`.
 
 ## Template features (what the reader gets)
 
@@ -147,7 +145,7 @@ Every emitted page automatically has:
 - **Callouts** — blockquotes beginning with `[INFO]`, `[NOTE]`, `[TIP]`, `[WARN]`, `[WARNING]`, `[DANGER]`, `[ALERT]`, `[SUCCESS]`, `[OK]` are auto-styled with color-coded left border and icon.
 - **Details/Summary** — `<details><summary>` blocks render as collapsible sections with rotating arrow.
 - **Search filter** — `/` focuses the search box; typing highlights matches in body text and hides non-matching table rows. `Esc` clears.
-- **Theme** — 7 CSS custom properties for light + 7 for dark, with `prefers-color-scheme` respected as the default and user override persisted. WCAG 2.1 AA contrast on all primary text pairings (verified in [docs/NOTICE.html](../../../documentation/docs/NOTICE.html)).
+- **Theme** — 7 CSS custom properties for light + 7 for dark, with `prefers-color-scheme` respected as the default and user override persisted. WCAG 2.1 AA contrast on all primary text pairings (verified in [NOTICE.html](../../../documentation/NOTICE.html)).
 - **Self-contained** — no CDN, no external stylesheet, no remote font, no remote script. Reader can clone the repo and open `documentation/index.html` directly via `file://`.
 
 ## When this skill fires
@@ -186,5 +184,5 @@ done
 
 - The shipped template `claude/skills/docs-writer/template.html` — open it in a browser to see the CSS / JS surface.
 - The renderer `claude/skills/docs-writer/render.py` — `--help` for the full CLI.
-- [SKILL authoring standard](../../../documentation/docs/SKILL-AUTHORING-STANDARD.html) — the 10-pattern skill DNA template.
-- [Vendoring notice](../../../documentation/docs/NOTICE.html) — attribution + license for vendored standards.
+- [SKILL authoring standard](../../../documentation/SKILL-AUTHORING-STANDARD.html) — the 10-pattern skill DNA template.
+- [Vendoring notice](../../../documentation/NOTICE.html) — attribution + license for vendored standards.
