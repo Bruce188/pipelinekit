@@ -62,6 +62,7 @@ Charter Discovery is the default-on front-loaded alignment phase. It produces `d
 3. For each topic in order (Goal → Users → Problem → Success → Non-Goals → Constraints → MVP Boundary → Prior Art → Open Questions → Deployment target):
    a. Invoke `AskUserQuestion` with the topic's question and options from the bank.
    b. Record the user's answer.
+   b.5 **Multi-party trigger (runs AFTER each topic answer, BEFORE the convergence check):** Scan the answer text for any of these trigger tokens: `teammate`, `customer segment`, `upstream`, `downstream`, `external service`. If any token matches AND the Stakeholders prompt has not yet fired this run (**once-per-run latch**), invoke a conditional `AskUserQuestion` asking: "Who are the decision-makers, blockers, or reviewers for this work? (one short line per stakeholder; skip if none apply)". Record the answer under `## Stakeholders` in the in-progress charter draft. Cross-reference: `claude/skills/pipeline/charter.md § Stakeholders (conditional probe)`.
    c. After the answer, invoke the convergence check from the bank:
       - **"ship the charter now"** → write `docs/charter.md` (status: `draft`), set `**Charter:**` pointer in `progress.md`, exit loop, continue pipeline.
       - **"continue to next topic"** → advance to the next topic.
@@ -79,6 +80,8 @@ Charter Discovery is the default-on front-loaded alignment phase. It produces `d
 **Subprocess mode:** Step 0 relies on `AskUserQuestion`, which is interactive-session-only. If invoked via a subprocess driver (e.g., `orchestrate.sh` or `claude -p`), Step 0 cannot run. The subprocess driver is responsible for detecting this condition and exiting with an error before reaching Step 0. (See `docs/pipeline.md` § Charter Mode for the subprocess constraint.)
 
 **`--max-questions <N>` behavior:** When `N > 0`, cap the total number of `AskUserQuestion` invocations at `N`. After the cap is reached, write the draft charter and continue. `N = 0` is the `--no-charter` alias (no discovery at all).
+
+**`--max-questions` accounting for Stakeholders:** The conditional Stakeholders prompt (step 3b.5 above) counts toward the `--max-questions` cap. Setting `--max-questions 0` (the `--no-charter` alias) therefore skips it along with the rest of Charter Discovery.
 
 **Charter scope vs. install gates:** Every native skill, agent, and hook ships default-on regardless of charter answers; the charter scopes the work, it does not enable or disable skills.
 
