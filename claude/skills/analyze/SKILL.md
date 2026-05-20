@@ -149,7 +149,7 @@ test -f docs/charter.md && echo "CHARTER_FOUND" || echo "NO_CHARTER"
 **If `docs/charter.md` is absent:** Emit one line at the top of the analysis file (Step 5): `No charter found — full-scope analysis.` Then proceed to Step 4 with full-scope investigation.
 
 **If `docs/charter.md` exists:**
-1. Read the following sections from `docs/charter.md`: `## MVP Boundary`, `## Non-Goals`, `## Constraints`.
+1. Read the following sections from `docs/charter.md`: `## MVP Boundary`, `## Non-Goals`, `## Constraints`. Also read `## Stakeholders` when present (OPTIONAL — when absent in the source charter, skip silently with no error). Surface `## Stakeholders` content as advisory scope context listing decision-makers, blockers, and reviewers relevant to this analysis.
 2. Derive scope rules:
    - Areas inside `MVP Boundary > In` → include in full-depth analysis.
    - Areas listed under `## Non-Goals` or `MVP Boundary > Out` → flag with a one-line `out-of-scope-per-charter` note; do NOT traverse deeply.
@@ -213,6 +213,11 @@ Create `docs/` if it doesn't exist. Write to the filename determined in Step 4.5
 - **In scope (from charter):** [MVP Boundary > In items relevant to this analysis]
 - **Out of scope (from charter):** [Non-Goals + MVP Boundary > Out items — not deeply analyzed]
 - **Constraints honored:** [Constraints from charter that bound this analysis]
+
+## Stakeholders
+(omit-when-empty: include this section ONLY when the source charter contains a `## Stakeholders` section. When absent in the source charter, omit this entire block from the generated analysis file.)
+
+[List of decision-makers, blockers, or reviewers from the charter's ## Stakeholders section.]
 
 ## Objective
 [user's answer to Q1]
