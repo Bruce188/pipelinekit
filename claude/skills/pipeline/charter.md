@@ -31,6 +31,9 @@ Required sections (10 topics in order):
 10. `## Deployment target`
 11. `## Review style`
 
+Optional section (additive — charters without this section continue to validate):
+- `## Stakeholders` (optional, populated only when multi-party scope is signaled during Step 0; captures decision-makers, blockers, reviewers; backward-compat: charters without this section continue to validate)
+
 Required table (appended after the 9 sections):
 ```markdown
 ## Decision Log
@@ -99,6 +102,22 @@ Options:
 - B) `Solo developer / small team`
 - C) `Large enterprise team`
 - D) `Ship the charter now`
+
+---
+
+### Stakeholders (conditional probe)
+
+**Trigger criteria:** After each topic answer, scan the user's response for any of these tokens: `teammate`, `customer segment`, `upstream`, `downstream`, `external service`. On first match, fire the conditional prompt below; a **once-per-run latch** ensures it fires at most once per Step 0 run. No new round is added to the happy-path topic sequence — Stakeholders is NOT a numbered topic.
+
+**Counts toward `--max-questions`:** The conditional Stakeholders prompt counts toward the `--max-questions` cap, so `--max-questions 0` (effectively `--no-charter`) skips it.
+
+**Conditional prompt text** (mirror Topic 2 "Users" shape):
+> "Who are the decision-makers, blockers, or reviewers for this work? (one short line per stakeholder; skip if none apply)"
+
+Options:
+- A) `[User provides free-form answer]`
+- B) `Skip — no stakeholders to capture`
+- C) `Ship the charter now`
 
 ---
 
@@ -271,6 +290,10 @@ status: draft
 
 ## Users
 [Users content]
+
+<!-- ## Stakeholders — OPTIONAL, populated only when Step 0 detects
+     multi-party scope (mentions of teammate / customer segment / upstream /
+     downstream system). Omit the entire H2 if no stakeholders apply. -->
 
 ## Problem
 [Problem content]
