@@ -7,14 +7,6 @@ The following agent files in this directory are vendored verbatim from:
 **Upstream paths:**
 - plugins/cicd-automation/agents/deployment-engineer.md
 - plugins/incident-response/agents/incident-responder.md
-- plugins/debugging-toolkit/agents/dx-optimizer.md
-- plugins/cicd-automation/agents/terraform-specialist.md
-- plugins/cicd-automation/agents/cloud-architect.md
-- plugins/cloud-infrastructure/agents/network-engineer.md
-- plugins/api-testing-observability/agents/api-documenter.md
-- plugins/application-performance/agents/performance-engineer.md
-- plugins/backend-development/agents/test-automator.md
-- plugins/comprehensive-review/agents/architect-review.md
 
 To re-vendor: pick a new HEAD SHA from `gh api repos/wshobson/agents/commits/HEAD`,
 re-fetch each upstream path via `gh api repos/wshobson/agents/contents/<path>?ref=<new-SHA>`,
