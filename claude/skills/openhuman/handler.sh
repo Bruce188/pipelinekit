@@ -31,6 +31,7 @@ emit_decision() {
 import json, os, sys
 sys.stdout.write(json.dumps({
     "hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
         "permissionDecision": os.environ["DECISION"],
         "permissionDecisionReason": os.environ["REASON"],
     }
@@ -41,6 +42,7 @@ sys.stdout.write(json.dumps({
 import json, os, sys
 sys.stdout.write(json.dumps({
     "hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
         "permissionDecision": os.environ["DECISION"],
     }
 }) + "\n")
