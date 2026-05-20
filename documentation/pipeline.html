@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>/pipeline — pipelinekit</title>
+<title>pipeline — pipelinekit</title>
 <meta name="description" content="The /pipeline autonomous orchestrator. Charter discovery → analyze → plan → implement → review → merge, all driven by multi-agent dispatch with no human in the loop unless you opt in. Per-phase reference, flag catalog, and the 5 routes the…">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>/pipeline</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>pipeline</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -560,12 +560,13 @@ footer {
 
   <main>
     <header class="page-header">
-      <h1>/pipeline</h1>
+      <h1>pipeline</h1>
       <p class="description">The /pipeline autonomous orchestrator. Charter discovery → analyze → plan → implement → review → merge, all driven by multi-agent dispatch with no human in the loop unless you opt in. Per-phase reference, flag catalog, and the 5 routes the…</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
+<p>The <code>/pipeline</code> autonomous orchestrator. Charter discovery → analyze → plan → implement → review → merge, all driven by multi-agent dispatch with no human in the loop unless you opt in. Per-phase reference, flag catalog, and the 5 routes the orchestrator can use to derive a feature file.</p>
 <!-- snippet:pipeline-phase-diagram
      Interactive SVG flow showing the /pipeline orchestrator phases.
      Hover any phase for details; click to scroll to its section (data-anchor).
@@ -1072,6 +1073,7 @@ footer {
 <li><strong>Open Questions</strong> — unresolved items for future decisions</li>
 </ol>
 <p>Plus frontmatter (<code>version</code>, <code>created</code>, <code>status</code>) and an optional <strong>Decision Log</strong> table.</p>
+<p><strong>Optional section — <code>## Stakeholders</code>:</strong> When <code>/pipeline</code> Step 0 detects multi-party scope during Charter Discovery (any topic answer containing <code>teammate</code>, <code>customer segment</code>, <code>upstream</code>, <code>downstream</code>, or <code>external service</code>), it fires a once-per-run conditional prompt asking for decision-makers, blockers, and reviewers. The answer is written as an optional <code>## Stakeholders</code> H2 section, positioned between <code>## Users</code> and <code>## Problem</code>. Charters that predate this feature, or runs where no multi-party signal was detected, omit the section entirely — both are valid. <code>/analyze</code> reads <code>## Stakeholders</code> when present and surfaces the stakeholder list as advisory scope context; it skips silently when absent. The conditional prompt counts toward <code>--max-questions</code>; <code>--max-questions 0</code> (the <code>--no-charter</code> alias) skips it along with the rest of Charter Discovery.</p>
 <p>Versioning follows the same convention as <code>plan.md</code> and <code>analysis.md</code> — see <code>claude/rules/workflow.md</code> § Versioning Convention.</p>
 <h3 id="how-downstream-phases-consume-the-charter">How downstream phases consume the charter</h3>
 <table>
@@ -1084,7 +1086,7 @@ footer {
 <tbody>
 <tr>
 <td><code>/analyze</code></td>
-<td>Scopes investigation to MVP Boundary; flags Non-Goal areas without deep traversal</td>
+<td>Scopes investigation to MVP Boundary; flags Non-Goal areas without deep traversal; surfaces <code>## Stakeholders</code> content as advisory scope context when the section is present</td>
 </tr>
 <tr>
 <td><code>/create-plan</code></td>
