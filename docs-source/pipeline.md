@@ -183,13 +183,15 @@ Providing `--charter <path>` with a missing file stops the pipeline with: `ERROR
 
 Plus frontmatter (`version`, `created`, `status`) and an optional **Decision Log** table.
 
+**Optional section — `## Stakeholders`:** When `/pipeline` Step 0 detects multi-party scope during Charter Discovery (any topic answer containing `teammate`, `customer segment`, `upstream`, `downstream`, or `external service`), it fires a once-per-run conditional prompt asking for decision-makers, blockers, and reviewers. The answer is written as an optional `## Stakeholders` H2 section, positioned between `## Users` and `## Problem`. Charters that predate this feature, or runs where no multi-party signal was detected, omit the section entirely — both are valid. `/analyze` reads `## Stakeholders` when present and surfaces the stakeholder list as advisory scope context; it skips silently when absent. The conditional prompt counts toward `--max-questions`; `--max-questions 0` (the `--no-charter` alias) skips it along with the rest of Charter Discovery.
+
 Versioning follows the same convention as `plan.md` and `analysis.md` — see `claude/rules/workflow.md` § Versioning Convention.
 
 ### How downstream phases consume the charter
 
 | Phase | Charter usage |
 |-------|--------------|
-| `/analyze` | Scopes investigation to MVP Boundary; flags Non-Goal areas without deep traversal |
+| `/analyze` | Scopes investigation to MVP Boundary; flags Non-Goal areas without deep traversal; surfaces `## Stakeholders` content as advisory scope context when the section is present |
 | `/create-plan` | Gates tasks against Non-Goals and MVP Boundary; defers out-of-scope items |
 | `/implement-plan` | Prepends charter Goal + Constraints to each task subagent's context |
 | `/review` | Classifies findings as in-scope or out-of-scope per charter; defers out-of-scope findings |
