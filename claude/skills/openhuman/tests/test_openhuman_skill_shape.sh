@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SKILL=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/SKILL.md
-SKILL_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+SKILL_DIR=$(dirname "$SKILL")
 
 # Assertion 1: frontmatter name matches
 grep -q '^name: openhuman' "$SKILL" || { echo "FAIL: frontmatter 'name: openhuman' not found"; exit 1; }
