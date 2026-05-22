@@ -4,7 +4,9 @@ description: Deploy and verify Railway projects when the charter targets railway
 allowed-tools:
   - Bash(railway *)
   - Bash(curl --fail *)
-paths: documentation/deployment-railway.html, claude/skills/railway-ops/**
+paths:
+  - documentation/deployment-railway.html
+  - claude/skills/railway-ops/**
 ---
 
 # Railway Operations Skill
