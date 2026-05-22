@@ -52,6 +52,22 @@ Charter Discovery is the default-on front-loaded alignment phase. It produces `d
 
 **Charter Discovery loop (when not skipped):**
 
+**Persona Re-Read (advisory, runs before topic 1):**
+
+1. Probe: `cat docs/active-persona 2>/dev/null`
+2. If absent or empty, log `"no active persona — proceeding with default Charter Discovery emphasis"` and fall through to topic 1.
+3. If present, read `claude/agents/personas/<name>.md` and record a one-line emphasis note. Emphasis mapping:
+   - `devops` → flag infra / operational / deployment / observability concerns
+   - `growth-marketer` → flag GTM / user-impact / instrumentation / growth-loop concerns
+   - `solo-founder` → flag scope-creep / opportunity-cost / smallest-valuable-version concerns
+   - `startup-cto` → flag tech-debt vs time-to-market / hiring / scaling concerns
+4. Surface: prepend a `## Persona Bias` block to the topic prompts — single prepend, once per loop, immediately after this sub-section. Conceptually a runtime banner surfaced once before topic 1 to prime the Charter Discovery framing. Example block:
+   ```
+   ## Persona Bias
+   Active persona: <name> — <one-line emphasis note>
+   ```
+5. User-wins contract: if the user's topic answers contradict the persona's emphasis, the user's answers win — proceed without persona bias.
+
 1. Print an explainer to the user:
    > "Charter Discovery (Step 0): Before the pipeline runs autonomously, let's align on what you want to build. I'll ask about 10 topics. You can exit at any point — just choose 'ship the charter now' to write the charter with what we have so far and continue."
    >
