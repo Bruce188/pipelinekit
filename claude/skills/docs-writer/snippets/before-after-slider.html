@@ -7,7 +7,7 @@
 <div class="pkit-bas" data-snippet-mount="before-after-slider">
   <style>
     .pkit-bas { margin: 1.5rem 0; }
-    .pkit-bas .pkit-bas-viewport {
+    .pkit-bas .pkit-bas__viewport {
       position: relative;
       overflow: hidden;
       border: 1px solid var(--border);
@@ -16,23 +16,23 @@
       min-height: 120px;
       user-select: none;
     }
-    .pkit-bas .pkit-bas-layer {
+    .pkit-bas .pkit-bas__layer {
       position: absolute;
       inset: 0;
       padding: 1rem;
       overflow: hidden;
     }
-    .pkit-bas .pkit-bas-layer--before {
+    .pkit-bas .pkit-bas__layer--before {
       background: var(--bg-elev);
       z-index: 1;
     }
-    .pkit-bas .pkit-bas-layer--after {
+    .pkit-bas .pkit-bas__layer--after {
       background: var(--bg);
       z-index: 2;
       clip-path: inset(0 var(--pkit-bas-clip, 50%) 0 0);
       transition: clip-path 60ms linear;
     }
-    .pkit-bas .pkit-bas-handle {
+    .pkit-bas .pkit-bas__handle {
       position: absolute;
       top: 0;
       bottom: 0;
@@ -44,7 +44,7 @@
       pointer-events: none;
       transition: left 60ms linear;
     }
-    .pkit-bas .pkit-bas-handle::after {
+    .pkit-bas .pkit-bas__handle::after {
       content: '';
       position: absolute;
       top: 50%;
@@ -57,7 +57,7 @@
       border: 2px solid var(--bg);
       box-shadow: 0 1px 4px rgba(0,0,0,0.2);
     }
-    .pkit-bas .pkit-bas-labels {
+    .pkit-bas .pkit-bas__labels {
       display: flex;
       justify-content: space-between;
       margin-top: 0.3rem;
@@ -65,7 +65,7 @@
       font-size: 0.75rem;
       color: var(--fg-subtle);
     }
-    .pkit-bas .pkit-bas-range {
+    .pkit-bas .pkit-bas__range {
       width: 100%;
       margin-top: 0.6rem;
       accent-color: var(--accent);
@@ -80,7 +80,7 @@
     <div class="pkit-bas__layer pkit-bas__layer--after" style="--pkit-bas-clip: 50%"></div>
     <div class="pkit-bas__handle" aria-hidden="true"></div>
   </div>
-  <div class="pkit-bas-labels">
+  <div class="pkit-bas__labels">
     <span>Before</span>
     <span>After</span>
   </div>
