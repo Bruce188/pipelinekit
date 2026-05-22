@@ -4,6 +4,8 @@ The `/pipeline` autonomous orchestrator. Charter discovery → analyze → plan 
 
 <div data-snippet="pipeline-phase-diagram"></div>
 
+<div data-snippet="command-cheatsheet"></div>
+
 ## Invocation
 
 ```
@@ -130,6 +132,32 @@ Per feature, the pipeline runs:
 6. **Path A / B / C** — A: merge clean; B: fix findings (≤5 cycles); C: replan
 
 State persists in `docs/pipeline-state.md` per run. Resume by re-invoking `/pipeline`.
+
+## Path routing
+
+After review completes, the orchestrator selects one of five paths based on the finding set:
+
+<div data-snippet="path-routing-diagram"></div>
+
+### Path A {#path-a}
+
+Zero blocking + zero non-blocking findings. Immediate clean merge to `main`. The happy path.
+
+### Path B {#path-b}
+
+Blocking findings present. Dispatches `tdd-test-writer` + `tdd-implementer` subagents to fix findings and re-review. Maximum 5 cycles before escalating to Path C.
+
+### Path C {#path-c}
+
+Path B exhausted (5 cycles). Escalates to re-plan via `/create-plan`. Maximum 1 Path C iteration per feature. If review still fails after re-plan + re-implement, the pipeline stops and reports.
+
+### Path M {#path-m}
+
+Zero blocking + ≤3 mechanical non-blocking findings (each ≤5 lines, 1 file). Applies inline Edit-tool changes without spawning subagents. Maximum 2 cycles.
+
+### Path N {#path-n}
+
+Zero blocking + nits only (style/naming, ≤2 cycles). Applies inline Edit-tool changes. Falls through to Path B subagent dispatch on overflow.
 
 ## Charter Mode
 

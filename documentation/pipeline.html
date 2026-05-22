@@ -539,6 +539,12 @@ footer {
       <li class="lvl-2"><a href="#feature-file-docs-features-md">Feature file (docs/features.md)</a></li>
       <li class="lvl-2"><a href="#tdd-routing-dev-vs-non-dev">TDD routing (dev vs non-dev)</a></li>
       <li class="lvl-2"><a href="#phases">Phases</a></li>
+      <li class="lvl-2"><a href="#path-routing">Path routing</a></li>
+      <li class="lvl-3"><a href="#path-a-path-a">Path A {#path-a}</a></li>
+      <li class="lvl-3"><a href="#path-b-path-b">Path B {#path-b}</a></li>
+      <li class="lvl-3"><a href="#path-c-path-c">Path C {#path-c}</a></li>
+      <li class="lvl-3"><a href="#path-m-path-m">Path M {#path-m}</a></li>
+      <li class="lvl-3"><a href="#path-n-path-n">Path N {#path-n}</a></li>
       <li class="lvl-2"><a href="#charter-mode">Charter Mode</a></li>
       <li class="lvl-3"><a href="#when-it-runs">When it runs</a></li>
       <li class="lvl-3"><a href="#opt-out-flags">Opt-out flags</a></li>
@@ -854,6 +860,149 @@ footer {
 </script>
 
 
+<!-- usage: <div data-snippet="command-cheatsheet"></div> -->
+<div class="pkit-cmd" data-snippet-mount="command-cheatsheet">
+  <style>
+    .pkit-cmd { margin: 1.5rem 0; }
+    .pkit-cmd .pkit-cmd-toolbar { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.8rem; }
+    .pkit-cmd .pkit-cmd-filter { flex: 1; padding: 0.4rem 0.7rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--fg); font-family: var(--sans); font-size: 0.88rem; }
+    .pkit-cmd .pkit-cmd-filter:focus { outline: none; border-color: var(--accent); }
+    .pkit-cmd .pkit-cmd-count { font-family: var(--mono); font-size: 0.75rem; color: var(--fg-muted); white-space: nowrap; }
+    .pkit-cmd .pkit-cmd-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+    .pkit-cmd .pkit-cmd-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 0.85rem; }
+    .pkit-cmd .pkit-cmd-table thead tr { background: var(--bg-elev); }
+    .pkit-cmd .pkit-cmd-table th { padding: 0.55rem 0.9rem; text-align: left; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-subtle); border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg-elev); z-index: 1; white-space: nowrap; }
+    .pkit-cmd .pkit-cmd-table td { padding: 0.5rem 0.9rem; border-bottom: 1px solid var(--border); color: var(--fg); vertical-align: top; }
+    .pkit-cmd .pkit-cmd-table tbody tr:last-child td { border-bottom: none; }
+    .pkit-cmd .pkit-cmd-table tbody tr:hover td { background: var(--accent-soft); }
+    .pkit-cmd .pkit-cmd-table .pkit-cmd-name { font-family: var(--mono); font-weight: 700; white-space: nowrap; color: var(--accent); }
+    .pkit-cmd .pkit-cmd-table .pkit-cmd-args { font-family: var(--mono); font-size: 0.78rem; color: var(--fg-muted); white-space: nowrap; }
+    .pkit-cmd .pkit-cmd-table .pkit-cmd-desc { max-width: 400px; line-height: 1.45; }
+    .pkit-cmd .pkit-cmd-empty { padding: 1.5rem; text-align: center; color: var(--fg-subtle); font-style: italic; }
+  </style>
+
+  <div class="pkit-cmd-toolbar">
+    <input type="search" class="pkit-cmd-filter" placeholder="Filter commands…" aria-label="Filter slash commands">
+    <span class="pkit-cmd-count" data-cmd-count></span>
+  </div>
+  <div class="pkit-cmd-wrap">
+    <table class="pkit-cmd-table" aria-label="pipelinekit slash commands">
+      <thead>
+        <tr>
+          <th>Command</th>
+          <th>Args</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody data-cmd-tbody></tbody>
+    </table>
+    <div class="pkit-cmd-empty" data-cmd-empty style="display:none">No commands match your filter.</div>
+  </div>
+
+  <script type="application/json" id="cmd-data">
+[
+  {"name":"/analyze","args":"(none)","default":"(none)","description":"Analyze an existing codebase or defined task. Asks 2 focused questions, then produces docs/analysis.md."},
+  {"name":"/annotate-plan","args":"(none)","default":"(none)","description":"Process inline annotations in the plan file. Address all notes without implementing. Iterate until clean."},
+  {"name":"/ascii-diagram","args":"(none)","default":"(none)","description":"Generate an ASCII architecture diagram for the current project or a described system."},
+  {"name":"/azure-ops","args":"(none)","default":"(none)","description":"Azure CLI wrapper for common ops — resource listing, deploy (App Service / Container Apps / Function Apps), log tail."},
+  {"name":"/build-hook","args":"(none)","default":"(none)","description":"Generate a Claude Code hook from a description. Creates the shell script and settings.json entry."},
+  {"name":"/caveman-mode","args":"(none)","default":"wenyan-ultra","description":"Toggle response verbosity (caveman-style terse fragments vs normal English)."},
+  {"name":"/code-health","args":"[--scope] [--quick] [--threshold]","default":"full scan","description":"Comprehensive codebase health assessment with quality metrics, test coverage, documentation, and maintainability."},
+  {"name":"/commit-conventions","args":"(none)","default":"(none)","description":"Conventional commit format, message rules, and attribution policy."},
+  {"name":"/context-dump","args":"(none)","default":"(none)","description":"Save current session context to docs/context-dump.md for handoff or resumption."},
+  {"name":"/create-plan","args":"(none)","default":"(none)","description":"Generate docs/plan.md AND docs/prompts.md together. Initializes or amends docs/progress.md."},
+  {"name":"/dependency-auditor","args":"(none)","default":"(none)","description":"Check dependencies for known vulnerabilities using npm audit, pip-audit, etc."},
+  {"name":"/deploy-target","args":"<provider>","default":"(none)","description":"Set the active session deployment target (vercel, railway, render, digitalocean, or none)."},
+  {"name":"/digitalocean-ops","args":"(none)","default":"(none)","description":"Deploy and verify DigitalOcean App Platform apps when the charter targets digitalocean."},
+  {"name":"/docs-writer","args":"(none)","default":"(none)","description":"Documentation skill — renders markdown to rich, interactive, self-contained HTML for documentation/."},
+  {"name":"/document-release","args":"[--since <sha>]","default":"latest merge","description":"Update application documentation in documentation/ after a release."},
+  {"name":"/dotnet-conventions","args":"(none)","default":"(none)","description":".NET architecture, DI, data access, and testing conventions. Loaded for C#/.NET files."},
+  {"name":"/expo","args":"(none)","default":"(none)","description":"Expo developer workflow — managed vs. bare workflow, EAS Build, EAS Update (OTA), dev-client, Expo Router."},
+  {"name":"/financial-data-analyst","args":"(none)","default":"(none)","description":"Automatically analyzes financial and trading data to calculate performance metrics and risk statistics."},
+  {"name":"/fix-issue","args":"(none)","default":"(none)","description":"Fix a GitHub issue by number. Reads the issue, implements a fix with TDD, and commits."},
+  {"name":"/handoff-create","args":"(none)","default":"(none)","description":"Analyze the current conversation and create a handoff document for continuing work in a fresh context."},
+  {"name":"/implement-plan","args":"[--no-parallel]","default":"parallel","description":"Execute all remaining tasks from docs/progress.md with verification after each."},
+  {"name":"/incident","args":"(none)","default":"(none)","description":"Triage a failing post-merge verification gate using @incident-responder."},
+  {"name":"/ios","args":"(none)","default":"(none)","description":"Xcode + Anthropic Claude Agent SDK integration — project setup, Agent SDK API surface, simulator integration."},
+  {"name":"/landing-report","args":"(none)","default":"(none)","description":"Pre-push version-slot collision detector. Compares VERSION against existing git tags."},
+  {"name":"/learn","args":"(none)","default":"(none)","description":"Read interface for pipelinekit's per-project learnings journal."},
+  {"name":"/new-branch","args":"(none)","default":"(none)","description":"Create a conventional feature branch from main/master."},
+  {"name":"/persona","args":"<name>","default":"(none)","description":"Set the active session persona (devops, growth-marketer, solo-founder, startup-cto, or none)."},
+  {"name":"/pipeline","args":"[features.md] [--no-charter] [--dry-run] [--max-usd N] [--max-turns N]","default":"Charter mode","description":"Autonomous pipeline orchestrator. Processes a feature list through the full workflow."},
+  {"name":"/playwright","args":"(none)","default":"(none)","description":"Native Python browser automation using Playwright for navigation, interaction, screenshots."},
+  {"name":"/post-merge","args":"(none)","default":"(none)","description":"Clean up after PR merge. Switches to main, pulls latest, deletes merged feature branch."},
+  {"name":"/ppr","args":"(none)","default":"(none)","description":"Push + PR. Push committed changes to origin and open a pull request."},
+  {"name":"/railway-ops","args":"(none)","default":"(none)","description":"Deploy and verify Railway projects when the charter targets railway."},
+  {"name":"/render-ops","args":"(none)","default":"(none)","description":"Deploy and verify Render services when the charter targets render."},
+  {"name":"/research","args":"(none)","default":"(none)","description":"Karpathy autoresearch loop — hypothesize, mutate one file, run benchmark, keep-or-reset, append TSV row."},
+  {"name":"/review","args":"[--scope] [--health] [--force] [--teams] [--design-pass]","default":"full diff","description":"Multi-agent parallel review. Scales from 2 agents (small diffs) to 6-agent teams (large diffs)."},
+  {"name":"/secret-scanner","args":"(none)","default":"(none)","description":"Detect exposed secrets, API keys, credentials, and tokens in code."},
+  {"name":"/security-conventions","args":"(none)","default":"(none)","description":"ASP.NET Core security conventions — anti-forgery, authorization, secret storage, parameterized queries, HTTPS."},
+  {"name":"/simplify","args":"(none)","default":"(none)","description":"Post-green reductive refactor: remove unused helpers, dead branches, over-generalized abstractions."},
+  {"name":"/test-hooks","args":"(none)","default":"(none)","description":"Run hook tests and summarize results. Auto-loads when working on files under .claude/hooks/."},
+  {"name":"/vercel-ops","args":"(none)","default":"(none)","description":"Vercel CLI wrapper for common ops — project listing, deploy (preview / production), log tail."}
+]
+  </script>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  document.querySelectorAll('.pkit-cmd[data-snippet-mount="command-cheatsheet"]').forEach(function(root) {
+    if (root.dataset.pkitInit) return;
+    root.dataset.pkitInit = '1';
+
+    var filterEl = root.querySelector('.pkit-cmd-filter');
+    var tbody = root.querySelector('[data-cmd-tbody]');
+    var countEl = root.querySelector('[data-cmd-count]');
+    var emptyEl = root.querySelector('[data-cmd-empty]');
+    var dataEl = root.querySelector('#cmd-data');
+    if (!dataEl || !tbody) return;
+
+    var commands = JSON.parse(dataEl.textContent);
+    var rows = [];
+    var debounceTimer = null;
+
+    commands.forEach(function(cmd) {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td class="pkit-cmd-name">' + cmd.name + '</td>' +
+        '<td class="pkit-cmd-args">' + (cmd.args || '(none)') + '</td>' +
+        '<td class="pkit-cmd-desc">' + cmd.description + '</td>';
+      tr.dataset.searchText = (cmd.name + ' ' + (cmd.args || '') + ' ' + cmd.description).toLowerCase();
+      tbody.appendChild(tr);
+      rows.push(tr);
+    });
+
+    function updateCount(visible) {
+      if (countEl) countEl.textContent = visible + ' / ' + rows.length;
+    }
+
+    function applyFilter(q) {
+      var lq = q.toLowerCase();
+      var visible = 0;
+      rows.forEach(function(tr) {
+        var show = !lq || tr.dataset.searchText.indexOf(lq) !== -1;
+        tr.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+      if (emptyEl) emptyEl.style.display = visible === 0 ? 'block' : 'none';
+      updateCount(visible);
+    }
+
+    filterEl && filterEl.addEventListener('input', function() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(function() {
+        applyFilter(filterEl.value);
+      }, 120);
+    });
+
+    applyFilter('');
+  });
+})();
+</script>
+
+
 <h2 id="invocation">Invocation</h2>
 <div class="codehilite"><pre><span></span><code>/pipeline                  # uses docs/features.md in current project
 /pipeline path/to/features.md
@@ -1016,6 +1165,189 @@ footer {
 <li><strong>Path A / B / C</strong> — A: merge clean; B: fix findings (≤5 cycles); C: replan</li>
 </ol>
 <p>State persists in <code>docs/pipeline-state.md</code> per run. Resume by re-invoking <code>/pipeline</code>.</p>
+<h2 id="path-routing">Path routing</h2>
+<p>After review completes, the orchestrator selects one of five paths based on the finding set:</p>
+<!-- usage: <div data-snippet="path-routing-diagram"></div> -->
+<div class="pkit-prd" data-snippet-mount="path-routing-diagram">
+  <style>
+    .pkit-prd { margin: 1.5rem 0; padding: 1.5rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); position: relative; }
+    .pkit-prd svg { width: 100%; max-width: 720px; display: block; margin: 0 auto; height: auto; }
+    .pkit-prd .pkit-prd-node { cursor: pointer; }
+    .pkit-prd .pkit-prd-node rect { fill: var(--bg); stroke: var(--border-strong); stroke-width: 1.5; transition: stroke 150ms ease, fill 150ms ease; }
+    .pkit-prd .pkit-prd-node:hover rect, .pkit-prd .pkit-prd-node:focus rect { stroke: var(--accent); fill: var(--accent-soft); outline: none; }
+    .pkit-prd .pkit-prd-node text { fill: var(--fg); font-family: var(--sans); font-size: 12px; font-weight: 600; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+    .pkit-prd .pkit-prd-node .pkit-prd-badge { fill: var(--accent); font-family: var(--mono); font-size: 10px; font-weight: 700; }
+    .pkit-prd .pkit-prd-entry rect { stroke: var(--border-strong); stroke-width: 2; }
+    .pkit-prd .pkit-prd-edge { fill: none; stroke: var(--border-strong); stroke-width: 1.5; stroke-dasharray: 600; stroke-dashoffset: 600; animation: pkit-prd-draw 600ms ease forwards; }
+    .pkit-prd .pkit-prd-edge-a { stroke: var(--accent); }
+    .pkit-prd .pkit-prd-arrowhead { fill: var(--border-strong); }
+    .pkit-prd .pkit-prd-arrowhead-a { fill: var(--accent); }
+    .pkit-prd .pkit-prd-edge-label { font-family: var(--mono); font-size: 9px; fill: var(--fg-subtle); text-anchor: middle; }
+    .pkit-prd .pkit-prd-tooltip { position: absolute; background: var(--bg); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 0.4rem 0.6rem; font-family: var(--sans); font-size: 0.8rem; color: var(--fg); max-width: 280px; pointer-events: none; z-index: 10; display: none; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .pkit-prd .pkit-prd-hint { text-align: center; font-family: var(--sans); font-size: 0.78rem; color: var(--fg-subtle); margin-top: 0.6rem; }
+    @keyframes pkit-prd-draw { to { stroke-dashoffset: 0; } }
+    @media (prefers-reduced-motion: reduce) {
+      .pkit-prd * { animation: none !important; transition: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 720 420" aria-label="Pipeline path routing decision tree">
+    <defs>
+      <marker id="prd-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L8,3 z" class="pkit-prd-arrowhead"/>
+      </marker>
+      <marker id="prd-arrow-a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L8,3 z" class="pkit-prd-arrowhead-a"/>
+      </marker>
+    </defs>
+
+    <!-- Entry node -->
+    <g class="pkit-prd-node pkit-prd-entry" tabindex="0" role="img" aria-label="review() returns findings — starting point">
+      <rect x="220" y="10" width="280" height="44" rx="6"/>
+      <text x="360" y="32">review() returns findings</text>
+    </g>
+
+    <!-- Edges from entry to paths -->
+    <path class="pkit-prd-edge" d="M360,54 L360,80 L90,80 L90,110" marker-end="url(#prd-arrow)" style="animation-delay:0ms"/>
+    <path class="pkit-prd-edge" d="M360,54 L360,80 L230,80 L230,110" marker-end="url(#prd-arrow)" style="animation-delay:60ms"/>
+    <path class="pkit-prd-edge pkit-prd-edge-a" d="M360,54 L360,80 L370,80 L370,110" marker-end="url(#prd-arrow-a)" style="animation-delay:120ms"/>
+    <path class="pkit-prd-edge" d="M360,54 L360,80 L510,80 L510,110" marker-end="url(#prd-arrow)" style="animation-delay:180ms"/>
+    <path class="pkit-prd-edge" d="M360,54 L360,80 L640,80 L640,110" marker-end="url(#prd-arrow)" style="animation-delay:240ms"/>
+
+    <!-- Edge labels -->
+    <text class="pkit-prd-edge-label" x="90" y="96">0B+nits</text>
+    <text class="pkit-prd-edge-label" x="230" y="96">0B+≤3NB</text>
+    <text class="pkit-prd-edge-label" x="370" y="96">0B+0NB</text>
+    <text class="pkit-prd-edge-label" x="510" y="96">blocking</text>
+    <text class="pkit-prd-edge-label" x="640" y="96">B×5+</text>
+
+    <!-- Path N node -->
+    <g class="pkit-prd-node" tabindex="0" role="button" aria-label="Path N — inline Edit-tool nit fix" data-anchor="path-n" data-tooltip="0 blocking + nits only (≤2 cycles). Applies inline Edit-tool changes. Max 2 cycles before escalating to Path B.">
+      <rect x="20" y="110" width="140" height="60" rx="6"/>
+      <text x="90" y="132">Path N</text>
+      <text class="pkit-prd-badge" x="90" y="150">inline Edit</text>
+    </g>
+
+    <!-- Path M node -->
+    <g class="pkit-prd-node" tabindex="0" role="button" aria-label="Path M — inline mini-fix" data-anchor="path-m" data-tooltip="0 blocking + ≤3 mechanical non-blocking findings. Each ≤5 lines / 1 file. Inline Edit-tool. Max 2 cycles.">
+      <rect x="165" y="110" width="130" height="60" rx="6"/>
+      <text x="230" y="132">Path M</text>
+      <text class="pkit-prd-badge" x="230" y="150">inline mini-fix</text>
+    </g>
+
+    <!-- Path A node (accent color) -->
+    <g class="pkit-prd-node" tabindex="0" role="button" aria-label="Path A — clean merge" data-anchor="path-a" data-tooltip="0 blocking + 0 non-blocking findings. Immediate clean merge to main.">
+      <rect x="305" y="110" width="130" height="60" rx="6" style="stroke: var(--accent);"/>
+      <text x="370" y="132" style="fill: var(--accent);">Path A</text>
+      <text class="pkit-prd-badge" x="370" y="150">clean merge</text>
+    </g>
+
+    <!-- Path B node -->
+    <g class="pkit-prd-node" tabindex="0" role="button" aria-label="Path B — re-implement subagent" data-anchor="path-b" data-tooltip="Blocking findings present. Dispatches tdd-test-writer + tdd-implementer subagents. Max 5 cycles before Path C escalation.">
+      <rect x="445" y="110" width="130" height="60" rx="6"/>
+      <text x="510" y="132">Path B</text>
+      <text class="pkit-prd-badge" x="510" y="150">re-implement</text>
+    </g>
+
+    <!-- Path C node -->
+    <g class="pkit-prd-node" tabindex="0" role="button" aria-label="Path C — re-plan" data-anchor="path-c" data-tooltip="Path B exhausted (5 cycles). Escalates to re-plan via /create-plan. Max 1 Path C iteration per feature.">
+      <rect x="575" y="110" width="130" height="60" rx="6"/>
+      <text x="640" y="132">Path C</text>
+      <text class="pkit-prd-badge" x="640" y="150">re-plan (max 1)</text>
+    </g>
+
+    <!-- Path B → Path C escalation edge -->
+    <path class="pkit-prd-edge" d="M575,140 L562,140" marker-end="url(#prd-arrow)" style="animation-delay:300ms"/>
+
+    <!-- Outcome labels -->
+    <text class="pkit-prd-edge-label" x="90" y="196">≤2 cycles</text>
+    <text class="pkit-prd-edge-label" x="230" y="196">≤2 cycles</text>
+    <text class="pkit-prd-edge-label" x="370" y="196">merge →</text>
+    <text class="pkit-prd-edge-label" x="510" y="196">≤5 cycles</text>
+    <text class="pkit-prd-edge-label" x="640" y="196">max 1</text>
+
+    <!-- Down arrows to outcomes -->
+    <path class="pkit-prd-edge" d="M90,170 L90,200" marker-end="url(#prd-arrow)" style="animation-delay:360ms"/>
+    <path class="pkit-prd-edge" d="M230,170 L230,200" marker-end="url(#prd-arrow)" style="animation-delay:400ms"/>
+    <path class="pkit-prd-edge pkit-prd-edge-a" d="M370,170 L370,200" marker-end="url(#prd-arrow-a)" style="animation-delay:440ms"/>
+    <path class="pkit-prd-edge" d="M510,170 L510,200" marker-end="url(#prd-arrow)" style="animation-delay:480ms"/>
+    <path class="pkit-prd-edge" d="M640,170 L640,200" marker-end="url(#prd-arrow)" style="animation-delay:520ms"/>
+
+    <!-- Outcome boxes -->
+    <rect x="30" y="200" width="120" height="36" rx="4" fill="var(--bg)" stroke="var(--border)" stroke-width="1"/>
+    <text class="pkit-prd-edge-label" x="90" y="222" style="font-size:10px; fill:var(--fg-muted)">inline fix → re-review</text>
+
+    <rect x="170" y="200" width="120" height="36" rx="4" fill="var(--bg)" stroke="var(--border)" stroke-width="1"/>
+    <text class="pkit-prd-edge-label" x="230" y="222" style="font-size:10px; fill:var(--fg-muted)">inline fix → re-review</text>
+
+    <rect x="310" y="200" width="120" height="36" rx="4" fill="var(--bg)" stroke="var(--accent)" stroke-width="1.5"/>
+    <text class="pkit-prd-edge-label" x="370" y="222" style="font-size:10px; fill:var(--accent); font-weight:700">merge to main</text>
+
+    <rect x="450" y="200" width="120" height="36" rx="4" fill="var(--bg)" stroke="var(--border)" stroke-width="1"/>
+    <text class="pkit-prd-edge-label" x="510" y="222" style="font-size:10px; fill:var(--fg-muted)">implement → review</text>
+
+    <rect x="580" y="200" width="120" height="36" rx="4" fill="var(--bg)" stroke="var(--border)" stroke-width="1"/>
+    <text class="pkit-prd-edge-label" x="640" y="222" style="font-size:10px; fill:var(--fg-muted)">new plan → implement</text>
+  </svg>
+
+  <p class="pkit-prd-hint">Click any path node to jump to its documentation section.</p>
+  <div class="pkit-prd-tooltip" role="tooltip" id="prd-tooltip"></div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  document.querySelectorAll('.pkit-prd[data-snippet-mount="path-routing-diagram"]').forEach(function(root) {
+    if (root.dataset.pkitInit) return;
+    root.dataset.pkitInit = '1';
+
+    var tooltip = root.querySelector('.pkit-prd-tooltip');
+    var nodes = root.querySelectorAll('.pkit-prd-node[data-anchor]');
+
+    nodes.forEach(function(node) {
+      node.addEventListener('click', function() {
+        var anchor = node.dataset.anchor;
+        if (anchor) window.location.hash = anchor;
+      });
+
+      node.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          var anchor = node.dataset.anchor;
+          if (anchor) window.location.hash = anchor;
+        }
+      });
+
+      node.addEventListener('mouseenter', function(e) {
+        var text = node.dataset.tooltip;
+        if (!text || !tooltip) return;
+        tooltip.textContent = text;
+        tooltip.style.display = 'block';
+        var svgRect = root.getBoundingClientRect();
+        var nodeRect = node.getBoundingClientRect();
+        tooltip.style.left = (nodeRect.left - svgRect.left) + 'px';
+        tooltip.style.top = (nodeRect.bottom - svgRect.top + 6) + 'px';
+      });
+
+      node.addEventListener('mouseleave', function() {
+        if (tooltip) tooltip.style.display = 'none';
+      });
+    });
+  });
+})();
+</script>
+
+
+<h3 id="path-a-path-a">Path A</h3>
+<p>Zero blocking + zero non-blocking findings. Immediate clean merge to <code>main</code>. The happy path.</p>
+<h3 id="path-b-path-b">Path B</h3>
+<p>Blocking findings present. Dispatches <code>tdd-test-writer</code> + <code>tdd-implementer</code> subagents to fix findings and re-review. Maximum 5 cycles before escalating to Path C.</p>
+<h3 id="path-c-path-c">Path C</h3>
+<p>Path B exhausted (5 cycles). Escalates to re-plan via <code>/create-plan</code>. Maximum 1 Path C iteration per feature. If review still fails after re-plan + re-implement, the pipeline stops and reports.</p>
+<h3 id="path-m-path-m">Path M</h3>
+<p>Zero blocking + ≤3 mechanical non-blocking findings (each ≤5 lines, 1 file). Applies inline Edit-tool changes without spawning subagents. Maximum 2 cycles.</p>
+<h3 id="path-n-path-n">Path N</h3>
+<p>Zero blocking + nits only (style/naming, ≤2 cycles). Applies inline Edit-tool changes. Falls through to Path B subagent dispatch on overflow.</p>
 <h2 id="charter-mode">Charter Mode</h2>
 <p>Charter Mode is the default-on front-loaded alignment phase added in Step 0 of <code>/pipeline</code>. Before the pipeline processes features, it asks the user a structured set of questions to produce <code>docs/charter.md</code>. Downstream phases (<code>/analyze</code>, <code>/create-plan</code>, <code>/implement-plan</code>, <code>/review</code>, <code>/ppr</code>) read this charter to scope their work.</p>
 <h3 id="when-it-runs">When it runs</h3>

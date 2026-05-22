@@ -2,6 +2,8 @@
 
 A tutorial-driven walkthrough. You'll install pipelinekit, run your first autonomous `/pipeline`, then work through three real-world scenarios — a TDD feature, a Vercel deploy, and a meta-walkthrough of how pipelinekit built one of its own features.
 
+<div data-snippet="command-cheatsheet"></div>
+
 ## What pipelinekit gives you
 
 > [INFO] **pipelinekit** is an autonomous orchestrator for Claude Code. You write a one-line feature description; it ships a merged PR. Charter Discovery → Analyze → Plan → Implement → Review → Merge, all driven by multi-agent dispatch with no human in the loop unless you opt in.
