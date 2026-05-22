@@ -4,7 +4,9 @@ description: Deploy and verify DigitalOcean App Platform apps when the charter t
 allowed-tools:
   - Bash(doctl *)
   - Bash(curl --fail *)
-paths: documentation/deployment-digitalocean.html, claude/skills/digitalocean-ops/**
+paths:
+  - documentation/deployment-digitalocean.html
+  - claude/skills/digitalocean-ops/**
 ---
 
 # DigitalOcean App Platform Operations Skill
