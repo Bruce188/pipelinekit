@@ -7,7 +7,7 @@ argument-hint: <name>
 
 # /persona — Switch the active session persona
 
-Personas are **advisory only** — they bias emphasis in `/analyze`. Charter Discovery (`/pipeline` Step 0) does not currently re-read persona memory; that gap is tracked as a follow-up. Explicit user instructions always override persona emphasis. Session-scoped via `docs/active-persona` (cleared via `/persona none`). Default: no persona active (skills proceed unchanged).
+Personas are **advisory only** — they bias emphasis in `/analyze` and in `/pipeline` Step 0 Charter Discovery. Explicit user instructions always override persona emphasis. Session-scoped via `docs/active-persona` (cleared via `/persona none`). Default: no persona active (skills proceed unchanged).
 
 ## Available personas
 
