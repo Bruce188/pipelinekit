@@ -116,7 +116,6 @@ def check_file(path: Path, repo_root: Path) -> Result:
         return Result(rel, 0, [], exempt=True, exempt_reason="(default-exempt)")
 
     matched: list[str] = []
-    snippet_any_only = False
     for label, pattern in RICHNESS_PATTERNS:
         if re.search(pattern, content):
             matched.append(label)
