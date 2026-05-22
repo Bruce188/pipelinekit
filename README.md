@@ -28,7 +28,7 @@ Or download just the `documentation/` folder as a zip and open `index.html` — 
 - **5 cloud deployment providers** (Azure, Vercel, Railway, Render, DigitalOcean) on a shared `deployment-engineer.md` base. Your charter selects one; /pipeline routes deployment automatically.
 - **Sandbox-isolated execution** — every subprocess in a podman/docker/worktree sandbox with auto-detected provider chain.
 - **TDD doctrine baked in** — `dev`-class features auto-route through `tdd-test-writer` → `tdd-implementer` for red/green pairing, enforced by `tdd-red-phase-gate.sh` hook.
-- **Multi-agent /review** — 2–6 specialized review agents (test-engineer, security-auditor, karpathy-reviewer, spec-tracer, code-reviewer) with charter-aware finding classification + Path A/B/M/N routing.
+- **Multi-agent /review** — 2–6 specialized review agents (test-engineer, security-auditor, symbol-verifier, spec-tracer, code-reviewer) with charter-aware finding classification + Path A/B/M/N routing.
 - **Research loop** — Karpathy-style autoresearch via `/research`: hypothesize → mutate → benchmark → keep-or-reset, with optional auto-publish to a branch via `/ppr --research`.
 - **GitHub-native** — `--issues` mode pulls features from open issues; PR bodies auto-include `Closes #N`; squash-merge via `gh pr merge --auto --delete-branch`.
 
@@ -123,7 +123,7 @@ Override with `**Type:** dev|non-dev` per-feature.
 |-------|----------|
 | **Rules** | `claude/CLAUDE.md.template`, `claude/rules/workflow.md`, `claude/rules/agents-worktrees.md` |
 | **Skills** (42) | `pipeline`, `analyze`, `create-plan`, `implement-plan`, `review`, `ppr`, `research`, `tdd`, `incident`, `landing-report`, `learn`, `azure-ops`, `vercel-ops`, `railway-ops`, `render-ops`, `digitalocean-ops`, `expo`, `ios`, `docs-writer`, `document-release`, `claude-md-enhancer`, `write-a-skill`, `zoom-out`, `simplify`, `caveman-mode`, ... |
-| **Agents** (23) | `architect`, `code-reviewer`, `security-auditor`, `karpathy-reviewer`, `spec-tracer`, `tdd-test-writer`, `tdd-implementer`, `mobile-dev`, `deployment-engineer` (base), `azure-deployment-engineer`, `vercel-deployment-engineer`, `railway-deployment-engineer`, `render-deployment-engineer`, `digitalocean-deployment-engineer`, `incident-responder`, `claude-md-guardian`, ... |
+| **Agents** (23) | `architect`, `code-reviewer`, `security-auditor`, `symbol-verifier`, `spec-tracer`, `tdd-test-writer`, `tdd-implementer`, `mobile-dev`, `deployment-engineer` (base), `azure-deployment-engineer`, `vercel-deployment-engineer`, `railway-deployment-engineer`, `render-deployment-engineer`, `digitalocean-deployment-engineer`, `incident-responder`, `claude-md-guardian`, ... |
 | **Hooks** (24) | `validate-commit-msg`, `strip-ai-attribution`, `block-push-main`, `block-stage-sensitive`, `block-dangerous-commands`, `tdd-order-check`, `tdd-red-phase-gate`, `claude-md-guard`, `env-scrub`, `notify-emit`, `cost_log`, `context-warning`, `verify-worktree-commit`, ... |
 | **MCP** | `context7`, `serena`, `sequential-thinking`, optional `local-rag` + `claude-context` |
 | **LSP** | pyright, typescript, csharp, gopls, rust-analyzer |
@@ -243,7 +243,7 @@ Pipelinekit stands on the shoulders of several upstream projects, plus inspirati
 
 **Inspirational-but-not-vendored:**
 
-- **[Andrej Karpathy](https://karpathy.ai/)** — the autoresearch-loop pattern (hypothesize → mutate one file → benchmark → keep-or-reset → append row → repeat) is the design behind `/research` and the namesake of the `karpathy-reviewer` anti-hallucination agent (Agent 6 of `/review` on medium+ diffs).
+- **[Andrej Karpathy](https://karpathy.ai/)** — the autoresearch-loop pattern (hypothesize → mutate one file → benchmark → keep-or-reset → append row → repeat) is the design behind `/research`. The `symbol-verifier` anti-hallucination agent (Agent 6 of `/review` on medium+ diffs) is inspired by the same first-principles verification ethos.
 - **[Anthropic](https://www.anthropic.com/)** — the entire runtime: Claude Code, the Agent SDK, multi-agent dispatch, Skills, Hooks, MCP, `PushNotification`, and the underlying Claude models that every pipelinekit phase calls. Pipelinekit is a workflow overlay on Claude Code — without Anthropic's platform, there's no pipelinekit.
 
 **Vendored upstreams** (full table with pinned SHAs + licenses + scope + re-vendor procedures at [documentation/credits.html](documentation/credits.html)):

@@ -12,7 +12,7 @@ The 30-second pitch:
 - **5 cloud deployment providers** (Azure, Vercel, Railway, Render, DigitalOcean) on a shared `deployment-engineer.md` base — your charter selects one, /pipeline routes deployment automatically.
 - **Sandbox-isolated execution** — every subprocess in a podman/docker/worktree sandbox with auto-detected provider chain.
 - **TDD doctrine baked in** — `dev`-class features auto-route through `tdd-test-writer` → `tdd-implementer` for red/green pairing.
-- **Multi-agent /review** — 2-6 specialized review agents (test-engineer, security-auditor, karpathy-reviewer, spec-tracer, code-reviewer) with charter-aware finding classification + Path A/B/M/N routing.
+- **Multi-agent /review** — 2-6 specialized review agents (test-engineer, security-auditor, symbol-verifier, spec-tracer, code-reviewer) with charter-aware finding classification + Path A/B/M/N routing.
 - **No CDN, no remote assets** — every documentation page you're reading is a single self-contained HTML file. Clone the repo, open `documentation/index.html` directly via `file://`, no server needed.
 
 ## Prerequisites

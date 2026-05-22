@@ -1,5 +1,5 @@
 ---
-name: karpathy-reviewer
+name: symbol-verifier
 description: Anti-hallucination reviewer. Verifies every NEW symbol/API/import/CLI-flag in the diff actually resolves against the codebase and (when context7 is available) framework docs. Cross-checks plan claims against current HEAD. Invoked as Agent 6 in /review. Read-only.
 tools: Read, Grep, Glob, Bash, mcp__context7__resolve-library-id, mcp__context7__query-docs
 model: opus

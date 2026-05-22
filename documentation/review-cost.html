@@ -942,7 +942,7 @@ footer {
 <td>1.0×</td>
 </tr>
 <tr>
-<td>karpathy-reviewer</td>
+<td>symbol-verifier</td>
 <td>opus</td>
 <td>1.0×</td>
 </tr>
@@ -963,9 +963,9 @@ footer {
 </tr>
 </tbody>
 </table>
-<p>Sum: ~3.55× a single opus call. Adding karpathy-reviewer (Agent 6) moved this from ~2.55× to ~3.55× — a ~20% increase over the prior 5-agent lineup. Paid on every medium- or large-tier <code>/review</code>; no opt-in flag.</p>
+<p>Sum: ~3.55× a single opus call. Adding symbol-verifier (Agent 6) moved this from ~2.55× to ~3.55× — a ~20% increase over the prior 5-agent lineup. Paid on every medium- or large-tier <code>/review</code>; no opt-in flag.</p>
 <h2 id="small-tier-exclusion">Small-tier exclusion</h2>
-<p>Small-tier diffs (&lt; 500 lines, per <code>SMALL_DIFF_THRESHOLD</code> in <code>claude/skills/review/SKILL.md</code>) still spawn only 2 agents: <code>code-reviewer</code> + <code>spec-tracer</code>. karpathy-reviewer is deliberately excluded from small tier — the cost vs. detection trade-off is unfavourable for sub-500-line diffs. A small diff that imports a hallucinated symbol receives only code-reviewer + spec-tracer review; this is a known trade-off. Future-iteration mitigations: drop threshold to 250 lines, or run karpathy in symbol-only degraded mode on small tier.</p>
+<p>Small-tier diffs (&lt; 500 lines, per <code>SMALL_DIFF_THRESHOLD</code> in <code>claude/skills/review/SKILL.md</code>) still spawn only 2 agents: <code>code-reviewer</code> + <code>spec-tracer</code>. symbol-verifier is deliberately excluded from small tier — the cost vs. detection trade-off is unfavourable for sub-500-line diffs. A small diff that imports a hallucinated symbol receives only code-reviewer + spec-tracer review; this is a known trade-off. Future-iteration mitigations: drop threshold to 250 lines, or run karpathy in symbol-only degraded mode on small tier.</p>
 <h2 id="review-md-override">REVIEW.md override</h2>
 <p>A project-root <code>REVIEW.md</code> (or <code>.claude/REVIEW.md</code>) with <code>review-model: sonnet</code> drops all six agents to sonnet, cutting cost ~70% at the price of detection rate on subtle bugs. See <code>claude/skills/review/SKILL.md</code> Step 3a. Valid values: <code>sonnet</code>, <code>opus</code>, <code>haiku</code>. Applies uniformly to all six reviewers.</p>
 <h2 id="pipeline-cost-implication">Pipeline cost implication</h2>

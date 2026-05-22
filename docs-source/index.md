@@ -50,7 +50,7 @@ The complete user-facing documentation for pipelinekit \(autonomous `/pipeline` 
 
 Pipelinekit is MIT-licensed and stands on the shoulders of several upstream projects, plus inspiration from individual researchers and the Claude platform itself.
 
-- **[Andrej Karpathy](https://karpathy.ai/)** — the autoresearch-loop pattern (`/research`) and the namesake of the `karpathy-reviewer` anti-hallucination agent.
+- **[Andrej Karpathy](https://karpathy.ai/)** — the autoresearch-loop pattern (`/research`). The `symbol-verifier` anti-hallucination agent is inspired by the same first-principles verification ethos.
 - **[Anthropic](https://www.anthropic.com/)** — the entire runtime: Claude Code, the Agent SDK, multi-agent dispatch, Skills, Hooks, MCP, `PushNotification`, and the underlying Claude models that every pipelinekit phase calls.
 
 See the **[Credits page](credits.html)** for the full table of vendored upstreams (with pinned SHAs, licenses, scope, and re-vendor procedures) — wshobson/agents, alirezarezvani/{claude-skills, ClaudeForge}, mattpocock/skills.
