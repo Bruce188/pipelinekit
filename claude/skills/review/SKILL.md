@@ -419,11 +419,11 @@ If `--teams` is NOT present AND `teams_mode` is not already true: set teams_mode
 - **If `review_tier=small`:** Spawn only 2 agents:
   - Agent 1 (code-reviewer) — from `agent-prompts.md` § "Agent 1 -- code-reviewer"
   - Agent 5 (spec-tracer) — from `~/.claude/agents/spec-tracer.md`
-  Skip security-auditor, test-engineer, performance-tuner, and karpathy-reviewer. These agents add overhead that exceeds their value on small diffs. Note: karpathy-reviewer is deliberately excluded from small tier — see `documentation/review-cost.md` for the cost/detection trade-off rationale.
+  Skip security-auditor, test-engineer, performance-tuner, and symbol-verifier. These agents add overhead that exceeds their value on small diffs. Note: symbol-verifier is deliberately excluded from small tier — see `documentation/review-cost.md` for the cost/detection trade-off rationale.
 
-- **If `review_tier=medium`:** Spawn all 6 agents as independent agents (the 5 existing reviewers + karpathy-reviewer). No changes to existing logic.
+- **If `review_tier=medium`:** Spawn all 6 agents as independent agents (the 5 existing reviewers + symbol-verifier). No changes to existing logic.
 
-- **If `review_tier=large` (teams_mode=true):** Spawn all 6 as named teammates (the 5 existing reviewers + karpathy-reviewer). No changes to existing teams logic.
+- **If `review_tier=large` (teams_mode=true):** Spawn all 6 as named teammates (the 5 existing reviewers + symbol-verifier). No changes to existing teams logic.
 
 All selected agents receive the path to $DIFF_FILE (from Step 4) and objective. Launch all selected agents in a single message using the Agent tool (parallel tool calls — up to 6 in medium / large tier). Each agent reads the diff via the Read tool. This avoids duplicating the full diff across agent prompts (~75% token savings).
 
@@ -434,12 +434,12 @@ If an agent fails to return structured output or times out, note that agent as "
 **If teams_mode=true:**
 
 Instead of 5 independent Agent calls, spawn all 5 as named teammates that communicate via SendMessage:
-1. Spawn each agent using the Agent tool with a descriptive name ('code-reviewer', 'security-auditor', 'test-engineer', 'performance-tuner', 'spec-tracer', 'karpathy-reviewer') so they can communicate via SendMessage during execution
+1. Spawn each agent using the Agent tool with a descriptive name ('code-reviewer', 'security-auditor', 'test-engineer', 'performance-tuner', 'spec-tracer', 'symbol-verifier') so they can communicate via SendMessage during execution
 2. Each agent receives the same prompt as the independent path (below), PLUS this additional instruction at the top:
 
    > You are part of a review team. As you find issues, share them with your teammates using SendMessage. When you see a teammate's finding that relates to your domain, note the correlation. If a teammate's finding changes your assessment of something, update your analysis.
    >
-   > Your teammates: code-reviewer, security-auditor, test-engineer, performance-tuner, spec-tracer, karpathy-reviewer.
+   > Your teammates: code-reviewer, security-auditor, test-engineer, performance-tuner, spec-tracer, symbol-verifier.
    > Communicate findings as you go — don't wait until you're done.
    >
    > For each finding, include an additional field:
@@ -460,7 +460,7 @@ Load the relevant block when spawning each agent.
 - **Agent 3 -- test-engineer:** see `agent-prompts.md` § "Agent 3 -- test-engineer"
 - **Agent 4 -- performance-tuner:** see `agent-prompts.md` § "Agent 4 -- performance-tuner"
 - **Agent 5 -- spec-tracer:** prompt defined in `~/.claude/agents/spec-tracer.md`
-- **Agent 6 -- karpathy-reviewer:** prompt defined in `~/.claude/agents/karpathy-reviewer.md` (self-contained, like spec-tracer)
+- **Agent 6 -- symbol-verifier:** prompt defined in `~/.claude/agents/symbol-verifier.md` (self-contained, like spec-tracer)
 
 **Default model mapping:** Absent a `REVIEW.md` `review-model:` override (see Step 3a), each reviewer runs on the model declared in its agent-file frontmatter. Deep-reasoning reviewers run on opus; pattern-based reviewers drop to sonnet; spec comparison runs on haiku for cost.
 
@@ -471,7 +471,7 @@ Load the relevant block when spawning each agent.
 | test-engineer | sonnet | Pattern-based gap-finding that sonnet handles well |
 | performance-tuner | sonnet | Pattern-based bottleneck analysis |
 | spec-tracer | haiku | Structured diff-vs-objective comparison; ~20× cheaper |
-| karpathy-reviewer | opus | Symbol/API resolution requires deep reasoning; false positives are expensive to triage |
+| symbol-verifier | opus | Symbol/API resolution requires deep reasoning; false positives are expensive to triage |
 
 When `review-model:` is set in REVIEW.md it applies uniformly to all six agents and bypasses these per-agent defaults (see Step 3a for override semantics).
 

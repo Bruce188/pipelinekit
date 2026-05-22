@@ -101,7 +101,7 @@ AGENT_SECTION_MAP: dict[str, str] = {
     "test-engineer": "review",
     "performance-tuner": "review",
     "spec-tracer": "review",
-    "karpathy-reviewer": "review",
+    "symbol-verifier": "review",
     # tdd
     "tdd-test-writer": "dev",
     "tdd-implementer": "dev",

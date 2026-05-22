@@ -177,11 +177,6 @@
       <p class="pkit-akg-desc">Expert SRE incident responder specializing in rapid problem resolution, modern observability, and comprehensive incident management. Masters incident command, blameless post-mortems, error budget management, and system reliability patterns. Handles critical outages, communication strategies, and continuous improvement. Use IMMEDIATELY for production incidents or SRE practices.</p>
       <span class="pkit-akg-section-badge">ops</span>
     </div>
-    <div class="pkit-akg-card" data-agent-card data-section="review" data-name="karpathy-reviewer">
-      <span class="pkit-akg-name">karpathy-reviewer</span>
-      <p class="pkit-akg-desc">Anti-hallucination reviewer. Verifies every NEW symbol/API/import/CLI-flag in the diff actually resolves against the codebase and (when context7 is available) framework docs. Cross-checks plan claims against current HEAD. Invoked as Agent 6 in /review. Read-only.</p>
-      <span class="pkit-akg-section-badge">review</span>
-    </div>
     <div class="pkit-akg-card" data-agent-card data-section="mobile" data-name="mobile-dev">
       <span class="pkit-akg-name">mobile-dev</span>
       <p class="pkit-akg-desc">Expert mobile developer specializing in iOS (Swift/SwiftUI/UIKit), Android (Kotlin/Jetpack Compose), React Native, Expo, and Flutter. Designs cross-platform apps, integrates native modules, builds CI/CD pipelines, and ships to App Store &amp; Google Play. Use when building or maintaining mobile apps across any of Swift, Kotlin, React Native, Expo, or Flutter.</p>
@@ -215,6 +210,11 @@
     <div class="pkit-akg-card" data-agent-card data-section="review" data-name="spec-tracer">
       <span class="pkit-akg-name">spec-tracer</span>
       <p class="pkit-akg-desc">Verifies a diff implements the stated objective and acceptance criteria. Invoked as Agent 5 in /review for spec-compliance tracing. Read-only.</p>
+      <span class="pkit-akg-section-badge">review</span>
+    </div>
+    <div class="pkit-akg-card" data-agent-card data-section="review" data-name="symbol-verifier">
+      <span class="pkit-akg-name">symbol-verifier</span>
+      <p class="pkit-akg-desc">Anti-hallucination reviewer. Verifies every NEW symbol/API/import/CLI-flag in the diff actually resolves against the codebase and (when context7 is available) framework docs. Cross-checks plan claims against current HEAD. Invoked as Agent 6 in /review. Read-only.</p>
       <span class="pkit-akg-section-badge">review</span>
     </div>
     <div class="pkit-akg-card" data-agent-card data-section="dev" data-name="tdd-implementer">
@@ -293,11 +293,6 @@
     "section": "ops"
   },
   {
-    "name": "karpathy-reviewer",
-    "description": "Anti-hallucination reviewer. Verifies every NEW symbol/API/import/CLI-flag in the diff actually resolves against the codebase and (when context7 is available) framework docs. Cross-checks plan claims against current HEAD. Invoked as Agent 6 in /review. Read-only.",
-    "section": "review"
-  },
-  {
     "name": "mobile-dev",
     "description": "Expert mobile developer specializing in iOS (Swift/SwiftUI/UIKit), Android (Kotlin/Jetpack Compose), React Native, Expo, and Flutter. Designs cross-platform apps, integrates native modules, builds CI/CD pipelines, and ships to App Store & Google Play. Use when building or maintaining mobile apps across any of Swift, Kotlin, React Native, Expo, or Flutter.",
     "section": "mobile"
@@ -330,6 +325,11 @@
   {
     "name": "spec-tracer",
     "description": "Verifies a diff implements the stated objective and acceptance criteria. Invoked as Agent 5 in /review for spec-compliance tracing. Read-only.",
+    "section": "review"
+  },
+  {
+    "name": "symbol-verifier",
+    "description": "Anti-hallucination reviewer. Verifies every NEW symbol/API/import/CLI-flag in the diff actually resolves against the codebase and (when context7 is available) framework docs. Cross-checks plan claims against current HEAD. Invoked as Agent 6 in /review. Read-only.",
     "section": "review"
   },
   {

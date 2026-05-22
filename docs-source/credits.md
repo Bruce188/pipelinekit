@@ -32,7 +32,7 @@ These projects and people influenced pipelinekit's design without contributing s
 
 | Influence | What pipelinekit borrowed | Where it appears |
 |---|---|---|
-| **[Andrej Karpathy](https://karpathy.ai/)** | The autoresearch-loop pattern (hypothesize → mutate one file → benchmark → keep-or-reset → append TSV row → repeat). The naming of the `karpathy-reviewer` agent (anti-hallucination focus). | `claude/skills/research/` (the `/research` skill), `claude/agents/karpathy-reviewer.md` (Agent 6 of `/review` on medium+ diffs) |
+| **[Andrej Karpathy](https://karpathy.ai/)** | The autoresearch-loop pattern (hypothesize → mutate one file → benchmark → keep-or-reset → append TSV row → repeat). | `claude/skills/research/` (the `/research` skill). The `symbol-verifier` agent (anti-hallucination focus) is inspired by the same first-principles verification ethos. |
 | **[Anthropic](https://www.anthropic.com/)** | The entire runtime: Claude Code, the Agent SDK, the multi-agent dispatch primitive, Skills, Hooks, MCP, the `PushNotification` tool, and the underlying Claude models that every pipelinekit phase calls. | Pervasive. Pipelinekit IS a workflow overlay on Claude Code — without Anthropic's platform there's no pipelinekit. |
 
 ## Pipelinekit's own license
