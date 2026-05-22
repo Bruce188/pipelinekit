@@ -139,23 +139,23 @@ After review completes, the orchestrator selects one of five paths based on the 
 
 <div data-snippet="path-routing-diagram"></div>
 
-### Path A {#path-a}
+### Path A
 
 Zero blocking + zero non-blocking findings. Immediate clean merge to `main`. The happy path.
 
-### Path B {#path-b}
+### Path B
 
 Blocking findings present. Dispatches `tdd-test-writer` + `tdd-implementer` subagents to fix findings and re-review. Maximum 5 cycles before escalating to Path C.
 
-### Path C {#path-c}
+### Path C
 
 Path B exhausted (5 cycles). Escalates to re-plan via `/create-plan`. Maximum 1 Path C iteration per feature. If review still fails after re-plan + re-implement, the pipeline stops and reports.
 
-### Path M {#path-m}
+### Path M
 
 Zero blocking + ≤3 mechanical non-blocking findings (each ≤5 lines, 1 file). Applies inline Edit-tool changes without spawning subagents. Maximum 2 cycles.
 
-### Path N {#path-n}
+### Path N
 
 Zero blocking + nits only (style/naming, ≤2 cycles). Applies inline Edit-tool changes. Falls through to Path B subagent dispatch on overflow.
 

@@ -540,11 +540,11 @@ footer {
       <li class="lvl-2"><a href="#tdd-routing-dev-vs-non-dev">TDD routing (dev vs non-dev)</a></li>
       <li class="lvl-2"><a href="#phases">Phases</a></li>
       <li class="lvl-2"><a href="#path-routing">Path routing</a></li>
-      <li class="lvl-3"><a href="#path-a-path-a">Path A {#path-a}</a></li>
-      <li class="lvl-3"><a href="#path-b-path-b">Path B {#path-b}</a></li>
-      <li class="lvl-3"><a href="#path-c-path-c">Path C {#path-c}</a></li>
-      <li class="lvl-3"><a href="#path-m-path-m">Path M {#path-m}</a></li>
-      <li class="lvl-3"><a href="#path-n-path-n">Path N {#path-n}</a></li>
+      <li class="lvl-3"><a href="#path-a">Path A</a></li>
+      <li class="lvl-3"><a href="#path-b">Path B</a></li>
+      <li class="lvl-3"><a href="#path-c">Path C</a></li>
+      <li class="lvl-3"><a href="#path-m">Path M</a></li>
+      <li class="lvl-3"><a href="#path-n">Path N</a></li>
       <li class="lvl-2"><a href="#charter-mode">Charter Mode</a></li>
       <li class="lvl-3"><a href="#when-it-runs">When it runs</a></li>
       <li class="lvl-3"><a href="#opt-out-flags">Opt-out flags</a></li>
@@ -1338,15 +1338,15 @@ footer {
 </script>
 
 
-<h3 id="path-a-path-a">Path A</h3>
+<h3 id="path-a">Path A</h3>
 <p>Zero blocking + zero non-blocking findings. Immediate clean merge to <code>main</code>. The happy path.</p>
-<h3 id="path-b-path-b">Path B</h3>
+<h3 id="path-b">Path B</h3>
 <p>Blocking findings present. Dispatches <code>tdd-test-writer</code> + <code>tdd-implementer</code> subagents to fix findings and re-review. Maximum 5 cycles before escalating to Path C.</p>
-<h3 id="path-c-path-c">Path C</h3>
+<h3 id="path-c">Path C</h3>
 <p>Path B exhausted (5 cycles). Escalates to re-plan via <code>/create-plan</code>. Maximum 1 Path C iteration per feature. If review still fails after re-plan + re-implement, the pipeline stops and reports.</p>
-<h3 id="path-m-path-m">Path M</h3>
+<h3 id="path-m">Path M</h3>
 <p>Zero blocking + ≤3 mechanical non-blocking findings (each ≤5 lines, 1 file). Applies inline Edit-tool changes without spawning subagents. Maximum 2 cycles.</p>
-<h3 id="path-n-path-n">Path N</h3>
+<h3 id="path-n">Path N</h3>
 <p>Zero blocking + nits only (style/naming, ≤2 cycles). Applies inline Edit-tool changes. Falls through to Path B subagent dispatch on overflow.</p>
 <h2 id="charter-mode">Charter Mode</h2>
 <p>Charter Mode is the default-on front-loaded alignment phase added in Step 0 of <code>/pipeline</code>. Before the pipeline processes features, it asks the user a structured set of questions to produce <code>docs/charter.md</code>. Downstream phases (<code>/analyze</code>, <code>/create-plan</code>, <code>/implement-plan</code>, <code>/review</code>, <code>/ppr</code>) read this charter to scope their work.</p>
