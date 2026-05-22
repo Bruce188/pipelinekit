@@ -24,7 +24,7 @@ Or download just the `documentation/` folder as a zip and open `index.html` — 
 
 ## What pipelinekit gives you
 
-- **43 skills + 31 agents + 24 hooks** wired together so `/pipeline` can take a feature from charter to merged PR without intervention.
+- **42 skills + 31 agents + 24 hooks** wired together so `/pipeline` can take a feature from charter to merged PR without intervention.
 - **5 cloud deployment providers** (Azure, Vercel, Railway, Render, DigitalOcean) on a shared `deployment-engineer.md` base. Your charter selects one; /pipeline routes deployment automatically.
 - **Sandbox-isolated execution** — every subprocess in a podman/docker/worktree sandbox with auto-detected provider chain.
 - **TDD doctrine baked in** — `dev`-class features auto-route through `tdd-test-writer` → `tdd-implementer` for red/green pairing, enforced by `tdd-red-phase-gate.sh` hook.
@@ -122,10 +122,10 @@ Override with `**Type:** dev|non-dev` per-feature.
 | Layer | Contents |
 |-------|----------|
 | **Rules** | `claude/CLAUDE.md.template`, `claude/rules/workflow.md`, `claude/rules/agents-worktrees.md` |
-| **Skills** (43) | `pipeline`, `analyze`, `create-plan`, `implement-plan`, `review`, `ppr`, `research`, `tdd`, `incident`, `openhuman`, `landing-report`, `learn`, `azure-ops`, `vercel-ops`, `railway-ops`, `render-ops`, `digitalocean-ops`, `expo`, `ios`, `docs-writer`, `document-release`, `claude-md-enhancer`, `write-a-skill`, `zoom-out`, `simplify`, `caveman-mode`, ... |
+| **Skills** (42) | `pipeline`, `analyze`, `create-plan`, `implement-plan`, `review`, `ppr`, `research`, `tdd`, `incident`, `landing-report`, `learn`, `azure-ops`, `vercel-ops`, `railway-ops`, `render-ops`, `digitalocean-ops`, `expo`, `ios`, `docs-writer`, `document-release`, `claude-md-enhancer`, `write-a-skill`, `zoom-out`, `simplify`, `caveman-mode`, ... |
 | **Agents** (23) | `architect`, `code-reviewer`, `security-auditor`, `karpathy-reviewer`, `spec-tracer`, `tdd-test-writer`, `tdd-implementer`, `mobile-dev`, `deployment-engineer` (base), `azure-deployment-engineer`, `vercel-deployment-engineer`, `railway-deployment-engineer`, `render-deployment-engineer`, `digitalocean-deployment-engineer`, `incident-responder`, `claude-md-guardian`, ... |
 | **Hooks** (24) | `validate-commit-msg`, `strip-ai-attribution`, `block-push-main`, `block-stage-sensitive`, `block-dangerous-commands`, `tdd-order-check`, `tdd-red-phase-gate`, `claude-md-guard`, `env-scrub`, `notify-emit`, `cost_log`, `context-warning`, `verify-worktree-commit`, ... |
-| **MCP** | `context7`, `serena`, `sequential-thinking`, `agentmemory` (community), optional `local-rag` + `claude-context` |
+| **MCP** | `context7`, `serena`, `sequential-thinking`, optional `local-rag` + `claude-context` |
 | **LSP** | pyright, typescript, csharp, gopls, rust-analyzer |
 | **Model overlays** | Per-model tuning for opus-4-7, sonnet-4-6, haiku-4-5 (consumed by phase skills) |
 | **Host adapters** | claude (concrete), codex/cursor/gemini (stubs) — interface scaffold for multi-host dispatch |
@@ -170,7 +170,7 @@ pipelinekit/
 ├── claude/                # Overlay installed to ~/.claude/
 │   ├── CLAUDE.md.template
 │   ├── rules/
-│   ├── skills/            # 43 native skills
+│   ├── skills/            # 42 native skills
 │   │   ├── pipeline/      # The autonomous orchestrator
 │   │   ├── docs-writer/   # template.html + render.py (rich-template HTML)
 │   │   ├── research/      # Karpathy autoresearch loop + tsv-viewer.sh
@@ -224,8 +224,6 @@ stop caveman     # revert to normal
 
 Memory ships as an empty scaffold. After install, Claude builds memory in `~/.claude/projects/<project-slug>/memory/`. See [`claude/memory/MEMORY.md`](claude/memory/MEMORY.md) for the schema reference (recency-weighted confidence decay, four memory types: user / feedback / project / reference).
 
-The vendored `agentmemory` MCP layer adds structured retrieval (semantic similarity, contextual recall) over the same flat-file store. Plain-markdown inspectability via `cat` / `grep` is preserved at all times.
-
 ---
 
 ## Reference
@@ -254,9 +252,6 @@ Pipelinekit stands on the shoulders of several upstream projects, plus inspirati
 - [alirezarezvani/claude-skills](https://github.com/alirezarezvani/claude-skills) — skill-authoring DNA + lifecycle reference + personas (MIT, © 2025 Alireza Rezvani)
 - [alirezarezvani/ClaudeForge](https://github.com/alirezarezvani/ClaudeForge) — claude-md-guardian + claude-md-enhancer (MIT, © 2025 Alireza Rezvani)
 - [mattpocock/skills](https://github.com/mattpocock/skills) — TDD doctrine pack + write-a-skill + zoom-out (MIT, © Matt Pocock)
-- [tinyhumansai/openhuman](https://github.com/tinyhumansai/openhuman) — name and concept only; pipelinekit's openhuman is original code under the root MIT (upstream GPL-3.0)
-- [rohitg00/agentmemory](https://github.com/rohitg00/agentmemory) — optional retrieval layer (MIT, © rohitg00; vendoring skeleton — SHA pinning lands in a follow-up iteration)
-
 Per-directory `NOTICE.md` files carry the full upstream license text and re-vendor procedures.
 
 ---

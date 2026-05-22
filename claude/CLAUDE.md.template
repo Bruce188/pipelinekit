@@ -32,21 +32,9 @@ Memories live at `~/.claude/memory/` (or `~/.claude/projects/<project-slug>/memo
 
 Each memory carries `last_seen` (date last revalidated) and `confidence` (0.0-1.0). Read-time decay rule: `confidence_now = confidence * (1 - 0.05) ^ weeks_since_last_seen`. Memories below `confidence_now ≈ 0.6` should be cross-checked before use. See `~/.claude/memory/MEMORY.md` for the canonical decay schema.
 
-### AgentMemory (retrieval layer)
-
-The vendored `claude/lib/agentmemory/` skeleton enables structured retrieval over the same markdown files: semantic similarity search, contextual recall, and an alternative decay model. AgentMemory is a **community project (NOT Anthropic-official)** — review upstream before sandbox use and PIN the version before production use.
-
-**Complementarity rules:**
-1. Flat-file remains the canonical write path. All memory writes go to plain `.md` files regardless of whether agentmemory is installed.
-2. AgentMemory is a **secondary retrieval index**, not the only access path. Plain-markdown inspectability via `cat` / Read / grep is preserved at all times.
-3. The user picks one mode at a time — either "same store" (vector index rebuilt from the markdown files) or "separate store" (independent vector DB the user explicitly selects). Never both writing concurrently.
-4. Default per-run behaviour is unchanged when no agentmemory queries are issued — the flat-file path remains the canonical read/write path.
-
-See `claude/lib/agentmemory/README.md` for the full opt-in / complementarity reference and `claude/lib/agentmemory/NOTICE.md` for vendor attribution.
-
 ## Notifications
 
-When `/pipeline` reaches a state requiring user attention — budget breach, error, human-review checkpoint, end-of-feature, permission prompt — it emits a push notification via native Claude Code surfaces. There is no custom notification config file, no parallel rate limiter — Channels' built-in mechanics are authoritative.
+When `/pipeline` reaches a state requiring user attention — budget breach, error, end-of-feature, permission prompt — it emits a push notification via native Claude Code surfaces. There is no custom notification config file, no parallel rate limiter — Channels' built-in mechanics are authoritative.
 
 ### Hook event mapping
 
@@ -55,7 +43,7 @@ When `/pipeline` reaches a state requiring user attention — budget breach, err
 | `Stop` | `feature-done` | `PushNotification` (interactive) OR `terminalSequence` (fallback) |
 | `PermissionRequest` | `question` | `terminalSequence` (OSC 777) |
 | `Notification` | `error` / `budget-breach` / `dropped` | `terminalSequence` (OSC 777) |
-| `PreCompact` (= `PostCompact` matcher in `~/.claude/settings.json`) | `human-review` | `terminalSequence` |
+| `PreCompact` (= `PostCompact` matcher in `~/.claude/settings.json`) | `compact` | `terminalSequence` |
 
 ### Surfaces
 
@@ -71,16 +59,6 @@ Notifications carry: `feature_index`, `step`, `event_type`, `text` (≤ 200 char
 
 - Set `channelsEnabled: false` in `~/.claude/settings.json` to disable inbound Channels delivery.
 - Set `PIPELINE_NO_NOTIFICATIONS=1` in the environment per-run to short-circuit the helper for that run (no emit at all).
-
-### Shared-surface invariant
-
-`feat/integrate-openhuman` (F10) is the second consumer of this surface. F10 reuses `claude/hooks/notify-emit.sh` and the same hook event mapping. The schema is the cross-feature contract — F10 cannot fork it.
-
-### Human-Review Gate (--human-review)
-
-`/pipeline` ships a `--human-review [<minutes>]` flag that pauses before destructive actions (today: `git merge --squash`) for out-of-band human approval via the `claude/skills/openhuman/` skill. Default is **0** (gate off — flag absence is the same as `--no-human-review`). Bare `--human-review` (no minutes argument) defaults to **30 minutes**; `--human-review <N>` sets a user-supplied timeout in minutes (positive integer). The two flags are mutually exclusive.
-
-On timeout, the PreToolUse handler emits `permissionDecision: "deny"` with reason `OPENHUMAN_TIMEOUT: <minutes> elapsed without approval` — this is **fail-safe abort**, NEVER auto-approve. The human responds by writing a JSON signal file at `.claude/openhuman/<feature-name>-<timestamp>.json` containing `{"decision":"allow"}` or `{"decision":"deny"}` (atomically: `printf ... > "$SIGNAL.tmp" && mv "$SIGNAL.tmp" "$SIGNAL"`). Full body lives at `~/.claude/skills/openhuman/SKILL.md`; the wire-up reference lives at `~/.claude/skills/pipeline/reference.md § Human-Review Gate (--human-review)`. The cross-feature payload contract is the same 6-field schema documented in § Notifications above (handler invokes `notify-emit.sh --mode beacon` with `NOTIFY_EVENT_TYPE=human-review`).
 
 ## Context Management
 

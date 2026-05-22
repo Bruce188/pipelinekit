@@ -42,7 +42,6 @@ Vendored ecosystems + native pipelinekit skills.
 - [#13](https://github.com/Bruce188/pipelinekit/pull/13) — Vendor ClaudeForge claude-md-enhancer skill + guardian agent
 - [#14](https://github.com/Bruce188/pipelinekit/pull/14) — Vendor alirezarezvani/claude-skills authoring standard + /code-health reference
 - [#18](https://github.com/Bruce188/pipelinekit/pull/18) — Vendor alirezarezvani/claude-skills persona pack + wire /interview-prp + /analyze
-- [#42](https://github.com/Bruce188/pipelinekit/pull/42) — openhuman skill — human-in-the-loop gate for /pipeline destructive actions
 - [#41](https://github.com/Bruce188/pipelinekit/pull/41) — pipeline-mobile-notifications — native PushNotification + Channels integration
 
 ## Cloud deployment providers
@@ -108,9 +107,7 @@ PreToolUse / PostToolUse / SessionStart / etc. hooks that enforce contracts at t
 Model Context Protocol servers shipped or wired.
 
 - [#16](https://github.com/Bruce188/pipelinekit/pull/16) — claude-context community MCP as opt-in codebase semantic RAG
-- [#32](https://github.com/Bruce188/pipelinekit/pull/32) — agentmemory opt-in vendoring skeleton
-- [#34](https://github.com/Bruce188/pipelinekit/pull/34) — agentmemory part of standard install (drop opt-in gate)
-- [#66](https://github.com/Bruce188/pipelinekit/pull/66) — Harden `.mcp.json.template` (pin git refs, move agentmemory to `_pending`)
+- [#66](https://github.com/Bruce188/pipelinekit/pull/66) — Harden `.mcp.json.template` (pin git refs)
 
 ## Bootstrap + install
 
@@ -135,6 +132,7 @@ Pluggable worker layer so /pipeline can dispatch to alternate Claude SDKs or ext
 
 - [#29](https://github.com/Bruce188/pipelinekit/pull/29) — Deprecate `/interview-prp` in favor of `/pipeline` Step 0 Charter Discovery (banner + migration notice; skill still installed)
 - [#68](https://github.com/Bruce188/pipelinekit/pull/68) — Remove deprecated `/interview-prp` skill entirely (second half of 2-release deprecation)
+- [#81](https://github.com/Bruce188/pipelinekit/pull/81) — Remove `openhuman` skill and vendored `agentmemory` retrieval layer (8 orphan agents audited and dropped; installer references scrubbed)
 
 ## Documentation system
 

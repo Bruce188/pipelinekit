@@ -587,11 +587,6 @@ footer {
       <li class="lvl-3"><a href="#what-gets-notified">What gets notified</a></li>
       <li class="lvl-3"><a href="#per-run-opt-out">Per-run opt-out</a></li>
       <li class="lvl-3"><a href="#reference">Reference</a></li>
-      <li class="lvl-2"><a href="#human-review-gate">Human-Review Gate</a></li>
-      <li class="lvl-3"><a href="#enabling-2">Enabling</a></li>
-      <li class="lvl-3"><a href="#responding-to-the-gate">Responding to the gate</a></li>
-      <li class="lvl-3"><a href="#timeout-behavior">Timeout behavior</a></li>
-      <li class="lvl-3"><a href="#reference-2">Reference</a></li>
     </ul>
   </aside>
 
@@ -1437,7 +1432,7 @@ python<span class="w"> </span>scripts/generate-docs.py<span class="w"> </span><s
 </code></pre></div>
 
 <h2 id="notifications">Notifications</h2>
-<p><code>/pipeline</code> surfaces push notifications when it reaches a state requiring user attention: budget breach, error, end-of-feature, human-review checkpoint, or permission prompt. Notifications use native Claude Code surfaces only — there is no custom config file or rate limiter.</p>
+<p><code>/pipeline</code> surfaces push notifications when it reaches a state requiring user attention: budget breach, error, end-of-feature, or permission prompt. Notifications use native Claude Code surfaces only — there is no custom config file or rate limiter.</p>
 <h3 id="enabling">Enabling</h3>
 <ol>
 <li><strong>Mobile push notifications</strong> — enable Remote Control in your Claude Code mobile app and toggle "Push when Claude decides" in your preferences. Requires Claude Code 2.1.110 or later. See the upstream Claude Code Remote Control settings page for the latest setup instructions.</li>
@@ -1470,8 +1465,8 @@ python<span class="w"> </span>scripts/generate-docs.py<span class="w"> </span><s
 <td>terminalSequence (OSC 777)</td>
 </tr>
 <tr>
-<td><code>human-review</code></td>
-<td>Path B / Path C re-route (re-implement / re-plan), context-fill warning</td>
+<td><code>compact</code></td>
+<td>Context-fill warning (<code>PreCompact</code> hook)</td>
 <td>terminalSequence</td>
 </tr>
 </tbody>
@@ -1482,62 +1477,7 @@ python<span class="w"> </span>scripts/generate-docs.py<span class="w"> </span><s
 <ul>
 <li>Hook event mapping is documented in <code>~/.claude/CLAUDE.md § Notifications</code> (canonical user-side reference).</li>
 <li>Payload schema (6 fields, 200-char text cap) is documented in <code>~/.claude/skills/pipeline/reference.md § Notification payload schema</code>.</li>
-<li>The canonical emit helper lives at <code>claude/hooks/notify-emit.sh</code> — it is the cross-feature contract; <code>feat/integrate-openhuman</code> (F10) is the second consumer.</li>
-</ul>
-<h2 id="human-review-gate">Human-Review Gate</h2>
-<p><code>/pipeline</code> ships an opt-in human-in-the-loop approval gate that pauses before destructive actions — today the only wired trigger is <code>git merge --squash</code> (the auto-merge step in Path A). When enabled, the pipeline waits for an out-of-band human approval signal before letting the merge proceed.</p>
-<h3 id="enabling-2">Enabling</h3>
-<table>
-<thead>
-<tr>
-<th>Invocation</th>
-<th>Behavior</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>/pipeline</code> (no flag)</td>
-<td>Gate disabled — squash-merge proceeds without pause. This is the default (0 minutes).</td>
-</tr>
-<tr>
-<td><code>/pipeline --human-review</code></td>
-<td>Gate enabled with <strong>30-minute</strong> timeout.</td>
-</tr>
-<tr>
-<td><code>/pipeline --human-review 60</code></td>
-<td>Gate enabled with <strong>60-minute</strong> timeout (any positive integer minutes).</td>
-</tr>
-<tr>
-<td><code>/pipeline --no-human-review</code></td>
-<td>Explicit-disable form. Same effect as flag absence.</td>
-</tr>
-</tbody>
-</table>
-<p><code>--human-review</code> and <code>--no-human-review</code> are mutually exclusive — passing both stops the run with <code>ERROR: --human-review and --no-human-review are mutually exclusive</code>.</p>
-<h3 id="responding-to-the-gate">Responding to the gate</h3>
-<p>When the gate fires, <code>/pipeline</code> emits a <code>human-review</code> notification (PushNotification when an interactive session has Remote Control enabled, terminalSequence OSC 777 otherwise) carrying the signal-file path in the <code>action_link</code> field. To approve, write a JSON file at the signal-file path:</p>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;decision&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;allow&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;reason&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Reviewed diff; safe to merge.&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;reviewer&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bruce&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;ts&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-05-18T20:30:00Z&quot;</span><span class="p">}</span>
-</code></pre></div>
-
-<p>To deny: <code>{"decision": "deny"}</code>. Only <code>decision</code> is required; <code>reason</code>, <code>reviewer</code>, and <code>ts</code> are optional.</p>
-<p><strong>Atomic write</strong> (required to avoid the polling loop reading a half-written file):</p>
-<div class="codehilite"><pre><span></span><code><span class="nb">printf</span><span class="w"> </span><span class="s1">&#39;%s&#39;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$JSON</span><span class="s2">&quot;</span><span class="w"> </span>&gt;<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SIGNAL</span><span class="s2">.tmp&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>mv<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SIGNAL</span><span class="s2">.tmp&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$SIGNAL</span><span class="s2">&quot;</span>
-</code></pre></div>
-
-<p>Signal-file path convention: <code>.claude/openhuman/&lt;feature-name&gt;-&lt;unix-timestamp&gt;.json</code>. The <code>.claude/</code> directory is gitignored per the standard pipelinekit never-stage list — signal files are never committed.</p>
-<h3 id="timeout-behavior">Timeout behavior</h3>
-<p>If no signal file is written within the timeout window, the gate <strong>denies</strong> the merge:</p>
-<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="nt">&quot;hookSpecificOutput&quot;</span><span class="p">:{</span><span class="nt">&quot;permissionDecision&quot;</span><span class="p">:</span><span class="s2">&quot;deny&quot;</span><span class="p">,</span>
-<span class="w">                       </span><span class="nt">&quot;permissionDecisionReason&quot;</span><span class="p">:</span><span class="s2">&quot;OPENHUMAN_TIMEOUT: &lt;minutes&gt; minutes elapsed without approval&quot;</span><span class="p">}}</span>
-</code></pre></div>
-
-<p>This is <strong>fail-safe</strong> — the pipeline never auto-approves on timeout. The orchestrator routes the failure into Path B remediation (or feature-fail per Step 5.7).</p>
-<p>The default of <strong>0</strong> minutes (gate off when the flag is absent) is intentional — per the 2026-05-18 native-Claude-Code-compliance audit, defaulting to a non-zero timeout with auto-approve would create a silent-auto-approve drift hazard.</p>
-<h3 id="reference-2">Reference</h3>
-<ul>
-<li>Skill body: <code>~/.claude/skills/openhuman/SKILL.md</code> (canonical contract).</li>
-<li>Hook wiring + appendix: <code>~/.claude/skills/pipeline/reference.md § Human-Review Gate (--human-review)</code>.</li>
-<li>Upstream attribution (concept-only): <code>~/.claude/skills/openhuman/NOTICE.md</code>.</li>
+<li>The canonical emit helper lives at <code>claude/hooks/notify-emit.sh</code>.</li>
 </ul>
     </div>
 

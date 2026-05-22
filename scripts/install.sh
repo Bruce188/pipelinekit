@@ -81,11 +81,7 @@ settings = {
             {"matcher": "Bash",       "hooks": hook(f"{h}/hooks/env-scrub.py")},
             {"matcher": "Skill",      "hooks": hook(f"{h}/hooks/skill_budget.py")},
             {"matcher": "Edit|Write", "hooks": hook(f"{h}/hooks/tdd-red-phase-gate.sh")},
-            {"matcher": "Write",      "hooks": hook(f"{h}/hooks/block-bare-repo-markers.py")},
-            {"matcher": "Bash",       "hooks": [{"type": "command",
-                                                  "command": f"{h}/skills/openhuman/handler.sh",
-                                                  "args": [],
-                                                  "if": "Bash(git merge --squash *)"}]}
+            {"matcher": "Write",      "hooks": hook(f"{h}/hooks/block-bare-repo-markers.py")}
         ],
         "PostCompact": [
             {"matcher": "*", "hooks": hook(f"{h}/hooks/context-warning.py")},
@@ -99,7 +95,7 @@ dst = os.path.join(h, "settings.json")
 with open(dst, "w", encoding="utf-8") as f:
     json.dump(settings, f, indent=2)
     f.write("\n")
-print(f"installed: {dst} (13 hooks wired)")
+print(f"installed: {dst} (12 hooks wired)")
 PYEOF
   else
     # Flag not set: restore user's previous settings.json from backup if present.
@@ -346,16 +342,6 @@ if [[ -f "$REPO_ROOT/.mcp.json.template" ]]; then
 fi
 warn "@zilliztech/claude-context is a community MCP (NOT Anthropic-official). Review upstream before sandbox use; PIN the npx package to a specific version for reproducibility."
 
-# AgentMemory (community — rohitg00/agentmemory, NOT Anthropic). Default-installed since F2.
-# Structured-retrieval layer over the existing ~/.claude/memory/ flat-file system.
-# Adds semantic similarity, decay, and contextual recall via vendored library under
-# claude/lib/agentmemory/. Per-run bypass: simply do not issue agentmemory queries.
-log "AgentMemory available (community — rohitg00/agentmemory, NOT Anthropic)."
-log "  - Structured retrieval layer over flat-file ~/.claude/memory/<slug>/ markdown files"
-log "  - Complementarity: flat-file remains canonical write path; agentmemory is a secondary retrieval index"
-log "  - Vendoring skeleton: claude/lib/agentmemory/NOTICE.md + README.md (SHA pin + file copy land in a follow-up iteration)"
-log "  - Plain-markdown inspectability preserved: cat / Read / grep continue to work on memory files"
-warn "rohitg00/agentmemory is a community project (NOT Anthropic-official). Review upstream before sandbox use; PIN the version to a specific commit/release for reproducibility."
 
 # claude-skills is a third-party skill collection (alirezarezvani/claude-skills); install instructions live in its own README.
 log "claude-skills is a third-party skill collection; for install instructions see https://github.com/alirezarezvani/claude-skills"
@@ -385,4 +371,4 @@ fi
 
 log "Install complete. Open a new terminal and run: claude"
 log "Tell Claude:  /pipeline   (after creating docs/features.md in your project)"
-log "Tip: to wire the 13 optional hooks (cost logging, env scrubbing, TDD gate, notify-emit, openhuman gate, etc.), re-run with CLAUDE_INSTALL_SETTINGS=1"
+log "Tip: to wire the optional hooks (cost logging, env scrubbing, TDD gate, notify-emit, etc.), re-run with CLAUDE_INSTALL_SETTINGS=1"

@@ -23,5 +23,3 @@ Memories below `confidence_now ≈ 0.6` should be cross-checked before being tre
 
 ## Reference
 <!-- e.g., - [Linear pipeline](reference_linear.md) — pipeline bugs tracked in INGEST project. `last_seen: 2026-05-15, confidence: 1.0` -->
-
-<!-- Agentmemory (community): the vendored claude/lib/agentmemory/ skeleton adds a structured-retrieval layer (semantic similarity, decay, contextual recall) over the markdown memory files indexed above. Flat-file remains the canonical write path; agentmemory is a secondary index. See claude/lib/agentmemory/README.md. -->

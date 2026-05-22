@@ -139,7 +139,7 @@ fi
 # test_06: event_type routing — all 6 canonical values
 # ---------------------------------------------------------------------------
 test_06_failures=0
-for et in question error dropped human-review budget-breach feature-done; do
+for et in question error dropped budget-breach feature-done; do
   out=$(
     NOTIFY_FEATURE_INDEX="9/23" \
     NOTIFY_STEP="review" \
@@ -173,38 +173,38 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# test_08: human-review event_type round-trips through beacon mode (F10 contract)
+# test_08: budget-breach event_type round-trips through beacon mode
 # ---------------------------------------------------------------------------
 out=$(
   NOTIFY_FEATURE_INDEX="10/23" \
-  NOTIFY_STEP="merge" \
-  NOTIFY_EVENT_TYPE="human-review" \
-  NOTIFY_TEXT="Approve squash-merge of feat/integrate-openhuman?" \
-  NOTIFY_ACTION_LINK="signal-file:///abs/path/.claude/openhuman/feat-x-1234.json" \
-  NOTIFY_FEATURE_NAME="feat/integrate-openhuman" \
+  NOTIFY_STEP="plan" \
+  NOTIFY_EVENT_TYPE="budget-breach" \
+  NOTIFY_TEXT="Budget cap exceeded for feat/my-feature" \
+  NOTIFY_ACTION_LINK="claude://session/abc" \
+  NOTIFY_FEATURE_NAME="feat/my-feature" \
   "$HELPER" --mode beacon
 )
 got=$(python3 -c '
 import json, sys
 print(json.loads(sys.argv[1])["event_type"])
 ' "$out")
-if [ "$got" = "human-review" ]; then
-  record "test_08_human_review_event_type" PASS
+if [ "$got" = "budget-breach" ]; then
+  record "test_08_budget_breach_event_type" PASS
 else
-  record "test_08_human_review_event_type" FAIL "got=$got"
+  record "test_08_budget_breach_event_type" FAIL "got=$got"
 fi
 
 # ---------------------------------------------------------------------------
-# test_09: human-review action_link signal-file URI round-trips byte-for-byte (F10 contract)
+# test_09: action_link deep-link URI round-trips byte-for-byte
 # ---------------------------------------------------------------------------
-link="signal-file:///abs/path/.claude/openhuman/feat-x-1234.json"
+link="claude://session/abc?at=anchor-1"
 out=$(
   NOTIFY_FEATURE_INDEX="10/23" \
-  NOTIFY_STEP="merge" \
-  NOTIFY_EVENT_TYPE="human-review" \
-  NOTIFY_TEXT="Approve squash-merge?" \
+  NOTIFY_STEP="review" \
+  NOTIFY_EVENT_TYPE="feature-done" \
+  NOTIFY_TEXT="Feature done" \
   NOTIFY_ACTION_LINK="$link" \
-  NOTIFY_FEATURE_NAME="feat/integrate-openhuman" \
+  NOTIFY_FEATURE_NAME="feat/my-feature" \
   "$HELPER" --mode beacon
 )
 got=$(python3 -c '
@@ -212,9 +212,9 @@ import json, sys
 print(json.loads(sys.argv[1])["action_link"])
 ' "$out")
 if [ "$got" = "$link" ]; then
-  record "test_09_human_review_action_link" PASS
+  record "test_09_action_link_deep_link" PASS
 else
-  record "test_09_human_review_action_link" FAIL "got=$got"
+  record "test_09_action_link_deep_link" FAIL "got=$got"
 fi
 
 # ---------------------------------------------------------------------------

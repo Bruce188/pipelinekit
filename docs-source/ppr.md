@@ -109,12 +109,6 @@ After merge: Run /post-merge to clean up, then /clear to reset context.
 
 The human owns the merge decision. `/ppr` never auto-merges. There is no `--auto-merge` flag. The reviewer is expected to read the PR body, eyeball the diff, and click "Merge" themselves.
 
-## Integration with `--human-review`
-
-When `/pipeline` was invoked with `--human-review <N>` (the [openhuman](https://github.com/Bruce188/pipelinekit/blob/main/claude/skills/openhuman/SKILL.md) gate), the destructive action `git merge --squash` (run by `/post-merge`, not by `/ppr`) is the gated event — not the PR creation itself. `/ppr` runs to completion regardless of the openhuman gate; the human-review pause happens later, when the human clicks "Merge" on GitHub OR when `/post-merge` runs locally.
-
-`/ppr` does NOT pause for openhuman approval. The PR creation is non-destructive — it can be closed without merging if the human decides not to ship.
-
 ## Branch protection compatibility
 
 `/ppr` respects whatever branch protection rules the repo has set up:

@@ -541,7 +541,6 @@ footer {
       <li class="lvl-3"><a href="#step-2-push">Step 2: Push</a></li>
       <li class="lvl-3"><a href="#step-3-create-the-pr">Step 3: Create the PR</a></li>
       <li class="lvl-3"><a href="#step-4-what-s-next">Step 4: What&#x27;s Next</a></li>
-      <li class="lvl-2"><a href="#integration-with-human-review">Integration with --human-review</a></li>
       <li class="lvl-2"><a href="#branch-protection-compatibility">Branch protection compatibility</a></li>
       <li class="lvl-2"><a href="#failure-modes">Failure modes</a></li>
       <li class="lvl-2"><a href="#see-also">See also</a></li>
@@ -877,9 +876,6 @@ After merge: Run /post-merge to clean up, then /clear to reset context.
 </code></pre></div>
 
 <p>The human owns the merge decision. <code>/ppr</code> never auto-merges. There is no <code>--auto-merge</code> flag. The reviewer is expected to read the PR body, eyeball the diff, and click "Merge" themselves.</p>
-<h2 id="integration-with-human-review">Integration with <code>--human-review</code></h2>
-<p>When <code>/pipeline</code> was invoked with <code>--human-review &lt;N&gt;</code> (the <a href="https://github.com/Bruce188/pipelinekit/blob/main/claude/skills/openhuman/SKILL.md">openhuman</a> gate), the destructive action <code>git merge --squash</code> (run by <code>/post-merge</code>, not by <code>/ppr</code>) is the gated event — not the PR creation itself. <code>/ppr</code> runs to completion regardless of the openhuman gate; the human-review pause happens later, when the human clicks "Merge" on GitHub OR when <code>/post-merge</code> runs locally.</p>
-<p><code>/ppr</code> does NOT pause for openhuman approval. The PR creation is non-destructive — it can be closed without merging if the human decides not to ship.</p>
 <h2 id="branch-protection-compatibility">Branch protection compatibility</h2>
 <p><code>/ppr</code> respects whatever branch protection rules the repo has set up:</p>
 <ul>

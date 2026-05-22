@@ -6,10 +6,8 @@ Pipelinekit vendors source from several upstream projects. The authoritative att
 - [`claude/agents/personas/NOTICE.md`](https://github.com/Bruce188/pipelinekit/blob/main/claude/agents/personas/NOTICE.md) — `alirezarezvani/claude-skills` persona pack
 - [`claude/skills/claude-md-enhancer/NOTICE.md`](https://github.com/Bruce188/pipelinekit/blob/main/claude/skills/claude-md-enhancer/NOTICE.md) — `alirezarezvani/ClaudeForge` claude-md-enhancer skill
 - [`claude/skills/tdd/NOTICE.md`](https://github.com/Bruce188/pipelinekit/blob/main/claude/skills/tdd/NOTICE.md) — `mattpocock/skills` TDD doctrine pack
-- [`claude/skills/openhuman/NOTICE.md`](https://github.com/Bruce188/pipelinekit/blob/main/claude/skills/openhuman/NOTICE.md) — `tinyhumansai/openhuman` (concept-only — no source imported)
 - [`claude/skills/write-a-skill/NOTICE.md`](https://github.com/Bruce188/pipelinekit/blob/main/claude/skills/write-a-skill/NOTICE.md) — `mattpocock/skills` write-a-skill
 - [`claude/skills/zoom-out/NOTICE.md`](https://github.com/Bruce188/pipelinekit/blob/main/claude/skills/zoom-out/NOTICE.md) — `mattpocock/skills` zoom-out
-- [`claude/lib/agentmemory/NOTICE.md`](https://github.com/Bruce188/pipelinekit/blob/main/claude/lib/agentmemory/NOTICE.md) — `rohitg00/agentmemory` (vendoring skeleton — SHA pinning in a follow-up iteration)
 
 ## For a consolidated view
 

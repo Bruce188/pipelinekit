@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>pipelinekit documentation — pipelinekit</title>
-<meta name="description" content="Complete user-facing documentation for pipelinekit.">
+<meta name="description" content="The complete user-facing documentation for pipelinekit \(autonomous /pipeline orchestrator + skills + agents + hooks\). Every page below is self-contained HTML \(no CDN, no remote assets\) — clone the repo and open any page directly via…">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -545,12 +545,11 @@ footer {
   <main>
     <header class="page-header">
       <h1>pipelinekit documentation</h1>
-      <p class="description">Complete user-facing documentation for pipelinekit.</p>
+      <p class="description">The complete user-facing documentation for pipelinekit \(autonomous /pipeline orchestrator + skills + agents + hooks\). Every page below is self-contained HTML \(no CDN, no remote assets\) — clone the repo and open any page directly via…</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
-<p>The complete user-facing documentation for pipelinekit (autonomous <code>/pipeline</code> orchestrator + skills + agents + hooks). Every page below is self-contained HTML (no CDN, no remote assets) — clone the repo and open any page directly via <code>file://</code> URL, or serve the folder via any static HTTP server.</p>
 <h2 id="system-architecture">System architecture</h2>
 <!-- snippet:architecture-diagram
      4-layer SVG taxonomy of pipelinekit: user-invocable slash commands,
@@ -730,7 +729,6 @@ footer {
         <span class="pkit-ad-chip">/incident<span class="pkit-ad-tooltip">Triage a failing post-merge verification gate. Dispatches incident-responder agent.</span></span>
         <span class="pkit-ad-chip">/learn<span class="pkit-ad-tooltip">Read interface for per-project learnings journal.</span></span>
         <span class="pkit-ad-chip">/caveman<span class="pkit-ad-tooltip">Toggle response verbosity. Wenyan-ultra by default; lite/full/ultra options.</span></span>
-        <span class="pkit-ad-chip">/openhuman<span class="pkit-ad-tooltip">Pause for out-of-band human approval before destructive actions.</span></span>
       </div>
     </div>
 
@@ -793,7 +791,6 @@ footer {
         <span class="pkit-ad-chip">sandbox: worktree|podman|docker<span class="pkit-ad-tooltip">Pluggable sandbox provider chain. worktree-only default; podman/docker for container isolation.</span></span>
         <span class="pkit-ad-chip">MCP: context7<span class="pkit-ad-tooltip">Library docs and reference lookup.</span></span>
         <span class="pkit-ad-chip">MCP: serena<span class="pkit-ad-tooltip">Semantic code navigation.</span></span>
-        <span class="pkit-ad-chip">MCP: agentmemory<span class="pkit-ad-tooltip">Vendored retrieval layer over flat-file ~/.claude/memory/.</span></span>
         <span class="pkit-ad-chip">memory: flat-file<span class="pkit-ad-tooltip">~/.claude/memory/ with recency-weighted decay. Canonical write path.</span></span>
         <span class="pkit-ad-chip more">+ 17 more hooks</span>
       </div>
@@ -857,7 +854,6 @@ footer {
 <li><a href="tsv-viewer.html">Research TSV viewer</a> — sortable / filterable HTML viewer for research-results TSVs.</li>
 <li><a href="github-issues-integration.html">GitHub Issues integration</a> — <code>--issues</code> mode for <code>/pipeline</code>.</li>
 <li><a href="pipeline-charter-revalidation.html"><code>/pipeline --renew</code> charter revalidation</a> — drift detection with 3-valued status + <code>--auto</code> bypass.</li>
-<li><a href="openhuman.html">openhuman — human-review gate</a> — pause <code>/pipeline</code> before destructive actions for out-of-band human approval (<code>--human-review N</code>).</li>
 </ul>
 <h2 id="cost-observability">Cost + observability</h2>
 <ul>
@@ -875,7 +871,7 @@ footer {
 <li><strong><a href="https://karpathy.ai/">Andrej Karpathy</a></strong> — the autoresearch-loop pattern (<code>/research</code>) and the namesake of the <code>karpathy-reviewer</code> anti-hallucination agent.</li>
 <li><strong><a href="https://www.anthropic.com/">Anthropic</a></strong> — the entire runtime: Claude Code, the Agent SDK, multi-agent dispatch, Skills, Hooks, MCP, <code>PushNotification</code>, and the underlying Claude models that every pipelinekit phase calls.</li>
 </ul>
-<p>See the <strong><a href="credits.html">Credits page</a></strong> for the full table of vendored upstreams (with pinned SHAs, licenses, scope, and re-vendor procedures) — wshobson/agents, alirezarezvani/{claude-skills, ClaudeForge}, mattpocock/skills, tinyhumansai/openhuman, rohitg00/agentmemory.</p>
+<p>See the <strong><a href="credits.html">Credits page</a></strong> for the full table of vendored upstreams (with pinned SHAs, licenses, scope, and re-vendor procedures) — wshobson/agents, alirezarezvani/{claude-skills, ClaudeForge}, mattpocock/skills.</p>
     </div>
 
     <div class="no-results" id="no-results">
