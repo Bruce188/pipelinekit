@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skills catalog — pipelinekit</title>
+<meta name="description" content="Browse all 42 pipelinekit skills — workflow orchestration, development, ops, mobile, authoring, and AI-tool utilities. Use the search box or section filter to find what you need.">
+<meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
+<style>
+/* === Reset + variables === */
+*, *::before, *::after { box-sizing: border-box; }
+:root {
+  --bg: #ffffff;
+  --bg-elev: #fafbfc;
+  --bg-code: #f4f5f7;
+  --bg-sel: #e3f2fd;
+  --fg: #1a1d23;
+  --fg-muted: #5a6172;
+  --fg-subtle: #8b94a3;
+  --border: #e1e5eb;
+  --border-strong: #c5cbd4;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-soft: #dbeafe;
+  --success: #059669;
+  --warn: #d97706;
+  --danger: #dc2626;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --radius: 6px;
+  --radius-sm: 4px;
+  --mono: ui-monospace, "JetBrains Mono", "SF Mono", "Cascadia Code", "Consolas", monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --transition: 150ms ease;
+  /* Syntax highlight colors (light) */
+  --syn-kw: #7c3aed;     /* keyword purple */
+  --syn-str: #059669;    /* string green */
+  --syn-num: #d97706;    /* number orange */
+  --syn-com: #6b7280;    /* comment gray */
+  --syn-fn: #2563eb;     /* function blue */
+  --syn-cls: #db2777;    /* class pink */
+  --syn-op: #1f2937;     /* operator near-fg */
+}
+html[data-theme="dark"], :root[data-theme="dark"] {
+  --bg: #0b0f1a;
+  --bg-elev: #131825;
+  --bg-code: #161c2c;
+  --bg-sel: #1e3a5f;
+  --fg: #e8ecf3;
+  --fg-muted: #9aa3b3;
+  --fg-subtle: #6b7589;
+  --border: #1f2638;
+  --border-strong: #2a3349;
+  --accent: #60a5fa;
+  --accent-hover: #93c5fd;
+  --accent-soft: #1e3a8a33;
+  --success: #34d399;
+  --warn: #fbbf24;
+  --danger: #f87171;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+  --syn-kw: #c084fc;
+  --syn-str: #4ade80;
+  --syn-num: #fbbf24;
+  --syn-com: #94a3b8;
+  --syn-fn: #60a5fa;
+  --syn-cls: #f472b6;
+  --syn-op: #e8ecf3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b0f1a;
+    --bg-elev: #131825;
+    --bg-code: #161c2c;
+    --bg-sel: #1e3a5f;
+    --fg: #e8ecf3;
+    --fg-muted: #9aa3b3;
+    --fg-subtle: #6b7589;
+    --border: #1f2638;
+    --border-strong: #2a3349;
+    --accent: #60a5fa;
+    --accent-hover: #93c5fd;
+    --accent-soft: #1e3a8a33;
+    --success: #34d399;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+    --syn-kw: #c084fc;
+    --syn-str: #4ade80;
+    --syn-num: #fbbf24;
+    --syn-com: #94a3b8;
+    --syn-fn: #60a5fa;
+    --syn-cls: #f472b6;
+    --syn-op: #e8ecf3;
+  }
+}
+html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+body {
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.65;
+  background: var(--bg);
+  color: var(--fg);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background var(--transition), color var(--transition);
+}
+::selection { background: var(--bg-sel); }
+
+/* === Top bar === */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: saturate(180%) blur(10px);
+}
+.topbar .brand {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--fg);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.topbar .brand .logo {
+  width: 22px; height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: white;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.7rem;
+}
+.topbar .crumbs {
+  color: var(--fg-muted);
+  font-size: 0.85rem;
+  flex: 1;
+}
+.topbar .crumbs a { color: var(--fg-muted); text-decoration: none; }
+.topbar .crumbs a:hover { color: var(--accent); }
+.search-box {
+  position: relative;
+  flex: 0 1 280px;
+}
+.search-box input {
+  width: 100%;
+  padding: 0.4rem 0.7rem 0.4rem 2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  transition: border-color var(--transition);
+}
+.search-box input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.search-box .icon {
+  position: absolute;
+  left: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fg-subtle);
+  pointer-events: none;
+}
+.theme-toggle {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg-muted);
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  transition: all var(--transition);
+}
+.theme-toggle:hover { color: var(--fg); border-color: var(--border-strong); }
+
+/* === Layout === */
+.layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  max-width: 1280px;
+  margin: 0 auto;
+  gap: 2rem;
+  padding: 2rem 1.5rem;
+}
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; }
+  .toc { display: none; }
+  .toc.open { display: block; position: fixed; top: 60px; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 99; padding: 1.5rem; overflow-y: auto; }
+  .toc-mobile-btn { display: inline-flex; }
+}
+.toc-mobile-btn {
+  display: none;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg-muted);
+  padding: 0.35rem 0.7rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.85rem;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* === ToC sidebar === */
+.toc {
+  position: sticky;
+  top: 80px;
+  align-self: start;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  font-size: 0.85rem;
+  padding-right: 0.5rem;
+}
+.toc-heading {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-subtle);
+  font-weight: 700;
+  margin: 0 0 0.7rem 0.5rem;
+}
+.toc ul { list-style: none; padding: 0; margin: 0; }
+.toc li { margin: 0; }
+.toc a {
+  display: block;
+  padding: 0.3rem 0.5rem;
+  color: var(--fg-muted);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  transition: all var(--transition);
+  line-height: 1.4;
+}
+.toc a:hover { color: var(--fg); background: var(--bg-elev); }
+.toc a.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 500;
+}
+.toc .lvl-3 a { padding-left: 1.4rem; font-size: 0.8rem; }
+
+/* === Main content === */
+main { min-width: 0; }
+.page-header { margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+.page-header h1 { font-size: 2rem; font-weight: 700; line-height: 1.2; margin: 0 0 0.5rem; letter-spacing: -0.01em; }
+.page-header .description { color: var(--fg-muted); font-size: 1.05rem; line-height: 1.5; margin: 0; }
+.page-meta { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; font-size: 0.8rem; color: var(--fg-subtle); }
+.page-meta .meta-item { display: inline-flex; align-items: center; gap: 0.3rem; }
+.page-meta code { background: var(--bg-code); padding: 0.05rem 0.4rem; border-radius: var(--radius-sm); font-size: 0.8rem; }
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--fg);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  position: relative;
+}
+h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; padding-top: 0.5rem; }
+h3 { font-size: 1.25rem; margin: 2rem 0 0.8rem; }
+h4 { font-size: 1.05rem; margin: 1.5rem 0 0.5rem; color: var(--fg-muted); }
+h5, h6 { font-size: 0.95rem; margin: 1rem 0 0.4rem; color: var(--fg-muted); }
+h2 .anchor, h3 .anchor, h4 .anchor {
+  position: absolute;
+  left: -1.3rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fg-subtle);
+  opacity: 0;
+  text-decoration: none;
+  font-weight: 400;
+  transition: opacity var(--transition);
+  font-size: 0.9em;
+}
+h2:hover .anchor, h3:hover .anchor, h4:hover .anchor { opacity: 1; }
+h2 .anchor:hover, h3 .anchor:hover, h4 .anchor:hover { color: var(--accent); }
+p { margin: 0.9rem 0; }
+a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color var(--transition); }
+a:hover { border-bottom-color: var(--accent); }
+strong { font-weight: 600; color: var(--fg); }
+em { font-style: italic; }
+hr { border: none; border-top: 1px solid var(--border); margin: 2.5rem 0; }
+
+/* === Code === */
+code {
+  font-family: var(--mono);
+  font-size: 0.88em;
+  background: var(--bg-code);
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  color: var(--fg);
+}
+pre {
+  position: relative;
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.2rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+  box-shadow: var(--shadow-sm);
+}
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--fg);
+}
+pre .lang-label {
+  position: absolute;
+  top: 0.5rem;
+  right: 3rem;
+  font-size: 0.7rem;
+  color: var(--fg-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--sans);
+  font-weight: 600;
+  user-select: none;
+}
+pre .copy-btn {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.5rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  border-radius: var(--radius-sm);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: all var(--transition);
+  font-family: var(--sans);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+pre:hover .copy-btn { opacity: 1; }
+pre .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+pre .copy-btn.copied { color: var(--success); border-color: var(--success); }
+
+/* Pygments syntax classes */
+.codehilite .k, .codehilite .kn, .codehilite .kd, .codehilite .kr, .codehilite .kt { color: var(--syn-kw); font-weight: 500; }
+.codehilite .s, .codehilite .s1, .codehilite .s2, .codehilite .sb { color: var(--syn-str); }
+.codehilite .mi, .codehilite .mf, .codehilite .mh, .codehilite .mo { color: var(--syn-num); }
+.codehilite .c, .codehilite .c1, .codehilite .cm, .codehilite .ch { color: var(--syn-com); font-style: italic; }
+.codehilite .nf, .codehilite .fm { color: var(--syn-fn); font-weight: 500; }
+.codehilite .nc, .codehilite .ne { color: var(--syn-cls); font-weight: 500; }
+.codehilite .o, .codehilite .ow { color: var(--syn-op); }
+.codehilite .nv, .codehilite .vc, .codehilite .vg, .codehilite .vi { color: var(--syn-fn); }
+.codehilite .nb { color: var(--syn-fn); }
+.codehilite .gp { color: var(--syn-com); user-select: none; }
+
+/* === Tables === */
+.table-wrap { overflow-x: auto; margin: 1rem 0; border: 1px solid var(--border); border-radius: var(--radius); }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+thead { background: var(--bg-elev); border-bottom: 1px solid var(--border); }
+th {
+  text-align: left;
+  padding: 0.6rem 0.9rem;
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+th.sortable::after {
+  content: "↕";
+  margin-left: 0.4rem;
+  color: var(--fg-subtle);
+  font-size: 0.75rem;
+}
+th.sortable.asc::after { content: "↑"; color: var(--accent); }
+th.sortable.desc::after { content: "↓"; color: var(--accent); }
+td { padding: 0.6rem 0.9rem; border-top: 1px solid var(--border); vertical-align: top; }
+tbody tr:hover { background: var(--bg-elev); }
+tbody tr.filtered-out { display: none; }
+
+/* === Lists === */
+ul, ol { padding-left: 1.5rem; margin: 0.8rem 0; }
+ul li, ol li { margin: 0.3rem 0; }
+ul ul, ol ol, ul ol, ol ul { margin: 0.2rem 0; }
+
+/* === Blockquotes === */
+blockquote {
+  border-left: 3px solid var(--accent);
+  background: var(--bg-elev);
+  padding: 0.7rem 1.1rem;
+  margin: 1rem 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  color: var(--fg);
+}
+blockquote p:first-child { margin-top: 0; }
+blockquote p:last-child { margin-bottom: 0; }
+
+/* === Callouts (auto-detected from blockquote first line) === */
+.callout {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.85rem 1.1rem;
+  border-radius: var(--radius);
+  margin: 1rem 0;
+  border-left: 3px solid;
+  background: var(--bg-elev);
+}
+.callout-icon { font-size: 1.1rem; line-height: 1.4; flex-shrink: 0; }
+.callout-body { flex: 1; min-width: 0; }
+.callout-body p:first-child { margin-top: 0; font-weight: 600; }
+.callout-body p:last-child { margin-bottom: 0; }
+.callout.info { border-left-color: var(--accent); }
+.callout.info .callout-icon { color: var(--accent); }
+.callout.warn { border-left-color: var(--warn); }
+.callout.warn .callout-icon { color: var(--warn); }
+.callout.danger { border-left-color: var(--danger); }
+.callout.danger .callout-icon { color: var(--danger); }
+.callout.success { border-left-color: var(--success); }
+.callout.success .callout-icon { color: var(--success); }
+
+/* === Details/Summary === */
+details {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0;
+  margin: 1rem 0;
+}
+details[open] { border-color: var(--border-strong); }
+summary {
+  padding: 0.7rem 1rem;
+  cursor: pointer;
+  font-weight: 600;
+  user-select: none;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+summary::before { content: "▶"; transition: transform var(--transition); font-size: 0.75rem; color: var(--fg-subtle); }
+details[open] summary::before { transform: rotate(90deg); }
+summary::-webkit-details-marker { display: none; }
+details > *:not(summary) { padding: 0 1rem 0.8rem; }
+
+/* === Highlights (search) === */
+.search-hit { background: rgba(255, 230, 0, 0.45); border-radius: 2px; padding: 0 2px; }
+html[data-theme="dark"] .search-hit, :root[data-theme="dark"] .search-hit { background: rgba(255, 200, 0, 0.35); }
+
+/* === Footer === */
+footer {
+  margin: 4rem auto 0;
+  padding: 2rem 1.5rem;
+  max-width: 1280px;
+  border-top: 1px solid var(--border);
+  font-size: 0.82rem;
+  color: var(--fg-subtle);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+/* === No-result state for search === */
+.no-results {
+  display: none;
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--fg-muted);
+}
+.no-results.visible { display: block; }
+
+/* === Print === */
+@media print {
+  .topbar, .toc, .toc-mobile-btn, .copy-btn, .theme-toggle, .search-box, footer { display: none !important; }
+  .layout { display: block; padding: 0; max-width: none; }
+  body { font-size: 11pt; }
+  pre { page-break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <span class="logo">P</span>
+    <span>pipelinekit docs</span>
+  </a>
+  <div class="crumbs">
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Skills catalog</span>
+  </div>
+  <div class="search-box">
+    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="search" id="page-search" placeholder="Filter page (/)" aria-label="Filter content on this page">
+  </div>
+  <button class="toc-mobile-btn" id="toc-toggle" aria-label="Toggle table of contents">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    Contents
+  </button>
+  <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
+    <svg id="theme-icon-light" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+    <svg id="theme-icon-dark" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <span id="theme-label">Auto</span>
+  </button>
+</header>
+
+<div class="layout">
+  <aside class="toc" id="toc">
+    <h2 class="toc-heading">On this page</h2>
+    <ul>
+
+    </ul>
+  </aside>
+
+  <main>
+    <header class="page-header">
+      <h1>Skills catalog</h1>
+      <p class="description">Browse all 42 pipelinekit skills — workflow orchestration, development, ops, mobile, authoring, and AI-tool utilities. Use the search box or section filter to find what you need.</p>
+      <div class="page-meta"></div>
+    </header>
+
+    <div id="page-content">
+<!-- snippet:skill-catalog-grid
+     Skills catalog grid — auto-generated by build_catalog_data.py.
+     Re-run that script to refresh this file after adding/removing skills.
+
+     Placeholder usage in markdown source:
+       <div data-snippet="skill-catalog-grid"></div>
+-->
+<div class="pkit-skg" data-snippet-mount="skill-catalog-grid">
+  <style>
+    .pkit-skg {
+      margin: 1.5rem 0;
+    }
+    .pkit-skg .pkit-skg-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      align-items: center;
+    }
+    .pkit-skg .pkit-skg-search {
+      flex: 1;
+      min-width: 180px;
+      padding: 0.4rem 0.7rem;
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--fg);
+      font-family: var(--sans);
+      font-size: 0.88rem;
+    }
+    .pkit-skg .pkit-skg-search:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .pkit-skg .pkit-skg-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+    }
+    .pkit-skg .pkit-skg-chip {
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--fg-muted);
+      transition: all 150ms ease;
+      white-space: nowrap;
+    }
+    .pkit-skg .pkit-skg-chip:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .pkit-skg .pkit-skg-chip.active {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .pkit-skg .pkit-skg-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem;
+    }
+    .pkit-skg .pkit-skg-card {
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      transition: border-color 150ms ease, transform 150ms ease;
+    }
+    .pkit-skg .pkit-skg-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+    .pkit-skg .pkit-skg-card[hidden] {
+      display: none;
+    }
+    .pkit-skg .pkit-skg-name {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--fg);
+      font-family: var(--mono);
+    }
+    .pkit-skg .pkit-skg-desc {
+      font-size: 0.82rem;
+      color: var(--fg-muted);
+      line-height: 1.45;
+      flex: 1;
+    }
+    .pkit-skg .pkit-skg-section-badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--fg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.1rem 0.45rem;
+      align-self: flex-start;
+    }
+    .pkit-skg .pkit-skg-empty-msg {
+      grid-column: 1 / -1;
+      text-align: center;
+      color: var(--fg-subtle);
+      font-size: 0.88rem;
+      padding: 2rem 0;
+      display: none;
+    }
+    .pkit-skg .pkit-skg-count {
+      font-size: 0.78rem;
+      color: var(--fg-subtle);
+      margin-top: 0.5rem;
+    }
+  </style>
+  <div class="pkit-skg-toolbar">
+    <input class="pkit-skg-search" type="search" placeholder="Search skills…" aria-label="Search skills…">
+    <div class="pkit-skg-chips">
+      <button class="pkit-skg-chip active" data-section="all">All</button>
+      <button class="pkit-skg-chip" data-section="ai-tools">ai-tools</button>
+      <button class="pkit-skg-chip" data-section="authoring">authoring</button>
+      <button class="pkit-skg-chip" data-section="dev">dev</button>
+      <button class="pkit-skg-chip" data-section="mobile">mobile</button>
+      <button class="pkit-skg-chip" data-section="ops">ops</button>
+      <button class="pkit-skg-chip" data-section="workflow">workflow</button>
+    </div>
+  </div>
+  <div class="pkit-skg-grid" role="list" aria-label="Skills catalog">
+    <div class="pkit-skg-card" data-skill-card data-section="workflow" data-name="analyze">
+      <span class="pkit-skg-name">analyze</span>
+      <p class="pkit-skg-desc">Analyze an existing codebase or defined task. Asks 2 focused questions, then produces docs/analysis.md. Use at the start of an existing project workflow, before /create-plan.</p>
+      <span class="pkit-skg-section-badge">workflow</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="workflow" data-name="annotate-plan">
+      <span class="pkit-skg-name">annotate-plan</span>
+      <p class="pkit-skg-desc">Process inline annotations in the plan file. Address all notes without implementing. Iterate until clean.</p>
+      <span class="pkit-skg-section-badge">workflow</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="ai-tools" data-name="ascii-diagram">
+      <span class="pkit-skg-name">ascii-diagram</span>
+      <p class="pkit-skg-desc">Generate an ASCII architecture diagram for the current project or a described system</p>
+      <span class="pkit-skg-section-badge">ai-tools</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="ops" data-name="azure-ops">
+      <span class="pkit-skg-name">azure-ops</span>
+      <p class="pkit-skg-desc">Azure CLI (`az`) wrapper for common ops — resource listing, deploy (App Service / Container Apps / Function Apps), log tail, app-service restart. STOPS and prompts the user if `az account show` fails — never auto-authenticates. Use when running day-to-day Azure operations against an already-authenticated context.</p>
+      <span class="pkit-skg-section-badge">ops</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="authoring" data-name="build-hook">
+      <span class="pkit-skg-name">build-hook</span>
+      <p class="pkit-skg-desc">Generate a Claude Code hook from a description. Creates the shell script and settings.json entry. Use when user wants to add workflow automation, enforce a rule, or react to Claude Code events.</p>
+      <span class="pkit-skg-section-badge">authoring</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="ai-tools" data-name="caveman-mode">
+      <span class="pkit-skg-name">caveman-mode</span>
+      <p class="pkit-skg-desc">Toggle response verbosity (caveman-style terse fragments vs normal English). Default wenyan-ultra.</p>
+      <span class="pkit-skg-section-badge">ai-tools</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="ai-tools" data-name="claude-md-enhancer">
+      <span class="pkit-skg-name">claude-md-enhancer</span>
+      <p class="pkit-skg-desc">Analyzes, generates, and enhances CLAUDE.md files for any project type using best practices, modular architecture support, and tech stack customization. Use when setting up new projects, improving existing CLAUDE.md files, or establishing AI-assisted development standards.</p>
+      <span class="pkit-skg-section-badge">ai-tools</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="dev" data-name="code-health">
+      <span class="pkit-skg-name">code-health</span>
+      <p class="pkit-skg-desc">Comprehensive codebase health assessment with quality metrics, test coverage, documentation, and maintainability analysis. Use for quality gates, pre-release checks, or periodic health monitoring.</p>
+      <span class="pkit-skg-section-badge">dev</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="authoring" data-name="commit-conventions">
+      <span class="pkit-skg-name">commit-conventions</span>
+      <p class="pkit-skg-desc">Conventional commit format, message rules, and attribution policy. Loaded when writing commit messages, creating PRs, or merging branches.</p>
+      <span class="pkit-skg-section-badge">authoring</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="workflow" data-name="context-dump">
+      <span class="pkit-skg-name">context-dump</span>
+      <p class="pkit-skg-desc">Save current session context to docs/context-dump.md for handoff or resumption</p>
+      <span class="pkit-skg-section-badge">workflow</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="workflow" data-name="create-plan">
+      <span class="pkit-skg-name">create-plan</span>
+      <p class="pkit-skg-desc">Generate docs/plan.md AND docs/prompts.md together — always both, never one without the other. Initializes or amends docs/progress.md. Use after /analyze (existing project) or after /clear following /pipeline Step 0 Charter Discovery (new project — preferred).</p>
+      <span class="pkit-skg-section-badge">workflow</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="ops" data-name="dependency-auditor">
+      <span class="pkit-skg-name">dependency-auditor</span>
+      <p class="pkit-skg-desc">Check dependencies for known vulnerabilities using npm audit, pip-audit, etc. Use when package.json or requirements.txt changes, or before deployments. Alerts on vulnerable dependencies. Triggers on dependency file changes, deployment prep, security mentions.</p>
+      <span class="pkit-skg-section-badge">ops</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="ops" data-name="digitalocean-ops">
+      <span class="pkit-skg-name">digitalocean-ops</span>
+      <p class="pkit-skg-desc">Deploy and verify DigitalOcean App Platform apps when the charter targets digitalocean</p>
+      <span class="pkit-skg-section-badge">ops</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="authoring" data-name="docs-writer">
+      <span class="pkit-skg-name">docs-writer</span>
+      <p class="pkit-skg-desc">Documentation skill — renders markdown to rich, interactive, self-contained HTML for documentation/. Uses the shipped template + render.py. Refuses to write markdown to documentation/.</p>
+      <span class="pkit-skg-section-badge">authoring</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="workflow" data-name="document-release">
+      <span class="pkit-skg-name">document-release</span>
+      <p class="pkit-skg-desc">Update application documentation in `documentation/` after a release. Reads the most recent merge commit (or `--since &lt;sha&gt;`) and `docs/progress.md`, then writes/updates `documentation/` and lands a separate `docs:` commit on the current branch. Runnable ad-hoc outside the `/pipeline` workflow.</p>
+      <span class="pkit-skg-section-badge">workflow</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="authoring" data-name="dotnet-conventions">
+      <span class="pkit-skg-name">dotnet-conventions</span>
+      <p class="pkit-skg-desc">.NET architecture, DI, data access, and testing conventions. Loaded when working with C#, .NET, controllers, services, entities, repositories, or solution files.</p>
+      <span class="pkit-skg-section-badge">authoring</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="mobile" data-name="expo">
+      <span class="pkit-skg-name">expo</span>
+      <p class="pkit-skg-desc">Expo developer workflow — managed vs. bare workflow, EAS Build, EAS Update (OTA), dev-client, Expo Router, expo-modules-core, push notifications via Expo's APNs/FCM gateway</p>
+      <span class="pkit-skg-section-badge">mobile</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="dev" data-name="financial-data-analyst">
+      <span class="pkit-skg-name">financial-data-analyst</span>
+      <p class="pkit-skg-desc">Automatically analyzes financial and trading data using Python to calculate performance metrics, technical indicators, risk analysis, and portfolio statistics with visualizations</p>
+      <span class="pkit-skg-section-badge">dev</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="dev" data-name="fix-issue">
+      <span class="pkit-skg-name">fix-issue</span>
+      <p class="pkit-skg-desc">Fix a GitHub issue by number. Reads the issue, implements a fix with TDD, and commits.</p>
+      <span class="pkit-skg-section-badge">dev</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="workflow" data-name="handoff-create">
+      <span class="pkit-skg-name">handoff-create</span>
+      <p class="pkit-skg-desc">Analyze the current conversation and create a handoff document for continuing this work in a fresh context</p>
+      <span class="pkit-skg-section-badge">workflow</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="workflow" data-name="implement-plan">
+      <span class="pkit-skg-name">implement-plan</span>
+      <p class="pkit-skg-desc">Execute all remaining tasks from docs/progress.md with verification after each. Parallelizes phases with independent tasks by default. Stops on verification failure. Run again to resume after fixing a failure.</p>
+      <span class="pkit-skg-section-badge">workflow</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="ops" data-name="incident">
+      <span class="pkit-skg-name">incident</span>
+      <p class="pkit-skg-desc">Triage a failing post-merge verification gate using @incident-responder. Gathers failure context from logs and dispatches the incident-responder agent with a structured prompt. Use when /post-merge reports a verification failure or any post-merge anomaly.</p>
+      <span class="pkit-skg-section-badge">ops</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="mobile" data-name="ios">
+      <span class="pkit-skg-name">ios</span>
+      <p class="pkit-skg-desc">Xcode 26.3 + Anthropic Claude Agent SDK integration — project setup, in-editor usage, Agent SDK API surface, simulator integration, code signing &amp; TestFlight workflows</p>
+      <span class="pkit-skg-section-badge">mobile</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="workflow" data-name="landing-report">
+      <span class="pkit-skg-name">landing-report</span>
+      <p class="pkit-skg-desc">Pre-push version-slot collision detector. Reads VERSION or package.json:version, compares against existing git tags, prints a one-line status. Silent skip when neither marker is present. Invoked from /ppr Step 1.6.</p>
+      <span class="pkit-skg-section-badge">workflow</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="workflow" data-name="learn">
+      <span class="pkit-skg-name">learn</span>
+      <p class="pkit-skg-desc">Read interface for pipelinekit's per-project learnings journal. Reads ~/.pipelinekit/projects/&lt;slug&gt;/learnings.jsonl. The write path is the inline shell helper at claude/lib/learn-append.sh — invoked best-effort from pipeline Path A at post-review and post-merge.</p>
+      <span class="pkit-skg-section-badge">workflow</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="workflow" data-name="new-branch">
+      <span class="pkit-skg-name">new-branch</span>
+      <p class="pkit-skg-desc">Create a conventional feature branch from main/master. Use when starting new work, before first commit, or when on main/master.</p>
+      <span class="pkit-skg-section-badge">workflow</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="workflow" data-name="pipeline">
+      <span class="pkit-skg-name">pipeline</span>
+      <p class="pkit-skg-desc">Autonomous pipeline orchestrator. Processes a feature list through the full workflow (analyze → plan → implement → review → merge) with zero human intervention. Supports --dry-run and --restart-from.</p>
+      <span class="pkit-skg-section-badge">workflow</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="dev" data-name="playwright">
+      <span class="pkit-skg-name">playwright</span>
+      <p class="pkit-skg-desc">Native Python browser automation using Playwright for navigation, interaction, screenshots, and form filling</p>
+      <span class="pkit-skg-section-badge">dev</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="workflow" data-name="post-merge">
+      <span class="pkit-skg-name">post-merge</span>
+      <p class="pkit-skg-desc">Clean up after PR merge. Switches to main, pulls latest, deletes merged feature branch locally and remotely. Use after a PR has been merged on GitHub.</p>
+      <span class="pkit-skg-section-badge">workflow</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="workflow" data-name="ppr">
+      <span class="pkit-skg-name">ppr</span>
+      <p class="pkit-skg-desc">Push + PR. Push committed changes to origin and open a pull request. Run after /review passes. Human approves the PR separately.</p>
+      <span class="pkit-skg-section-badge">workflow</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="ops" data-name="railway-ops">
+      <span class="pkit-skg-name">railway-ops</span>
+      <p class="pkit-skg-desc">Deploy and verify Railway projects when the charter targets railway</p>
+      <span class="pkit-skg-section-badge">ops</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="ops" data-name="render-ops">
+      <span class="pkit-skg-name">render-ops</span>
+      <p class="pkit-skg-desc">Deploy and verify Render services when the charter targets render</p>
+      <span class="pkit-skg-section-badge">ops</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="dev" data-name="research">
+      <span class="pkit-skg-name">research</span>
+      <p class="pkit-skg-desc">Karpathy autoresearch loop — hypothesize, mutate one file, run benchmark, keep-or-reset, append TSV row. Repeat until budget or iteration cap.</p>
+      <span class="pkit-skg-section-badge">dev</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="workflow" data-name="review">
+      <span class="pkit-skg-name">review</span>
+      <p class="pkit-skg-desc">Multi-agent parallel review with auto-scaling agent selection. Scales from 2 agents (small diffs) to 6-agent teams (large diffs). Supports --scope, --health, --force, --teams, and --design-pass.</p>
+      <span class="pkit-skg-section-badge">workflow</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="ops" data-name="secret-scanner">
+      <span class="pkit-skg-name">secret-scanner</span>
+      <p class="pkit-skg-desc">Detect exposed secrets, API keys, credentials, and tokens in code. Use before commits, on file saves, or when security is mentioned. Prevents accidental secret exposure. Triggers on file changes, git commits, security checks, .env file modifications.</p>
+      <span class="pkit-skg-section-badge">ops</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="authoring" data-name="security-conventions">
+      <span class="pkit-skg-name">security-conventions</span>
+      <p class="pkit-skg-desc">ASP.NET Core security conventions — anti-forgery, authorization, secret storage, parameterized queries, HTTPS. Loaded when working with controllers, API endpoints, authentication, authorization, or user input handling.</p>
+      <span class="pkit-skg-section-badge">authoring</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="dev" data-name="simplify">
+      <span class="pkit-skg-name">simplify</span>
+      <p class="pkit-skg-desc">Post-green reductive refactor: remove unused helpers, dead branches, over-generalized abstractions, and redundant null checks; revert on test failure.</p>
+      <span class="pkit-skg-section-badge">dev</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="dev" data-name="tdd">
+      <span class="pkit-skg-name">tdd</span>
+      <p class="pkit-skg-desc">Test-driven development with red-green-refactor loop. Use when user wants to build features or fix bugs using TDD, mentions &quot;red-green-refactor&quot;, wants integration tests, or asks for test-first development.</p>
+      <span class="pkit-skg-section-badge">dev</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="ops" data-name="test-hooks">
+      <span class="pkit-skg-name">test-hooks</span>
+      <p class="pkit-skg-desc">Run hook tests and summarize results. Auto-loads when working on files under .claude/hooks/. Use to verify hook correctness after changes to hook scripts or tests.</p>
+      <span class="pkit-skg-section-badge">ops</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="ops" data-name="vercel-ops">
+      <span class="pkit-skg-name">vercel-ops</span>
+      <p class="pkit-skg-desc">Vercel CLI (`vercel`) wrapper for common ops — project listing, deploy (preview / production), `vercel inspect` verification, log tail, redeploy. STOPS and prompts the user if `vercel whoami` fails — never auto-authenticates. Use when running day-to-day Vercel operations against an already-authenticated context.</p>
+      <span class="pkit-skg-section-badge">ops</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="authoring" data-name="write-a-skill">
+      <span class="pkit-skg-name">write-a-skill</span>
+      <p class="pkit-skg-desc">Create new agent skills with proper structure, progressive disclosure, and bundled resources. Use when user wants to create, write, or build a new skill.</p>
+      <span class="pkit-skg-section-badge">authoring</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="workflow" data-name="zoom-out">
+      <span class="pkit-skg-name">zoom-out</span>
+      <p class="pkit-skg-desc">Tell the agent to zoom out and give broader context or a higher-level perspective. Use when you're unfamiliar with a section of code or need to understand how it fits into the bigger picture.</p>
+      <span class="pkit-skg-section-badge">workflow</span>
+    </div>
+    <div class="pkit-skg-empty-msg">No skills match your filter.</div>
+  </div>
+  <p class="pkit-skg-count">42 skills</p>
+  <script type="application/json" data-catalog-data>
+[
+  {
+    "name": "analyze",
+    "description": "Analyze an existing codebase or defined task. Asks 2 focused questions, then produces docs/analysis.md. Use at the start of an existing project workflow, before /create-plan.",
+    "section": "workflow"
+  },
+  {
+    "name": "annotate-plan",
+    "description": "Process inline annotations in the plan file. Address all notes without implementing. Iterate until clean.",
+    "section": "workflow"
+  },
+  {
+    "name": "ascii-diagram",
+    "description": "Generate an ASCII architecture diagram for the current project or a described system",
+    "section": "ai-tools"
+  },
+  {
+    "name": "azure-ops",
+    "description": "Azure CLI (`az`) wrapper for common ops — resource listing, deploy (App Service / Container Apps / Function Apps), log tail, app-service restart. STOPS and prompts the user if `az account show` fails — never auto-authenticates. Use when running day-to-day Azure operations against an already-authenticated context.",
+    "section": "ops"
+  },
+  {
+    "name": "build-hook",
+    "description": "Generate a Claude Code hook from a description. Creates the shell script and settings.json entry. Use when user wants to add workflow automation, enforce a rule, or react to Claude Code events.",
+    "section": "authoring"
+  },
+  {
+    "name": "caveman-mode",
+    "description": "Toggle response verbosity (caveman-style terse fragments vs normal English). Default wenyan-ultra.",
+    "section": "ai-tools"
+  },
+  {
+    "name": "claude-md-enhancer",
+    "description": "Analyzes, generates, and enhances CLAUDE.md files for any project type using best practices, modular architecture support, and tech stack customization. Use when setting up new projects, improving existing CLAUDE.md files, or establishing AI-assisted development standards.",
+    "section": "ai-tools"
+  },
+  {
+    "name": "code-health",
+    "description": "Comprehensive codebase health assessment with quality metrics, test coverage, documentation, and maintainability analysis. Use for quality gates, pre-release checks, or periodic health monitoring.",
+    "section": "dev"
+  },
+  {
+    "name": "commit-conventions",
+    "description": "Conventional commit format, message rules, and attribution policy. Loaded when writing commit messages, creating PRs, or merging branches.",
+    "section": "authoring"
+  },
+  {
+    "name": "context-dump",
+    "description": "Save current session context to docs/context-dump.md for handoff or resumption",
+    "section": "workflow"
+  },
+  {
+    "name": "create-plan",
+    "description": "Generate docs/plan.md AND docs/prompts.md together — always both, never one without the other. Initializes or amends docs/progress.md. Use after /analyze (existing project) or after /clear following /pipeline Step 0 Charter Discovery (new project — preferred).",
+    "section": "workflow"
+  },
+  {
+    "name": "dependency-auditor",
+    "description": "Check dependencies for known vulnerabilities using npm audit, pip-audit, etc. Use when package.json or requirements.txt changes, or before deployments. Alerts on vulnerable dependencies. Triggers on dependency file changes, deployment prep, security mentions.",
+    "section": "ops"
+  },
+  {
+    "name": "digitalocean-ops",
+    "description": "Deploy and verify DigitalOcean App Platform apps when the charter targets digitalocean",
+    "section": "ops"
+  },
+  {
+    "name": "docs-writer",
+    "description": "Documentation skill — renders markdown to rich, interactive, self-contained HTML for documentation/. Uses the shipped template + render.py. Refuses to write markdown to documentation/.",
+    "section": "authoring"
+  },
+  {
+    "name": "document-release",
+    "description": "Update application documentation in `documentation/` after a release. Reads the most recent merge commit (or `--since <sha>`) and `docs/progress.md`, then writes/updates `documentation/` and lands a separate `docs:` commit on the current branch. Runnable ad-hoc outside the `/pipeline` workflow.",
+    "section": "workflow"
+  },
+  {
+    "name": "dotnet-conventions",
+    "description": ".NET architecture, DI, data access, and testing conventions. Loaded when working with C#, .NET, controllers, services, entities, repositories, or solution files.",
+    "section": "authoring"
+  },
+  {
+    "name": "expo",
+    "description": "Expo developer workflow — managed vs. bare workflow, EAS Build, EAS Update (OTA), dev-client, Expo Router, expo-modules-core, push notifications via Expo's APNs/FCM gateway",
+    "section": "mobile"
+  },
+  {
+    "name": "financial-data-analyst",
+    "description": "Automatically analyzes financial and trading data using Python to calculate performance metrics, technical indicators, risk analysis, and portfolio statistics with visualizations",
+    "section": "dev"
+  },
+  {
+    "name": "fix-issue",
+    "description": "Fix a GitHub issue by number. Reads the issue, implements a fix with TDD, and commits.",
+    "section": "dev"
+  },
+  {
+    "name": "handoff-create",
+    "description": "Analyze the current conversation and create a handoff document for continuing this work in a fresh context",
+    "section": "workflow"
+  },
+  {
+    "name": "implement-plan",
+    "description": "Execute all remaining tasks from docs/progress.md with verification after each. Parallelizes phases with independent tasks by default. Stops on verification failure. Run again to resume after fixing a failure.",
+    "section": "workflow"
+  },
+  {
+    "name": "incident",
+    "description": "Triage a failing post-merge verification gate using @incident-responder. Gathers failure context from logs and dispatches the incident-responder agent with a structured prompt. Use when /post-merge reports a verification failure or any post-merge anomaly.",
+    "section": "ops"
+  },
+  {
+    "name": "ios",
+    "description": "Xcode 26.3 + Anthropic Claude Agent SDK integration — project setup, in-editor usage, Agent SDK API surface, simulator integration, code signing & TestFlight workflows",
+    "section": "mobile"
+  },
+  {
+    "name": "landing-report",
+    "description": "Pre-push version-slot collision detector. Reads VERSION or package.json:version, compares against existing git tags, prints a one-line status. Silent skip when neither marker is present. Invoked from /ppr Step 1.6.",
+    "section": "workflow"
+  },
+  {
+    "name": "learn",
+    "description": "Read interface for pipelinekit's per-project learnings journal. Reads ~/.pipelinekit/projects/<slug>/learnings.jsonl. The write path is the inline shell helper at claude/lib/learn-append.sh — invoked best-effort from pipeline Path A at post-review and post-merge.",
+    "section": "workflow"
+  },
+  {
+    "name": "new-branch",
+    "description": "Create a conventional feature branch from main/master. Use when starting new work, before first commit, or when on main/master.",
+    "section": "workflow"
+  },
+  {
+    "name": "pipeline",
+    "description": "Autonomous pipeline orchestrator. Processes a feature list through the full workflow (analyze → plan → implement → review → merge) with zero human intervention. Supports --dry-run and --restart-from.",
+    "section": "workflow"
+  },
+  {
+    "name": "playwright",
+    "description": "Native Python browser automation using Playwright for navigation, interaction, screenshots, and form filling",
+    "section": "dev"
+  },
+  {
+    "name": "post-merge",
+    "description": "Clean up after PR merge. Switches to main, pulls latest, deletes merged feature branch locally and remotely. Use after a PR has been merged on GitHub.",
+    "section": "workflow"
+  },
+  {
+    "name": "ppr",
+    "description": "Push + PR. Push committed changes to origin and open a pull request. Run after /review passes. Human approves the PR separately.",
+    "section": "workflow"
+  },
+  {
+    "name": "railway-ops",
+    "description": "Deploy and verify Railway projects when the charter targets railway",
+    "section": "ops"
+  },
+  {
+    "name": "render-ops",
+    "description": "Deploy and verify Render services when the charter targets render",
+    "section": "ops"
+  },
+  {
+    "name": "research",
+    "description": "Karpathy autoresearch loop — hypothesize, mutate one file, run benchmark, keep-or-reset, append TSV row. Repeat until budget or iteration cap.",
+    "section": "dev"
+  },
+  {
+    "name": "review",
+    "description": "Multi-agent parallel review with auto-scaling agent selection. Scales from 2 agents (small diffs) to 6-agent teams (large diffs). Supports --scope, --health, --force, --teams, and --design-pass.",
+    "section": "workflow"
+  },
+  {
+    "name": "secret-scanner",
+    "description": "Detect exposed secrets, API keys, credentials, and tokens in code. Use before commits, on file saves, or when security is mentioned. Prevents accidental secret exposure. Triggers on file changes, git commits, security checks, .env file modifications.",
+    "section": "ops"
+  },
+  {
+    "name": "security-conventions",
+    "description": "ASP.NET Core security conventions — anti-forgery, authorization, secret storage, parameterized queries, HTTPS. Loaded when working with controllers, API endpoints, authentication, authorization, or user input handling.",
+    "section": "authoring"
+  },
+  {
+    "name": "simplify",
+    "description": "Post-green reductive refactor: remove unused helpers, dead branches, over-generalized abstractions, and redundant null checks; revert on test failure.",
+    "section": "dev"
+  },
+  {
+    "name": "tdd",
+    "description": "Test-driven development with red-green-refactor loop. Use when user wants to build features or fix bugs using TDD, mentions \"red-green-refactor\", wants integration tests, or asks for test-first development.",
+    "section": "dev"
+  },
+  {
+    "name": "test-hooks",
+    "description": "Run hook tests and summarize results. Auto-loads when working on files under .claude/hooks/. Use to verify hook correctness after changes to hook scripts or tests.",
+    "section": "ops"
+  },
+  {
+    "name": "vercel-ops",
+    "description": "Vercel CLI (`vercel`) wrapper for common ops — project listing, deploy (preview / production), `vercel inspect` verification, log tail, redeploy. STOPS and prompts the user if `vercel whoami` fails — never auto-authenticates. Use when running day-to-day Vercel operations against an already-authenticated context.",
+    "section": "ops"
+  },
+  {
+    "name": "write-a-skill",
+    "description": "Create new agent skills with proper structure, progressive disclosure, and bundled resources. Use when user wants to create, write, or build a new skill.",
+    "section": "authoring"
+  },
+  {
+    "name": "zoom-out",
+    "description": "Tell the agent to zoom out and give broader context or a higher-level perspective. Use when you're unfamiliar with a section of code or need to understand how it fits into the bigger picture.",
+    "section": "workflow"
+  }
+]
+  </script>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  const roots = document.querySelectorAll('.pkit-skg[data-snippet-mount="skill-catalog-grid"]');
+  const root = roots[roots.length - 1];
+  if (!root || root.dataset.pkitInit) return;
+  root.dataset.pkitInit = '1';
+
+  const cards = Array.from(root.querySelectorAll('[data-skill-card]'));
+  const emptyMsg = root.querySelector('.pkit-skg-empty-msg');
+  const countEl = root.querySelector('.pkit-skg-count');
+  const searchEl = root.querySelector('.pkit-skg-search');
+  const chips = root.querySelectorAll('.pkit-skg-chip');
+  let activeSection = 'all';
+  let searchTerm = '';
+  let debounceTimer = null;
+
+  function applyFilters() {
+    const q = searchTerm.toLowerCase();
+    let visible = 0;
+    cards.forEach(card => {
+      const section = card.dataset.section || '';
+      const name = (card.dataset.name || '').toLowerCase();
+      const desc = (card.querySelector('p') || {}).textContent || '';
+      const matchSection = activeSection === 'all' || section === activeSection;
+      const matchSearch = !q || name.includes(q) || desc.toLowerCase().includes(q);
+      const show = matchSection && matchSearch;
+      card.hidden = !show;
+      if (show) visible++;
+    });
+    if (emptyMsg) emptyMsg.style.display = visible === 0 ? 'block' : 'none';
+    if (countEl) countEl.textContent = visible + ' of ' + cards.length + ' skills shown';
+  }
+
+  chips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      activeSection = chip.dataset.section;
+      chips.forEach(c => c.classList.toggle('active', c.dataset.section === activeSection));
+      applyFilters();
+    });
+  });
+
+  searchEl && searchEl.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      searchTerm = searchEl.value;
+      applyFilters();
+    }, 120);
+  });
+
+  applyFilters();
+})();
+</script>
+
+    </div>
+
+    <div class="no-results" id="no-results">
+      <p>No matches on this page. Clear the filter to see all content.</p>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div>Generated by <a href="https://github.com/Bruce188/pipelinekit">pipelinekit</a> · <code>docs-writer/2</code> · <a href="credits.html">Credits</a></div>
+  <div>Self-contained HTML · no CDN · no remote assets</div>
+</footer>
+
+<script>
+(function() {
+  'use strict';
+
+  // ============ Theme toggle (auto → light → dark cycle) ============
+  const themeToggle = document.getElementById('theme-toggle');
+  const themeLabel = document.getElementById('theme-label');
+  const iconLight = document.getElementById('theme-icon-light');
+  const iconDark = document.getElementById('theme-icon-dark');
+  const root = document.documentElement;
+  const STORE_KEY = 'pkit-docs-theme';
+
+  function applyTheme(mode) {
+    if (mode === 'auto') {
+      root.removeAttribute('data-theme');
+      themeLabel.textContent = 'Auto';
+      iconLight.style.display = 'none';
+      iconDark.style.display = '';
+    } else {
+      root.setAttribute('data-theme', mode);
+      themeLabel.textContent = mode === 'dark' ? 'Dark' : 'Light';
+      iconLight.style.display = mode === 'dark' ? 'none' : '';
+      iconDark.style.display = mode === 'dark' ? '' : 'none';
+    }
+  }
+  applyTheme(localStorage.getItem(STORE_KEY) || 'auto');
+  themeToggle.addEventListener('click', () => {
+    const cur = localStorage.getItem(STORE_KEY) || 'auto';
+    const next = cur === 'auto' ? 'light' : cur === 'light' ? 'dark' : 'auto';
+    localStorage.setItem(STORE_KEY, next);
+    applyTheme(next);
+  });
+
+  // ============ Anchor links on headings ============
+  document.querySelectorAll('h2[id], h3[id], h4[id]').forEach(h => {
+    const a = document.createElement('a');
+    a.href = '#' + h.id;
+    a.className = 'anchor';
+    a.setAttribute('aria-label', 'Permalink to ' + h.textContent);
+    a.textContent = '#';
+    h.insertBefore(a, h.firstChild);
+  });
+
+  // ============ Copy-code buttons ============
+  document.querySelectorAll('pre').forEach(pre => {
+    const code = pre.querySelector('code');
+    if (!code) return;
+    // Try to detect language from class
+    const cls = code.className || pre.className || '';
+    const langMatch = cls.match(/language-(\w+)|codehilite/) || cls.match(/\b(\w+)\b/);
+    let lang = '';
+    const cm = cls.match(/language-(\w+)/);
+    if (cm) lang = cm[1];
+    if (lang && lang !== 'codehilite') {
+      const label = document.createElement('span');
+      label.className = 'lang-label';
+      label.textContent = lang;
+      pre.appendChild(label);
+    }
+    const btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.type = 'button';
+    btn.setAttribute('aria-label', 'Copy code');
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy';
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(code.innerText);
+        btn.classList.add('copied');
+        btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Copied';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy';
+        }, 1800);
+      } catch (e) {
+        btn.textContent = 'Press Ctrl+C';
+      }
+    });
+    pre.appendChild(btn);
+  });
+
+  // ============ Sortable tables ============
+  document.querySelectorAll('table').forEach(table => {
+    const thead = table.querySelector('thead');
+    if (!thead) return;
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+    // Wrap in scroll container
+    if (!table.parentElement.classList.contains('table-wrap')) {
+      const wrap = document.createElement('div');
+      wrap.className = 'table-wrap';
+      table.parentNode.insertBefore(wrap, table);
+      wrap.appendChild(table);
+    }
+    thead.querySelectorAll('th').forEach((th, idx) => {
+      th.classList.add('sortable');
+      th.addEventListener('click', () => sortByColumn(table, idx, th));
+    });
+  });
+  function sortByColumn(table, colIdx, th) {
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const isAsc = !th.classList.contains('asc');
+    table.querySelectorAll('th').forEach(h => h.classList.remove('asc', 'desc'));
+    th.classList.toggle('asc', isAsc);
+    th.classList.toggle('desc', !isAsc);
+    rows.sort((a, b) => {
+      const av = (a.children[colIdx]?.innerText || '').trim();
+      const bv = (b.children[colIdx]?.innerText || '').trim();
+      const an = parseFloat(av);
+      const bn = parseFloat(bv);
+      let cmp;
+      if (!isNaN(an) && !isNaN(bn)) cmp = an - bn;
+      else cmp = av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
+      return isAsc ? cmp : -cmp;
+    });
+    rows.forEach(r => tbody.appendChild(r));
+  }
+
+  // ============ ScrollSpy for ToC ============
+  const tocLinks = document.querySelectorAll('.toc a');
+  const headings = document.querySelectorAll('main h2[id], main h3[id]');
+  if (tocLinks.length && headings.length && 'IntersectionObserver' in window) {
+    const linkByHash = {};
+    tocLinks.forEach(a => { linkByHash[a.getAttribute('href')] = a; });
+    const visible = new Set();
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        const h = '#' + e.target.id;
+        if (e.isIntersecting) visible.add(h);
+        else visible.delete(h);
+      });
+      tocLinks.forEach(a => a.classList.remove('active'));
+      // Pick the topmost-visible heading
+      const candidates = Array.from(headings).filter(h => visible.has('#' + h.id));
+      const first = candidates[0] || headings[0];
+      if (first && linkByHash['#' + first.id]) linkByHash['#' + first.id].classList.add('active');
+    }, { rootMargin: '-100px 0px -60% 0px', threshold: 0 });
+    headings.forEach(h => io.observe(h));
+  }
+
+  // ============ In-page search filter ============
+  const searchInput = document.getElementById('page-search');
+  const noResults = document.getElementById('no-results');
+  const pageContent = document.getElementById('page-content');
+  function clearHighlights() {
+    pageContent.querySelectorAll('.search-hit').forEach(el => {
+      const t = document.createTextNode(el.textContent);
+      el.parentNode.replaceChild(t, el);
+    });
+    pageContent.normalize();
+  }
+  function highlightInNode(node, regex) {
+    if (node.nodeType === 3) {
+      const txt = node.nodeValue;
+      const m = txt.match(regex);
+      if (!m) return false;
+      const frag = document.createDocumentFragment();
+      let last = 0;
+      txt.replace(regex, (match, _g, off) => {
+        if (off > last) frag.appendChild(document.createTextNode(txt.slice(last, off)));
+        const span = document.createElement('span');
+        span.className = 'search-hit';
+        span.textContent = match;
+        frag.appendChild(span);
+        last = off + match.length;
+      });
+      if (last < txt.length) frag.appendChild(document.createTextNode(txt.slice(last)));
+      node.parentNode.replaceChild(frag, node);
+      return true;
+    }
+    if (node.nodeType !== 1) return false;
+    if (['SCRIPT','STYLE','PRE','CODE'].includes(node.tagName)) return false;
+    let any = false;
+    Array.from(node.childNodes).forEach(c => { if (highlightInNode(c, regex)) any = true; });
+    return any;
+  }
+  function filter(q) {
+    clearHighlights();
+    // Filter table rows
+    document.querySelectorAll('table tbody tr').forEach(tr => tr.classList.remove('filtered-out'));
+    if (!q) { noResults.classList.remove('visible'); return; }
+    const lc = q.toLowerCase();
+    const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    let anyHit = false;
+    if (highlightInNode(pageContent, regex)) anyHit = true;
+    // Table filtering
+    document.querySelectorAll('table tbody tr').forEach(tr => {
+      const txt = tr.innerText.toLowerCase();
+      if (!txt.includes(lc)) tr.classList.add('filtered-out');
+      else anyHit = true;
+    });
+    noResults.classList.toggle('visible', !anyHit);
+  }
+  if (searchInput) {
+    let debounce;
+    searchInput.addEventListener('input', (e) => {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => filter(e.target.value.trim()), 80);
+    });
+  }
+  // Keyboard: / focuses search
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '/' && document.activeElement !== searchInput && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      searchInput.focus();
+    }
+    if (e.key === 'Escape' && document.activeElement === searchInput) {
+      searchInput.value = '';
+      filter('');
+      searchInput.blur();
+    }
+  });
+
+  // ============ Mobile ToC drawer ============
+  const tocToggle = document.getElementById('toc-toggle');
+  const toc = document.getElementById('toc');
+  if (tocToggle && toc) {
+    tocToggle.addEventListener('click', () => toc.classList.toggle('open'));
+    toc.addEventListener('click', (e) => {
+      if (e.target.tagName === 'A') toc.classList.remove('open');
+    });
+  }
+
+  // ============ Auto-detect callouts from blockquotes starting with [NOTE]/[INFO]/etc ============
+  document.querySelectorAll('blockquote').forEach(bq => {
+    const first = bq.querySelector('p:first-child');
+    if (!first) return;
+    const m = first.textContent.match(/^\[(NOTE|INFO|TIP|WARN|WARNING|DANGER|ALERT|SUCCESS|OK)\]\s*/i);
+    if (!m) return;
+    const kind = m[1].toUpperCase();
+    const klass = ['WARN','WARNING','ALERT'].includes(kind) ? 'warn'
+                 : ['DANGER'].includes(kind) ? 'danger'
+                 : ['SUCCESS','OK'].includes(kind) ? 'success' : 'info';
+    const icon = klass === 'warn' ? '⚠' : klass === 'danger' ? '✕' : klass === 'success' ? '✓' : 'ℹ';
+    first.textContent = first.textContent.slice(m[0].length);
+    const wrap = document.createElement('div');
+    wrap.className = 'callout ' + klass;
+    wrap.innerHTML = '<span class="callout-icon">' + icon + '</span><div class="callout-body"></div>';
+    const body = wrap.querySelector('.callout-body');
+    while (bq.firstChild) body.appendChild(bq.firstChild);
+    bq.parentNode.replaceChild(wrap, bq);
+  });
+
+})();
+</script>
+
+</body>
+</html>

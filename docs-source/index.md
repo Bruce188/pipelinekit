@@ -28,6 +28,8 @@ The complete user-facing documentation for pipelinekit \(autonomous `/pipeline` 
 
 ## Skills + features
 
+> Full catalogs: [Skills](skills.html) · [Agents](agents.html)
+
 - [`/ppr` push-PR flow](ppr.html) — everyday push + PR-open closing step of every pipeline feature.
 - [`/ppr --research` flag](ppr-research-flag.html) — publish research keep-rows to a dedicated branch.
 - [Research TSV viewer](tsv-viewer.html) — sortable / filterable HTML viewer for research-results TSVs.
