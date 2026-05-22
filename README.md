@@ -170,7 +170,7 @@ pipelinekit/
 ├── claude/                # Overlay installed to ~/.claude/
 │   ├── CLAUDE.md.template
 │   ├── rules/
-│   ├── skills/            # 43 native skills
+│   ├── skills/            # 42 native skills
 │   │   ├── pipeline/      # The autonomous orchestrator
 │   │   ├── docs-writer/   # template.html + render.py (rich-template HTML)
 │   │   ├── research/      # Karpathy autoresearch loop + tsv-viewer.sh
