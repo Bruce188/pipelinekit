@@ -98,6 +98,11 @@ mount root for per-instance configuration.
 | `cost-calculator` | Live sliders + toggles + dropdowns; real-time numeric output; export-as-JSON | `review-cost.html`, any cost/budget reference |
 | `tutorial-cards` | Card grid with hover effects + colored top borders + meta badges; click-to-anchor | `getting-started.html`, any tutorial index |
 | `architecture-diagram` | 4-layer stack visualization with hover-tooltips and layer-filter | `index.html`, `architecture.html` |
+| `deployment-provider-quiz` | Multi-step quiz w/ provider-fit recommendation, observability + region + CI-runner axis (6 questions, recommends Vercel/Railway/Render/DigitalOcean/Azure plus Blacksmith for CI). Cross-ref: extends `chooser-quiz` deploy set — keep both until embeds settle. | `deployment-chooser.html`, all `deployment-*.html` |
+| `path-routing-diagram`     | Decision-tree SVG for Path A/B/C/M/N routing logic w/ clickable nodes scrolling to `pipeline.html` § Path anchors. Cross-ref: complementary to `pipeline-phase-diagram` (lifecycle flow). | `pipeline.html` |
+| `command-cheatsheet`       | Searchable ≥40-row slash-command table; scoped `<input type="search">` filter with 120ms debounce; arguments + defaults + one-line description. JSON island data (hand-maintained). | `pipeline.html`, `getting-started.html` |
+| `cost-budget-meter`        | Twin dial-gauge SVG showing `$ spent / max-usd` + `turns / max-turns`; CSS-animated fill; degrades to open-ended bar when cap is `unlimited`. Config via `data-spent-usd`/`data-max-usd`/`data-spent-turns`/`data-max-turns` attributes. | `review-cost.html` |
+| `before-after-slider`      | Generic horizontal scrubber with clip-path reveal between two arbitrary content regions; ARIA-compliant `<input type="range">`; respects `prefers-reduced-motion`. Reusable shell. | (optional — future release-notes pages) |
 
 When a use case isn't covered, build a new snippet rather than falling back to
 plain markdown. See § Authoring a new snippet below for the contract.

@@ -1,0 +1,108 @@
+<!-- usage: <div data-snippet="cost-budget-meter"
+                     data-spent-usd="3.40" data-max-usd="10"
+                     data-spent-turns="220" data-max-turns="500"></div>
+     any data-* attribute may be the string "unlimited" to render open-ended -->
+<div class="pkit-cbm" data-snippet-mount="cost-budget-meter">
+  <style>
+    .pkit-cbm { margin: 1.5rem 0; padding: 1.5rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); }
+    .pkit-cbm .pkit-cbm-dials { display: flex; flex-wrap: wrap; gap: 2rem; justify-content: center; align-items: flex-start; }
+    .pkit-cbm .pkit-cbm-dial { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; min-width: 140px; }
+    .pkit-cbm .pkit-cbm-dial svg { width: 140px; height: 80px; display: block; }
+    .pkit-cbm .pkit-cbm-dial-label { font-family: var(--sans); font-size: 0.8rem; font-weight: 600; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .pkit-cbm .pkit-cbm-dial-value { font-family: var(--mono); font-size: 1rem; font-weight: 700; color: var(--fg); }
+    .pkit-cbm .pkit-cbm-dial-cap { font-family: var(--mono); font-size: 0.75rem; color: var(--fg-subtle); }
+    .pkit-cbm .pkit-cbm-legend { display: flex; gap: 1.5rem; justify-content: center; margin-top: 1rem; font-family: var(--sans); font-size: 0.78rem; color: var(--fg-muted); }
+    .pkit-cbm .pkit-cbm-legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 0.3rem; }
+    @keyframes pkit-cbm-fill {
+      from { stroke-dashoffset: var(--pkit-cbm-track-len, 220); }
+      to   { stroke-dashoffset: var(--pkit-cbm-fill-offset, 220); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .pkit-cbm * { animation: none !important; transition: none !important; }
+    }
+  </style>
+
+  <div class="pkit-cbm-dials">
+    <div class="pkit-cbm-dial" id="pkit-cbm-usd-dial">
+      <span class="pkit-cbm-dial-label">Cost (USD)</span>
+      <svg viewBox="0 0 140 80" aria-label="USD cost dial">
+        <path class="pkit-cbm-track" d="M20,75 A50,50 0 0,1 120,75" fill="none" stroke="var(--border)" stroke-width="10" stroke-linecap="round"/>
+        <path class="pkit-cbm-fill" id="pkit-cbm-usd-arc" d="M20,75 A50,50 0 0,1 120,75" fill="none" stroke="var(--accent)" stroke-width="10" stroke-linecap="round"
+              stroke-dasharray="157" stroke-dashoffset="157"/>
+      </svg>
+      <span class="pkit-cbm-dial-value" id="pkit-cbm-usd-value">$0</span>
+      <span class="pkit-cbm-dial-cap" id="pkit-cbm-usd-cap">of $10</span>
+    </div>
+
+    <div class="pkit-cbm-dial" id="pkit-cbm-turns-dial">
+      <span class="pkit-cbm-dial-label">Turns</span>
+      <svg viewBox="0 0 140 80" aria-label="Turns dial">
+        <path class="pkit-cbm-track" d="M20,75 A50,50 0 0,1 120,75" fill="none" stroke="var(--border)" stroke-width="10" stroke-linecap="round"/>
+        <path class="pkit-cbm-fill" id="pkit-cbm-turns-arc" d="M20,75 A50,50 0 0,1 120,75" fill="none" stroke="var(--accent)" stroke-width="10" stroke-linecap="round"
+              stroke-dasharray="157" stroke-dashoffset="157"/>
+      </svg>
+      <span class="pkit-cbm-dial-value" id="pkit-cbm-turns-value">0</span>
+      <span class="pkit-cbm-dial-cap" id="pkit-cbm-turns-cap">of 500</span>
+    </div>
+  </div>
+
+  <script type="application/json" id="cbm-defaults">{"spentUsd":3.40,"maxUsd":10,"spentTurns":220,"maxTurns":500}</script>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  document.querySelectorAll('.pkit-cbm[data-snippet-mount="cost-budget-meter"]').forEach(function(root) {
+    if (root.dataset.pkitInit) return;
+    root.dataset.pkitInit = '1';
+
+    var defaultsEl = root.querySelector('#cbm-defaults');
+    var defaults = defaultsEl ? JSON.parse(defaultsEl.textContent) : {spentUsd:0,maxUsd:10,spentTurns:0,maxTurns:500};
+
+    var spentUsd   = root.dataset.spentUsd   !== undefined ? root.dataset.spentUsd   : String(defaults.spentUsd);
+    var maxUsd     = root.dataset.maxUsd     !== undefined ? root.dataset.maxUsd     : String(defaults.maxUsd);
+    var spentTurns = root.dataset.spentTurns !== undefined ? root.dataset.spentTurns : String(defaults.spentTurns);
+    var maxTurns   = root.dataset.maxTurns   !== undefined ? root.dataset.maxTurns   : String(defaults.maxTurns);
+
+    var TRACK_LEN = 157; /* half-circle arc at r=50 ≈ π*50 */
+
+    function setupDial(arcEl, valEl, capEl, spent, max) {
+      var spentNum = parseFloat(spent) || 0;
+      var isUsd = capEl.id === 'pkit-cbm-usd-cap';
+
+      if (max === 'unlimited') {
+        /* open-ended: show spent with no denominator */
+        arcEl.style.display = 'none';
+        valEl.textContent = isUsd ? ('$' + spentNum.toFixed(2)) : String(Math.round(spentNum));
+        capEl.textContent = '(no cap)';
+        return;
+      }
+
+      var maxNum = parseFloat(max) || 1;
+      var fraction = Math.min(1, Math.max(0, spentNum / maxNum));
+      var fillOffset = TRACK_LEN - fraction * TRACK_LEN;
+
+      arcEl.style.setProperty('--pkit-cbm-track-len', TRACK_LEN);
+      arcEl.style.setProperty('--pkit-cbm-fill-offset', fillOffset);
+      arcEl.style.strokeDashoffset = fillOffset;
+      arcEl.style.animation = 'pkit-cbm-fill 800ms ease-out forwards';
+
+      valEl.textContent = isUsd ? ('$' + spentNum.toFixed(2)) : String(Math.round(spentNum));
+      capEl.textContent = isUsd ? ('of $' + maxNum) : ('of ' + maxNum);
+    }
+
+    setupDial(
+      root.querySelector('#pkit-cbm-usd-arc'),
+      root.querySelector('#pkit-cbm-usd-value'),
+      root.querySelector('#pkit-cbm-usd-cap'),
+      spentUsd, maxUsd
+    );
+    setupDial(
+      root.querySelector('#pkit-cbm-turns-arc'),
+      root.querySelector('#pkit-cbm-turns-value'),
+      root.querySelector('#pkit-cbm-turns-cap'),
+      spentTurns, maxTurns
+    );
+  });
+})();
+</script>

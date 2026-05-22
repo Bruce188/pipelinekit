@@ -1,0 +1,169 @@
+<!-- usage: <div data-snippet="path-routing-diagram"></div> -->
+<div class="pkit-prd" data-snippet-mount="path-routing-diagram">
+  <style>
+    .pkit-prd { margin: 1.5rem 0; padding: 1.5rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); position: relative; }
+    .pkit-prd svg { width: 100%; max-width: 720px; display: block; margin: 0 auto; height: auto; }
+    .pkit-prd .pkit-prd-node { cursor: pointer; }
+    .pkit-prd .pkit-prd-node rect { fill: var(--bg); stroke: var(--border-strong); stroke-width: 1.5; transition: stroke 150ms ease, fill 150ms ease; }
+    .pkit-prd .pkit-prd-node:hover rect, .pkit-prd .pkit-prd-node:focus rect { stroke: var(--accent); fill: var(--accent-soft); outline: none; }
+    .pkit-prd .pkit-prd-node text { fill: var(--fg); font-family: var(--sans); font-size: 12px; font-weight: 600; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+    .pkit-prd .pkit-prd-node .pkit-prd-badge { fill: var(--accent); font-family: var(--mono); font-size: 10px; font-weight: 700; }
+    .pkit-prd .pkit-prd-entry rect { stroke: var(--border-strong); stroke-width: 2; }
+    .pkit-prd .pkit-prd-edge { fill: none; stroke: var(--border-strong); stroke-width: 1.5; stroke-dasharray: 600; stroke-dashoffset: 600; animation: pkit-prd-draw 600ms ease forwards; }
+    .pkit-prd .pkit-prd-edge-a { stroke: var(--accent); }
+    .pkit-prd .pkit-prd-arrowhead { fill: var(--border-strong); }
+    .pkit-prd .pkit-prd-arrowhead-a { fill: var(--accent); }
+    .pkit-prd .pkit-prd-edge-label { font-family: var(--mono); font-size: 9px; fill: var(--fg-subtle); text-anchor: middle; }
+    .pkit-prd .pkit-prd-tooltip { position: absolute; background: var(--bg); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: 0.4rem 0.6rem; font-family: var(--sans); font-size: 0.8rem; color: var(--fg); max-width: 280px; pointer-events: none; z-index: 10; display: none; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .pkit-prd .pkit-prd-hint { text-align: center; font-family: var(--sans); font-size: 0.78rem; color: var(--fg-subtle); margin-top: 0.6rem; }
+    @keyframes pkit-prd-draw { to { stroke-dashoffset: 0; } }
+    @media (prefers-reduced-motion: reduce) {
+      .pkit-prd * { animation: none !important; transition: none !important; }
+    }
+  </style>
+
+  <svg viewBox="0 0 720 420" aria-label="Pipeline path routing decision tree">
+    <defs>
+      <marker id="prd-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L8,3 z" class="pkit-prd-arrowhead"/>
+      </marker>
+      <marker id="prd-arrow-a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L8,3 z" class="pkit-prd-arrowhead-a"/>
+      </marker>
+    </defs>
+
+    <!-- Entry node -->
+    <g class="pkit-prd-node pkit-prd-entry" tabindex="0" role="img" aria-label="review() returns findings — starting point">
+      <rect x="220" y="10" width="280" height="44" rx="6"/>
+      <text x="360" y="32">review() returns findings</text>
+    </g>
+
+    <!-- Edges from entry to paths -->
+    <path class="pkit-prd-edge" d="M360,54 L360,80 L90,80 L90,110" marker-end="url(#prd-arrow)" style="animation-delay:0ms"/>
+    <path class="pkit-prd-edge" d="M360,54 L360,80 L230,80 L230,110" marker-end="url(#prd-arrow)" style="animation-delay:60ms"/>
+    <path class="pkit-prd-edge pkit-prd-edge-a" d="M360,54 L360,80 L370,80 L370,110" marker-end="url(#prd-arrow-a)" style="animation-delay:120ms"/>
+    <path class="pkit-prd-edge" d="M360,54 L360,80 L510,80 L510,110" marker-end="url(#prd-arrow)" style="animation-delay:180ms"/>
+    <path class="pkit-prd-edge" d="M360,54 L360,80 L640,80 L640,110" marker-end="url(#prd-arrow)" style="animation-delay:240ms"/>
+
+    <!-- Edge labels -->
+    <text class="pkit-prd-edge-label" x="90" y="96">0B+nits</text>
+    <text class="pkit-prd-edge-label" x="230" y="96">0B+≤3NB</text>
+    <text class="pkit-prd-edge-label" x="370" y="96">0B+0NB</text>
+    <text class="pkit-prd-edge-label" x="510" y="96">blocking</text>
+    <text class="pkit-prd-edge-label" x="640" y="96">B×5+</text>
+
+    <!-- Path N node -->
+    <g class="pkit-prd-node" tabindex="0" role="button" aria-label="Path N — inline Edit-tool nit fix" data-anchor="path-n" data-tooltip="0 blocking + nits only (≤2 cycles). Applies inline Edit-tool changes. Max 2 cycles before escalating to Path B.">
+      <rect x="20" y="110" width="140" height="60" rx="6"/>
+      <text x="90" y="132">Path N</text>
+      <text class="pkit-prd-badge" x="90" y="150">inline Edit</text>
+    </g>
+
+    <!-- Path M node -->
+    <g class="pkit-prd-node" tabindex="0" role="button" aria-label="Path M — inline mini-fix" data-anchor="path-m" data-tooltip="0 blocking + ≤3 mechanical non-blocking findings. Each ≤5 lines / 1 file. Inline Edit-tool. Max 2 cycles.">
+      <rect x="165" y="110" width="130" height="60" rx="6"/>
+      <text x="230" y="132">Path M</text>
+      <text class="pkit-prd-badge" x="230" y="150">inline mini-fix</text>
+    </g>
+
+    <!-- Path A node (accent color) -->
+    <g class="pkit-prd-node" tabindex="0" role="button" aria-label="Path A — clean merge" data-anchor="path-a" data-tooltip="0 blocking + 0 non-blocking findings. Immediate clean merge to main.">
+      <rect x="305" y="110" width="130" height="60" rx="6" style="stroke: var(--accent);"/>
+      <text x="370" y="132" style="fill: var(--accent);">Path A</text>
+      <text class="pkit-prd-badge" x="370" y="150">clean merge</text>
+    </g>
+
+    <!-- Path B node -->
+    <g class="pkit-prd-node" tabindex="0" role="button" aria-label="Path B — re-implement subagent" data-anchor="path-b" data-tooltip="Blocking findings present. Dispatches tdd-test-writer + tdd-implementer subagents. Max 5 cycles before Path C escalation.">
+      <rect x="445" y="110" width="130" height="60" rx="6"/>
+      <text x="510" y="132">Path B</text>
+      <text class="pkit-prd-badge" x="510" y="150">re-implement</text>
+    </g>
+
+    <!-- Path C node -->
+    <g class="pkit-prd-node" tabindex="0" role="button" aria-label="Path C — re-plan" data-anchor="path-c" data-tooltip="Path B exhausted (5 cycles). Escalates to re-plan via /create-plan. Max 1 Path C iteration per feature.">
+      <rect x="575" y="110" width="130" height="60" rx="6"/>
+      <text x="640" y="132">Path C</text>
+      <text class="pkit-prd-badge" x="640" y="150">re-plan (max 1)</text>
+    </g>
+
+    <!-- Path B → Path C escalation edge -->
+    <path class="pkit-prd-edge" d="M575,140 L562,140" marker-end="url(#prd-arrow)" style="animation-delay:300ms"/>
+
+    <!-- Outcome labels -->
+    <text class="pkit-prd-edge-label" x="90" y="196">≤2 cycles</text>
+    <text class="pkit-prd-edge-label" x="230" y="196">≤2 cycles</text>
+    <text class="pkit-prd-edge-label" x="370" y="196">merge →</text>
+    <text class="pkit-prd-edge-label" x="510" y="196">≤5 cycles</text>
+    <text class="pkit-prd-edge-label" x="640" y="196">max 1</text>
+
+    <!-- Down arrows to outcomes -->
+    <path class="pkit-prd-edge" d="M90,170 L90,200" marker-end="url(#prd-arrow)" style="animation-delay:360ms"/>
+    <path class="pkit-prd-edge" d="M230,170 L230,200" marker-end="url(#prd-arrow)" style="animation-delay:400ms"/>
+    <path class="pkit-prd-edge pkit-prd-edge-a" d="M370,170 L370,200" marker-end="url(#prd-arrow-a)" style="animation-delay:440ms"/>
+    <path class="pkit-prd-edge" d="M510,170 L510,200" marker-end="url(#prd-arrow)" style="animation-delay:480ms"/>
+    <path class="pkit-prd-edge" d="M640,170 L640,200" marker-end="url(#prd-arrow)" style="animation-delay:520ms"/>
+
+    <!-- Outcome boxes -->
+    <rect x="30" y="200" width="120" height="36" rx="4" fill="var(--bg)" stroke="var(--border)" stroke-width="1"/>
+    <text class="pkit-prd-edge-label" x="90" y="222" style="font-size:10px; fill:var(--fg-muted)">inline fix → re-review</text>
+
+    <rect x="170" y="200" width="120" height="36" rx="4" fill="var(--bg)" stroke="var(--border)" stroke-width="1"/>
+    <text class="pkit-prd-edge-label" x="230" y="222" style="font-size:10px; fill:var(--fg-muted)">inline fix → re-review</text>
+
+    <rect x="310" y="200" width="120" height="36" rx="4" fill="var(--bg)" stroke="var(--accent)" stroke-width="1.5"/>
+    <text class="pkit-prd-edge-label" x="370" y="222" style="font-size:10px; fill:var(--accent); font-weight:700">merge to main</text>
+
+    <rect x="450" y="200" width="120" height="36" rx="4" fill="var(--bg)" stroke="var(--border)" stroke-width="1"/>
+    <text class="pkit-prd-edge-label" x="510" y="222" style="font-size:10px; fill:var(--fg-muted)">implement → review</text>
+
+    <rect x="580" y="200" width="120" height="36" rx="4" fill="var(--bg)" stroke="var(--border)" stroke-width="1"/>
+    <text class="pkit-prd-edge-label" x="640" y="222" style="font-size:10px; fill:var(--fg-muted)">new plan → implement</text>
+  </svg>
+
+  <p class="pkit-prd-hint">Click any path node to jump to its documentation section.</p>
+  <div class="pkit-prd-tooltip" role="tooltip" id="prd-tooltip"></div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  document.querySelectorAll('.pkit-prd[data-snippet-mount="path-routing-diagram"]').forEach(function(root) {
+    if (root.dataset.pkitInit) return;
+    root.dataset.pkitInit = '1';
+
+    var tooltip = root.querySelector('.pkit-prd-tooltip');
+    var nodes = root.querySelectorAll('.pkit-prd-node[data-anchor]');
+
+    nodes.forEach(function(node) {
+      node.addEventListener('click', function() {
+        var anchor = node.dataset.anchor;
+        if (anchor) window.location.hash = anchor;
+      });
+
+      node.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          var anchor = node.dataset.anchor;
+          if (anchor) window.location.hash = anchor;
+        }
+      });
+
+      node.addEventListener('mouseenter', function(e) {
+        var text = node.dataset.tooltip;
+        if (!text || !tooltip) return;
+        tooltip.textContent = text;
+        tooltip.style.display = 'block';
+        var svgRect = root.getBoundingClientRect();
+        var nodeRect = node.getBoundingClientRect();
+        tooltip.style.left = (nodeRect.left - svgRect.left) + 'px';
+        tooltip.style.top = (nodeRect.bottom - svgRect.top + 6) + 'px';
+      });
+
+      node.addEventListener('mouseleave', function() {
+        if (tooltip) tooltip.style.display = 'none';
+      });
+    });
+  });
+})();
+</script>
