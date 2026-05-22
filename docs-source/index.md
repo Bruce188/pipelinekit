@@ -33,7 +33,6 @@ The complete user-facing documentation for pipelinekit \(autonomous `/pipeline` 
 - [Research TSV viewer](tsv-viewer.html) — sortable / filterable HTML viewer for research-results TSVs.
 - [GitHub Issues integration](github-issues-integration.html) — `--issues` mode for `/pipeline`.
 - [`/pipeline --renew` charter revalidation](pipeline-charter-revalidation.html) — drift detection with 3-valued status + `--auto` bypass.
-- [openhuman — human-review gate](openhuman.html) — pause `/pipeline` before destructive actions for out-of-band human approval (`--human-review N`).
 
 ## Cost + observability
 
@@ -52,5 +51,5 @@ Pipelinekit is MIT-licensed and stands on the shoulders of several upstream proj
 - **[Andrej Karpathy](https://karpathy.ai/)** — the autoresearch-loop pattern (`/research`) and the namesake of the `karpathy-reviewer` anti-hallucination agent.
 - **[Anthropic](https://www.anthropic.com/)** — the entire runtime: Claude Code, the Agent SDK, multi-agent dispatch, Skills, Hooks, MCP, `PushNotification`, and the underlying Claude models that every pipelinekit phase calls.
 
-See the **[Credits page](credits.html)** for the full table of vendored upstreams (with pinned SHAs, licenses, scope, and re-vendor procedures) — wshobson/agents, alirezarezvani/{claude-skills, ClaudeForge}, mattpocock/skills, tinyhumansai/openhuman, rohitg00/agentmemory.
+See the **[Credits page](credits.html)** for the full table of vendored upstreams (with pinned SHAs, licenses, scope, and re-vendor procedures) — wshobson/agents, alirezarezvani/{claude-skills, ClaudeForge}, mattpocock/skills.
 

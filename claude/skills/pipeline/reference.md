@@ -457,7 +457,7 @@ Do not modify any existing `docs/` files during adoption — only create `featur
 
 ### Path B — Fixable Findings (max 5 review cycles)
 
-On Path B entry, the orchestrator emits a `path-b-pre` beacon; this beacon ALSO invokes `claude/hooks/notify-emit.sh` with `NOTIFY_EVENT_TYPE=human-review` per the canonical schema in § Notification payload schema. The notification is delivered via `PushNotification` when the session is interactive + Remote Control is enabled; otherwise via the `Notification`-hook `terminalSequence` fallback (OSC 777).
+On Path B entry, the orchestrator emits a `path-b-pre` beacon. The notification is delivered via `PushNotification` when the session is interactive + Remote Control is enabled; otherwise via the `Notification`-hook `terminalSequence` fallback (OSC 777).
 
 1. Read current review cycle count from pipeline state. Increment.
 1.5. **Convergence check:** Count the review file's blocking + non-blocking findings by counting lines matching `^- \*\*Severity:\*\* (blocking|non-blocking)`. Read `**Prior finding count:**` from pipeline-state.md. If absent (first Path B cycle): set `**Prior finding count:**` to the current count and skip the comparison (first cycle establishes the baseline). If present: compare current against prior. If current >= prior, increment `**Non-converging cycles:**` in pipeline-state.md (0 if absent). If `**Non-converging cycles:**` >= 2, log "Non-converging review: [current] >= [prior] findings for 2 consecutive cycles — escalating to Path C" and jump to Path C. If current < prior, reset `**Non-converging cycles:**` to 0. Always update `**Prior finding count:**` to the current count.
@@ -483,7 +483,7 @@ On Path B entry, the orchestrator emits a `path-b-pre` beacon; this beacon ALSO 
 
 ### Path C — Scope Change (max 1 re-plan)
 
-On Path C entry, the orchestrator emits a `path-c-pre` beacon; this beacon ALSO invokes `claude/hooks/notify-emit.sh` with `NOTIFY_EVENT_TYPE=human-review` per the canonical schema in § Notification payload schema. The notification is delivered via `PushNotification` when the session is interactive + Remote Control is enabled; otherwise via the `Notification`-hook `terminalSequence` fallback (OSC 777).
+On Path C entry, the orchestrator emits a `path-c-pre` beacon. The notification is delivered via `PushNotification` when the session is interactive + Remote Control is enabled; otherwise via the `Notification`-hook `terminalSequence` fallback (OSC 777).
 
 1. Read current replan count from pipeline state. Increment.
 2. If replan count > 1:
@@ -1340,15 +1340,15 @@ prompt body, wrapped in `<<<ISSUES_CONTENT_BEGIN>>> ...
 
 ### Notification payload schema
 
-The orchestrator surfaces halt-class state transitions to the user via native Claude Code notification surfaces (see SKILL.md § Notifications). The canonical helper at `claude/hooks/notify-emit.sh` is the single emit point. The payload below is the cross-feature invariant — `feat/integrate-openhuman` (F10) is the second consumer and MUST reuse this helper unchanged.
+The orchestrator surfaces halt-class state transitions to the user via native Claude Code notification surfaces (see SKILL.md § Notifications). The canonical helper at `claude/hooks/notify-emit.sh` is the single emit point.
 
 ```json
 {
   "feature_index": "9/23",
   "step": "review",
-  "event_type": "human-review",
+  "event_type": "feature-done",
   "text": "<= 200 chars, truncated with ellipsis",
-  "action_link": "claude://session/<id>?at=<anchor>  OR  signal-file:///path/to/signal",
+  "action_link": "claude://session/<id>?at=<anchor>",
   "feature_name": "feat/pipeline-mobile-notifications"
 }
 ```
@@ -1359,7 +1359,7 @@ The orchestrator surfaces halt-class state transitions to the user via native Cl
 |-------|------|------------|
 | `feature_index` | string | `N/M` shape (1-based current / total in feature file) |
 | `step` | enum string | one of `analyze` / `plan` / `implement` / `review` / `merge` |
-| `event_type` | enum string | one of `question` / `error` / `dropped` / `human-review` / `budget-breach` / `feature-done` |
+| `event_type` | enum string | one of `question` / `error` / `dropped` / `budget-breach` / `feature-done` |
 | `text` | string | ≤ 200 chars; truncated with ellipsis when input length > 200 |
 | `action_link` | string | deep-link (`claude://session/...`) OR signal-file path (`signal-file:///...`); may be empty |
 | `feature_name` | string | `<type>/<name>` shape per `~/.claude/skills/new-branch/SKILL.md` validators |
@@ -1372,75 +1372,4 @@ The orchestrator surfaces halt-class state transitions to the user via native Cl
 
 **Opt-out:** `PIPELINE_NO_NOTIFICATIONS=1` env var short-circuits the helper at script start (no emit, exit 0). `channelsEnabled: false` in `~/.claude/settings.json` disables inbound Channels delivery (Claude Code 2.1.121+).
 
-**Cross-feature contract:** `feat/integrate-openhuman` (F10) is the second consumer of this surface. F10 MUST reuse `claude/hooks/notify-emit.sh` and the canonical hook event mapping in `claude/skills/pipeline/SKILL.md § Notifications`. The schema in this appendix is the cross-feature invariant — F10 cannot fork it.
-
----
-
-### Human-Review Gate (--human-review)
-
-The Human-Review Gate is an out-of-band approval checkpoint that pauses `/pipeline` before destructive actions. Today the only wired trigger is `Bash(git merge --squash *)` (Path A auto-merge); future iterations may extend the matcher set to cover prod-deploy and schema-migration trigger commands.
-
-**Trigger matcher.** Wired by `scripts/install.sh § maybe_install_settings` as a separate entry in the `"PreToolUse"` list (alongside the existing `env-scrub.py` / `skill_budget.py` / `tdd-red-phase-gate.sh` / `block-bare-repo-markers.py` entries):
-
-```python
-{"matcher": "Bash",
- "hooks": [{"type": "command",
-            "command": f"{h}/skills/openhuman/handler.sh",
-            "if": "Bash(git merge --squash *)"}]}
-```
-
-The `if` clause narrows the Bash matcher to `git merge --squash` invocations only — every other Bash command bypasses the handler. The handler binary lives at `${HOME}/.claude/skills/openhuman/handler.sh` post-install.
-
-**Handler contract.** The handler implements the following 8-step behavior:
-
-1. **Read hook stdin JSON** via `python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("tool_input",{}).get("command",""))'`. Extract `tool_input.command` into a bash variable `CMD`.
-
-2. **Defensive double-check** that `CMD` matches `^git merge --squash` (defense-in-depth beyond the `if` clause). If it does NOT match: emit `{"hookSpecificOutput":{"permissionDecision":"allow"}}` (passthrough) and `exit 0`. Fail-open on the matcher, fail-closed on the timeout — matches the audit's least-surprise principle.
-
-3. **Env-var gate check.** If `${PIPELINE_HUMAN_REVIEW:-0}` equals `0` or is unset: emit `{"hookSpecificOutput":{"permissionDecision":"allow"}}` (no gate) and `exit 0`. This makes the standard install **inert** when the user does not pass `--human-review` to `/pipeline`.
-
-4. **Mint signal-file path.** `SIGNAL=".claude/openhuman/${PIPELINE_FEATURE_NAME:-adhoc}-$(date +%s).json"`. Create parent dir if missing: `mkdir -p "$(dirname "$SIGNAL")"`. The `.claude/` directory is gitignored per the standard pipelinekit never-stage list (`~/.claude/config/never-stage.txt`).
-
-5. **Invoke F9 helper — CONSUME, do not fork.** The handler invokes `claude/hooks/notify-emit.sh --mode beacon` with the 6 standard NOTIFY_* env vars (`NOTIFY_FEATURE_INDEX`, `NOTIFY_STEP=merge`, `NOTIFY_EVENT_TYPE=human-review`, `NOTIFY_TEXT="Approve squash-merge of feat/<name>? Reply via signal file."`, `NOTIFY_ACTION_LINK="signal-file:///abs/path"`, `NOTIFY_FEATURE_NAME`). Output is discarded — the helper's role is informational; the response surface is the signal file.
-
-6. **Poll loop with `SECONDS`-based timeout.** Cadence: 5-second `sleep` between `[ -f "$SIGNAL" ]` checks. On timeout, emit:
-   ```json
-   {"hookSpecificOutput":{"permissionDecision":"deny",
-                          "permissionDecisionReason":"OPENHUMAN_TIMEOUT: <minutes> minutes elapsed without approval"}}
-   ```
-   and `exit 0`. **Fail-safe abort**, NEVER auto-approve.
-
-7. **On signal-file present**, parse JSON. The expected shape is `{decision: "allow"|"deny", reason?: string, reviewer?: string, ts?: ISO-8601}`. Emit the corresponding `permissionDecision` (allow or deny).
-
-8. **On malformed signal file** (invalid JSON, missing `decision` field, or `decision` value not in `{allow, deny}`): emit `permissionDecision: "deny"` with reason `OPENHUMAN_MALFORMED_SIGNAL: <signal-path>` and `exit 0`.
-
-**Signal-file schema.**
-
-```json
-{
-  "decision": "allow",
-  "reason": "Reviewed diff; safe to merge.",
-  "reviewer": "bruce",
-  "ts": "2026-05-18T20:30:00Z"
-}
-```
-
-| field | required | type | notes |
-|-------|----------|------|-------|
-| `decision` | yes | enum string | `"allow"` or `"deny"` — anything else triggers the malformed path |
-| `reason` | no | string | free-form; no length cap; not forwarded to the notification payload |
-| `reviewer` | no | string | free-form; identifies the human reviewer for audit |
-| `ts` | no | string | ISO-8601 timestamp; the handler does not parse `ts` — purely audit |
-
-**Atomic write contract.** The reviewer must write the signal file atomically to avoid the polling loop reading a half-written file:
-
-```bash
-printf '%s' "$JSON" > "$SIGNAL.tmp" && mv "$SIGNAL.tmp" "$SIGNAL"
-```
-
-The signal-file path convention `.claude/openhuman/<feature-name>-<unix-timestamp>.json` is gitignored per the standard pipelinekit never-stage list — signal files are never committed.
-
-**Cross-feature contract callout.** The handler invokes `claude/hooks/notify-emit.sh --mode beacon` with `NOTIFY_EVENT_TYPE=human-review` and the 6-field payload schema (`feature_index`, `step`, `event_type`, `text`, `action_link`, `feature_name`). F10 is a CONSUMER of F9's helper, NOT a fork — the schema documented in the `### Notification payload schema` appendix above is the cross-feature invariant. F10 cannot fork it.
-
-**NB1 cross-feature note (feature_index N/M shape).** The handler reads `PIPELINE_FEATURE_INDEX` from the env (orchestrator populates it from `docs/pipeline-state.md` `**Feature:**` line at Step 5.1, e.g., `10/23`). For ad-hoc `/openhuman` user-trigger paths with no active pipeline, `PIPELINE_FEATURE_INDEX` is unset → the handler emits with empty `feature_index` per NB3 optional-field empty-string semantics. The 6-field payload still ships; only the optional `feature_index` and `step` slots may be empty when ad-hoc.
 

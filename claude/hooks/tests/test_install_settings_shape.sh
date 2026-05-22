@@ -4,10 +4,9 @@ set -euo pipefail
 #
 # Runs the installer in a sandboxed CLAUDE_HOME and parses the produced
 # settings.json to verify every wired hook entry carries both "command" and
-# "args" keys, no "command" value contains a space (rejects legacy shell form),
-# and the openhuman handler preserves its "if" clause while gaining "args".
+# "args" keys, and no "command" value contains a space (rejects legacy shell form).
 #
-# Expected result: Results: 4 PASS / 0 FAIL
+# Expected result: Results: 3 PASS / 0 FAIL
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
@@ -117,37 +116,6 @@ then
   record "test_02_no_command_contains_space" PASS
 else
   record "test_02_no_command_contains_space" FAIL "command value(s) contain spaces"
-fi
-
-# ---------------------------------------------------------------------------
-# test_03: openhuman handler preserves "if" clause AND gains "args": []
-# ---------------------------------------------------------------------------
-if python3 - "$SETTINGS_FILE" <<'PYEOF'
-import json, sys
-
-settings = json.load(open(sys.argv[1]))
-hooks_section = settings.get("hooks", {})
-
-found = False
-for event, matchers in hooks_section.items():
-    for matcher_obj in matchers:
-        for entry in matcher_obj.get("hooks", []):
-            cmd = entry.get("command", "")
-            if cmd.endswith("/skills/openhuman/handler.sh"):
-                found = True
-                assert "if" in entry, "missing key: if"
-                assert entry["if"] == "Bash(git merge --squash *)", \
-                    "if mismatch: {!r}".format(entry["if"])
-                assert "args" in entry, "missing key: args"
-                assert entry["args"] == [], \
-                    "args not empty list: {!r}".format(entry["args"])
-
-assert found, "openhuman handler entry not found in settings.json"
-PYEOF
-then
-  record "test_03_openhuman_preserves_if" PASS
-else
-  record "test_03_openhuman_preserves_if" FAIL "openhuman handler missing if/args or not found"
 fi
 
 # ---------------------------------------------------------------------------

@@ -12,8 +12,7 @@ set -euo pipefail
 # (so when NOTIFY_TEXT length > 200, output text = ${NOTIFY_TEXT:0:197}...).
 #
 # The helper does NOT read any docs/*.md file — the payload text comes from env
-# vars only. F10 (feat/integrate-openhuman) MUST reuse this helper unchanged;
-# the public CLI here is the cross-feature contract.
+# vars only. The public CLI here is the authoritative contract.
 #
 # Throttling: NONE here. Channels' built-in mechanics are authoritative.
 
