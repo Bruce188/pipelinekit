@@ -1,5 +1,7 @@
 # CI/CD on Blacksmith
 
+> [INFO] Looking at deployment too? See the [provider chooser](deployment-chooser.html).
+
 Pipelinekit defaults to Blacksmith runners (`runs-on: blacksmith`) for GitHub Actions CI/CD: cost, speed, and per-job pricing characteristics vs `ubuntu-latest`.
 
 <div data-snippet="comparison-tabs"></div>

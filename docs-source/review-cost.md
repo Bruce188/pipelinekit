@@ -2,8 +2,13 @@
 
 `/review` dispatches up to 6 parallel agents per invocation (medium and large tiers).
 
+### Planning the budget
 
 <div data-snippet="cost-calculator"></div>
+
+### Watching live spend
+
+<div data-snippet="cost-budget-meter" data-spent-usd="3.40" data-max-usd="10" data-spent-turns="220" data-max-turns="500"></div>
 
 ## Per-agent default model and relative cost
 

@@ -460,6 +460,176 @@ else
   RESULTS+=("  FAIL  agent-catalog-grid snippet name not logged to stderr")
 fi
 
+# ============ Test 9: deployment-provider-quiz snippet substitution ============
+cat > "$TMP/deployment-provider-quiz-test.md" <<'EOF'
+# Deployment + CI provider chooser
+
+Choose your provider.
+
+<div data-snippet="deployment-provider-quiz"></div>
+
+## Section
+
+More text.
+EOF
+
+python3 claude/skills/docs-writer/render.py "$TMP/deployment-provider-quiz-test.md" "$TMP/deployment-provider-quiz-test.html" > "$TMP/deployment-provider-quiz-stderr.txt" 2>&1 || true
+
+assert_contains "$TMP/deployment-provider-quiz-test.html" 'data-snippet-mount="deployment-provider-quiz"' 'deployment-provider-quiz snippet placeholder substituted with mount root'
+
+DPQ_PLACEHOLDER_HITS=$(awk '/<div id="page-content">/{flag=1; next} flag && /^<!--/{flag=2} flag==1{print}' "$TMP/deployment-provider-quiz-test.html" 2>/dev/null | grep -c '<div data-snippet="deployment-provider-quiz"></div>' || true)
+if [ "$DPQ_PLACEHOLDER_HITS" -eq 0 ]; then
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  deployment-provider-quiz placeholder removed after substitution (in body)")
+else
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  $DPQ_PLACEHOLDER_HITS deployment-provider-quiz placeholder remains in body")
+fi
+
+if grep -q 'snippets: deployment-provider-quiz' "$TMP/deployment-provider-quiz-stderr.txt" 2>/dev/null; then
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  deployment-provider-quiz snippet name logged to stderr")
+else
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  deployment-provider-quiz snippet name not logged to stderr")
+fi
+
+# ============ Test 10: path-routing-diagram snippet substitution ============
+cat > "$TMP/path-routing-diagram-test.md" <<'EOF'
+# Pipeline path routing
+
+Understanding path routing.
+
+<div data-snippet="path-routing-diagram"></div>
+
+## Section
+
+More text.
+EOF
+
+python3 claude/skills/docs-writer/render.py "$TMP/path-routing-diagram-test.md" "$TMP/path-routing-diagram-test.html" > "$TMP/path-routing-diagram-stderr.txt" 2>&1 || true
+
+assert_contains "$TMP/path-routing-diagram-test.html" 'data-snippet-mount="path-routing-diagram"' 'path-routing-diagram snippet placeholder substituted with mount root'
+
+PRD_PLACEHOLDER_HITS=$(awk '/<div id="page-content">/{flag=1; next} flag && /^<!--/{flag=2} flag==1{print}' "$TMP/path-routing-diagram-test.html" 2>/dev/null | grep -c '<div data-snippet="path-routing-diagram"></div>' || true)
+if [ "$PRD_PLACEHOLDER_HITS" -eq 0 ]; then
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  path-routing-diagram placeholder removed after substitution (in body)")
+else
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  $PRD_PLACEHOLDER_HITS path-routing-diagram placeholder remains in body")
+fi
+
+if grep -q 'snippets: path-routing-diagram' "$TMP/path-routing-diagram-stderr.txt" 2>/dev/null; then
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  path-routing-diagram snippet name logged to stderr")
+else
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  path-routing-diagram snippet name not logged to stderr")
+fi
+
+# ============ Test 11: command-cheatsheet snippet substitution ============
+cat > "$TMP/command-cheatsheet-test.md" <<'EOF'
+# Command cheatsheet
+
+Quick reference for all slash commands.
+
+<div data-snippet="command-cheatsheet"></div>
+
+## Section
+
+More text.
+EOF
+
+python3 claude/skills/docs-writer/render.py "$TMP/command-cheatsheet-test.md" "$TMP/command-cheatsheet-test.html" > "$TMP/command-cheatsheet-stderr.txt" 2>&1 || true
+
+assert_contains "$TMP/command-cheatsheet-test.html" 'data-snippet-mount="command-cheatsheet"' 'command-cheatsheet snippet placeholder substituted with mount root'
+
+CMD_PLACEHOLDER_HITS=$(awk '/<div id="page-content">/{flag=1; next} flag && /^<!--/{flag=2} flag==1{print}' "$TMP/command-cheatsheet-test.html" 2>/dev/null | grep -c '<div data-snippet="command-cheatsheet"></div>' || true)
+if [ "$CMD_PLACEHOLDER_HITS" -eq 0 ]; then
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  command-cheatsheet placeholder removed after substitution (in body)")
+else
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  $CMD_PLACEHOLDER_HITS command-cheatsheet placeholder remains in body")
+fi
+
+if grep -q 'snippets: command-cheatsheet' "$TMP/command-cheatsheet-stderr.txt" 2>/dev/null; then
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  command-cheatsheet snippet name logged to stderr")
+else
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  command-cheatsheet snippet name not logged to stderr")
+fi
+
+# ============ Test 12: cost-budget-meter snippet substitution ============
+cat > "$TMP/cost-budget-meter-test.md" <<'EOF'
+# Review cost
+
+Track your pipeline spend.
+
+<div data-snippet="cost-budget-meter" data-spent-usd="3.40" data-max-usd="10" data-spent-turns="220" data-max-turns="500"></div>
+
+## Section
+
+More text.
+EOF
+
+python3 claude/skills/docs-writer/render.py "$TMP/cost-budget-meter-test.md" "$TMP/cost-budget-meter-test.html" > "$TMP/cost-budget-meter-stderr.txt" 2>&1 || true
+
+assert_contains "$TMP/cost-budget-meter-test.html" 'data-snippet-mount="cost-budget-meter"' 'cost-budget-meter snippet placeholder substituted with mount root'
+
+CBM_PLACEHOLDER_HITS=$(awk '/<div id="page-content">/{flag=1; next} flag && /^<!--/{flag=2} flag==1{print}' "$TMP/cost-budget-meter-test.html" 2>/dev/null | grep -c '<div data-snippet="cost-budget-meter"' || true)
+if [ "$CBM_PLACEHOLDER_HITS" -eq 0 ]; then
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  cost-budget-meter placeholder removed after substitution (in body)")
+else
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  $CBM_PLACEHOLDER_HITS cost-budget-meter placeholder remains in body")
+fi
+
+if grep -q 'snippets: cost-budget-meter' "$TMP/cost-budget-meter-stderr.txt" 2>/dev/null; then
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  cost-budget-meter snippet name logged to stderr")
+else
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  cost-budget-meter snippet name not logged to stderr")
+fi
+
+# ============ Test 13: before-after-slider snippet substitution ============
+cat > "$TMP/before-after-slider-test.md" <<'EOF'
+# Before and after
+
+Compare two states.
+
+<div data-snippet="before-after-slider"></div>
+
+## Section
+
+More text.
+EOF
+
+python3 claude/skills/docs-writer/render.py "$TMP/before-after-slider-test.md" "$TMP/before-after-slider-test.html" > "$TMP/before-after-slider-stderr.txt" 2>&1 || true
+
+assert_contains "$TMP/before-after-slider-test.html" 'data-snippet-mount="before-after-slider"' 'before-after-slider snippet placeholder substituted with mount root'
+
+BAS_PLACEHOLDER_HITS=$(awk '/<div id="page-content">/{flag=1; next} flag && /^<!--/{flag=2} flag==1{print}' "$TMP/before-after-slider-test.html" 2>/dev/null | grep -c '<div data-snippet="before-after-slider"></div>' || true)
+if [ "$BAS_PLACEHOLDER_HITS" -eq 0 ]; then
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  before-after-slider placeholder removed after substitution (in body)")
+else
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  $BAS_PLACEHOLDER_HITS before-after-slider placeholder remains in body")
+fi
+
+if grep -q 'snippets: before-after-slider' "$TMP/before-after-slider-stderr.txt" 2>/dev/null; then
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  before-after-slider snippet name logged to stderr")
+else
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  before-after-slider snippet name not logged to stderr")
+fi
+
 # ============ Summary ============
 printf '%s\n' "${RESULTS[@]}"
 echo

@@ -1,5 +1,7 @@
 # Azure Deployment Provider
 
+> [INFO] Not sure which provider fits? Try the [provider chooser](deployment-chooser.html).
+
 Azure deployment via App Service, Container Apps, Function Apps. Auth (Managed Identity), Key Vault, Bicep/ARM, environment config, runtime verification, and provider comparison.
 
 <div data-snippet="comparison-tabs"></div>

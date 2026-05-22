@@ -1,0 +1,20 @@
+---
+title: Deployment + CI provider chooser
+description: Six-question quiz that recommends a deploy provider (Vercel/Railway/Render/DigitalOcean/Azure) and optionally a CI runner (Blacksmith) based on your workload, budget, observability, region, and CI needs.
+---
+
+# Deployment + CI provider chooser
+
+Not sure which cloud or CI runner fits your project? Answer six questions and the quiz below will narrow it down.
+
+<div data-snippet="deployment-provider-quiz"></div>
+
+## Provider deep-dives
+- [Vercel](deployment-vercel.html) — Frontend / Next.js / edge / preview branches
+- [Railway](deployment-railway.html) — Full-stack / Nixpacks / managed Postgres + Redis / worker + cron
+- [Render](deployment-render.html) — Full-stack / per-service pricing / managed DBs
+- [DigitalOcean](deployment-digitalocean.html) — Containerized / `.do/app.yaml` / `doctl`
+- [Azure](deployment-azure.html) — Scale / App Service / Container Apps / Function Apps / AKS / Bicep IaC
+
+## CI runner
+- [Blacksmith](ci-blacksmith.html) — GitHub Actions runner replacement (not an app-deploy target — pair it with one of the providers above).

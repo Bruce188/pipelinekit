@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>/review cost profile — pipelinekit</title>
-<meta name="description" content="/review dispatches up to 6 parallel agents per invocation (medium and large tiers).">
+<title>Deployment + CI provider chooser — pipelinekit</title>
+<meta name="description" content="Not sure which cloud or CI runner fits your project? Answer six questions and the quiz below will narrow it down.">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>/review cost profile</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Deployment + CI provider chooser</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -531,559 +531,241 @@ footer {
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
     <ul>
-      <li class="lvl-3"><a href="#planning-the-budget">Planning the budget</a></li>
-      <li class="lvl-3"><a href="#watching-live-spend">Watching live spend</a></li>
-      <li class="lvl-2"><a href="#per-agent-default-model-and-relative-cost">Per-agent default model and relative cost</a></li>
-      <li class="lvl-2"><a href="#small-tier-exclusion">Small-tier exclusion</a></li>
-      <li class="lvl-2"><a href="#review-md-override">REVIEW.md override</a></li>
-      <li class="lvl-2"><a href="#pipeline-cost-implication">Pipeline cost implication</a></li>
+      <li class="lvl-2"><a href="#provider-deep-dives">Provider deep-dives</a></li>
+      <li class="lvl-2"><a href="#ci-runner">CI runner</a></li>
     </ul>
   </aside>
 
   <main>
     <header class="page-header">
-      <h1>/review cost profile</h1>
-      <p class="description">/review dispatches up to 6 parallel agents per invocation (medium and large tiers).</p>
+      <h1>Deployment + CI provider chooser</h1>
+      <p class="description">Not sure which cloud or CI runner fits your project? Answer six questions and the quiz below will narrow it down.</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
-<h3 id="planning-the-budget">Planning the budget</h3>
-<!-- snippet:cost-calculator
-     Live /review cost estimator. Sliders for diff size; toggles for --teams /
-     --design-pass / --health; dropdown for model. Computes estimated tokens,
-     dollars, and wall-time. Export-as-JSON button.
-
-     Placeholder usage in markdown source:
-       <div data-snippet="cost-calculator"></div>
-
-     All estimates are illustrative — actual costs depend on the diff's
-     content + your charter + your provider's pricing.
--->
-<div class="pkit-cost-calc" data-snippet-mount="cost-calculator">
+<hr>
+<hr>
+<p>Not sure which cloud or CI runner fits your project? Answer six questions and the quiz below will narrow it down.</p>
+<!-- usage: <div data-snippet="deployment-provider-quiz"></div> -->
+<div class="pkit-dpq" data-snippet-mount="deployment-provider-quiz">
   <style>
-    .pkit-cost-calc {
-      margin: 1.5rem 0;
-      padding: 1.5rem;
-      background: var(--bg-elev);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      display: grid;
-      grid-template-columns: 1fr 320px;
-      gap: 1.5rem;
-    }
-    @media (max-width: 720px) {
-      .pkit-cost-calc { grid-template-columns: 1fr; }
-    }
-    .pkit-cost-calc .pkit-cc-controls {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-    .pkit-cost-calc .pkit-cc-field {
-      display: flex;
-      flex-direction: column;
-      gap: 0.3rem;
-    }
-    .pkit-cost-calc .pkit-cc-field label {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      font-size: 0.78rem;
-      font-weight: 600;
-      color: var(--fg-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-    .pkit-cost-calc .pkit-cc-field label .value {
-      font-family: var(--mono);
-      font-size: 0.85rem;
-      color: var(--accent);
-      text-transform: none;
-      letter-spacing: 0;
-      background: var(--accent-soft);
-      padding: 0.1rem 0.5rem;
-      border-radius: var(--radius-sm);
-    }
-    .pkit-cost-calc input[type="range"] {
-      width: 100%;
-      accent-color: var(--accent);
-      cursor: pointer;
-    }
-    .pkit-cost-calc select {
-      width: 100%;
-      padding: 0.4rem 0.7rem;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      background: var(--bg);
-      color: var(--fg);
-      font-family: var(--sans);
-      font-size: 0.85rem;
-    }
-    .pkit-cost-calc .pkit-cc-toggles {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-    }
-    .pkit-cost-calc .pkit-cc-toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      padding: 0.35rem 0.7rem;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      color: var(--fg-muted);
-      font-size: 0.8rem;
-      cursor: pointer;
-      user-select: none;
-      transition: all var(--transition);
-    }
-    .pkit-cost-calc .pkit-cc-toggle input { margin: 0; accent-color: var(--accent); }
-    .pkit-cost-calc .pkit-cc-toggle:has(input:checked) {
-      color: var(--fg);
-      border-color: var(--accent);
-      background: var(--accent-soft);
-    }
-    .pkit-cost-calc .pkit-cc-output {
-      background: var(--bg);
-      border: 1px solid var(--border-strong);
-      border-radius: var(--radius);
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.7rem;
-    }
-    .pkit-cost-calc .pkit-cc-metric {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      padding-bottom: 0.4rem;
-      border-bottom: 1px dashed var(--border);
-    }
-    .pkit-cost-calc .pkit-cc-metric:last-of-type { border-bottom: none; }
-    .pkit-cost-calc .pkit-cc-metric .key {
-      font-size: 0.78rem;
-      color: var(--fg-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      font-weight: 600;
-    }
-    .pkit-cost-calc .pkit-cc-metric .val {
-      font-family: var(--mono);
-      font-weight: 600;
-      color: var(--fg);
-      font-size: 1rem;
-      text-align: right;
-    }
-    .pkit-cost-calc .pkit-cc-metric .val .sub {
-      font-size: 0.72rem;
-      color: var(--fg-subtle);
-      font-weight: 400;
-      margin-left: 0.3rem;
-    }
-    .pkit-cost-calc .pkit-cc-metric.total .val { color: var(--accent); font-size: 1.4rem; }
-    .pkit-cost-calc .pkit-cc-actions {
-      display: flex;
-      gap: 0.5rem;
-      margin-top: 0.4rem;
-    }
-    .pkit-cost-calc .pkit-cc-btn {
-      flex: 1;
-      padding: 0.45rem 0.7rem;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      background: var(--bg-elev);
-      color: var(--fg-muted);
-      font-family: var(--sans);
-      font-size: 0.8rem;
-      cursor: pointer;
-      transition: all var(--transition);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.35rem;
-    }
-    .pkit-cost-calc .pkit-cc-btn:hover { color: var(--fg); border-color: var(--accent); }
-    .pkit-cost-calc .pkit-cc-btn.copied { color: var(--success); border-color: var(--success); }
-    .pkit-cost-calc .pkit-cc-note {
-      font-size: 0.72rem;
-      color: var(--fg-subtle);
-      font-style: italic;
-      margin-top: 0.3rem;
-    }
+    .pkit-dpq { margin: 1.5rem 0; padding: 1.5rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); }
+    .pkit-dpq .pkit-dpq-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1rem; }
+    .pkit-dpq .pkit-dpq-title { font-size: 1.05rem; font-weight: 600; color: var(--fg); margin: 0; }
+    .pkit-dpq .pkit-dpq-progress { font-family: var(--mono); font-size: 0.78rem; color: var(--fg-muted); }
+    .pkit-dpq .pkit-dpq-bar { height: 4px; background: var(--border); border-radius: 2px; margin-bottom: 1.2rem; overflow: hidden; }
+    .pkit-dpq .pkit-dpq-bar-fill { height: 100%; background: var(--accent); transition: width 200ms ease; border-radius: 2px; }
+    .pkit-dpq .pkit-dpq-question { font-size: 1rem; font-weight: 600; margin: 0 0 0.9rem; color: var(--fg); }
+    .pkit-dpq .pkit-dpq-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.6rem; }
+    .pkit-dpq .pkit-dpq-option { padding: 0.75rem 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; text-align: left; transition: all var(--transition); font-family: var(--sans); font-size: 0.88rem; color: var(--fg); display: flex; flex-direction: column; gap: 0.2rem; }
+    .pkit-dpq .pkit-dpq-option:hover { border-color: var(--accent); background: var(--accent-soft); transform: translateY(-1px); }
+    .pkit-dpq .pkit-dpq-option .pkit-dpq-opt-label { font-weight: 600; }
+    .pkit-dpq .pkit-dpq-actions { margin-top: 1rem; display: flex; gap: 0.5rem; }
+    .pkit-dpq .pkit-dpq-btn { padding: 0.4rem 0.9rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--fg-muted); font-family: var(--sans); font-size: 0.82rem; cursor: pointer; transition: all var(--transition); }
+    .pkit-dpq .pkit-dpq-btn:hover { color: var(--fg); border-color: var(--accent); }
+    .pkit-dpq .pkit-dpq-result { padding: 1.2rem; background: var(--bg); border: 1px solid var(--accent); border-radius: var(--radius); }
+    .pkit-dpq .pkit-dpq-result .pkit-dpq-r-pick { font-size: 1.3rem; font-weight: 700; color: var(--accent); margin: 0 0 0.4rem; }
+    .pkit-dpq .pkit-dpq-result .pkit-dpq-r-why { font-size: 0.92rem; color: var(--fg); line-height: 1.55; margin: 0.4rem 0; }
+    .pkit-dpq .pkit-dpq-result a.pkit-dpq-r-link { display: inline-block; margin-top: 0.5rem; font-weight: 600; }
+    .pkit-dpq .pkit-dpq-result-ci { margin-top: 1rem; padding: 0.8rem 1rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.88rem; }
+    .pkit-dpq .pkit-dpq-result-ci .pkit-dpq-ci-title { font-weight: 600; color: var(--fg); margin: 0 0 0.3rem; }
+    .pkit-dpq .pkit-dpq-result-ci .pkit-dpq-ci-note { color: var(--fg-muted); font-size: 0.82rem; margin: 0.3rem 0 0; font-style: italic; }
+    .pkit-dpq .pkit-dpq-result-ci a { font-weight: 600; }
+    .pkit-dpq .pkit-dpq-trail { font-family: var(--mono); font-size: 0.78rem; color: var(--fg-subtle); margin-top: 0.8rem; }
   </style>
 
-  <div class="pkit-cc-controls">
-    <div class="pkit-cc-field">
-      <label>Diff size (lines) <span class="value" data-out="diff">200</span></label>
-      <input type="range" min="50" max="5000" step="50" value="200" data-in="diff">
-    </div>
-    <div class="pkit-cc-field">
-      <label>File count <span class="value" data-out="files">5</span></label>
-      <input type="range" min="1" max="50" step="1" value="5" data-in="files">
-    </div>
-    <div class="pkit-cc-field">
-      <label>Reviewer model</label>
-      <select data-in="model">
-        <option value="opus">Opus 4.7 (default for review)</option>
-        <option value="sonnet" selected>Sonnet 4.6</option>
-        <option value="haiku">Haiku 4.5</option>
-      </select>
-    </div>
-    <div class="pkit-cc-field">
-      <label>Flags</label>
-      <div class="pkit-cc-toggles">
-        <label class="pkit-cc-toggle"><input type="checkbox" data-in="teams"> --teams (5 agents)</label>
-        <label class="pkit-cc-toggle"><input type="checkbox" data-in="design-pass"> --design-pass</label>
-        <label class="pkit-cc-toggle"><input type="checkbox" data-in="health"> --health</label>
-      </div>
-    </div>
+  <div class="pkit-dpq-header">
+    <h3 class="pkit-dpq-title">Deployment + CI provider chooser</h3>
+    <span class="pkit-dpq-progress" data-dpq-progress>Question 1 of 6</span>
   </div>
+  <div class="pkit-dpq-bar"><div class="pkit-dpq-bar-fill" data-dpq-bar style="width: 0"></div></div>
+  <div data-dpq-body></div>
 
-  <div class="pkit-cc-output">
-    <div class="pkit-cc-metric">
-      <span class="key">Agents</span>
-      <span class="val" data-out="agents">2</span>
-    </div>
-    <div class="pkit-cc-metric">
-      <span class="key">Input tokens</span>
-      <span class="val" data-out="in-tokens">12k <span class="sub">cached: 80%</span></span>
-    </div>
-    <div class="pkit-cc-metric">
-      <span class="key">Output tokens</span>
-      <span class="val" data-out="out-tokens">3k</span>
-    </div>
-    <div class="pkit-cc-metric">
-      <span class="key">Wall time</span>
-      <span class="val" data-out="time">~2m</span>
-    </div>
-    <div class="pkit-cc-metric total">
-      <span class="key">Estimated $</span>
-      <span class="val" data-out="dollars">$0.04</span>
-    </div>
-    <div class="pkit-cc-actions">
-      <button class="pkit-cc-btn" data-act="copy">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-        Copy JSON
-      </button>
-      <button class="pkit-cc-btn" data-act="reset">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.74 9.74 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-        Reset
-      </button>
-    </div>
-    <p class="pkit-cc-note">Estimates use Anthropic public per-1M-token pricing (Opus $15 in / $75 out; Sonnet $3 / $15; Haiku $0.80 / $4). Cache hit rate assumed 80%. Actual costs vary by content.</p>
-  </div>
+  <script type="application/json" id="dpq-data">
+{
+  "questions": [
+    {"id": "workload", "label": "What kind of workload?", "options": [
+      {"value": "static-frontend", "label": "Static frontend / SPA"},
+      {"value": "fullstack-web",   "label": "Full-stack web app"},
+      {"value": "api-backend",     "label": "API / backend service"},
+      {"value": "data-pipeline",   "label": "Data pipeline / batch job"},
+      {"value": "scheduled-cron",  "label": "Scheduled / cron job"}
+    ]},
+    {"id": "framework", "label": "Framework family?", "options": [
+      {"value": "next-react",   "label": "Next.js / React"},
+      {"value": "sveltekit",    "label": "SvelteKit / Astro / Solid"},
+      {"value": "django-flask", "label": "Django / Flask / FastAPI"},
+      {"value": "express-nest", "label": "Express / NestJS / Fastify"},
+      {"value": "dotnet",       "label": ".NET / ASP.NET Core"},
+      {"value": "containerized","label": "Containerized (any)"}
+    ]},
+    {"id": "budget", "label": "Budget tier?", "options": [
+      {"value": "free-hobby",         "label": "Free / hobby"},
+      {"value": "startup-100usd-mo",  "label": "Startup (~$100/mo)"},
+      {"value": "business-500usd-mo", "label": "Business (~$500/mo)"},
+      {"value": "enterprise",         "label": "Enterprise"}
+    ]},
+    {"id": "observability", "label": "Observability needs?", "options": [
+      {"value": "none",              "label": "Just logs"},
+      {"value": "built-in-dashboard","label": "Built-in dashboard OK"},
+      {"value": "log-aggregation",   "label": "Log aggregation / search"},
+      {"value": "full-apm-tracing",  "label": "Full APM / tracing"}
+    ]},
+    {"id": "region", "label": "Region / geo needs?", "options": [
+      {"value": "single-region-ok",     "label": "Single region is fine"},
+      {"value": "edge-cdn",             "label": "Edge / global CDN"},
+      {"value": "multi-region-database","label": "Multi-region DB"}
+    ]},
+    {"id": "ci-runner", "label": "Need a faster CI runner?", "options": [
+      {"value": "no",                "label": "No, GitHub Actions is fine"},
+      {"value": "yes-faster-actions","label": "Yes — faster managed runner"},
+      {"value": "yes-self-hosted",   "label": "Yes — self-hosted runner"}
+    ]}
+  ],
+  "providers": {
+    "vercel":       {"name": "Vercel",        "url": "deployment-vercel.html"},
+    "railway":      {"name": "Railway",       "url": "deployment-railway.html"},
+    "render":       {"name": "Render",        "url": "deployment-render.html"},
+    "digitalocean": {"name": "DigitalOcean",  "url": "deployment-digitalocean.html"},
+    "azure":        {"name": "Azure",         "url": "deployment-azure.html"}
+  }
+}
+  </script>
 </div>
 
 <script>
 (function() {
   'use strict';
-  const calcs = document.querySelectorAll('.pkit-cost-calc[data-snippet-mount="cost-calculator"]');
-  const calc = calcs[calcs.length - 1];
-  if (!calc || calc.dataset.pkitInit) return;
-  calc.dataset.pkitInit = '1';
-
-  // Pricing per 1M tokens (input cached / input uncached / output)
-  const PRICING = {
-    opus:   { inCached: 1.50, inUncached: 15.00, out: 75.00 },
-    sonnet: { inCached: 0.30, inUncached:  3.00, out: 15.00 },
-    haiku:  { inCached: 0.08, inUncached:  0.80, out:  4.00 },
-  };
-
-  // Per-agent token budget (illustrative)
-  // Each reviewer agent reads: full diff + plan + analysis + charter ≈ 8k tokens base
-  // Plus per-line overhead: ~2 tokens/diff-line (model "sees" the diff)
-  // Plus per-file overhead: ~50 tokens/file (file headers, line metadata)
-  // Output: ~1k tokens per agent for the findings (more with --teams, --design-pass)
-
-  const $ = (sel) => calc.querySelector(sel);
-  const inputs = {
-    diff:        $('[data-in="diff"]'),
-    files:       $('[data-in="files"]'),
-    model:       $('[data-in="model"]'),
-    teams:       $('[data-in="teams"]'),
-    designPass:  $('[data-in="design-pass"]'),
-    health:      $('[data-in="health"]'),
-  };
-  const outputs = {
-    diff:      $('[data-out="diff"]'),
-    files:     $('[data-out="files"]'),
-    agents:    $('[data-out="agents"]'),
-    inTokens:  $('[data-out="in-tokens"]'),
-    outTokens: $('[data-out="out-tokens"]'),
-    time:      $('[data-out="time"]'),
-    dollars:   $('[data-out="dollars"]'),
-  };
-
-  function format(n) {
-    if (n < 1000) return n.toFixed(0);
-    if (n < 1000000) return (n / 1000).toFixed(1) + 'k';
-    return (n / 1000000).toFixed(2) + 'M';
-  }
-  function dollars(d) {
-    if (d < 0.01) return '$' + d.toFixed(4);
-    if (d < 1)    return '$' + d.toFixed(3);
-    return '$' + d.toFixed(2);
-  }
-
-  function compute() {
-    const diff = +inputs.diff.value;
-    const files = +inputs.files.value;
-    const model = inputs.model.value;
-    const teams = inputs.teams.checked;
-    const designPass = inputs.designPass.checked;
-    const health = inputs.health.checked;
-
-    // Agent count
-    let agents;
-    if (diff < 500) agents = 2;           // lightweight (small diff)
-    else if (diff < 5000) agents = 5;     // standard
-    else agents = 6;                       // large
-    if (teams) agents = Math.max(agents, 5);  // --teams floor
-    if (designPass) agents += 1;
-    if (health) agents += 1;
-
-    // Per-agent input budget
-    const baseInput = 8000;                 // prompt + system
-    const diffOverhead = diff * 2;          // ~2 tokens / diff line
-    const fileOverhead = files * 50;
-    const perAgentInput = baseInput + diffOverhead + fileOverhead;
-    const totalInput = perAgentInput * agents;
-
-    // Per-agent output (findings)
-    const baseOutput = 1500;
-    const perAgentOutput = baseOutput + (teams ? 500 : 0) + (designPass ? 800 : 0);
-    const totalOutput = perAgentOutput * agents;
-
-    // Cache hit rate (80% by default — first agent uncached, subsequent agents cached)
-    const cacheHitRate = 0.80;
-    const cachedInput = totalInput * cacheHitRate;
-    const uncachedInput = totalInput * (1 - cacheHitRate);
-
-    // Cost
-    const p = PRICING[model];
-    const inputCost = (cachedInput * p.inCached + uncachedInput * p.inUncached) / 1_000_000;
-    const outputCost = (totalOutput * p.out) / 1_000_000;
-    const totalCost = inputCost + outputCost;
-
-    // Wall time: agents run in parallel, so time = base + per-agent serial overhead
-    // For --teams (5 agents parallel), time is dominated by the slowest agent
-    const baseTime = 90;                    // 90s minimum
-    const tokensPerSecond = model === 'opus' ? 40 : model === 'sonnet' ? 80 : 150;
-    const perAgentTimeSec = (perAgentInput / 5 + perAgentOutput) / tokensPerSecond;
-    const totalTimeSec = baseTime + perAgentTimeSec;  // parallel: max agent time
-    const timeStr = totalTimeSec < 60 ? `~${Math.round(totalTimeSec)}s`
-                  : totalTimeSec < 600 ? `~${Math.round(totalTimeSec / 60)}m`
-                  : `~${(totalTimeSec / 60).toFixed(1)}m`;
-
-    // Update outputs
-    outputs.diff.textContent = diff.toString();
-    outputs.files.textContent = files.toString();
-    outputs.agents.textContent = agents.toString();
-    outputs.inTokens.innerHTML = `${format(totalInput)} <span class="sub">cached: ${Math.round(cacheHitRate * 100)}%</span>`;
-    outputs.outTokens.textContent = format(totalOutput);
-    outputs.time.textContent = timeStr;
-    outputs.dollars.textContent = dollars(totalCost);
-
-    return {
-      input: { diff, files, model, teams, designPass, health },
-      agents,
-      tokens: { input: totalInput, output: totalOutput, cached_pct: cacheHitRate * 100 },
-      time_seconds: Math.round(totalTimeSec),
-      cost_usd: +totalCost.toFixed(4),
-    };
-  }
-
-  Object.values(inputs).forEach(el => el.addEventListener('input', compute));
-
-  const copyBtn = $('[data-act="copy"]');
-  copyBtn.addEventListener('click', async () => {
-    const result = compute();
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(result, null, 2));
-      copyBtn.classList.add('copied');
-      const orig = copyBtn.innerHTML;
-      copyBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Copied';
-      setTimeout(() => { copyBtn.classList.remove('copied'); copyBtn.innerHTML = orig; }, 1800);
-    } catch (e) { copyBtn.textContent = 'Press Ctrl+C'; }
-  });
-
-  $('[data-act="reset"]').addEventListener('click', () => {
-    inputs.diff.value = 200;
-    inputs.files.value = 5;
-    inputs.model.value = 'sonnet';
-    inputs.teams.checked = false;
-    inputs.designPass.checked = false;
-    inputs.health.checked = false;
-    compute();
-  });
-
-  compute();
-})();
-</script>
-
-
-<h3 id="watching-live-spend">Watching live spend</h3>
-<!-- usage: <div data-snippet="cost-budget-meter"
-                     data-spent-usd="3.40" data-max-usd="10"
-                     data-spent-turns="220" data-max-turns="500"></div>
-     any data-* attribute may be the string "unlimited" to render open-ended -->
-<div class="pkit-cbm" data-snippet-mount="cost-budget-meter" data-spent-usd="3.40" data-max-usd="10" data-spent-turns="220" data-max-turns="500">
-  <style>
-    .pkit-cbm { margin: 1.5rem 0; padding: 1.5rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); }
-    .pkit-cbm .pkit-cbm-dials { display: flex; flex-wrap: wrap; gap: 2rem; justify-content: center; align-items: flex-start; }
-    .pkit-cbm .pkit-cbm-dial { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; min-width: 140px; }
-    .pkit-cbm .pkit-cbm-dial svg { width: 140px; height: 80px; display: block; }
-    .pkit-cbm .pkit-cbm-dial-label { font-family: var(--sans); font-size: 0.8rem; font-weight: 600; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.04em; }
-    .pkit-cbm .pkit-cbm-dial-value { font-family: var(--mono); font-size: 1rem; font-weight: 700; color: var(--fg); }
-    .pkit-cbm .pkit-cbm-dial-cap { font-family: var(--mono); font-size: 0.75rem; color: var(--fg-subtle); }
-    .pkit-cbm .pkit-cbm-legend { display: flex; gap: 1.5rem; justify-content: center; margin-top: 1rem; font-family: var(--sans); font-size: 0.78rem; color: var(--fg-muted); }
-    .pkit-cbm .pkit-cbm-legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 0.3rem; }
-    @keyframes pkit-cbm-fill {
-      from { stroke-dashoffset: var(--pkit-cbm-track-len, 220); }
-      to   { stroke-dashoffset: var(--pkit-cbm-fill-offset, 220); }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .pkit-cbm * { animation: none !important; transition: none !important; }
-    }
-  </style>
-
-  <div class="pkit-cbm-dials">
-    <div class="pkit-cbm-dial" id="pkit-cbm-usd-dial">
-      <span class="pkit-cbm-dial-label">Cost (USD)</span>
-      <svg viewBox="0 0 140 80" aria-label="USD cost dial">
-        <path class="pkit-cbm-track" d="M20,75 A50,50 0 0,1 120,75" fill="none" stroke="var(--border)" stroke-width="10" stroke-linecap="round"/>
-        <path class="pkit-cbm-fill" id="pkit-cbm-usd-arc" d="M20,75 A50,50 0 0,1 120,75" fill="none" stroke="var(--accent)" stroke-width="10" stroke-linecap="round"
-              stroke-dasharray="157" stroke-dashoffset="157"/>
-      </svg>
-      <span class="pkit-cbm-dial-value" id="pkit-cbm-usd-value">$0</span>
-      <span class="pkit-cbm-dial-cap" id="pkit-cbm-usd-cap">of $10</span>
-    </div>
-
-    <div class="pkit-cbm-dial" id="pkit-cbm-turns-dial">
-      <span class="pkit-cbm-dial-label">Turns</span>
-      <svg viewBox="0 0 140 80" aria-label="Turns dial">
-        <path class="pkit-cbm-track" d="M20,75 A50,50 0 0,1 120,75" fill="none" stroke="var(--border)" stroke-width="10" stroke-linecap="round"/>
-        <path class="pkit-cbm-fill" id="pkit-cbm-turns-arc" d="M20,75 A50,50 0 0,1 120,75" fill="none" stroke="var(--accent)" stroke-width="10" stroke-linecap="round"
-              stroke-dasharray="157" stroke-dashoffset="157"/>
-      </svg>
-      <span class="pkit-cbm-dial-value" id="pkit-cbm-turns-value">0</span>
-      <span class="pkit-cbm-dial-cap" id="pkit-cbm-turns-cap">of 500</span>
-    </div>
-  </div>
-
-  <script type="application/json" id="cbm-defaults">{"spentUsd":3.40,"maxUsd":10,"spentTurns":220,"maxTurns":500}</script>
-</div>
-
-<script>
-(function() {
-  'use strict';
-  document.querySelectorAll('.pkit-cbm[data-snippet-mount="cost-budget-meter"]').forEach(function(root) {
+  document.querySelectorAll('.pkit-dpq[data-snippet-mount="deployment-provider-quiz"]').forEach(function(root) {
     if (root.dataset.pkitInit) return;
     root.dataset.pkitInit = '1';
 
-    var defaultsEl = root.querySelector('#cbm-defaults');
-    var defaults = defaultsEl ? JSON.parse(defaultsEl.textContent) : {spentUsd:0,maxUsd:10,spentTurns:0,maxTurns:500};
+    var dataEl = root.querySelector('#dpq-data');
+    var bodyEl = root.querySelector('[data-dpq-body]');
+    var progressEl = root.querySelector('[data-dpq-progress]');
+    var barEl = root.querySelector('[data-dpq-bar]');
+    if (!dataEl || !bodyEl) return;
 
-    var spentUsd   = root.dataset.spentUsd   !== undefined ? root.dataset.spentUsd   : String(defaults.spentUsd);
-    var maxUsd     = root.dataset.maxUsd     !== undefined ? root.dataset.maxUsd     : String(defaults.maxUsd);
-    var spentTurns = root.dataset.spentTurns !== undefined ? root.dataset.spentTurns : String(defaults.spentTurns);
-    var maxTurns   = root.dataset.maxTurns   !== undefined ? root.dataset.maxTurns   : String(defaults.maxTurns);
+    var data = JSON.parse(dataEl.textContent);
+    var questions = data.questions;
+    var providers = data.providers;
+    var step = 0;
+    var answers = {};
 
-    var TRACK_LEN = 157; /* half-circle arc at r=50 ≈ π*50 */
+    /* Scoring: award points per (question, answer) pair to each provider */
+    var SCORES = {
+      'workload:static-frontend':  {vercel: 3, digitalocean: 0, railway: 0, render: 0, azure: 0},
+      'workload:fullstack-web':    {railway: 2, render: 2, vercel: 1, digitalocean: 1, azure: 1},
+      'workload:api-backend':      {railway: 2, render: 2, azure: 1, digitalocean: 1, vercel: 0},
+      'workload:data-pipeline':    {azure: 3, digitalocean: 1, railway: 1, render: 0, vercel: 0},
+      'workload:scheduled-cron':   {railway: 3, render: 2, azure: 1, digitalocean: 1, vercel: 0},
+      'framework:next-react':      {vercel: 3, render: 1, railway: 1, digitalocean: 0, azure: 0},
+      'framework:sveltekit':       {vercel: 2, render: 1, railway: 1, digitalocean: 0, azure: 0},
+      'framework:django-flask':    {railway: 2, render: 2, digitalocean: 1, azure: 1, vercel: 0},
+      'framework:express-nest':    {railway: 2, render: 2, digitalocean: 1, azure: 1, vercel: 1},
+      'framework:dotnet':          {azure: 3, digitalocean: 1, railway: 0, render: 0, vercel: 0},
+      'framework:containerized':   {digitalocean: 3, azure: 2, railway: 1, render: 1, vercel: 0},
+      'budget:free-hobby':         {railway: 2, vercel: 2, render: 1, digitalocean: 0, azure: 0},
+      'budget:startup-100usd-mo':  {railway: 2, render: 2, vercel: 1, digitalocean: 1, azure: 0},
+      'budget:business-500usd-mo': {render: 2, digitalocean: 2, railway: 1, vercel: 1, azure: 1},
+      'budget:enterprise':         {azure: 3, digitalocean: 2, render: 1, railway: 1, vercel: 1},
+      'observability:full-apm-tracing': {azure: 3, digitalocean: 1, railway: 0, render: 0, vercel: 0},
+      'observability:log-aggregation':  {azure: 2, digitalocean: 2, railway: 1, render: 1, vercel: 0},
+      'observability:built-in-dashboard':{railway: 2, render: 2, vercel: 1, digitalocean: 1, azure: 1},
+      'region:edge-cdn':           {vercel: 3, azure: 1, digitalocean: 0, railway: 0, render: 0},
+      'region:multi-region-database':{azure: 3, digitalocean: 1, railway: 0, render: 0, vercel: 0},
+      'region:single-region-ok':   {railway: 1, render: 1, digitalocean: 1, vercel: 1, azure: 1}
+    };
 
-    function setupDial(arcEl, valEl, capEl, spent, max) {
-      var spentNum = parseFloat(spent) || 0;
-      var isUsd = capEl.id === 'pkit-cbm-usd-cap';
-
-      if (max === 'unlimited') {
-        /* open-ended: show spent with no denominator */
-        arcEl.style.display = 'none';
-        valEl.textContent = isUsd ? ('$' + spentNum.toFixed(2)) : String(Math.round(spentNum));
-        capEl.textContent = '(no cap)';
-        return;
-      }
-
-      var maxNum = parseFloat(max) || 1;
-      var fraction = Math.min(1, Math.max(0, spentNum / maxNum));
-      var fillOffset = TRACK_LEN - fraction * TRACK_LEN;
-
-      arcEl.style.setProperty('--pkit-cbm-track-len', TRACK_LEN);
-      arcEl.style.setProperty('--pkit-cbm-fill-offset', fillOffset);
-      arcEl.style.strokeDashoffset = fillOffset;
-      arcEl.style.animation = 'pkit-cbm-fill 800ms ease-out forwards';
-
-      valEl.textContent = isUsd ? ('$' + spentNum.toFixed(2)) : String(Math.round(spentNum));
-      capEl.textContent = isUsd ? ('of $' + maxNum) : ('of ' + maxNum);
+    function computeWinner() {
+      var totals = {vercel: 0, railway: 0, render: 0, digitalocean: 0, azure: 0};
+      Object.keys(answers).forEach(function(qid) {
+        var key = qid + ':' + answers[qid];
+        var pts = SCORES[key];
+        if (pts) {
+          Object.keys(pts).forEach(function(p) { totals[p] += pts[p]; });
+        }
+      });
+      var winner = Object.keys(totals).sort(function(a, b) {
+        return totals[b] - totals[a] || a.localeCompare(b);
+      })[0];
+      return winner;
     }
 
-    setupDial(
-      root.querySelector('#pkit-cbm-usd-arc'),
-      root.querySelector('#pkit-cbm-usd-value'),
-      root.querySelector('#pkit-cbm-usd-cap'),
-      spentUsd, maxUsd
-    );
-    setupDial(
-      root.querySelector('#pkit-cbm-turns-arc'),
-      root.querySelector('#pkit-cbm-turns-value'),
-      root.querySelector('#pkit-cbm-turns-cap'),
-      spentTurns, maxTurns
-    );
+    function render() {
+      if (step < questions.length) {
+        var q = questions[step];
+        progressEl.textContent = 'Question ' + (step + 1) + ' of ' + questions.length;
+        barEl.style.width = Math.round(step / questions.length * 100) + '%';
+        var opts = q.options.map(function(o) {
+          return '<button class="pkit-dpq-option" data-value="' + o.value + '">' +
+                 '<span class="pkit-dpq-opt-label">' + o.label + '</span></button>';
+        }).join('');
+        var back = step > 0 ? '<button class="pkit-dpq-btn" data-act="back">← Back</button>' : '';
+        bodyEl.innerHTML = '<p class="pkit-dpq-question">' + q.label + '</p>' +
+                           '<div class="pkit-dpq-options">' + opts + '</div>' +
+                           (back ? '<div class="pkit-dpq-actions">' + back + '</div>' : '');
+        bodyEl.querySelectorAll('.pkit-dpq-option').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            answers[q.id] = btn.dataset.value;
+            step++;
+            render();
+          });
+        });
+        var backBtn = bodyEl.querySelector('[data-act="back"]');
+        if (backBtn) backBtn.addEventListener('click', function() { step--; render(); });
+      } else {
+        progressEl.textContent = 'Result';
+        barEl.style.width = '100%';
+        var winner = computeWinner();
+        var prov = providers[winner] || providers.vercel;
+        var ciAnswer = answers['ci-runner'];
+        var ciBlock = '';
+        if (ciAnswer === 'yes-faster-actions' || ciAnswer === 'yes-self-hosted') {
+          var ciType = ciAnswer === 'yes-self-hosted' ? 'self-hosted' : 'managed';
+          ciBlock = '<div class="pkit-dpq-result-ci">' +
+            '<p class="pkit-dpq-ci-title">CI runner recommendation: Blacksmith (' + ciType + ')</p>' +
+            '<p>Blacksmith replaces slow GitHub Actions runners with faster ' + ciType + ' runners.</p>' +
+            '<a href="ci-blacksmith.html">Read the Blacksmith guide →</a>' +
+            '<p class="pkit-dpq-ci-note">Blacksmith is a CI runner, not a deploy target — pair it with one of the deploy providers above</p>' +
+            '</div>';
+        }
+        var trail = Object.keys(answers).map(function(k) { return k + '=' + answers[k]; }).join(' · ');
+        bodyEl.innerHTML =
+          '<div class="pkit-dpq-result">' +
+            '<h3 class="pkit-dpq-r-pick">' + prov.name + '</h3>' +
+            '<p class="pkit-dpq-r-why">Based on your answers, ' + prov.name + ' is the best fit for your workload and constraints.</p>' +
+            '<a class="pkit-dpq-r-link" href="' + prov.url + '">Read the full ' + prov.name + ' guide →</a>' +
+            ciBlock +
+            '<p class="pkit-dpq-trail">Your answers: ' + trail + '</p>' +
+          '</div>' +
+          '<div class="pkit-dpq-actions"><button class="pkit-dpq-btn" data-act="restart">↻ Start over</button></div>';
+        bodyEl.querySelector('[data-act="restart"]').addEventListener('click', function() {
+          step = 0;
+          answers = {};
+          render();
+        });
+      }
+    }
+    render();
   });
 })();
 </script>
 
 
-<h2 id="per-agent-default-model-and-relative-cost">Per-agent default model and relative cost</h2>
-<table>
-<thead>
-<tr>
-<th>Agent</th>
-<th>Default model</th>
-<th>Relative cost</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>code-reviewer</td>
-<td>opus</td>
-<td>1.0×</td>
-</tr>
-<tr>
-<td>security-auditor</td>
-<td>opus</td>
-<td>1.0×</td>
-</tr>
-<tr>
-<td>symbol-verifier</td>
-<td>opus</td>
-<td>1.0×</td>
-</tr>
-<tr>
-<td>test-engineer</td>
-<td>sonnet</td>
-<td>0.25×</td>
-</tr>
-<tr>
-<td>performance-tuner</td>
-<td>sonnet</td>
-<td>0.25×</td>
-</tr>
-<tr>
-<td>spec-tracer</td>
-<td>haiku</td>
-<td>0.05×</td>
-</tr>
-</tbody>
-</table>
-<p>Sum: ~3.55× a single opus call. Adding symbol-verifier (Agent 6) moved this from ~2.55× to ~3.55× — a ~20% increase over the prior 5-agent lineup. Paid on every medium- or large-tier <code>/review</code>; no opt-in flag.</p>
-<h2 id="small-tier-exclusion">Small-tier exclusion</h2>
-<p>Small-tier diffs (&lt; 500 lines, per <code>SMALL_DIFF_THRESHOLD</code> in <code>claude/skills/review/SKILL.md</code>) still spawn only 2 agents: <code>code-reviewer</code> + <code>spec-tracer</code>. symbol-verifier is deliberately excluded from small tier — the cost vs. detection trade-off is unfavourable for sub-500-line diffs. A small diff that imports a hallucinated symbol receives only code-reviewer + spec-tracer review; this is a known trade-off. Future-iteration mitigations: drop threshold to 250 lines, or run karpathy in symbol-only degraded mode on small tier.</p>
-<h2 id="review-md-override">REVIEW.md override</h2>
-<p>A project-root <code>REVIEW.md</code> (or <code>.claude/REVIEW.md</code>) with <code>review-model: sonnet</code> drops all six agents to sonnet, cutting cost ~70% at the price of detection rate on subtle bugs. See <code>claude/skills/review/SKILL.md</code> Step 3a. Valid values: <code>sonnet</code>, <code>opus</code>, <code>haiku</code>. Applies uniformly to all six reviewers.</p>
-<h2 id="pipeline-cost-implication">Pipeline cost implication</h2>
-<p><code>/pipeline</code> Step 5.7 Path B re-runs <code>/review</code> per fix iteration. A 5-cycle Path B convergence on a medium-tier diff costs ~17.75× a single opus call (5 × 3.55×) before Path C escalation fires. Budget <code>--max-usd</code> accordingly.</p>
+<h2 id="provider-deep-dives">Provider deep-dives</h2>
+<ul>
+<li><a href="deployment-vercel.html">Vercel</a> — Frontend / Next.js / edge / preview branches</li>
+<li><a href="deployment-railway.html">Railway</a> — Full-stack / Nixpacks / managed Postgres + Redis / worker + cron</li>
+<li><a href="deployment-render.html">Render</a> — Full-stack / per-service pricing / managed DBs</li>
+<li><a href="deployment-digitalocean.html">DigitalOcean</a> — Containerized / <code>.do/app.yaml</code> / <code>doctl</code></li>
+<li><a href="deployment-azure.html">Azure</a> — Scale / App Service / Container Apps / Function Apps / AKS / Bicep IaC</li>
+</ul>
+<h2 id="ci-runner">CI runner</h2>
+<ul>
+<li><a href="ci-blacksmith.html">Blacksmith</a> — GitHub Actions runner replacement (not an app-deploy target — pair it with one of the providers above).</li>
+</ul>
     </div>
 
     <div class="no-results" id="no-results">

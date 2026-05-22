@@ -1,5 +1,7 @@
 # Railway Deployment Provider
 
+> [INFO] Not sure which provider fits? Try the [provider chooser](deployment-chooser.html).
+
 Railway account setup, project linking, CLI install posture, pipelinekit integration via Charter Topic 10, Nixpacks build, environment configuration, and provider comparison.
 
 <div data-snippet="comparison-tabs"></div>

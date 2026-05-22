@@ -1,0 +1,205 @@
+<!-- usage: <div data-snippet="deployment-provider-quiz"></div> -->
+<div class="pkit-dpq" data-snippet-mount="deployment-provider-quiz">
+  <style>
+    .pkit-dpq { margin: 1.5rem 0; padding: 1.5rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); }
+    .pkit-dpq .pkit-dpq-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1rem; }
+    .pkit-dpq .pkit-dpq-title { font-size: 1.05rem; font-weight: 600; color: var(--fg); margin: 0; }
+    .pkit-dpq .pkit-dpq-progress { font-family: var(--mono); font-size: 0.78rem; color: var(--fg-muted); }
+    .pkit-dpq .pkit-dpq-bar { height: 4px; background: var(--border); border-radius: 2px; margin-bottom: 1.2rem; overflow: hidden; }
+    .pkit-dpq .pkit-dpq-bar-fill { height: 100%; background: var(--accent); transition: width 200ms ease; border-radius: 2px; }
+    .pkit-dpq .pkit-dpq-question { font-size: 1rem; font-weight: 600; margin: 0 0 0.9rem; color: var(--fg); }
+    .pkit-dpq .pkit-dpq-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.6rem; }
+    .pkit-dpq .pkit-dpq-option { padding: 0.75rem 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; text-align: left; transition: all var(--transition); font-family: var(--sans); font-size: 0.88rem; color: var(--fg); display: flex; flex-direction: column; gap: 0.2rem; }
+    .pkit-dpq .pkit-dpq-option:hover { border-color: var(--accent); background: var(--accent-soft); transform: translateY(-1px); }
+    .pkit-dpq .pkit-dpq-option .pkit-dpq-opt-label { font-weight: 600; }
+    .pkit-dpq .pkit-dpq-actions { margin-top: 1rem; display: flex; gap: 0.5rem; }
+    .pkit-dpq .pkit-dpq-btn { padding: 0.4rem 0.9rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--fg-muted); font-family: var(--sans); font-size: 0.82rem; cursor: pointer; transition: all var(--transition); }
+    .pkit-dpq .pkit-dpq-btn:hover { color: var(--fg); border-color: var(--accent); }
+    .pkit-dpq .pkit-dpq-result { padding: 1.2rem; background: var(--bg); border: 1px solid var(--accent); border-radius: var(--radius); }
+    .pkit-dpq .pkit-dpq-result .pkit-dpq-r-pick { font-size: 1.3rem; font-weight: 700; color: var(--accent); margin: 0 0 0.4rem; }
+    .pkit-dpq .pkit-dpq-result .pkit-dpq-r-why { font-size: 0.92rem; color: var(--fg); line-height: 1.55; margin: 0.4rem 0; }
+    .pkit-dpq .pkit-dpq-result a.pkit-dpq-r-link { display: inline-block; margin-top: 0.5rem; font-weight: 600; }
+    .pkit-dpq .pkit-dpq-result-ci { margin-top: 1rem; padding: 0.8rem 1rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.88rem; }
+    .pkit-dpq .pkit-dpq-result-ci .pkit-dpq-ci-title { font-weight: 600; color: var(--fg); margin: 0 0 0.3rem; }
+    .pkit-dpq .pkit-dpq-result-ci .pkit-dpq-ci-note { color: var(--fg-muted); font-size: 0.82rem; margin: 0.3rem 0 0; font-style: italic; }
+    .pkit-dpq .pkit-dpq-result-ci a { font-weight: 600; }
+    .pkit-dpq .pkit-dpq-trail { font-family: var(--mono); font-size: 0.78rem; color: var(--fg-subtle); margin-top: 0.8rem; }
+  </style>
+
+  <div class="pkit-dpq-header">
+    <h3 class="pkit-dpq-title">Deployment + CI provider chooser</h3>
+    <span class="pkit-dpq-progress" data-dpq-progress>Question 1 of 6</span>
+  </div>
+  <div class="pkit-dpq-bar"><div class="pkit-dpq-bar-fill" data-dpq-bar style="width: 0"></div></div>
+  <div data-dpq-body></div>
+
+  <script type="application/json" id="dpq-data">
+{
+  "questions": [
+    {"id": "workload", "label": "What kind of workload?", "options": [
+      {"value": "static-frontend", "label": "Static frontend / SPA"},
+      {"value": "fullstack-web",   "label": "Full-stack web app"},
+      {"value": "api-backend",     "label": "API / backend service"},
+      {"value": "data-pipeline",   "label": "Data pipeline / batch job"},
+      {"value": "scheduled-cron",  "label": "Scheduled / cron job"}
+    ]},
+    {"id": "framework", "label": "Framework family?", "options": [
+      {"value": "next-react",   "label": "Next.js / React"},
+      {"value": "sveltekit",    "label": "SvelteKit / Astro / Solid"},
+      {"value": "django-flask", "label": "Django / Flask / FastAPI"},
+      {"value": "express-nest", "label": "Express / NestJS / Fastify"},
+      {"value": "dotnet",       "label": ".NET / ASP.NET Core"},
+      {"value": "containerized","label": "Containerized (any)"}
+    ]},
+    {"id": "budget", "label": "Budget tier?", "options": [
+      {"value": "free-hobby",         "label": "Free / hobby"},
+      {"value": "startup-100usd-mo",  "label": "Startup (~$100/mo)"},
+      {"value": "business-500usd-mo", "label": "Business (~$500/mo)"},
+      {"value": "enterprise",         "label": "Enterprise"}
+    ]},
+    {"id": "observability", "label": "Observability needs?", "options": [
+      {"value": "none",              "label": "Just logs"},
+      {"value": "built-in-dashboard","label": "Built-in dashboard OK"},
+      {"value": "log-aggregation",   "label": "Log aggregation / search"},
+      {"value": "full-apm-tracing",  "label": "Full APM / tracing"}
+    ]},
+    {"id": "region", "label": "Region / geo needs?", "options": [
+      {"value": "single-region-ok",     "label": "Single region is fine"},
+      {"value": "edge-cdn",             "label": "Edge / global CDN"},
+      {"value": "multi-region-database","label": "Multi-region DB"}
+    ]},
+    {"id": "ci-runner", "label": "Need a faster CI runner?", "options": [
+      {"value": "no",                "label": "No, GitHub Actions is fine"},
+      {"value": "yes-faster-actions","label": "Yes — faster managed runner"},
+      {"value": "yes-self-hosted",   "label": "Yes — self-hosted runner"}
+    ]}
+  ],
+  "providers": {
+    "vercel":       {"name": "Vercel",        "url": "deployment-vercel.html"},
+    "railway":      {"name": "Railway",       "url": "deployment-railway.html"},
+    "render":       {"name": "Render",        "url": "deployment-render.html"},
+    "digitalocean": {"name": "DigitalOcean",  "url": "deployment-digitalocean.html"},
+    "azure":        {"name": "Azure",         "url": "deployment-azure.html"}
+  }
+}
+  </script>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  document.querySelectorAll('.pkit-dpq[data-snippet-mount="deployment-provider-quiz"]').forEach(function(root) {
+    if (root.dataset.pkitInit) return;
+    root.dataset.pkitInit = '1';
+
+    var dataEl = root.querySelector('#dpq-data');
+    var bodyEl = root.querySelector('[data-dpq-body]');
+    var progressEl = root.querySelector('[data-dpq-progress]');
+    var barEl = root.querySelector('[data-dpq-bar]');
+    if (!dataEl || !bodyEl) return;
+
+    var data = JSON.parse(dataEl.textContent);
+    var questions = data.questions;
+    var providers = data.providers;
+    var step = 0;
+    var answers = {};
+
+    /* Scoring: award points per (question, answer) pair to each provider */
+    var SCORES = {
+      'workload:static-frontend':  {vercel: 3, digitalocean: 0, railway: 0, render: 0, azure: 0},
+      'workload:fullstack-web':    {railway: 2, render: 2, vercel: 1, digitalocean: 1, azure: 1},
+      'workload:api-backend':      {railway: 2, render: 2, azure: 1, digitalocean: 1, vercel: 0},
+      'workload:data-pipeline':    {azure: 3, digitalocean: 1, railway: 1, render: 0, vercel: 0},
+      'workload:scheduled-cron':   {railway: 3, render: 2, azure: 1, digitalocean: 1, vercel: 0},
+      'framework:next-react':      {vercel: 3, render: 1, railway: 1, digitalocean: 0, azure: 0},
+      'framework:sveltekit':       {vercel: 2, render: 1, railway: 1, digitalocean: 0, azure: 0},
+      'framework:django-flask':    {railway: 2, render: 2, digitalocean: 1, azure: 1, vercel: 0},
+      'framework:express-nest':    {railway: 2, render: 2, digitalocean: 1, azure: 1, vercel: 1},
+      'framework:dotnet':          {azure: 3, digitalocean: 1, railway: 0, render: 0, vercel: 0},
+      'framework:containerized':   {digitalocean: 3, azure: 2, railway: 1, render: 1, vercel: 0},
+      'budget:free-hobby':         {railway: 2, vercel: 2, render: 1, digitalocean: 0, azure: 0},
+      'budget:startup-100usd-mo':  {railway: 2, render: 2, vercel: 1, digitalocean: 1, azure: 0},
+      'budget:business-500usd-mo': {render: 2, digitalocean: 2, railway: 1, vercel: 1, azure: 1},
+      'budget:enterprise':         {azure: 3, digitalocean: 2, render: 1, railway: 1, vercel: 1},
+      'observability:full-apm-tracing': {azure: 3, digitalocean: 1, railway: 0, render: 0, vercel: 0},
+      'observability:log-aggregation':  {azure: 2, digitalocean: 2, railway: 1, render: 1, vercel: 0},
+      'observability:built-in-dashboard':{railway: 2, render: 2, vercel: 1, digitalocean: 1, azure: 1},
+      'region:edge-cdn':           {vercel: 3, azure: 1, digitalocean: 0, railway: 0, render: 0},
+      'region:multi-region-database':{azure: 3, digitalocean: 1, railway: 0, render: 0, vercel: 0},
+      'region:single-region-ok':   {railway: 1, render: 1, digitalocean: 1, vercel: 1, azure: 1}
+    };
+
+    function computeWinner() {
+      var totals = {vercel: 0, railway: 0, render: 0, digitalocean: 0, azure: 0};
+      Object.keys(answers).forEach(function(qid) {
+        var key = qid + ':' + answers[qid];
+        var pts = SCORES[key];
+        if (pts) {
+          Object.keys(pts).forEach(function(p) { totals[p] += pts[p]; });
+        }
+      });
+      var winner = Object.keys(totals).sort(function(a, b) {
+        return totals[b] - totals[a] || a.localeCompare(b);
+      })[0];
+      return winner;
+    }
+
+    function render() {
+      if (step < questions.length) {
+        var q = questions[step];
+        progressEl.textContent = 'Question ' + (step + 1) + ' of ' + questions.length;
+        barEl.style.width = Math.round(step / questions.length * 100) + '%';
+        var opts = q.options.map(function(o) {
+          return '<button class="pkit-dpq-option" data-value="' + o.value + '">' +
+                 '<span class="pkit-dpq-opt-label">' + o.label + '</span></button>';
+        }).join('');
+        var back = step > 0 ? '<button class="pkit-dpq-btn" data-act="back">← Back</button>' : '';
+        bodyEl.innerHTML = '<p class="pkit-dpq-question">' + q.label + '</p>' +
+                           '<div class="pkit-dpq-options">' + opts + '</div>' +
+                           (back ? '<div class="pkit-dpq-actions">' + back + '</div>' : '');
+        bodyEl.querySelectorAll('.pkit-dpq-option').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            answers[q.id] = btn.dataset.value;
+            step++;
+            render();
+          });
+        });
+        var backBtn = bodyEl.querySelector('[data-act="back"]');
+        if (backBtn) backBtn.addEventListener('click', function() { step--; render(); });
+      } else {
+        progressEl.textContent = 'Result';
+        barEl.style.width = '100%';
+        var winner = computeWinner();
+        var prov = providers[winner] || providers.vercel;
+        var ciAnswer = answers['ci-runner'];
+        var ciBlock = '';
+        if (ciAnswer === 'yes-faster-actions' || ciAnswer === 'yes-self-hosted') {
+          var ciType = ciAnswer === 'yes-self-hosted' ? 'self-hosted' : 'managed';
+          ciBlock = '<div class="pkit-dpq-result-ci">' +
+            '<p class="pkit-dpq-ci-title">CI runner recommendation: Blacksmith (' + ciType + ')</p>' +
+            '<p>Blacksmith replaces slow GitHub Actions runners with faster ' + ciType + ' runners.</p>' +
+            '<a href="ci-blacksmith.html">Read the Blacksmith guide →</a>' +
+            '<p class="pkit-dpq-ci-note">Blacksmith is a CI runner, not a deploy target — pair it with one of the deploy providers above</p>' +
+            '</div>';
+        }
+        var trail = Object.keys(answers).map(function(k) { return k + '=' + answers[k]; }).join(' · ');
+        bodyEl.innerHTML =
+          '<div class="pkit-dpq-result">' +
+            '<h3 class="pkit-dpq-r-pick">' + prov.name + '</h3>' +
+            '<p class="pkit-dpq-r-why">Based on your answers, ' + prov.name + ' is the best fit for your workload and constraints.</p>' +
+            '<a class="pkit-dpq-r-link" href="' + prov.url + '">Read the full ' + prov.name + ' guide →</a>' +
+            ciBlock +
+            '<p class="pkit-dpq-trail">Your answers: ' + trail + '</p>' +
+          '</div>' +
+          '<div class="pkit-dpq-actions"><button class="pkit-dpq-btn" data-act="restart">↻ Start over</button></div>';
+        bodyEl.querySelector('[data-act="restart"]').addEventListener('click', function() {
+          step = 0;
+          answers = {};
+          render();
+        });
+      }
+    }
+    render();
+  });
+})();
+</script>

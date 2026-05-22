@@ -1,5 +1,7 @@
 # Vercel Deployment Provider
 
+> [INFO] Not sure which provider fits? Try the [provider chooser](deployment-chooser.html).
+
 Vercel account setup, project linking, CLI install posture, pipelinekit integration via Charter Topic 10, environment configuration, runtime verification commands, auth posture, and provider comparison for edge-optimized workloads.
 
 <div data-snippet="comparison-tabs"></div>

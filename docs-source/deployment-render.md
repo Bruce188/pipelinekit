@@ -1,5 +1,7 @@
 # Render Deployment Provider
 
+> [INFO] Not sure which provider fits? Try the [provider chooser](deployment-chooser.html).
+
 Render account setup, service config, render.yaml IaC, environment groups, pipelinekit integration via Charter Topic 10, runtime verification, and provider comparison.
 
 <div data-snippet="comparison-tabs"></div>

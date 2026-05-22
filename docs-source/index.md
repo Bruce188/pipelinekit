@@ -19,6 +19,7 @@ The complete user-facing documentation for pipelinekit \(autonomous `/pipeline` 
 
 ## Deployment + CI providers
 
+- [Deployment + CI provider chooser](deployment-chooser.html) — not sure which provider fits? Answer six questions to find out.
 - [Vercel](deployment-vercel.html) — serverless / edge / Next.js / SvelteKit / Astro.
 - [Azure](deployment-azure.html) — App Service / Container Apps / Function Apps / AKS.
 - [Railway](deployment-railway.html) — container-based PaaS with zero-Dockerfile deploys.

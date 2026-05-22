@@ -1,5 +1,7 @@
 # DigitalOcean App Platform Deployment Provider
 
+> [INFO] Not sure which provider fits? Try the [provider chooser](deployment-chooser.html).
+
 DigitalOcean App Platform setup, doctl CLI, .do/app.yaml App Spec, pipelinekit integration via Charter Topic 10, env config, runtime verification, and provider comparison.
 
 <div data-snippet="comparison-tabs"></div>
