@@ -50,6 +50,13 @@ RICHNESS_PATTERNS: list[tuple[str, str]] = [
     ("snippet:diff-viewer", r'data-snippet-mount="diff-viewer"'),
     ("snippet:playground-2col", r'data-snippet-mount="playground-2col"'),
     ("snippet:live-linter", r'data-snippet-mount="live-linter"'),
+    ("snippet:skill-catalog-grid", r'data-snippet-mount="skill-catalog-grid"'),
+    ("snippet:agent-catalog-grid", r'data-snippet-mount="agent-catalog-grid"'),
+    ("snippet:deployment-provider-quiz", r'data-snippet-mount="deployment-provider-quiz"'),
+    ("snippet:path-routing-diagram",      r'data-snippet-mount="path-routing-diagram"'),
+    ("snippet:command-cheatsheet",        r'data-snippet-mount="command-cheatsheet"'),
+    ("snippet:cost-budget-meter",         r'data-snippet-mount="cost-budget-meter"'),
+    ("snippet:before-after-slider",       r'data-snippet-mount="before-after-slider"'),
     # Generic detection — any registered snippet mount.
     # Falls back to catch a page that uses ANY data-snippet-mount even if
     # the specific snippet isn't in the known catalog. Counted once.
