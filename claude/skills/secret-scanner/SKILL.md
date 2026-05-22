@@ -112,6 +112,26 @@ environment:
 - Generic secret patterns
 - Potential credentials in comments
 
+### Regex Bank
+
+Documented placeholder patterns for each secret family. These are illustrative
+regexes — not production-hardened. Real implementations should use a dedicated
+secret-scanning library (truffleHog, gitleaks, detect-secrets) for complete
+coverage, entropy analysis, and false-positive tuning.
+
+| # | Family | Placeholder Pattern | Notes |
+|---|--------|---------------------|-------|
+| 1 | AWS Access Key ID | `AKIA[0-9A-Z]{16}` | IAM access key prefix |
+| 2 | GCP API Key | `AIza[0-9A-Za-z_\-]{35}` | Google Cloud credential prefix |
+| 3 | Stripe Secret/Publishable Key | `(sk\|pk)_(live\|test)_[0-9a-zA-Z]{24,}` | Stripe payment API keys |
+| 4 | Anthropic API Key | `sk-ant-[0-9A-Za-z_\-]{90,}` | Claude API credential prefix |
+| 5 | OpenAI API Key | `sk-proj-[0-9A-Za-z_\-]{40,}` | OpenAI project key prefix |
+| 6 | GitHub Token | `gh[pousr]_[0-9A-Za-z]{36,}` | PAT / OAuth / server / refresh token |
+| 7 | GitLab PAT | `glpat-[0-9A-Za-z_\-]{20}` | GitLab personal access token |
+| 8 | Private Key PEM Block | `-----BEGIN [A-Z ]*PRIVATE KEY-----` | RSA / EC / DSA / OpenSSH private keys |
+| 9 | JWT Signing Material | `eyJ[A-Za-z0-9_\-]+\.eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+` | Encoded header.payload.signature |
+| 10 | Slack Token (optional) | `xox[baprs]-[0-9A-Za-z\-]+` | Bot / app / user token prefix |
+
 ## Git Integration
 
 ### Pre-Commit Protection
@@ -147,7 +167,7 @@ I check if sensitive files are in .gitignore:
 ```javascript
 // I understand these are examples:
 // Example: const apiKey = 'your_api_key_here';
-// TODO: Add your API key from environment
+// Placeholder: read the API key from an environment variable
 ```
 
 ### Test Files
