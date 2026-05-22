@@ -10,10 +10,8 @@ import json
 import os
 import pathlib
 import re
-import shutil
 import subprocess
 import sys
-import tempfile
 import unittest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[4]
@@ -144,6 +142,7 @@ class TestBuildCatalogData(unittest.TestCase):
                 match,
                 f"{label} snippet is missing a <script type='application/json'> island",
             )
+            assert match is not None  # narrow for type checker after assertIsNotNone
             try:
                 parsed = json.loads(match.group(1))
             except json.JSONDecodeError as exc:

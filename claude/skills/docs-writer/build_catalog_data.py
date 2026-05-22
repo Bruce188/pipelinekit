@@ -17,16 +17,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import pathlib
 import re
 import sys
 
 try:
     import yaml as _yaml_mod
-    _HAVE_YAML = True
 except ImportError:
-    _HAVE_YAML = False
+    _yaml_mod = None
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 SNIPPETS_DIR = pathlib.Path(__file__).resolve().parent / "snippets"
@@ -168,7 +166,7 @@ def parse_frontmatter(path: pathlib.Path) -> dict | None:
 
     yaml_block = "\n".join(lines[1:end_idx])
 
-    if _HAVE_YAML:
+    if _yaml_mod is not None:
         try:
             result = _yaml_mod.safe_load(yaml_block)
             if isinstance(result, dict):
