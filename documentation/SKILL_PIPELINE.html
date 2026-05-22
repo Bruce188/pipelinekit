@@ -1432,7 +1432,7 @@ python<span class="w"> </span>scripts/generate-docs.py<span class="w"> </span><s
 </code></pre></div>
 
 <h2 id="notifications">Notifications</h2>
-<p><code>/pipeline</code> surfaces push notifications when it reaches a state requiring user attention: budget breach, error, end-of-feature, human-review checkpoint, or permission prompt. Notifications use native Claude Code surfaces only — there is no custom config file or rate limiter.</p>
+<p><code>/pipeline</code> surfaces push notifications when it reaches a state requiring user attention: budget breach, error, end-of-feature, or permission prompt. Notifications use native Claude Code surfaces only — there is no custom config file or rate limiter.</p>
 <h3 id="enabling">Enabling</h3>
 <ol>
 <li><strong>Mobile push notifications</strong> — enable Remote Control in your Claude Code mobile app and toggle "Push when Claude decides" in your preferences. Requires Claude Code 2.1.110 or later. See the upstream Claude Code Remote Control settings page for the latest setup instructions.</li>
@@ -1465,8 +1465,8 @@ python<span class="w"> </span>scripts/generate-docs.py<span class="w"> </span><s
 <td>terminalSequence (OSC 777)</td>
 </tr>
 <tr>
-<td><code>human-review</code></td>
-<td>Path B / Path C re-route (re-implement / re-plan), context-fill warning</td>
+<td><code>compact</code></td>
+<td>Context-fill warning (<code>PreCompact</code> hook)</td>
 <td>terminalSequence</td>
 </tr>
 </tbody>

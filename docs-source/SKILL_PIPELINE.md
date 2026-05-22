@@ -453,7 +453,7 @@ If a deployed skill breaks:
 
 ## Notifications
 
-`/pipeline` surfaces push notifications when it reaches a state requiring user attention: budget breach, error, end-of-feature, human-review checkpoint, or permission prompt. Notifications use native Claude Code surfaces only — there is no custom config file or rate limiter.
+`/pipeline` surfaces push notifications when it reaches a state requiring user attention: budget breach, error, end-of-feature, or permission prompt. Notifications use native Claude Code surfaces only — there is no custom config file or rate limiter.
 
 ### Enabling
 
@@ -468,7 +468,7 @@ If a deployed skill breaks:
 | `feature-done` | End-of-feature (`Stop` hook fires) | PushNotification (interactive) or terminalSequence (fallback) |
 | `question` | Pipeline about to request a permission grant (`PermissionRequest` hook) | terminalSequence |
 | `error` / `budget-breach` / `dropped` | Budget breach, error halt, dropped-run watcher | terminalSequence (OSC 777) |
-| `human-review` | Path B / Path C re-route (re-implement / re-plan), context-fill warning | terminalSequence |
+| `compact` | Context-fill warning (`PreCompact` hook) | terminalSequence |
 
 ### Per-run opt-out
 
