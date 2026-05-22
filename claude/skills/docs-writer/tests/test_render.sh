@@ -392,6 +392,74 @@ for slug_pair in "alpha:Alpha" "beta:Beta" "gamma:Gamma" "delta:Delta" "first-h2
   fi
 done
 
+# ============ Test 7: skill-catalog-grid snippet substitution ============
+cat > "$TMP/skill-catalog-test.md" <<'EOF'
+# Skills catalog
+
+Browse all available skills.
+
+<div data-snippet="skill-catalog-grid"></div>
+
+## Section
+
+More text.
+EOF
+
+python3 claude/skills/docs-writer/render.py "$TMP/skill-catalog-test.md" "$TMP/skill-catalog-test.html" > "$TMP/skill-catalog-stderr.txt" 2>&1
+
+assert_contains "$TMP/skill-catalog-test.html" 'data-snippet-mount="skill-catalog-grid"' 'skill-catalog-grid snippet placeholder substituted with mount root'
+
+SKILL_PLACEHOLDER_HITS=$(awk '/<div id="page-content">/{flag=1; next} flag && /^<!--/{flag=2} flag==1{print}' "$TMP/skill-catalog-test.html" | grep -c '<div data-snippet="skill-catalog-grid"></div>' || true)
+if [ "$SKILL_PLACEHOLDER_HITS" -eq 0 ]; then
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  skill-catalog-grid placeholder removed after substitution (in body)")
+else
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  $SKILL_PLACEHOLDER_HITS skill-catalog-grid placeholder remains in body")
+fi
+
+if grep -q 'snippets: skill-catalog-grid' "$TMP/skill-catalog-stderr.txt"; then
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  skill-catalog-grid snippet name logged to stderr")
+else
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  skill-catalog-grid snippet name not logged to stderr")
+fi
+
+# ============ Test 8: agent-catalog-grid snippet substitution ============
+cat > "$TMP/agent-catalog-test.md" <<'EOF'
+# Agents catalog
+
+Browse all available agents.
+
+<div data-snippet="agent-catalog-grid"></div>
+
+## Section
+
+More text.
+EOF
+
+python3 claude/skills/docs-writer/render.py "$TMP/agent-catalog-test.md" "$TMP/agent-catalog-test.html" > "$TMP/agent-catalog-stderr.txt" 2>&1
+
+assert_contains "$TMP/agent-catalog-test.html" 'data-snippet-mount="agent-catalog-grid"' 'agent-catalog-grid snippet placeholder substituted with mount root'
+
+AGENT_PLACEHOLDER_HITS=$(awk '/<div id="page-content">/{flag=1; next} flag && /^<!--/{flag=2} flag==1{print}' "$TMP/agent-catalog-test.html" | grep -c '<div data-snippet="agent-catalog-grid"></div>' || true)
+if [ "$AGENT_PLACEHOLDER_HITS" -eq 0 ]; then
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  agent-catalog-grid placeholder removed after substitution (in body)")
+else
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  $AGENT_PLACEHOLDER_HITS agent-catalog-grid placeholder remains in body")
+fi
+
+if grep -q 'snippets: agent-catalog-grid' "$TMP/agent-catalog-stderr.txt"; then
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  agent-catalog-grid snippet name logged to stderr")
+else
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  agent-catalog-grid snippet name not logged to stderr")
+fi
+
 # ============ Summary ============
 printf '%s\n' "${RESULTS[@]}"
 echo
