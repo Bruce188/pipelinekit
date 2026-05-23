@@ -142,6 +142,8 @@ for p in sorted(hooks_dir.glob("*.py")):
         continue
     if p.name == "validate-task-spec.py":
         continue
+    if p.name == "cost_log.py":
+        continue
     expected.add(p.name)
 
 settings = json.load(open(settings_path))
