@@ -113,7 +113,7 @@ dst = os.path.join(h, "settings.json")
 with open(dst, "w", encoding="utf-8") as f:
     json.dump(settings, f, indent=2)
     f.write("\n")
-print(f"installed: {dst} (22 hooks wired)")
+print(f"installed: {dst} (23 hooks wired)")
 PYEOF
   else
     # Flag not set: restore user's previous settings.json from backup if present.
