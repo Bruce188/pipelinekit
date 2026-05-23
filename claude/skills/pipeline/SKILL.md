@@ -859,6 +859,17 @@ If `docs/progress.md` has any task still `doing` after the loop: append to Run L
 
 Update pipeline state: step = "review"
 
+**Step 5.5.7: Hook smoke-test gate (additive verify).**
+
+After Step 5.5.2 / 5.5.3 complete (regardless of dev/non-dev path), before advancing to review, discover and run every hook smoke test under `claude/hooks/tests/`:
+
+- Discover via `find claude/hooks/tests -name 'test_*.sh' -type f` (sorted).
+- For each file, run `bash <file>`. On any non-zero exit, fail the verify step with `HOOK_SMOKE_FAILED: <test-path>` and skip to next feature (Run Log Status: FAILED).
+- On all pass, log `HOOK_SMOKE_PASS: <N> tests`.
+- If the directory is absent OR the discovery produces zero files, log `HOOK_SMOKE_NO_TESTS_FOUND` and continue (do not fail).
+
+The gate is ADDITIVE to build/test verification already performed by `/implement-plan`. See `claude/skills/pipeline/reference.md` § "Step 5.5.7: Hook Smoke-Test Gate — Full Details" for the canonical bash body and idempotency contract; `claude/hooks/CLAUDE.md` § "Pipeline Smoke Gate" carries author-facing guidance for new smoke tests.
+
 ---
 
 ##### Step 5.6.0: Compute Teams Decision (per-feature, before Step 5.6 dispatch)

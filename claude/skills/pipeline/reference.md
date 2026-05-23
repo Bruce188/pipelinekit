@@ -247,6 +247,67 @@ Do not modify any existing `docs/` files during adoption — only create `featur
 
 ---
 
+## Step 5.5.7: Hook Smoke-Test Gate — Full Details
+
+Canonical body for the additive hook smoke-test gate referenced in SKILL.md § "Step 5.5.7: Hook smoke-test gate (additive verify)." The gate runs inside the per-feature loop after implement completes, before review dispatch.
+
+### Discovery
+
+Discovery uses `find` (POSIX-portable, directory-absent-safe — does not require `shopt -s nullglob` defensive pre-step):
+
+```bash
+SMOKE_DIR="claude/hooks/tests"
+SMOKE_FILES=$(find "$SMOKE_DIR" -name 'test_*.sh' -type f 2>/dev/null | sort)
+```
+
+Sorted output makes test ordering deterministic across runs (helpful for debugging which test failed first).
+
+### Execution
+
+POSIX-safe execution loop (uses `set -euo pipefail` upstream; the guard preserves the loop's continue-on-fail semantics inside the failure branch):
+
+```bash
+PASS_COUNT=0
+PASSED_FILES=""
+if [ ! -d "$SMOKE_DIR" ] || [ -z "$SMOKE_FILES" ]; then
+  echo "HOOK_SMOKE_NO_TESTS_FOUND"
+else
+  while IFS= read -r f; do
+    if ! bash "$f" >/dev/null 2>&1; then
+      echo "HOOK_SMOKE_FAILED: $f"
+      # Append to Run Log Status: FAILED (hook smoke regression).
+      # Skip to next feature — do NOT advance to review for this feature.
+      exit 1
+    fi
+    PASS_COUNT=$((PASS_COUNT + 1))
+    PASSED_FILES="$PASSED_FILES $(basename "$f")"
+  done <<< "$SMOKE_FILES"
+  echo "HOOK_SMOKE_PASS: $PASS_COUNT tests"
+  echo "HOOK_SMOKE_FILES:$PASSED_FILES"
+fi
+```
+
+### Failure semantics
+
+- First non-zero exit short-circuits the loop and emits `HOOK_SMOKE_FAILED: <test-path>` with the repo-relative path to the failing test.
+- The orchestrator treats this as a verify-step failure equivalent to a build/test break: log `Status: FAILED (hook smoke regression)` to Run Log, skip the review dispatch for this feature, advance to next feature in the per-feature loop.
+- Captured stderr from the failing test is NOT echoed by the gate by default (kept terse for orchestrator logs). Operators re-running the failing test manually (`bash <test-path>`) get full output.
+
+### Success semantics
+
+- Single line `HOOK_SMOKE_PASS: <N> tests` is the primary success marker and grep contract.
+- Optional second line `HOOK_SMOKE_FILES: <space-separated basenames>` aids post-mortem readers (which N?). Not load-bearing for AC-1 grep contract.
+
+### Absence semantics
+
+- `HOOK_SMOKE_NO_TESTS_FOUND` covers both (a) fresh-repo case (directory absent) and (b) accidentally-emptied directory. Gate continues — no fail — per spec § Scope.
+
+### Author contract (cross-reference)
+
+Hook authors writing new smoke tests under `claude/hooks/tests/test_*.sh` MUST follow the contract in `claude/hooks/CLAUDE.md` § "Pipeline Smoke Gate" — idempotent, sandboxed via `mktemp -d` or sandbox `CLAUDE_HOME`, completes in ≤ 5 seconds, exits 0 on success. Tests that violate these rules WILL cause spurious gate failures in unrelated features.
+
+See SKILL.md § Step 5.5.7 for the orchestrator-facing short summary.
+
 ## Step 5.8: Execute Path — Full Details
 
 ### Path A — Review Passed
