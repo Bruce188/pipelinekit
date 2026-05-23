@@ -1,0 +1,30 @@
+{
+  "_comment": "Live .mcp.json shipping the LSP-backed serena recommendation per charter MVP item 6. Serena requires uvx; install via 'pip install uv' or 'brew install uv'. The git+https ref MUST be pinned to a known-good commit SHA before activating (replace <PIN-TO-COMMIT-SHA>). Failure to pin will make the uvx command error out — that is intentional fail-closed behavior.",
+  "_security_note": "git+https without a pinned ref allows upstream takeover to execute arbitrary code via uvx. See documentation/mcp-lsp-setup.html for the pin-and-verify workflow.",
+  "mcpServers": {
+    "serena": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/oraios/serena@<PIN-TO-COMMIT-SHA>",
+        "serena-mcp-server",
+        "--project",
+        "."
+      ]
+    }
+  },
+  "_mcpServers_alt": {
+    "_comment": "Alternative LSP-backed semantic-retrieval MCP. claude-context complements serena: serena does LSP symbolic nav (Go-to-Def, Find-References); claude-context does AST-chunked semantic RAG. Move into 'mcpServers' (and add credentials per its docs) to enable.",
+    "claude-context": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@zilliztech/claude-context-mcp"],
+      "env": {
+        "EMBEDDING_PROVIDER": "Ollama",
+        "MILVUS_ADDRESS": "",
+        "MILVUS_TOKEN": ""
+      }
+    }
+  }
+}
