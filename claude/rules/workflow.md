@@ -163,7 +163,9 @@ If this snippet needs updating, change it here — all skills reference this sec
 - `**Feature file:**` — path to the feature file being processed
 - `**Feature:**` — `<index> / <total>` (1-based)
 - `**Name:**` — current feature H2 header (`<type>/<name>`)
-- `**Step:**` — current phase (`analyze` | `plan` | `implement` | `review`)
+- `**Step:**` — current phase (`analyze` | `plan` | `implement` | `review` | `done`)
+- `**Completed:**` — ISO8601 UTC timestamp (`YYYY-MM-DDTHH:MM:SSZ`) recording when the pipeline terminated cleanly. Written by Step 5.10 Terminal Cleanup. Absent on halt paths (failed feature, BUDGET_EXCEEDED, Path C stuck).
+- `**Features merged:**` — integer count of features that completed `/ppr` successfully. Written by Step 5.10. Absent on halt paths.
 - `**Review cycles:**` — integer, incremented on each Path B iteration
 - `**Replan count:**` — integer, incremented on each Path C iteration
 - `**Started:**` — pipeline start timestamp

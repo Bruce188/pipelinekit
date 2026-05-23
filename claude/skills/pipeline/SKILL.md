@@ -363,6 +363,12 @@ Check for `docs/pipeline-state.md`:
 - If it exists but references a different feature file: warn "Stale pipeline state from a different run — starting fresh." Remove the state file.
 - If it does not exist: start from the first feature.
 
+**Terminal-state guard (fires before any --restart-from override):** If `docs/pipeline-state.md` contains `**Step:** done` AND `--restart-from <phase>` is present, STOP with:
+
+> ERROR: Pipeline already complete. To start a new run: archive docs/features.md (e.g. `mv docs/features.md docs/features-vN.md`) and re-invoke /pipeline without --restart-from.
+
+This guard exists to prevent silent re-execution of a finished pipeline. The terminal marker is written by Step 5.10 Terminal Cleanup.
+
 The `--restart-from` argument overrides the saved step (but not the saved feature index). If both `--restart-from` and a state file are present, use the state file's feature index but the `--restart-from` step.
 
 **Phase Mode preservation contract (REQUIRED on every resume):** When resuming, the assistant MUST read `docs/pipeline-state.md` and locate the `**Phase Mode:**` field. The mode recorded there governs every subsequent phase invocation for the in-flight feature.
@@ -1194,6 +1200,31 @@ for <feature>; continuing.`
 
 ---
 
+### Step 5.10: Terminal Cleanup
+
+Runs ONLY when the per-feature loop completed cleanly — every feature successfully merged.
+
+**Predicate (gate the terminal write):**
+```bash
+if [ "${#failed_list[@]}" -eq 0 ] && [ "$features_merged" -eq "$total_features" ]; then
+  TERMINAL=1
+else
+  TERMINAL=0
+fi
+```
+
+When `TERMINAL=1`, append/replace these fields in `docs/pipeline-state.md`:
+
+- Replace `**Step:** <phase>` with `**Step:** done`.
+- Append (or replace if present) `**Completed:** $(date -u +%Y-%m-%dT%H:%M:%SZ)`.
+- Append (or replace if present) `**Features merged:** $features_merged`.
+
+When `TERMINAL=0` (any feature failed, Path C escalation stuck, BUDGET_EXCEEDED hit, or pipeline halted mid-flight): SKIP terminal cleanup entirely. The state file is left at its mid-flight position so a subsequent `/pipeline --restart-from <phase>` can resume cleanly.
+
+After terminal cleanup, proceed to Step 6 Final Summary which prints the run report.
+
+---
+
 ### Step 6: Final Summary
 
 After all features are processed:
@@ -1222,8 +1253,6 @@ Pipeline complete.
       ```
    c. If all entries were consumed: append "Cross-feature intel: all [N] entries consumed"
 2. If no intel file exists: omit this section from the summary
-
-Remove `docs/pipeline-state.md` (cleanup — only if all features completed successfully).
 
 ---
 
