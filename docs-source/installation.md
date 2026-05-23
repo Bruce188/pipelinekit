@@ -79,3 +79,9 @@ git pull
 ```
 
 Previous overlay is preserved at `$CLAUDE_HOME.bak-<timestamp>` per install.
+
+## Install command playback
+
+Replay a representative `scripts/install.sh` session in the terminal simulator below to see the expected output and timing.
+
+<div data-snippet="terminal-simulator"></div>

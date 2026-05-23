@@ -70,3 +70,9 @@ After writing the HTML file the script attempts to open it in the default browse
 - `cost` is intentionally absent from the table and is not a sort axis — it is not a TSV column.
 - Passing an unknown flag exits with code 2.
 - Passing a missing `--input` file exits with code 1.
+
+## Pipelinekit command cheatsheet
+
+Filter by `research`, `ppr`, or `tsv` to surface the commands you reach for when shepherding a research-loop iteration to publish.
+
+<div data-snippet="command-cheatsheet"></div>

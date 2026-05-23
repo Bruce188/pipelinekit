@@ -132,6 +132,24 @@ plain markdown. See § Authoring a new snippet below for the contract.
    `claude/skills/docs-writer/tests/test_render.sh` that confirms the snippet
    substitutes cleanly.
 
+## Page-type → snippet taxonomy
+
+When authoring a new `docs-source/<page>.md`, pick at least one snippet from the row whose page type fits the new page. The map below is taken from the analysis backing `chore/html-effectiveness-wiring` (analysis-v88 § 3) — page types are not exhaustive; pages that don't match a row are free to compose from any category in [HTML effectiveness principles](../../../documentation/html-effectiveness-principles.html).
+
+| Page type | Default snippet(s) |
+|-----------|---------------------|
+| Reference page | `architecture-diagram`, `command-cheatsheet` |
+| Deploy provider | `deployment-provider-quiz`, `comparison-tabs` |
+| Lifecycle / process | `pipeline-phase-diagram`, `timeline-scrubber` |
+| Comparison page | `comparison-tabs`, `before-after-slider` |
+| Cost / budget page | `cost-budget-meter`, `cost-calculator` |
+| Catalog page | `skill-catalog-grid`, `agent-catalog-grid`, `tutorial-cards` |
+| Quiz / decision | `chooser-quiz`, `deployment-provider-quiz` |
+| Standards / spec | `live-linter`, `governance-roles-table` |
+| Design / visual | `before-after-slider`, custom SVG |
+
+Pages matching a row should default to at least one snippet from the right-hand column. Pages that don't fit a row are not required to add anything — but if `richness_check.py` flags them they need either an additional snippet or a justified `<!-- richness-exempt: ... -->` marker.
+
 ## Output directory contract
 
 The skill writes to **`documentation/`** only.

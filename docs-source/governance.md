@@ -49,3 +49,9 @@ Governance is invisible when it works. Measure adoption to confirm it is working
 - **Skill activation rate.** Which skills actually fire on PRs? Derive from `~/.claude/logs/` (per-session JSONL) by counting the unique skill-dispatch lines per week. A skill that has not fired in 4 weeks is a candidate for deprecation or for a routing-surface fix in its `description:` field. Target: every skill in the active catalog fires at least once per quarter.
 - **Hook failure rate.** Count of `exit 1` / `exit 2` outcomes from hooks per week, read from `~/.claude/logs/hook-events.jsonl` if present, otherwise from grep against the session logs. A spiking failure rate on a single hook signals either a recently introduced bug or a convention the team is rejecting. Target: aggregate hook failure rate stays under 5% of total hook invocations per week.
 - **Time-to-onboard.** Median minutes from `scripts/install.sh` (clean checkout) to the first successful `/pipeline` run on a real feature. Collect manually for now — the Champion notes the metric for each onboarding session and rolls it into the quarterly retrospective. Target: 30 minutes for engineers who have used Claude Code before, 90 minutes for engineers new to the toolchain.
+
+## Governance command cheatsheet
+
+Filter the slash-command table by `review`, `pipeline`, or `ppr` to surface the commands a Champion uses most frequently when shepherding adoption.
+
+<div data-snippet="command-cheatsheet"></div>

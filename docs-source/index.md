@@ -11,6 +11,8 @@ The complete user-facing documentation for pipelinekit \(autonomous `/pipeline` 
 - **[Getting started](getting-started.html)** — the master guide. Install + 4 worked tutorials \(hello-world / TDD / Vercel deploy / meta-walkthrough\). Read this first.
 - [Changelog \(v0.0.1\)](changelog.html) — every PR shipped during v0.0.1 development, organized by theme.
 
+<div data-snippet="tutorial-cards"></div>
+
 ## Reference
 
 - [Installation](installation.html) — install pipelinekit locally, Codespaces, devcontainer, or cloud bootstrap.
@@ -18,6 +20,7 @@ The complete user-facing documentation for pipelinekit \(autonomous `/pipeline` 
 - [Pipeline workflow](pipeline.html) — the `/pipeline` autonomous orchestrator: charter discovery, analyze, plan, implement, review, merge.
 - [Codebase map](codebase-map.html) — top-level repo layout with one-line purpose per directory + root file.
 - [MCP LSP Setup](mcp-lsp-setup.html) — symbol-level Go-to-Definition via the serena MCP.
+- [Design tokens](design-tokens.html) — swatch + type scale + radii visualizing the template CSS custom properties (22 light + 19 dark + 7 syntax + motion).
 
 ## Deployment + CI providers
 
@@ -51,6 +54,7 @@ The complete user-facing documentation for pipelinekit \(autonomous `/pipeline` 
 
 - [SKILL authoring standard](SKILL-AUTHORING-STANDARD.html) — the 10-pattern skill DNA template, originally vendored from alirezarezvani/claude-skills.
 - [SKILL pipeline lifecycle](SKILL_PIPELINE.html) — Intent → ... → Verify lifecycle.
+- [HTML effectiveness principles](html-effectiveness-principles.html) — canonical design rubric for `documentation/*.html` pages.
 - [Vendoring notice](NOTICE.html) — attribution + license.
 
 ## Built with / Inspired by

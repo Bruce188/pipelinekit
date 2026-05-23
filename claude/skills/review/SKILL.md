@@ -500,6 +500,18 @@ Three pipelinekit-canonical gates that catch skill-overreach, hook-observability
 
 **Smoke test:** `bash claude/skills/review/tests/test_skill_compliance_gates.sh`.
 
+#### Step 6.5.5: Docs Richness Verification (corpus-level)
+
+When `git diff $BASE...HEAD --name-only | grep -qE '^docs-source/.*\.md$|^documentation/.*\.html$'` returns non-empty, additionally invoke:
+
+```bash
+python3 claude/skills/docs-writer/richness_check.py --staged
+```
+
+This runs the richness check across the entire `documentation/*.html` corpus picked up by `--staged` (which reads `git diff --cached --name-only --diff-filter=ACMR` filtered to `documentation/*.html`). Distinct from Gate (c) per-file invocation — `--staged` produces one verdict per touched HTML file in a single subprocess call.
+
+**Exit code semantics:** 0 → all pass, 1 → at least one failure. Non-zero exit produces a blocking review finding.
+
 ---
 
 ### Step 7: Collect and Deduplicate Results

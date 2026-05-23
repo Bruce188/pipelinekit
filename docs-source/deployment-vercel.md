@@ -257,3 +257,9 @@ Ensure your GitHub PR is linked to a Vercel project:
 - [Edge Network Overview](https://vercel.com/docs/concepts/edge-network/overview)
 - [Web Vitals Monitoring](https://vercel.com/docs/concepts/analytics/web-vitals)
 
+## 17. Pipelinekit command cheatsheet
+
+Slash commands you will reach for during a Vercel deploy — filter the table below by `vercel`, `ppr`, or `review` to surface the deploy-relevant subset.
+
+<div data-snippet="command-cheatsheet"></div>
+

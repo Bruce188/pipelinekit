@@ -90,3 +90,9 @@ R5 reads this as an explicit acknowledgement that the non-Blacksmith runner is i
 
 Do not use this escape hatch for convenience — only for genuine technical incompatibilities. Every use of the escape hatch should be reviewable: a future reader of the plan should be able to understand why Blacksmith was not used for that specific task.
 
+## CI command cheatsheet
+
+Filter by `ci`, `blacksmith`, or `runner` to surface the commands you reach for when wiring or debugging the Blacksmith CI runner.
+
+<div data-snippet="command-cheatsheet"></div>
+

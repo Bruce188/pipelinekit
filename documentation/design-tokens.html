@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TSV Viewer — pipelinekit</title>
-<meta name="description" content="tsv-viewer.sh reads a research-results TSV file and generates a self-contained HTML page with a sortable, filterable table, light/dark CSS, and an optional browser-open hook.">
+<title>Design tokens — pipelinekit</title>
+<meta name="description" content="Canonical visual reference for pipelinekit&#x27;s claude/skills/docs-writer/template.html design tokens. Every page rendered via render.py consumes these CSS custom properties — modifying them retheme every shipped page atomically.">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>TSV Viewer</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Design tokens</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -531,498 +531,614 @@ footer {
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
     <ul>
-      <li class="lvl-2"><a href="#synopsis">Synopsis</a></li>
-      <li class="lvl-2"><a href="#options">Options</a></li>
-      <li class="lvl-2"><a href="#how-to-run">How to Run</a></li>
-      <li class="lvl-2"><a href="#tsv-format">TSV Format</a></li>
-      <li class="lvl-2"><a href="#output-description">Output Description</a></li>
-      <li class="lvl-2"><a href="#browser-open-behavior">Browser Open Behavior</a></li>
-      <li class="lvl-2"><a href="#notes">Notes</a></li>
-      <li class="lvl-2"><a href="#pipelinekit-command-cheatsheet">Pipelinekit command cheatsheet</a></li>
+      <li class="lvl-2"><a href="#what">What</a></li>
+      <li class="lvl-2"><a href="#color-swatch">Color swatch</a></li>
+      <li class="lvl-3"><a href="#backgrounds-4">Backgrounds (4)</a></li>
+      <li class="lvl-3"><a href="#foregrounds-3">Foregrounds (3)</a></li>
+      <li class="lvl-3"><a href="#borders-2">Borders (2)</a></li>
+      <li class="lvl-3"><a href="#accents-3">Accents (3)</a></li>
+      <li class="lvl-3"><a href="#semantic-3">Semantic (3)</a></li>
+      <li class="lvl-3"><a href="#shadows-2">Shadows (2)</a></li>
+      <li class="lvl-2"><a href="#type-scale">Type scale</a></li>
+      <li class="lvl-2"><a href="#spacing-radii-scale">Spacing &amp; radii scale</a></li>
+      <li class="lvl-2"><a href="#syntax-highlighting-tokens">Syntax highlighting tokens</a></li>
+      <li class="lvl-2"><a href="#motion">Motion</a></li>
+      <li class="lvl-2"><a href="#light-vs-dark-scrubber">Light vs dark scrubber</a></li>
+      <li class="lvl-2"><a href="#see-also">See also</a></li>
     </ul>
   </aside>
 
   <main>
     <header class="page-header">
-      <h1>TSV Viewer</h1>
-      <p class="description">tsv-viewer.sh reads a research-results TSV file and generates a self-contained HTML page with a sortable, filterable table, light/dark CSS, and an optional browser-open hook.</p>
+      <h1>Design tokens</h1>
+      <p class="description">Canonical visual reference for pipelinekit&#x27;s claude/skills/docs-writer/template.html design tokens. Every page rendered via render.py consumes these CSS custom properties — modifying them retheme every shipped page atomically.</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
-<!-- snippet:terminal-simulator
-     Simulated terminal session. Plays back a scripted sequence of
-     commands + outputs at a configurable speed. Pause / play / step /
-     restart controls. Used on ppr-research-flag.html for a dry-run
-     preview without requiring the user to actually run /ppr --research.
+<h2 id="what">What</h2>
+<p>The <code>docs-writer/2</code> template ships with <strong>41 CSS custom properties</strong> (22 light-theme + 19 dark-theme overrides, plus shared typography / radii / syntax / motion tokens). All snippets, all content blocks, and the topbar / sidebar / footer chrome consume these tokens — there are zero hard-coded colors in production. Dark mode is a token swap; print mode skips them entirely.</p>
+<p>This page is the canonical Visual-token exemplar referenced from <a href="html-effectiveness-principles.html">HTML effectiveness principles</a>. It shows every token rendered, side-by-side light vs dark where applicable, with the exact property name. Use it as a reference when authoring a new snippet (snippets MUST use only these tokens — see § Authoring a new snippet in <a href="../claude/skills/docs-writer/SKILL.md">docs-writer SKILL.md</a>).</p>
+<h2 id="color-swatch">Color swatch</h2>
+<p>The 22 light tokens (top) and the 19 dark-mode overrides (bottom). The dark scheme overrides backgrounds, foregrounds, borders, accent, semantic, shadow, and the 7 syntax tokens; radii / typography / motion are shared and do not flip.</p>
+<!-- snippet:comparison-tabs
+     Tabbed side-by-side comparison of the 5 cloud deployment providers.
+     Click a tab to compare against the page's "home" provider on:
+     pricing model, build system, DB story, region story, scaling story.
 
-     The scripted session is JSON-embedded inline. Lines are typed
-     character-by-character for commands; output is dumped instantly.
+     The "home" provider is auto-detected from <title> if it contains
+     "Vercel", "Azure", "Railway", "Render", or "DigitalOcean".
 
      Placeholder usage:
-       <div data-snippet="terminal-simulator"></div>
+       <div data-snippet="comparison-tabs"></div>
 -->
-<div class="pkit-term" data-snippet-mount="terminal-simulator">
+<div class="pkit-cmp" data-snippet-mount="comparison-tabs">
   <style>
-    .pkit-term { margin: 1.5rem 0; padding: 0; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-    .pkit-term .pkit-tm-bar { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.8rem; background: var(--bg); border-bottom: 1px solid var(--border); }
-    .pkit-term .pkit-tm-dots { display: flex; gap: 0.4rem; }
-    .pkit-term .pkit-tm-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--fg-subtle); opacity: 0.7; }
-    .pkit-term .pkit-tm-dot:nth-child(1) { background: #ef4444; }
-    .pkit-term .pkit-tm-dot:nth-child(2) { background: #f59e0b; }
-    .pkit-term .pkit-tm-dot:nth-child(3) { background: #10b981; }
-    .pkit-term .pkit-tm-title { font-family: var(--mono); font-size: 0.78rem; color: var(--fg-muted); }
-    .pkit-term .pkit-tm-controls { display: flex; gap: 0.3rem; }
-    .pkit-term .pkit-tm-btn { padding: 0.2rem 0.6rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--fg-muted); font-family: var(--sans); font-size: 0.75rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.25rem; transition: all var(--transition); }
-    .pkit-term .pkit-tm-btn:hover { color: var(--fg); border-color: var(--accent); }
-    .pkit-term .pkit-tm-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .pkit-term .pkit-tm-btn.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
-    .pkit-term .pkit-tm-screen { background: #0a0e1a; color: #d4d7e0; font-family: var(--mono); font-size: 13px; line-height: 1.55; padding: 1rem 1.2rem; min-height: 280px; max-height: 480px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; }
-    .pkit-term .pkit-tm-screen .ps1 { color: #4ade80; }
-    .pkit-term .pkit-tm-screen .cmd { color: #fbbf24; }
-    .pkit-term .pkit-tm-screen .out-stdout { color: #cbd5e1; }
-    .pkit-term .pkit-tm-screen .out-stderr { color: #fb7185; }
-    .pkit-term .pkit-tm-screen .out-info { color: #60a5fa; }
-    .pkit-term .pkit-tm-screen .out-success { color: #34d399; font-weight: 600; }
-    .pkit-term .pkit-tm-screen .cursor { display: inline-block; width: 8px; height: 1em; background: #d4d7e0; vertical-align: text-bottom; animation: pkit-tm-blink 1s steps(2) infinite; }
-    @keyframes pkit-tm-blink { 50% { opacity: 0; } }
-    .pkit-term .pkit-tm-progress { height: 2px; background: var(--border); }
-    .pkit-term .pkit-tm-progress-fill { height: 100%; background: var(--accent); transition: width 100ms linear; width: 0; }
+    .pkit-cmp { margin: 1.5rem 0; padding: 1.5rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); }
+    .pkit-cmp .pkit-cmp-tabs { display: flex; gap: 0.3rem; flex-wrap: wrap; border-bottom: 1px solid var(--border); margin-bottom: 1rem; padding-bottom: 0; }
+    .pkit-cmp .pkit-cmp-tab { padding: 0.5rem 0.9rem; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--fg-muted); font-family: var(--sans); font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: all var(--transition); position: relative; bottom: -1px; }
+    .pkit-cmp .pkit-cmp-tab:hover { color: var(--fg); }
+    .pkit-cmp .pkit-cmp-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .pkit-cmp .pkit-cmp-tab .icon { margin-right: 0.3rem; }
+    .pkit-cmp .pkit-cmp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 720px) { .pkit-cmp .pkit-cmp-grid { grid-template-columns: 1fr; } }
+    .pkit-cmp .pkit-cmp-col { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; }
+    .pkit-cmp .pkit-cmp-col h4 { margin: 0 0 0.8rem; font-size: 1rem; font-weight: 700; color: var(--fg); display: flex; align-items: center; gap: 0.4rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+    .pkit-cmp .pkit-cmp-col.home h4 { color: var(--accent); }
+    .pkit-cmp .pkit-cmp-col h4 .badge { font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 999px; background: var(--accent-soft); color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+    .pkit-cmp .pkit-cmp-row { display: flex; flex-direction: column; padding: 0.55rem 0; border-bottom: 1px dashed var(--border); }
+    .pkit-cmp .pkit-cmp-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .pkit-cmp .pkit-cmp-key { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-subtle); font-weight: 600; margin-bottom: 0.2rem; }
+    .pkit-cmp .pkit-cmp-val { font-size: 0.88rem; color: var(--fg); line-height: 1.5; }
+    .pkit-cmp .pkit-cmp-val code { background: var(--bg-elev); padding: 0.1rem 0.4rem; border-radius: var(--radius-sm); font-size: 0.82rem; border: 1px solid var(--border); }
+    .pkit-cmp .pkit-cmp-note { font-size: 0.78rem; color: var(--fg-subtle); margin-top: 0.8rem; font-style: italic; }
   </style>
 
-  <div class="pkit-tm-bar">
-    <div class="pkit-tm-dots">
-      <span class="pkit-tm-dot"></span><span class="pkit-tm-dot"></span><span class="pkit-tm-dot"></span>
-    </div>
-    <div class="pkit-tm-title">/ppr --research — simulated</div>
-    <div class="pkit-tm-controls">
-      <button class="pkit-tm-btn" data-act="play">▶ Play</button>
-      <button class="pkit-tm-btn" data-act="pause" disabled>⏸ Pause</button>
-      <button class="pkit-tm-btn" data-act="step">⏭ Step</button>
-      <button class="pkit-tm-btn" data-act="restart">↻ Restart</button>
-      <button class="pkit-tm-btn" data-act="speed">1×</button>
-    </div>
-  </div>
-  <div class="pkit-tm-progress"><div class="pkit-tm-progress-fill" data-tm-progress></div></div>
-  <pre class="pkit-tm-screen" data-tm-screen></pre>
+  <div class="pkit-cmp-tabs" data-cmp-tabs></div>
+  <div class="pkit-cmp-grid" data-cmp-grid></div>
+  <p class="pkit-cmp-note">Click any tab to compare this page's provider against another. Compare against → switches the right column.</p>
 
-  <script type="application/json" data-tm-script>
-[
-  {"type": "ps1", "text": "$ "},
-  {"type": "cmd", "text": "claude\n"},
-  {"type": "out-info", "text": "Claude Code 2.1.144  (interactive)\n"},
-  {"type": "pause", "ms": 400},
-  {"type": "ps1", "text": "> "},
-  {"type": "cmd", "text": "/ppr --research\n"},
-  {"type": "out-info", "text": "[ppr] --research mode active. Default: --dry-run.\n"},
-  {"type": "out-info", "text": "[ppr] Reading docs/research-results.tsv...\n"},
-  {"type": "pause", "ms": 400},
-  {"type": "out-stdout", "text": "[ppr] Found 12 keep-rows in TSV.\n"},
-  {"type": "out-stdout", "text": "[ppr] Branch name would be: research/temp-2026-05-19\n"},
-  {"type": "pause", "ms": 300},
-  {"type": "out-stdout", "text": "[ppr] Planned actions (dry-run):\n"},
-  {"type": "out-stdout", "text": "         git checkout -b research/temp-2026-05-19\n"},
-  {"type": "out-stdout", "text": "         (filter 12 keep-rows from research-results.tsv into research-keep.tsv)\n"},
-  {"type": "out-stdout", "text": "         git add research-keep.tsv\n"},
-  {"type": "out-stdout", "text": "         git commit -m 'chore: publish research keeps for temp (12 rows)'\n"},
-  {"type": "out-stdout", "text": "         git push -u origin research/temp-2026-05-19\n"},
-  {"type": "pause", "ms": 500},
-  {"type": "out-info", "text": "[ppr] No PR opened — research branches are user-reviewed before merge.\n"},
-  {"type": "out-success", "text": "[ppr] OK. Dry-run complete. Pass --no-dry-run --research-tag <slug> to publish.\n"},
-  {"type": "pause", "ms": 400},
-  {"type": "ps1", "text": "> "},
-  {"type": "cmd", "text": "/ppr --research --no-dry-run --research-tag temp\n"},
-  {"type": "out-info", "text": "[ppr] --no-dry-run + --research-tag=temp. Publishing.\n"},
-  {"type": "pause", "ms": 300},
-  {"type": "out-stdout", "text": "[ppr] Creating branch research/temp-2026-05-19...\n"},
-  {"type": "out-stdout", "text": "Switched to a new branch 'research/temp-2026-05-19'\n"},
-  {"type": "out-stdout", "text": "[ppr] Filtering 12 keep-rows...\n"},
-  {"type": "out-stdout", "text": "[ppr] Committing...\n"},
-  {"type": "out-stdout", "text": "[ppr] Pushing to origin...\n"},
-  {"type": "pause", "ms": 600},
-  {"type": "out-success", "text": "[ppr] OK. Branch research/temp-2026-05-19 published.\n"},
-  {"type": "out-success", "text": "[ppr] URL: https://github.com/Bruce188/pipelinekit/tree/research/temp-2026-05-19\n"},
-  {"type": "out-info", "text": "[ppr] Review the branch and decide whether to merge.\n"}
-]
+  <script type="application/json" data-cmp-data>
+{
+  "providers": {
+    "vercel": {
+      "name": "Vercel", "icon": "▲", "color": "#000",
+      "rows": {
+        "Pricing model": "Per-invocation (Hobby free / Pro $20/mo + usage). Free tier generous for static + low-traffic SSR.",
+        "Build system": "Auto-detect framework presets (Next.js, SvelteKit, Astro, Remix, Vite). Zero <code>vercel.json</code> needed for the common case.",
+        "Database story": "No first-party. Use Vercel Postgres (Neon-managed) or external (Supabase / Neon direct / PlanetScale).",
+        "Region story": "Global edge by default. Pin functions to specific regions via <code>vercel.json</code>.",
+        "Scaling": "Auto-scale per-function. Cold-start ~50-200ms on warm functions; up to ~1s on rarely-hit ones."
+      }
+    },
+    "azure": {
+      "name": "Azure", "icon": "☁", "color": "#0078d4",
+      "rows": {
+        "Pricing model": "Per-resource (App Service plan, Container Apps consumption, Function Apps Y1/EP). Free tier exists but limited.",
+        "Build system": "Multiple options: App Service auto-build, Container Apps Dockerfile, Bicep IaC for full control.",
+        "Database story": "First-party: Azure SQL, Cosmos DB, PostgreSQL Flexible Server, Redis Cache. Tight integration via Managed Identity.",
+        "Region story": "60+ regions globally. Availability zones for HA. Region pairs for DR.",
+        "Scaling": "Granular: App Service plan instances, Container Apps replicas, Function consumption-plan auto-scale. Some resources scale to zero."
+      }
+    },
+    "railway": {
+      "name": "Railway", "icon": "⚡", "color": "#7c3aed",
+      "rows": {
+        "Pricing model": "Usage-based (~$5 credit/mo free, then $0.000463/GB-hour). Predictable for small projects.",
+        "Build system": "Nixpacks (zero Dockerfile for most runtimes — Node, Python, Go, Ruby). Falls back to Dockerfile if present.",
+        "Database story": "First-party managed Postgres, MySQL, Redis, MongoDB. One-click provisioning inside the same project.",
+        "Region story": "Limited regions (US-West / EU-West / Singapore). Not edge.",
+        "Scaling": "Vertical (CPU/RAM) by default. Horizontal replicas require config. Cron + workers natively supported."
+      }
+    },
+    "render": {
+      "name": "Render", "icon": "🎨", "color": "#46e3b7",
+      "rows": {
+        "Pricing model": "Per-service tier ($7/mo Standard, $25/mo Pro). Free tier for static + cron only — web services don't have a real free tier (spin-down after inactivity).",
+        "Build system": "Native runtime detection (Node, Python, Ruby, Go, Rust, Elixir, Docker). <code>render.yaml</code> for IaC.",
+        "Database story": "First-party managed Postgres + Redis. External: any.",
+        "Region story": "5 regions (Oregon, Ohio, Virginia, Frankfurt, Singapore).",
+        "Scaling": "Manual horizontal scaling on Pro+. Auto-scaling in beta. Predictable instance pricing."
+      }
+    },
+    "digitalocean": {
+      "name": "DigitalOcean App Platform", "icon": "🌊", "color": "#0080ff",
+      "rows": {
+        "Pricing model": "Per-service tier ($5/mo Basic, $12/mo Pro per instance). Predictable. No free tier for App Platform itself.",
+        "Build system": "Buildpacks (Heroku-style) or Dockerfile. Component-based deploy.",
+        "Database story": "First-party DO Managed Databases (Postgres, MySQL, Redis, MongoDB, Kafka). Separate billing from App Platform.",
+        "Region story": "12+ regions. App Platform availability varies per region; check before commit.",
+        "Scaling": "Vertical resize + horizontal scaling. App Platform handles routing automatically."
+      }
+    }
+  }
+}
   </script>
 </div>
 
 <script>
 (function() {
   'use strict';
-  document.querySelectorAll('.pkit-term[data-snippet-mount="terminal-simulator"]').forEach(term => {
-  if (term.dataset.pkitInit) return;
-  term.dataset.pkitInit = '1';
+  document.querySelectorAll('.pkit-cmp[data-snippet-mount="comparison-tabs"]').forEach(cmp => {
+    if (cmp.dataset.pkitInit) return;
+    cmp.dataset.pkitInit = '1';
 
-  const dataEl = term.querySelector('script[data-tm-script]');
-  if (!dataEl) return;
-  const script = JSON.parse(dataEl.textContent);
-  const screen = term.querySelector('[data-tm-screen]');
-  const progressFill = term.querySelector('[data-tm-progress]');
-  const playBtn = term.querySelector('[data-act="play"]');
-  const pauseBtn = term.querySelector('[data-act="pause"]');
-  const stepBtn = term.querySelector('[data-act="step"]');
-  const restartBtn = term.querySelector('[data-act="restart"]');
-  const speedBtn = term.querySelector('[data-act="speed"]');
-  if (!screen || !progressFill || !playBtn) return;
+    const dataEl = cmp.querySelector('script[data-cmp-data]');
+    const tabsEl = cmp.querySelector('[data-cmp-tabs]');
+    const gridEl = cmp.querySelector('[data-cmp-grid]');
+    if (!dataEl || !tabsEl || !gridEl) return;
+    const data = JSON.parse(dataEl.textContent);
 
-  let idx = 0;
-  let playing = false;
-  let abort = false;
-  let speed = 1;
-  const speeds = [1, 2, 4, 0.5];
-  const cursor = '<span class="cursor"></span>';
-
-  function sleep(ms) { return new Promise(r => setTimeout(r, ms / speed)); }
-
-  function escape(s) {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // Detect "home" provider from <title>
+  const title = (document.title || '').toLowerCase();
+  let home = 'vercel';
+  for (const key of Object.keys(data.providers)) {
+    if (title.includes(key)) { home = key; break; }
   }
+  // Default "other" = first non-home
+  const others = Object.keys(data.providers).filter(k => k !== home);
+  let compareKey = others[0];
 
-  function appendChunk(item) {
-    const html = `<span class="${item.type}">${escape(item.text)}</span>`;
-    if (screen.querySelector('.cursor')) {
-      screen.querySelector('.cursor').remove();
+  function render() {
+    tabsEl.innerHTML = '';
+    Object.entries(data.providers).forEach(([key, prov]) => {
+      if (key === home) return;
+      const b = document.createElement('button');
+      b.className = 'pkit-cmp-tab' + (key === compareKey ? ' active' : '');
+      b.dataset.key = key;
+      b.innerHTML = `<span class="icon">${prov.icon}</span>${prov.name}`;
+      b.addEventListener('click', () => { compareKey = key; render(); });
+      tabsEl.appendChild(b);
+    });
+
+    const homeProv = data.providers[home];
+    const otherProv = data.providers[compareKey];
+
+    function colHtml(prov, isHome) {
+      const rows = Object.entries(prov.rows).map(([k, v]) =>
+        `<div class="pkit-cmp-row">
+           <div class="pkit-cmp-key">${k}</div>
+           <div class="pkit-cmp-val">${v}</div>
+         </div>`).join('');
+      const badge = isHome ? ' <span class="badge">this page</span>' : '';
+      return `<div class="pkit-cmp-col ${isHome ? 'home' : ''}">
+                <h4>${prov.icon} ${prov.name}${badge}</h4>
+                ${rows}
+              </div>`;
     }
-    screen.insertAdjacentHTML('beforeend', html);
-    screen.insertAdjacentHTML('beforeend', cursor);
-    screen.scrollTop = screen.scrollHeight;
+
+    gridEl.innerHTML = colHtml(homeProv, true) + colHtml(otherProv, false);
   }
 
-  async function typeChunk(item) {
-    if (item.type === 'cmd') {
-      // Type char by char
-      if (screen.querySelector('.cursor')) screen.querySelector('.cursor').remove();
-      const span = document.createElement('span');
-      span.className = 'cmd';
-      screen.appendChild(span);
-      for (const ch of item.text) {
-        if (abort) return;
-        span.textContent += ch;
-        screen.scrollTop = screen.scrollHeight;
-        await sleep(40);
-      }
-      screen.insertAdjacentHTML('beforeend', cursor);
-    } else if (item.type === 'pause') {
-      await sleep(item.ms || 200);
-    } else {
-      appendChunk(item);
-      await sleep(60);
-    }
-  }
-
-  function setPlaying(p) {
-    playing = p;
-    playBtn.classList.toggle('active', p);
-    pauseBtn.disabled = !p;
-    playBtn.disabled = p;
-  }
-
-  async function play() {
-    setPlaying(true);
-    abort = false;
-    while (idx < script.length && playing && !abort) {
-      const item = script[idx];
-      idx++;
-      progressFill.style.width = (idx / script.length * 100) + '%';
-      await typeChunk(item);
-    }
-    if (idx >= script.length) setPlaying(false);
-  }
-
-  playBtn.addEventListener('click', () => { if (!playing) play(); });
-  pauseBtn.addEventListener('click', () => { setPlaying(false); abort = true; });
-  stepBtn.addEventListener('click', async () => {
-    if (idx >= script.length) return;
-    const wasPlaying = playing; setPlaying(false); abort = true;
-    await new Promise(r => setTimeout(r, 50));
-    const item = script[idx]; idx++; progressFill.style.width = (idx / script.length * 100) + '%';
-    await typeChunk(item);
-    if (wasPlaying && idx < script.length) play();
-  });
-  restartBtn.addEventListener('click', () => {
-    abort = true; setPlaying(false);
-    idx = 0; screen.innerHTML = cursor; progressFill.style.width = '0';
-  });
-  speedBtn.addEventListener('click', () => {
-    const i = (speeds.indexOf(speed) + 1) % speeds.length;
-    speed = speeds[i];
-    speedBtn.textContent = speed + '×';
-  });
-
-  screen.innerHTML = cursor;
-
-  // Auto-play on first scroll-into-view (if IntersectionObserver available)
-  if ('IntersectionObserver' in window) {
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach(e => {
-        if (e.isIntersecting && idx === 0 && !playing) {
-          play();
-          io.disconnect();
-        }
-      });
-    }, { threshold: 0.4 });
-    io.observe(term);
-  }
+    render();
   });
 })();
 </script>
 
 
-<hr>
-<h2 id="synopsis">Synopsis</h2>
-<div class="codehilite"><pre><span></span><code>claude/skills/research/tsv-viewer.sh [OPTIONS]
-</code></pre></div>
-
-<h2 id="options">Options</h2>
+<h3 id="backgrounds-4">Backgrounds (4)</h3>
 <table>
 <thead>
 <tr>
-<th>Flag</th>
-<th>Argument</th>
-<th>Default</th>
-<th>Description</th>
+<th>Token</th>
+<th>Light</th>
+<th>Dark</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>--input</code></td>
-<td><code>&lt;path&gt;</code></td>
-<td><code>docs/research-results.tsv</code></td>
-<td>TSV file to read</td>
+<td><code>--bg</code></td>
+<td><code style="background:#ffffff;color:#1a1d23;padding:0 .4em;border:1px solid #e1e5eb">#ffffff</code> page background</td>
+<td><code style="background:#0b0f1a;color:#e8ecf3;padding:0 .4em;border:1px solid #1f2638">#0b0f1a</code></td>
 </tr>
 <tr>
-<td><code>--output</code></td>
-<td><code>&lt;path&gt;</code></td>
-<td><code>documentation/research-results.html</code></td>
-<td>HTML file to write</td>
+<td><code>--bg-elev</code></td>
+<td><code style="background:#fafbfc;color:#1a1d23;padding:0 .4em;border:1px solid #e1e5eb">#fafbfc</code> elevated surfaces (topbar / cards)</td>
+<td><code style="background:#131825;color:#e8ecf3;padding:0 .4em;border:1px solid #1f2638">#131825</code></td>
 </tr>
 <tr>
-<td><code>--no-open</code></td>
-<td>—</td>
-<td>off</td>
-<td>Suppress the browser-open attempt after writing</td>
+<td><code>--bg-code</code></td>
+<td><code style="background:#f4f5f7;color:#1a1d23;padding:0 .4em;border:1px solid #e1e5eb">#f4f5f7</code> code-block fill</td>
+<td><code style="background:#161c2c;color:#e8ecf3;padding:0 .4em;border:1px solid #1f2638">#161c2c</code></td>
 </tr>
 <tr>
-<td><code>--help</code></td>
-<td>—</td>
-<td>—</td>
-<td>Print usage and exit</td>
+<td><code>--bg-sel</code></td>
+<td><code style="background:#e3f2fd;color:#1a1d23;padding:0 .4em;border:1px solid #e1e5eb">#e3f2fd</code> text-selection highlight</td>
+<td><code style="background:#1e3a5f;color:#e8ecf3;padding:0 .4em;border:1px solid #1f2638">#1e3a5f</code></td>
 </tr>
 </tbody>
 </table>
-<h2 id="how-to-run">How to Run</h2>
-<p>From the repo root:</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># Default — reads docs/research-results.tsv, writes documentation/research-results.html</span>
-claude/skills/research/tsv-viewer.sh
-
-<span class="c1"># Custom output path, no browser launch</span>
-claude/skills/research/tsv-viewer.sh<span class="w"> </span>--output<span class="w"> </span>/tmp/preview.html<span class="w"> </span>--no-open
-
-<span class="c1"># Point at a different TSV</span>
-claude/skills/research/tsv-viewer.sh<span class="w"> </span>--input<span class="w"> </span>docs/my-results.tsv
-</code></pre></div>
-
-<p>The script requires Python 3 on <code>PATH</code>. It creates any missing parent directories for the output file automatically.</p>
-<h2 id="tsv-format">TSV Format</h2>
-<p>The input file must be tab-separated with a header row. Expected columns (0-indexed):</p>
+<h3 id="foregrounds-3">Foregrounds (3)</h3>
 <table>
 <thead>
 <tr>
-<th>#</th>
-<th>Column</th>
-<th>Sortable</th>
+<th>Token</th>
+<th>Light</th>
+<th>Dark</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>0</td>
-<td>commit</td>
-<td>no</td>
+<td><code>--fg</code></td>
+<td><code style="background:#ffffff;color:#1a1d23;padding:0 .4em;border:1px solid #e1e5eb">#1a1d23</code> primary text</td>
+<td><code style="background:#0b0f1a;color:#e8ecf3;padding:0 .4em;border:1px solid #1f2638">#e8ecf3</code></td>
 </tr>
 <tr>
-<td>1</td>
-<td>metric</td>
-<td>yes (numeric)</td>
+<td><code>--fg-muted</code></td>
+<td><code style="background:#ffffff;color:#5a6172;padding:0 .4em;border:1px solid #e1e5eb">#5a6172</code> secondary text</td>
+<td><code style="background:#0b0f1a;color:#9aa3b3;padding:0 .4em;border:1px solid #1f2638">#9aa3b3</code></td>
 </tr>
 <tr>
-<td>2</td>
-<td>memory</td>
-<td>yes (numeric)</td>
-</tr>
-<tr>
-<td>3</td>
-<td>status</td>
-<td>filter only</td>
-</tr>
-<tr>
-<td>4</td>
-<td>description</td>
-<td>no</td>
+<td><code>--fg-subtle</code></td>
+<td><code style="background:#ffffff;color:#8b94a3;padding:0 .4em;border:1px solid #e1e5eb">#8b94a3</code> tertiary / placeholder</td>
+<td><code style="background:#0b0f1a;color:#6b7589;padding:0 .4em;border:1px solid #1f2638">#6b7589</code></td>
 </tr>
 </tbody>
 </table>
-<p>A synthesized <code>iteration</code> column (1-based row index) is prepended in the HTML output and is also click-sortable.</p>
-<h2 id="output-description">Output Description</h2>
-<p>The generated HTML file is fully self-contained — no CDN or remote assets. It includes:</p>
-<ul>
-<li>A sortable table with click-to-sort headers on <code>iteration</code>, <code>metric</code>, and <code>memory</code> columns. Clicking the same header toggles ascending/descending order.</li>
-<li>Dynamic status filter checkboxes above the table. Each unique value in the <code>status</code> column gets its own checkbox; unchecking hides matching rows instantly.</li>
-<li>Light/dark CSS that follows the OS <code>prefers-color-scheme</code> media query with no JavaScript required for theming.</li>
-<li>A generation timestamp (UTC) and row count in the page footer.</li>
-</ul>
-<h2 id="browser-open-behavior">Browser Open Behavior</h2>
-<p>After writing the HTML file the script attempts to open it in the default browser using <code>xdg-open</code> (Linux), <code>open</code> (macOS), or <code>start</code> (Windows/WSL). Pass <code>--no-open</code> to suppress this. Tests must always pass <code>--no-open</code> to remain hermetic.</p>
-<h2 id="notes">Notes</h2>
-<ul>
-<li><code>cost</code> is intentionally absent from the table and is not a sort axis — it is not a TSV column.</li>
-<li>Passing an unknown flag exits with code 2.</li>
-<li>Passing a missing <code>--input</code> file exits with code 1.</li>
-</ul>
-<h2 id="pipelinekit-command-cheatsheet">Pipelinekit command cheatsheet</h2>
-<p>Filter by <code>research</code>, <code>ppr</code>, or <code>tsv</code> to surface the commands you reach for when shepherding a research-loop iteration to publish.</p>
-<!-- usage: <div data-snippet="command-cheatsheet"></div> -->
-<div class="pkit-cmd" data-snippet-mount="command-cheatsheet">
+<h3 id="borders-2">Borders (2)</h3>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Light</th>
+<th>Dark</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--border</code></td>
+<td><code style="background:#e1e5eb;color:#1a1d23;padding:0 .4em">#e1e5eb</code> default dividers</td>
+<td><code style="background:#1f2638;color:#e8ecf3;padding:0 .4em">#1f2638</code></td>
+</tr>
+<tr>
+<td><code>--border-strong</code></td>
+<td><code style="background:#c5cbd4;color:#1a1d23;padding:0 .4em">#c5cbd4</code> emphasized borders</td>
+<td><code style="background:#2a3349;color:#e8ecf3;padding:0 .4em">#2a3349</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="accents-3">Accents (3)</h3>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Light</th>
+<th>Dark</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--accent</code></td>
+<td><code style="background:#2563eb;color:#ffffff;padding:0 .4em">#2563eb</code> links, focus rings</td>
+<td><code style="background:#60a5fa;color:#0b0f1a;padding:0 .4em">#60a5fa</code></td>
+</tr>
+<tr>
+<td><code>--accent-hover</code></td>
+<td><code style="background:#1d4ed8;color:#ffffff;padding:0 .4em">#1d4ed8</code> link hover</td>
+<td><code style="background:#93c5fd;color:#0b0f1a;padding:0 .4em">#93c5fd</code></td>
+</tr>
+<tr>
+<td><code>--accent-soft</code></td>
+<td><code style="background:#dbeafe;color:#1a1d23;padding:0 .4em">#dbeafe</code> active-ToC backgrounds</td>
+<td><code style="background:#1e3a8a;color:#e8ecf3;padding:0 .4em">#1e3a8a33</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="semantic-3">Semantic (3)</h3>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Light</th>
+<th>Dark</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--success</code></td>
+<td><code style="background:#059669;color:#ffffff;padding:0 .4em">#059669</code> callout success / OK</td>
+<td><code style="background:#34d399;color:#0b0f1a;padding:0 .4em">#34d399</code></td>
+</tr>
+<tr>
+<td><code>--warn</code></td>
+<td><code style="background:#d97706;color:#ffffff;padding:0 .4em">#d97706</code> callout warning</td>
+<td><code style="background:#fbbf24;color:#0b0f1a;padding:0 .4em">#fbbf24</code></td>
+</tr>
+<tr>
+<td><code>--danger</code></td>
+<td><code style="background:#dc2626;color:#ffffff;padding:0 .4em">#dc2626</code> callout danger</td>
+<td><code style="background:#f87171;color:#0b0f1a;padding:0 .4em">#f87171</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="shadows-2">Shadows (2)</h3>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Light</th>
+<th>Dark</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--shadow-sm</code></td>
+<td><code>0 1px 2px rgba(0,0,0,0.04)</code></td>
+<td><code>0 1px 2px rgba(0,0,0,0.3)</code></td>
+</tr>
+<tr>
+<td><code>--shadow-md</code></td>
+<td><code>0 4px 12px rgba(0,0,0,0.08)</code></td>
+<td><code>0 4px 12px rgba(0,0,0,0.4)</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="type-scale">Type scale</h2>
+<p>pipelinekit ships a <strong>2-family type scale</strong> — one monospace stack, one humanist sans stack. Font sizes are NOT tokenized; they live inline at <code>h1</code> 2rem / <code>h2</code> 1.6rem / <code>h3</code> 1.25rem / <code>body</code> 15px / <code>code</code> 0.88em. Adding a third family or token-izing sizes is out of scope per analysis-v88 OQ-5.</p>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Stack</th>
+<th>Used for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--mono</code></td>
+<td><code>ui-monospace, "JetBrains Mono", "SF Mono", "Cascadia Code", "Consolas", monospace</code></td>
+<td><code>&lt;code&gt;</code>, <code>&lt;pre&gt;</code>, syntax-highlighted blocks</td>
+</tr>
+<tr>
+<td><code>--sans</code></td>
+<td><code>-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif</code></td>
+<td>body text, headings, UI chrome</td>
+</tr>
+</tbody>
+</table>
+<h2 id="spacing-radii-scale">Spacing &amp; radii scale</h2>
+<p>Radii are tokenized; spacing is not. Spacing follows an observed inline <code>0.4 / 0.5 / 1.0 / 1.5 / 2.0 rem</code> scale — present consistently across the template and shipped snippets but never bound to a custom property. Per analysis-v88 OQ-5 this is "scale observed, not tokenized"; deferring a <code>--spacing-*</code> token series is intentional until a real cross-page inconsistency surfaces.</p>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Value</th>
+<th>Used for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--radius</code></td>
+<td><code>6px</code></td>
+<td>default rounded corners (buttons, cards, codeblocks, table wrappers)</td>
+</tr>
+<tr>
+<td><code>--radius-sm</code></td>
+<td><code>4px</code></td>
+<td>smaller inline elements (inline <code>&lt;code&gt;</code>, sortable-header indicators)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="syntax-highlighting-tokens">Syntax highlighting tokens</h2>
+<p>Seven tokens drive Pygments class output. They consume the <code>.codehilite .&lt;class&gt;</code> selector set generated by <code>render.py</code> from fenced code blocks.</p>
+<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">example</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Doc string demonstrating syntax-highlight tokens.&quot;&quot;&quot;</span>
+    <span class="n">keyword</span> <span class="o">=</span> <span class="kc">True</span>            <span class="c1"># number token</span>
+    <span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;hello&quot;</span>         <span class="c1"># string token</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s2">::</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span>
+</code></pre></div>
+
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Light</th>
+<th>Dark</th>
+<th>Pygments class(es)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--syn-kw</code></td>
+<td><code style="background:#f4f5f7;color:#7c3aed;padding:0 .4em">#7c3aed</code></td>
+<td><code style="background:#161c2c;color:#c084fc;padding:0 .4em">#c084fc</code></td>
+<td><code>.k</code>, <code>.kn</code>, <code>.kd</code>, <code>.kr</code>, <code>.kt</code></td>
+</tr>
+<tr>
+<td><code>--syn-str</code></td>
+<td><code style="background:#f4f5f7;color:#059669;padding:0 .4em">#059669</code></td>
+<td><code style="background:#161c2c;color:#4ade80;padding:0 .4em">#4ade80</code></td>
+<td><code>.s</code>, <code>.s1</code>, <code>.s2</code>, <code>.sb</code></td>
+</tr>
+<tr>
+<td><code>--syn-num</code></td>
+<td><code style="background:#f4f5f7;color:#d97706;padding:0 .4em">#d97706</code></td>
+<td><code style="background:#161c2c;color:#fbbf24;padding:0 .4em">#fbbf24</code></td>
+<td><code>.mi</code>, <code>.mf</code>, <code>.mh</code>, <code>.mo</code></td>
+</tr>
+<tr>
+<td><code>--syn-com</code></td>
+<td><code style="background:#f4f5f7;color:#6b7280;padding:0 .4em">#6b7280</code></td>
+<td><code style="background:#161c2c;color:#94a3b8;padding:0 .4em">#94a3b8</code></td>
+<td><code>.c</code>, <code>.c1</code>, <code>.cm</code>, <code>.ch</code></td>
+</tr>
+<tr>
+<td><code>--syn-fn</code></td>
+<td><code style="background:#f4f5f7;color:#2563eb;padding:0 .4em">#2563eb</code></td>
+<td><code style="background:#161c2c;color:#60a5fa;padding:0 .4em">#60a5fa</code></td>
+<td><code>.nf</code>, <code>.fm</code>, <code>.nv</code>, <code>.nb</code></td>
+</tr>
+<tr>
+<td><code>--syn-cls</code></td>
+<td><code style="background:#f4f5f7;color:#db2777;padding:0 .4em">#db2777</code></td>
+<td><code style="background:#161c2c;color:#f472b6;padding:0 .4em">#f472b6</code></td>
+<td><code>.nc</code>, <code>.ne</code></td>
+</tr>
+<tr>
+<td><code>--syn-op</code></td>
+<td><code style="background:#f4f5f7;color:#1f2937;padding:0 .4em">#1f2937</code></td>
+<td><code style="background:#161c2c;color:#e8ecf3;padding:0 .4em">#e8ecf3</code></td>
+<td><code>.o</code>, <code>.ow</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="motion">Motion</h2>
+<p>One motion token. Used by hover / focus transitions on links, buttons, ToC items, theme toggle, and code-copy buttons.</p>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Value</th>
+<th>Used for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--transition</code></td>
+<td><code>150ms ease</code></td>
+<td>hover-state colour swaps, border swaps, accent ring fade-in</td>
+</tr>
+</tbody>
+</table>
+<p>Snippets respect <code>prefers-reduced-motion: reduce</code> per the accessibility contract — animations are dampened, never the <code>--transition</code> token itself.</p>
+<h2 id="light-vs-dark-scrubber">Light vs dark scrubber</h2>
+<p>Scrub the slider below to compare the same primary token surface under the light theme and the dark theme — the swap operates entirely through CSS custom properties.</p>
+<!-- usage:
+     <div data-snippet="before-after-slider">
+       <div data-bas-before><!-- arbitrary markup --></div>
+       <div data-bas-after><!-- arbitrary markup --></div>
+     </div>
+-->
+<div class="pkit-bas" data-snippet-mount="before-after-slider">
   <style>
-    .pkit-cmd { margin: 1.5rem 0; }
-    .pkit-cmd .pkit-cmd-toolbar { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.8rem; }
-    .pkit-cmd .pkit-cmd-filter { flex: 1; padding: 0.4rem 0.7rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--fg); font-family: var(--sans); font-size: 0.88rem; }
-    .pkit-cmd .pkit-cmd-filter:focus { outline: none; border-color: var(--accent); }
-    .pkit-cmd .pkit-cmd-count { font-family: var(--mono); font-size: 0.75rem; color: var(--fg-muted); white-space: nowrap; }
-    .pkit-cmd .pkit-cmd-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
-    .pkit-cmd .pkit-cmd-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 0.85rem; }
-    .pkit-cmd .pkit-cmd-table thead tr { background: var(--bg-elev); }
-    .pkit-cmd .pkit-cmd-table th { padding: 0.55rem 0.9rem; text-align: left; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-subtle); border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg-elev); z-index: 1; white-space: nowrap; }
-    .pkit-cmd .pkit-cmd-table td { padding: 0.5rem 0.9rem; border-bottom: 1px solid var(--border); color: var(--fg); vertical-align: top; }
-    .pkit-cmd .pkit-cmd-table tbody tr:last-child td { border-bottom: none; }
-    .pkit-cmd .pkit-cmd-table tbody tr:hover td { background: var(--accent-soft); }
-    .pkit-cmd .pkit-cmd-table .pkit-cmd-name { font-family: var(--mono); font-weight: 700; white-space: nowrap; color: var(--accent); }
-    .pkit-cmd .pkit-cmd-table .pkit-cmd-args { font-family: var(--mono); font-size: 0.78rem; color: var(--fg-muted); white-space: nowrap; }
-    .pkit-cmd .pkit-cmd-table .pkit-cmd-desc { max-width: 400px; line-height: 1.45; }
-    .pkit-cmd .pkit-cmd-empty { padding: 1.5rem; text-align: center; color: var(--fg-subtle); font-style: italic; }
+    .pkit-bas { margin: 1.5rem 0; }
+    .pkit-bas .pkit-bas__viewport {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg-elev);
+      min-height: 120px;
+      user-select: none;
+    }
+    .pkit-bas .pkit-bas__layer {
+      position: absolute;
+      inset: 0;
+      padding: 1rem;
+      overflow: hidden;
+    }
+    .pkit-bas .pkit-bas__layer--before {
+      background: var(--bg-elev);
+      z-index: 1;
+    }
+    .pkit-bas .pkit-bas__layer--after {
+      background: var(--bg);
+      z-index: 2;
+      clip-path: inset(0 var(--pkit-bas-clip, 50%) 0 0);
+      transition: clip-path 60ms linear;
+    }
+    .pkit-bas .pkit-bas__handle {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--accent);
+      z-index: 3;
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: none;
+      transition: left 60ms linear;
+    }
+    .pkit-bas .pkit-bas__handle::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid var(--bg);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    }
+    .pkit-bas .pkit-bas__labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 0.3rem;
+      font-family: var(--sans);
+      font-size: 0.75rem;
+      color: var(--fg-subtle);
+    }
+    .pkit-bas .pkit-bas__range {
+      width: 100%;
+      margin-top: 0.6rem;
+      accent-color: var(--accent);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .pkit-bas * { transition: none !important; animation: none !important; }
+    }
   </style>
 
-  <div class="pkit-cmd-toolbar">
-    <input type="search" class="pkit-cmd-filter" placeholder="Filter commands…" aria-label="Filter slash commands">
-    <span class="pkit-cmd-count" data-cmd-count></span>
+  <div class="pkit-bas__viewport">
+    <div class="pkit-bas__layer pkit-bas__layer--before"></div>
+    <div class="pkit-bas__layer pkit-bas__layer--after" style="--pkit-bas-clip: 50%"></div>
+    <div class="pkit-bas__handle" aria-hidden="true"></div>
   </div>
-  <div class="pkit-cmd-wrap">
-    <table class="pkit-cmd-table" aria-label="pipelinekit slash commands">
-      <thead>
-        <tr>
-          <th>Command</th>
-          <th>Args</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody data-cmd-tbody></tbody>
-    </table>
-    <div class="pkit-cmd-empty" data-cmd-empty style="display:none">No commands match your filter.</div>
+  <div class="pkit-bas__labels">
+    <span>Before</span>
+    <span>After</span>
   </div>
-
-  <script type="application/json" id="cmd-data">
-[
-  {"name":"/analyze","args":"(none)","default":"(none)","description":"Analyze an existing codebase or defined task. Asks 2 focused questions, then produces docs/analysis.md."},
-  {"name":"/annotate-plan","args":"(none)","default":"(none)","description":"Process inline annotations in the plan file. Address all notes without implementing. Iterate until clean."},
-  {"name":"/ascii-diagram","args":"(none)","default":"(none)","description":"Generate an ASCII architecture diagram for the current project or a described system."},
-  {"name":"/azure-ops","args":"(none)","default":"(none)","description":"Azure CLI wrapper for common ops — resource listing, deploy (App Service / Container Apps / Function Apps), log tail."},
-  {"name":"/build-hook","args":"(none)","default":"(none)","description":"Generate a Claude Code hook from a description. Creates the shell script and settings.json entry."},
-  {"name":"/caveman-mode","args":"(none)","default":"wenyan-ultra","description":"Toggle response verbosity (caveman-style terse fragments vs normal English)."},
-  {"name":"/code-health","args":"[--scope] [--quick] [--threshold]","default":"full scan","description":"Comprehensive codebase health assessment with quality metrics, test coverage, documentation, and maintainability."},
-  {"name":"/commit-conventions","args":"(none)","default":"(none)","description":"Conventional commit format, message rules, and attribution policy."},
-  {"name":"/context-dump","args":"(none)","default":"(none)","description":"Save current session context to docs/context-dump.md for handoff or resumption."},
-  {"name":"/create-plan","args":"(none)","default":"(none)","description":"Generate docs/plan.md AND docs/prompts.md together. Initializes or amends docs/progress.md."},
-  {"name":"/dependency-auditor","args":"(none)","default":"(none)","description":"Check dependencies for known vulnerabilities using npm audit, pip-audit, etc."},
-  {"name":"/deploy-target","args":"<provider>","default":"(none)","description":"Set the active session deployment target (vercel, railway, render, digitalocean, or none)."},
-  {"name":"/digitalocean-ops","args":"(none)","default":"(none)","description":"Deploy and verify DigitalOcean App Platform apps when the charter targets digitalocean."},
-  {"name":"/docs-writer","args":"(none)","default":"(none)","description":"Documentation skill — renders markdown to rich, interactive, self-contained HTML for documentation/."},
-  {"name":"/document-release","args":"[--since <sha>]","default":"latest merge","description":"Update application documentation in documentation/ after a release."},
-  {"name":"/dotnet-conventions","args":"(none)","default":"(none)","description":".NET architecture, DI, data access, and testing conventions. Loaded for C#/.NET files."},
-  {"name":"/expo","args":"(none)","default":"(none)","description":"Expo developer workflow — managed vs. bare workflow, EAS Build, EAS Update (OTA), dev-client, Expo Router."},
-  {"name":"/financial-data-analyst","args":"(none)","default":"(none)","description":"Automatically analyzes financial and trading data to calculate performance metrics and risk statistics."},
-  {"name":"/fix-issue","args":"(none)","default":"(none)","description":"Fix a GitHub issue by number. Reads the issue, implements a fix with TDD, and commits."},
-  {"name":"/handoff-create","args":"(none)","default":"(none)","description":"Analyze the current conversation and create a handoff document for continuing work in a fresh context."},
-  {"name":"/implement-plan","args":"[--no-parallel]","default":"parallel","description":"Execute all remaining tasks from docs/progress.md with verification after each."},
-  {"name":"/incident","args":"(none)","default":"(none)","description":"Triage a failing post-merge verification gate using @incident-responder."},
-  {"name":"/ios","args":"(none)","default":"(none)","description":"Xcode + Anthropic Claude Agent SDK integration — project setup, Agent SDK API surface, simulator integration."},
-  {"name":"/landing-report","args":"(none)","default":"(none)","description":"Pre-push version-slot collision detector. Compares VERSION against existing git tags."},
-  {"name":"/learn","args":"(none)","default":"(none)","description":"Read interface for pipelinekit's per-project learnings journal."},
-  {"name":"/new-branch","args":"(none)","default":"(none)","description":"Create a conventional feature branch from main/master."},
-  {"name":"/persona","args":"<name>","default":"(none)","description":"Set the active session persona (devops, growth-marketer, solo-founder, startup-cto, or none)."},
-  {"name":"/pipeline","args":"[features.md] [--no-charter] [--dry-run] [--max-usd N] [--max-turns N]","default":"Charter mode","description":"Autonomous pipeline orchestrator. Processes a feature list through the full workflow."},
-  {"name":"/playwright","args":"(none)","default":"(none)","description":"Native Python browser automation using Playwright for navigation, interaction, screenshots."},
-  {"name":"/post-merge","args":"(none)","default":"(none)","description":"Clean up after PR merge. Switches to main, pulls latest, deletes merged feature branch."},
-  {"name":"/ppr","args":"(none)","default":"(none)","description":"Push + PR. Push committed changes to origin and open a pull request."},
-  {"name":"/railway-ops","args":"(none)","default":"(none)","description":"Deploy and verify Railway projects when the charter targets railway."},
-  {"name":"/render-ops","args":"(none)","default":"(none)","description":"Deploy and verify Render services when the charter targets render."},
-  {"name":"/research","args":"(none)","default":"(none)","description":"Karpathy autoresearch loop — hypothesize, mutate one file, run benchmark, keep-or-reset, append TSV row."},
-  {"name":"/review","args":"[--scope] [--health] [--force] [--teams] [--design-pass]","default":"full diff","description":"Multi-agent parallel review. Scales from 2 agents (small diffs) to 6-agent teams (large diffs)."},
-  {"name":"/secret-scanner","args":"(none)","default":"(none)","description":"Detect exposed secrets, API keys, credentials, and tokens in code."},
-  {"name":"/security-conventions","args":"(none)","default":"(none)","description":"ASP.NET Core security conventions — anti-forgery, authorization, secret storage, parameterized queries, HTTPS."},
-  {"name":"/simplify","args":"(none)","default":"(none)","description":"Post-green reductive refactor: remove unused helpers, dead branches, over-generalized abstractions."},
-  {"name":"/test-hooks","args":"(none)","default":"(none)","description":"Run hook tests and summarize results. Auto-loads when working on files under .claude/hooks/."},
-  {"name":"/vercel-ops","args":"(none)","default":"(none)","description":"Vercel CLI wrapper for common ops — project listing, deploy (preview / production), log tail."}
-]
-  </script>
+  <input type="range" class="pkit-bas__range" min="0" max="100" value="50"
+         aria-label="Reveal slider — drag to compare before and after">
 </div>
 
 <script>
 (function() {
   'use strict';
-  document.querySelectorAll('.pkit-cmd[data-snippet-mount="command-cheatsheet"]').forEach(function(root) {
+  document.querySelectorAll('.pkit-bas[data-snippet-mount="before-after-slider"]').forEach(function(root) {
     if (root.dataset.pkitInit) return;
     root.dataset.pkitInit = '1';
 
-    var filterEl = root.querySelector('.pkit-cmd-filter');
-    var tbody = root.querySelector('[data-cmd-tbody]');
-    var countEl = root.querySelector('[data-cmd-count]');
-    var emptyEl = root.querySelector('[data-cmd-empty]');
-    var dataEl = root.querySelector('#cmd-data');
-    if (!dataEl || !tbody) return;
+    var beforeChild = root.querySelector('[data-bas-before]');
+    var afterChild  = root.querySelector('[data-bas-after]');
+    var layerBefore = root.querySelector('.pkit-bas__layer--before');
+    var layerAfter  = root.querySelector('.pkit-bas__layer--after');
+    var handle      = root.querySelector('.pkit-bas__handle');
+    var rangeInput  = root.querySelector('.pkit-bas__range');
 
-    var commands = JSON.parse(dataEl.textContent);
-    var rows = [];
-    var debounceTimer = null;
-
-    commands.forEach(function(cmd) {
-      var tr = document.createElement('tr');
-      tr.innerHTML =
-        '<td class="pkit-cmd-name">' + cmd.name + '</td>' +
-        '<td class="pkit-cmd-args">' + (cmd.args || '(none)') + '</td>' +
-        '<td class="pkit-cmd-desc">' + cmd.description + '</td>';
-      tr.dataset.searchText = (cmd.name + ' ' + (cmd.args || '') + ' ' + cmd.description).toLowerCase();
-      tbody.appendChild(tr);
-      rows.push(tr);
-    });
-
-    function updateCount(visible) {
-      if (countEl) countEl.textContent = visible + ' / ' + rows.length;
+    if (beforeChild && layerBefore) {
+      layerBefore.innerHTML = beforeChild.innerHTML;
+      beforeChild.style.display = 'none';
+    }
+    if (afterChild && layerAfter) {
+      layerAfter.innerHTML = afterChild.innerHTML;
+      afterChild.style.display = 'none';
     }
 
-    function applyFilter(q) {
-      var lq = q.toLowerCase();
-      var visible = 0;
-      rows.forEach(function(tr) {
-        var show = !lq || tr.dataset.searchText.indexOf(lq) !== -1;
-        tr.style.display = show ? '' : 'none';
-        if (show) visible++;
-      });
-      if (emptyEl) emptyEl.style.display = visible === 0 ? 'block' : 'none';
-      updateCount(visible);
+    function applyValue(val) {
+      var pct = Math.min(100, Math.max(0, parseInt(val, 10)));
+      var clipRight = (100 - pct) + '%';
+      if (layerAfter) layerAfter.style.setProperty('--pkit-bas-clip', clipRight);
+      if (handle) handle.style.left = pct + '%';
     }
 
-    filterEl && filterEl.addEventListener('input', function() {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(function() {
-        applyFilter(filterEl.value);
-      }, 120);
+    rangeInput && rangeInput.addEventListener('input', function() {
+      applyValue(rangeInput.value);
     });
 
-    applyFilter('');
+    applyValue(rangeInput ? rangeInput.value : 50);
   });
 })();
 </script>
 
+
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="html-effectiveness-principles.html">HTML effectiveness principles</a> — the four-category rubric that places this page in the Visual-token slot.</li>
+<li><a href="../claude/skills/docs-writer/SKILL.md">docs-writer SKILL.md</a> — § "Authoring a new snippet" and the Snippet catalog.</li>
+<li><code>claude/skills/docs-writer/template.html</code> lines 12-67 — the canonical source for every token enumerated here.</li>
+</ul>
     </div>
 
     <div class="no-results" id="no-results">

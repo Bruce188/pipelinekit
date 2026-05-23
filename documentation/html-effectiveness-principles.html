@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TSV Viewer — pipelinekit</title>
-<meta name="description" content="tsv-viewer.sh reads a research-results TSV file and generates a self-contained HTML page with a sortable, filterable table, light/dark CSS, and an optional browser-open hook.">
+<title>HTML effectiveness principles — pipelinekit</title>
+<meta name="description" content="Canonical design rubric for pipelinekit&#x27;s documentation/*.html corpus. Defines the four-category rubric, maps every shipped snippet to its category, and lists anti-patterns the rubric is meant to prevent.">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>TSV Viewer</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>HTML effectiveness principles</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -531,356 +531,36 @@ footer {
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
     <ul>
-      <li class="lvl-2"><a href="#synopsis">Synopsis</a></li>
-      <li class="lvl-2"><a href="#options">Options</a></li>
-      <li class="lvl-2"><a href="#how-to-run">How to Run</a></li>
-      <li class="lvl-2"><a href="#tsv-format">TSV Format</a></li>
-      <li class="lvl-2"><a href="#output-description">Output Description</a></li>
-      <li class="lvl-2"><a href="#browser-open-behavior">Browser Open Behavior</a></li>
-      <li class="lvl-2"><a href="#notes">Notes</a></li>
-      <li class="lvl-2"><a href="#pipelinekit-command-cheatsheet">Pipelinekit command cheatsheet</a></li>
+      <li class="lvl-2"><a href="#what">WHAT</a></li>
+      <li class="lvl-2"><a href="#rubric">RUBRIC</a></li>
+      <li class="lvl-2"><a href="#snippet-map">SNIPPET MAP</a></li>
+      <li class="lvl-2"><a href="#anti-patterns">ANTI-PATTERNS</a></li>
+      <li class="lvl-2"><a href="#see-also">SEE ALSO</a></li>
     </ul>
   </aside>
 
   <main>
     <header class="page-header">
-      <h1>TSV Viewer</h1>
-      <p class="description">tsv-viewer.sh reads a research-results TSV file and generates a self-contained HTML page with a sortable, filterable table, light/dark CSS, and an optional browser-open hook.</p>
+      <h1>HTML effectiveness principles</h1>
+      <p class="description">Canonical design rubric for pipelinekit&#x27;s documentation/*.html corpus. Defines the four-category rubric, maps every shipped snippet to its category, and lists anti-patterns the rubric is meant to prevent.</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
-<!-- snippet:terminal-simulator
-     Simulated terminal session. Plays back a scripted sequence of
-     commands + outputs at a configurable speed. Pause / play / step /
-     restart controls. Used on ppr-research-flag.html for a dry-run
-     preview without requiring the user to actually run /ppr --research.
-
-     The scripted session is JSON-embedded inline. Lines are typed
-     character-by-character for commands; output is dumped instantly.
-
-     Placeholder usage:
-       <div data-snippet="terminal-simulator"></div>
--->
-<div class="pkit-term" data-snippet-mount="terminal-simulator">
-  <style>
-    .pkit-term { margin: 1.5rem 0; padding: 0; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-    .pkit-term .pkit-tm-bar { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.8rem; background: var(--bg); border-bottom: 1px solid var(--border); }
-    .pkit-term .pkit-tm-dots { display: flex; gap: 0.4rem; }
-    .pkit-term .pkit-tm-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--fg-subtle); opacity: 0.7; }
-    .pkit-term .pkit-tm-dot:nth-child(1) { background: #ef4444; }
-    .pkit-term .pkit-tm-dot:nth-child(2) { background: #f59e0b; }
-    .pkit-term .pkit-tm-dot:nth-child(3) { background: #10b981; }
-    .pkit-term .pkit-tm-title { font-family: var(--mono); font-size: 0.78rem; color: var(--fg-muted); }
-    .pkit-term .pkit-tm-controls { display: flex; gap: 0.3rem; }
-    .pkit-term .pkit-tm-btn { padding: 0.2rem 0.6rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--fg-muted); font-family: var(--sans); font-size: 0.75rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.25rem; transition: all var(--transition); }
-    .pkit-term .pkit-tm-btn:hover { color: var(--fg); border-color: var(--accent); }
-    .pkit-term .pkit-tm-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .pkit-term .pkit-tm-btn.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
-    .pkit-term .pkit-tm-screen { background: #0a0e1a; color: #d4d7e0; font-family: var(--mono); font-size: 13px; line-height: 1.55; padding: 1rem 1.2rem; min-height: 280px; max-height: 480px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; }
-    .pkit-term .pkit-tm-screen .ps1 { color: #4ade80; }
-    .pkit-term .pkit-tm-screen .cmd { color: #fbbf24; }
-    .pkit-term .pkit-tm-screen .out-stdout { color: #cbd5e1; }
-    .pkit-term .pkit-tm-screen .out-stderr { color: #fb7185; }
-    .pkit-term .pkit-tm-screen .out-info { color: #60a5fa; }
-    .pkit-term .pkit-tm-screen .out-success { color: #34d399; font-weight: 600; }
-    .pkit-term .pkit-tm-screen .cursor { display: inline-block; width: 8px; height: 1em; background: #d4d7e0; vertical-align: text-bottom; animation: pkit-tm-blink 1s steps(2) infinite; }
-    @keyframes pkit-tm-blink { 50% { opacity: 0; } }
-    .pkit-term .pkit-tm-progress { height: 2px; background: var(--border); }
-    .pkit-term .pkit-tm-progress-fill { height: 100%; background: var(--accent); transition: width 100ms linear; width: 0; }
-  </style>
-
-  <div class="pkit-tm-bar">
-    <div class="pkit-tm-dots">
-      <span class="pkit-tm-dot"></span><span class="pkit-tm-dot"></span><span class="pkit-tm-dot"></span>
-    </div>
-    <div class="pkit-tm-title">/ppr --research — simulated</div>
-    <div class="pkit-tm-controls">
-      <button class="pkit-tm-btn" data-act="play">▶ Play</button>
-      <button class="pkit-tm-btn" data-act="pause" disabled>⏸ Pause</button>
-      <button class="pkit-tm-btn" data-act="step">⏭ Step</button>
-      <button class="pkit-tm-btn" data-act="restart">↻ Restart</button>
-      <button class="pkit-tm-btn" data-act="speed">1×</button>
-    </div>
-  </div>
-  <div class="pkit-tm-progress"><div class="pkit-tm-progress-fill" data-tm-progress></div></div>
-  <pre class="pkit-tm-screen" data-tm-screen></pre>
-
-  <script type="application/json" data-tm-script>
-[
-  {"type": "ps1", "text": "$ "},
-  {"type": "cmd", "text": "claude\n"},
-  {"type": "out-info", "text": "Claude Code 2.1.144  (interactive)\n"},
-  {"type": "pause", "ms": 400},
-  {"type": "ps1", "text": "> "},
-  {"type": "cmd", "text": "/ppr --research\n"},
-  {"type": "out-info", "text": "[ppr] --research mode active. Default: --dry-run.\n"},
-  {"type": "out-info", "text": "[ppr] Reading docs/research-results.tsv...\n"},
-  {"type": "pause", "ms": 400},
-  {"type": "out-stdout", "text": "[ppr] Found 12 keep-rows in TSV.\n"},
-  {"type": "out-stdout", "text": "[ppr] Branch name would be: research/temp-2026-05-19\n"},
-  {"type": "pause", "ms": 300},
-  {"type": "out-stdout", "text": "[ppr] Planned actions (dry-run):\n"},
-  {"type": "out-stdout", "text": "         git checkout -b research/temp-2026-05-19\n"},
-  {"type": "out-stdout", "text": "         (filter 12 keep-rows from research-results.tsv into research-keep.tsv)\n"},
-  {"type": "out-stdout", "text": "         git add research-keep.tsv\n"},
-  {"type": "out-stdout", "text": "         git commit -m 'chore: publish research keeps for temp (12 rows)'\n"},
-  {"type": "out-stdout", "text": "         git push -u origin research/temp-2026-05-19\n"},
-  {"type": "pause", "ms": 500},
-  {"type": "out-info", "text": "[ppr] No PR opened — research branches are user-reviewed before merge.\n"},
-  {"type": "out-success", "text": "[ppr] OK. Dry-run complete. Pass --no-dry-run --research-tag <slug> to publish.\n"},
-  {"type": "pause", "ms": 400},
-  {"type": "ps1", "text": "> "},
-  {"type": "cmd", "text": "/ppr --research --no-dry-run --research-tag temp\n"},
-  {"type": "out-info", "text": "[ppr] --no-dry-run + --research-tag=temp. Publishing.\n"},
-  {"type": "pause", "ms": 300},
-  {"type": "out-stdout", "text": "[ppr] Creating branch research/temp-2026-05-19...\n"},
-  {"type": "out-stdout", "text": "Switched to a new branch 'research/temp-2026-05-19'\n"},
-  {"type": "out-stdout", "text": "[ppr] Filtering 12 keep-rows...\n"},
-  {"type": "out-stdout", "text": "[ppr] Committing...\n"},
-  {"type": "out-stdout", "text": "[ppr] Pushing to origin...\n"},
-  {"type": "pause", "ms": 600},
-  {"type": "out-success", "text": "[ppr] OK. Branch research/temp-2026-05-19 published.\n"},
-  {"type": "out-success", "text": "[ppr] URL: https://github.com/Bruce188/pipelinekit/tree/research/temp-2026-05-19\n"},
-  {"type": "out-info", "text": "[ppr] Review the branch and decide whether to merge.\n"}
-]
-  </script>
-</div>
-
-<script>
-(function() {
-  'use strict';
-  document.querySelectorAll('.pkit-term[data-snippet-mount="terminal-simulator"]').forEach(term => {
-  if (term.dataset.pkitInit) return;
-  term.dataset.pkitInit = '1';
-
-  const dataEl = term.querySelector('script[data-tm-script]');
-  if (!dataEl) return;
-  const script = JSON.parse(dataEl.textContent);
-  const screen = term.querySelector('[data-tm-screen]');
-  const progressFill = term.querySelector('[data-tm-progress]');
-  const playBtn = term.querySelector('[data-act="play"]');
-  const pauseBtn = term.querySelector('[data-act="pause"]');
-  const stepBtn = term.querySelector('[data-act="step"]');
-  const restartBtn = term.querySelector('[data-act="restart"]');
-  const speedBtn = term.querySelector('[data-act="speed"]');
-  if (!screen || !progressFill || !playBtn) return;
-
-  let idx = 0;
-  let playing = false;
-  let abort = false;
-  let speed = 1;
-  const speeds = [1, 2, 4, 0.5];
-  const cursor = '<span class="cursor"></span>';
-
-  function sleep(ms) { return new Promise(r => setTimeout(r, ms / speed)); }
-
-  function escape(s) {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  }
-
-  function appendChunk(item) {
-    const html = `<span class="${item.type}">${escape(item.text)}</span>`;
-    if (screen.querySelector('.cursor')) {
-      screen.querySelector('.cursor').remove();
-    }
-    screen.insertAdjacentHTML('beforeend', html);
-    screen.insertAdjacentHTML('beforeend', cursor);
-    screen.scrollTop = screen.scrollHeight;
-  }
-
-  async function typeChunk(item) {
-    if (item.type === 'cmd') {
-      // Type char by char
-      if (screen.querySelector('.cursor')) screen.querySelector('.cursor').remove();
-      const span = document.createElement('span');
-      span.className = 'cmd';
-      screen.appendChild(span);
-      for (const ch of item.text) {
-        if (abort) return;
-        span.textContent += ch;
-        screen.scrollTop = screen.scrollHeight;
-        await sleep(40);
-      }
-      screen.insertAdjacentHTML('beforeend', cursor);
-    } else if (item.type === 'pause') {
-      await sleep(item.ms || 200);
-    } else {
-      appendChunk(item);
-      await sleep(60);
-    }
-  }
-
-  function setPlaying(p) {
-    playing = p;
-    playBtn.classList.toggle('active', p);
-    pauseBtn.disabled = !p;
-    playBtn.disabled = p;
-  }
-
-  async function play() {
-    setPlaying(true);
-    abort = false;
-    while (idx < script.length && playing && !abort) {
-      const item = script[idx];
-      idx++;
-      progressFill.style.width = (idx / script.length * 100) + '%';
-      await typeChunk(item);
-    }
-    if (idx >= script.length) setPlaying(false);
-  }
-
-  playBtn.addEventListener('click', () => { if (!playing) play(); });
-  pauseBtn.addEventListener('click', () => { setPlaying(false); abort = true; });
-  stepBtn.addEventListener('click', async () => {
-    if (idx >= script.length) return;
-    const wasPlaying = playing; setPlaying(false); abort = true;
-    await new Promise(r => setTimeout(r, 50));
-    const item = script[idx]; idx++; progressFill.style.width = (idx / script.length * 100) + '%';
-    await typeChunk(item);
-    if (wasPlaying && idx < script.length) play();
-  });
-  restartBtn.addEventListener('click', () => {
-    abort = true; setPlaying(false);
-    idx = 0; screen.innerHTML = cursor; progressFill.style.width = '0';
-  });
-  speedBtn.addEventListener('click', () => {
-    const i = (speeds.indexOf(speed) + 1) % speeds.length;
-    speed = speeds[i];
-    speedBtn.textContent = speed + '×';
-  });
-
-  screen.innerHTML = cursor;
-
-  // Auto-play on first scroll-into-view (if IntersectionObserver available)
-  if ('IntersectionObserver' in window) {
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach(e => {
-        if (e.isIntersecting && idx === 0 && !playing) {
-          play();
-          io.disconnect();
-        }
-      });
-    }, { threshold: 0.4 });
-    io.observe(term);
-  }
-  });
-})();
-</script>
-
-
-<hr>
-<h2 id="synopsis">Synopsis</h2>
-<div class="codehilite"><pre><span></span><code>claude/skills/research/tsv-viewer.sh [OPTIONS]
-</code></pre></div>
-
-<h2 id="options">Options</h2>
-<table>
-<thead>
-<tr>
-<th>Flag</th>
-<th>Argument</th>
-<th>Default</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--input</code></td>
-<td><code>&lt;path&gt;</code></td>
-<td><code>docs/research-results.tsv</code></td>
-<td>TSV file to read</td>
-</tr>
-<tr>
-<td><code>--output</code></td>
-<td><code>&lt;path&gt;</code></td>
-<td><code>documentation/research-results.html</code></td>
-<td>HTML file to write</td>
-</tr>
-<tr>
-<td><code>--no-open</code></td>
-<td>—</td>
-<td>off</td>
-<td>Suppress the browser-open attempt after writing</td>
-</tr>
-<tr>
-<td><code>--help</code></td>
-<td>—</td>
-<td>—</td>
-<td>Print usage and exit</td>
-</tr>
-</tbody>
-</table>
-<h2 id="how-to-run">How to Run</h2>
-<p>From the repo root:</p>
-<div class="codehilite"><pre><span></span><code><span class="c1"># Default — reads docs/research-results.tsv, writes documentation/research-results.html</span>
-claude/skills/research/tsv-viewer.sh
-
-<span class="c1"># Custom output path, no browser launch</span>
-claude/skills/research/tsv-viewer.sh<span class="w"> </span>--output<span class="w"> </span>/tmp/preview.html<span class="w"> </span>--no-open
-
-<span class="c1"># Point at a different TSV</span>
-claude/skills/research/tsv-viewer.sh<span class="w"> </span>--input<span class="w"> </span>docs/my-results.tsv
-</code></pre></div>
-
-<p>The script requires Python 3 on <code>PATH</code>. It creates any missing parent directories for the output file automatically.</p>
-<h2 id="tsv-format">TSV Format</h2>
-<p>The input file must be tab-separated with a header row. Expected columns (0-indexed):</p>
-<table>
-<thead>
-<tr>
-<th>#</th>
-<th>Column</th>
-<th>Sortable</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>0</td>
-<td>commit</td>
-<td>no</td>
-</tr>
-<tr>
-<td>1</td>
-<td>metric</td>
-<td>yes (numeric)</td>
-</tr>
-<tr>
-<td>2</td>
-<td>memory</td>
-<td>yes (numeric)</td>
-</tr>
-<tr>
-<td>3</td>
-<td>status</td>
-<td>filter only</td>
-</tr>
-<tr>
-<td>4</td>
-<td>description</td>
-<td>no</td>
-</tr>
-</tbody>
-</table>
-<p>A synthesized <code>iteration</code> column (1-based row index) is prepended in the HTML output and is also click-sortable.</p>
-<h2 id="output-description">Output Description</h2>
-<p>The generated HTML file is fully self-contained — no CDN or remote assets. It includes:</p>
+<h2 id="what">WHAT</h2>
+<p>"HTML effectiveness" is a rubric for distinguishing HTML pages whose layout and interactivity <em>carry information</em> from HTML pages that are merely "rendered markdown with a sidebar." The rubric is taken from <a href="https://thariqs.github.io/html-effectiveness/">https://thariqs.github.io/html-effectiveness/</a> and adopted as pipelinekit's canonical lens for evaluating any page rendered to <code>documentation/</code>.</p>
+<p>pipelinekit ships 18 ready-to-embed snippets in <code>claude/skills/docs-writer/snippets/</code>. Each snippet implements one of the four rubric categories below. The richness gate (<code>claude/skills/docs-writer/richness_check.py</code>) refuses to stage a <code>documentation/*.html</code> page that scores below the threshold — <code>≥1</code> distinct pattern for body ≤ 1500 words, <code>≥2</code> distinct patterns for body &gt; 1500 words. A page authored without a single rich-interactive primitive defeats the purpose of HTML-over-markdown and fails the gate.</p>
+<p>The rubric is descriptive, not prescriptive. Designers can compose multiple categories on one page; the only contract is that <em>some</em> category must be present.</p>
+<h2 id="rubric">RUBRIC</h2>
+<p>The four categories are non-overlapping. A snippet belongs to exactly one category — pick whichever lever dominates its content carrier.</p>
 <ul>
-<li>A sortable table with click-to-sort headers on <code>iteration</code>, <code>metric</code>, and <code>memory</code> columns. Clicking the same header toggles ascending/descending order.</li>
-<li>Dynamic status filter checkboxes above the table. Each unique value in the <code>status</code> column gets its own checkbox; unchecking hides matching rows instantly.</li>
-<li>Light/dark CSS that follows the OS <code>prefers-color-scheme</code> media query with no JavaScript required for theming.</li>
-<li>A generation timestamp (UTC) and row count in the page footer.</li>
+<li><strong>Spatial</strong> — uses 2D layout (grids, tables, diagrams) to communicate structure that prose cannot. A reader scanning the layout learns relationships before reading any individual cell. Examples: card grids, RACI matrices, architecture stack diagrams.</li>
+<li><strong>Live-rendered</strong> — computes responsive output from user input. The page state is not static; sliders, textareas, or scripted playback drive the visible content. The reader interacts with the page to see different answers, not different views of the same answer. Examples: cost calculators, live linters, paste-and-score playgrounds.</li>
+<li><strong>Interactive</strong> — clickable / toggleable / scrubable UI that progressively reveals information. Distinct from live-rendered in that the content is fixed; the interaction surfaces <em>which subset</em> is visible. Examples: comparison tabs, before/after sliders, decision-tree quizzes, animated SVG flows with hover tooltips.</li>
+<li><strong>Visual-token</strong> — visualizes design tokens, scales, gauges, or other quantitative-visual primitives. The visual element <em>is</em> the content; reading it as prose would be lossy. Examples: dial-gauge meters showing budget consumption, swatch tables showing the canonical color tokens, type-scale specimens.</li>
 </ul>
-<h2 id="browser-open-behavior">Browser Open Behavior</h2>
-<p>After writing the HTML file the script attempts to open it in the default browser using <code>xdg-open</code> (Linux), <code>open</code> (macOS), or <code>start</code> (Windows/WSL). Pass <code>--no-open</code> to suppress this. Tests must always pass <code>--no-open</code> to remain hermetic.</p>
-<h2 id="notes">Notes</h2>
-<ul>
-<li><code>cost</code> is intentionally absent from the table and is not a sort axis — it is not a TSV column.</li>
-<li>Passing an unknown flag exits with code 2.</li>
-<li>Passing a missing <code>--input</code> file exits with code 1.</li>
-</ul>
-<h2 id="pipelinekit-command-cheatsheet">Pipelinekit command cheatsheet</h2>
-<p>Filter by <code>research</code>, <code>ppr</code>, or <code>tsv</code> to surface the commands you reach for when shepherding a research-loop iteration to publish.</p>
+<h2 id="snippet-map">SNIPPET MAP</h2>
+<p>The 18 snippets currently shipped, classified per the rubric. Counts: Spatial 6 / Interactive 7 / Live-rendered 4 / Visual-token 1.</p>
 <!-- usage: <div data-snippet="command-cheatsheet"></div> -->
 <div class="pkit-cmd" data-snippet-mount="command-cheatsheet">
   <style>
@@ -1023,6 +703,300 @@ claude/skills/research/tsv-viewer.sh<span class="w"> </span>--input<span class="
 })();
 </script>
 
+
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Snippet</th>
+<th>Category</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>agent-catalog-grid</code></td>
+<td>Spatial</td>
+<td>2D card-grid layout with section-filter chips.</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>architecture-diagram</code></td>
+<td>Spatial</td>
+<td>4-layer SVG taxonomy with layer-toggle filter.</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>before-after-slider</code></td>
+<td>Interactive</td>
+<td>Horizontal scrubber with clip-path reveal between two states.</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>chooser-quiz</code></td>
+<td>Interactive</td>
+<td>Multi-step decision tree leading to a recommendation.</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>command-cheatsheet</code></td>
+<td>Spatial</td>
+<td>Sortable, filterable command table.</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>comparison-tabs</code></td>
+<td>Interactive</td>
+<td>Click-tab side-by-side comparison.</td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>cost-budget-meter</code></td>
+<td>Visual-token</td>
+<td>Twin dial-gauge SVG with CSS-animated fill.</td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>cost-calculator</code></td>
+<td>Live-rendered</td>
+<td>Sliders compute dollar amounts in real time.</td>
+</tr>
+<tr>
+<td>9</td>
+<td><code>deployment-provider-quiz</code></td>
+<td>Interactive</td>
+<td>6-question deployment-fit quiz.</td>
+</tr>
+<tr>
+<td>10</td>
+<td><code>governance-roles-table</code></td>
+<td>Spatial</td>
+<td>RACI matrix (6 tasks x 4 roles) with click-highlight.</td>
+</tr>
+<tr>
+<td>11</td>
+<td><code>live-linter</code></td>
+<td>Live-rendered</td>
+<td>Paste textarea, scored in real time.</td>
+</tr>
+<tr>
+<td>12</td>
+<td><code>path-routing-diagram</code></td>
+<td>Interactive</td>
+<td>Clickable decision-tree SVG mapped to pipeline path anchors.</td>
+</tr>
+<tr>
+<td>13</td>
+<td><code>pipeline-phase-diagram</code></td>
+<td>Interactive</td>
+<td>Animated SVG lifecycle flow with hover tooltips.</td>
+</tr>
+<tr>
+<td>14</td>
+<td><code>playground-2col</code></td>
+<td>Live-rendered</td>
+<td>Two-column textarea with live status indicator.</td>
+</tr>
+<tr>
+<td>15</td>
+<td><code>skill-catalog-grid</code></td>
+<td>Spatial</td>
+<td>Card-grid with section-filter chips.</td>
+</tr>
+<tr>
+<td>16</td>
+<td><code>terminal-simulator</code></td>
+<td>Live-rendered</td>
+<td>Scripted command playback with synthetic output.</td>
+</tr>
+<tr>
+<td>17</td>
+<td><code>timeline-scrubber</code></td>
+<td>Interactive</td>
+<td>Horizontal commit-history scrubber.</td>
+</tr>
+<tr>
+<td>18</td>
+<td><code>tutorial-cards</code></td>
+<td>Spatial</td>
+<td>2x2 card-grid with colored top borders.</td>
+</tr>
+</tbody>
+</table>
+<p>The new <code>documentation/design-tokens.html</code> is the canonical Visual-token exemplar; before it, that category was thinly represented (only <code>cost-budget-meter</code>).</p>
+<h2 id="anti-patterns">ANTI-PATTERNS</h2>
+<p>Pages the rubric is designed to exclude — these defeat the purpose of HTML-over-markdown.</p>
+<ul>
+<li><strong>Walls of prose without visual aids.</strong> A 4000-word essay with no diagrams, tables, or scrubable elements is markdown with extra steps. Either add a category-matching snippet, restructure with tables / lists, or render to markdown and link from the docs index instead.</li>
+<li><strong>Decorative non-functional images.</strong> PNG screenshots that exist to look professional but do not convey information the prose does not already cover. The HTML-effectiveness rubric values <em>load-bearing</em> visuals — if the image vanished, the page should lose meaning.</li>
+<li><strong>Prose-only landing pages.</strong> An <code>index.html</code> that is one big paragraph followed by a list of links. Use <code>architecture-diagram</code> or <code>tutorial-cards</code> to surface the structure visually.</li>
+<li><strong>Snippets that fight the page.</strong> Over-decorated SVGs that animate while the reader is trying to read prose, a <code>cost-calculator</code> placed on a quickstart page where the reader has no decision to make, two interactive snippets stacked without coordinating their state. Pick the <em>minimum</em> snippet that carries the page intent; remove anything decorative.</li>
+<li><strong>Mixing Live-rendered + Interactive without state coordination.</strong> A textarea-driven <code>live-linter</code> next to a tab-based <code>comparison-tabs</code> produces a confusing reading order — the reader doesn't know whether to type or click. Use one primary interaction surface per page.</li>
+<li><strong>Missing dark-mode theming.</strong> Snippets that hard-code <code>#fff</code> / <code>#000</code> instead of consuming the template's CSS custom properties break in dark mode. The shipped snippets all use <code>var(--bg)</code>, <code>var(--fg)</code>, etc., so they auto-theme — new snippets must follow the same contract.</li>
+</ul>
+<h2 id="see-also">SEE ALSO</h2>
+<!-- snippet:comparison-tabs
+     Tabbed side-by-side comparison of the 5 cloud deployment providers.
+     Click a tab to compare against the page's "home" provider on:
+     pricing model, build system, DB story, region story, scaling story.
+
+     The "home" provider is auto-detected from <title> if it contains
+     "Vercel", "Azure", "Railway", "Render", or "DigitalOcean".
+
+     Placeholder usage:
+       <div data-snippet="comparison-tabs"></div>
+-->
+<div class="pkit-cmp" data-snippet-mount="comparison-tabs">
+  <style>
+    .pkit-cmp { margin: 1.5rem 0; padding: 1.5rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); }
+    .pkit-cmp .pkit-cmp-tabs { display: flex; gap: 0.3rem; flex-wrap: wrap; border-bottom: 1px solid var(--border); margin-bottom: 1rem; padding-bottom: 0; }
+    .pkit-cmp .pkit-cmp-tab { padding: 0.5rem 0.9rem; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--fg-muted); font-family: var(--sans); font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: all var(--transition); position: relative; bottom: -1px; }
+    .pkit-cmp .pkit-cmp-tab:hover { color: var(--fg); }
+    .pkit-cmp .pkit-cmp-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .pkit-cmp .pkit-cmp-tab .icon { margin-right: 0.3rem; }
+    .pkit-cmp .pkit-cmp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 720px) { .pkit-cmp .pkit-cmp-grid { grid-template-columns: 1fr; } }
+    .pkit-cmp .pkit-cmp-col { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; }
+    .pkit-cmp .pkit-cmp-col h4 { margin: 0 0 0.8rem; font-size: 1rem; font-weight: 700; color: var(--fg); display: flex; align-items: center; gap: 0.4rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+    .pkit-cmp .pkit-cmp-col.home h4 { color: var(--accent); }
+    .pkit-cmp .pkit-cmp-col h4 .badge { font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 999px; background: var(--accent-soft); color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+    .pkit-cmp .pkit-cmp-row { display: flex; flex-direction: column; padding: 0.55rem 0; border-bottom: 1px dashed var(--border); }
+    .pkit-cmp .pkit-cmp-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .pkit-cmp .pkit-cmp-key { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-subtle); font-weight: 600; margin-bottom: 0.2rem; }
+    .pkit-cmp .pkit-cmp-val { font-size: 0.88rem; color: var(--fg); line-height: 1.5; }
+    .pkit-cmp .pkit-cmp-val code { background: var(--bg-elev); padding: 0.1rem 0.4rem; border-radius: var(--radius-sm); font-size: 0.82rem; border: 1px solid var(--border); }
+    .pkit-cmp .pkit-cmp-note { font-size: 0.78rem; color: var(--fg-subtle); margin-top: 0.8rem; font-style: italic; }
+  </style>
+
+  <div class="pkit-cmp-tabs" data-cmp-tabs></div>
+  <div class="pkit-cmp-grid" data-cmp-grid></div>
+  <p class="pkit-cmp-note">Click any tab to compare this page's provider against another. Compare against → switches the right column.</p>
+
+  <script type="application/json" data-cmp-data>
+{
+  "providers": {
+    "vercel": {
+      "name": "Vercel", "icon": "▲", "color": "#000",
+      "rows": {
+        "Pricing model": "Per-invocation (Hobby free / Pro $20/mo + usage). Free tier generous for static + low-traffic SSR.",
+        "Build system": "Auto-detect framework presets (Next.js, SvelteKit, Astro, Remix, Vite). Zero <code>vercel.json</code> needed for the common case.",
+        "Database story": "No first-party. Use Vercel Postgres (Neon-managed) or external (Supabase / Neon direct / PlanetScale).",
+        "Region story": "Global edge by default. Pin functions to specific regions via <code>vercel.json</code>.",
+        "Scaling": "Auto-scale per-function. Cold-start ~50-200ms on warm functions; up to ~1s on rarely-hit ones."
+      }
+    },
+    "azure": {
+      "name": "Azure", "icon": "☁", "color": "#0078d4",
+      "rows": {
+        "Pricing model": "Per-resource (App Service plan, Container Apps consumption, Function Apps Y1/EP). Free tier exists but limited.",
+        "Build system": "Multiple options: App Service auto-build, Container Apps Dockerfile, Bicep IaC for full control.",
+        "Database story": "First-party: Azure SQL, Cosmos DB, PostgreSQL Flexible Server, Redis Cache. Tight integration via Managed Identity.",
+        "Region story": "60+ regions globally. Availability zones for HA. Region pairs for DR.",
+        "Scaling": "Granular: App Service plan instances, Container Apps replicas, Function consumption-plan auto-scale. Some resources scale to zero."
+      }
+    },
+    "railway": {
+      "name": "Railway", "icon": "⚡", "color": "#7c3aed",
+      "rows": {
+        "Pricing model": "Usage-based (~$5 credit/mo free, then $0.000463/GB-hour). Predictable for small projects.",
+        "Build system": "Nixpacks (zero Dockerfile for most runtimes — Node, Python, Go, Ruby). Falls back to Dockerfile if present.",
+        "Database story": "First-party managed Postgres, MySQL, Redis, MongoDB. One-click provisioning inside the same project.",
+        "Region story": "Limited regions (US-West / EU-West / Singapore). Not edge.",
+        "Scaling": "Vertical (CPU/RAM) by default. Horizontal replicas require config. Cron + workers natively supported."
+      }
+    },
+    "render": {
+      "name": "Render", "icon": "🎨", "color": "#46e3b7",
+      "rows": {
+        "Pricing model": "Per-service tier ($7/mo Standard, $25/mo Pro). Free tier for static + cron only — web services don't have a real free tier (spin-down after inactivity).",
+        "Build system": "Native runtime detection (Node, Python, Ruby, Go, Rust, Elixir, Docker). <code>render.yaml</code> for IaC.",
+        "Database story": "First-party managed Postgres + Redis. External: any.",
+        "Region story": "5 regions (Oregon, Ohio, Virginia, Frankfurt, Singapore).",
+        "Scaling": "Manual horizontal scaling on Pro+. Auto-scaling in beta. Predictable instance pricing."
+      }
+    },
+    "digitalocean": {
+      "name": "DigitalOcean App Platform", "icon": "🌊", "color": "#0080ff",
+      "rows": {
+        "Pricing model": "Per-service tier ($5/mo Basic, $12/mo Pro per instance). Predictable. No free tier for App Platform itself.",
+        "Build system": "Buildpacks (Heroku-style) or Dockerfile. Component-based deploy.",
+        "Database story": "First-party DO Managed Databases (Postgres, MySQL, Redis, MongoDB, Kafka). Separate billing from App Platform.",
+        "Region story": "12+ regions. App Platform availability varies per region; check before commit.",
+        "Scaling": "Vertical resize + horizontal scaling. App Platform handles routing automatically."
+      }
+    }
+  }
+}
+  </script>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  document.querySelectorAll('.pkit-cmp[data-snippet-mount="comparison-tabs"]').forEach(cmp => {
+    if (cmp.dataset.pkitInit) return;
+    cmp.dataset.pkitInit = '1';
+
+    const dataEl = cmp.querySelector('script[data-cmp-data]');
+    const tabsEl = cmp.querySelector('[data-cmp-tabs]');
+    const gridEl = cmp.querySelector('[data-cmp-grid]');
+    if (!dataEl || !tabsEl || !gridEl) return;
+    const data = JSON.parse(dataEl.textContent);
+
+  // Detect "home" provider from <title>
+  const title = (document.title || '').toLowerCase();
+  let home = 'vercel';
+  for (const key of Object.keys(data.providers)) {
+    if (title.includes(key)) { home = key; break; }
+  }
+  // Default "other" = first non-home
+  const others = Object.keys(data.providers).filter(k => k !== home);
+  let compareKey = others[0];
+
+  function render() {
+    tabsEl.innerHTML = '';
+    Object.entries(data.providers).forEach(([key, prov]) => {
+      if (key === home) return;
+      const b = document.createElement('button');
+      b.className = 'pkit-cmp-tab' + (key === compareKey ? ' active' : '');
+      b.dataset.key = key;
+      b.innerHTML = `<span class="icon">${prov.icon}</span>${prov.name}`;
+      b.addEventListener('click', () => { compareKey = key; render(); });
+      tabsEl.appendChild(b);
+    });
+
+    const homeProv = data.providers[home];
+    const otherProv = data.providers[compareKey];
+
+    function colHtml(prov, isHome) {
+      const rows = Object.entries(prov.rows).map(([k, v]) =>
+        `<div class="pkit-cmp-row">
+           <div class="pkit-cmp-key">${k}</div>
+           <div class="pkit-cmp-val">${v}</div>
+         </div>`).join('');
+      const badge = isHome ? ' <span class="badge">this page</span>' : '';
+      return `<div class="pkit-cmp-col ${isHome ? 'home' : ''}">
+                <h4>${prov.icon} ${prov.name}${badge}</h4>
+                ${rows}
+              </div>`;
+    }
+
+    gridEl.innerHTML = colHtml(homeProv, true) + colHtml(otherProv, false);
+  }
+
+    render();
+  });
+})();
+</script>
+
+
+<ul>
+<li><a href="design-tokens.html">Design tokens</a> — pipelinekit's canonical Visual-token exemplar; visualizes the 41 template custom properties (22 light + 19 dark) plus typography, radii, syntax, and motion tokens.</li>
+<li><a href="codebase-map.html">Codebase map</a> — full site structure including all of <code>documentation/</code>.</li>
+<li><a href="../claude/skills/docs-writer/SKILL.md">docs-writer SKILL.md</a> — authoring conventions, snippet catalog, output directory contract.</li>
+<li><a href="https://thariqs.github.io/html-effectiveness/">https://thariqs.github.io/html-effectiveness/</a> — the source rubric this page adopts.</li>
+</ul>
     </div>
 
     <div class="no-results" id="no-results">

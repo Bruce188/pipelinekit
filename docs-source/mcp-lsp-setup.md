@@ -106,3 +106,9 @@ claude-context and serena are complementary, not alternatives — they answer di
 - **claude-context** answers *"where is rate-limiting handled in this codebase?"* (semantic / fuzzy).
 
 Run both together when you want both vectors. Neither blocks the other.
+
+## Serena vs claude-context side-by-side
+
+Switch between the two probe surfaces to see the same query routed differently.
+
+<div data-snippet="comparison-tabs"></div>

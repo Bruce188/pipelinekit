@@ -154,3 +154,9 @@ The system that produces this very page.
 - **5** cloud deployment providers (Azure, Vercel, Railway, Render, DigitalOcean) on a shared `deployment-engineer.md` base
 - **18** documentation pages (all self-contained HTML, no CDN, file://-openable)
 - **128** unit + shell tests, all green
+
+## Release-flow command cheatsheet
+
+Filter the slash-command table by `release`, `ppr`, or `pipeline` to surface the commands you reach for when cutting a new tag or rolling forward changelog entries.
+
+<div data-snippet="command-cheatsheet"></div>

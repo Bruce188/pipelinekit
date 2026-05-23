@@ -259,3 +259,9 @@ All bootstrap scripts are idempotent: re-running on a partially-provisioned inst
 - `swapon --show` before swapfile creation
 
 Simply re-run the same `curl | bash` command you used the first time.
+
+## Pipelinekit command cheatsheet
+
+Filter the slash-command table below by `pipeline`, `install`, `analyze`, or any other keyword to surface the commands you will reach for during initial cloud bootstrap.
+
+<div data-snippet="command-cheatsheet"></div>
