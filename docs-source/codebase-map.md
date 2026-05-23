@@ -9,7 +9,7 @@ The pipelinekit repository top-level layout — one line per directory, one line
 | Path | Purpose | Committed? |
 |------|---------|------------|
 | `claude/` | Workflow toolkit source — skills, agents, hooks, commands, rules, lib, config, memory. | Yes |
-| `claude/skills/` | 43 skills authored as `SKILL.md` + supporting files (`tdd`, `pipeline`, `docs-writer`, `review`, `simplify`, ...). | Yes |
+| `claude/skills/` | 42 skills authored as `SKILL.md` + supporting files (`tdd`, `pipeline`, `docs-writer`, `review`, `simplify`, ...). | Yes |
 | `claude/agents/` | 25 subagent persona definitions (`code-reviewer.md`, `tdd-test-writer.md`, `security-auditor.md`, ...). | Yes |
 | `claude/hooks/` | Bash + python pre/post hooks (`validate-commit-msg.sh`, `block-stage-sensitive.sh`, `strip-ai-attribution.sh`, ...). | Yes |
 | `claude/commands/` | Slash-command stubs (`/persona`, `/deploy-target`, ...). | Yes |

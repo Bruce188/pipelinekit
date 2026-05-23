@@ -9,7 +9,7 @@ Workflow toolkit for Claude Code. Skills + agents + hooks + the autonomous `/pip
 | Path | Purpose |
 |------|---------|
 | `claude/` | Workflow toolkit source — skills, agents, hooks, commands, rules, lib |
-| `claude/skills/` | 43 skills authored as `SKILL.md` + supporting files (`tdd`, `pipeline`, `docs-writer`, ...) |
+| `claude/skills/` | 42 skills authored as `SKILL.md` + supporting files (`tdd`, `pipeline`, `docs-writer`, ...) |
 | `claude/agents/` | 25 subagent personas (`code-reviewer.md`, `tdd-test-writer.md`, ...) |
 | `claude/hooks/` | Bash + python pre/post hooks (`validate-commit-msg.sh`, `block-stage-sensitive.sh`, ...) |
 | `claude/commands/` | Slash-command stubs (`/persona`, `/deploy-target`, ...) |
