@@ -115,7 +115,11 @@ mkdir -p "$T4_DIR/docs"
 )
 make_mock_claude "$T4_DIR" '{"proposals":[]}'
 T4_EXIT=0
-(cd "$T4_DIR" && CLAUDE_BIN="$T4_DIR/bin/claude" bash "$HOOK" </dev/null >/dev/null 2>&1) || T4_EXIT=$?
+(cd "$T4_DIR" && \
+  CLAUDE_BIN="$T4_DIR/bin/claude" \
+  CLAUDE_COST_LOG_PATH="$T4_DIR/cost-events.jsonl" \
+  CLAUDE_COST_LOG_SELFTEST=1 \
+  bash "$HOOK" </dev/null >/dev/null 2>&1) || T4_EXIT=$?
 T4_ARTIFACT="$T4_DIR/docs/claude-md-proposal-v1.md"
 T4_HAS_JSON=0
 if [ -f "$T4_ARTIFACT" ] && grep -q '"proposals"' "$T4_ARTIFACT"; then
@@ -140,7 +144,11 @@ make_mock_claude "$T5_DIR" '{"proposals":[]}'
 # Seed v1.
 echo "# pre-existing v1" >"$T5_DIR/docs/claude-md-proposal-v1.md"
 T5_EXIT=0
-(cd "$T5_DIR" && CLAUDE_BIN="$T5_DIR/bin/claude" bash "$HOOK" </dev/null >/dev/null 2>&1) || T5_EXIT=$?
+(cd "$T5_DIR" && \
+  CLAUDE_BIN="$T5_DIR/bin/claude" \
+  CLAUDE_COST_LOG_PATH="$T5_DIR/cost-events.jsonl" \
+  CLAUDE_COST_LOG_SELFTEST=1 \
+  bash "$HOOK" </dev/null >/dev/null 2>&1) || T5_EXIT=$?
 T5_V1_PRESENT=0
 T5_V2_PRESENT=0
 [ -f "$T5_DIR/docs/claude-md-proposal-v1.md" ] && T5_V1_PRESENT=1
@@ -163,12 +171,82 @@ mkdir -p "$T6_DIR/docs"
 make_mock_claude "$T6_DIR" '{"proposals":[]}' 'sleep 90'
 T6_EXIT=0
 T6_START=$SECONDS
-(cd "$T6_DIR" && CLAUDE_BIN="$T6_DIR/bin/claude" bash "$HOOK" </dev/null >/dev/null 2>&1) || T6_EXIT=$?
+(cd "$T6_DIR" && \
+  CLAUDE_BIN="$T6_DIR/bin/claude" \
+  CLAUDE_COST_LOG_PATH="$T6_DIR/cost-events.jsonl" \
+  CLAUDE_COST_LOG_SELFTEST=1 \
+  bash "$HOOK" </dev/null >/dev/null 2>&1) || T6_EXIT=$?
 T6_ELAPSED=$((SECONDS - T6_START))
 if [ "$T6_EXIT" = "0" ] && [ "$T6_ELAPSED" -lt 65 ]; then
   record "test_06_timeout_enforced" PASS
 else
   record "test_06_timeout_enforced" FAIL "exit=$T6_EXIT, elapsed=${T6_ELAPSED}s"
+fi
+
+# ---------------------------------------------------------------------------
+# test_07: cost-event line written to isolated log path via cost_log.py.
+# ---------------------------------------------------------------------------
+T7_DIR="$SANDBOX/t07"
+mkdir -p "$T7_DIR/docs"
+(
+  cd "$T7_DIR"
+  git init -q -b main >/dev/null
+)
+make_mock_claude "$T7_DIR" '{"proposals":[]}'
+T7_EXIT=0
+(cd "$T7_DIR" && \
+  CLAUDE_BIN="$T7_DIR/bin/claude" \
+  CLAUDE_COST_LOG_PATH="$T7_DIR/cost-events.jsonl" \
+  CLAUDE_COST_LOG_SELFTEST=1 \
+  bash "$HOOK" </dev/null >/dev/null 2>&1) || T7_EXIT=$?
+T7_LOG="$T7_DIR/cost-events.jsonl"
+T7_HAS_PHASE=0
+T7_HAS_USD=0
+T7_HAS_DISPATCH=0
+if [ -s "$T7_LOG" ]; then
+  grep -q '"phase": "stop-self-reflect"' "$T7_LOG" && T7_HAS_PHASE=1
+  grep -q '"estimated_usd": 0.05' "$T7_LOG" && T7_HAS_USD=1
+  grep -q '"dispatch_mode": "subprocess"' "$T7_LOG" && T7_HAS_DISPATCH=1
+fi
+if [ "$T7_EXIT" = "0" ] && [ "$T7_HAS_PHASE" = "1" ] \
+   && [ "$T7_HAS_USD" = "1" ] && [ "$T7_HAS_DISPATCH" = "1" ]; then
+  record "test_07_cost_event_written" PASS
+else
+  record "test_07_cost_event_written" FAIL \
+    "exit=$T7_EXIT phase=$T7_HAS_PHASE usd=$T7_HAS_USD dispatch=$T7_HAS_DISPATCH"
+fi
+
+# ---------------------------------------------------------------------------
+# test_08: cost-log write failure (path-is-file) MUST NOT propagate; hook
+# still exits 0 and the artifact is still written.
+# ---------------------------------------------------------------------------
+T8_DIR="$SANDBOX/t08"
+mkdir -p "$T8_DIR/docs"
+(
+  cd "$T8_DIR"
+  git init -q -b main >/dev/null
+)
+make_mock_claude "$T8_DIR" '{"proposals":[]}'
+# Force NotADirectoryError on cost_log.py os.makedirs by pointing the
+# parent at a plain file rather than a directory.
+touch "$T8_DIR/regular-file"
+T8_EXIT=0
+(cd "$T8_DIR" && \
+  CLAUDE_BIN="$T8_DIR/bin/claude" \
+  CLAUDE_COST_LOG_PATH="$T8_DIR/regular-file/cost-events.jsonl" \
+  CLAUDE_COST_LOG_SELFTEST=1 \
+  bash "$HOOK" </dev/null >/dev/null 2>&1) || T8_EXIT=$?
+T8_ARTIFACT="$T8_DIR/docs/claude-md-proposal-v1.md"
+T8_HAS_ARTIFACT=0
+[ -f "$T8_ARTIFACT" ] && T8_HAS_ARTIFACT=1
+# Bogus log path MUST NOT have produced a file.
+T8_NO_LOG=1
+[ -s "$T8_DIR/regular-file/cost-events.jsonl" ] && T8_NO_LOG=0
+if [ "$T8_EXIT" = "0" ] && [ "$T8_HAS_ARTIFACT" = "1" ] && [ "$T8_NO_LOG" = "1" ]; then
+  record "test_08_cost_event_write_failure_non_blocking" PASS
+else
+  record "test_08_cost_event_write_failure_non_blocking" FAIL \
+    "exit=$T8_EXIT artifact=$T8_HAS_ARTIFACT no_log=$T8_NO_LOG"
 fi
 
 # ---------------------------------------------------------------------------

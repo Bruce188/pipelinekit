@@ -279,6 +279,8 @@ Halts are **phase-boundary only**, never mid-phase — a halted mid-phase leaves
 
 On budget breach, the orchestrator emits a `feature-failed` beacon (see Step 5.0 § Progress beacon helper); the same beacon-helper path routes to `claude/hooks/notify-emit.sh` with `NOTIFY_EVENT_TYPE=budget-breach`. For interactive sessions the helper's beacon-mode JSON is forwarded to `PushNotification`; for subprocess-driver runs the `Notification`-hook `terminalSequence` (OSC 777) is the fallback, itself a no-op when the host terminal does not support OSC 777. See § Notifications below for the full event mapping and opt-out semantics.
 
+Note: `claude/hooks/stop-self-reflect.sh` also writes a cost-event line per invocation (phase=`stop-self-reflect`, dispatch_mode=`subprocess`, estimated ~0.05 USD); these entries are aggregated into `CUMULATIVE` alongside phase agent dispatches and contribute to the same `**Max USD:**` cap check above.
+
 ---
 
 ### Step 1.5: Auto-Generate Feature File
