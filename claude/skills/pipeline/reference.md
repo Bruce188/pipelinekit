@@ -717,7 +717,7 @@ Your job:
    ```bash
    ls package.json pyproject.toml requirements.txt setup.py *.sln *.csproj 2>/dev/null
    ```
-3. Glob top-level directories, read key config files, and identify entry points relevant to the feature objective. Identify 3-8 task-relevant key files.
+3. Before exploration, read `documentation/codebase-map.html` for the top-level directory map (or its source `docs-source/codebase-map.md`). If neither exists, log `no codebase-map found — proceeding with full-tree analysis` and continue. Then Glob top-level directories, read key config files, and identify entry points relevant to the feature objective. Identify 3-8 task-relevant key files.
 4. Write the analysis to `{{ANALYSIS_PATH}}` following the template defined in `~/.claude/skills/pipeline/SKILL.md` Step 5.2 ("Write the analysis file"). The file must include: Objective, Constraints (PRESERVE / AVOID), Project Structure, Tech Stack, Entry Points, Key Files.
    - Write surface: use Bash heredoc (`cat > {{ANALYSIS_PATH}} <<'EOF' … EOF`) per § Subagent Write-Surface Convention. The `Write` tool is rejected by the agent harness on `docs/*.md` from subagent context. For updates to `docs/progress.md`, use the `Edit` tool (Edit is permitted in subagent context).
 5. Update `docs/progress.md` to set the `**Analysis:**` pointer to `{{ANALYSIS_PATH}}`.
