@@ -129,6 +129,8 @@ Pluggable worker layer so /pipeline can dispatch to alternate Claude SDKs or ext
 - [#51](https://github.com/Bruce188/pipelinekit/pull/51) — codex.sh exec bugs — exit-code propagation, output dir, stderr, positional prompt
 - [#110](https://github.com/Bruce188/pipelinekit/pull/110) — un-wire `cost_log.py` from `PostToolUse` (it's a CLI, not a hook — was emitting argparse usage errors on every tool call) + scrub three hardcoded `/home/bruce/pipelinekit/` paths from `task-spec.md`
 - [#111](https://github.com/Bruce188/pipelinekit/pull/111) — README hook inventory: drop `cost_log` (not a hook); 24 → 23
+- [#112](https://github.com/Bruce188/pipelinekit/pull/112) — break `stop-self-reflect` recursion via `PIPELINE_NO_SELF_REFLECT=1` env-var guard on the `claude -p` spawn (memory-thrash root cause)
+- *This PR* — add `context-budget-advisor.py` UserPromptSubmit hook: emits a `/compact` advisory once session context passes 200K tokens (configurable via `PIPELINE_COMPACT_THRESHOLD_TOKENS`); re-warns every +20K, resets after a 50K drop. Independent of model window size — even 1M-context models benefit from a reset around 200K because attention quality and per-call cost both degrade as context grows.
 
 ## Skill removals (breaking)
 
@@ -152,7 +154,7 @@ The system that produces this very page.
 - **72** numbered pull requests
 - **43** native skills
 - **31** specialized agents
-- **24** hooks
+- **24** hooks (was 23 after #111; the new `context-budget-advisor` restores parity but at the UserPromptSubmit surface, not as a CLI re-wire)
 - **5** cloud deployment providers (Azure, Vercel, Railway, Render, DigitalOcean) on a shared `deployment-engineer.md` base
 - **18** documentation pages (all self-contained HTML, no CDN, file://-openable)
 - **128** unit + shell tests, all green

@@ -124,7 +124,7 @@ Override with `**Type:** dev|non-dev` per-feature.
 | **Rules** | `claude/CLAUDE.md.template`, `claude/rules/workflow.md`, `claude/rules/agents-worktrees.md` |
 | **Skills** (42) | `pipeline`, `analyze`, `create-plan`, `implement-plan`, `review`, `ppr`, `research`, `tdd`, `incident`, `landing-report`, `learn`, `azure-ops`, `vercel-ops`, `railway-ops`, `render-ops`, `digitalocean-ops`, `expo`, `ios`, `docs-writer`, `document-release`, `claude-md-enhancer`, `write-a-skill`, `zoom-out`, `simplify`, `caveman-mode`, ... |
 | **Agents** (23) | `architect`, `code-reviewer`, `security-auditor`, `symbol-verifier`, `spec-tracer`, `tdd-test-writer`, `tdd-implementer`, `mobile-dev`, `deployment-engineer` (base), `azure-deployment-engineer`, `vercel-deployment-engineer`, `railway-deployment-engineer`, `render-deployment-engineer`, `digitalocean-deployment-engineer`, `incident-responder`, `claude-md-guardian`, ... |
-| **Hooks** (23) | `validate-commit-msg`, `strip-ai-attribution`, `block-push-main`, `block-stage-sensitive`, `block-dangerous-commands`, `tdd-order-check`, `tdd-red-phase-gate`, `claude-md-guard`, `env-scrub`, `notify-emit`, `context-warning`, `verify-worktree-commit`, ... |
+| **Hooks** (24) | `validate-commit-msg`, `strip-ai-attribution`, `block-push-main`, `block-stage-sensitive`, `block-dangerous-commands`, `tdd-order-check`, `tdd-red-phase-gate`, `claude-md-guard`, `env-scrub`, `notify-emit`, `context-warning`, `context-budget-advisor`, `verify-worktree-commit`, ... |
 | **MCP** | `context7`, `serena`, `sequential-thinking`, optional `local-rag` + `claude-context` |
 | **LSP** | pyright, typescript, csharp, gopls, rust-analyzer |
 | **Model overlays** | Per-model tuning for opus-4-7, sonnet-4-6, haiku-4-5 (consumed by phase skills) |

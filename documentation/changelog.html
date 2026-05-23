@@ -957,6 +957,8 @@ footer {
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/51">#51</a> — codex.sh exec bugs — exit-code propagation, output dir, stderr, positional prompt</li>
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/110">#110</a> — un-wire <code>cost_log.py</code> from <code>PostToolUse</code> (it's a CLI, not a hook — was emitting argparse usage errors on every tool call) + scrub three hardcoded <code>/home/bruce/pipelinekit/</code> paths from <code>task-spec.md</code></li>
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/111">#111</a> — README hook inventory: drop <code>cost_log</code> (not a hook); 24 → 23</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/112">#112</a> — break <code>stop-self-reflect</code> recursion via <code>PIPELINE_NO_SELF_REFLECT=1</code> env-var guard on the <code>claude -p</code> spawn (memory-thrash root cause)</li>
+<li><em>This PR</em> — add <code>context-budget-advisor.py</code> UserPromptSubmit hook: emits a <code>/compact</code> advisory once session context passes 200K tokens (configurable via <code>PIPELINE_COMPACT_THRESHOLD_TOKENS</code>); re-warns every +20K, resets after a 50K drop. Independent of model window size — even 1M-context models benefit from a reset around 200K because attention quality and per-call cost both degrade as context grows.</li>
 </ul>
 <h2 id="skill-removals-breaking">Skill removals (breaking)</h2>
 <ul>
@@ -979,7 +981,7 @@ footer {
 <li><strong>72</strong> numbered pull requests</li>
 <li><strong>43</strong> native skills</li>
 <li><strong>31</strong> specialized agents</li>
-<li><strong>24</strong> hooks</li>
+<li><strong>24</strong> hooks (was 23 after #111; the new <code>context-budget-advisor</code> restores parity but at the UserPromptSubmit surface, not as a CLI re-wire)</li>
 <li><strong>5</strong> cloud deployment providers (Azure, Vercel, Railway, Render, DigitalOcean) on a shared <code>deployment-engineer.md</code> base</li>
 <li><strong>18</strong> documentation pages (all self-contained HTML, no CDN, file://-openable)</li>
 <li><strong>128</strong> unit + shell tests, all green</li>
