@@ -67,6 +67,9 @@ settings = {
         "PostToolUse": [
             {"matcher": "*", "hooks": hook(f"{h}/hooks/cost_log.py")}
         ],
+        "SessionStart": [
+            {"matcher": "*", "hooks": hook(f"{h}/hooks/session-start-context.sh")}
+        ],
         "Stop": [
             {"matcher": "*", "hooks": hook(f"{h}/hooks/notify-emit.sh")}
         ],
@@ -95,7 +98,7 @@ dst = os.path.join(h, "settings.json")
 with open(dst, "w", encoding="utf-8") as f:
     json.dump(settings, f, indent=2)
     f.write("\n")
-print(f"installed: {dst} (12 hooks wired)")
+print(f"installed: {dst} (13 hooks wired)")
 PYEOF
   else
     # Flag not set: restore user's previous settings.json from backup if present.
