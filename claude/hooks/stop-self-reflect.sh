@@ -161,8 +161,12 @@ trap cleanup_tmps EXIT
 
 # Run claude -p with a hard timeout. `timeout` kills the child on overflow and
 # returns 124. We swallow every non-zero exit (the hook is non-blocking).
+# PIPELINE_NO_SELF_REFLECT=1 on the spawn env breaks the recursion: the child
+# session's own Stop hook reads the var at line 118 and exits 0 before it can
+# spawn another generation. Without this guard, every claude -p subprocess
+# fans out its own self-reflect child, recursively, until system memory dies.
 CLAUDE_EXIT=0
-timeout "${TIMEOUT_SECS}" "$CLAUDE_BIN_RESOLVED" -p \
+PIPELINE_NO_SELF_REFLECT=1 timeout "${TIMEOUT_SECS}" "$CLAUDE_BIN_RESOLVED" -p \
   --append-system-prompt "$REFLECTION_PROMPT_HEREDOC" \
   "$SESSION_SUMMARY" >"$TMP_OUT" 2>"$TMP_ERR" || CLAUDE_EXIT=$?
 
