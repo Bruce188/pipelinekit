@@ -82,7 +82,6 @@ settings = {
             {"matcher": "Write",      "hooks": hook(f"{h}/hooks/block-bare-repo-markers.py")}
         ],
         "PostToolUse": [
-            {"matcher": "*",          "hooks": hook(f"{h}/hooks/cost_log.py")},
             {"matcher": "Bash",       "hooks": hook(f"{h}/hooks/strip-ai-attribution.sh")},
             {"matcher": "Edit|Write", "hooks": hook(f"{h}/hooks/post-edit-format.sh")}
         ],

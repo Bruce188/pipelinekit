@@ -83,7 +83,9 @@ Event mapping is canonical at `claude/skills/build-hook/SKILL.md` § "Existing H
 
 Parity is gated by `claude/hooks/tests/test_install_settings_shape.sh` test_05 (`full_inventory_parity`). The test runs the installer in a sandbox `CLAUDE_HOME` and asserts every `*.sh` + `*.py` (minus exclusions) appears as a `command` value in the produced `settings.json`. Add a new hook → re-run the test → fix the install.sh heredoc until green.
 
-Exclusion: `validate-task-spec.py` is a git pre-commit hook (lives at `.git/hooks/pre-commit` after install). It is NOT a Claude-harness hook and never appears in `settings.json`.
+Exclusions:
+- `validate-task-spec.py` — git pre-commit hook (lives at `.git/hooks/pre-commit` after install). NOT a Claude-harness hook; never appears in `settings.json`.
+- `cost_log.py` — pipeline cost-event CLI invoked by skills (e.g. `claude/skills/research/research-loop.sh`). Requires positional `start|end|report|parse-json` args, so wiring it raw to `PostToolUse` emits an argparse usage error on every tool call. NOT a hook; never appears in `settings.json`.
 
 ## Denial Tracking
 
