@@ -120,3 +120,9 @@ The full bash test suite lives at `claude/hooks/tests/test_stop_self_reflect.sh`
 - The 60-second timeout is enforced via the `timeout` coreutils binary — kill silently, exit 0 from the hook.
 - The reflection prompt does NOT include AI-self-reference language. Proposed text is phrased neutrally for direct paste into target files.
 - Charter MVP item 4.
+
+## Before vs after enabling the hook
+
+Drag the slider to compare a CLAUDE.md left untouched across iterations against the same file after several accepted proposals.
+
+<div data-snippet="before-after-slider"></div>

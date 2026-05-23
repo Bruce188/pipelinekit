@@ -479,3 +479,9 @@ Set `PIPELINE_NO_NOTIFICATIONS=1` in your environment for the duration of a `/pi
 - Hook event mapping is documented in `~/.claude/CLAUDE.md § Notifications` (canonical user-side reference).
 - Payload schema (6 fields, 200-char text cap) is documented in `~/.claude/skills/pipeline/reference.md § Notification payload schema`.
 - The canonical emit helper lives at `claude/hooks/notify-emit.sh`.
+
+## Pipeline timeline reference
+
+Scrub the timeline below to see how the lifecycle phases dispatched and committed during a representative run.
+
+<div data-snippet="timeline-scrubber"></div>

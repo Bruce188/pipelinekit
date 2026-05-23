@@ -81,3 +81,9 @@ Creates `research/my-experiment-2026-05-19`, writes the filtered TSV, commits, a
 
 See `claude/skills/ppr/SKILL.md` for the full skill specification and `claude/skills/ppr/ppr_research_flag.sh` for the implementation.
 
+## Pipelinekit command cheatsheet
+
+Filter by `ppr`, `research`, or `pipeline` to surface the commands you reach for when running a research-loop iteration.
+
+<div data-snippet="command-cheatsheet"></div>
+

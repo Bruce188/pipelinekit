@@ -86,6 +86,18 @@ DEFAULT_EXEMPT_FILES: set[str] = {
 
 EXEMPT_MARKER_RE = re.compile(r'<!--\s*richness-exempt:\s*([^>]+?)\s*-->', re.IGNORECASE)
 
+_BODY_RE = re.compile(r"<body[^>]*>(.*?)</body>", re.IGNORECASE | re.DOTALL)
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _body_word_count(html: str) -> int:
+    """Count words inside <body>...</body> after stripping HTML tags."""
+    match = _BODY_RE.search(html)
+    if not match:
+        return 0
+    text = _TAG_RE.sub(" ", match.group(1))
+    return len(text.split())
+
 
 @dataclass
 class Result:
@@ -94,10 +106,12 @@ class Result:
     matched: list[str]
     exempt: bool
     exempt_reason: str = ""
+    body_words: int = 0
 
     @property
     def passes(self) -> bool:
-        return self.exempt or self.score >= 1
+        threshold = 2 if self.body_words > 1500 else 1
+        return self.exempt or self.score >= threshold
 
 
 def check_file(path: Path, repo_root: Path) -> Result:
@@ -108,13 +122,14 @@ def check_file(path: Path, repo_root: Path) -> Result:
         # Use the basename so default-exempt allowlist still matches when relevant.
         rel = path.name
     content = path.read_text(encoding="utf-8", errors="replace")
+    body_words = _body_word_count(content)
 
     # Exemption check
     exempt_match = EXEMPT_MARKER_RE.search(content)
     if exempt_match:
-        return Result(rel, 0, [], exempt=True, exempt_reason=exempt_match.group(1).strip())
+        return Result(rel, 0, [], exempt=True, exempt_reason=exempt_match.group(1).strip(), body_words=body_words)
     if rel in DEFAULT_EXEMPT_FILES:
-        return Result(rel, 0, [], exempt=True, exempt_reason="(default-exempt)")
+        return Result(rel, 0, [], exempt=True, exempt_reason="(default-exempt)", body_words=body_words)
 
     matched: list[str] = []
     for label, pattern in RICHNESS_PATTERNS:
@@ -127,7 +142,7 @@ def check_file(path: Path, repo_root: Path) -> Result:
     if has_specific and "snippet:any" in matched:
         matched.remove("snippet:any")
 
-    return Result(rel, len(matched), matched, exempt=False)
+    return Result(rel, len(matched), matched, exempt=False, body_words=body_words)
 
 
 def gather_staged_html() -> list[Path]:

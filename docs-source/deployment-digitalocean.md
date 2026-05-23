@@ -132,3 +132,9 @@ DigitalOcean App Platform, Render, Railway, Vercel, and Azure serve overlapping 
 
 **Choose Azure when** your workload is enterprise .NET or Java, requires Azure-native services (Azure SQL, Cosmos DB, Service Bus), or has compliance requirements (FedRAMP, regulated healthcare) that need Azure's compliance portfolio.
 
+## 8. Pipelinekit command cheatsheet
+
+Filter the table by `do`, `ppr`, or `review` to surface the deploy-relevant slash commands.
+
+<div data-snippet="command-cheatsheet"></div>
+

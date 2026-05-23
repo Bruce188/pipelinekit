@@ -225,3 +225,9 @@ Run `az login` outside Claude, then verify with `az account show`.
 - [Azure Functions Documentation](https://learn.microsoft.com/en-us/azure/azure-functions/)
 - [Azure Key Vault Documentation](https://learn.microsoft.com/en-us/azure/key-vault/)
 
+## 14. Pipelinekit command cheatsheet
+
+Filter the table below by `azure`, `ppr`, or `review` to surface the deploy-relevant slash commands.
+
+<div data-snippet="command-cheatsheet"></div>
+

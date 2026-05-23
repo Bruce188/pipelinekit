@@ -262,3 +262,9 @@ The script uses GNU `date -d` for the freshness computation. On BSD hosts (macOS
 | `claude/skills/pipeline/SKILL.md` | `--auto` flag enumeration and Step 1.6 pointer to drift artifact |
 | `docs/charter-drift.md` | First drift report (workflow artifact — not committed) |
 | `docs/charter-drift-vN.md` | Subsequent versioned drift reports |
+
+## Before / after the drift loop
+
+Scrub the slider to compare a charter snapshot before and after the drift-resolution loop landed its accepted edits.
+
+<div data-snippet="before-after-slider"></div>

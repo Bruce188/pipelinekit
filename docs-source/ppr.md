@@ -138,3 +138,9 @@ In every failure case `/ppr` exits non-zero and does NOT print the "What's Next"
 - **[/ppr --research](ppr-research-flag.html)** — separate mode for publishing research-loop keep-rows to a `research/<tag>-<date>` branch (no PR opened, parked for human review).
 - **[Review cost profile](review-cost.html)** — the `/review` phase that gates `/ppr`.
 - **[Pipeline](pipeline.html)** — the orchestrator that runs `/ppr` as Path A (clean-merge after review passes) of every feature.
+
+## Pipelinekit command cheatsheet
+
+Filter by `ppr`, `review`, or `pipeline` to surface the closing-step commands you reach for when shipping a feature.
+
+<div data-snippet="command-cheatsheet"></div>

@@ -533,6 +533,7 @@ footer {
     <ul>
       <li class="lvl-2"><a href="#provider-deep-dives">Provider deep-dives</a></li>
       <li class="lvl-2"><a href="#ci-runner">CI runner</a></li>
+      <li class="lvl-2"><a href="#provider-comparison">Provider comparison</a></li>
     </ul>
   </aside>
 
@@ -766,6 +767,162 @@ footer {
 <ul>
 <li><a href="ci-blacksmith.html">Blacksmith</a> — GitHub Actions runner replacement (not an app-deploy target — pair it with one of the providers above).</li>
 </ul>
+<h2 id="provider-comparison">Provider comparison</h2>
+<p>Side-by-side surface compare of the five providers — cost shape, language support, primitives, and quick-start command.</p>
+<!-- snippet:comparison-tabs
+     Tabbed side-by-side comparison of the 5 cloud deployment providers.
+     Click a tab to compare against the page's "home" provider on:
+     pricing model, build system, DB story, region story, scaling story.
+
+     The "home" provider is auto-detected from <title> if it contains
+     "Vercel", "Azure", "Railway", "Render", or "DigitalOcean".
+
+     Placeholder usage:
+       <div data-snippet="comparison-tabs"></div>
+-->
+<div class="pkit-cmp" data-snippet-mount="comparison-tabs">
+  <style>
+    .pkit-cmp { margin: 1.5rem 0; padding: 1.5rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); }
+    .pkit-cmp .pkit-cmp-tabs { display: flex; gap: 0.3rem; flex-wrap: wrap; border-bottom: 1px solid var(--border); margin-bottom: 1rem; padding-bottom: 0; }
+    .pkit-cmp .pkit-cmp-tab { padding: 0.5rem 0.9rem; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--fg-muted); font-family: var(--sans); font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: all var(--transition); position: relative; bottom: -1px; }
+    .pkit-cmp .pkit-cmp-tab:hover { color: var(--fg); }
+    .pkit-cmp .pkit-cmp-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .pkit-cmp .pkit-cmp-tab .icon { margin-right: 0.3rem; }
+    .pkit-cmp .pkit-cmp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 720px) { .pkit-cmp .pkit-cmp-grid { grid-template-columns: 1fr; } }
+    .pkit-cmp .pkit-cmp-col { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; }
+    .pkit-cmp .pkit-cmp-col h4 { margin: 0 0 0.8rem; font-size: 1rem; font-weight: 700; color: var(--fg); display: flex; align-items: center; gap: 0.4rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+    .pkit-cmp .pkit-cmp-col.home h4 { color: var(--accent); }
+    .pkit-cmp .pkit-cmp-col h4 .badge { font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 999px; background: var(--accent-soft); color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+    .pkit-cmp .pkit-cmp-row { display: flex; flex-direction: column; padding: 0.55rem 0; border-bottom: 1px dashed var(--border); }
+    .pkit-cmp .pkit-cmp-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .pkit-cmp .pkit-cmp-key { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-subtle); font-weight: 600; margin-bottom: 0.2rem; }
+    .pkit-cmp .pkit-cmp-val { font-size: 0.88rem; color: var(--fg); line-height: 1.5; }
+    .pkit-cmp .pkit-cmp-val code { background: var(--bg-elev); padding: 0.1rem 0.4rem; border-radius: var(--radius-sm); font-size: 0.82rem; border: 1px solid var(--border); }
+    .pkit-cmp .pkit-cmp-note { font-size: 0.78rem; color: var(--fg-subtle); margin-top: 0.8rem; font-style: italic; }
+  </style>
+
+  <div class="pkit-cmp-tabs" data-cmp-tabs></div>
+  <div class="pkit-cmp-grid" data-cmp-grid></div>
+  <p class="pkit-cmp-note">Click any tab to compare this page's provider against another. Compare against → switches the right column.</p>
+
+  <script type="application/json" data-cmp-data>
+{
+  "providers": {
+    "vercel": {
+      "name": "Vercel", "icon": "▲", "color": "#000",
+      "rows": {
+        "Pricing model": "Per-invocation (Hobby free / Pro $20/mo + usage). Free tier generous for static + low-traffic SSR.",
+        "Build system": "Auto-detect framework presets (Next.js, SvelteKit, Astro, Remix, Vite). Zero <code>vercel.json</code> needed for the common case.",
+        "Database story": "No first-party. Use Vercel Postgres (Neon-managed) or external (Supabase / Neon direct / PlanetScale).",
+        "Region story": "Global edge by default. Pin functions to specific regions via <code>vercel.json</code>.",
+        "Scaling": "Auto-scale per-function. Cold-start ~50-200ms on warm functions; up to ~1s on rarely-hit ones."
+      }
+    },
+    "azure": {
+      "name": "Azure", "icon": "☁", "color": "#0078d4",
+      "rows": {
+        "Pricing model": "Per-resource (App Service plan, Container Apps consumption, Function Apps Y1/EP). Free tier exists but limited.",
+        "Build system": "Multiple options: App Service auto-build, Container Apps Dockerfile, Bicep IaC for full control.",
+        "Database story": "First-party: Azure SQL, Cosmos DB, PostgreSQL Flexible Server, Redis Cache. Tight integration via Managed Identity.",
+        "Region story": "60+ regions globally. Availability zones for HA. Region pairs for DR.",
+        "Scaling": "Granular: App Service plan instances, Container Apps replicas, Function consumption-plan auto-scale. Some resources scale to zero."
+      }
+    },
+    "railway": {
+      "name": "Railway", "icon": "⚡", "color": "#7c3aed",
+      "rows": {
+        "Pricing model": "Usage-based (~$5 credit/mo free, then $0.000463/GB-hour). Predictable for small projects.",
+        "Build system": "Nixpacks (zero Dockerfile for most runtimes — Node, Python, Go, Ruby). Falls back to Dockerfile if present.",
+        "Database story": "First-party managed Postgres, MySQL, Redis, MongoDB. One-click provisioning inside the same project.",
+        "Region story": "Limited regions (US-West / EU-West / Singapore). Not edge.",
+        "Scaling": "Vertical (CPU/RAM) by default. Horizontal replicas require config. Cron + workers natively supported."
+      }
+    },
+    "render": {
+      "name": "Render", "icon": "🎨", "color": "#46e3b7",
+      "rows": {
+        "Pricing model": "Per-service tier ($7/mo Standard, $25/mo Pro). Free tier for static + cron only — web services don't have a real free tier (spin-down after inactivity).",
+        "Build system": "Native runtime detection (Node, Python, Ruby, Go, Rust, Elixir, Docker). <code>render.yaml</code> for IaC.",
+        "Database story": "First-party managed Postgres + Redis. External: any.",
+        "Region story": "5 regions (Oregon, Ohio, Virginia, Frankfurt, Singapore).",
+        "Scaling": "Manual horizontal scaling on Pro+. Auto-scaling in beta. Predictable instance pricing."
+      }
+    },
+    "digitalocean": {
+      "name": "DigitalOcean App Platform", "icon": "🌊", "color": "#0080ff",
+      "rows": {
+        "Pricing model": "Per-service tier ($5/mo Basic, $12/mo Pro per instance). Predictable. No free tier for App Platform itself.",
+        "Build system": "Buildpacks (Heroku-style) or Dockerfile. Component-based deploy.",
+        "Database story": "First-party DO Managed Databases (Postgres, MySQL, Redis, MongoDB, Kafka). Separate billing from App Platform.",
+        "Region story": "12+ regions. App Platform availability varies per region; check before commit.",
+        "Scaling": "Vertical resize + horizontal scaling. App Platform handles routing automatically."
+      }
+    }
+  }
+}
+  </script>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  document.querySelectorAll('.pkit-cmp[data-snippet-mount="comparison-tabs"]').forEach(cmp => {
+    if (cmp.dataset.pkitInit) return;
+    cmp.dataset.pkitInit = '1';
+
+    const dataEl = cmp.querySelector('script[data-cmp-data]');
+    const tabsEl = cmp.querySelector('[data-cmp-tabs]');
+    const gridEl = cmp.querySelector('[data-cmp-grid]');
+    if (!dataEl || !tabsEl || !gridEl) return;
+    const data = JSON.parse(dataEl.textContent);
+
+  // Detect "home" provider from <title>
+  const title = (document.title || '').toLowerCase();
+  let home = 'vercel';
+  for (const key of Object.keys(data.providers)) {
+    if (title.includes(key)) { home = key; break; }
+  }
+  // Default "other" = first non-home
+  const others = Object.keys(data.providers).filter(k => k !== home);
+  let compareKey = others[0];
+
+  function render() {
+    tabsEl.innerHTML = '';
+    Object.entries(data.providers).forEach(([key, prov]) => {
+      if (key === home) return;
+      const b = document.createElement('button');
+      b.className = 'pkit-cmp-tab' + (key === compareKey ? ' active' : '');
+      b.dataset.key = key;
+      b.innerHTML = `<span class="icon">${prov.icon}</span>${prov.name}`;
+      b.addEventListener('click', () => { compareKey = key; render(); });
+      tabsEl.appendChild(b);
+    });
+
+    const homeProv = data.providers[home];
+    const otherProv = data.providers[compareKey];
+
+    function colHtml(prov, isHome) {
+      const rows = Object.entries(prov.rows).map(([k, v]) =>
+        `<div class="pkit-cmp-row">
+           <div class="pkit-cmp-key">${k}</div>
+           <div class="pkit-cmp-val">${v}</div>
+         </div>`).join('');
+      const badge = isHome ? ' <span class="badge">this page</span>' : '';
+      return `<div class="pkit-cmp-col ${isHome ? 'home' : ''}">
+                <h4>${prov.icon} ${prov.name}${badge}</h4>
+                ${rows}
+              </div>`;
+    }
+
+    gridEl.innerHTML = colHtml(homeProv, true) + colHtml(otherProv, false);
+  }
+
+    render();
+  });
+})();
+</script>
+
     </div>
 
     <div class="no-results" id="no-results">

@@ -559,6 +559,7 @@ footer {
       <li class="lvl-3"><a href="#not-authenticated-to-vercel">&quot;Not authenticated to Vercel&quot;</a></li>
       <li class="lvl-3"><a href="#preview-deployment-not-showing">Preview deployment not showing</a></li>
       <li class="lvl-2"><a href="#16-additional-resources">16. Additional resources</a></li>
+      <li class="lvl-2"><a href="#17-pipelinekit-command-cheatsheet">17. Pipelinekit command cheatsheet</a></li>
     </ul>
   </aside>
 
@@ -1031,6 +1032,150 @@ export default function App() {
 <li><a href="https://vercel.com/docs/concepts/edge-network/overview">Edge Network Overview</a></li>
 <li><a href="https://vercel.com/docs/concepts/analytics/web-vitals">Web Vitals Monitoring</a></li>
 </ul>
+<h2 id="17-pipelinekit-command-cheatsheet">17. Pipelinekit command cheatsheet</h2>
+<p>Slash commands you will reach for during a Vercel deploy — filter the table below by <code>vercel</code>, <code>ppr</code>, or <code>review</code> to surface the deploy-relevant subset.</p>
+<!-- usage: <div data-snippet="command-cheatsheet"></div> -->
+<div class="pkit-cmd" data-snippet-mount="command-cheatsheet">
+  <style>
+    .pkit-cmd { margin: 1.5rem 0; }
+    .pkit-cmd .pkit-cmd-toolbar { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.8rem; }
+    .pkit-cmd .pkit-cmd-filter { flex: 1; padding: 0.4rem 0.7rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--fg); font-family: var(--sans); font-size: 0.88rem; }
+    .pkit-cmd .pkit-cmd-filter:focus { outline: none; border-color: var(--accent); }
+    .pkit-cmd .pkit-cmd-count { font-family: var(--mono); font-size: 0.75rem; color: var(--fg-muted); white-space: nowrap; }
+    .pkit-cmd .pkit-cmd-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+    .pkit-cmd .pkit-cmd-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 0.85rem; }
+    .pkit-cmd .pkit-cmd-table thead tr { background: var(--bg-elev); }
+    .pkit-cmd .pkit-cmd-table th { padding: 0.55rem 0.9rem; text-align: left; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-subtle); border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg-elev); z-index: 1; white-space: nowrap; }
+    .pkit-cmd .pkit-cmd-table td { padding: 0.5rem 0.9rem; border-bottom: 1px solid var(--border); color: var(--fg); vertical-align: top; }
+    .pkit-cmd .pkit-cmd-table tbody tr:last-child td { border-bottom: none; }
+    .pkit-cmd .pkit-cmd-table tbody tr:hover td { background: var(--accent-soft); }
+    .pkit-cmd .pkit-cmd-table .pkit-cmd-name { font-family: var(--mono); font-weight: 700; white-space: nowrap; color: var(--accent); }
+    .pkit-cmd .pkit-cmd-table .pkit-cmd-args { font-family: var(--mono); font-size: 0.78rem; color: var(--fg-muted); white-space: nowrap; }
+    .pkit-cmd .pkit-cmd-table .pkit-cmd-desc { max-width: 400px; line-height: 1.45; }
+    .pkit-cmd .pkit-cmd-empty { padding: 1.5rem; text-align: center; color: var(--fg-subtle); font-style: italic; }
+  </style>
+
+  <div class="pkit-cmd-toolbar">
+    <input type="search" class="pkit-cmd-filter" placeholder="Filter commands…" aria-label="Filter slash commands">
+    <span class="pkit-cmd-count" data-cmd-count></span>
+  </div>
+  <div class="pkit-cmd-wrap">
+    <table class="pkit-cmd-table" aria-label="pipelinekit slash commands">
+      <thead>
+        <tr>
+          <th>Command</th>
+          <th>Args</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody data-cmd-tbody></tbody>
+    </table>
+    <div class="pkit-cmd-empty" data-cmd-empty style="display:none">No commands match your filter.</div>
+  </div>
+
+  <script type="application/json" id="cmd-data">
+[
+  {"name":"/analyze","args":"(none)","default":"(none)","description":"Analyze an existing codebase or defined task. Asks 2 focused questions, then produces docs/analysis.md."},
+  {"name":"/annotate-plan","args":"(none)","default":"(none)","description":"Process inline annotations in the plan file. Address all notes without implementing. Iterate until clean."},
+  {"name":"/ascii-diagram","args":"(none)","default":"(none)","description":"Generate an ASCII architecture diagram for the current project or a described system."},
+  {"name":"/azure-ops","args":"(none)","default":"(none)","description":"Azure CLI wrapper for common ops — resource listing, deploy (App Service / Container Apps / Function Apps), log tail."},
+  {"name":"/build-hook","args":"(none)","default":"(none)","description":"Generate a Claude Code hook from a description. Creates the shell script and settings.json entry."},
+  {"name":"/caveman-mode","args":"(none)","default":"wenyan-ultra","description":"Toggle response verbosity (caveman-style terse fragments vs normal English)."},
+  {"name":"/code-health","args":"[--scope] [--quick] [--threshold]","default":"full scan","description":"Comprehensive codebase health assessment with quality metrics, test coverage, documentation, and maintainability."},
+  {"name":"/commit-conventions","args":"(none)","default":"(none)","description":"Conventional commit format, message rules, and attribution policy."},
+  {"name":"/context-dump","args":"(none)","default":"(none)","description":"Save current session context to docs/context-dump.md for handoff or resumption."},
+  {"name":"/create-plan","args":"(none)","default":"(none)","description":"Generate docs/plan.md AND docs/prompts.md together. Initializes or amends docs/progress.md."},
+  {"name":"/dependency-auditor","args":"(none)","default":"(none)","description":"Check dependencies for known vulnerabilities using npm audit, pip-audit, etc."},
+  {"name":"/deploy-target","args":"<provider>","default":"(none)","description":"Set the active session deployment target (vercel, railway, render, digitalocean, or none)."},
+  {"name":"/digitalocean-ops","args":"(none)","default":"(none)","description":"Deploy and verify DigitalOcean App Platform apps when the charter targets digitalocean."},
+  {"name":"/docs-writer","args":"(none)","default":"(none)","description":"Documentation skill — renders markdown to rich, interactive, self-contained HTML for documentation/."},
+  {"name":"/document-release","args":"[--since <sha>]","default":"latest merge","description":"Update application documentation in documentation/ after a release."},
+  {"name":"/dotnet-conventions","args":"(none)","default":"(none)","description":".NET architecture, DI, data access, and testing conventions. Loaded for C#/.NET files."},
+  {"name":"/expo","args":"(none)","default":"(none)","description":"Expo developer workflow — managed vs. bare workflow, EAS Build, EAS Update (OTA), dev-client, Expo Router."},
+  {"name":"/financial-data-analyst","args":"(none)","default":"(none)","description":"Automatically analyzes financial and trading data to calculate performance metrics and risk statistics."},
+  {"name":"/fix-issue","args":"(none)","default":"(none)","description":"Fix a GitHub issue by number. Reads the issue, implements a fix with TDD, and commits."},
+  {"name":"/handoff-create","args":"(none)","default":"(none)","description":"Analyze the current conversation and create a handoff document for continuing work in a fresh context."},
+  {"name":"/implement-plan","args":"[--no-parallel]","default":"parallel","description":"Execute all remaining tasks from docs/progress.md with verification after each."},
+  {"name":"/incident","args":"(none)","default":"(none)","description":"Triage a failing post-merge verification gate using @incident-responder."},
+  {"name":"/ios","args":"(none)","default":"(none)","description":"Xcode + Anthropic Claude Agent SDK integration — project setup, Agent SDK API surface, simulator integration."},
+  {"name":"/landing-report","args":"(none)","default":"(none)","description":"Pre-push version-slot collision detector. Compares VERSION against existing git tags."},
+  {"name":"/learn","args":"(none)","default":"(none)","description":"Read interface for pipelinekit's per-project learnings journal."},
+  {"name":"/new-branch","args":"(none)","default":"(none)","description":"Create a conventional feature branch from main/master."},
+  {"name":"/persona","args":"<name>","default":"(none)","description":"Set the active session persona (devops, growth-marketer, solo-founder, startup-cto, or none)."},
+  {"name":"/pipeline","args":"[features.md] [--no-charter] [--dry-run] [--max-usd N] [--max-turns N]","default":"Charter mode","description":"Autonomous pipeline orchestrator. Processes a feature list through the full workflow."},
+  {"name":"/playwright","args":"(none)","default":"(none)","description":"Native Python browser automation using Playwright for navigation, interaction, screenshots."},
+  {"name":"/post-merge","args":"(none)","default":"(none)","description":"Clean up after PR merge. Switches to main, pulls latest, deletes merged feature branch."},
+  {"name":"/ppr","args":"(none)","default":"(none)","description":"Push + PR. Push committed changes to origin and open a pull request."},
+  {"name":"/railway-ops","args":"(none)","default":"(none)","description":"Deploy and verify Railway projects when the charter targets railway."},
+  {"name":"/render-ops","args":"(none)","default":"(none)","description":"Deploy and verify Render services when the charter targets render."},
+  {"name":"/research","args":"(none)","default":"(none)","description":"Karpathy autoresearch loop — hypothesize, mutate one file, run benchmark, keep-or-reset, append TSV row."},
+  {"name":"/review","args":"[--scope] [--health] [--force] [--teams] [--design-pass]","default":"full diff","description":"Multi-agent parallel review. Scales from 2 agents (small diffs) to 6-agent teams (large diffs)."},
+  {"name":"/secret-scanner","args":"(none)","default":"(none)","description":"Detect exposed secrets, API keys, credentials, and tokens in code."},
+  {"name":"/security-conventions","args":"(none)","default":"(none)","description":"ASP.NET Core security conventions — anti-forgery, authorization, secret storage, parameterized queries, HTTPS."},
+  {"name":"/simplify","args":"(none)","default":"(none)","description":"Post-green reductive refactor: remove unused helpers, dead branches, over-generalized abstractions."},
+  {"name":"/test-hooks","args":"(none)","default":"(none)","description":"Run hook tests and summarize results. Auto-loads when working on files under .claude/hooks/."},
+  {"name":"/vercel-ops","args":"(none)","default":"(none)","description":"Vercel CLI wrapper for common ops — project listing, deploy (preview / production), log tail."}
+]
+  </script>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  document.querySelectorAll('.pkit-cmd[data-snippet-mount="command-cheatsheet"]').forEach(function(root) {
+    if (root.dataset.pkitInit) return;
+    root.dataset.pkitInit = '1';
+
+    var filterEl = root.querySelector('.pkit-cmd-filter');
+    var tbody = root.querySelector('[data-cmd-tbody]');
+    var countEl = root.querySelector('[data-cmd-count]');
+    var emptyEl = root.querySelector('[data-cmd-empty]');
+    var dataEl = root.querySelector('#cmd-data');
+    if (!dataEl || !tbody) return;
+
+    var commands = JSON.parse(dataEl.textContent);
+    var rows = [];
+    var debounceTimer = null;
+
+    commands.forEach(function(cmd) {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td class="pkit-cmd-name">' + cmd.name + '</td>' +
+        '<td class="pkit-cmd-args">' + (cmd.args || '(none)') + '</td>' +
+        '<td class="pkit-cmd-desc">' + cmd.description + '</td>';
+      tr.dataset.searchText = (cmd.name + ' ' + (cmd.args || '') + ' ' + cmd.description).toLowerCase();
+      tbody.appendChild(tr);
+      rows.push(tr);
+    });
+
+    function updateCount(visible) {
+      if (countEl) countEl.textContent = visible + ' / ' + rows.length;
+    }
+
+    function applyFilter(q) {
+      var lq = q.toLowerCase();
+      var visible = 0;
+      rows.forEach(function(tr) {
+        var show = !lq || tr.dataset.searchText.indexOf(lq) !== -1;
+        tr.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+      if (emptyEl) emptyEl.style.display = visible === 0 ? 'block' : 'none';
+      updateCount(visible);
+    }
+
+    filterEl && filterEl.addEventListener('input', function() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(function() {
+        applyFilter(filterEl.value);
+      }, 120);
+    });
+
+    applyFilter('');
+  });
+})();
+</script>
+
     </div>
 
     <div class="no-results" id="no-results">

@@ -587,6 +587,7 @@ footer {
       <li class="lvl-3"><a href="#what-gets-notified">What gets notified</a></li>
       <li class="lvl-3"><a href="#per-run-opt-out">Per-run opt-out</a></li>
       <li class="lvl-3"><a href="#reference">Reference</a></li>
+      <li class="lvl-2"><a href="#pipeline-timeline-reference">Pipeline timeline reference</a></li>
     </ul>
   </aside>
 
@@ -1479,6 +1480,292 @@ python<span class="w"> </span>scripts/generate-docs.py<span class="w"> </span><s
 <li>Payload schema (6 fields, 200-char text cap) is documented in <code>~/.claude/skills/pipeline/reference.md § Notification payload schema</code>.</li>
 <li>The canonical emit helper lives at <code>claude/hooks/notify-emit.sh</code>.</li>
 </ul>
+<h2 id="pipeline-timeline-reference">Pipeline timeline reference</h2>
+<p>Scrub the timeline below to see how the lifecycle phases dispatched and committed during a representative run.</p>
+<!-- snippet:timeline-scrubber
+     Horizontal timeline with theme filter. Used on changelog.html to show
+     78 commits across the v0.0.1 development window. Click any commit dot
+     to expand details. Filter by theme color.
+
+     Data is read from a JSON script embedded inline. To customize the
+     timeline for a different page, modify the inline JSON.
+
+     Placeholder usage:
+       <div data-snippet="timeline-scrubber"></div>
+-->
+<div class="pkit-timeline" data-snippet-mount="timeline-scrubber">
+  <style>
+    .pkit-timeline { margin: 1.5rem 0; padding: 1.5rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); }
+    .pkit-timeline .pkit-tl-controls { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
+    .pkit-timeline .pkit-tl-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-subtle); font-weight: 600; }
+    .pkit-timeline .pkit-tl-filter { padding: 0.3rem 0.65rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--fg-muted); font-size: 0.78rem; cursor: pointer; transition: all var(--transition); display: inline-flex; align-items: center; gap: 0.35rem; }
+    .pkit-timeline .pkit-tl-filter .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .pkit-timeline .pkit-tl-filter:hover { color: var(--fg); border-color: var(--border-strong); }
+    .pkit-timeline .pkit-tl-filter.active { color: var(--fg); border-color: var(--accent); background: var(--accent-soft); }
+    .pkit-timeline .pkit-tl-track {
+      position: relative;
+      height: 80px;
+      background: linear-gradient(to right, var(--border) 0%, var(--border) 100%);
+      background-repeat: no-repeat;
+      background-size: 100% 2px;
+      background-position: center;
+      margin: 1.5rem 0;
+      overflow-x: auto;
+      padding: 30px 12px;
+    }
+    .pkit-timeline .pkit-tl-dot {
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: all 150ms ease;
+      border: 2px solid var(--bg-elev);
+      box-shadow: 0 0 0 1px var(--border-strong);
+    }
+    .pkit-timeline .pkit-tl-dot:hover {
+      transform: translate(-50%, -50%) scale(1.6);
+      z-index: 10;
+    }
+    .pkit-timeline .pkit-tl-dot.dimmed { opacity: 0.15; pointer-events: none; }
+    .pkit-timeline .pkit-tl-dot.selected { transform: translate(-50%, -50%) scale(1.8); z-index: 11; box-shadow: 0 0 0 3px var(--accent); }
+    .pkit-timeline .pkit-tl-axis-label {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--fg-subtle);
+      padding: 0.4rem 0 0;
+    }
+    .pkit-timeline .pkit-tl-detail {
+      background: var(--bg);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius);
+      padding: 1rem;
+      min-height: 80px;
+      font-size: 0.88rem;
+      color: var(--fg);
+    }
+    .pkit-timeline .pkit-tl-detail .empty { color: var(--fg-subtle); font-style: italic; }
+    .pkit-timeline .pkit-tl-detail .pkit-tl-d-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.4rem; }
+    .pkit-timeline .pkit-tl-detail .pkit-tl-d-pr { font-family: var(--mono); font-size: 0.85rem; }
+    .pkit-timeline .pkit-tl-detail .pkit-tl-d-pr a { color: var(--accent); text-decoration: none; font-weight: 600; }
+    .pkit-timeline .pkit-tl-detail .pkit-tl-d-pr a:hover { text-decoration: underline; }
+    .pkit-timeline .pkit-tl-detail .pkit-tl-d-theme { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; background: var(--bg-elev); border: 1px solid var(--border); color: var(--fg-muted); }
+    .pkit-timeline .pkit-tl-detail .pkit-tl-d-theme .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .pkit-timeline .pkit-tl-detail .pkit-tl-d-title { font-weight: 600; line-height: 1.4; }
+    .pkit-timeline .pkit-tl-detail .pkit-tl-d-date { font-family: var(--mono); font-size: 0.78rem; color: var(--fg-muted); }
+    .pkit-timeline .pkit-tl-stats { display: flex; gap: 1rem; font-size: 0.78rem; color: var(--fg-muted); margin-top: 0.6rem; }
+    .pkit-timeline .pkit-tl-stats .stat strong { color: var(--accent); font-family: var(--mono); }
+  </style>
+
+  <div class="pkit-tl-controls" data-tl-filters></div>
+
+  <div class="pkit-tl-track" data-tl-track></div>
+
+  <div class="pkit-tl-stats" data-tl-stats></div>
+
+  <div class="pkit-tl-detail" data-tl-detail>
+    <p class="empty">Click any commit on the timeline to see its details.</p>
+  </div>
+
+  <script type="application/json" data-tl-data>
+{
+  "themes": [
+    {"id": "pipeline",   "label": "Pipeline orchestrator", "color": "#3b82f6"},
+    {"id": "review",     "label": "Review system",         "color": "#a855f7"},
+    {"id": "skill",      "label": "Skills + agents",       "color": "#10b981"},
+    {"id": "cloud",      "label": "Cloud deployment",      "color": "#f59e0b"},
+    {"id": "sandbox",    "label": "Sandbox",               "color": "#ec4899"},
+    {"id": "research",   "label": "Research",              "color": "#8b5cf6"},
+    {"id": "hooks",      "label": "Hooks",                 "color": "#0ea5e9"},
+    {"id": "mcp",        "label": "MCP",                   "color": "#14b8a6"},
+    {"id": "bootstrap",  "label": "Bootstrap / install",   "color": "#6366f1"},
+    {"id": "docs",       "label": "Docs system",           "color": "#84cc16"},
+    {"id": "fix",        "label": "Bug fixes",             "color": "#ef4444"},
+    {"id": "removal",    "label": "Skill removals",        "color": "#dc2626"}
+  ],
+  "items": [
+    {"pr": 2,  "theme": "pipeline",  "title": "Charter Discovery mode (Step 0 of /pipeline)"},
+    {"pr": 3,  "theme": "bootstrap", "title": "Oracle Cloud + Hetzner cloud bootstrap scripts"},
+    {"pr": 4,  "theme": "skill",     "title": "Mobile-app workload overlay (Expo / iOS / mobile-dev agent)"},
+    {"pr": 5,  "theme": "cloud",     "title": "Azure CLI overlay (skill + agent + install gate)"},
+    {"pr": 6,  "theme": "docs",      "title": "docs-writer post-merge phase + /document-release skill"},
+    {"pr": 7,  "theme": "sandbox",   "title": "Pluggable SandboxProvider library with 8-agent fan-out cap"},
+    {"pr": 8,  "theme": "research",  "title": "/research skill — Karpathy autoresearch loop driver"},
+    {"pr": 9,  "theme": "skill",     "title": "Vendor mattpocock/skills TDD doctrine pack"},
+    {"pr": 10, "theme": "review",    "title": "Karpathy-reviewer anti-hallucination agent"},
+    {"pr": 11, "theme": "skill",     "title": "Absorb gstack patterns — model-overlays, host-adapters, /learn"},
+    {"pr": 12, "theme": "skill",     "title": "Vendor wshobson agent pack + add /incident skill"},
+    {"pr": 13, "theme": "skill",     "title": "Vendor ClaudeForge claude-md-enhancer skill"},
+    {"pr": 14, "theme": "docs",      "title": "Vendor alirezarezvani/claude-skills authoring standard"},
+    {"pr": 15, "theme": "bootstrap", "title": "EnterWorktree / ExitWorktree guidance + 2.1.72 floor"},
+    {"pr": 16, "theme": "mcp",       "title": "claude-context community MCP (codebase semantic RAG)"},
+    {"pr": 18, "theme": "skill",     "title": "Vendor alirezarezvani persona pack"},
+    {"pr": 19, "theme": "hooks",     "title": "Worker-delegation phase 2 — CodexWorker spec + routing"},
+    {"pr": 20, "theme": "hooks",     "title": "Worker-delegation phases 4-5 + validate-task-spec hook"},
+    {"pr": 21, "theme": "sandbox",   "title": "Switch sandbox providers to exec-style argv"},
+    {"pr": 22, "theme": "sandbox",   "title": "Optional orchestrate.sh subprocess driver stub"},
+    {"pr": 23, "theme": "sandbox",   "title": "Fail-closed when env-scrub.py returns unexpected output"},
+    {"pr": 24, "theme": "sandbox",   "title": "Versioned sandbox base image + build script"},
+    {"pr": 25, "theme": "cloud",     "title": "Azure Mode overlay in CLAUDE.md.template"},
+    {"pr": 26, "theme": "pipeline",  "title": "Charter re-validation pass on /pipeline --renew"},
+    {"pr": 27, "theme": "review",    "title": "Charter-aware finding classification in /review"},
+    {"pr": 28, "theme": "pipeline",  "title": "Charter auto-extract Step 0 skip condition"},
+    {"pr": 29, "theme": "removal",   "title": "Deprecate /interview-prp (banner + migration notice)"},
+    {"pr": 30, "theme": "cloud",     "title": "Vercel deployment-provider selector scaffolding"},
+    {"pr": 31, "theme": "pipeline",  "title": "Agent-teams toggle lifted from /review to /pipeline"},
+    {"pr": 33, "theme": "hooks",     "title": "Subagent docs-write block via heredoc convention"},
+    {"pr": 35, "theme": "pipeline",  "title": "Path M inline-fix expansion in post-review routing"},
+    {"pr": 36, "theme": "pipeline",  "title": "Parallelize implement phase via multi-Agent dispatch"},
+    {"pr": 37, "theme": "pipeline",  "title": "Unified Run Log entry format across all pipeline writes"},
+    {"pr": 38, "theme": "pipeline",  "title": "Eliminate overlay pattern from pipelinekit"},
+    {"pr": 39, "theme": "pipeline",  "title": "GitHub Issues integration (--issues mode + Closes #N)"},
+    {"pr": 40, "theme": "hooks",     "title": "Blacksmith runners as default CI/CD target + R5 lint"},
+    {"pr": 41, "theme": "skill",     "title": "pipeline-mobile-notifications — PushNotification + Channels"},
+    {"pr": 43, "theme": "docs",      "title": "docs-vs-documentation format split (md vs HTML)"},
+    {"pr": 44, "theme": "pipeline",  "title": "/pipeline --renew charter revalidation with 3-valued status"},
+    {"pr": 45, "theme": "review",    "title": "Two-axis review finding classification (scope x intent)"},
+    {"pr": 46, "theme": "pipeline",  "title": "Charter Topic 10 deployment-target classifier"},
+    {"pr": 47, "theme": "pipeline",  "title": "Decomposition compliance gate for /create-plan + /analyze"},
+    {"pr": 48, "theme": "sandbox",   "title": "Sandbox unset-default contradiction — worktree-only correct"},
+    {"pr": 49, "theme": "sandbox",   "title": "Sandbox orchestrate wrapper — sandbox_wrap helper"},
+    {"pr": 50, "theme": "sandbox",   "title": "Sandbox providers runtime-injection assertion test"},
+    {"pr": 51, "theme": "fix",       "title": "codex.sh exec bugs — exit-code propagation, output dir"},
+    {"pr": 52, "theme": "hooks",     "title": "R5 lint coverage for ${{ matrix.os }} runner label"},
+    {"pr": 53, "theme": "cloud",     "title": "Azure Mode overlay in CLAUDE.md.template (v2)"},
+    {"pr": 54, "theme": "research",  "title": "cost_log.py parse-json subcommand + research-loop wiring"},
+    {"pr": 55, "theme": "research",  "title": "--restart-from-iter N flag for research-loop.sh"},
+    {"pr": 56, "theme": "research",  "title": "Wrap claude -p calls in research-loop with sandbox"},
+    {"pr": 57, "theme": "pipeline",  "title": "Step 0 Topic 10 auto-detect probes monorepo sub-dirs"},
+    {"pr": 58, "theme": "sandbox",   "title": "Add ripgrep + fd-find to sandbox base image"},
+    {"pr": 59, "theme": "cloud",     "title": "Railway as first-class deployment provider"},
+    {"pr": 60, "theme": "cloud",     "title": "Render as first-class deployment provider"},
+    {"pr": 61, "theme": "cloud",     "title": "DigitalOcean App Platform as first-class deployment provider"},
+    {"pr": 62, "theme": "cloud",     "title": "Extract shared deployment principles into base agent"},
+    {"pr": 63, "theme": "hooks",     "title": "Normalize skill frontmatter allowed-tools to YAML list"},
+    {"pr": 64, "theme": "hooks",     "title": "permissionMode: default on azure + vercel deployment-engineers"},
+    {"pr": 65, "theme": "hooks",     "title": "Migrate install.sh hooks to args:string[] exec form"},
+    {"pr": 67, "theme": "review",    "title": "Native surface docs + bundled NB cleanup"},
+    {"pr": 68, "theme": "removal",   "title": "Remove deprecated /interview-prp skill (full removal)"},
+    {"pr": 69, "theme": "research",  "title": "--research flag on /ppr to publish keep-rows to a branch"},
+    {"pr": 70, "theme": "sandbox",   "title": "Extract sandbox_wrap into shared library"},
+    {"pr": 71, "theme": "research",  "title": "Research-results TSV viewer (sortable / filterable HTML)"},
+    {"pr": 72, "theme": "docs",      "title": "Docs refresh post-PR44-to-PR71 (cloud providers, /ppr --research)"},
+    {"pr": 73, "theme": "docs",      "title": "docs-writer/2 rich-template + comprehensive docs overhaul"},
+    {"pr": 74, "theme": "docs",      "title": "docs-writer/2 rich-interactive snippets + richness enforcement"}
+  ]
+}
+  </script>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  document.querySelectorAll('.pkit-timeline[data-snippet-mount="timeline-scrubber"]').forEach(tl => {
+  if (tl.dataset.pkitInit) return;
+  tl.dataset.pkitInit = '1';
+
+  const dataEl = tl.querySelector('script[data-tl-data]');
+  if (!dataEl) return;
+  const data = JSON.parse(dataEl.textContent);
+  const themesById = Object.fromEntries(data.themes.map(t => [t.id, t]));
+  const track = tl.querySelector('[data-tl-track]');
+  const filtersEl = tl.querySelector('[data-tl-filters]');
+  const detail = tl.querySelector('[data-tl-detail]');
+  const stats = tl.querySelector('[data-tl-stats]');
+  if (!track || !filtersEl || !detail || !stats) return;
+
+  const minPR = Math.min(...data.items.map(i => i.pr));
+  const maxPR = Math.max(...data.items.map(i => i.pr));
+  const range = maxPR - minPR || 1;
+
+  // Build filter buttons
+  let label = document.createElement('span');
+  label.className = 'pkit-tl-label';
+  label.textContent = 'Filter theme:';
+  filtersEl.appendChild(label);
+
+  const allBtn = document.createElement('button');
+  allBtn.className = 'pkit-tl-filter active';
+  allBtn.dataset.theme = 'all';
+  allBtn.innerHTML = '<span class="dot" style="background:#94a3b8"></span>All';
+  filtersEl.appendChild(allBtn);
+
+  data.themes.forEach(t => {
+    const b = document.createElement('button');
+    b.className = 'pkit-tl-filter';
+    b.dataset.theme = t.id;
+    b.innerHTML = `<span class="dot" style="background:${t.color}"></span>${t.label}`;
+    filtersEl.appendChild(b);
+  });
+
+  // Build dots
+  data.items.forEach(item => {
+    const dot = document.createElement('button');
+    dot.className = 'pkit-tl-dot';
+    dot.dataset.theme = item.theme;
+    dot.dataset.pr = item.pr;
+    const left = ((item.pr - minPR) / range) * 100;
+    dot.style.left = left + '%';
+    dot.style.background = themesById[item.theme].color;
+    dot.title = `PR #${item.pr}: ${item.title}`;
+    dot.addEventListener('click', () => showDetail(item));
+    track.appendChild(dot);
+  });
+
+  const axis = document.createElement('div');
+  axis.className = 'pkit-tl-axis-label';
+  axis.innerHTML = `<span>PR #${minPR}</span><span>PR #${Math.round((minPR + maxPR) / 2)}</span><span>PR #${maxPR}</span>`;
+  track.appendChild(axis);
+
+  function showDetail(item) {
+    const theme = themesById[item.theme];
+    detail.innerHTML = `
+      <div class="pkit-tl-d-header">
+        <span class="pkit-tl-d-pr"><a href="https://github.com/Bruce188/pipelinekit/pull/${item.pr}" target="_blank">PR #${item.pr}</a></span>
+        <span class="pkit-tl-d-theme"><span class="dot" style="background:${theme.color}"></span>${theme.label}</span>
+      </div>
+      <div class="pkit-tl-d-title">${item.title}</div>
+    `;
+    tl.querySelectorAll('.pkit-tl-dot').forEach(d => d.classList.remove('selected'));
+    const sel = tl.querySelector(`.pkit-tl-dot[data-pr="${item.pr}"]`);
+    if (sel) sel.classList.add('selected');
+  }
+
+  function updateStats(theme) {
+    const visible = data.items.filter(i => theme === 'all' || i.theme === theme);
+    stats.innerHTML = `
+      <span class="stat"><strong>${visible.length}</strong> commits shown</span>
+      <span class="stat">PR range <strong>#${visible[0]?.pr ?? '?'}</strong> → <strong>#${visible[visible.length - 1]?.pr ?? '?'}</strong></span>
+    `;
+  }
+
+  // Filter wiring
+  filtersEl.querySelectorAll('.pkit-tl-filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      filtersEl.querySelectorAll('.pkit-tl-filter').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const want = btn.dataset.theme;
+      tl.querySelectorAll('.pkit-tl-dot').forEach(d => {
+        if (want === 'all' || d.dataset.theme === want) d.classList.remove('dimmed');
+        else d.classList.add('dimmed');
+      });
+      updateStats(want);
+    });
+  });
+
+  updateStats('all');
+  });
+})();
+</script>
+
     </div>
 
     <div class="no-results" id="no-results">
