@@ -43,13 +43,13 @@ Full map: [documentation/codebase-map.html](documentation/codebase-map.html)
 
 ## Subdirectory Init
 
-Subdirectory `CLAUDE.md` files override-extend root rules with directory-specific conventions (arriving in subsequent features):
+Subdirectory `CLAUDE.md` files override-extend root rules with directory-specific conventions. The harness loads them when Claude Code is working inside the matching directory tree:
 
 - `claude/skills/CLAUDE.md` — skill authoring conventions (frontmatter shape, `paths:` scoping, `allowed-tools` precision, snippet contracts).
 - `claude/agents/CLAUDE.md` — agent authoring conventions (tool allowlist, model selection, `<task-notification>` XML, prompt body shape).
 - `claude/hooks/CLAUDE.md` — hook authoring conventions (stdin / stdout JSON contract, exit-code semantics, python3 vs bash, denial-tracker integration).
 
-Until those files land, fall back to existing precedent inside each subdirectory.
+Each subdir file is self-contained — read it on entry without needing to cross-reference this root file for required context.
 
 ## Working Surface
 
