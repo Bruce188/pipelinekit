@@ -127,6 +127,8 @@ Pluggable worker layer so /pipeline can dispatch to alternate Claude SDKs or ext
 ## Bug fixes
 
 - [#51](https://github.com/Bruce188/pipelinekit/pull/51) — codex.sh exec bugs — exit-code propagation, output dir, stderr, positional prompt
+- [#110](https://github.com/Bruce188/pipelinekit/pull/110) — un-wire `cost_log.py` from `PostToolUse` (it's a CLI, not a hook — was emitting argparse usage errors on every tool call) + scrub three hardcoded `/home/bruce/pipelinekit/` paths from `task-spec.md`
+- [#111](https://github.com/Bruce188/pipelinekit/pull/111) — README hook inventory: drop `cost_log` (not a hook); 24 → 23
 
 ## Skill removals (breaking)
 
