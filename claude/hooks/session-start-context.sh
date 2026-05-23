@@ -16,6 +16,9 @@
 set -uo pipefail
 
 DIFF_LINES_CAP="${PIPELINE_SESSION_START_DIFF_LINES:-200}"
+case "$DIFF_LINES_CAP" in
+    *[!0-9]*|"") DIFF_LINES_CAP=200 ;;
+esac
 STATUS_LINES_CAP=30
 OUTPUT_BYTE_CAP=8192
 TRUNCATE_TARGET=7900
@@ -125,10 +128,11 @@ fi
 
 # ─── Gather context ───────────────────────────────────────────────────────────
 
-# Branch (handle detached HEAD).
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "(detached)")
-[ -z "$CURRENT_BRANCH" ] && CURRENT_BRANCH="(detached)"
-[ "$CURRENT_BRANCH" = "HEAD" ] && CURRENT_BRANCH="(detached)"
+# Branch (handle detached HEAD + empty-repo edge — git rev-parse can emit "HEAD" on stdout while exiting non-zero).
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+if [ -z "$CURRENT_BRANCH" ] || [ "$CURRENT_BRANCH" = "HEAD" ]; then
+    CURRENT_BRANCH="(detached)"
+fi
 
 # Base branch (canonical snippet from ~/.claude/rules/workflow.md § Base Branch Detection).
 BASE=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
