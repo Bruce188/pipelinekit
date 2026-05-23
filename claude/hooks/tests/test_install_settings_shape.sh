@@ -6,7 +6,7 @@ set -euo pipefail
 # settings.json to verify every wired hook entry carries both "command" and
 # "args" keys, and no "command" value contains a space (rejects legacy shell form).
 #
-# Expected result: Results: 3 PASS / 0 FAIL
+# Expected result: Results: 4 PASS / 0 FAIL
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
@@ -116,6 +116,51 @@ then
   record "test_02_no_command_contains_space" PASS
 else
   record "test_02_no_command_contains_space" FAIL "command value(s) contain spaces"
+fi
+
+# ---------------------------------------------------------------------------
+# test_05: every shipping Claude-harness hook is registered in settings.json
+#   - expected_set = basename of every claude/hooks/*.sh + claude/hooks/*.py,
+#     EXCLUDING underscore-prefixed helpers and validate-task-spec.py (git only).
+#   - actual_set   = basename of every command path in settings.json hooks arrays.
+# ---------------------------------------------------------------------------
+if python3 - "$SETTINGS_FILE" "$REPO_ROOT" <<'PYEOF'
+import json, os, sys
+from pathlib import Path
+
+settings_path = sys.argv[1]
+repo_root = sys.argv[2]
+hooks_dir = Path(repo_root) / "claude" / "hooks"
+
+expected = set()
+for p in sorted(hooks_dir.glob("*.sh")):
+    if p.name.startswith("_"):
+        continue
+    expected.add(p.name)
+for p in sorted(hooks_dir.glob("*.py")):
+    if p.name.startswith("_"):
+        continue
+    if p.name == "validate-task-spec.py":
+        continue
+    expected.add(p.name)
+
+settings = json.load(open(settings_path))
+actual = set()
+for event, matchers in settings.get("hooks", {}).items():
+    for m in matchers:
+        for entry in m.get("hooks", []):
+            cmd = entry.get("command", "")
+            actual.add(os.path.basename(cmd))
+
+missing = expected - actual
+if missing:
+    print("missing from settings.json: {}".format(sorted(missing)), file=sys.stderr)
+    sys.exit(1)
+PYEOF
+then
+  record "test_05_full_inventory_parity" PASS
+else
+  record "test_05_full_inventory_parity" FAIL "one or more shipping hooks not registered in settings.json"
 fi
 
 # ---------------------------------------------------------------------------

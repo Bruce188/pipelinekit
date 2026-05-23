@@ -64,33 +64,47 @@ def hook(cmd, args=None):
 
 settings = {
     "hooks": {
-        "PostToolUse": [
-            {"matcher": "*", "hooks": hook(f"{h}/hooks/cost_log.py")}
-        ],
         "SessionStart": [
             {"matcher": "*", "hooks": hook(f"{h}/hooks/session-start-context.sh")}
         ],
+        "PreToolUse": [
+            {"matcher": "Bash",       "hooks": hook(f"{h}/hooks/block-dangerous-commands.sh")},
+            {"matcher": "Bash",       "hooks": hook(f"{h}/hooks/block-push-main.sh")},
+            {"matcher": "Bash",       "hooks": hook(f"{h}/hooks/block-stage-sensitive.sh")},
+            {"matcher": "Bash",       "hooks": hook(f"{h}/hooks/env-scrub.py")},
+            {"matcher": "Bash",       "hooks": hook(f"{h}/hooks/test-logger.sh")},
+            {"matcher": "Bash",       "hooks": hook(f"{h}/hooks/validate-commit-msg.sh")},
+            {"matcher": "Edit|Write", "hooks": hook(f"{h}/hooks/claude-md-guard.py")},
+            {"matcher": "Edit|Write", "hooks": hook(f"{h}/hooks/pre-edit-protect.sh")},
+            {"matcher": "Edit|Write", "hooks": hook(f"{h}/hooks/tdd-order-check.sh")},
+            {"matcher": "Edit|Write", "hooks": hook(f"{h}/hooks/tdd-red-phase-gate.sh")},
+            {"matcher": "Skill",      "hooks": hook(f"{h}/hooks/skill_budget.py")},
+            {"matcher": "Write",      "hooks": hook(f"{h}/hooks/block-bare-repo-markers.py")}
+        ],
+        "PostToolUse": [
+            {"matcher": "*",          "hooks": hook(f"{h}/hooks/cost_log.py")},
+            {"matcher": "Bash",       "hooks": hook(f"{h}/hooks/strip-ai-attribution.sh")},
+            {"matcher": "Edit|Write", "hooks": hook(f"{h}/hooks/post-edit-format.sh")}
+        ],
         "Stop": [
             {"matcher": "*", "hooks": hook(f"{h}/hooks/notify-emit.sh")},
+            {"matcher": "*", "hooks": hook(f"{h}/hooks/stop-completion-gate.sh")},
             {"matcher": "*", "hooks": hook(f"{h}/hooks/stop-self-reflect.sh")}
         ],
-        "PermissionRequest": [
-            {"matcher": "*", "hooks": hook(f"{h}/hooks/notify-emit.sh")}
+        "SubagentStop": [
+            {"matcher": "*", "hooks": hook(f"{h}/hooks/verify-worktree-commit.sh")}
         ],
         "Notification": [
             {"matcher": "*", "hooks": hook(f"{h}/hooks/denial_tracker.py")},
             {"matcher": "*", "hooks": hook(f"{h}/hooks/notify-emit.sh")}
         ],
-        "PreToolUse": [
-            {"matcher": "Bash",       "hooks": hook(f"{h}/hooks/env-scrub.py")},
-            {"matcher": "Skill",      "hooks": hook(f"{h}/hooks/skill_budget.py")},
-            {"matcher": "Edit|Write", "hooks": hook(f"{h}/hooks/tdd-red-phase-gate.sh")},
-            {"matcher": "Write",      "hooks": hook(f"{h}/hooks/block-bare-repo-markers.py")}
+        "PermissionRequest": [
+            {"matcher": "*", "hooks": hook(f"{h}/hooks/notify-emit.sh")}
         ],
         "PostCompact": [
             {"matcher": "*", "hooks": hook(f"{h}/hooks/context-warning.py")},
-            {"matcher": "*", "hooks": hook(f"{h}/hooks/post-compact-context.sh")},
-            {"matcher": "*", "hooks": hook(f"{h}/hooks/notify-emit.sh")}
+            {"matcher": "*", "hooks": hook(f"{h}/hooks/notify-emit.sh")},
+            {"matcher": "*", "hooks": hook(f"{h}/hooks/post-compact-context.sh")}
         ]
     }
 }
@@ -99,7 +113,7 @@ dst = os.path.join(h, "settings.json")
 with open(dst, "w", encoding="utf-8") as f:
     json.dump(settings, f, indent=2)
     f.write("\n")
-print(f"installed: {dst} (14 hooks wired)")
+print(f"installed: {dst} (22 hooks wired)")
 PYEOF
   else
     # Flag not set: restore user's previous settings.json from backup if present.
