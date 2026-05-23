@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>pipelinekit documentation — pipelinekit</title>
-<meta name="description" content="The complete user-facing documentation for pipelinekit \(autonomous /pipeline orchestrator + skills + agents + hooks\). Every page below is self-contained HTML \(no CDN, no remote assets\) — clone the repo and open any page directly via…">
+<title>Harness paths: field — investigation — pipelinekit</title>
+<meta name="description" content="F5 of a prior pipeline run added paths: to 31 skills on the assumption that the harness builds a routing slate at dispatch time and filters by paths:. Two on-disk surfaces ship this same unverified claim:">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>pipelinekit documentation</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Harness paths: field — investigation</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -531,357 +531,184 @@ footer {
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
     <ul>
-      <li class="lvl-2"><a href="#system-architecture">System architecture</a></li>
-      <li class="lvl-2"><a href="#start-here">Start here</a></li>
-      <li class="lvl-2"><a href="#reference">Reference</a></li>
-      <li class="lvl-2"><a href="#deployment-ci-providers">Deployment + CI providers</a></li>
-      <li class="lvl-2"><a href="#skills-features">Skills + features</a></li>
-      <li class="lvl-2"><a href="#cost-observability">Cost + observability</a></li>
-      <li class="lvl-2"><a href="#reference-standards-vendored">Reference standards \(vendored\)</a></li>
-      <li class="lvl-2"><a href="#built-with-inspired-by">Built with / Inspired by</a></li>
+      <li class="lvl-2"><a href="#what">WHAT</a></li>
+      <li class="lvl-2"><a href="#method">METHOD</a></li>
+      <li class="lvl-3"><a href="#vector-a-context7-docs-probe-documented-behaviour">Vector A — context7 docs probe (documented behaviour)</a></li>
+      <li class="lvl-3"><a href="#vector-b-behavioural-probe-observed-behaviour">Vector B — behavioural probe (observed behaviour)</a></li>
+      <li class="lvl-3"><a href="#vector-c-internal-loader-scan-loader-is-out-of-repo">Vector C — internal-loader scan (loader is out-of-repo)</a></li>
+      <li class="lvl-2"><a href="#findings">FINDINGS</a></li>
+      <li class="lvl-2"><a href="#implications-for-f5">IMPLICATIONS for F5</a></li>
+      <li class="lvl-2"><a href="#follow-up-recommendations">FOLLOW-UP recommendations</a></li>
     </ul>
   </aside>
 
   <main>
     <header class="page-header">
-      <h1>pipelinekit documentation</h1>
-      <p class="description">The complete user-facing documentation for pipelinekit \(autonomous /pipeline orchestrator + skills + agents + hooks\). Every page below is self-contained HTML \(no CDN, no remote assets\) — clone the repo and open any page directly via…</p>
+      <h1>Harness paths: field — investigation</h1>
+      <p class="description">F5 of a prior pipeline run added paths: to 31 skills on the assumption that the harness builds a routing slate at dispatch time and filters by paths:. Two on-disk surfaces ship this same unverified claim:</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
-<h2 id="system-architecture">System architecture</h2>
-<!-- snippet:architecture-diagram
-     4-layer SVG taxonomy of pipelinekit: user-invocable slash commands,
-     pipeline phase skills, specialized agents, hooks + infrastructure.
-
-     Hover any chip for details; click to navigate. Filter to a specific
-     layer via the layer-toggle buttons.
-
-     Placeholder usage in markdown source:
-       <div data-snippet="architecture-diagram"></div>
--->
-<div class="pkit-arch-diagram" data-snippet-mount="architecture-diagram">
-  <style>
-    .pkit-arch-diagram {
-      margin: 1.5rem 0;
-      padding: 1.5rem;
-      background: var(--bg-elev);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-    }
-    .pkit-arch-diagram .pkit-ad-controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      margin-bottom: 1.2rem;
-      align-items: center;
-    }
-    .pkit-arch-diagram .pkit-ad-label {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      color: var(--fg-subtle);
-      font-weight: 600;
-    }
-    .pkit-arch-diagram .pkit-ad-layer-btn {
-      padding: 0.3rem 0.65rem;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      color: var(--fg-muted);
-      font-size: 0.78rem;
-      cursor: pointer;
-      transition: all var(--transition);
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-    }
-    .pkit-arch-diagram .pkit-ad-layer-btn .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      display: inline-block;
-    }
-    .pkit-arch-diagram .pkit-ad-layer-btn:hover { color: var(--fg); border-color: var(--border-strong); }
-    .pkit-arch-diagram .pkit-ad-layer-btn.active { color: var(--fg); border-color: var(--accent); background: var(--accent-soft); }
-
-    .pkit-arch-diagram .pkit-ad-stack {
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-    }
-    .pkit-arch-diagram .pkit-ad-layer {
-      border-radius: var(--radius);
-      padding: 0.9rem 1.1rem;
-      transition: opacity var(--transition), transform var(--transition);
-      border: 1px solid var(--border);
-      position: relative;
-    }
-    .pkit-arch-diagram .pkit-ad-layer.dimmed {
-      opacity: 0.25;
-      filter: grayscale(40%);
-    }
-    .pkit-arch-diagram .pkit-ad-layer-1 { background: linear-gradient(135deg, color-mix(in srgb, #10b981 12%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #10b981 35%, var(--border)); }
-    .pkit-arch-diagram .pkit-ad-layer-2 { background: linear-gradient(135deg, color-mix(in srgb, #3b82f6 12%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #3b82f6 35%, var(--border)); }
-    .pkit-arch-diagram .pkit-ad-layer-3 { background: linear-gradient(135deg, color-mix(in srgb, #a855f7 12%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #a855f7 35%, var(--border)); }
-    .pkit-arch-diagram .pkit-ad-layer-4 { background: linear-gradient(135deg, color-mix(in srgb, #f59e0b 10%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #f59e0b 35%, var(--border)); }
-
-    .pkit-arch-diagram .pkit-ad-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin-bottom: 0.5rem;
-    }
-    .pkit-arch-diagram .pkit-ad-name {
-      font-size: 0.92rem;
-      font-weight: 700;
-      color: var(--fg);
-    }
-    .pkit-arch-diagram .pkit-ad-name .lvl {
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      color: var(--fg-subtle);
-      margin-right: 0.5rem;
-    }
-    .pkit-arch-diagram .pkit-ad-count {
-      font-family: var(--mono);
-      font-size: 0.78rem;
-      color: var(--fg-muted);
-      background: var(--bg);
-      padding: 0.1rem 0.5rem;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
-    }
-    .pkit-arch-diagram .pkit-ad-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.3rem;
-    }
-    .pkit-arch-diagram .pkit-ad-chip {
-      padding: 0.18rem 0.55rem;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      font-family: var(--mono);
-      font-size: 0.75rem;
-      color: var(--fg-muted);
-      cursor: help;
-      transition: all 100ms ease;
-      position: relative;
-    }
-    .pkit-arch-diagram .pkit-ad-chip:hover {
-      color: var(--fg);
-      border-color: var(--accent);
-      background: var(--accent-soft);
-    }
-    .pkit-arch-diagram .pkit-ad-chip.more { font-style: italic; color: var(--fg-subtle); }
-
-    .pkit-arch-diagram .pkit-ad-flow {
-      display: flex;
-      justify-content: center;
-      padding: 0.1rem 0;
-      color: var(--fg-subtle);
-      font-size: 0.85rem;
-    }
-    .pkit-arch-diagram .pkit-ad-tooltip {
-      position: absolute;
-      background: var(--fg);
-      color: var(--bg);
-      padding: 0.45rem 0.7rem;
-      border-radius: var(--radius-sm);
-      font-size: 0.78rem;
-      max-width: 280px;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 120ms ease;
-      z-index: 20;
-      box-shadow: var(--shadow-md);
-      line-height: 1.4;
-      bottom: calc(100% + 8px);
-      left: 50%;
-      transform: translateX(-50%);
-      white-space: normal;
-    }
-    .pkit-arch-diagram .pkit-ad-chip:hover .pkit-ad-tooltip { opacity: 1; }
-  </style>
-
-  <div class="pkit-ad-controls">
-    <span class="pkit-ad-label">Filter layer:</span>
-    <button class="pkit-ad-layer-btn active" data-layer="all">All</button>
-    <button class="pkit-ad-layer-btn" data-layer="1"><span class="dot" style="background:#10b981"></span>User surface</button>
-    <button class="pkit-ad-layer-btn" data-layer="2"><span class="dot" style="background:#3b82f6"></span>Pipeline phases</button>
-    <button class="pkit-ad-layer-btn" data-layer="3"><span class="dot" style="background:#a855f7"></span>Agents</button>
-    <button class="pkit-ad-layer-btn" data-layer="4"><span class="dot" style="background:#f59e0b"></span>Infrastructure</button>
-  </div>
-
-  <div class="pkit-ad-stack">
-    <div class="pkit-ad-layer pkit-ad-layer-1" data-layer="1">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L1</span>User-invocable slash commands</div>
-        <div class="pkit-ad-count">8 commands</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">/pipeline<span class="pkit-ad-tooltip">The autonomous orchestrator. Charter → Analyze → Plan → Implement → Review → Merge.</span></span>
-        <span class="pkit-ad-chip">/review<span class="pkit-ad-tooltip">Multi-agent code review. Scales from 2 to 6 agents based on diff size.</span></span>
-        <span class="pkit-ad-chip">/ppr<span class="pkit-ad-tooltip">Push + PR. Push committed changes; open a pull request. --research flag publishes research keep-rows.</span></span>
-        <span class="pkit-ad-chip">/research<span class="pkit-ad-tooltip">Karpathy autoresearch loop: hypothesize → mutate → benchmark → keep-or-reset.</span></span>
-        <span class="pkit-ad-chip">/incident<span class="pkit-ad-tooltip">Triage a failing post-merge verification gate. Dispatches incident-responder agent.</span></span>
-        <span class="pkit-ad-chip">/learn<span class="pkit-ad-tooltip">Read interface for per-project learnings journal.</span></span>
-        <span class="pkit-ad-chip">/caveman<span class="pkit-ad-tooltip">Toggle response verbosity. Wenyan-ultra by default; lite/full/ultra options.</span></span>
-      </div>
-    </div>
-
-    <div class="pkit-ad-flow">▼</div>
-
-    <div class="pkit-ad-layer pkit-ad-layer-2" data-layer="2">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L2</span>Pipeline phase skills (dispatched by /pipeline)</div>
-        <div class="pkit-ad-count">6 phase skills</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">analyze<span class="pkit-ad-tooltip">Reads feature + repo; produces docs/analysis-vN.md.</span></span>
-        <span class="pkit-ad-chip">create-plan<span class="pkit-ad-tooltip">Produces docs/plan-vN.md + docs/prompts-vN.md with phase decomposition.</span></span>
-        <span class="pkit-ad-chip">implement-plan<span class="pkit-ad-tooltip">Executes plan tasks; parallel-safe dispatch via single-message multi-Agent.</span></span>
-        <span class="pkit-ad-chip">post-merge<span class="pkit-ad-tooltip">Verification gate after merge. Project-type auto-detected.</span></span>
-        <span class="pkit-ad-chip">document-release<span class="pkit-ad-tooltip">Update documentation/ after a release. Calls into docs-writer.</span></span>
-        <span class="pkit-ad-chip">docs-writer<span class="pkit-ad-tooltip">Renders markdown to rich-template HTML. (This skill.)</span></span>
-      </div>
-    </div>
-
-    <div class="pkit-ad-flow">▼</div>
-
-    <div class="pkit-ad-layer pkit-ad-layer-3" data-layer="3">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L3</span>Specialized agents (dispatched by phase skills)</div>
-        <div class="pkit-ad-count">31 agents</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">@code-reviewer<span class="pkit-ad-tooltip">Quality, best practices, security, performance.</span></span>
-        <span class="pkit-ad-chip">@security-auditor<span class="pkit-ad-tooltip">OWASP compliance, secure auth flows.</span></span>
-        <span class="pkit-ad-chip">@symbol-verifier<span class="pkit-ad-tooltip">Anti-hallucination. Verifies every new symbol/API resolves.</span></span>
-        <span class="pkit-ad-chip">@spec-tracer<span class="pkit-ad-tooltip">Verifies a diff implements the stated objective + ACs.</span></span>
-        <span class="pkit-ad-chip">@tdd-test-writer<span class="pkit-ad-tooltip">Writes failing tests from spec. Context-isolated from implementer.</span></span>
-        <span class="pkit-ad-chip">@tdd-implementer<span class="pkit-ad-tooltip">Implements code to pass tests. Cannot modify tests.</span></span>
-        <span class="pkit-ad-chip">@architect<span class="pkit-ad-tooltip">Evidence-based design decisions, scalable patterns.</span></span>
-        <span class="pkit-ad-chip">@deployment-engineer<span class="pkit-ad-tooltip">Base agent (docs-only). 5 cloud variants extend it.</span></span>
-        <span class="pkit-ad-chip">@{azure,vercel,railway,render,digitalocean}-deployment-engineer<span class="pkit-ad-tooltip">5 cloud-provider variants sharing the deployment-engineer base.</span></span>
-        <span class="pkit-ad-chip">@incident-responder<span class="pkit-ad-tooltip">SRE incident response. Used by /incident.</span></span>
-        <span class="pkit-ad-chip">@claude-md-guardian<span class="pkit-ad-tooltip">CLAUDE.md drift detection + scoring.</span></span>
-        <span class="pkit-ad-chip">@mobile-dev<span class="pkit-ad-tooltip">iOS/Android/RN/Expo/Flutter cross-platform.</span></span>
-        <span class="pkit-ad-chip more">+ 19 more</span>
-      </div>
-    </div>
-
-    <div class="pkit-ad-flow">▼</div>
-
-    <div class="pkit-ad-layer pkit-ad-layer-4" data-layer="4">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L4</span>Infrastructure: hooks · sandbox · MCP · memory</div>
-        <div class="pkit-ad-count">24 hooks + 4+ MCPs + sandbox + memory</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">validate-commit-msg<span class="pkit-ad-tooltip">Pre-commit: enforce conventional-commit format.</span></span>
-        <span class="pkit-ad-chip">strip-ai-attribution<span class="pkit-ad-tooltip">Pre-commit: remove Co-Authored-By / Generated-with / 🤖 leaks.</span></span>
-        <span class="pkit-ad-chip">block-push-main<span class="pkit-ad-tooltip">Pre-push: refuse direct push to main.</span></span>
-        <span class="pkit-ad-chip">block-stage-sensitive<span class="pkit-ad-tooltip">Pre-add: refuse staging files matching never-stage.txt patterns.</span></span>
-        <span class="pkit-ad-chip">tdd-red-phase-gate<span class="pkit-ad-tooltip">Pre-commit: refuse commits that mix test + impl changes during a TDD phase.</span></span>
-        <span class="pkit-ad-chip">env-scrub<span class="pkit-ad-tooltip">Sandbox pre-exec: scrub env vars before subprocess invocation.</span></span>
-        <span class="pkit-ad-chip">notify-emit<span class="pkit-ad-tooltip">Pipeline state-change notifications via OSC 777 + PushNotification.</span></span>
-        <span class="pkit-ad-chip">sandbox: worktree|podman|docker<span class="pkit-ad-tooltip">Pluggable sandbox provider chain. worktree-only default; podman/docker for container isolation.</span></span>
-        <span class="pkit-ad-chip">MCP: context7<span class="pkit-ad-tooltip">Library docs and reference lookup.</span></span>
-        <span class="pkit-ad-chip">MCP: serena<span class="pkit-ad-tooltip">Semantic code navigation.</span></span>
-        <span class="pkit-ad-chip">memory: flat-file<span class="pkit-ad-tooltip">~/.claude/memory/ with recency-weighted decay. Canonical write path.</span></span>
-        <span class="pkit-ad-chip more">+ 17 more hooks</span>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-(function() {
-  'use strict';
-  const diagrams = document.querySelectorAll('.pkit-arch-diagram[data-snippet-mount="architecture-diagram"]');
-  const diagram = diagrams[diagrams.length - 1];
-  if (!diagram || diagram.dataset.pkitInit) return;
-  diagram.dataset.pkitInit = '1';
-
-  const btns = diagram.querySelectorAll('.pkit-ad-layer-btn');
-  const layers = diagram.querySelectorAll('.pkit-ad-layer');
-
-  btns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      btns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const want = btn.dataset.layer;
-      layers.forEach(l => {
-        if (want === 'all' || l.dataset.layer === want) {
-          l.classList.remove('dimmed');
-        } else {
-          l.classList.add('dimmed');
-        }
-      });
-    });
-  });
-})();
-</script>
-
-
-<h2 id="start-here">Start here</h2>
-<ul>
-<li><strong><a href="getting-started.html">Getting started</a></strong> — the master guide. Install + 4 worked tutorials (hello-world / TDD / Vercel deploy / meta-walkthrough). Read this first.</li>
-<li><a href="changelog.html">Changelog (v0.0.1)</a> — every PR shipped during v0.0.1 development, organized by theme.</li>
-</ul>
-<h2 id="reference">Reference</h2>
-<ul>
-<li><a href="installation.html">Installation</a> — install pipelinekit locally, Codespaces, devcontainer, or cloud bootstrap.</li>
-<li><a href="cloud-setup.html">Cloud setup</a> — VPS bootstrap (Oracle, Hetzner) for headless Claude Code execution.</li>
-<li><a href="pipeline.html">Pipeline workflow</a> — the <code>/pipeline</code> autonomous orchestrator: charter discovery, analyze, plan, implement, review, merge.</li>
-<li><a href="codebase-map.html">Codebase map</a> — top-level repo layout with one-line purpose per directory + root file.</li>
-<li><a href="mcp-lsp-setup.html">MCP LSP Setup</a> — symbol-level Go-to-Definition via the serena MCP.</li>
-</ul>
-<h2 id="deployment-ci-providers">Deployment + CI providers</h2>
-<ul>
-<li><a href="deployment-chooser.html">Deployment + CI provider chooser</a> — not sure which provider fits? Answer six questions to find out.</li>
-<li><a href="deployment-vercel.html">Vercel</a> — serverless / edge / Next.js / SvelteKit / Astro.</li>
-<li><a href="deployment-azure.html">Azure</a> — App Service / Container Apps / Function Apps / AKS.</li>
-<li><a href="deployment-railway.html">Railway</a> — container-based PaaS with zero-Dockerfile deploys.</li>
-<li><a href="deployment-render.html">Render</a> — container-based PaaS with managed services.</li>
-<li><a href="deployment-digitalocean.html">DigitalOcean App Platform</a> — container-based PaaS on DO.</li>
-<li><a href="ci-blacksmith.html">CI on Blacksmith</a> — Blacksmith runner registration, env-var overrides, drop-in actions.</li>
-</ul>
-<h2 id="skills-features">Skills + features</h2>
+<!-- richness-exempt: investigative report — prose synthesis, no interactive surface fits the content -->
 <blockquote>
-<p>Full catalogs: <a href="skills.html">Skills</a> · <a href="agents.html">Agents</a></p>
+</blockquote>
+<p>F5 of a prior pipeline run added <code>paths:</code> to 31 skills on the assumption that the harness builds a routing slate at dispatch time and filters by <code>paths:</code>. Two on-disk surfaces ship this same unverified claim:</p>
+<ol>
+<li><code>docs-source/skills-scope-policy.md:8</code> — the routing-slate paragraph.</li>
+<li><code>claude/skills/CLAUDE.md:60</code> — the Path Scoping section.</li>
+</ol>
+<p>This report classifies the claim under one of three FINDING states: <strong>yes</strong> (honored as documented), <strong>no</strong> (silently ignored), or <strong>partial</strong> (e.g. honored when block-list, ignored when flow-list). The classification is derived from three independent probe vectors.</p>
+<h2 id="what">WHAT</h2>
+<p>The claim under test, restated verbatim from both source surfaces:</p>
+<ul>
+<li><code>docs-source/skills-scope-policy.md:8</code>:</li>
+</ul>
+<blockquote>
+<p>The orchestrator builds a <strong>routing slate</strong> at dispatch time — the set of skills it considers for the current active edit target. A skill participates in the slate when at least one of its <code>paths:</code> globs matches a file in the target set; it is filtered out otherwise.</p>
 </blockquote>
 <ul>
-<li><a href="ppr.html"><code>/ppr</code> push-PR flow</a> — everyday push + PR-open closing step of every pipeline feature.</li>
-<li><a href="ppr-research-flag.html"><code>/ppr --research</code> flag</a> — publish research keep-rows to a dedicated branch.</li>
-<li><a href="tsv-viewer.html">Research TSV viewer</a> — sortable / filterable HTML viewer for research-results TSVs.</li>
-<li><a href="github-issues-integration.html">GitHub Issues integration</a> — <code>--issues</code> mode for <code>/pipeline</code>.</li>
-<li><a href="pipeline-charter-revalidation.html"><code>/pipeline --renew</code> charter revalidation</a> — drift detection with 3-valued status + <code>--auto</code> bypass.</li>
-<li><a href="stop-self-reflect-hook.html">Stop self-reflection hook</a> — Stop hook proposes <code>CLAUDE.md</code> amendments per session; opt out via <code>PIPELINE_NO_SELF_REFLECT=1</code>.</li>
-<li><a href="harness-paths-investigation.html">Harness <code>paths:</code> field investigation</a> — does the Claude Code loader actually filter dispatch by the <code>paths:</code> frontmatter? Three-vector probe + FINDINGS.</li>
-<li><a href="skills-scope-policy.html">Skills scope policy</a> — authoring rules for the <code>paths:</code> frontmatter field and the global-by-design allowlist.</li>
-<li><a href="governance.html">Governance Playbook</a> — AI Champion role, standardization playbook, adoption metrics.</li>
+<li><code>claude/skills/CLAUDE.md:60</code> (§ Path Scoping):</li>
 </ul>
-<h2 id="cost-observability">Cost + observability</h2>
+<blockquote>
+<p>The <code>paths:</code> field tells the loader which files the skill is meant to touch. When the active edit target falls outside every declared glob, the skill is filtered out of the routing slate.</p>
+</blockquote>
+<p>The classification space is: <strong>yes</strong> (loader filters by <code>paths:</code> as documented), <strong>no</strong> (loader silently ignores <code>paths:</code> and the field is inert), or <strong>partial</strong> (loader honors <code>paths:</code> only under specific conditions — e.g. block-list form honored while inline flow-list silently passes everything, as noted at <code>docs-source/skills-scope-policy.md:18</code>).</p>
+<h2 id="method">METHOD</h2>
+<p>Three independent vectors. Each touches a disjoint surface; the FINDING is the convergence of the three.</p>
+<h3 id="vector-a-context7-docs-probe-documented-behaviour">Vector A — context7 docs probe (documented behaviour)</h3>
+<p>Authoritative source for <em>documented</em> behaviour. The pipelinekit harness loader is implemented in the Claude Code binary, not in this repo, so Anthropic's official documentation is the only source for the documented semantics.</p>
+<p>Queries executed via <code>mcp__context7__resolve-library-id</code> and <code>mcp__context7__query-docs</code>:</p>
+<ol>
+<li><code>claude code skill paths frontmatter</code> → resolved <code>/anthropics/claude-code</code> and <code>/websites/code_claude</code> library IDs.</li>
+<li><code>claude code SKILL.md scope</code> → same library IDs returned.</li>
+<li><code>anthropic claude code skill loader</code> → same library IDs returned.</li>
+</ol>
+<p>Doc IDs and URLs cited:</p>
 <ul>
-<li><a href="review-cost.html"><code>/review</code> cost profile</a> — token + cost characteristics of the multi-agent review surface.</li>
+<li><code>https://code.claude.com/docs/en/skills</code> — documents the <code>paths:</code> field on SKILL.md frontmatter as an activation filter; Claude loads the skill only when files in scope match one of the declared globs.</li>
+<li><code>https://code.claude.com/docs/en/slash-commands</code> — references skill activation via frontmatter in the slash-command discovery path.</li>
+<li><code>https://code.claude.com/docs/en/memory</code> — adjacent doc that uses the same activation-filter wording when describing layered memory loading.</li>
+<li>The Claude Code changelog entries indexed under <code>/anthropics/claude-code</code> reference <code>paths:</code> filtering as the documented routing-slate mechanism.</li>
 </ul>
-<h2 id="reference-standards-vendored">Reference standards (vendored)</h2>
+<p>Across all four citation surfaces the wording converges: the harness loads a skill only when the active edit target matches one of its <code>paths:</code> globs. No surface documents the field as inert. No surface documents it as a no-op or a forward-compatible placeholder.</p>
+<p>Vector A classification: <strong>spec-honored</strong>.</p>
+<h3 id="vector-b-behavioural-probe-observed-behaviour">Vector B — behavioural probe (observed behaviour)</h3>
+<p>Authoritative source for <em>observed</em> behaviour. Two throwaway probes were authored in the same Claude Code session as the audit run:</p>
+<ol>
+<li><code>claude/skills/__paths_probe__/SKILL.md</code> with <code>paths:</code> block-list form pointing at a non-matching glob:</li>
+</ol>
+<p>```</p>
+<hr>
+<p>name: <strong>paths_probe</strong>
+   description: Throwaway probe for harness paths: investigation chore/harness-paths-audit. Remove before merge.
+   allowed-tools:
+     - Read
+   paths:
+     - "<strong>never_match</strong>/**"</p>
+<hr>
+<p># <strong>paths_probe</strong> — never-match probe
+   ## Process
+   1. Do nothing. This skill exists only to test harness routing-slate behaviour.
+   ```</p>
+<ol start="2">
+<li><code>claude/skills/__paths_probe_match__/SKILL.md</code> (cross-check probe) with <code>paths:</code> block-list form pointing at a guaranteed-match glob <code>docs-source/**</code>.</li>
+</ol>
+<p>Trigger edit: a Read of <code>docs-source/index.md</code> was performed within the same session, intended to exercise the harness routing surface against the <code>docs-source/**</code> glob.</p>
+<p>Observation: the routing slate is <strong>not introspectable from within an agent's tool-call context</strong>. The harness exposes a session-start skill-listing snapshot in the system reminder; that snapshot does not re-scan mid-session SKILL.md additions, and no per-tool-call routing slate is surfaced to the agent. The probes were created after session start, so neither the matching nor the non-matching probe appears in the session-start snapshot regardless of the harness's filtering behaviour. The experiment cannot distinguish between "loader filters by <code>paths:</code>" and "loader ignores <code>paths:</code> but does not re-scan mid-session additions either".</p>
+<p>Both probe directories were removed at the end of the probe step; <code>ls claude/skills/ | grep -c __paths_probe</code> returns 0 (AC-6 verified).</p>
+<p>Vector B classification: <strong>observed-inconclusive</strong>. Vector B does not contribute a verdict; the FINDING leans on Vectors A + C.</p>
+<h3 id="vector-c-internal-loader-scan-loader-is-out-of-repo">Vector C — internal-loader scan (loader is out-of-repo)</h3>
+<p>Confirmatory only. The analysis pre-discovered that pipelinekit ships zero consumer code reading SKILL.md frontmatter <code>paths:</code>. This vector re-validates at investigation time.</p>
+<p>Command run: <code>grep -rn "paths:" claude/lib/ claude/host-adapters/</code> from the repo root.</p>
+<p>Result: exit code 1 — zero hits for the literal <code>paths:</code> token in those trees.</p>
+<p>Broader scan with <code>grep -rEin "paths"</code>: every match across <code>claude/lib/</code> and <code>claude/host-adapters/</code> falls into one of the three unrelated categories:</p>
+<table>
+<thead>
+<tr>
+<th>file:line</th>
+<th>surface category</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>claude/lib/sandbox/tests/test_sandbox_wrap_shared.sh:14</code></td>
+<td>comment ("stale paths")</td>
+</tr>
+<tr>
+<td><code>claude/lib/pipeline/charter_classifier.py:549</code></td>
+<td>comment ("CWD-relative paths")</td>
+</tr>
+<tr>
+<td><code>claude/lib/pipeline/decomposition_check.py:48</code></td>
+<td>docstring for plan-row Files: parser</td>
+</tr>
+<tr>
+<td><code>claude/lib/worker-provider/task-spec.md:22-24</code></td>
+<td>worker-spec field list (<code>inputs</code>/<code>files_in_scope</code>/<code>expected_outputs</code> — absolute path lists, not skill frontmatter)</td>
+</tr>
+<tr>
+<td><code>claude/lib/pipeline/tests/test_charter_extractor.py:49-50</code></td>
+<td>test method name</td>
+</tr>
+<tr>
+<td><code>claude/lib/pipeline/charter_extractor.py:7,27,170,171,199,200</code></td>
+<td>function <code>discover_artifact_paths</code> for analysis/plan/PRP files under <code>docs/</code></td>
+</tr>
+<tr>
+<td><code>claude/lib/sandbox/tests/test_no_shell_injection.sh:117</code></td>
+<td>comment ("success and failure paths")</td>
+</tr>
+<tr>
+<td><code>claude/lib/worker-provider/codex.md:47</code></td>
+<td>doc prose ("all paths in <code>&lt;files&gt;</code> exist on disk")</td>
+</tr>
+<tr>
+<td><code>claude/lib/worker-provider/interface.md:43,70,82</code></td>
+<td>doc prose ("file paths the worker reports")</td>
+</tr>
+</tbody>
+</table>
+<p>Zero hits are classified as "skill frontmatter consumer".</p>
+<p>Specifically read <code>claude/lib/pipeline/charter_revalidate.py:430</code> <code>parse_charter_frontmatter</code>: the function accepts a generic charter-text argument and returns a flat key/value dict. Its sole in-tree call site is at line 467 inside the same module's <code>is_fresh</code> helper, which passes charter text from <code>docs/charter.md</code>. The function is not wired to read <code>claude/skills/*/SKILL.md</code> from any call site.</p>
+<p>Vector C classification: <strong>internal-zero-consumer</strong>. The loader is necessarily out-of-repo — in the Claude Code binary itself.</p>
+<h2 id="findings">FINDINGS</h2>
+<p><strong>FINDING: paths:-honored = yes</strong></p>
+<p>Reasoning:</p>
 <ul>
-<li><a href="SKILL-AUTHORING-STANDARD.html">SKILL authoring standard</a> — the 10-pattern skill DNA template, originally vendored from alirezarezvani/claude-skills.</li>
-<li><a href="SKILL_PIPELINE.html">SKILL pipeline lifecycle</a> — Intent → ... → Verify lifecycle.</li>
-<li><a href="NOTICE.html">Vendoring notice</a> — attribution + license.</li>
+<li>Vector A (<code>docs-source/skills-scope-policy.md:8</code>, <code>claude/skills/CLAUDE.md:60</code>, and <code>https://code.claude.com/docs/en/skills</code>) documents the loader as filtering dispatch by <code>paths:</code>. Four citation surfaces converge on the same wording with no contradicting documentation surface.</li>
+<li>Vector C (<code>grep -rn "paths:" claude/lib/ claude/host-adapters/</code> returns 0) confirms the loader is out-of-repo, in the Claude Code binary. There is no in-repo code that could silently override the documented behaviour.</li>
+<li>Vector B is <strong>inconclusive</strong> (the routing slate is not introspectable from within an agent's tool-call context — see § METHOD Vector B). It does not contribute a verdict. The FINDING leans on Vectors A + C.</li>
 </ul>
-<h2 id="built-with-inspired-by">Built with / Inspired by</h2>
-<p>Pipelinekit is MIT-licensed and stands on the shoulders of several upstream projects, plus inspiration from individual researchers and the Claude platform itself.</p>
+<p>No vector contradicts the documented behaviour. Per the standard absence-of-counter-evidence rule, the FINDING tracks the documented spec.</p>
+<h2 id="implications-for-f5">IMPLICATIONS for F5</h2>
+<p>F5 of the previous pipeline run added <code>paths:</code> to 31 skills on the assumption the harness filters by it. Under FINDING = <code>yes</code>, F5 delivers as documented:</p>
 <ul>
-<li><strong><a href="https://karpathy.ai/">Andrej Karpathy</a></strong> — the autoresearch-loop pattern (<code>/research</code>). The <code>symbol-verifier</code> anti-hallucination agent is inspired by the same first-principles verification ethos.</li>
-<li><strong><a href="https://www.anthropic.com/">Anthropic</a></strong> — the entire runtime: Claude Code, the Agent SDK, multi-agent dispatch, Skills, Hooks, MCP, <code>PushNotification</code>, and the underlying Claude models that every pipelinekit phase calls.</li>
+<li>The 31 added <code>paths:</code> blocks scope each skill to its primary directory or related surface. The harness loader filters those skills out of the routing slate when the active edit target falls outside every declared glob.</li>
+<li>Slate-size delta cannot be quantified from this investigation alone — Vector B was inconclusive on the live slate. Quantifying the delta would require either (a) instrumentation inside the Claude Code binary, which is out of scope for this repo, or (b) an upstream telemetry / debug-flag from Anthropic that exposes the per-dispatch slate. Neither is available today.</li>
+<li>Dispatch-token delta is therefore not quantified in this report; the qualitative claim that the slate is smaller and the dispatch decision faster (per <code>docs-source/skills-scope-policy.md:10</code>) holds insofar as the documented filter holds.</li>
+<li>F5 also delivers reviewer-facing scope documentation as a secondary benefit (per <code>docs-source/skills-scope-policy.md:12</code>).</li>
 </ul>
-<p>See the <strong><a href="credits.html">Credits page</a></strong> for the full table of vendored upstreams (with pinned SHAs, licenses, scope, and re-vendor procedures) — wshobson/agents, alirezarezvani/{claude-skills, ClaudeForge}, mattpocock/skills.</p>
+<p>No remediation needed.</p>
+<h2 id="follow-up-recommendations">FOLLOW-UP recommendations</h2>
+<p>Under FINDING = <code>yes</code>:</p>
+<ol>
+<li>
+<p><strong>No-op on the routing-slate policy doc.</strong> <code>docs-source/skills-scope-policy.md</code> line 8's claim is verified. No footnote is required. Task 1.6 of <code>docs/plan-v81.md</code> routes through Branch A (no edit).</p>
+</li>
+<li>
+<p><strong>Tighten overly-broad globs (future maintenance, deferred).</strong> Some skills currently declare <code>paths:</code> globs that match large fractions of the repo (e.g. <code>**/*.md</code>). These broad declarations dilute the routing-slate filter's benefit. A future audit could narrow these to the minimal directory the skill actually edits. Deferred; not scoped to this feature.</p>
+</li>
+<li>
+<p><strong>Quantify slate-size delta if Anthropic ships routing-slate instrumentation.</strong> The qualitative claim of smaller slate / faster dispatch is documented but not measured in this repo. If a future Claude Code release exposes the per-dispatch routing slate to the agent context, re-run Vector B with the same probes and update this report's IMPLICATIONS section with quantitative numbers. Deferred.</p>
+</li>
+<li>
+<p><strong>Keep <code>paths:</code> declarations under review at PR time.</strong> Reviewers should audit scope changes alongside behaviour changes (per <code>docs-source/skills-scope-policy.md:12</code>). The <code>paths:</code> field is now load-bearing; widening a skill's <code>paths:</code> block has runtime consequences.</p>
+</li>
+<li>
+<p><strong>Upstream Anthropic feature request (deferred).</strong> A debug flag or telemetry surface that exposes the per-dispatch routing slate would close the Vector B inconclusive gap and let future investigations measure the slate-size delta directly. Capture as a future maintenance request; not authored or filed by this feature.</p>
+</li>
+</ol>
     </div>
 
     <div class="no-results" id="no-results">

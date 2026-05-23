@@ -39,6 +39,7 @@ The complete user-facing documentation for pipelinekit \(autonomous `/pipeline` 
 - [GitHub Issues integration](github-issues-integration.html) — `--issues` mode for `/pipeline`.
 - [`/pipeline --renew` charter revalidation](pipeline-charter-revalidation.html) — drift detection with 3-valued status + `--auto` bypass.
 - [Stop self-reflection hook](stop-self-reflect-hook.html) — Stop hook proposes `CLAUDE.md` amendments per session; opt out via `PIPELINE_NO_SELF_REFLECT=1`.
+- [Harness `paths:` field investigation](harness-paths-investigation.html) — does the Claude Code loader actually filter dispatch by the `paths:` frontmatter? Three-vector probe + FINDINGS.
 - [Skills scope policy](skills-scope-policy.html) — authoring rules for the `paths:` frontmatter field and the global-by-design allowlist.
 - [Governance Playbook](governance.html) — AI Champion role, standardization playbook, adoption metrics.
 
