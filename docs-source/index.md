@@ -17,6 +17,7 @@ The complete user-facing documentation for pipelinekit \(autonomous `/pipeline` 
 - [Cloud setup](cloud-setup.html) — VPS bootstrap \(Oracle, Hetzner\) for headless Claude Code execution.
 - [Pipeline workflow](pipeline.html) — the `/pipeline` autonomous orchestrator: charter discovery, analyze, plan, implement, review, merge.
 - [Codebase map](codebase-map.html) — top-level repo layout with one-line purpose per directory + root file.
+- [MCP LSP Setup](mcp-lsp-setup.html) — symbol-level Go-to-Definition via the serena MCP.
 
 ## Deployment + CI providers
 

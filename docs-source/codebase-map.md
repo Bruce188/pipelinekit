@@ -35,6 +35,7 @@ The pipelinekit repository top-level layout — one line per directory, one line
 | `README.md` | Top-level repo README (user-facing install + feature summary). | Yes |
 | `LICENSE` | MIT license. | Yes |
 | `.gitignore` | Standard git ignore rules. | Yes |
+| `.mcp.json` | MCP server configuration (LSP-backed serena recommendation; see `documentation/mcp-lsp-setup.html`). | Yes |
 | `.mcp.json.template` | MCP server config template (copy to `.mcp.json` to opt in). | Yes (template only) |
 | `.worktreeinclude.template` | Worktree env-handoff template (copy to `.worktreeinclude` per repo). | Yes (template only) |
 | `.devcontainer/` | Devcontainer config for Codespaces / VSCode dev containers. | Yes |
