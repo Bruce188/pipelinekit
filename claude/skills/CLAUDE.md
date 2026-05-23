@@ -10,6 +10,8 @@ Every `SKILL.md` opens with a YAML frontmatter block. Required keys first, optio
 ---
 name: my-skill
 description: One sentence summary the orchestrator reads when deciding whether to dispatch this skill. Include trigger keywords here so the routing layer can match it.
+# Optional but RECOMMENDED for routing precision (omit only for prose-only doctrine skills):
+# Optional below this line:
 allowed-tools:
   - Read
   - Write
@@ -17,7 +19,6 @@ allowed-tools:
   - Bash
   - Glob
   - Grep
-# Optional below this line:
 paths:
   - "src/**/*.ts"
   - "tests/**/*.spec.ts"

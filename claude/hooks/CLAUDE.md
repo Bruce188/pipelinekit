@@ -61,7 +61,7 @@ Stop hooks are the exception: by contract, ANY exit code from a `Stop` hook is n
 
 - **Guard external commands.** Check tool availability before use: `command -v jq >/dev/null 2>&1 || python3_fallback`. The hook MUST gracefully fall back when a tool is absent; never assume `jq`, `yq`, `ripgrep`, or similar third-party CLIs are installed.
 - **Always quote shell variables.** `[ -z "$VAR" ]`, `grep -F "$line"`, `echo "$COMMAND"`. Unquoted vars splatter on whitespace and break the gate.
-- **Bound the input.** Hooks run on every matching tool call; a hot loop in a hook compounds session cost. Pre-filter stdin with bash builtins (`[[ "$INPUT" == *git* ]] || exit 0`) before invoking python3 — see `validate-commit-msg.sh` line 200 for the pattern.
+- **Bound the input.** Hooks run on every matching tool call; a hot loop in a hook compounds session cost. Pre-filter stdin with bash builtins (`[[ "$INPUT" == *git* ]] || exit 0`) before invoking python3 — see `validate-commit-msg.sh` for the canonical pre-filter pattern.
 - **Stdlib only for python hooks.** No `requests`, no `yaml`, no `click`. Use `json`, `os`, `sys`, `re`, `subprocess`, `pathlib`, `argparse`, `fnmatch`.
 - **Stderr is the user surface on exit 1 / exit 2.** Write actionable messages: `error: <category>: <what failed> -- <how to fix>`. Avoid stack traces; catch and reformat exceptions.
 - **Self-test mode.** Bash hooks SHOULD support `bash hook.sh --selftest` that runs inline test cases without harness involvement. See `validate-commit-msg.sh` for the canonical `--selftest` shape (case table + PASS/FAIL counter).
@@ -77,7 +77,7 @@ Registration: adding a new hook means editing `~/.claude/settings.json` (or the 
 
 ## Denial Tracking
 
-Hooks that block repeatedly on the same surface burn agent tokens in retry loops. The `denial_tracker.py` helper records consecutive denials per `(tool, rule)` pair and, after 3 hits in 5 minutes, converts the block into an `ask` advisory so the agent stops banging on the gate. See `block-stage-sensitive.sh` lines 87-94 for the integration pattern. New gating hooks SHOULD wire through the tracker for any rule that the agent is likely to hit more than once per session.
+Hooks that block repeatedly on the same surface burn agent tokens in retry loops. The `denial_tracker.py` helper records consecutive denials per `(tool, rule)` pair and, after 3 hits in 5 minutes, converts the block into an `ask` advisory so the agent stops banging on the gate. See `block-stage-sensitive.sh` (search for `denial_tracker`) for the integration pattern. New gating hooks SHOULD wire through the tracker for any rule that the agent is likely to hit more than once per session.
 
 ## See Also
 
