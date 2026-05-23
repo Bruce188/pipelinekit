@@ -207,6 +207,26 @@ $DIFF_BLOCK
 EOF
 )
 
+# Optional 5th section: Caveman state — only when the marker file exists.
+if [ -f "$HOME/.claude/.caveman-active" ]; then
+  CAVEMAN_LEVEL=$(head -n1 "$HOME/.claude/.caveman-active" 2>/dev/null || echo "")
+  [ -z "$CAVEMAN_LEVEL" ] && CAVEMAN_LEVEL="wenyan-ultra"
+  CAVEMAN_BLOCK=$(cat <<EOF
+
+## Caveman state
+
+Active level: \`$CAVEMAN_LEVEL\`. Three-zone content split applies to every subagent dispatch.
+
+- Zone 1 (code / paths / commits / errors): normal English, exact strings.
+- Zone 2 (narrative prose): real classical Chinese 文言, Han characters mandatory.
+- Zone 3 (fragments / status / beacons): ultra English, drop articles + filler.
+
+Snippet contract: \`~/.claude/snippets/caveman-subagent.md\` (repo: \`claude/snippets/caveman-subagent.md\`).
+EOF
+  )
+  OUT="$OUT$CAVEMAN_BLOCK"
+fi
+
 # ─── Enforce 8 KB cap ─────────────────────────────────────────────────────────
 OUT_BYTES=$(printf '%s' "$OUT" | wc -c)
 if [ "$OUT_BYTES" -gt "$OUTPUT_BYTE_CAP" ]; then
