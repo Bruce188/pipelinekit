@@ -6,6 +6,24 @@ paths:
 
 # Agent & Worktree Rules (Detailed)
 
+## Subagent Defaults
+
+Subagent dispatch via the `Agent` tool is the DEFAULT execution mode whenever any of these signals is present, even when the user has not explicitly named an agent type:
+
+- **Multi-feature batches**: "process features 7–11", "batch A", "parallel streams", "5 at a time" → one subagent per feature, ALL dispatched in a single message so they run concurrently.
+- **Autonomous runs**: "overnight", "while I sleep", "don't pause", "don't ask for confirmation", "target 10 AM", `--auto` flag → main session orchestrates and never blocks on a single feature's implementation.
+- **Independent investigations**: "audit X", "find all Y", "where is Z used" → dispatch `Explore` or `general-purpose` with the scoped question; do not grep inline if the answer needs > 3 queries.
+- **Long-running phases**: any implement-plan / review phase with > 5 tasks or > 2k LOC diff → dispatch via `/pipeline` Phase Mode `subagent` (default for new features per `~/.claude/rules/workflow.md § Phase Mode Precedence`).
+
+Inline execution is the EXCEPTION, reserved for:
+- One-shots under ~3 tool calls where dispatch overhead exceeds the work itself (e.g. read one file, edit one line, run one test).
+- Interactive Q&A with the user actively present and watching (turn-by-turn pairing).
+- Explicit user instruction: "do it inline", "do it yourself", "no agents", "no subagents".
+
+**Self-correction rule.** If the user has to say "use subagents" or "make sure to continue with subagents" mid-flight, the prior dispatch decision was wrong. Re-read the original prompt for trigger keywords above, switch to dispatch mode for the remaining work immediately, and do NOT finish the current inline step first as a courtesy — abandon it (or stash it for the subagent to pick up) and dispatch.
+
+**Parallelism reminder.** Multiple independent subagents in a SINGLE message run concurrently. Calling `Agent` five times across five sequential turns serializes them and forfeits the parallelism. Bundle into one message.
+
 ## Skill Isolation
 Skills that write code should use `context: fork` in SKILL.md frontmatter. For parallel skill execution touching different files, combine `context: fork` with `isolation: "worktree"`.
 
