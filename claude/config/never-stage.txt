@@ -21,6 +21,7 @@ docs/pipeline-state.md
 docs/.last-verify.json
 docs/pipeline-intel.json
 docs/context-dump.md
+docs/claude-md-proposal*.md
 docs/archive/*
 docs/active-persona
 docs/active-deployment
