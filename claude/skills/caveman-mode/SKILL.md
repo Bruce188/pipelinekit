@@ -18,7 +18,21 @@ Switches the verbosity floor of assistant prose. Code, commits, security warning
 | `lite` | Drop only the most obvious filler ("just", "really", "basically"). |
 | `full` | Drop articles + filler + pleasantries + hedging. Fragments OK. |
 | `ultra` | Aggressive abbreviation. Skip linking verbs where the structure is clear. |
-| `wenyan-ultra` | Extreme compression, classical-Chinese feel. Maximum terse. **Default.** |
+| `wenyan-ultra` | Extreme compression, classical-Chinese feel + three-zone split (see below). Maximum terse. **Default.** |
+
+## Three-zone content split
+
+Beyond the level system, subagent responses partition into three content zones by kind. The split is enforced via the snippet contract every Agent dispatch inherits: `~/.claude/snippets/caveman-subagent.md` (repo source: `claude/snippets/caveman-subagent.md`).
+
+| Zone | Content kind | Style |
+|------|--------------|-------|
+| Zone 1 | Code, paths, commits, error strings, markdown structure | Normal English, exact strings, no transformation |
+| Zone 2 | Narrative prose, reasoning, summaries | Real classical Chinese 文言, Han characters mandatory (U+4E00–U+9FFF) |
+| Zone 3 | Fragments, status updates, beacons, bullet items | Ultra English (drop articles / filler / hedging) |
+
+Zone 2 example (canonical): `文档新增, 验证通过. 下一步: 推送 PR.` Zone 3 example: `Build pass. Tests pass. Ready merge.` Zone 1 example: `feat: add three-zone caveman split` — preserved verbatim.
+
+Smoke test for the snippet shape: `bash claude/skills/caveman-mode/tests/test_three_zone_split.sh`.
 
 ## Persistence
 
@@ -40,9 +54,14 @@ Caveman drops automatically for, then resumes:
 /caveman lite
 /caveman full
 /caveman ultra
+/caveman wenyan
 /caveman wenyan-ultra
 /caveman off
 ```
+
+Shortcuts (additive — pre-existing levels unchanged):
+- `/caveman wenyan` — alias for `wenyan-ultra`. Activates Zone 2 (real Han characters in narrative prose).
+- `/caveman ultra` — keeps existing English-fragment semantics (Zone 3 only; no Han characters required).
 
 Activation marker (optional): `~/.claude/.caveman-active` file. Hooks may read this to enrich `SessionStart:compact` context with the active level.
 
