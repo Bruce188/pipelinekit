@@ -152,7 +152,85 @@ Clean up local and remote state after a PR has been merged.
    - This step is advisory and non-blocking — any error reading or writing `progress.md` logs a warning
      and continues to the next step without halting.
 
-12. Output What's Next:
+12. Workflow hygiene pass (OQ-2):
+
+   Runs the orphan-snapshot janitor and the features.md pruner in one combined hygiene
+   block. Both honour a single opt-out env var: `PIPELINE_HYGIENE_OFF=1`.
+
+   **Single early-return guard** (top of the block):
+
+   ```bash
+   if [ "${PIPELINE_HYGIENE_OFF:-0}" = "1" ]; then
+     echo "PIPELINE_HYGIENE_OFF=1 — skipping orphan janitor + features pruner"
+     # fall through to Step 13 (Output What's Next) without running either pass
+   else
+     # Orphan janitor pass.
+     #
+     # Reads claude/config/orphan-patterns.txt (fnmatch globs; default-ALLOW
+     # on missing — opposite of never-stage.txt). Intersects each candidate
+     # against claude/config/never-stage.txt; double-matched paths are NEVER
+     # deleted. Dry-run default ON: PIPELINE_JANITOR_DRY_RUN=1 (logs but does
+     # not delete). Set PIPELINE_JANITOR_DRY_RUN=0 to actually remove.
+
+     ROOT=$(git rev-parse --show-toplevel)
+     ORPHAN_FILE="$ROOT/claude/config/orphan-patterns.txt"
+     NEVER_STAGE_FILE="$ROOT/claude/config/never-stage.txt"
+     DRY_RUN="${PIPELINE_JANITOR_DRY_RUN:-1}"
+
+     if [ ! -r "$ORPHAN_FILE" ]; then
+       echo "janitor: $ORPHAN_FILE unreadable — skipping (default-allow)"
+     else
+       # Read patterns (skip blank lines and comments)
+       while IFS= read -r pattern; do
+         case "$pattern" in
+           ''|\#*) continue ;;
+         esac
+         # Expand glob from repo root (use compgen -G — handles no-match safely)
+         for f in $(cd "$ROOT" && compgen -G "$pattern" 2>/dev/null); do
+           # Never-stage intersection guard (MANDATORY): refuse to delete if
+           # the path matches any never-stage pattern.
+           if [ -r "$NEVER_STAGE_FILE" ]; then
+             if python3 - "$f" "$NEVER_STAGE_FILE" <<'PY'
+import fnmatch, sys
+path = sys.argv[1]
+ns_file = sys.argv[2]
+with open(ns_file) as fh:
+    patterns = [ln.strip() for ln in fh if ln.strip() and not ln.startswith('#')]
+sys.exit(0 if any(fnmatch.fnmatch(path, p) for p in patterns) else 1)
+PY
+             then
+               echo "janitor SKIP: $f matches never-stage.txt — refusing to delete"
+               continue
+             fi
+           fi
+           if [ "$DRY_RUN" = "1" ]; then
+             echo "janitor DRY-RUN: would remove $f"
+           else
+             rm -- "$ROOT/$f" && echo "janitor REMOVED: $f"
+           fi
+         done
+       done < "$ORPHAN_FILE"
+     fi
+
+     # Features pruner pass (SubQ-A wiring).
+     #
+     # Moves done-feature H2 blocks from docs/features.md → docs-source/feature-history.md
+     # and re-renders documentation/feature-history.html via render.py. Honours
+     # PIPELINE_HYGIENE_OFF=1 (already short-circuited above).
+
+     if [ -f "$ROOT/claude/lib/pipeline/features_pruner.py" ]; then
+       (cd "$ROOT" && python3 claude/lib/pipeline/features_pruner.py) \
+         || echo "features-pruner: non-zero exit (advisory — continuing)"
+     else
+       echo "features-pruner: claude/lib/pipeline/features_pruner.py absent — skipping"
+     fi
+   fi
+   ```
+
+   This step is advisory and non-blocking — any error reading config files or
+   running the pruner logs a warning and continues to Step 13 without halting.
+
+13. Output What's Next:
 
 ```
 ---

@@ -1223,6 +1223,10 @@ When `TERMINAL=0` (any feature failed, Path C escalation stuck, BUDGET_EXCEEDED 
 
 After terminal cleanup, proceed to Step 6 Final Summary which prints the run report.
 
+<!-- OQ-3 resolved: (d) html-archive variant — features.md → docs-source/feature-history.md, see /post-merge Step 12 + claude/lib/pipeline/features_pruner.py -->
+
+Per-feature pruning of done blocks out of `docs/features.md` does NOT live in Step 5.10 — it runs inside `/post-merge` Step 12 (the workflow-hygiene block) via `claude/lib/pipeline/features_pruner.py`. Step 5.10 is the terminal cleanup gate; pruning is a per-feature concern that fires after each successful merge.
+
 ---
 
 ### Step 6: Final Summary

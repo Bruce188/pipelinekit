@@ -1,0 +1,27 @@
+# Orphan-snapshot patterns. Hook `post-merge` Step 12 janitor reads this at invocation.
+# Format: fnmatch-style globs, one per line. Blank lines and '#' comments allowed. No regex.
+# Missing/unreadable file = default-ALLOW (janitor logs a warning and exits 0).
+# This is the OPPOSITE of never-stage.txt (which is default-deny).
+#
+# The janitor intersects each candidate path against never-stage.txt before
+# deleting; double-matched paths are NEVER deleted. See post-merge/SKILL.md Step 12.
+
+# Per-feature pipeline-state snapshots
+docs/pipeline-state.md.feature-*
+
+# Per-feature features.md snapshots
+docs/features.md.feature-*
+
+# Per-feature analysis.md snapshots (e.g. analysis.md.feature-1-halted)
+docs/analysis.md.feature-*-*
+
+# Archived pipeline-state.md variants
+docs/pipeline-state.md.archived-*
+
+# Halt/stale debug snapshots
+docs/pipeline-state.md.v[0-9]*-halt-*
+docs/pipeline-state.md.v[0-9]*-f[0-9]*-stale
+
+# One-off resume / master snapshot residue
+docs/RESUME.md
+docs/features-master.md
