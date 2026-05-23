@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Feature History — pipelinekit</title>
-<meta name="description" content="Rendered audit trail of merged pipelinekit features.">
+<meta name="description" content="Rendered audit trail for pipelinekit features. Each merged feature appears below as its own H2 with a &lt;details&gt; collapsible body. The pipeline appends new entries automatically via claude/lib/pipeline/features_pruner.py during /post-merge…">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -534,23 +534,30 @@ footer {
       <li class="lvl-2"><a href="#timeline">Timeline</a></li>
       <li class="lvl-2"><a href="#status-legend">Status legend</a></li>
       <li class="lvl-2"><a href="#features">Features</a></li>
+      <li class="lvl-2"><a href="#f1-feat-charter-ai-layer-topics">F1 — feat/charter-ai-layer-topics</a></li>
+      <li class="lvl-2"><a href="#f2-chore-harness-paths-audit">F2 — chore/harness-paths-audit</a></li>
+      <li class="lvl-2"><a href="#f3-fix-install-settings-completeness">F3 — fix/install-settings-completeness</a></li>
+      <li class="lvl-2"><a href="#f4-feat-write-a-skill-paths-enforcer">F4 — feat/write-a-skill-paths-enforcer</a></li>
+      <li class="lvl-2"><a href="#f5-feat-analyze-cites-codebase-map">F5 — feat/analyze-cites-codebase-map</a></li>
+      <li class="lvl-2"><a href="#f6-feat-pipeline-verify-gates-hook-smoke">F6 — feat/pipeline-verify-gates-hook-smoke</a></li>
+      <li class="lvl-2"><a href="#f7-feat-stop-reflect-cost-logging">F7 — feat/stop-reflect-cost-logging</a></li>
+      <li class="lvl-2"><a href="#f8-feat-review-checks-skill-compliance">F8 — feat/review-checks-skill-compliance</a></li>
+      <li class="lvl-2"><a href="#f9-chore-pipeline-terminal-state">F9 — chore/pipeline-terminal-state</a></li>
+      <li class="lvl-2"><a href="#f10-chore-html-effectiveness-wiring">F10 — chore/html-effectiveness-wiring</a></li>
+      <li class="lvl-2"><a href="#f11-chore-caveman-mode-split-ultra-wenyan">F11 — chore/caveman-mode-split-ultra-wenyan</a></li>
     </ul>
   </aside>
 
   <main>
     <header class="page-header">
       <h1>Feature History</h1>
-      <p class="description">Rendered audit trail of merged pipelinekit features.</p>
+      <p class="description">Rendered audit trail for pipelinekit features. Each merged feature appears below as its own H2 with a &lt;details&gt; collapsible body. The pipeline appends new entries automatically via claude/lib/pipeline/features_pruner.py during /post-merge…</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
 <!-- richness budget: spatial timeline + visual-token status pills + interactive collapsible-details (≥ 2 target) -->
 
-<p>Rendered audit trail for pipelinekit features. Each merged feature appears
-below as its own H2 with a <code>&lt;details&gt;</code> collapsible body. The pipeline appends
-new entries automatically via <code>claude/lib/pipeline/features_pruner.py</code> during
-<code>/post-merge</code> Step 12.</p>
 <h2 id="timeline">Timeline</h2>
 <p>Spatial overview of recent feature merges (left to right). Built as inline SVG
 so it renders standalone without any client dependencies.</p>
@@ -588,6 +595,181 @@ fix/docs-workflow-hygiene plan backfills the F1-F11 history below.
 </details>
 
 <!-- Per-feature H2 sections injected by Task 2.1 backfill below this comment. -->
+
+<h2 id="f1-feat-charter-ai-layer-topics">F1 — feat/charter-ai-layer-topics</h2>
+<p><strong>Status:</strong> <span class="status-pill status-merged">merged</span>
+<strong>PR:</strong> <a href="https://github.com/Bruce188/pipelinekit/pull/97">#97</a>
+<strong>SHA:</strong> <code>81efc28</code>
+<strong>Merged:</strong> 2026-05-23T07:26:53Z</p>
+<p>Extends Charter Discovery (Step 0 of <code>/pipeline</code>) with four new AI Layer topics (12-15) so charters capture model preferences, prompt-caching expectations, agent-team review style, and budget caps upfront.</p>
+<details>
+<summary>Details</summary>
+
+- Feature class: dev
+- Adds Topics 12-15 to the Charter Discovery question set
+- Charter schema updated; downstream phases honour new fields
+- Stop-self-reflect hook never-stage rules extended to cover `claude-md-proposal-v*.md` artifacts
+
+</details>
+
+<h2 id="f2-chore-harness-paths-audit">F2 — chore/harness-paths-audit</h2>
+<p><strong>Status:</strong> <span class="status-pill status-merged">merged</span>
+<strong>PR:</strong> <a href="https://github.com/Bruce188/pipelinekit/pull/98">#98</a>
+<strong>SHA:</strong> <code>59f0c76</code>
+<strong>Merged:</strong> 2026-05-23T08:07:19Z</p>
+<p>Adds an investigation report documenting harness paths frontmatter coverage across skills — establishes the baseline before paths-enforcement (F4) lands.</p>
+<details>
+<summary>Details</summary>
+
+- Feature class: non-dev (docs)
+- Inventory of skills missing `paths:` frontmatter declarations
+- Recommendation hand-off to F4 (write-a-skill paths enforcer)
+
+</details>
+
+<h2 id="f3-fix-install-settings-completeness">F3 — fix/install-settings-completeness</h2>
+<p><strong>Status:</strong> <span class="status-pill status-merged">merged</span>
+<strong>PR:</strong> <a href="https://github.com/Bruce188/pipelinekit/pull/99">#99</a>
+<strong>SHA:</strong> <code>8be1f22</code>
+<strong>Merged:</strong> 2026-05-23T08:28:33Z</p>
+<p>Closes hook-registration gap from the dormancy audit: <code>scripts/install.sh</code> now enumerates all 23 distinct Claude-harness hook scripts (previously wired only 14). Smoke test asserts every shipped hook is wired.</p>
+<details>
+<summary>Details</summary>
+
+- Feature class: dev
+- Adds `test_05_full_inventory_parity` to `claude/hooks/tests/test_install_settings_shape.sh`
+- New "## Registering in install.sh" section in `claude/hooks/CLAUDE.md`
+- Excludes git-only `validate-task-spec.py` from harness wiring
+
+</details>
+
+<h2 id="f4-feat-write-a-skill-paths-enforcer">F4 — feat/write-a-skill-paths-enforcer</h2>
+<p><strong>Status:</strong> <span class="status-pill status-merged">merged</span>
+<strong>PR:</strong> <a href="https://github.com/Bruce188/pipelinekit/pull/100">#100</a>
+<strong>SHA:</strong> <code>6fffc3a</code>
+<strong>Merged:</strong> 2026-05-23T08:46:42Z</p>
+<p>Adds Step 1 to the <code>write-a-skill</code> meta-skill requiring all new skills to declare <code>paths:</code> in frontmatter, with a small allowlist of global-by-design skills exempted.</p>
+<details>
+<summary>Details</summary>
+
+- Feature class: dev
+- Enforces paths-scoping convention for new skills
+- New tests asserting requirement enforcement and allowlist exception
+- Builds on F2 audit baseline
+
+</details>
+
+<h2 id="f5-feat-analyze-cites-codebase-map">F5 — feat/analyze-cites-codebase-map</h2>
+<p><strong>Status:</strong> <span class="status-pill status-merged">merged</span>
+<strong>PR:</strong> <a href="https://github.com/Bruce188/pipelinekit/pull/101">#101</a>
+<strong>SHA:</strong> <code>0a6b945</code>
+<strong>Merged:</strong> 2026-05-23T08:57:58Z</p>
+<p>Wires the <code>documentation/codebase-map.html</code> artifact into the <code>/analyze</code> skill exploration flow and the pipeline analyze-phase prompt template. Graceful degradation when the map is absent.</p>
+<details>
+<summary>Details</summary>
+
+- Feature class: dev
+- analyze skill cites the codebase map when present
+- pipeline analyze-phase prompt template references the map
+- Falls through cleanly when no map exists (no error)
+
+</details>
+
+<h2 id="f6-feat-pipeline-verify-gates-hook-smoke">F6 — feat/pipeline-verify-gates-hook-smoke</h2>
+<p><strong>Status:</strong> <span class="status-pill status-merged">merged</span>
+<strong>PR:</strong> <a href="https://github.com/Bruce188/pipelinekit/pull/102">#102</a>
+<strong>SHA:</strong> <code>f9c35bc</code>
+<strong>Merged:</strong> 2026-05-23T09:15:23Z</p>
+<p>Adds Step 5.5.7 smoke-test sub-step: pipeline verify now discovers <code>claude/hooks/tests/test_*.sh</code> via <code>find</code> and runs each. Authors get smoke-gate visibility from <code>claude/hooks/CLAUDE.md</code>.</p>
+<details>
+<summary>Details</summary>
+
+- Feature class: dev
+- Pipeline verify phase gates on hook smoke tests
+- Auto-discovers hook test files
+- CLAUDE.md documents the smoke-gate contract for hook authors
+
+</details>
+
+<h2 id="f7-feat-stop-reflect-cost-logging">F7 — feat/stop-reflect-cost-logging</h2>
+<p><strong>Status:</strong> <span class="status-pill status-merged">merged</span>
+<strong>PR:</strong> <a href="https://github.com/Bruce188/pipelinekit/pull/103">#103</a>
+<strong>SHA:</strong> <code>17012ec</code>
+<strong>Merged:</strong> 2026-05-23T09:37:16Z</p>
+<p><code>stop-self-reflect</code> hook now appends a <code>cost-events.jsonl</code> line after each <code>claude -p</code> invocation so Step 1.46 budget preflight reflects all session cost. Best-effort; hook still exits 0 on write failure.</p>
+<details>
+<summary>Details</summary>
+
+- Feature class: dev
+- Hook writes one JSONL line per reflect invocation
+- Budget preflight (Step 1.46) consumes the log
+- Smoke tests cover happy + failure paths
+- Exit-0 guarantee preserved on write failure
+
+</details>
+
+<h2 id="f8-feat-review-checks-skill-compliance">F8 — feat/review-checks-skill-compliance</h2>
+<p><strong>Status:</strong> <span class="status-pill status-merged">merged</span>
+<strong>PR:</strong> <a href="https://github.com/Bruce188/pipelinekit/pull/104">#104</a>
+<strong>SHA:</strong> <code>c05c445</code>
+<strong>Merged:</strong> 2026-05-23T10:03:21Z</p>
+<p><code>/review</code> skill grows skill-compliance gates for <code>paths:</code>, denial-tracker integration, and richness checks — review now catches missing-frontmatter and rendered-HTML quality regressions before merge.</p>
+<details>
+<summary>Details</summary>
+
+- Feature class: dev
+- New review gates: paths-declared, denial-tracker integration, richness threshold
+- Composes with F4 (paths enforcement) and F10 (richness threshold bump)
+
+</details>
+
+<h2 id="f9-chore-pipeline-terminal-state">F9 — chore/pipeline-terminal-state</h2>
+<p><strong>Status:</strong> <span class="status-pill status-merged">merged</span>
+<strong>PR:</strong> <a href="https://github.com/Bruce188/pipelinekit/pull/105">#105</a>
+<strong>SHA:</strong> <code>5d9796e</code>
+<strong>Merged:</strong> 2026-05-23T10:24:14Z</p>
+<p>On clean exit, Step 5.10 Terminal Cleanup writes <code>**Step:** done</code>, <code>**Completed:** &lt;ISO8601 UTC&gt;</code>, and <code>**Features merged:** &lt;count&gt;</code> to <code>docs/pipeline-state.md</code>. Step 3 grows a terminal-state guard that refuses silent re-execution of a finished pipeline.</p>
+<details>
+<summary>Details</summary>
+
+- Feature class: non-dev (chore)
+- Adds terminal state marker fields to pipeline state schema
+- `--restart-from` guard fires before override on a `done` state
+- Removes dead Step 6 cleanup-line that previously deleted state files
+
+</details>
+
+<h2 id="f10-chore-html-effectiveness-wiring">F10 — chore/html-effectiveness-wiring</h2>
+<p><strong>Status:</strong> <span class="status-pill status-merged">merged</span>
+<strong>PR:</strong> <a href="https://github.com/Bruce188/pipelinekit/pull/106">#106</a>
+<strong>SHA:</strong> <code>7995b08</code>
+<strong>Merged:</strong> 2026-05-23T11:01:02Z</p>
+<p>Authors two new reference pages — <code>html-effectiveness-principles.md</code> and <code>design-tokens.md</code> — and links them from the documentation index. Adds a Page-type → snippet taxonomy table to the docs-writer skill. Bumps richness threshold to require two distinct rich-pattern matches per page.</p>
+<details>
+<summary>Details</summary>
+
+- Feature class: non-dev (chore/docs)
+- Two new reference pages: html-effectiveness-principles, design-tokens
+- Page-type → snippet taxonomy table in docs-writer SKILL.md
+- Richness check threshold raised: 2 distinct patterns required
+
+</details>
+
+<h2 id="f11-chore-caveman-mode-split-ultra-wenyan">F11 — chore/caveman-mode-split-ultra-wenyan</h2>
+<p><strong>Status:</strong> <span class="status-pill status-merged">merged</span>
+<strong>PR:</strong> <a href="https://github.com/Bruce188/pipelinekit/pull/107">#107</a>
+<strong>SHA:</strong> <code>2b70c5f</code>
+<strong>Merged:</strong> 2026-05-23T11:19:34Z</p>
+<p>Caveman-mode skill grows a three-zone content split — Zone 1 (code) stays normal English, Zone 2 (wenyan compressed prose), Zone 3 (fragmentary directives). Cleaner verbosity gradient for mixed-content responses.</p>
+<details>
+<summary>Details</summary>
+
+- Feature class: non-dev (chore)
+- Three-zone content split (code / wenyan / fragments)
+- Refines intensity levels: wenyan-ultra, ultra, full, lite
+- Skill snippet contracts updated accordingly
+
+</details>
     </div>
 
     <div class="no-results" id="no-results">
