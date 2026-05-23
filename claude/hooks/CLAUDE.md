@@ -75,6 +75,16 @@ Stop hooks are the exception: by contract, ANY exit code from a `Stop` hook is n
 
 Registration: adding a new hook means editing `~/.claude/settings.json` (or the project's `.claude/settings.json`) to attach the script to its event. The hook file itself is inert until the harness registers it.
 
+## Registering in install.sh
+
+Every Claude-harness hook in this directory (every `<name>.sh` and `<name>.py` excluding `_`-prefixed helpers and the git-only `validate-task-spec.py`) MUST appear in the canonical-dict python heredoc inside `scripts/install.sh:57-103` (`maybe_install_settings`). Re-running the installer with `CLAUDE_INSTALL_SETTINGS=1` rewrites `~/.claude/settings.json` from this dict — a hook missing from the dict will not be wired, even though the file ships in the overlay.
+
+Event mapping is canonical at `claude/skills/build-hook/SKILL.md` § "Existing Hooks" — consult that table when adding a new hook to decide which event array gets the new entry. Within each event array, order hooks alphabetically.
+
+Parity is gated by `claude/hooks/tests/test_install_settings_shape.sh` test_05 (`full_inventory_parity`). The test runs the installer in a sandbox `CLAUDE_HOME` and asserts every `*.sh` + `*.py` (minus exclusions) appears as a `command` value in the produced `settings.json`. Add a new hook → re-run the test → fix the install.sh heredoc until green.
+
+Exclusion: `validate-task-spec.py` is a git pre-commit hook (lives at `.git/hooks/pre-commit` after install). It is NOT a Claude-harness hook and never appears in `settings.json`.
+
 ## Denial Tracking
 
 Hooks that block repeatedly on the same surface burn agent tokens in retry loops. The `denial_tracker.py` helper records consecutive denials per `(tool, rule)` pair and, after 3 hits in 5 minutes, converts the block into an `ask` advisory so the agent stops banging on the gate. See `block-stage-sensitive.sh` (search for `denial_tracker`) for the integration pattern. New gating hooks SHOULD wire through the tracker for any rule that the agent is likely to hit more than once per session.
