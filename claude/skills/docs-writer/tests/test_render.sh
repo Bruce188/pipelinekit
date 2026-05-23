@@ -630,6 +630,40 @@ else
   RESULTS+=("  FAIL  before-after-slider snippet name not logged to stderr")
 fi
 
+# ============ Test 14: governance-roles-table snippet substitution ============
+cat > "$TMP/governance-roles-table-test.md" <<'EOF'
+# Governance test
+
+Intro.
+
+<div data-snippet="governance-roles-table"></div>
+
+## Section
+
+More.
+EOF
+
+python3 claude/skills/docs-writer/render.py "$TMP/governance-roles-table-test.md" "$TMP/governance-roles-table-test.html" > "$TMP/grt-stderr.txt" 2>&1 || true
+
+assert_contains "$TMP/governance-roles-table-test.html" 'data-snippet-mount="governance-roles-table"' 'governance-roles-table snippet placeholder substituted with mount root'
+
+GRT_PLACEHOLDER_HITS=$(awk '/<div id="page-content">/{flag=1; next} flag && /^<!--/{flag=2} flag==1{print}' "$TMP/governance-roles-table-test.html" 2>/dev/null | grep -c '<div data-snippet="governance-roles-table"></div>' || true)
+if [ "$GRT_PLACEHOLDER_HITS" -eq 0 ]; then
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  governance-roles-table placeholder removed after substitution (in body)")
+else
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  $GRT_PLACEHOLDER_HITS governance-roles-table placeholder remains in body")
+fi
+
+if grep -q 'snippets: governance-roles-table' "$TMP/grt-stderr.txt" 2>/dev/null; then
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  governance-roles-table snippet name logged to stderr")
+else
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  governance-roles-table snippet name not logged to stderr")
+fi
+
 # ============ Summary ============
 printf '%s\n' "${RESULTS[@]}"
 echo
