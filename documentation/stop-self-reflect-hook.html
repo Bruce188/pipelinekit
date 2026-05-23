@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>pipelinekit documentation — pipelinekit</title>
-<meta name="description" content="Complete user-facing documentation for pipelinekit.">
+<title>Stop self-reflection hook — pipelinekit</title>
+<meta name="description" content="The Stop self-reflection hook (claude/hooks/stop-self-reflect.sh) runs a headless claude -p call at the end of every Claude Code session and writes a JSON proposal artifact that suggests lean amendments to your project&#x27;s CLAUDE.md files.…">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>pipelinekit documentation</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Stop self-reflection hook</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -531,354 +531,347 @@ footer {
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
     <ul>
-      <li class="lvl-2"><a href="#system-architecture">System architecture</a></li>
-      <li class="lvl-2"><a href="#start-here">Start here</a></li>
-      <li class="lvl-2"><a href="#reference">Reference</a></li>
-      <li class="lvl-2"><a href="#deployment-ci-providers">Deployment + CI providers</a></li>
-      <li class="lvl-2"><a href="#skills-features">Skills + features</a></li>
-      <li class="lvl-2"><a href="#cost-observability">Cost + observability</a></li>
-      <li class="lvl-2"><a href="#reference-standards-vendored">Reference standards \(vendored\)</a></li>
-      <li class="lvl-2"><a href="#built-with-inspired-by">Built with / Inspired by</a></li>
+      <li class="lvl-2"><a href="#what-the-hook-does">What the hook does</a></li>
+      <li class="lvl-2"><a href="#where-the-proposal-artifact-lives">Where the proposal artifact lives</a></li>
+      <li class="lvl-2"><a href="#applying-proposals-manually">Applying proposals manually</a></li>
+      <li class="lvl-2"><a href="#opting-out">Opting out</a></li>
+      <li class="lvl-2"><a href="#cost-posture">Cost posture</a></li>
+      <li class="lvl-2"><a href="#selftest">Selftest</a></li>
+      <li class="lvl-2"><a href="#implementation-contract-recap">Implementation contract recap</a></li>
     </ul>
   </aside>
 
   <main>
     <header class="page-header">
-      <h1>pipelinekit documentation</h1>
-      <p class="description">Complete user-facing documentation for pipelinekit.</p>
+      <h1>Stop self-reflection hook</h1>
+      <p class="description">The Stop self-reflection hook (claude/hooks/stop-self-reflect.sh) runs a headless claude -p call at the end of every Claude Code session and writes a JSON proposal artifact that suggests lean amendments to your project&#x27;s CLAUDE.md files.…</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
-<p>The complete user-facing documentation for pipelinekit (autonomous <code>/pipeline</code> orchestrator + skills + agents + hooks). Every page below is self-contained HTML (no CDN, no remote assets) — clone the repo and open any page directly via <code>file://</code> URL, or serve the folder via any static HTTP server.</p>
-<h2 id="system-architecture">System architecture</h2>
-<!-- snippet:architecture-diagram
-     4-layer SVG taxonomy of pipelinekit: user-invocable slash commands,
-     pipeline phase skills, specialized agents, hooks + infrastructure.
+<p>This page covers what the hook does, where it writes output, how to apply proposals manually, how to opt out, and the cost-control posture you should adopt before enabling it.</p>
+<!-- snippet:terminal-simulator
+     Simulated terminal session. Plays back a scripted sequence of
+     commands + outputs at a configurable speed. Pause / play / step /
+     restart controls. Used on ppr-research-flag.html for a dry-run
+     preview without requiring the user to actually run /ppr --research.
 
-     Hover any chip for details; click to navigate. Filter to a specific
-     layer via the layer-toggle buttons.
+     The scripted session is JSON-embedded inline. Lines are typed
+     character-by-character for commands; output is dumped instantly.
 
-     Placeholder usage in markdown source:
-       <div data-snippet="architecture-diagram"></div>
+     Placeholder usage:
+       <div data-snippet="terminal-simulator"></div>
 -->
-<div class="pkit-arch-diagram" data-snippet-mount="architecture-diagram">
+<div class="pkit-term" data-snippet-mount="terminal-simulator">
   <style>
-    .pkit-arch-diagram {
-      margin: 1.5rem 0;
-      padding: 1.5rem;
-      background: var(--bg-elev);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-    }
-    .pkit-arch-diagram .pkit-ad-controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      margin-bottom: 1.2rem;
-      align-items: center;
-    }
-    .pkit-arch-diagram .pkit-ad-label {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      color: var(--fg-subtle);
-      font-weight: 600;
-    }
-    .pkit-arch-diagram .pkit-ad-layer-btn {
-      padding: 0.3rem 0.65rem;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      color: var(--fg-muted);
-      font-size: 0.78rem;
-      cursor: pointer;
-      transition: all var(--transition);
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-    }
-    .pkit-arch-diagram .pkit-ad-layer-btn .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      display: inline-block;
-    }
-    .pkit-arch-diagram .pkit-ad-layer-btn:hover { color: var(--fg); border-color: var(--border-strong); }
-    .pkit-arch-diagram .pkit-ad-layer-btn.active { color: var(--fg); border-color: var(--accent); background: var(--accent-soft); }
-
-    .pkit-arch-diagram .pkit-ad-stack {
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-    }
-    .pkit-arch-diagram .pkit-ad-layer {
-      border-radius: var(--radius);
-      padding: 0.9rem 1.1rem;
-      transition: opacity var(--transition), transform var(--transition);
-      border: 1px solid var(--border);
-      position: relative;
-    }
-    .pkit-arch-diagram .pkit-ad-layer.dimmed {
-      opacity: 0.25;
-      filter: grayscale(40%);
-    }
-    .pkit-arch-diagram .pkit-ad-layer-1 { background: linear-gradient(135deg, color-mix(in srgb, #10b981 12%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #10b981 35%, var(--border)); }
-    .pkit-arch-diagram .pkit-ad-layer-2 { background: linear-gradient(135deg, color-mix(in srgb, #3b82f6 12%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #3b82f6 35%, var(--border)); }
-    .pkit-arch-diagram .pkit-ad-layer-3 { background: linear-gradient(135deg, color-mix(in srgb, #a855f7 12%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #a855f7 35%, var(--border)); }
-    .pkit-arch-diagram .pkit-ad-layer-4 { background: linear-gradient(135deg, color-mix(in srgb, #f59e0b 10%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #f59e0b 35%, var(--border)); }
-
-    .pkit-arch-diagram .pkit-ad-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin-bottom: 0.5rem;
-    }
-    .pkit-arch-diagram .pkit-ad-name {
-      font-size: 0.92rem;
-      font-weight: 700;
-      color: var(--fg);
-    }
-    .pkit-arch-diagram .pkit-ad-name .lvl {
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      color: var(--fg-subtle);
-      margin-right: 0.5rem;
-    }
-    .pkit-arch-diagram .pkit-ad-count {
-      font-family: var(--mono);
-      font-size: 0.78rem;
-      color: var(--fg-muted);
-      background: var(--bg);
-      padding: 0.1rem 0.5rem;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
-    }
-    .pkit-arch-diagram .pkit-ad-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.3rem;
-    }
-    .pkit-arch-diagram .pkit-ad-chip {
-      padding: 0.18rem 0.55rem;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      font-family: var(--mono);
-      font-size: 0.75rem;
-      color: var(--fg-muted);
-      cursor: help;
-      transition: all 100ms ease;
-      position: relative;
-    }
-    .pkit-arch-diagram .pkit-ad-chip:hover {
-      color: var(--fg);
-      border-color: var(--accent);
-      background: var(--accent-soft);
-    }
-    .pkit-arch-diagram .pkit-ad-chip.more { font-style: italic; color: var(--fg-subtle); }
-
-    .pkit-arch-diagram .pkit-ad-flow {
-      display: flex;
-      justify-content: center;
-      padding: 0.1rem 0;
-      color: var(--fg-subtle);
-      font-size: 0.85rem;
-    }
-    .pkit-arch-diagram .pkit-ad-tooltip {
-      position: absolute;
-      background: var(--fg);
-      color: var(--bg);
-      padding: 0.45rem 0.7rem;
-      border-radius: var(--radius-sm);
-      font-size: 0.78rem;
-      max-width: 280px;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 120ms ease;
-      z-index: 20;
-      box-shadow: var(--shadow-md);
-      line-height: 1.4;
-      bottom: calc(100% + 8px);
-      left: 50%;
-      transform: translateX(-50%);
-      white-space: normal;
-    }
-    .pkit-arch-diagram .pkit-ad-chip:hover .pkit-ad-tooltip { opacity: 1; }
+    .pkit-term { margin: 1.5rem 0; padding: 0; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .pkit-term .pkit-tm-bar { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.8rem; background: var(--bg); border-bottom: 1px solid var(--border); }
+    .pkit-term .pkit-tm-dots { display: flex; gap: 0.4rem; }
+    .pkit-term .pkit-tm-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--fg-subtle); opacity: 0.7; }
+    .pkit-term .pkit-tm-dot:nth-child(1) { background: #ef4444; }
+    .pkit-term .pkit-tm-dot:nth-child(2) { background: #f59e0b; }
+    .pkit-term .pkit-tm-dot:nth-child(3) { background: #10b981; }
+    .pkit-term .pkit-tm-title { font-family: var(--mono); font-size: 0.78rem; color: var(--fg-muted); }
+    .pkit-term .pkit-tm-controls { display: flex; gap: 0.3rem; }
+    .pkit-term .pkit-tm-btn { padding: 0.2rem 0.6rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--fg-muted); font-family: var(--sans); font-size: 0.75rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.25rem; transition: all var(--transition); }
+    .pkit-term .pkit-tm-btn:hover { color: var(--fg); border-color: var(--accent); }
+    .pkit-term .pkit-tm-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .pkit-term .pkit-tm-btn.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+    .pkit-term .pkit-tm-screen { background: #0a0e1a; color: #d4d7e0; font-family: var(--mono); font-size: 13px; line-height: 1.55; padding: 1rem 1.2rem; min-height: 280px; max-height: 480px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; }
+    .pkit-term .pkit-tm-screen .ps1 { color: #4ade80; }
+    .pkit-term .pkit-tm-screen .cmd { color: #fbbf24; }
+    .pkit-term .pkit-tm-screen .out-stdout { color: #cbd5e1; }
+    .pkit-term .pkit-tm-screen .out-stderr { color: #fb7185; }
+    .pkit-term .pkit-tm-screen .out-info { color: #60a5fa; }
+    .pkit-term .pkit-tm-screen .out-success { color: #34d399; font-weight: 600; }
+    .pkit-term .pkit-tm-screen .cursor { display: inline-block; width: 8px; height: 1em; background: #d4d7e0; vertical-align: text-bottom; animation: pkit-tm-blink 1s steps(2) infinite; }
+    @keyframes pkit-tm-blink { 50% { opacity: 0; } }
+    .pkit-term .pkit-tm-progress { height: 2px; background: var(--border); }
+    .pkit-term .pkit-tm-progress-fill { height: 100%; background: var(--accent); transition: width 100ms linear; width: 0; }
   </style>
 
-  <div class="pkit-ad-controls">
-    <span class="pkit-ad-label">Filter layer:</span>
-    <button class="pkit-ad-layer-btn active" data-layer="all">All</button>
-    <button class="pkit-ad-layer-btn" data-layer="1"><span class="dot" style="background:#10b981"></span>User surface</button>
-    <button class="pkit-ad-layer-btn" data-layer="2"><span class="dot" style="background:#3b82f6"></span>Pipeline phases</button>
-    <button class="pkit-ad-layer-btn" data-layer="3"><span class="dot" style="background:#a855f7"></span>Agents</button>
-    <button class="pkit-ad-layer-btn" data-layer="4"><span class="dot" style="background:#f59e0b"></span>Infrastructure</button>
-  </div>
-
-  <div class="pkit-ad-stack">
-    <div class="pkit-ad-layer pkit-ad-layer-1" data-layer="1">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L1</span>User-invocable slash commands</div>
-        <div class="pkit-ad-count">8 commands</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">/pipeline<span class="pkit-ad-tooltip">The autonomous orchestrator. Charter → Analyze → Plan → Implement → Review → Merge.</span></span>
-        <span class="pkit-ad-chip">/review<span class="pkit-ad-tooltip">Multi-agent code review. Scales from 2 to 6 agents based on diff size.</span></span>
-        <span class="pkit-ad-chip">/ppr<span class="pkit-ad-tooltip">Push + PR. Push committed changes; open a pull request. --research flag publishes research keep-rows.</span></span>
-        <span class="pkit-ad-chip">/research<span class="pkit-ad-tooltip">Karpathy autoresearch loop: hypothesize → mutate → benchmark → keep-or-reset.</span></span>
-        <span class="pkit-ad-chip">/incident<span class="pkit-ad-tooltip">Triage a failing post-merge verification gate. Dispatches incident-responder agent.</span></span>
-        <span class="pkit-ad-chip">/learn<span class="pkit-ad-tooltip">Read interface for per-project learnings journal.</span></span>
-        <span class="pkit-ad-chip">/caveman<span class="pkit-ad-tooltip">Toggle response verbosity. Wenyan-ultra by default; lite/full/ultra options.</span></span>
-      </div>
+  <div class="pkit-tm-bar">
+    <div class="pkit-tm-dots">
+      <span class="pkit-tm-dot"></span><span class="pkit-tm-dot"></span><span class="pkit-tm-dot"></span>
     </div>
-
-    <div class="pkit-ad-flow">▼</div>
-
-    <div class="pkit-ad-layer pkit-ad-layer-2" data-layer="2">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L2</span>Pipeline phase skills (dispatched by /pipeline)</div>
-        <div class="pkit-ad-count">6 phase skills</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">analyze<span class="pkit-ad-tooltip">Reads feature + repo; produces docs/analysis-vN.md.</span></span>
-        <span class="pkit-ad-chip">create-plan<span class="pkit-ad-tooltip">Produces docs/plan-vN.md + docs/prompts-vN.md with phase decomposition.</span></span>
-        <span class="pkit-ad-chip">implement-plan<span class="pkit-ad-tooltip">Executes plan tasks; parallel-safe dispatch via single-message multi-Agent.</span></span>
-        <span class="pkit-ad-chip">post-merge<span class="pkit-ad-tooltip">Verification gate after merge. Project-type auto-detected.</span></span>
-        <span class="pkit-ad-chip">document-release<span class="pkit-ad-tooltip">Update documentation/ after a release. Calls into docs-writer.</span></span>
-        <span class="pkit-ad-chip">docs-writer<span class="pkit-ad-tooltip">Renders markdown to rich-template HTML. (This skill.)</span></span>
-      </div>
-    </div>
-
-    <div class="pkit-ad-flow">▼</div>
-
-    <div class="pkit-ad-layer pkit-ad-layer-3" data-layer="3">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L3</span>Specialized agents (dispatched by phase skills)</div>
-        <div class="pkit-ad-count">31 agents</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">@code-reviewer<span class="pkit-ad-tooltip">Quality, best practices, security, performance.</span></span>
-        <span class="pkit-ad-chip">@security-auditor<span class="pkit-ad-tooltip">OWASP compliance, secure auth flows.</span></span>
-        <span class="pkit-ad-chip">@symbol-verifier<span class="pkit-ad-tooltip">Anti-hallucination. Verifies every new symbol/API resolves.</span></span>
-        <span class="pkit-ad-chip">@spec-tracer<span class="pkit-ad-tooltip">Verifies a diff implements the stated objective + ACs.</span></span>
-        <span class="pkit-ad-chip">@tdd-test-writer<span class="pkit-ad-tooltip">Writes failing tests from spec. Context-isolated from implementer.</span></span>
-        <span class="pkit-ad-chip">@tdd-implementer<span class="pkit-ad-tooltip">Implements code to pass tests. Cannot modify tests.</span></span>
-        <span class="pkit-ad-chip">@architect<span class="pkit-ad-tooltip">Evidence-based design decisions, scalable patterns.</span></span>
-        <span class="pkit-ad-chip">@deployment-engineer<span class="pkit-ad-tooltip">Base agent (docs-only). 5 cloud variants extend it.</span></span>
-        <span class="pkit-ad-chip">@{azure,vercel,railway,render,digitalocean}-deployment-engineer<span class="pkit-ad-tooltip">5 cloud-provider variants sharing the deployment-engineer base.</span></span>
-        <span class="pkit-ad-chip">@incident-responder<span class="pkit-ad-tooltip">SRE incident response. Used by /incident.</span></span>
-        <span class="pkit-ad-chip">@claude-md-guardian<span class="pkit-ad-tooltip">CLAUDE.md drift detection + scoring.</span></span>
-        <span class="pkit-ad-chip">@mobile-dev<span class="pkit-ad-tooltip">iOS/Android/RN/Expo/Flutter cross-platform.</span></span>
-        <span class="pkit-ad-chip more">+ 19 more</span>
-      </div>
-    </div>
-
-    <div class="pkit-ad-flow">▼</div>
-
-    <div class="pkit-ad-layer pkit-ad-layer-4" data-layer="4">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L4</span>Infrastructure: hooks · sandbox · MCP · memory</div>
-        <div class="pkit-ad-count">24 hooks + 4+ MCPs + sandbox + memory</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">validate-commit-msg<span class="pkit-ad-tooltip">Pre-commit: enforce conventional-commit format.</span></span>
-        <span class="pkit-ad-chip">strip-ai-attribution<span class="pkit-ad-tooltip">Pre-commit: remove Co-Authored-By / Generated-with / 🤖 leaks.</span></span>
-        <span class="pkit-ad-chip">block-push-main<span class="pkit-ad-tooltip">Pre-push: refuse direct push to main.</span></span>
-        <span class="pkit-ad-chip">block-stage-sensitive<span class="pkit-ad-tooltip">Pre-add: refuse staging files matching never-stage.txt patterns.</span></span>
-        <span class="pkit-ad-chip">tdd-red-phase-gate<span class="pkit-ad-tooltip">Pre-commit: refuse commits that mix test + impl changes during a TDD phase.</span></span>
-        <span class="pkit-ad-chip">env-scrub<span class="pkit-ad-tooltip">Sandbox pre-exec: scrub env vars before subprocess invocation.</span></span>
-        <span class="pkit-ad-chip">notify-emit<span class="pkit-ad-tooltip">Pipeline state-change notifications via OSC 777 + PushNotification.</span></span>
-        <span class="pkit-ad-chip">sandbox: worktree|podman|docker<span class="pkit-ad-tooltip">Pluggable sandbox provider chain. worktree-only default; podman/docker for container isolation.</span></span>
-        <span class="pkit-ad-chip">MCP: context7<span class="pkit-ad-tooltip">Library docs and reference lookup.</span></span>
-        <span class="pkit-ad-chip">MCP: serena<span class="pkit-ad-tooltip">Semantic code navigation.</span></span>
-        <span class="pkit-ad-chip">memory: flat-file<span class="pkit-ad-tooltip">~/.claude/memory/ with recency-weighted decay. Canonical write path.</span></span>
-        <span class="pkit-ad-chip more">+ 17 more hooks</span>
-      </div>
+    <div class="pkit-tm-title">/ppr --research — simulated</div>
+    <div class="pkit-tm-controls">
+      <button class="pkit-tm-btn" data-act="play">▶ Play</button>
+      <button class="pkit-tm-btn" data-act="pause" disabled>⏸ Pause</button>
+      <button class="pkit-tm-btn" data-act="step">⏭ Step</button>
+      <button class="pkit-tm-btn" data-act="restart">↻ Restart</button>
+      <button class="pkit-tm-btn" data-act="speed">1×</button>
     </div>
   </div>
+  <div class="pkit-tm-progress"><div class="pkit-tm-progress-fill" data-tm-progress></div></div>
+  <pre class="pkit-tm-screen" data-tm-screen></pre>
+
+  <script type="application/json" data-tm-script>
+[
+  {"type": "ps1", "text": "$ "},
+  {"type": "cmd", "text": "claude\n"},
+  {"type": "out-info", "text": "Claude Code 2.1.144  (interactive)\n"},
+  {"type": "pause", "ms": 400},
+  {"type": "ps1", "text": "> "},
+  {"type": "cmd", "text": "/ppr --research\n"},
+  {"type": "out-info", "text": "[ppr] --research mode active. Default: --dry-run.\n"},
+  {"type": "out-info", "text": "[ppr] Reading docs/research-results.tsv...\n"},
+  {"type": "pause", "ms": 400},
+  {"type": "out-stdout", "text": "[ppr] Found 12 keep-rows in TSV.\n"},
+  {"type": "out-stdout", "text": "[ppr] Branch name would be: research/temp-2026-05-19\n"},
+  {"type": "pause", "ms": 300},
+  {"type": "out-stdout", "text": "[ppr] Planned actions (dry-run):\n"},
+  {"type": "out-stdout", "text": "         git checkout -b research/temp-2026-05-19\n"},
+  {"type": "out-stdout", "text": "         (filter 12 keep-rows from research-results.tsv into research-keep.tsv)\n"},
+  {"type": "out-stdout", "text": "         git add research-keep.tsv\n"},
+  {"type": "out-stdout", "text": "         git commit -m 'chore: publish research keeps for temp (12 rows)'\n"},
+  {"type": "out-stdout", "text": "         git push -u origin research/temp-2026-05-19\n"},
+  {"type": "pause", "ms": 500},
+  {"type": "out-info", "text": "[ppr] No PR opened — research branches are user-reviewed before merge.\n"},
+  {"type": "out-success", "text": "[ppr] OK. Dry-run complete. Pass --no-dry-run --research-tag <slug> to publish.\n"},
+  {"type": "pause", "ms": 400},
+  {"type": "ps1", "text": "> "},
+  {"type": "cmd", "text": "/ppr --research --no-dry-run --research-tag temp\n"},
+  {"type": "out-info", "text": "[ppr] --no-dry-run + --research-tag=temp. Publishing.\n"},
+  {"type": "pause", "ms": 300},
+  {"type": "out-stdout", "text": "[ppr] Creating branch research/temp-2026-05-19...\n"},
+  {"type": "out-stdout", "text": "Switched to a new branch 'research/temp-2026-05-19'\n"},
+  {"type": "out-stdout", "text": "[ppr] Filtering 12 keep-rows...\n"},
+  {"type": "out-stdout", "text": "[ppr] Committing...\n"},
+  {"type": "out-stdout", "text": "[ppr] Pushing to origin...\n"},
+  {"type": "pause", "ms": 600},
+  {"type": "out-success", "text": "[ppr] OK. Branch research/temp-2026-05-19 published.\n"},
+  {"type": "out-success", "text": "[ppr] URL: https://github.com/Bruce188/pipelinekit/tree/research/temp-2026-05-19\n"},
+  {"type": "out-info", "text": "[ppr] Review the branch and decide whether to merge.\n"}
+]
+  </script>
 </div>
 
 <script>
 (function() {
   'use strict';
-  const diagrams = document.querySelectorAll('.pkit-arch-diagram[data-snippet-mount="architecture-diagram"]');
-  const diagram = diagrams[diagrams.length - 1];
-  if (!diagram || diagram.dataset.pkitInit) return;
-  diagram.dataset.pkitInit = '1';
+  document.querySelectorAll('.pkit-term[data-snippet-mount="terminal-simulator"]').forEach(term => {
+  if (term.dataset.pkitInit) return;
+  term.dataset.pkitInit = '1';
 
-  const btns = diagram.querySelectorAll('.pkit-ad-layer-btn');
-  const layers = diagram.querySelectorAll('.pkit-ad-layer');
+  const dataEl = term.querySelector('script[data-tm-script]');
+  if (!dataEl) return;
+  const script = JSON.parse(dataEl.textContent);
+  const screen = term.querySelector('[data-tm-screen]');
+  const progressFill = term.querySelector('[data-tm-progress]');
+  const playBtn = term.querySelector('[data-act="play"]');
+  const pauseBtn = term.querySelector('[data-act="pause"]');
+  const stepBtn = term.querySelector('[data-act="step"]');
+  const restartBtn = term.querySelector('[data-act="restart"]');
+  const speedBtn = term.querySelector('[data-act="speed"]');
+  if (!screen || !progressFill || !playBtn) return;
 
-  btns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      btns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const want = btn.dataset.layer;
-      layers.forEach(l => {
-        if (want === 'all' || l.dataset.layer === want) {
-          l.classList.remove('dimmed');
-        } else {
-          l.classList.add('dimmed');
+  let idx = 0;
+  let playing = false;
+  let abort = false;
+  let speed = 1;
+  const speeds = [1, 2, 4, 0.5];
+  const cursor = '<span class="cursor"></span>';
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms / speed)); }
+
+  function escape(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function appendChunk(item) {
+    const html = `<span class="${item.type}">${escape(item.text)}</span>`;
+    if (screen.querySelector('.cursor')) {
+      screen.querySelector('.cursor').remove();
+    }
+    screen.insertAdjacentHTML('beforeend', html);
+    screen.insertAdjacentHTML('beforeend', cursor);
+    screen.scrollTop = screen.scrollHeight;
+  }
+
+  async function typeChunk(item) {
+    if (item.type === 'cmd') {
+      // Type char by char
+      if (screen.querySelector('.cursor')) screen.querySelector('.cursor').remove();
+      const span = document.createElement('span');
+      span.className = 'cmd';
+      screen.appendChild(span);
+      for (const ch of item.text) {
+        if (abort) return;
+        span.textContent += ch;
+        screen.scrollTop = screen.scrollHeight;
+        await sleep(40);
+      }
+      screen.insertAdjacentHTML('beforeend', cursor);
+    } else if (item.type === 'pause') {
+      await sleep(item.ms || 200);
+    } else {
+      appendChunk(item);
+      await sleep(60);
+    }
+  }
+
+  function setPlaying(p) {
+    playing = p;
+    playBtn.classList.toggle('active', p);
+    pauseBtn.disabled = !p;
+    playBtn.disabled = p;
+  }
+
+  async function play() {
+    setPlaying(true);
+    abort = false;
+    while (idx < script.length && playing && !abort) {
+      const item = script[idx];
+      idx++;
+      progressFill.style.width = (idx / script.length * 100) + '%';
+      await typeChunk(item);
+    }
+    if (idx >= script.length) setPlaying(false);
+  }
+
+  playBtn.addEventListener('click', () => { if (!playing) play(); });
+  pauseBtn.addEventListener('click', () => { setPlaying(false); abort = true; });
+  stepBtn.addEventListener('click', async () => {
+    if (idx >= script.length) return;
+    const wasPlaying = playing; setPlaying(false); abort = true;
+    await new Promise(r => setTimeout(r, 50));
+    const item = script[idx]; idx++; progressFill.style.width = (idx / script.length * 100) + '%';
+    await typeChunk(item);
+    if (wasPlaying && idx < script.length) play();
+  });
+  restartBtn.addEventListener('click', () => {
+    abort = true; setPlaying(false);
+    idx = 0; screen.innerHTML = cursor; progressFill.style.width = '0';
+  });
+  speedBtn.addEventListener('click', () => {
+    const i = (speeds.indexOf(speed) + 1) % speeds.length;
+    speed = speeds[i];
+    speedBtn.textContent = speed + '×';
+  });
+
+  screen.innerHTML = cursor;
+
+  // Auto-play on first scroll-into-view (if IntersectionObserver available)
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting && idx === 0 && !playing) {
+          play();
+          io.disconnect();
         }
       });
-    });
+    }, { threshold: 0.4 });
+    io.observe(term);
+  }
   });
 })();
 </script>
 
 
-<h2 id="start-here">Start here</h2>
+<h2 id="what-the-hook-does">What the hook does</h2>
+<p>At every <code>Stop</code> event (the session is about to finish without further tool calls), the hook fires AFTER the existing <code>stop-completion-gate.sh</code> advisory gate and AFTER <code>notify-emit.sh</code>. If both predecessors allow the stop, the self-reflection hook:</p>
+<ol>
+<li>Drains the JSON stdin envelope (the harness contract).</li>
+<li>Checks the opt-out env-var <code>PIPELINE_NO_SELF_REFLECT</code> — if set to <code>1</code>, exits 0 immediately with no side effect.</li>
+<li>Resolves the <code>claude</code> binary via <code>CLAUDE_BIN</code> (env override) or <code>command -v claude</code>. If neither resolves, logs an informational message to stderr and exits 0 (still non-blocking).</li>
+<li>Computes the next version <code>N</code> for <code>docs/claude-md-proposal-v&lt;N&gt;.md</code> per the Versioning Convention (highest existing version + 1; <code>N = 1</code> if none exist).</li>
+<li>Runs <code>claude -p --append-system-prompt "&lt;reflection prompt&gt;" "&lt;session summary stub&gt;"</code> with a hard 60-second timeout. On timeout (exit code 124) or any non-zero exit, the hook silently swallows the failure and exits 0 with no artifact written.</li>
+<li>Writes the JSON output to <code>docs/claude-md-proposal-v&lt;N&gt;.md</code>, wrapped in a small Markdown shell.</li>
+</ol>
+<p>Stop hooks are non-blocking by harness contract — this hook MUST exit 0 on every error path, and it does.</p>
+<h2 id="where-the-proposal-artifact-lives">Where the proposal artifact lives</h2>
+<p>The hook writes to <code>docs/claude-md-proposal-v&lt;N&gt;.md</code> RELATIVE TO THE SESSION CWD. <code>docs/</code> is the AI-workflow-only directory (gitignored via <code>.git/info/exclude</code>), so proposal artifacts never end up in version control by accident. Consecutive runs increment <code>N</code>:</p>
 <ul>
-<li><strong><a href="getting-started.html">Getting started</a></strong> — the master guide. Install + 4 worked tutorials (hello-world / TDD / Vercel deploy / meta-walkthrough). Read this first.</li>
-<li><a href="changelog.html">Changelog (v0.0.1)</a> — every PR shipped during v0.0.1 development, organized by theme.</li>
+<li>First run: <code>docs/claude-md-proposal-v1.md</code></li>
+<li>Second run: <code>docs/claude-md-proposal-v2.md</code></li>
+<li>And so on. The hook never overwrites an existing file.</li>
 </ul>
-<h2 id="reference">Reference</h2>
+<p>The artifact format is:</p>
+<div class="codehilite"><pre><span></span><code># CLAUDE.md Proposal — v&lt;N&gt;
+
+Generated at &lt;ISO-8601 UTC timestamp&gt;
+
+## Raw JSON Output
+
+```json
+{&quot;proposals&quot;: [...]}
+```
+
+## Manual Apply
+
+Apply these proposals manually — they are NOT auto-applied.
+</code></pre></div>
+
+<p>The embedded JSON has shape:</p>
+<div class="codehilite"><pre><span></span><code>{
+  &quot;proposals&quot;: [
+    {
+      &quot;file&quot;: &quot;&lt;path from repo root&gt;&quot;,
+      &quot;line_anchor&quot;: &quot;&lt;heading or quoted line where the rule should land&gt;&quot;,
+      &quot;proposed_text&quot;: &quot;&lt;insertion or replacement text&gt;&quot;,
+      &quot;reason&quot;: &quot;&lt;why this would have helped&gt;&quot;
+    }
+  ]
+}
+</code></pre></div>
+
+<p>A <code>{"proposals": []}</code> payload is a legitimate no-op proposal — the JSON shape is preserved regardless. Empty proposal lists still write an artifact so you can see that the hook ran and chose not to amend.</p>
+<h2 id="applying-proposals-manually">Applying proposals manually</h2>
+<p>Proposals are deliberately NOT auto-applied. Each proposal is a suggestion that you, the human reviewer, choose to accept or reject. Workflow:</p>
+<ol>
+<li>Open <code>docs/claude-md-proposal-v&lt;N&gt;.md</code> after a session ends.</li>
+<li>Read the <code>reason</code> field for each proposal. Compare against the work the session actually did.</li>
+<li>For accepted proposals: open the target <code>file</code> at <code>line_anchor</code>, paste the <code>proposed_text</code> (insert or replace, depending on the anchor wording), and commit the change with a normal <code>docs:</code> or <code>chore:</code> conventional commit.</li>
+<li>For rejected proposals: no action needed. The proposal artifact is gitignored and can be deleted, archived, or kept as a record of suggestions.</li>
+</ol>
+<p>The proposal artifact itself is workflow metadata — do NOT commit <code>docs/claude-md-proposal-v&lt;N&gt;.md</code> to source control.</p>
+<h2 id="opting-out">Opting out</h2>
+<p>The hook ships enabled. To opt out per-session, set the env-var before starting Claude Code:</p>
+<div class="codehilite"><pre><span></span><code>export PIPELINE_NO_SELF_REFLECT=1
+claude
+</code></pre></div>
+
+<p>The hook short-circuits at step 2 and exits 0 with zero side effects (no <code>claude -p</code> call, no cost, no artifact). To re-enable later in the same shell:</p>
+<div class="codehilite"><pre><span></span><code>unset PIPELINE_NO_SELF_REFLECT
+</code></pre></div>
+
+<p>For a permanent disable, remove the <code>claude/hooks/stop-self-reflect.sh</code> entry from your <code>~/.claude/settings.json</code> <code>"Stop"</code> array. Re-running <code>scripts/install.sh</code> with <code>CLAUDE_INSTALL_SETTINGS=1</code> will restore it.</p>
+<h2 id="cost-posture">Cost posture</h2>
+<p>Each Stop event triggers ONE headless <code>claude -p</code> call. Headless calls bill per Claude API usage, the same as any other model invocation. With Opus pricing and the prompt described above, the typical cost per call is sub-cent but accumulates across many short sessions.</p>
+<p>The opt-out env-var is your primary cost control. Reasonable patterns:</p>
 <ul>
-<li><a href="installation.html">Installation</a> — install pipelinekit locally, Codespaces, devcontainer, or cloud bootstrap.</li>
-<li><a href="cloud-setup.html">Cloud setup</a> — VPS bootstrap (Oracle, Hetzner) for headless Claude Code execution.</li>
-<li><a href="pipeline.html">Pipeline workflow</a> — the <code>/pipeline</code> autonomous orchestrator: charter discovery, analyze, plan, implement, review, merge.</li>
-<li><a href="codebase-map.html">Codebase map</a> — top-level repo layout with one-line purpose per directory + root file.</li>
+<li><strong>Default-on for engineering work</strong> — the proposal stream is most valuable when you are actively iterating on CLAUDE.md scope. Leave the hook enabled.</li>
+<li><strong>Default-off for ops sessions</strong> — for short <code>az login</code> / <code>vercel logs</code> style sessions, set <code>PIPELINE_NO_SELF_REFLECT=1</code> in your shell rc. The hook adds nothing of value to a 30-second ops poke.</li>
+<li><strong>Project-scoped</strong> — set <code>PIPELINE_NO_SELF_REFLECT=1</code> in a per-project <code>.envrc</code> (direnv) or a wrapper script for repos where you do not want CLAUDE.md drift.</li>
 </ul>
-<h2 id="deployment-ci-providers">Deployment + CI providers</h2>
+<p>The 60-second timeout caps the worst-case wall time of any single Stop event. If <code>claude -p</code> hangs or returns nothing, the hook still exits within ~65 seconds and writes no artifact.</p>
+<h2 id="selftest">Selftest</h2>
+<p>Run the hook's selftest mode to verify the three primary code paths without the harness:</p>
+<div class="codehilite"><pre><span></span><code>bash claude/hooks/stop-self-reflect.sh --selftest
+</code></pre></div>
+
+<p>Expected output:</p>
+<div class="codehilite"><pre><span></span><code>PASS  case 1: opt-out env-var -&gt; exit 0 + no artifact
+PASS  case 2: missing CLI -&gt; exit 0 + no artifact
+PASS  case 3: happy path -&gt; v1 artifact written
+
+Results: 3 passed, 0 failed
+</code></pre></div>
+
+<p>The full bash test suite lives at <code>claude/hooks/tests/test_stop_self_reflect.sh</code> and exercises six cases including version increment and timeout enforcement:</p>
+<div class="codehilite"><pre><span></span><code>bash claude/hooks/tests/test_stop_self_reflect.sh
+</code></pre></div>
+
+<h2 id="implementation-contract-recap">Implementation contract recap</h2>
 <ul>
-<li><a href="deployment-chooser.html">Deployment + CI provider chooser</a> — not sure which provider fits? Answer six questions to find out.</li>
-<li><a href="deployment-vercel.html">Vercel</a> — serverless / edge / Next.js / SvelteKit / Astro.</li>
-<li><a href="deployment-azure.html">Azure</a> — App Service / Container Apps / Function Apps / AKS.</li>
-<li><a href="deployment-railway.html">Railway</a> — container-based PaaS with zero-Dockerfile deploys.</li>
-<li><a href="deployment-render.html">Render</a> — container-based PaaS with managed services.</li>
-<li><a href="deployment-digitalocean.html">DigitalOcean App Platform</a> — container-based PaaS on DO.</li>
-<li><a href="ci-blacksmith.html">CI on Blacksmith</a> — Blacksmith runner registration, env-var overrides, drop-in actions.</li>
+<li>Stop hooks are non-blocking by harness contract — any exit code is silently swallowed; this hook still defensively exits 0 on every path.</li>
+<li>The hook does NOT write to stdout. Output goes to the artifact file or stderr (informational only).</li>
+<li>Proposals are NEVER auto-applied. The artifact is for human review.</li>
+<li>The 60-second timeout is enforced via the <code>timeout</code> coreutils binary — kill silently, exit 0 from the hook.</li>
+<li>The reflection prompt does NOT include AI-self-reference language. Proposed text is phrased neutrally for direct paste into target files.</li>
+<li>Charter MVP item 4.</li>
 </ul>
-<h2 id="skills-features">Skills + features</h2>
-<blockquote>
-<p>Full catalogs: <a href="skills.html">Skills</a> · <a href="agents.html">Agents</a></p>
-</blockquote>
-<ul>
-<li><a href="ppr.html"><code>/ppr</code> push-PR flow</a> — everyday push + PR-open closing step of every pipeline feature.</li>
-<li><a href="ppr-research-flag.html"><code>/ppr --research</code> flag</a> — publish research keep-rows to a dedicated branch.</li>
-<li><a href="tsv-viewer.html">Research TSV viewer</a> — sortable / filterable HTML viewer for research-results TSVs.</li>
-<li><a href="github-issues-integration.html">GitHub Issues integration</a> — <code>--issues</code> mode for <code>/pipeline</code>.</li>
-<li><a href="pipeline-charter-revalidation.html"><code>/pipeline --renew</code> charter revalidation</a> — drift detection with 3-valued status + <code>--auto</code> bypass.</li>
-<li><a href="stop-self-reflect-hook.html">Stop self-reflection hook</a> — Stop hook proposes <code>CLAUDE.md</code> amendments per session; opt out via <code>PIPELINE_NO_SELF_REFLECT=1</code>.</li>
-</ul>
-<h2 id="cost-observability">Cost + observability</h2>
-<ul>
-<li><a href="review-cost.html"><code>/review</code> cost profile</a> — token + cost characteristics of the multi-agent review surface.</li>
-</ul>
-<h2 id="reference-standards-vendored">Reference standards (vendored)</h2>
-<ul>
-<li><a href="SKILL-AUTHORING-STANDARD.html">SKILL authoring standard</a> — the 10-pattern skill DNA template, originally vendored from alirezarezvani/claude-skills.</li>
-<li><a href="SKILL_PIPELINE.html">SKILL pipeline lifecycle</a> — Intent → ... → Verify lifecycle.</li>
-<li><a href="NOTICE.html">Vendoring notice</a> — attribution + license.</li>
-</ul>
-<h2 id="built-with-inspired-by">Built with / Inspired by</h2>
-<p>Pipelinekit is MIT-licensed and stands on the shoulders of several upstream projects, plus inspiration from individual researchers and the Claude platform itself.</p>
-<ul>
-<li><strong><a href="https://karpathy.ai/">Andrej Karpathy</a></strong> — the autoresearch-loop pattern (<code>/research</code>). The <code>symbol-verifier</code> anti-hallucination agent is inspired by the same first-principles verification ethos.</li>
-<li><strong><a href="https://www.anthropic.com/">Anthropic</a></strong> — the entire runtime: Claude Code, the Agent SDK, multi-agent dispatch, Skills, Hooks, MCP, <code>PushNotification</code>, and the underlying Claude models that every pipelinekit phase calls.</li>
-</ul>
-<p>See the <strong><a href="credits.html">Credits page</a></strong> for the full table of vendored upstreams (with pinned SHAs, licenses, scope, and re-vendor procedures) — wshobson/agents, alirezarezvani/{claude-skills, ClaudeForge}, mattpocock/skills.</p>
     </div>
 
     <div class="no-results" id="no-results">

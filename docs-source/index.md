@@ -37,6 +37,7 @@ The complete user-facing documentation for pipelinekit \(autonomous `/pipeline` 
 - [Research TSV viewer](tsv-viewer.html) — sortable / filterable HTML viewer for research-results TSVs.
 - [GitHub Issues integration](github-issues-integration.html) — `--issues` mode for `/pipeline`.
 - [`/pipeline --renew` charter revalidation](pipeline-charter-revalidation.html) — drift detection with 3-valued status + `--auto` bypass.
+- [Stop self-reflection hook](stop-self-reflect-hook.html) — Stop hook proposes `CLAUDE.md` amendments per session; opt out via `PIPELINE_NO_SELF_REFLECT=1`.
 
 ## Cost + observability
 
