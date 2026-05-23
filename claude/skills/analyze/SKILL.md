@@ -164,6 +164,18 @@ The analysis file template in Step 5 adds a `## Charter Reference` section when 
 
 ---
 
+### Step 3.9: Consult Codebase Map
+
+Before launching the Step 4 codebase analysis (full Glob/Read pass), read the project's top-level directory map if it exists:
+
+1. Check for `documentation/codebase-map.html`. If present, read it for the top-level directory listing, per-directory purpose, and file-count hints.
+2. If the HTML is absent, fall back to `docs-source/codebase-map.md` (the markdown source).
+3. If neither is present: log `no codebase-map found — proceeding with full-tree analysis` and fall through to Step 4 without error. The codebase-map is advisory context, not a hard prerequisite.
+
+What Step 4 extracts from the map: (a) top-level directory list and per-directory purpose, (b) which subsystem lives where, (c) file-count hints that narrow where the Step 4 Glob/Read pass focuses. Treat the map as a directory-level pre-filter, not authoritative scope.
+
+---
+
 ### Step 4: Codebase Analysis
 
 Report facts. Do not infer design decisions.
