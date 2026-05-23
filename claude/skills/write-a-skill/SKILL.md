@@ -95,6 +95,62 @@ Helps with documents.
 
 The bad example gives your agent no way to distinguish this from other document skills.
 
+## Step 1: Declare paths:
+
+Every NEW skill MUST declare `paths:` in its frontmatter (block-list form, never inline flow-list) unless it appears on the global-by-design allowlist below. Skills that omit `paths:` are treated as GLOBAL — they participate in routing for every edit target, costing the orchestrator tokens and accuracy. The `paths:` field is the skill's reviewable surface contract.
+
+See [`documentation/skills-scope-policy.html`](../../../documentation/skills-scope-policy.html) for the full policy and rationale.
+
+### Scoping heuristic
+
+Every skill's `paths:` should include `claude/skills/<name>/**` plus the primary operating surface the skill touches:
+
+| Surface kind | Example skill | Example path |
+|---|---|---|
+| Workflow metadata | `create-plan` | `docs/plan*.md`, `docs/prompts*.md` |
+| Application source | `tdd` | `**/tests/**`, `**/*.test.ts` |
+| Build artifacts | `docs-writer` | `docs-source/**`, `documentation/**` |
+| CLI provider docs | `vercel-ops` | `vercel.json`, `documentation/deployment-vercel.html` |
+| Repo-state sentinel | `new-branch` | `.git/HEAD` |
+
+When the heuristic feels ambiguous, prefer the narrowest reasonable surface. Never use `**` or `*` as the only entry — that is equivalent to declaring the skill global without the explicit allowlist rationale.
+
+### Global-by-design allowlist
+
+The four skills below intentionally OMIT `paths:`:
+
+- `pipeline` — orchestrates every phase across the whole repo; scoping by glob would defeat the purpose.
+- `claude-md-enhancer` — operates on any project's `CLAUDE.md` regardless of layout.
+- `caveman-mode` — toggles a session-wide verbosity flag; no file surface to scope.
+- `write-a-skill` (the meta-skill) — authors NEW skills, so by definition cannot constrain its own surface to existing files.
+
+Adding a new skill to the allowlist requires a charter-level justification — when in doubt, declare `paths:`.
+
+### Check template
+
+Paste-and-run this snippet against a freshly-authored SKILL.md to verify either `paths:` is declared OR the skill name is on the allowlist:
+
+```bash
+python3 - < claude/skills/<your-skill>/SKILL.md <<'PYEOF'
+import re, sys
+ALLOWLIST = {"pipeline", "claude-md-enhancer", "caveman-mode", "write-a-skill"}
+body = sys.stdin.read()
+m = re.search(r"^---\s*$(.*?)^---\s*$", body, re.MULTILINE | re.DOTALL)
+if not m:
+    sys.exit("error: no YAML frontmatter block found")
+fm = m.group(1)
+name_match = re.search(r"^name:\s*(\S+)\s*$", fm, re.MULTILINE)
+name = name_match.group(1) if name_match else None
+has_paths = re.search(r"^paths:\s*$", fm, re.MULTILINE) is not None
+if has_paths or name in ALLOWLIST:
+    print(f"ok: {name} ({'paths declared' if has_paths else 'on allowlist'})")
+    sys.exit(0)
+sys.exit(f"error: skill '{name}' missing required `paths:` field (and not on allowlist)")
+PYEOF
+```
+
+Exit code 0 = skill conforms. Exit code != 0 = skill is missing `paths:` and not on the allowlist — add `paths:` before merging.
+
 ## When to Add Scripts
 
 Add utility scripts when:
