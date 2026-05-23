@@ -2,6 +2,10 @@
 name: ascii-diagram
 description: Generate an ASCII architecture diagram for the current project or a described system
 disable-model-invocation: true
+paths:
+  - claude/skills/ascii-diagram/**
+  - docs-source/**
+  - documentation/**
 ---
 
 Generate an ASCII architecture diagram for: $ARGUMENTS

@@ -8,6 +8,8 @@ allowed-tools:
   - Grep
   - Glob
 context: fork
+paths:
+  - claude/skills/simplify/**
 ---
 
 # Simplify

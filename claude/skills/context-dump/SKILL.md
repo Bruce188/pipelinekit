@@ -2,6 +2,9 @@
 name: context-dump
 description: Save current session context to docs/context-dump.md for handoff or resumption
 disable-model-invocation: true
+paths:
+  - claude/skills/context-dump/**
+  - docs/context*.md
 ---
 
 Dump the current session context to `docs/context-dump.md`. This file is overwritten each run, not versioned.

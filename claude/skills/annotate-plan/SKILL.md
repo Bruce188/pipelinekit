@@ -10,6 +10,10 @@ allowed-tools:
   - Glob
   - Grep
 effort: medium
+paths:
+  - claude/skills/annotate-plan/**
+  - docs/plan*.md
+  - docs/prompts*.md
 ---
 
 # Annotate Plan — Iterative Plan Refinement

@@ -80,6 +80,8 @@ Skills below intentionally OMIT `paths:` because their scope is the whole reposi
 
 Any other skill that ships without `paths:` is a bug — file an issue or add the field.
 
+- Policy reference: `documentation/skills-scope-policy.html` — authoring guidance for new skills.
+
 ## See Also
 
 - Root rules: `../../CLAUDE.md` (project-level conventions, never-stage list pointer, base-branch detection).

@@ -12,6 +12,11 @@ allowed-tools:
   - Agent
   - Skill
 effort: high
+paths:
+  - claude/skills/review/**
+  - docs/review*.md
+  - docs/progress.md
+  - docs/pipeline-state.md
 ---
 
 # Review — Multi-Agent Parallel Review

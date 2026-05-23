@@ -10,6 +10,10 @@ Do not edit in place — re-vendor from upstream and bump the SHA.
 name: zoom-out
 description: Tell the agent to zoom out and give broader context or a higher-level perspective. Use when you're unfamiliar with a section of code or need to understand how it fits into the bigger picture.
 disable-model-invocation: true
+paths:
+  - claude/skills/zoom-out/**
+  - docs/zoom-out*.md
+  - documentation/**
 ---
 
 I don't know this area of code well. Go up a layer of abstraction. Give me a map of all the relevant modules and callers, using the project's domain glossary vocabulary.

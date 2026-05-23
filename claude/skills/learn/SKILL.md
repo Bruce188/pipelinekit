@@ -6,6 +6,10 @@ disable-model-invocation: true
 allowed-tools:
   - Bash
   - Read
+paths:
+  - claude/skills/learn/**
+  - "~/.pipelinekit/projects/**"
+  - claude/lib/learn-append.sh
 ---
 
 # Learn — Per-Project Learnings Journal (Read Interface)

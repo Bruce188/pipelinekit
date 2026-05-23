@@ -4,6 +4,10 @@ description: Vercel CLI (`vercel`) wrapper for common ops — project listing, d
 allowed-tools:
   - Read
   - Bash
+paths:
+  - claude/skills/vercel-ops/**
+  - vercel.json
+  - documentation/deployment-vercel.html
 ---
 
 # Vercel Operations Skill

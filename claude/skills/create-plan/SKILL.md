@@ -10,6 +10,11 @@ allowed-tools:
   - mcp__local-rag
   - mcp__context7
 effort: high
+paths:
+  - claude/skills/create-plan/**
+  - docs/plan*.md
+  - docs/prompts*.md
+  - docs/archive/**
 ---
 
 # Create Plan — Plan + Prompts Generator

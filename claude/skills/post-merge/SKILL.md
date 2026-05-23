@@ -6,6 +6,10 @@ disable-model-invocation: true
 allowed-tools:
   - Bash
   - Read
+paths:
+  - claude/skills/post-merge/**
+  - docs/progress.md
+  - docs/pipeline-state.md
 ---
 
 # Post-Merge Cleanup

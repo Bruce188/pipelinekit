@@ -2,6 +2,10 @@
 name: document-release
 description: Update application documentation in `documentation/` after a release. Reads the most recent merge commit (or `--since <sha>`) and `docs/progress.md`, then writes/updates `documentation/` and lands a separate `docs:` commit on the current branch. Runnable ad-hoc outside the `/pipeline` workflow.
 argument-hint: [--since <sha>]
+paths:
+  - claude/skills/document-release/**
+  - CHANGELOG*.md
+  - documentation/releases/**
 ---
 
 # Document Release

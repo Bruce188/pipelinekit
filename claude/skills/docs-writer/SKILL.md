@@ -8,6 +8,10 @@ allowed-tools:
   - Bash
   - Glob
   - Grep
+paths:
+  - claude/skills/docs-writer/**
+  - docs-source/**
+  - documentation/**
 ---
 
 # docs-writer — rich-template HTML documentation skill
