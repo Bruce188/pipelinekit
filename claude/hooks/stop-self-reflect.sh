@@ -200,4 +200,26 @@ TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   exit 0
 }
 
+# ─── Cost-event write (best-effort, non-blocking) ─────────────────────────────
+# Reuses cost_log.py canonical schema (O_NOFOLLOW + LOG_DIR allowlist + JSONL
+# append). Failure is swallowed via `|| true` to honour the Stop-hook
+# non-blocking contract (the final `exit 0` below is authoritative).
+#
+# Estimate basis: 0.05 USD per invocation. `claude -p` does not currently
+# expose its per-call cost on stdout — `--output-format json` would, but the
+# artifact pipeline above consumes stdout for the JSON proposal payload.
+# Refine this estimate when claude -p exposes cost via a side-channel (e.g.
+# a stderr JSON line or env var), or switch to `cost_log.py parse-json` once
+# the proposal pipeline tolerates a JSON wrapper.
+FEATURE_NAME="(none)"
+if [ -f docs/pipeline-state.md ]; then
+  FEATURE_NAME=$(grep -E "^\*\*Name:\*\*" docs/pipeline-state.md \
+    | sed 's|.*:\*\*[[:space:]]*||' | head -1)
+  [ -z "$FEATURE_NAME" ] && FEATURE_NAME="(none)"
+fi
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+python3 "$HOOK_DIR/cost_log.py" start \
+  "$FEATURE_NAME" "stop-self-reflect" \
+  --usd 0.05 --dispatch-mode subprocess 2>/dev/null || true
+
 exit 0
