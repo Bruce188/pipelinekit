@@ -16,6 +16,7 @@ The complete user-facing documentation for pipelinekit \(autonomous `/pipeline` 
 - [Installation](installation.html) — install pipelinekit locally, Codespaces, devcontainer, or cloud bootstrap.
 - [Cloud setup](cloud-setup.html) — VPS bootstrap \(Oracle, Hetzner\) for headless Claude Code execution.
 - [Pipeline workflow](pipeline.html) — the `/pipeline` autonomous orchestrator: charter discovery, analyze, plan, implement, review, merge.
+- [Codebase map](codebase-map.html) — top-level repo layout with one-line purpose per directory + root file.
 
 ## Deployment + CI providers
 
