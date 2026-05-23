@@ -245,6 +245,10 @@ Triggered when `--adopt` is present. Reads current manual workflow state and cre
 
 Do not modify any existing `docs/` files during adoption — only create `features-adopted.md` and `pipeline-state.md`. Branch naming mismatch is acceptable — the pipeline uses the existing branch as-is.
 
+**Terminal state:** On clean exit (every feature successfully merged, no failed_list members, no Path C escalation stuck), the pipeline writes `**Step:** done` along with `**Completed:** <ISO8601 UTC>` and `**Features merged:** <count>` to `docs/pipeline-state.md`. The terminal marker is the canonical signal that no further `--restart-from` invocation is valid on this state file. On any halt path (failed feature, BUDGET_EXCEEDED, Path C stuck), terminal cleanup is skipped and the state file is left at its mid-flight position so a subsequent resume can pick up where the run left off.
+
+See SKILL.md § Step 5.10: Terminal Cleanup for the predicate and write logic.
+
 ---
 
 ## Step 5.5.7: Hook Smoke-Test Gate — Full Details
