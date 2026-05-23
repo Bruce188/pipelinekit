@@ -32,11 +32,11 @@ before dispatching workers.
 id: "1.1"
 objective: "Create claude/lib/worker-provider/interface.md per plan v20."
 inputs:
-  - /home/bruce/pipelinekit/claude/lib/sandbox/SandboxProvider.sh
+  - ${REPO_ROOT}/claude/lib/sandbox/SandboxProvider.sh
 files_in_scope:
-  - /home/bruce/pipelinekit/claude/lib/worker-provider/interface.md
+  - ${REPO_ROOT}/claude/lib/worker-provider/interface.md
 expected_outputs:
-  - /home/bruce/pipelinekit/claude/lib/worker-provider/interface.md
+  - ${REPO_ROOT}/claude/lib/worker-provider/interface.md
 verification: "grep -q '^# WorkerProvider' claude/lib/worker-provider/interface.md"
 routing:
   worker_class: claude
