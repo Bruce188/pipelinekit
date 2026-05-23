@@ -88,6 +88,12 @@ Adds an investigation report documenting harness paths frontmatter coverage acro
 - Recommendation hand-off to F4 (write-a-skill paths enforcer)
 
 </details>
+<details>
+<summary>Decisions</summary>
+
+_decisions not recovered (analysis file missing from workflow dir)_
+</details>
+
 
 ## F3 — fix/install-settings-completeness
 
@@ -107,6 +113,12 @@ Closes hook-registration gap from the dormancy audit: `scripts/install.sh` now e
 - Excludes git-only `validate-task-spec.py` from harness wiring
 
 </details>
+<details>
+<summary>Decisions</summary>
+
+_decisions not recovered (analysis file missing from workflow dir)_
+</details>
+
 
 ## F4 — feat/write-a-skill-paths-enforcer
 
@@ -126,6 +138,12 @@ Adds Step 1 to the `write-a-skill` meta-skill requiring all new skills to declar
 - Builds on F2 audit baseline
 
 </details>
+<details>
+<summary>Decisions</summary>
+
+_decisions not recovered (analysis file missing from workflow dir)_
+</details>
+
 
 ## F5 — feat/analyze-cites-codebase-map
 
@@ -145,6 +163,12 @@ Wires the `documentation/codebase-map.html` artifact into the `/analyze` skill e
 - Falls through cleanly when no map exists (no error)
 
 </details>
+<details>
+<summary>Decisions</summary>
+
+_decisions not recovered (analysis file missing from workflow dir)_
+</details>
+
 
 ## F6 — feat/pipeline-verify-gates-hook-smoke
 
@@ -164,6 +188,12 @@ Adds Step 5.5.7 smoke-test sub-step: pipeline verify now discovers `claude/hooks
 - CLAUDE.md documents the smoke-gate contract for hook authors
 
 </details>
+<details>
+<summary>Decisions</summary>
+
+_decisions not recovered (analysis file missing from workflow dir)_
+</details>
+
 
 ## F7 — feat/stop-reflect-cost-logging
 
@@ -184,6 +214,12 @@ Adds Step 5.5.7 smoke-test sub-step: pipeline verify now discovers `claude/hooks
 - Exit-0 guarantee preserved on write failure
 
 </details>
+<details>
+<summary>Decisions</summary>
+
+_decisions not recovered (analysis file missing from workflow dir)_
+</details>
+
 
 ## F8 — feat/review-checks-skill-compliance
 
@@ -202,6 +238,12 @@ Adds Step 5.5.7 smoke-test sub-step: pipeline verify now discovers `claude/hooks
 - Composes with F4 (paths enforcement) and F10 (richness threshold bump)
 
 </details>
+<details>
+<summary>Decisions</summary>
+
+_decisions not recovered (analysis file missing from workflow dir)_
+</details>
+
 
 ## F9 — chore/pipeline-terminal-state
 
@@ -221,6 +263,12 @@ On clean exit, Step 5.10 Terminal Cleanup writes `**Step:** done`, `**Completed:
 - Removes dead Step 6 cleanup-line that previously deleted state files
 
 </details>
+<details>
+<summary>Decisions</summary>
+
+_decisions not recovered (analysis file missing from workflow dir)_
+</details>
+
 
 ## F10 — chore/html-effectiveness-wiring
 
@@ -240,6 +288,12 @@ Authors two new reference pages — `html-effectiveness-principles.md` and `desi
 - Richness check threshold raised: 2 distinct patterns required
 
 </details>
+<details>
+<summary>Decisions</summary>
+
+_decisions not recovered (analysis file missing from workflow dir)_
+</details>
+
 
 ## F11 — chore/caveman-mode-split-ultra-wenyan
 
@@ -258,4 +312,21 @@ Caveman-mode skill grows a three-zone content split — Zone 1 (code) stays norm
 - Refines intensity levels: wenyan-ultra, ultra, full, lite
 - Skill snippet contracts updated accordingly
 
+</details>
+<details>
+<summary>Decisions</summary>
+
+_decisions not recovered (analysis file missing from workflow dir)_
+</details>
+
+## F12 — chore/features-bloat-prune
+
+**Status:** <span class="status-pill status-in-progress">in-progress</span>
+
+Pruner has not yet seen its own merge — entry added by backfill task.
+
+<details>
+<summary>Decisions</summary>
+
+_decisions not recovered (analysis file missing from workflow dir)_
 </details>

@@ -550,6 +550,19 @@ footer {
     </header>
 
     <div id="page-content">
+<!-- BEGIN PIPELINEKIT HERO -->
+<section class="dashboard-hero" id="dashboard-hero">
+  <h1>pipelinekit</h1>
+  <p class="hero-tagline">Workflow toolkit for Claude Code.</p>
+  <div class="hero-state">
+    <span class="status-pill">feat/dashboard-and-decisions-log</span>
+    <span class="status-pill">Step: implement</span>
+    <span class="status-pill">Cycle: 0</span>
+  </div>
+  <a class="hero-cta" href="dashboard.html">View dashboard →</a>
+  <a class="hero-cta-secondary" href="decisions.html">Decisions log →</a>
+</section>
+<!-- END PIPELINEKIT HERO -->
 <h2 id="system-architecture">System architecture</h2>
 <!-- snippet:architecture-diagram
      4-layer SVG taxonomy of pipelinekit: user-invocable slash commands,
@@ -1058,6 +1071,8 @@ footer {
 <li><a href="html-effectiveness-principles.html">HTML effectiveness principles</a> — canonical design rubric for <code>documentation/*.html</code> pages.</li>
 <li><a href="workflow-hygiene.html">Workflow hygiene</a> — drift modes (rotation, orphan janitor, features pruner) + opt-out env vars.</li>
 <li><a href="feature-history.html">Feature history</a> — rendered audit trail of merged pipelinekit features.</li>
+<li><a href="dashboard.html">Dashboard</a> — live current-state snapshot of the pipelinekit workflow (12 sections; sections 1-3 always-visible).</li>
+<li><a href="decisions.html">Decisions log</a> — per-feature OQ + SubQ resolutions in newest-first order.</li>
 <li><a href="NOTICE.html">Vendoring notice</a> — attribution + license.</li>
 </ul>
 <h2 id="built-with-inspired-by">Built with / Inspired by</h2>

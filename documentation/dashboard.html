@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Workflow hygiene — pipelinekit</title>
-<meta name="description" content="Drift modes (rotation, orphan janitor, features pruner, dashboard + decisions renderers) and their opt-out env vars.">
+<title>pipelinekit dashboard — pipelinekit</title>
+<meta name="description" content="Live current-state snapshot of the pipelinekit workflow.">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Workflow hygiene</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>pipelinekit dashboard</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -531,147 +531,235 @@ footer {
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
     <ul>
-      <li class="lvl-2"><a href="#what">WHAT</a></li>
-      <li class="lvl-2"><a href="#when">WHEN</a></li>
-      <li class="lvl-2"><a href="#how">HOW</a></li>
-      <li class="lvl-2"><a href="#why">WHY</a></li>
-      <li class="lvl-2"><a href="#see-also">SEE ALSO</a></li>
+      <li class="lvl-2"><a href="#1-pipeline-state">1. Pipeline state</a></li>
+      <li class="lvl-2"><a href="#2-recent-activity">2. Recent activity</a></li>
+      <li class="lvl-2"><a href="#3-recent-features">3. Recent features</a></li>
     </ul>
   </aside>
 
   <main>
     <header class="page-header">
-      <h1>Workflow hygiene</h1>
-      <p class="description">Drift modes (rotation, orphan janitor, features pruner, dashboard + decisions renderers) and their opt-out env vars.</p>
+      <h1>pipelinekit dashboard</h1>
+      <p class="description">Live current-state snapshot of the pipelinekit workflow.</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
-<!-- richness budget: visual-token status pills + comparison-tabs (≥ 1 — default threshold) -->
+<p>Generated: 2026-05-23T14:34:35+00:00</p>
+<!-- richness budget: collapsible-details (sections 4-12) + interactive timeline svg + visual-token status pills -->
 
-<p>Three documented drift modes accumulated in <code>docs/</code> over the pipelinekit lifetime:
-rotation drift, orphan snapshots, and <code>features.md</code> bloat. As of 2026-05-23 the
-<code>docs/</code> tree had grown to ~7 MB across 424 files with <code>docs/progress.md</code> alone at
-265 KB / ~66 K tokens per <code>Read</code>. This page documents the hygiene contract that
-keeps the tree small from now on.</p>
-<h2 id="what">WHAT</h2>
-<p>The three drift modes (each fixed independently — see the corresponding skill):</p>
-<div data-snippet-mount="comparison-tabs">
-<div data-tab="rotation">
-
-**Rotation drift** (`/create-plan` Step 5). The rotator used to scope by `## Status`
-H2 only — but `docs/progress.md` accumulated 62 `## Iteration:` H2 blocks because
-the alt anchor was invisible to the gate. Fix: both anchors are now valid
-iteration-boundary markers.
-
-</div>
-<div data-tab="orphans">
-
-**Orphan snapshots** (no janitor). Halt-incident snapshots (e.g.
-`docs/pipeline-state.md.feature-7-done`, `docs/RESUME.md`, `docs/features-master.md`)
-accumulated forever — 39 files as of 2026-05-23. Fix: `/post-merge` Step 12
-runs a janitor reading `claude/config/orphan-patterns.txt` (fnmatch globs).
-
-</div>
-<div data-tab="features-bloat">
-
-**features.md bloat.** Done feature blocks lingered in `docs/features.md` instead
-of being archived. 11 merged blocks (PRs #97-#107) sat alongside the in-progress
-12th. Fix: `claude/lib/pipeline/features_pruner.py` (invoked from `/post-merge`
-Step 12) moves done blocks to `docs-source/feature-history.md` and re-renders
-the HTML audit trail.
-
-</div>
-<div data-tab="dashboard-decisions">
-
-**Dashboard + decisions log (F13).** Two new generated pages close the
-introspection gap. `claude/lib/pipeline/dashboard_renderer.py` emits a 12-section
-live-state dashboard at `documentation/dashboard.html` with an ISO8601
-`Generated:` timestamp. `claude/lib/pipeline/decisions_renderer.py` emits a
-newest-first per-feature rationale log at `documentation/decisions.html`. Both
-share a single extractor at `claude/lib/pipeline/workflow_extractor.py` (hybrid
-RICH/EMBEDDED mode). Both honour `PIPELINE_HYGIENE_OFF=1` and run AFTER the
-features-pruner inside the same `/post-merge` Step 12 `else` branch.
-
-</div>
-</div>
-
-<h2 id="when">WHEN</h2>
-<p>The hygiene block runs on <strong>every</strong> <code>/post-merge</code> invocation (Step 12). One env var
-controls the entire block:</p>
+<p><a href="decisions.html">Decisions log →</a> &nbsp; · &nbsp; <a href="feature-history.html">Feature history →</a> &nbsp; · &nbsp; <a href="workflow-hygiene.html">Workflow hygiene →</a></p>
+<p><svg viewBox="0 0 800 50" data-snippet-mount="timeline-scrubber" aria-label="pipelinekit activity timeline">
+  <line x1="20" y1="25" x2="780" y2="25" stroke="currentColor" stroke-width="2"/>
+</svg></p>
+<h2 id="1-pipeline-state">1. Pipeline state</h2>
 <table>
 <thead>
 <tr>
-<th>Env var</th>
-<th>Default</th>
-<th>Effect</th>
+<th>Field</th>
+<th>Value</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>PIPELINE_HYGIENE_OFF</code></td>
-<td>unset (block runs)</td>
-<td>When <code>=1</code>, BOTH the janitor and the pruner are skipped (single switch — SubQ-C).</td>
+<td>Charter</td>
+<td>docs/charter.md</td>
 </tr>
 <tr>
-<td><code>PIPELINE_JANITOR_DRY_RUN</code></td>
-<td><code>1</code> (dry-run on)</td>
-<td>When <code>=0</code>, the orphan janitor actually deletes matched files. Default ON for safety.</td>
+<td>Conv guard logged</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Feature</td>
+<td>13 / 13</td>
+</tr>
+<tr>
+<td>Feature class</td>
+<td>non-dev</td>
+</tr>
+<tr>
+<td>Feature file</td>
+<td>docs/features.md</td>
+</tr>
+<tr>
+<td>Inline cycles</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Max USD</td>
+<td>unlimited</td>
+</tr>
+<tr>
+<td>Max turns</td>
+<td>unlimited</td>
+</tr>
+<tr>
+<td>Name</td>
+<td>feat/dashboard-and-decisions-log</td>
+</tr>
+<tr>
+<td>Non-converging cycles</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Phase Mode</td>
+<td>subagent</td>
+</tr>
+<tr>
+<td>Prior finding count</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Replan count</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Review cycles</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Review style</td>
+<td>orchestrator decides</td>
+</tr>
+<tr>
+<td>Started</td>
+<td>2026-05-23</td>
+</tr>
+<tr>
+<td>Step</td>
+<td>review</td>
 </tr>
 </tbody>
 </table>
-<p>The rotator (<code>/create-plan</code> Step 5) is plan-iteration-driven — it fires whenever a
-new plan version is being written, not at <code>/post-merge</code> time.</p>
-<h2 id="how">HOW</h2>
-<p><span class="status-pill status-success">JANITOR</span> &nbsp; reads <code>claude/config/orphan-patterns.txt</code>
-(fnmatch globs, default-allow on missing) and intersects each candidate against
-<code>claude/config/never-stage.txt</code> (default-deny). Double-matched paths are NEVER
-deleted. Single-matched paths are removed under <code>PIPELINE_JANITOR_DRY_RUN=0</code>,
-logged under <code>=1</code>.</p>
-<p><span class="status-pill status-success">PRUNER</span> &nbsp; reads <code>docs/features.md</code>,
-detects <code>ppr-done — PR #N squashed</code> markers in each <code>##</code> H2 block's Run Log,
-moves matching blocks to <code>docs-source/feature-history.md</code>, and re-renders
-<code>documentation/feature-history.html</code> via <code>claude/skills/docs-writer/render.py</code>.</p>
-<p><span class="status-pill status-success">ROTATOR</span> &nbsp; recognises BOTH <code>## Status</code>
-AND <code>## Iteration:</code> as iteration-boundary H2 anchors. Older blocks rotate into
-<code>docs/archive/progress-v&lt;N&gt;.md</code> per the Versioning Convention; the most recent
-block stays in <code>docs/progress.md</code>.</p>
-<h2 id="why">WHY</h2>
-<p>Token cost on 2026-05-23: ~7 MB across 424 files in <code>docs/</code>; <code>docs/progress.md</code>
-alone was 265 KB / ~66 K tokens per <code>Read</code>. Every pipeline phase reads
-<code>docs/progress.md</code> to follow the <code>**Plan:**</code> / <code>**Analysis:**</code> pointers. Without
-this hygiene block, each phase was eating ~13× the post-rotation token budget on
-a single file load. Multiply by feature count and you get a context-budget
-blowout per <code>/pipeline</code> run.</p>
-<h2 id="see-also">SEE ALSO</h2>
+<h2 id="2-recent-activity">2. Recent activity</h2>
 <ul>
-<li><code>/create-plan</code> Step 5 — rotation logic (dual-anchor recognition).</li>
-<li><code>/post-merge</code> Step 12 — hygiene block (janitor + pruner).</li>
-<li><code>claude/config/orphan-patterns.txt</code> — fnmatch glob source-of-truth.</li>
-<li><code>claude/config/never-stage.txt</code> — never-stage intersection guard.</li>
-<li><code>claude/lib/pipeline/features_pruner.py</code> — pruner module.</li>
-<li><code>claude/lib/pipeline/workflow_extractor.py</code> — shared hybrid (RICH/EMBEDDED) extractor for dashboard + decisions.</li>
-<li><code>claude/lib/pipeline/dashboard_renderer.py</code> — 12-section dashboard emitter.</li>
-<li><code>claude/lib/pipeline/decisions_renderer.py</code> — newest-first decisions log emitter.</li>
-<li><code>documentation/dashboard.html</code> — rendered live-state dashboard.</li>
-<li><code>documentation/decisions.html</code> — rendered decisions log.</li>
-<li><code>documentation/feature-history.html</code> — rendered audit trail.</li>
+<li><code>feat=12/12</code> <code>step=analyze</code> <code>cycle=0</code> — analyze-start (rolled back premature terminal — F12 fix/docs-workflow-hygiene queued)</li>
+<li><code>feat=12/12</code> <code>step=analyze</code> <code>cycle=0</code> — analyze-done — analysis-v90.md written; 4 OQs + 5 SubQs resolved; data corrections (39 orphans / 62 iterations)</li>
+<li><code>feat=12/12</code> <code>step=plan</code> <code>cycle=0</code> — plan-start</li>
+<li><code>feat=12/12</code> <code>step=plan</code> <code>cycle=0</code> — plan-done — plan-v91.md written (1563L); 2 phases / 8 tasks; 17 ACs</li>
+<li><code>feat=12/12</code> <code>step=branch</code> <code>cycle=0</code> — branch-created fix/docs-workflow-hygiene</li>
+<li><code>feat=12/12</code> <code>step=implement</code> <code>cycle=0</code> — implement-start phase-1 (code+tests+docs)</li>
+<li><code>feat=12/12</code> <code>step=implement</code> <code>cycle=0</code> — phase-1-done — commit 5b065f2; 14 files (10 new + 4 edited); 4/4 tests PASS; 35/35 richness PASS; collateral: live pruner wiped F12 block, restored manually</li>
+<li><code>feat=12/12</code> <code>step=implement</code> <code>cycle=0</code> — phase-2-done — commit 9951938; 11 backfill entries + 62 archive + 0 orphans</li>
+<li><code>feat=12/12</code> <code>step=review</code> <code>cycle=0</code> — review-start (teams — 2991L/14F)</li>
+<li><code>feat=12/12</code> <code>step=review</code> <code>cycle=0</code> — review-done — verdict PASS; 17/17 ACs PASS; 0 findings</li>
+<li><code>feat=12/12</code> <code>step=ppr</code> <code>cycle=0</code> — ppr-done — PR #108 squashed (6b997bb); F12 ✓</li>
+<li><code>feat=13/13</code> <code>step=analyze</code> <code>cycle=0</code> — analyze-start (F13 dashboard + decisions log queued — extends pipeline)</li>
+<li><code>feat=13/13</code> <code>step=analyze</code> <code>cycle=0</code> — analyze-done analysis-v91.md written (5 OQs + 7 SubQs resolved, 2 phases / 10 tasks, hybrid extractor)</li>
+<li><code>feat=13/13</code> <code>step=plan</code> <code>cycle=0</code> — plan-start</li>
+<li><code>feat=13/13</code> <code>step=plan</code> <code>cycle=0</code> — plan-done plan-v92.md written (11 tasks, 2 phases, 2353 lines)</li>
+<li><code>feat=13/13</code> <code>step=branch</code> <code>cycle=0</code> — branch-create feat/dashboard-and-decisions-log</li>
+<li><code>feat=13/13</code> <code>step=implement</code> <code>cycle=0</code> — implement-start</li>
+<li><code>feat=13/13</code> <code>step=implement</code> <code>cycle=0</code> — implement-done all 11 tasks complete, verification PASS</li>
+<li><code>feat=13/13</code> <code>step=implement</code> <code>cycle=0</code> — implement-done all 11 tasks complete, verification PASS (3 tests green, diagnostics fixed)</li>
+<li><code>feat=13/13</code> <code>step=review</code> <code>cycle=0</code> — review-start</li>
+</ul>
+<h2 id="3-recent-features">3. Recent features</h2>
+<ul>
+<li><strong>?/?</strong> <code>feat/deployment-provider-render</code> (OQs: 0, SubQs: 0)</li>
+<li><strong>?/?</strong> <code>feat/deployment-provider-digitalocean</code> (OQs: 0, SubQs: 0)</li>
+<li><strong>?/?</strong> <code>chore/native-surface-docs-and-bundled-nbs</code> (OQs: 0, SubQs: 0)</li>
+<li><strong>?/?</strong> <code>feat/charter-ai-layer-topics</code> (OQs: 0, SubQs: 0)</li>
+<li><strong>13/13</strong> <code>feat/dashboard-and-decisions-log</code> (OQs: 5, SubQs: 7)</li>
 </ul>
 <details>
-<summary>Hygiene block opt-out env vars at a glance</summary>
+<summary>4. Iteration archive</summary>
 
-| Env var | Default | Effect |
-|---------|---------|--------|
-| `PIPELINE_HYGIENE_OFF` | unset | When `=1`, the whole Step 12 block (janitor + pruner + dashboard + decisions) short-circuits. |
-| `PIPELINE_JANITOR_DRY_RUN` | `1` | When `=0`, the orphan janitor deletes matched files. Default ON for safety. |
+`docs/archive/progress-v*.md` count: **62**
+</details>
 
-Wall-time budget: dashboard + decisions each carry a 5-second SIGALRM cap. On
-overrun they log `*_BUDGET_EXCEEDED` and exit `0` — never block `/post-merge`.
+<details>
+<summary>5. Cost trajectory</summary>
+
+- Events: **82**
+- Total USD: **$0.00**
+- Average per event: **$0.0000**
+</details>
+
+<details>
+<summary>6. Documentation hub</summary>
+
+Total pages: **37**
+
+Top 5 most recent:
+- [decisions.html](decisions.html)
+- [dashboard.html](dashboard.html)
+- [index.html](index.html)
+- [feature-history.html](feature-history.html)
+- [workflow-hygiene.html](workflow-hygiene.html)
 
 </details>
-<ul>
-<li><code>~/.claude/rules/workflow.md</code> § Versioning Convention — archive numbering rule.</li>
-</ul>
+
+<details>
+<summary>7. Charter snapshot</summary>
+
+- Topics present: **13**
+- Deployment target: ``none` — pipelinekit is a workflow toolkit, not a deployed application. No CI/CD deployment phase needed.`
+- Review style: ``orchestrator decides` (default) — let the heuristic pick `--teams` per feature based on diff size and feature class.`
+- Decisions logged: **3**
+- Non-Goals: **5**
+- Open Questions: **0**
+</details>
+
+<details>
+<summary>8. Test sweep</summary>
+
+Total `test_*.sh` files: **48**
+
+By directory:
+- `claude/hooks/tests` — 5
+- `claude/host-adapters/tests` — 1
+- `claude/lib/pipeline/tests` — 2
+- `claude/lib/sandbox/tests` — 5
+- `claude/skills/analyze/tests` — 1
+- `claude/skills/caveman-mode/tests` — 1
+- `claude/skills/create-plan/tests` — 2
+- `claude/skills/docs-writer/tests` — 2
+- `claude/skills/pipeline/tests` — 15
+- `claude/skills/post-merge/tests` — 2
+- `claude/skills/ppr/tests` — 2
+- `claude/skills/research/tests` — 5
+- `claude/skills/review/tests` — 3
+- `claude/skills/secret-scanner/tests` — 1
+- `claude/skills/write-a-skill/tests` — 1
+
+</details>
+
+<details>
+<summary>9. Skill inventory</summary>
+
+Total SKILL.md files: **42**
+</details>
+
+<details>
+<summary>10. Hook denial summary</summary>
+
+_No denial-tracker log present._
+</details>
+
+<details>
+<summary>11. Memory inventory</summary>
+
+Total memory files: **2**
+
+By type:
+- `MEMORY` — 1
+- `project` — 1
+
+</details>
+
+<details>
+<summary>12. Quick links</summary>
+
+- [workflow-hygiene](workflow-hygiene.html)
+- [html-effectiveness-principles](html-effectiveness-principles.html)
+- [design-tokens](design-tokens.html)
+- [codebase-map](codebase-map.html)
+- [feature-history](feature-history.html)
+- [decisions](decisions.html)
+- [skills](skills.html)
+- [agents](agents.html)
+</details>
     </div>
 
     <div class="no-results" id="no-results">

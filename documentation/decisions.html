@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Workflow hygiene — pipelinekit</title>
-<meta name="description" content="Drift modes (rotation, orphan janitor, features pruner, dashboard + decisions renderers) and their opt-out env vars.">
+<title>pipelinekit decisions log — pipelinekit</title>
+<meta name="description" content="Per-feature OQ + SubQ resolutions in newest-first order.">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Workflow hygiene</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>pipelinekit decisions log</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -531,147 +531,177 @@ footer {
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
     <ul>
-      <li class="lvl-2"><a href="#what">WHAT</a></li>
-      <li class="lvl-2"><a href="#when">WHEN</a></li>
-      <li class="lvl-2"><a href="#how">HOW</a></li>
-      <li class="lvl-2"><a href="#why">WHY</a></li>
-      <li class="lvl-2"><a href="#see-also">SEE ALSO</a></li>
+      <li class="lvl-2"><a href="#cards">Cards</a></li>
     </ul>
   </aside>
 
   <main>
     <header class="page-header">
-      <h1>Workflow hygiene</h1>
-      <p class="description">Drift modes (rotation, orphan janitor, features pruner, dashboard + decisions renderers) and their opt-out env vars.</p>
+      <h1>pipelinekit decisions log</h1>
+      <p class="description">Per-feature OQ + SubQ resolutions in newest-first order.</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
-<!-- richness budget: visual-token status pills + comparison-tabs (≥ 1 — default threshold) -->
+<p>Generated: 2026-05-23T14:34:35+00:00</p>
+<!-- richness budget: collapsible-details cards (one per feature) + timeline-scrubber svg + visual-token classes -->
 
-<p>Three documented drift modes accumulated in <code>docs/</code> over the pipelinekit lifetime:
-rotation drift, orphan snapshots, and <code>features.md</code> bloat. As of 2026-05-23 the
-<code>docs/</code> tree had grown to ~7 MB across 424 files with <code>docs/progress.md</code> alone at
-265 KB / ~66 K tokens per <code>Read</code>. This page documents the hygiene contract that
-keeps the tree small from now on.</p>
-<h2 id="what">WHAT</h2>
-<p>The three drift modes (each fixed independently — see the corresponding skill):</p>
-<div data-snippet-mount="comparison-tabs">
-<div data-tab="rotation">
-
-**Rotation drift** (`/create-plan` Step 5). The rotator used to scope by `## Status`
-H2 only — but `docs/progress.md` accumulated 62 `## Iteration:` H2 blocks because
-the alt anchor was invisible to the gate. Fix: both anchors are now valid
-iteration-boundary markers.
-
-</div>
-<div data-tab="orphans">
-
-**Orphan snapshots** (no janitor). Halt-incident snapshots (e.g.
-`docs/pipeline-state.md.feature-7-done`, `docs/RESUME.md`, `docs/features-master.md`)
-accumulated forever — 39 files as of 2026-05-23. Fix: `/post-merge` Step 12
-runs a janitor reading `claude/config/orphan-patterns.txt` (fnmatch globs).
-
-</div>
-<div data-tab="features-bloat">
-
-**features.md bloat.** Done feature blocks lingered in `docs/features.md` instead
-of being archived. 11 merged blocks (PRs #97-#107) sat alongside the in-progress
-12th. Fix: `claude/lib/pipeline/features_pruner.py` (invoked from `/post-merge`
-Step 12) moves done blocks to `docs-source/feature-history.md` and re-renders
-the HTML audit trail.
-
-</div>
-<div data-tab="dashboard-decisions">
-
-**Dashboard + decisions log (F13).** Two new generated pages close the
-introspection gap. `claude/lib/pipeline/dashboard_renderer.py` emits a 12-section
-live-state dashboard at `documentation/dashboard.html` with an ISO8601
-`Generated:` timestamp. `claude/lib/pipeline/decisions_renderer.py` emits a
-newest-first per-feature rationale log at `documentation/decisions.html`. Both
-share a single extractor at `claude/lib/pipeline/workflow_extractor.py` (hybrid
-RICH/EMBEDDED mode). Both honour `PIPELINE_HYGIENE_OFF=1` and run AFTER the
-features-pruner inside the same `/post-merge` Step 12 `else` branch.
-
-</div>
-</div>
-
-<h2 id="when">WHEN</h2>
-<p>The hygiene block runs on <strong>every</strong> <code>/post-merge</code> invocation (Step 12). One env var
-controls the entire block:</p>
-<table>
-<thead>
-<tr>
-<th>Env var</th>
-<th>Default</th>
-<th>Effect</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>PIPELINE_HYGIENE_OFF</code></td>
-<td>unset (block runs)</td>
-<td>When <code>=1</code>, BOTH the janitor and the pruner are skipped (single switch — SubQ-C).</td>
-</tr>
-<tr>
-<td><code>PIPELINE_JANITOR_DRY_RUN</code></td>
-<td><code>1</code> (dry-run on)</td>
-<td>When <code>=0</code>, the orphan janitor actually deletes matched files. Default ON for safety.</td>
-</tr>
-</tbody>
-</table>
-<p>The rotator (<code>/create-plan</code> Step 5) is plan-iteration-driven — it fires whenever a
-new plan version is being written, not at <code>/post-merge</code> time.</p>
-<h2 id="how">HOW</h2>
-<p><span class="status-pill status-success">JANITOR</span> &nbsp; reads <code>claude/config/orphan-patterns.txt</code>
-(fnmatch globs, default-allow on missing) and intersects each candidate against
-<code>claude/config/never-stage.txt</code> (default-deny). Double-matched paths are NEVER
-deleted. Single-matched paths are removed under <code>PIPELINE_JANITOR_DRY_RUN=0</code>,
-logged under <code>=1</code>.</p>
-<p><span class="status-pill status-success">PRUNER</span> &nbsp; reads <code>docs/features.md</code>,
-detects <code>ppr-done — PR #N squashed</code> markers in each <code>##</code> H2 block's Run Log,
-moves matching blocks to <code>docs-source/feature-history.md</code>, and re-renders
-<code>documentation/feature-history.html</code> via <code>claude/skills/docs-writer/render.py</code>.</p>
-<p><span class="status-pill status-success">ROTATOR</span> &nbsp; recognises BOTH <code>## Status</code>
-AND <code>## Iteration:</code> as iteration-boundary H2 anchors. Older blocks rotate into
-<code>docs/archive/progress-v&lt;N&gt;.md</code> per the Versioning Convention; the most recent
-block stays in <code>docs/progress.md</code>.</p>
-<h2 id="why">WHY</h2>
-<p>Token cost on 2026-05-23: ~7 MB across 424 files in <code>docs/</code>; <code>docs/progress.md</code>
-alone was 265 KB / ~66 K tokens per <code>Read</code>. Every pipeline phase reads
-<code>docs/progress.md</code> to follow the <code>**Plan:**</code> / <code>**Analysis:**</code> pointers. Without
-this hygiene block, each phase was eating ~13× the post-rotation token budget on
-a single file load. Multiply by feature count and you get a context-budget
-blowout per <code>/pipeline</code> run.</p>
-<h2 id="see-also">SEE ALSO</h2>
-<ul>
-<li><code>/create-plan</code> Step 5 — rotation logic (dual-anchor recognition).</li>
-<li><code>/post-merge</code> Step 12 — hygiene block (janitor + pruner).</li>
-<li><code>claude/config/orphan-patterns.txt</code> — fnmatch glob source-of-truth.</li>
-<li><code>claude/config/never-stage.txt</code> — never-stage intersection guard.</li>
-<li><code>claude/lib/pipeline/features_pruner.py</code> — pruner module.</li>
-<li><code>claude/lib/pipeline/workflow_extractor.py</code> — shared hybrid (RICH/EMBEDDED) extractor for dashboard + decisions.</li>
-<li><code>claude/lib/pipeline/dashboard_renderer.py</code> — 12-section dashboard emitter.</li>
-<li><code>claude/lib/pipeline/decisions_renderer.py</code> — newest-first decisions log emitter.</li>
-<li><code>documentation/dashboard.html</code> — rendered live-state dashboard.</li>
-<li><code>documentation/decisions.html</code> — rendered decisions log.</li>
-<li><code>documentation/feature-history.html</code> — rendered audit trail.</li>
+<p>Per-feature OQ + SubQ resolutions in newest-first order. Each card shows the resolution headline only — see the source <code>docs/analysis-v*.md</code> workflow file for the full reasoning.</p>
+<p><a href="dashboard.html">Dashboard →</a> &nbsp; · &nbsp; <a href="feature-history.html">Feature history →</a></p>
+<p><svg viewBox="0 0 800 50" data-snippet-mount="timeline-scrubber" aria-label="pipelinekit decisions timeline">
+  <line x1="20" y1="25" x2="780" y2="25" stroke="currentColor" stroke-width="2"/>
+</svg></p>
+<h2 id="cards">Cards</h2>
+<details class="decisions-card" data-feature="13/13">
+  <summary>13/13 · feat/dashboard-and-decisions-log · 2026-05-23</summary>
+  <ul class="decisions-list">
+  <li class="oq-resolution"><strong>OQ-1:</strong> 12-section budget for dashboard (larger than spec&#x27;s 8 proposal)</li>
+  <li class="oq-resolution"><strong>OQ-2:</strong> decisions log ordered newest-first (most actionable for current contributors</li>
+  <li class="oq-resolution"><strong>OQ-3:</strong> index</li>
+  <li class="oq-resolution"><strong>OQ-4:</strong> (c) HYBRID extractor</li>
+  <li class="oq-resolution"><strong>OQ-5:</strong> dashboard</li>
+  <li class="subq-resolution"><strong>SubQ-A:</strong> workflow_extractor</li>
+  <li class="subq-resolution"><strong>SubQ-B:</strong> At /post-merge Step 12 hygiene block, when features_pruner</li>
+  <li class="subq-resolution"><strong>SubQ-C:</strong> Two paths considered:</li>
+  <li class="subq-resolution"><strong>SubQ-D:</strong> Should decisions</li>
+  <li class="subq-resolution"><strong>SubQ-E:</strong> test_workflow_extractor_no_leak</li>
+  <li class="subq-resolution"><strong>SubQ-F:</strong> documentation/index</li>
+  <li class="subq-resolution"><strong>SubQ-G:</strong> Spec proposed 8; OQ-1 resolved to 12</li>
 </ul>
-<details>
-<summary>Hygiene block opt-out env vars at a glance</summary>
-
-| Env var | Default | Effect |
-|---------|---------|--------|
-| `PIPELINE_HYGIENE_OFF` | unset | When `=1`, the whole Step 12 block (janitor + pruner + dashboard + decisions) short-circuits. |
-| `PIPELINE_JANITOR_DRY_RUN` | `1` | When `=0`, the orphan janitor deletes matched files. Default ON for safety. |
-
-Wall-time budget: dashboard + decisions each carry a 5-second SIGALRM cap. On
-overrun they log `*_BUDGET_EXCEEDED` and exit `0` — never block `/post-merge`.
-
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v91.md</p>
 </details>
-<ul>
-<li><code>~/.claude/rules/workflow.md</code> § Versioning Convention — archive numbering rule.</li>
-</ul>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · chore/native-surface-docs-and-bundled-nbs · 2026-05-19</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v65.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · docs/skill-authoring-standard · 2026-05-17</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v13.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/azure-cli-overlay · 2026-05-17</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v4.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/charter-ai-layer-topics · 2026-05-23</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v79.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/charter-auto-extract · 2026-05-18</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v26.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/charter-finding-classifier · 2026-05-18</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v25.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/claude-md-enhancer · 2026-05-17</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v12.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/deployment-provider-digitalocean · 2026-05-19</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v59.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/deployment-provider-render · 2026-05-19</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v58.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/docs-vs-documentation-split · 2026-05-18</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v41.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/docs-writer-postmerge · 2026-05-17</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v5.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/eliminate-overlays · 2026-05-18</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v36.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/enterworktree-migration · 2026-05-17</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v14.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/github-issues-integration · 2026-05-18</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v37.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/integrate-agentmemory · 2026-05-18</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v30.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/integrate-openhuman · 2026-05-18</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v40.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/monorepo-multi-config-detection · 2026-05-19</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v55.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/parallelize-implement-phase · 2026-05-18</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v34.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/research-loop-restart-from-iter · 2026-05-19</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v53.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/runlog-unify-format · 2026-05-18</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v35.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/worker-delegation-phase4-5 · 2026-05-18</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v20.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · fix/sandbox-providers-exec-argv · 2026-05-19</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v48.md</p>
+</details>
     </div>
 
     <div class="no-results" id="no-results">
