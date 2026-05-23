@@ -89,6 +89,17 @@ Exclusion: `validate-task-spec.py` is a git pre-commit hook (lives at `.git/hook
 
 Hooks that block repeatedly on the same surface burn agent tokens in retry loops. The `denial_tracker.py` helper records consecutive denials per `(tool, rule)` pair and, after 3 hits in 5 minutes, converts the block into an `ask` advisory so the agent stops banging on the gate. See `block-stage-sensitive.sh` (search for `denial_tracker`) for the integration pattern. New gating hooks SHOULD wire through the tracker for any rule that the agent is likely to hit more than once per session.
 
+## Pipeline Smoke Gate
+
+Every `claude/hooks/tests/test_*.sh` file is auto-discovered by the pipeline at Step 5.5.7 (`claude/skills/pipeline/SKILL.md` per-feature loop) and run via `bash <file>` before the review phase dispatches. Tests MUST:
+
+- Exit 0 on success and non-zero on any failure mode (no warnings-as-failures, no exit-code overloading).
+- Be idempotent — safe to re-run any number of times against the same workspace without external state mutation.
+- Sandbox via `mktemp -d` (with `trap cleanup EXIT`) or sandbox `CLAUDE_HOME` — never touch `~/.claude/`, the live repo `.git/`, or production credentials.
+- Complete in ≤ 5 seconds per file. Over-budget tests will land but are flagged as drift in `/code-health` review.
+
+A non-zero exit fails the per-feature verify step and skips to the next feature with `HOOK_SMOKE_FAILED: <test-path>`. Directory absent or empty → gate emits `HOOK_SMOKE_NO_TESTS_FOUND` and continues. See `claude/skills/pipeline/SKILL.md` § "Step 5.5.7: Hook smoke-test gate (additive verify)" for the orchestrator-side contract.
+
 ## See Also
 
 - Root rules: `../../CLAUDE.md`.
