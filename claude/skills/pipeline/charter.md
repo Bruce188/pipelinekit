@@ -17,7 +17,7 @@ status: draft | ratified
 ---
 ```
 
-Required sections (10 topics in order):
+Required sections (15 topics in order):
 1. `## Goal`
 2. `## Users`
 3. `## Problem`
@@ -30,6 +30,11 @@ Required sections (10 topics in order):
 9. `## Open Questions`
 10. `## Deployment target`
 11. `## Review style`
+12. (Optional) AI Layer subsections — written under a new `## AI Layer` H2 when answered:
+    - Topic 12: AI Champion
+    - Topic 13: LSP / symbol search MCP
+    - Topic 14: Self-reflection
+    - Topic 15: Codebase Map (root CLAUDE.md)
 
 Optional section (additive — charters without this section continue to validate):
 - `## Stakeholders` (optional, populated only when multi-party scope is signaled during Step 0; captures decision-makers, blockers, reviewers; backward-compat: charters without this section continue to validate)
@@ -56,7 +61,7 @@ Ready to ship? Choose:
   D) Edit manually — write current draft and pause (resume via /pipeline --charter docs/charter.md)
 ```
 
-The 10 topics enumerated by the convergence check (in order):
+The 15 topics enumerated by the convergence check (in order):
 
 - Topic 1 — Goal
 - Topic 2 — Users
@@ -70,6 +75,10 @@ The 10 topics enumerated by the convergence check (in order):
 - Topic 9 — Open Questions
 - Topic 10 — Deployment target
 - Topic 11 — Review style
+- Topic 12 — AI Champion
+- Topic 13 — LSP / symbol search MCP
+- Topic 14 — Self-reflection
+- Topic 15 — Codebase Map confirmation
 
 The user must see this choice after every topic, including the last. "Ship the charter now" is always available.
 
@@ -270,6 +279,71 @@ Options:
 
 ---
 
+### Topic 12: AI Champion
+
+**Probe:** Does the project have a designated AI Champion (per `documentation/governance.html`)? An AI Champion is the named owner for AI-workflow decisions on this codebase.
+
+**Follow-up:** If yes, capture the champion's name and tenure under `## AI Layer` in the charter.
+
+**Invocation:** Pipeline issues an `AskUserQuestion` with the four options above; the answer is recorded under `## AI Layer` in the charter.
+
+Options:
+- A) `yes` (follow-up: name + tenure)
+- B) `no`
+- C) `not sure`
+- D) `Ship the charter now`
+
+---
+
+### Topic 13: LSP / symbol search MCP
+
+**Probe:** Which symbol-navigation MCP do you want wired into the harness for cross-file refs and symbol graphs?
+
+**Follow-up:** `serena` is the recommended LSP-based option; `claude-context` provides semantic RAG over the codebase via Milvus. Pick `none / skip` if neither is needed.
+
+**Invocation:** Pipeline issues an `AskUserQuestion` with the five options above; the answer is recorded under `## AI Layer` in the charter.
+
+Options:
+- A) `serena (recommended)`
+- B) `claude-context (semantic RAG)`
+- C) `none / skip`
+- D) `not sure`
+- E) `Ship the charter now`
+
+---
+
+### Topic 14: Self-reflection
+
+**Probe:** Opt in to the F4 Stop hook that proposes `CLAUDE.md` updates at end-of-feature?
+
+**Follow-up:** The hook is enabled by default. Disable by setting `PIPELINE_NO_SELF_REFLECT=1` in the environment.
+
+**Invocation:** Pipeline issues an `AskUserQuestion` with the four options above; the answer is recorded under `## AI Layer` in the charter.
+
+Options:
+- A) `enabled (default)`
+- B) `disabled — set PIPELINE_NO_SELF_REFLECT=1`
+- C) `not sure`
+- D) `Ship the charter now`
+
+---
+
+### Topic 15: Codebase Map confirmation
+
+**Probe:** Confirm the root `CLAUDE.md` Codebase Map is up to date for this repo.
+
+**Follow-up:** This is a pure `AskUserQuestion` probe — no `grep` pre-fill (per feature constraint 4). If the project does not yet ship a root `CLAUDE.md`, pick `n/a`.
+
+**Invocation:** Pipeline issues an `AskUserQuestion` with the four options above; the answer is recorded under `## AI Layer` in the charter.
+
+Options:
+- A) `confirmed`
+- B) `needs update`
+- C) `n/a (project does not use root CLAUDE.md yet)`
+- D) `Ship the charter now`
+
+---
+
 ## Charter File Template
 
 After all topics are gathered (or user chooses "ship now"), write `docs/charter.md` using this template:
@@ -324,6 +398,12 @@ status: draft
 
 ## Review style
 [Either `always teams`, `never teams`, or `orchestrator decides` (default).]
+
+## AI Layer
+- **AI Champion:** [name + tenure, or `none` / `not sure`]
+- **LSP / symbol-search MCP:** [`serena` | `claude-context` | `none` | `not sure`]
+- **Self-reflection (Stop hook):** [`enabled` | `disabled` | `not sure`]
+- **Codebase Map (root CLAUDE.md):** [`confirmed` | `needs update` | `n/a`]
 
 ## Decision Log
 | Date | Question | Decision | Reason |
