@@ -78,9 +78,9 @@ Skills below intentionally OMIT `paths:` because their scope is the whole reposi
 - `caveman-mode` — toggles a session-wide verbosity flag; no file surface to scope.
 - `write-a-skill` (the meta-skill) — authors NEW skills, so by definition cannot constrain its own surface to existing files.
 
-Any other skill that ships without `paths:` is a bug — file an issue or add the field.
+Policy reference: `documentation/skills-scope-policy.html` — authoring guidance for new skills.
 
-- Policy reference: `documentation/skills-scope-policy.html` — authoring guidance for new skills.
+Any other skill that ships without `paths:` is a bug — file an issue or add the field.
 
 ## See Also
 
