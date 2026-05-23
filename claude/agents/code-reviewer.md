@@ -194,3 +194,15 @@ const posts = await Post.findAll({ include: [User] });
 ```
 
 Always focus on specific, actionable improvements with code examples and clear reasoning for each recommendation.
+
+## Skill-Compliance Gates
+
+Three pipelinekit-canonical gates that the review subagent runs alongside the normal review output, via `bash claude/skills/review/check-skill-compliance.sh`:
+
+- **Gate (a) — Skill-paths-or-allowlist (blocking).** New or modified `claude/skills/<name>/SKILL.md` files must declare `paths:` in the frontmatter or be on the 4-entry allowlist in `docs-source/skills-scope-policy.md`.
+- **Gate (b) — Hook denial-tracker (non-blocking).** New or modified `claude/hooks/*.{sh,py}` files (excluding tests and `_`-prefixed helpers) must call `denial_tracker` or carry an opt-out comment `# denial_tracker:no <reason>`.
+- **Gate (c) — Docs richness (blocking).** Changed `docs-source/*.md` files must have a corresponding `documentation/*.html` rendered and passing `richness_check.py`. Missing HTML → blocking "render via docs-writer" finding. Failing richness → blocking finding (unless marked `<!-- richness-exempt: <reason> -->` in source).
+
+The script emits findings in the same `**File:** / **Severity:** / **Issue:** / **Suggestion:** / **Scope:** / **Intent:**` shape used elsewhere in this agent's output schema. Merge them into the review output unchanged.
+
+See `claude/skills/review/SKILL.md § Step 6.5: Skill-Compliance Gates` for the full gate contract.

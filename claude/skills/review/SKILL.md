@@ -482,6 +482,26 @@ When `review-model:` is set in REVIEW.md it applies uniformly to all six agents 
 
 ---
 
+### Step 6.5: Skill-Compliance Gates
+
+Three pipelinekit-canonical gates that catch skill-overreach, hook-observability holes, and documentation-richness regressions before they merge. Gates fire only when the diff touches the matching file types — no repo-wide scans — and produce findings inside the existing review output schema (Step 7 dedup applies uniformly). Gates are not user-configurable; their thresholds live in `claude/skills/review/check-skill-compliance.sh`.
+
+**Gate (a) — Skill-paths-or-allowlist (blocking).** Every `claude/skills/<name>/SKILL.md` in the diff must either declare `paths:` in its YAML frontmatter (scoping the directories where the skill applies) or appear in the 4-entry allowlist at `docs-source/skills-scope-policy.md § Global-by-design allowlist`. Catches skills that silently apply globally.
+
+**Gate (b) — Hook denial-tracker (non-blocking).** Every `claude/hooks/*.{sh,py}` in the diff (excluding `tests/` and helper files prefixed with `_`) must either call `denial_tracker` (via `python3 claude/hooks/denial_tracker.py`, matching the pattern in `claude/hooks/block-stage-sensitive.sh`) or carry an opt-out comment `# denial_tracker:no <reason>` near the top of the file. Catches hooks that deny silently without telemetry.
+
+**Gate (c) — Docs richness (blocking).** Every changed `docs-source/<name>.md` must have a corresponding rendered `documentation/<name>.html` that passes `python3 claude/skills/docs-writer/richness_check.py <html-path>` (positional invocation). The source may carry `<!-- richness-exempt: <reason> -->` to skip. Missing HTML → blocking "render via docs-writer" finding (`gate-c-missing-render` sub-case). Failing richness → blocking finding with suggested remediation.
+
+**Invocation:** the review subagent runs `bash claude/skills/review/check-skill-compliance.sh` and captures stdout. Each block of `**File:** … **Severity:** … **Issue:** … **Suggestion:** … **Scope:** … **Intent:**` is treated as one finding and merged into the review output schema unchanged.
+
+**Exit codes:** 0 = zero findings, 1 = at least one blocking, 2 = non-blocking only. Non-blocking findings flow through Path M when small + mechanical; blocking findings route through Path B.
+
+**Full script:** `claude/skills/review/check-skill-compliance.sh`.
+
+**Smoke test:** `bash claude/skills/review/tests/test_skill_compliance_gates.sh`.
+
+---
+
 ### Step 7: Collect and Deduplicate Results
 
 1. Wait for all spawned agents to complete (2 for small tier, 5 for medium/large tier). Note any that failed/timed out as "incomplete".
