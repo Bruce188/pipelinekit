@@ -69,13 +69,13 @@ Charter Discovery is the default-on front-loaded alignment phase. It produces `d
 5. User-wins contract: if the user's topic answers contradict the persona's emphasis, the user's answers win — proceed without persona bias.
 
 1. Print an explainer to the user:
-   > "Charter Discovery (Step 0): Before the pipeline runs autonomously, let's align on what you want to build. I'll ask about 10 topics. You can exit at any point — just choose 'ship the charter now' to write the charter with what we have so far and continue."
+   > "Charter Discovery (Step 0): Before the pipeline runs autonomously, let's align on what you want to build. I'll ask about 15 topics. You can exit at any point — just choose 'ship the charter now' to write the charter with what we have so far and continue."
    >
    > "To skip entirely: re-invoke with `--no-charter`. To adopt an existing charter: `--charter <path>`."
 
 2. Read `claude/skills/pipeline/charter.md` for the question bank.
 
-3. For each topic in order (Goal → Users → Problem → Success → Non-Goals → Constraints → MVP Boundary → Prior Art → Open Questions → Deployment target):
+3. For each topic in order (Goal → Users → Problem → Success → Non-Goals → Constraints → MVP Boundary → Slice Strategy → Prior Art → Open Questions → Deployment target → Review style → AI Champion → LSP / symbol search MCP → Self-reflection → Codebase Map confirmation):
    a. Invoke `AskUserQuestion` with the topic's question and options from the bank.
    b. Record the user's answer.
    b.5 **Multi-party trigger (runs AFTER each topic answer, BEFORE the convergence check):** Scan the answer text for any of these trigger tokens: `teammate`, `customer segment`, `upstream`, `downstream`, `external service`. If any token matches AND the Stakeholders prompt has not yet fired this run (**once-per-run latch**), invoke a conditional `AskUserQuestion` asking: "Who are the decision-makers, blockers, or reviewers for this work? (one short line per stakeholder; skip if none apply)". Record the answer under `## Stakeholders` in the in-progress charter draft. Cross-reference: `claude/skills/pipeline/charter.md § Stakeholders (conditional probe)`.
