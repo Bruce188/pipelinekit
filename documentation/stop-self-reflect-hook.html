@@ -770,7 +770,7 @@ footer {
 
 
 <h2 id="what-the-hook-does">What the hook does</h2>
-<p>At every <code>Stop</code> event (the session is about to finish without further tool calls), the hook fires AFTER the existing <code>stop-completion-gate.sh</code> advisory gate and AFTER <code>notify-emit.sh</code>. If both predecessors allow the stop, the self-reflection hook:</p>
+<p>At every <code>Stop</code> event (the session is about to finish without further tool calls), the hook fires AFTER <code>notify-emit.sh</code> in the <code>Stop</code> hook array wired by <code>scripts/install.sh</code>. If the prior hooks allow the stop, the self-reflection hook:</p>
 <ol>
 <li>Drains the JSON stdin envelope (the harness contract).</li>
 <li>Checks the opt-out env-var <code>PIPELINE_NO_SELF_REFLECT</code> — if set to <code>1</code>, exits 0 immediately with no side effect.</li>

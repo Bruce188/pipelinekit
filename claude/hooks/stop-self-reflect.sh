@@ -20,6 +20,7 @@
 #
 # Selftest: bash stop-self-reflect.sh --selftest
 
+# -e omitted on purpose: every failure path swallows exit code to honor the Stop-hook non-blocking contract.
 set -uo pipefail
 
 TIMEOUT_SECS=60

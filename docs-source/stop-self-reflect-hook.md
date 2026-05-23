@@ -8,7 +8,7 @@ This page covers what the hook does, where it writes output, how to apply propos
 
 ## What the hook does
 
-At every `Stop` event (the session is about to finish without further tool calls), the hook fires AFTER the existing `stop-completion-gate.sh` advisory gate and AFTER `notify-emit.sh`. If both predecessors allow the stop, the self-reflection hook:
+At every `Stop` event (the session is about to finish without further tool calls), the hook fires AFTER `notify-emit.sh` in the `Stop` hook array wired by `scripts/install.sh`. If the prior hooks allow the stop, the self-reflection hook:
 
 1. Drains the JSON stdin envelope (the harness contract).
 2. Checks the opt-out env-var `PIPELINE_NO_SELF_REFLECT` — if set to `1`, exits 0 immediately with no side effect.
