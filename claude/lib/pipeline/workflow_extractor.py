@@ -307,7 +307,7 @@ def extract_documentation_index(repo: Path | None = None) -> dict:
     return {
         "total_pages": len(docs),
         "top_recent": [p.name for p in
-                       sorted(docs, key=lambda p: p.stat().st_mtime, reverse=True)[:5]],
+                       sorted(docs, key=lambda p: (-p.stat().st_mtime, p.name))[:5]],
     }
 
 
@@ -387,8 +387,11 @@ def _first_sentence(s: str, *, max_len: int = 180) -> str:
     if m:
         s = s[: m.start()]
     if len(s) > max_len:
-        s = s[: max_len].rsplit(" ", 1)[0] + "…"
-    return s.strip()
+        cut = s[: max_len]
+        if " " in cut:
+            cut = cut.rsplit(" ", 1)[0]
+        s = cut[: max_len - 1] + "…"
+    return s.strip()[:max_len]
 
 
 # CLI self-test entry-point — invoked by the verification command sequence.

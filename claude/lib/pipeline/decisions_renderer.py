@@ -5,8 +5,11 @@ Newest-first per-feature emitter. Per OQ-2 resolution: F13 entries appear at
 TOP, F1 at bottom. Each feature gets a <details class="decisions-card">
 collapsible card with data-feature attribute for stable selection.
 
-Honours PIPELINE_HYGIENE_OFF=1. 5-second wall-time budget. Atomic writes.
-Idempotent.
+Honours PIPELINE_HYGIENE_OFF=1. 5-second wall-time budget (logs
+DECISIONS_BUDGET_EXCEEDED and exits 0 on timeout — never blocks /post-merge,
+matching the advisory-exit contract of dashboard_renderer + features_pruner).
+Atomic temp-file + os.replace() writes for both .md and .html outputs.
+Idempotent: byte-identical output on identical state.
 
 Usage:
     python3 claude/lib/pipeline/decisions_renderer.py        # normal pass
@@ -45,15 +48,17 @@ def _atomic_write(target: Path, content: str) -> None:
 
 
 def _newest_first(records: list[dict]) -> list[dict]:
-    """Sort by trailing integer in feature_index (e.g., '13/13' → 13). Newest first."""
-    def key(r: dict) -> int:
+    """Sort by trailing integer in feature_index (e.g., '13/13' → 13). Newest first.
+    Records lacking a parseable index sort to the end in stable name order
+    (avoids reliance on insertion order — defensive against upstream refactors).
+    """
+    def key(r: dict) -> tuple[int, int, str]:
         idx = r.get("feature_index", "")
-        # 'N/M' or 'FN' both → N
         for token in idx.replace("F", "").replace("/", " ").split():
             if token.isdigit():
-                return int(token)
-        return -1
-    return sorted(records, key=key, reverse=True)
+                return (0, -int(token), r.get("feature_name", ""))
+        return (1, 0, r.get("feature_name", ""))
+    return sorted(records, key=key)
 
 
 def _render_card(r: dict) -> str:

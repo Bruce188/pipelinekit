@@ -1,6 +1,6 @@
 # pipelinekit dashboard
 
-Generated: 2026-05-23T13:27:19+00:00
+Generated: 2026-05-23T14:34:35+00:00
 
 <!-- richness budget: collapsible-details (sections 4-12) + interactive timeline svg + visual-token status pills -->
 
@@ -30,13 +30,10 @@ Generated: 2026-05-23T13:27:19+00:00
 | Review cycles | 0 |
 | Review style | orchestrator decides |
 | Started | 2026-05-23 |
-| Step | implement |
+| Step | review |
 
 ## 2. Recent activity
 
-- `feat=10/11` `step=ppr` `cycle=0` — ppr-start
-- `feat=10/11` `step=ppr` `cycle=0` — ppr-done — PR #106 squashed; F10 ✓
-- `feat=11/11` `step=analyze` `cycle=0` — analyze-start
 - `feat=12/12` `step=analyze` `cycle=0` — analyze-start (rolled back premature terminal — F12 fix/docs-workflow-hygiene queued)
 - `feat=12/12` `step=analyze` `cycle=0` — analyze-done — analysis-v90.md written; 4 OQs + 5 SubQs resolved; data corrections (39 orphans / 62 iterations)
 - `feat=12/12` `step=plan` `cycle=0` — plan-start
@@ -54,6 +51,9 @@ Generated: 2026-05-23T13:27:19+00:00
 - `feat=13/13` `step=plan` `cycle=0` — plan-done plan-v92.md written (11 tasks, 2 phases, 2353 lines)
 - `feat=13/13` `step=branch` `cycle=0` — branch-create feat/dashboard-and-decisions-log
 - `feat=13/13` `step=implement` `cycle=0` — implement-start
+- `feat=13/13` `step=implement` `cycle=0` — implement-done all 11 tasks complete, verification PASS
+- `feat=13/13` `step=implement` `cycle=0` — implement-done all 11 tasks complete, verification PASS (3 tests green, diagnostics fixed)
+- `feat=13/13` `step=review` `cycle=0` — review-start
 
 ## 3. Recent features
 
@@ -83,11 +83,11 @@ Generated: 2026-05-23T13:27:19+00:00
 Total pages: **37**
 
 Top 5 most recent:
-- [feature-history.html](feature-history.html)
-- [workflow-hygiene.html](workflow-hygiene.html)
-- [index.html](index.html)
 - [decisions.html](decisions.html)
 - [dashboard.html](dashboard.html)
+- [index.html](index.html)
+- [feature-history.html](feature-history.html)
+- [workflow-hygiene.html](workflow-hygiene.html)
 
 </details>
 

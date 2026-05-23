@@ -1,6 +1,6 @@
 # pipelinekit decisions log
 
-Generated: 2026-05-23T13:27:19+00:00
+Generated: 2026-05-23T14:34:35+00:00
 
 <!-- richness budget: collapsible-details cards (one per feature) + timeline-scrubber svg + visual-token classes -->
 
@@ -34,21 +34,9 @@ Per-feature OQ + SubQ resolutions in newest-first order. Each card shows the res
 </details>
 
 <details class="decisions-card" data-feature="?/?">
-  <summary>?/? · feat/azure-cli-overlay · 2026-05-17</summary>
+  <summary>?/? · chore/native-surface-docs-and-bundled-nbs · 2026-05-19</summary>
   <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
-  <p class="decisions-source"><em>Source:</em> docs/analysis-v4.md</p>
-</details>
-
-<details class="decisions-card" data-feature="?/?">
-  <summary>?/? · feat/docs-writer-postmerge · 2026-05-17</summary>
-  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
-  <p class="decisions-source"><em>Source:</em> docs/analysis-v5.md</p>
-</details>
-
-<details class="decisions-card" data-feature="?/?">
-  <summary>?/? · feat/claude-md-enhancer · 2026-05-17</summary>
-  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
-  <p class="decisions-source"><em>Source:</em> docs/analysis-v12.md</p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v65.md</p>
 </details>
 
 <details class="decisions-card" data-feature="?/?">
@@ -58,21 +46,15 @@ Per-feature OQ + SubQ resolutions in newest-first order. Each card shows the res
 </details>
 
 <details class="decisions-card" data-feature="?/?">
-  <summary>?/? · feat/enterworktree-migration · 2026-05-17</summary>
+  <summary>?/? · feat/azure-cli-overlay · 2026-05-17</summary>
   <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
-  <p class="decisions-source"><em>Source:</em> docs/analysis-v14.md</p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v4.md</p>
 </details>
 
 <details class="decisions-card" data-feature="?/?">
-  <summary>?/? · feat/worker-delegation-phase4-5 · 2026-05-18</summary>
+  <summary>?/? · feat/charter-ai-layer-topics · 2026-05-23</summary>
   <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
-  <p class="decisions-source"><em>Source:</em> docs/analysis-v20.md</p>
-</details>
-
-<details class="decisions-card" data-feature="?/?">
-  <summary>?/? · feat/charter-finding-classifier · 2026-05-18</summary>
-  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
-  <p class="decisions-source"><em>Source:</em> docs/analysis-v25.md</p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v79.md</p>
 </details>
 
 <details class="decisions-card" data-feature="?/?">
@@ -82,69 +64,15 @@ Per-feature OQ + SubQ resolutions in newest-first order. Each card shows the res
 </details>
 
 <details class="decisions-card" data-feature="?/?">
-  <summary>?/? · feat/integrate-agentmemory · 2026-05-18</summary>
+  <summary>?/? · feat/charter-finding-classifier · 2026-05-18</summary>
   <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
-  <p class="decisions-source"><em>Source:</em> docs/analysis-v30.md</p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v25.md</p>
 </details>
 
 <details class="decisions-card" data-feature="?/?">
-  <summary>?/? · feat/parallelize-implement-phase · 2026-05-18</summary>
+  <summary>?/? · feat/claude-md-enhancer · 2026-05-17</summary>
   <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
-  <p class="decisions-source"><em>Source:</em> docs/analysis-v34.md</p>
-</details>
-
-<details class="decisions-card" data-feature="?/?">
-  <summary>?/? · feat/runlog-unify-format · 2026-05-18</summary>
-  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
-  <p class="decisions-source"><em>Source:</em> docs/analysis-v35.md</p>
-</details>
-
-<details class="decisions-card" data-feature="?/?">
-  <summary>?/? · feat/eliminate-overlays · 2026-05-18</summary>
-  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
-  <p class="decisions-source"><em>Source:</em> docs/analysis-v36.md</p>
-</details>
-
-<details class="decisions-card" data-feature="?/?">
-  <summary>?/? · feat/github-issues-integration · 2026-05-18</summary>
-  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
-  <p class="decisions-source"><em>Source:</em> docs/analysis-v37.md</p>
-</details>
-
-<details class="decisions-card" data-feature="?/?">
-  <summary>?/? · feat/integrate-openhuman · 2026-05-18</summary>
-  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
-  <p class="decisions-source"><em>Source:</em> docs/analysis-v40.md</p>
-</details>
-
-<details class="decisions-card" data-feature="?/?">
-  <summary>?/? · feat/docs-vs-documentation-split · 2026-05-18</summary>
-  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
-  <p class="decisions-source"><em>Source:</em> docs/analysis-v41.md</p>
-</details>
-
-<details class="decisions-card" data-feature="?/?">
-  <summary>?/? · fix/sandbox-providers-exec-argv · 2026-05-19</summary>
-  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
-  <p class="decisions-source"><em>Source:</em> docs/analysis-v48.md</p>
-</details>
-
-<details class="decisions-card" data-feature="?/?">
-  <summary>?/? · feat/research-loop-restart-from-iter · 2026-05-19</summary>
-  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
-  <p class="decisions-source"><em>Source:</em> docs/analysis-v53.md</p>
-</details>
-
-<details class="decisions-card" data-feature="?/?">
-  <summary>?/? · feat/monorepo-multi-config-detection · 2026-05-19</summary>
-  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
-  <p class="decisions-source"><em>Source:</em> docs/analysis-v55.md</p>
-</details>
-
-<details class="decisions-card" data-feature="?/?">
-  <summary>?/? · feat/deployment-provider-render · 2026-05-19</summary>
-  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
-  <p class="decisions-source"><em>Source:</em> docs/analysis-v58.md</p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v12.md</p>
 </details>
 
 <details class="decisions-card" data-feature="?/?">
@@ -154,14 +82,86 @@ Per-feature OQ + SubQ resolutions in newest-first order. Each card shows the res
 </details>
 
 <details class="decisions-card" data-feature="?/?">
-  <summary>?/? · chore/native-surface-docs-and-bundled-nbs · 2026-05-19</summary>
+  <summary>?/? · feat/deployment-provider-render · 2026-05-19</summary>
   <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
-  <p class="decisions-source"><em>Source:</em> docs/analysis-v65.md</p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v58.md</p>
 </details>
 
 <details class="decisions-card" data-feature="?/?">
-  <summary>?/? · feat/charter-ai-layer-topics · 2026-05-23</summary>
+  <summary>?/? · feat/docs-vs-documentation-split · 2026-05-18</summary>
   <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
-  <p class="decisions-source"><em>Source:</em> docs/analysis-v79.md</p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v41.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/docs-writer-postmerge · 2026-05-17</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v5.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/eliminate-overlays · 2026-05-18</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v36.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/enterworktree-migration · 2026-05-17</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v14.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/github-issues-integration · 2026-05-18</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v37.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/integrate-agentmemory · 2026-05-18</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v30.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/integrate-openhuman · 2026-05-18</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v40.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/monorepo-multi-config-detection · 2026-05-19</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v55.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/parallelize-implement-phase · 2026-05-18</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v34.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/research-loop-restart-from-iter · 2026-05-19</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v53.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/runlog-unify-format · 2026-05-18</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v35.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · feat/worker-delegation-phase4-5 · 2026-05-18</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v20.md</p>
+</details>
+
+<details class="decisions-card" data-feature="?/?">
+  <summary>?/? · fix/sandbox-providers-exec-argv · 2026-05-19</summary>
+  <p><em>decisions not recovered (analysis file missing from workflow dir)</em></p>
+  <p class="decisions-source"><em>Source:</em> docs/analysis-v48.md</p>
 </details>
 
