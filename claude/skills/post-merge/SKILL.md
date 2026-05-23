@@ -224,6 +224,25 @@ PY
      else
        echo "features-pruner: claude/lib/pipeline/features_pruner.py absent — skipping"
      fi
+
+     # Dashboard + decisions renderers (F13). Run AFTER features-pruner so they
+     # see the freshest state. Both honour PIPELINE_HYGIENE_OFF=1 (already
+     # short-circuited above). Wall-time budget 5s each; on overrun they log
+     # *_BUDGET_EXCEEDED and exit 0 (never block /post-merge).
+
+     if [ -f "$ROOT/claude/lib/pipeline/dashboard_renderer.py" ]; then
+       (cd "$ROOT" && python3 claude/lib/pipeline/dashboard_renderer.py) \
+         || echo "dashboard-renderer: non-zero exit (advisory — continuing)"
+     else
+       echo "dashboard-renderer: claude/lib/pipeline/dashboard_renderer.py absent — skipping"
+     fi
+
+     if [ -f "$ROOT/claude/lib/pipeline/decisions_renderer.py" ]; then
+       (cd "$ROOT" && python3 claude/lib/pipeline/decisions_renderer.py) \
+         || echo "decisions-renderer: non-zero exit (advisory — continuing)"
+     else
+       echo "decisions-renderer: claude/lib/pipeline/decisions_renderer.py absent — skipping"
+     fi
    fi
    ```
 

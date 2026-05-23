@@ -38,6 +38,18 @@ Step 12) moves done blocks to `docs-source/feature-history.md` and re-renders
 the HTML audit trail.
 
 </div>
+<div data-tab="dashboard-decisions">
+
+**Dashboard + decisions log (F13).** Two new generated pages close the
+introspection gap. `claude/lib/pipeline/dashboard_renderer.py` emits a 12-section
+live-state dashboard at `documentation/dashboard.html` with an ISO8601
+`Generated:` timestamp. `claude/lib/pipeline/decisions_renderer.py` emits a
+newest-first per-feature rationale log at `documentation/decisions.html`. Both
+share a single extractor at `claude/lib/pipeline/workflow_extractor.py` (hybrid
+RICH/EMBEDDED mode). Both honour `PIPELINE_HYGIENE_OFF=1` and run AFTER the
+features-pruner inside the same `/post-merge` Step 12 `else` branch.
+
+</div>
 </div>
 
 ## WHEN
@@ -87,5 +99,23 @@ blowout per `/pipeline` run.
 - `claude/config/orphan-patterns.txt` — fnmatch glob source-of-truth.
 - `claude/config/never-stage.txt` — never-stage intersection guard.
 - `claude/lib/pipeline/features_pruner.py` — pruner module.
+- `claude/lib/pipeline/workflow_extractor.py` — shared hybrid (RICH/EMBEDDED) extractor for dashboard + decisions.
+- `claude/lib/pipeline/dashboard_renderer.py` — 12-section dashboard emitter.
+- `claude/lib/pipeline/decisions_renderer.py` — newest-first decisions log emitter.
+- `documentation/dashboard.html` — rendered live-state dashboard.
+- `documentation/decisions.html` — rendered decisions log.
 - `documentation/feature-history.html` — rendered audit trail.
+
+<details>
+<summary>Hygiene block opt-out env vars at a glance</summary>
+
+| Env var | Default | Effect |
+|---------|---------|--------|
+| `PIPELINE_HYGIENE_OFF` | unset | When `=1`, the whole Step 12 block (janitor + pruner + dashboard + decisions) short-circuits. |
+| `PIPELINE_JANITOR_DRY_RUN` | `1` | When `=0`, the orphan janitor deletes matched files. Default ON for safety. |
+
+Wall-time budget: dashboard + decisions each carry a 5-second SIGALRM cap. On
+overrun they log `*_BUDGET_EXCEEDED` and exit `0` — never block `/post-merge`.
+
+</details>
 - `~/.claude/rules/workflow.md` § Versioning Convention — archive numbering rule.

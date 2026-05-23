@@ -81,11 +81,83 @@ def is_merged(block: dict) -> bool:
     return block["pr"] is not None
 
 
-def render_history_section(block: dict) -> str:
+def _first_sentence_local(s: str, *, max_len: int = 180) -> str:
+    """Mirror of workflow_extractor._first_sentence to avoid a hard import dep.
+    Kept local so features_pruner stays runnable even if workflow_extractor.py
+    is absent."""
+    s = s.strip()
+    s = re.sub(r"\*\*([^*]+)\*\*", r"\1", s)
+    s = re.sub(r"`([^`]+)`", r"\1", s)
+    m = re.search(r"([.—]|\n)", s)
+    if m:
+        s = s[: m.start()]
+    if len(s) > max_len:
+        s = s[: max_len].rsplit(" ", 1)[0] + "…"
+    return s.strip()
+
+
+def _embed_decisions_snapshot(block: dict, repo: Path) -> str:
+    """SubQ-B: locate matching docs/analysis-v*.md by feature name and embed
+    OQ/SubQ resolution headlines as a <details><summary>Decisions</summary> block.
+    Returns markdown to insert inside the feature's H2 body. Empty string on
+    no match.
+
+    Strict leak guard: only structured resolution headlines extracted via the
+    same _first_sentence funnel used by workflow_extractor.extract_analysis_resolutions.
+    NEVER full reasoning prose.
+    """
+    import glob
+    feat = (block.get("name") or "").strip()
+    if not feat:
+        return ""
+    def _vkey(p: str) -> int:
+        m = re.search(r"v(\d+)\.md$", p)
+        return int(m.group(1)) if m else 0
+
+    analysis_paths = sorted(
+        glob.glob(str(repo / "docs" / "analysis-v*.md")),
+        key=_vkey,
+    )
+    matching = None
+    for ap in analysis_paths:
+        text = Path(ap).read_text()
+        fm = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
+        if not fm:
+            continue
+        if re.search(rf"^feature:\s*{re.escape(feat)}\s*$",
+                     fm.group(1), re.MULTILINE):
+            matching = ap  # last (highest version) wins
+    if not matching:
+        return ""
+    text = Path(matching).read_text()
+    oqs = []
+    for m in re.finditer(
+        r"(?:^|\n)\s*[-*]?\s*\*?\*?(OQ-\d+)\s+resolved:?\*?\*?\s+(.+)", text):
+        oqs.append((m.group(1), _first_sentence_local(m.group(2))))
+    subqs = []
+    for m in re.finditer(r"(?:^|\n)###\s*(SubQ-[A-Z])[^\n]*?\n+([^\n]+)", text):
+        subqs.append((m.group(1), _first_sentence_local(m.group(2))))
+    if not oqs and not subqs:
+        return ""
+    lines = ["", "<details>", "<summary>Decisions</summary>", ""]
+    for oid, headline in oqs:
+        lines.append(f"- **{oid}:** {headline}")
+    for sid, headline in subqs:
+        lines.append(f"- **{sid}:** {headline}")
+    lines.append("")
+    lines.append(f"_Source: `{os.path.relpath(matching, str(repo))}`_")
+    lines.append("</details>")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def render_history_section(block: dict, repo: Path | None = None) -> str:
     """Generate the markdown H2 section that lands in feature-history.md.
 
     Wraps the body in <details><summary>...</summary>...</details> so the
-    `collapsible-details` richness pattern fires.
+    `collapsible-details` richness pattern fires. When a matching
+    docs/analysis-v*.md is on disk (SubQ-B), ALSO appends a nested
+    <details><summary>Decisions</summary> block populated from that analysis.
     """
     name = block["name"] or "unknown"
     pr = block["pr"]
@@ -93,6 +165,7 @@ def render_history_section(block: dict) -> str:
     pr_link = (
         f"[#{pr}](https://github.com/Bruce188/pipelinekit/pull/{pr})" if pr else "n/a"
     )
+    decisions_block = _embed_decisions_snapshot(block, repo) if repo else ""
     return (
         f"\n## {name}\n\n"
         f"<details>\n"
@@ -101,6 +174,7 @@ def render_history_section(block: dict) -> str:
         f"Feature block archived from `docs/features.md` on {datetime.now(timezone.utc).date().isoformat()}.\n"
         f"\n"
         f"</details>\n"
+        f"{decisions_block}"
     )
 
 
@@ -169,7 +243,7 @@ def main() -> int:
     for block in merged_blocks:
         if block["name"] in existing_names:
             continue
-        history_text += render_history_section(block)
+        history_text += render_history_section(block, repo)
         appended += 1
 
     history_md.write_text(history_text)

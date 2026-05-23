@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Feature History — pipelinekit</title>
-<meta name="description" content="Rendered audit trail for pipelinekit features. Each merged feature appears below as its own H2 with a &lt;details&gt; collapsible body. The pipeline appends new entries automatically via claude/lib/pipeline/features_pruner.py during /post-merge…">
+<meta name="description" content="Rendered audit trail of merged pipelinekit features.">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -545,19 +545,24 @@ footer {
       <li class="lvl-2"><a href="#f9-chore-pipeline-terminal-state">F9 — chore/pipeline-terminal-state</a></li>
       <li class="lvl-2"><a href="#f10-chore-html-effectiveness-wiring">F10 — chore/html-effectiveness-wiring</a></li>
       <li class="lvl-2"><a href="#f11-chore-caveman-mode-split-ultra-wenyan">F11 — chore/caveman-mode-split-ultra-wenyan</a></li>
+      <li class="lvl-2"><a href="#f12-chore-features-bloat-prune">F12 — chore/features-bloat-prune</a></li>
     </ul>
   </aside>
 
   <main>
     <header class="page-header">
       <h1>Feature History</h1>
-      <p class="description">Rendered audit trail for pipelinekit features. Each merged feature appears below as its own H2 with a &lt;details&gt; collapsible body. The pipeline appends new entries automatically via claude/lib/pipeline/features_pruner.py during /post-merge…</p>
+      <p class="description">Rendered audit trail of merged pipelinekit features.</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
 <!-- richness budget: spatial timeline + visual-token status pills + interactive collapsible-details (≥ 2 target) -->
 
+<p>Rendered audit trail for pipelinekit features. Each merged feature appears
+below as its own H2 with a <code>&lt;details&gt;</code> collapsible body. The pipeline appends
+new entries automatically via <code>claude/lib/pipeline/features_pruner.py</code> during
+<code>/post-merge</code> Step 12.</p>
 <h2 id="timeline">Timeline</h2>
 <p>Spatial overview of recent feature merges (left to right). Built as inline SVG
 so it renders standalone without any client dependencies.</p>
@@ -626,6 +631,11 @@ fix/docs-workflow-hygiene plan backfills the F1-F11 history below.
 - Recommendation hand-off to F4 (write-a-skill paths enforcer)
 
 </details>
+<details>
+<summary>Decisions</summary>
+
+_decisions not recovered (analysis file missing from workflow dir)_
+</details>
 
 <h2 id="f3-fix-install-settings-completeness">F3 — fix/install-settings-completeness</h2>
 <p><strong>Status:</strong> <span class="status-pill status-merged">merged</span>
@@ -641,6 +651,11 @@ fix/docs-workflow-hygiene plan backfills the F1-F11 history below.
 - New "## Registering in install.sh" section in `claude/hooks/CLAUDE.md`
 - Excludes git-only `validate-task-spec.py` from harness wiring
 
+</details>
+<details>
+<summary>Decisions</summary>
+
+_decisions not recovered (analysis file missing from workflow dir)_
 </details>
 
 <h2 id="f4-feat-write-a-skill-paths-enforcer">F4 — feat/write-a-skill-paths-enforcer</h2>
@@ -658,6 +673,11 @@ fix/docs-workflow-hygiene plan backfills the F1-F11 history below.
 - Builds on F2 audit baseline
 
 </details>
+<details>
+<summary>Decisions</summary>
+
+_decisions not recovered (analysis file missing from workflow dir)_
+</details>
 
 <h2 id="f5-feat-analyze-cites-codebase-map">F5 — feat/analyze-cites-codebase-map</h2>
 <p><strong>Status:</strong> <span class="status-pill status-merged">merged</span>
@@ -674,6 +694,11 @@ fix/docs-workflow-hygiene plan backfills the F1-F11 history below.
 - Falls through cleanly when no map exists (no error)
 
 </details>
+<details>
+<summary>Decisions</summary>
+
+_decisions not recovered (analysis file missing from workflow dir)_
+</details>
 
 <h2 id="f6-feat-pipeline-verify-gates-hook-smoke">F6 — feat/pipeline-verify-gates-hook-smoke</h2>
 <p><strong>Status:</strong> <span class="status-pill status-merged">merged</span>
@@ -689,6 +714,11 @@ fix/docs-workflow-hygiene plan backfills the F1-F11 history below.
 - Auto-discovers hook test files
 - CLAUDE.md documents the smoke-gate contract for hook authors
 
+</details>
+<details>
+<summary>Decisions</summary>
+
+_decisions not recovered (analysis file missing from workflow dir)_
 </details>
 
 <h2 id="f7-feat-stop-reflect-cost-logging">F7 — feat/stop-reflect-cost-logging</h2>
@@ -707,6 +737,11 @@ fix/docs-workflow-hygiene plan backfills the F1-F11 history below.
 - Exit-0 guarantee preserved on write failure
 
 </details>
+<details>
+<summary>Decisions</summary>
+
+_decisions not recovered (analysis file missing from workflow dir)_
+</details>
 
 <h2 id="f8-feat-review-checks-skill-compliance">F8 — feat/review-checks-skill-compliance</h2>
 <p><strong>Status:</strong> <span class="status-pill status-merged">merged</span>
@@ -721,6 +756,11 @@ fix/docs-workflow-hygiene plan backfills the F1-F11 history below.
 - New review gates: paths-declared, denial-tracker integration, richness threshold
 - Composes with F4 (paths enforcement) and F10 (richness threshold bump)
 
+</details>
+<details>
+<summary>Decisions</summary>
+
+_decisions not recovered (analysis file missing from workflow dir)_
 </details>
 
 <h2 id="f9-chore-pipeline-terminal-state">F9 — chore/pipeline-terminal-state</h2>
@@ -738,6 +778,11 @@ fix/docs-workflow-hygiene plan backfills the F1-F11 history below.
 - Removes dead Step 6 cleanup-line that previously deleted state files
 
 </details>
+<details>
+<summary>Decisions</summary>
+
+_decisions not recovered (analysis file missing from workflow dir)_
+</details>
 
 <h2 id="f10-chore-html-effectiveness-wiring">F10 — chore/html-effectiveness-wiring</h2>
 <p><strong>Status:</strong> <span class="status-pill status-merged">merged</span>
@@ -754,6 +799,11 @@ fix/docs-workflow-hygiene plan backfills the F1-F11 history below.
 - Richness check threshold raised: 2 distinct patterns required
 
 </details>
+<details>
+<summary>Decisions</summary>
+
+_decisions not recovered (analysis file missing from workflow dir)_
+</details>
 
 <h2 id="f11-chore-caveman-mode-split-ultra-wenyan">F11 — chore/caveman-mode-split-ultra-wenyan</h2>
 <p><strong>Status:</strong> <span class="status-pill status-merged">merged</span>
@@ -769,6 +819,20 @@ fix/docs-workflow-hygiene plan backfills the F1-F11 history below.
 - Refines intensity levels: wenyan-ultra, ultra, full, lite
 - Skill snippet contracts updated accordingly
 
+</details>
+<details>
+<summary>Decisions</summary>
+
+_decisions not recovered (analysis file missing from workflow dir)_
+</details>
+
+<h2 id="f12-chore-features-bloat-prune">F12 — chore/features-bloat-prune</h2>
+<p><strong>Status:</strong> <span class="status-pill status-in-progress">in-progress</span></p>
+<p>Pruner has not yet seen its own merge — entry added by backfill task.</p>
+<details>
+<summary>Decisions</summary>
+
+_decisions not recovered (analysis file missing from workflow dir)_
 </details>
     </div>
 
