@@ -119,6 +119,7 @@ Matcher values:
 | verify-worktree-commit.sh | SubagentStop | Blocks agents that don't commit in worktree |
 | post-compact-context.sh | PostCompact | Reinjects critical rules after compaction |
 | context-warning.py | PostCompact | Warns when compaction fires |
+| context-budget-advisor.py | UserPromptSubmit | Advises `/compact` when session passes ~200K tokens |
 | test-logger.sh | PreToolUse | Logs test executions |
 
 ## Hook Templates
