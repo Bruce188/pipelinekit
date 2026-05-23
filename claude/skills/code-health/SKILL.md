@@ -8,6 +8,9 @@ allowed-tools:
   - Read
   - Grep
   - Glob
+paths:
+  - claude/skills/code-health/**
+  - docs/code-health*.md
 ---
 
 # Codebase Health Assessment

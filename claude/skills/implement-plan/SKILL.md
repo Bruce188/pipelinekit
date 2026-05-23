@@ -13,6 +13,12 @@ allowed-tools:
   - mcp__local-rag
 context: fork
 effort: high
+paths:
+  - claude/skills/implement-plan/**
+  - docs/plan*.md
+  - docs/prompts*.md
+  - docs/progress.md
+  - docs/pipeline-state.md
 ---
 
 # Implement Plan — Task Executor

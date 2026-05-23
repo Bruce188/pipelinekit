@@ -10,6 +10,9 @@ allowed-tools:
   - WebFetch
   - Glob
 model: inherit
+paths:
+  - claude/skills/handoff-create/**
+  - docs/handoff*.md
 ---
 
 Create a comprehensive, detailed handoff document that captures all context from the current conversation. This allows continuing the work in a fresh context with complete precision.

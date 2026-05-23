@@ -10,6 +10,9 @@ allowed-tools:
   - Edit
 context: fork
 effort: medium
+paths:
+  - claude/skills/build-hook/**
+  - claude/hooks/**
 ---
 
 # Build Hook — Claude Code Hook Generator

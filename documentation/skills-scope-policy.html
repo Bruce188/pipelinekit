@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>pipelinekit documentation — pipelinekit</title>
-<meta name="description" content="The complete user-facing documentation for pipelinekit \(autonomous /pipeline orchestrator + skills + agents + hooks\). Every page below is self-contained HTML \(no CDN, no remote assets\) — clone the repo and open any page directly via…">
+<title>Skills scope policy — pipelinekit</title>
+<meta name="description" content="Authoring policy for the paths: frontmatter field on claude/skills/&lt;name&gt;/SKILL.md. Every new skill MUST declare paths: unless it appears on the global-by-design allowlist below.">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>pipelinekit documentation</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Skills scope policy</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -531,354 +531,109 @@ footer {
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
     <ul>
-      <li class="lvl-2"><a href="#system-architecture">System architecture</a></li>
-      <li class="lvl-2"><a href="#start-here">Start here</a></li>
-      <li class="lvl-2"><a href="#reference">Reference</a></li>
-      <li class="lvl-2"><a href="#deployment-ci-providers">Deployment + CI providers</a></li>
-      <li class="lvl-2"><a href="#skills-features">Skills + features</a></li>
-      <li class="lvl-2"><a href="#cost-observability">Cost + observability</a></li>
-      <li class="lvl-2"><a href="#reference-standards-vendored">Reference standards \(vendored\)</a></li>
-      <li class="lvl-2"><a href="#built-with-inspired-by">Built with / Inspired by</a></li>
+      <li class="lvl-2"><a href="#why-scoped-skills">Why scoped skills</a></li>
+      <li class="lvl-2"><a href="#how-to-write-paths">How to write paths:</a></li>
+      <li class="lvl-3"><a href="#scoping-heuristic">Scoping heuristic</a></li>
+      <li class="lvl-2"><a href="#global-by-design-allowlist">Global-by-design allowlist</a></li>
+      <li class="lvl-2"><a href="#authoring-contract">Authoring contract</a></li>
+      <li class="lvl-2"><a href="#see-also">See also</a></li>
     </ul>
   </aside>
 
   <main>
     <header class="page-header">
-      <h1>pipelinekit documentation</h1>
-      <p class="description">The complete user-facing documentation for pipelinekit \(autonomous /pipeline orchestrator + skills + agents + hooks\). Every page below is self-contained HTML \(no CDN, no remote assets\) — clone the repo and open any page directly via…</p>
+      <h1>Skills scope policy</h1>
+      <p class="description">Authoring policy for the paths: frontmatter field on claude/skills/&lt;name&gt;/SKILL.md. Every new skill MUST declare paths: unless it appears on the global-by-design allowlist below.</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
-<h2 id="system-architecture">System architecture</h2>
-<!-- snippet:architecture-diagram
-     4-layer SVG taxonomy of pipelinekit: user-invocable slash commands,
-     pipeline phase skills, specialized agents, hooks + infrastructure.
-
-     Hover any chip for details; click to navigate. Filter to a specific
-     layer via the layer-toggle buttons.
-
-     Placeholder usage in markdown source:
-       <div data-snippet="architecture-diagram"></div>
--->
-<div class="pkit-arch-diagram" data-snippet-mount="architecture-diagram">
-  <style>
-    .pkit-arch-diagram {
-      margin: 1.5rem 0;
-      padding: 1.5rem;
-      background: var(--bg-elev);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-    }
-    .pkit-arch-diagram .pkit-ad-controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      margin-bottom: 1.2rem;
-      align-items: center;
-    }
-    .pkit-arch-diagram .pkit-ad-label {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      color: var(--fg-subtle);
-      font-weight: 600;
-    }
-    .pkit-arch-diagram .pkit-ad-layer-btn {
-      padding: 0.3rem 0.65rem;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      color: var(--fg-muted);
-      font-size: 0.78rem;
-      cursor: pointer;
-      transition: all var(--transition);
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-    }
-    .pkit-arch-diagram .pkit-ad-layer-btn .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      display: inline-block;
-    }
-    .pkit-arch-diagram .pkit-ad-layer-btn:hover { color: var(--fg); border-color: var(--border-strong); }
-    .pkit-arch-diagram .pkit-ad-layer-btn.active { color: var(--fg); border-color: var(--accent); background: var(--accent-soft); }
-
-    .pkit-arch-diagram .pkit-ad-stack {
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-    }
-    .pkit-arch-diagram .pkit-ad-layer {
-      border-radius: var(--radius);
-      padding: 0.9rem 1.1rem;
-      transition: opacity var(--transition), transform var(--transition);
-      border: 1px solid var(--border);
-      position: relative;
-    }
-    .pkit-arch-diagram .pkit-ad-layer.dimmed {
-      opacity: 0.25;
-      filter: grayscale(40%);
-    }
-    .pkit-arch-diagram .pkit-ad-layer-1 { background: linear-gradient(135deg, color-mix(in srgb, #10b981 12%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #10b981 35%, var(--border)); }
-    .pkit-arch-diagram .pkit-ad-layer-2 { background: linear-gradient(135deg, color-mix(in srgb, #3b82f6 12%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #3b82f6 35%, var(--border)); }
-    .pkit-arch-diagram .pkit-ad-layer-3 { background: linear-gradient(135deg, color-mix(in srgb, #a855f7 12%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #a855f7 35%, var(--border)); }
-    .pkit-arch-diagram .pkit-ad-layer-4 { background: linear-gradient(135deg, color-mix(in srgb, #f59e0b 10%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #f59e0b 35%, var(--border)); }
-
-    .pkit-arch-diagram .pkit-ad-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin-bottom: 0.5rem;
-    }
-    .pkit-arch-diagram .pkit-ad-name {
-      font-size: 0.92rem;
-      font-weight: 700;
-      color: var(--fg);
-    }
-    .pkit-arch-diagram .pkit-ad-name .lvl {
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      color: var(--fg-subtle);
-      margin-right: 0.5rem;
-    }
-    .pkit-arch-diagram .pkit-ad-count {
-      font-family: var(--mono);
-      font-size: 0.78rem;
-      color: var(--fg-muted);
-      background: var(--bg);
-      padding: 0.1rem 0.5rem;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
-    }
-    .pkit-arch-diagram .pkit-ad-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.3rem;
-    }
-    .pkit-arch-diagram .pkit-ad-chip {
-      padding: 0.18rem 0.55rem;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      font-family: var(--mono);
-      font-size: 0.75rem;
-      color: var(--fg-muted);
-      cursor: help;
-      transition: all 100ms ease;
-      position: relative;
-    }
-    .pkit-arch-diagram .pkit-ad-chip:hover {
-      color: var(--fg);
-      border-color: var(--accent);
-      background: var(--accent-soft);
-    }
-    .pkit-arch-diagram .pkit-ad-chip.more { font-style: italic; color: var(--fg-subtle); }
-
-    .pkit-arch-diagram .pkit-ad-flow {
-      display: flex;
-      justify-content: center;
-      padding: 0.1rem 0;
-      color: var(--fg-subtle);
-      font-size: 0.85rem;
-    }
-    .pkit-arch-diagram .pkit-ad-tooltip {
-      position: absolute;
-      background: var(--fg);
-      color: var(--bg);
-      padding: 0.45rem 0.7rem;
-      border-radius: var(--radius-sm);
-      font-size: 0.78rem;
-      max-width: 280px;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 120ms ease;
-      z-index: 20;
-      box-shadow: var(--shadow-md);
-      line-height: 1.4;
-      bottom: calc(100% + 8px);
-      left: 50%;
-      transform: translateX(-50%);
-      white-space: normal;
-    }
-    .pkit-arch-diagram .pkit-ad-chip:hover .pkit-ad-tooltip { opacity: 1; }
-  </style>
-
-  <div class="pkit-ad-controls">
-    <span class="pkit-ad-label">Filter layer:</span>
-    <button class="pkit-ad-layer-btn active" data-layer="all">All</button>
-    <button class="pkit-ad-layer-btn" data-layer="1"><span class="dot" style="background:#10b981"></span>User surface</button>
-    <button class="pkit-ad-layer-btn" data-layer="2"><span class="dot" style="background:#3b82f6"></span>Pipeline phases</button>
-    <button class="pkit-ad-layer-btn" data-layer="3"><span class="dot" style="background:#a855f7"></span>Agents</button>
-    <button class="pkit-ad-layer-btn" data-layer="4"><span class="dot" style="background:#f59e0b"></span>Infrastructure</button>
-  </div>
-
-  <div class="pkit-ad-stack">
-    <div class="pkit-ad-layer pkit-ad-layer-1" data-layer="1">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L1</span>User-invocable slash commands</div>
-        <div class="pkit-ad-count">8 commands</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">/pipeline<span class="pkit-ad-tooltip">The autonomous orchestrator. Charter → Analyze → Plan → Implement → Review → Merge.</span></span>
-        <span class="pkit-ad-chip">/review<span class="pkit-ad-tooltip">Multi-agent code review. Scales from 2 to 6 agents based on diff size.</span></span>
-        <span class="pkit-ad-chip">/ppr<span class="pkit-ad-tooltip">Push + PR. Push committed changes; open a pull request. --research flag publishes research keep-rows.</span></span>
-        <span class="pkit-ad-chip">/research<span class="pkit-ad-tooltip">Karpathy autoresearch loop: hypothesize → mutate → benchmark → keep-or-reset.</span></span>
-        <span class="pkit-ad-chip">/incident<span class="pkit-ad-tooltip">Triage a failing post-merge verification gate. Dispatches incident-responder agent.</span></span>
-        <span class="pkit-ad-chip">/learn<span class="pkit-ad-tooltip">Read interface for per-project learnings journal.</span></span>
-        <span class="pkit-ad-chip">/caveman<span class="pkit-ad-tooltip">Toggle response verbosity. Wenyan-ultra by default; lite/full/ultra options.</span></span>
-      </div>
-    </div>
-
-    <div class="pkit-ad-flow">▼</div>
-
-    <div class="pkit-ad-layer pkit-ad-layer-2" data-layer="2">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L2</span>Pipeline phase skills (dispatched by /pipeline)</div>
-        <div class="pkit-ad-count">6 phase skills</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">analyze<span class="pkit-ad-tooltip">Reads feature + repo; produces docs/analysis-vN.md.</span></span>
-        <span class="pkit-ad-chip">create-plan<span class="pkit-ad-tooltip">Produces docs/plan-vN.md + docs/prompts-vN.md with phase decomposition.</span></span>
-        <span class="pkit-ad-chip">implement-plan<span class="pkit-ad-tooltip">Executes plan tasks; parallel-safe dispatch via single-message multi-Agent.</span></span>
-        <span class="pkit-ad-chip">post-merge<span class="pkit-ad-tooltip">Verification gate after merge. Project-type auto-detected.</span></span>
-        <span class="pkit-ad-chip">document-release<span class="pkit-ad-tooltip">Update documentation/ after a release. Calls into docs-writer.</span></span>
-        <span class="pkit-ad-chip">docs-writer<span class="pkit-ad-tooltip">Renders markdown to rich-template HTML. (This skill.)</span></span>
-      </div>
-    </div>
-
-    <div class="pkit-ad-flow">▼</div>
-
-    <div class="pkit-ad-layer pkit-ad-layer-3" data-layer="3">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L3</span>Specialized agents (dispatched by phase skills)</div>
-        <div class="pkit-ad-count">31 agents</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">@code-reviewer<span class="pkit-ad-tooltip">Quality, best practices, security, performance.</span></span>
-        <span class="pkit-ad-chip">@security-auditor<span class="pkit-ad-tooltip">OWASP compliance, secure auth flows.</span></span>
-        <span class="pkit-ad-chip">@symbol-verifier<span class="pkit-ad-tooltip">Anti-hallucination. Verifies every new symbol/API resolves.</span></span>
-        <span class="pkit-ad-chip">@spec-tracer<span class="pkit-ad-tooltip">Verifies a diff implements the stated objective + ACs.</span></span>
-        <span class="pkit-ad-chip">@tdd-test-writer<span class="pkit-ad-tooltip">Writes failing tests from spec. Context-isolated from implementer.</span></span>
-        <span class="pkit-ad-chip">@tdd-implementer<span class="pkit-ad-tooltip">Implements code to pass tests. Cannot modify tests.</span></span>
-        <span class="pkit-ad-chip">@architect<span class="pkit-ad-tooltip">Evidence-based design decisions, scalable patterns.</span></span>
-        <span class="pkit-ad-chip">@deployment-engineer<span class="pkit-ad-tooltip">Base agent (docs-only). 5 cloud variants extend it.</span></span>
-        <span class="pkit-ad-chip">@{azure,vercel,railway,render,digitalocean}-deployment-engineer<span class="pkit-ad-tooltip">5 cloud-provider variants sharing the deployment-engineer base.</span></span>
-        <span class="pkit-ad-chip">@incident-responder<span class="pkit-ad-tooltip">SRE incident response. Used by /incident.</span></span>
-        <span class="pkit-ad-chip">@claude-md-guardian<span class="pkit-ad-tooltip">CLAUDE.md drift detection + scoring.</span></span>
-        <span class="pkit-ad-chip">@mobile-dev<span class="pkit-ad-tooltip">iOS/Android/RN/Expo/Flutter cross-platform.</span></span>
-        <span class="pkit-ad-chip more">+ 19 more</span>
-      </div>
-    </div>
-
-    <div class="pkit-ad-flow">▼</div>
-
-    <div class="pkit-ad-layer pkit-ad-layer-4" data-layer="4">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L4</span>Infrastructure: hooks · sandbox · MCP · memory</div>
-        <div class="pkit-ad-count">24 hooks + 4+ MCPs + sandbox + memory</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">validate-commit-msg<span class="pkit-ad-tooltip">Pre-commit: enforce conventional-commit format.</span></span>
-        <span class="pkit-ad-chip">strip-ai-attribution<span class="pkit-ad-tooltip">Pre-commit: remove Co-Authored-By / Generated-with / 🤖 leaks.</span></span>
-        <span class="pkit-ad-chip">block-push-main<span class="pkit-ad-tooltip">Pre-push: refuse direct push to main.</span></span>
-        <span class="pkit-ad-chip">block-stage-sensitive<span class="pkit-ad-tooltip">Pre-add: refuse staging files matching never-stage.txt patterns.</span></span>
-        <span class="pkit-ad-chip">tdd-red-phase-gate<span class="pkit-ad-tooltip">Pre-commit: refuse commits that mix test + impl changes during a TDD phase.</span></span>
-        <span class="pkit-ad-chip">env-scrub<span class="pkit-ad-tooltip">Sandbox pre-exec: scrub env vars before subprocess invocation.</span></span>
-        <span class="pkit-ad-chip">notify-emit<span class="pkit-ad-tooltip">Pipeline state-change notifications via OSC 777 + PushNotification.</span></span>
-        <span class="pkit-ad-chip">sandbox: worktree|podman|docker<span class="pkit-ad-tooltip">Pluggable sandbox provider chain. worktree-only default; podman/docker for container isolation.</span></span>
-        <span class="pkit-ad-chip">MCP: context7<span class="pkit-ad-tooltip">Library docs and reference lookup.</span></span>
-        <span class="pkit-ad-chip">MCP: serena<span class="pkit-ad-tooltip">Semantic code navigation.</span></span>
-        <span class="pkit-ad-chip">memory: flat-file<span class="pkit-ad-tooltip">~/.claude/memory/ with recency-weighted decay. Canonical write path.</span></span>
-        <span class="pkit-ad-chip more">+ 17 more hooks</span>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-(function() {
-  'use strict';
-  const diagrams = document.querySelectorAll('.pkit-arch-diagram[data-snippet-mount="architecture-diagram"]');
-  const diagram = diagrams[diagrams.length - 1];
-  if (!diagram || diagram.dataset.pkitInit) return;
-  diagram.dataset.pkitInit = '1';
-
-  const btns = diagram.querySelectorAll('.pkit-ad-layer-btn');
-  const layers = diagram.querySelectorAll('.pkit-ad-layer');
-
-  btns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      btns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const want = btn.dataset.layer;
-      layers.forEach(l => {
-        if (want === 'all' || l.dataset.layer === want) {
-          l.classList.remove('dimmed');
-        } else {
-          l.classList.add('dimmed');
-        }
-      });
-    });
-  });
-})();
-</script>
-
-
-<h2 id="start-here">Start here</h2>
+<h2 id="why-scoped-skills">Why scoped skills</h2>
+<p>The orchestrator builds a <strong>routing slate</strong> at dispatch time — the set of skills it considers for the current active edit target. A skill participates in the slate when at least one of its <code>paths:</code> globs matches a file in the target set; it is filtered out otherwise.</p>
 <ul>
-<li><strong><a href="getting-started.html">Getting started</a></strong> — the master guide. Install + 4 worked tutorials (hello-world / TDD / Vercel deploy / meta-walkthrough). Read this first.</li>
-<li><a href="changelog.html">Changelog (v0.0.1)</a> — every PR shipped during v0.0.1 development, organized by theme.</li>
+<li><strong>Smaller slate per edit target</strong> — the model spends fewer tokens enumerating irrelevant skills and the dispatch decision is faster and more accurate.</li>
+<li><strong>Lower cross-talk</strong> — a skill scoped to <code>docs/plan*.md</code> does not get pulled in when the user is editing TypeScript tests, even if its description happens to mention "plan" in passing.</li>
+<li><strong>Explicit surface contract</strong> — the <code>paths:</code> field documents the skill's edit territory in machine-readable form. Reviewers can audit scope changes alongside behaviour changes.</li>
 </ul>
-<h2 id="reference">Reference</h2>
+<p>Skills that omit <code>paths:</code> are treated as <strong>GLOBAL</strong> — they always participate in routing. Use sparingly. The whole-repo skills below are exempted by design; every other skill must declare a surface.</p>
+<h2 id="how-to-write-paths">How to write <code>paths:</code></h2>
+<p>Use a YAML <strong>block-list</strong> (one entry per indented <code>-</code> line) between <code>allowed-tools:</code> and the closing <code>---</code> of the frontmatter block. The loader treats inline flow-lists (<code>paths: ["a", "b"]</code>) as opaque strings, so the scope check silently passes everything — never use the inline form.</p>
+<div class="codehilite"><pre><span></span><code><span class="nn">---</span>
+<span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-skill</span>
+<span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+<span class="nt">allowed-tools</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Read</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Edit</span>
+<span class="nt">paths</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">claude/skills/my-skill/**</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docs/my-skill*.md</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;**/*.config.ts&quot;</span>
+<span class="nn">---</span>
+</code></pre></div>
+
+<p>Glob semantics follow <code>fnmatch</code>:</p>
 <ul>
-<li><a href="installation.html">Installation</a> — install pipelinekit locally, Codespaces, devcontainer, or cloud bootstrap.</li>
-<li><a href="cloud-setup.html">Cloud setup</a> — VPS bootstrap (Oracle, Hetzner) for headless Claude Code execution.</li>
-<li><a href="pipeline.html">Pipeline workflow</a> — the <code>/pipeline</code> autonomous orchestrator: charter discovery, analyze, plan, implement, review, merge.</li>
-<li><a href="codebase-map.html">Codebase map</a> — top-level repo layout with one-line purpose per directory + root file.</li>
+<li><code>**</code> recurses across directory boundaries (<code>src/**/*.ts</code> matches any <code>.ts</code> under <code>src/</code>).</li>
+<li><code>*</code> matches a single path segment (<code>src/*.ts</code> does NOT recurse).</li>
+<li><code>?</code> matches one character.</li>
 </ul>
-<h2 id="deployment-ci-providers">Deployment + CI providers</h2>
+<p>Quote any glob whose value contains a YAML-significant character (<code>:</code>, <code>,</code>, <code>{</code>, <code>[</code>) so the parser keeps the string intact.</p>
+<h3 id="scoping-heuristic">Scoping heuristic</h3>
+<p>Every skill's <code>paths:</code> should include <code>claude/skills/&lt;name&gt;/**</code> plus the <strong>primary operating surface</strong> the skill touches:</p>
+<table>
+<thead>
+<tr>
+<th>Surface kind</th>
+<th>Example skill</th>
+<th>Example path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Workflow metadata</td>
+<td><code>create-plan</code></td>
+<td><code>docs/plan*.md</code>, <code>docs/prompts*.md</code></td>
+</tr>
+<tr>
+<td>Application source</td>
+<td><code>tdd</code></td>
+<td><code>**/tests/**</code>, <code>**/*.test.ts</code></td>
+</tr>
+<tr>
+<td>Build artifacts</td>
+<td><code>docs-writer</code></td>
+<td><code>docs-source/**</code>, <code>documentation/**</code></td>
+</tr>
+<tr>
+<td>CLI provider docs</td>
+<td><code>vercel-ops</code></td>
+<td><code>vercel.json</code>, <code>documentation/deployment-vercel.html</code></td>
+</tr>
+<tr>
+<td>Repo-state sentinel</td>
+<td><code>new-branch</code></td>
+<td><code>.git/HEAD</code></td>
+</tr>
+</tbody>
+</table>
+<p>When the heuristic feels ambiguous, prefer the narrowest reasonable surface. Never use <code>**</code> or <code>*</code> as the only entry — that is equivalent to declaring the skill global, but without the explicit allowlist rationale.</p>
+<h2 id="global-by-design-allowlist">Global-by-design allowlist</h2>
+<p>The four skills below intentionally OMIT <code>paths:</code>. Their scope is the whole repository; scoping by glob would defeat their purpose.</p>
 <ul>
-<li><a href="deployment-chooser.html">Deployment + CI provider chooser</a> — not sure which provider fits? Answer six questions to find out.</li>
-<li><a href="deployment-vercel.html">Vercel</a> — serverless / edge / Next.js / SvelteKit / Astro.</li>
-<li><a href="deployment-azure.html">Azure</a> — App Service / Container Apps / Function Apps / AKS.</li>
-<li><a href="deployment-railway.html">Railway</a> — container-based PaaS with zero-Dockerfile deploys.</li>
-<li><a href="deployment-render.html">Render</a> — container-based PaaS with managed services.</li>
-<li><a href="deployment-digitalocean.html">DigitalOcean App Platform</a> — container-based PaaS on DO.</li>
-<li><a href="ci-blacksmith.html">CI on Blacksmith</a> — Blacksmith runner registration, env-var overrides, drop-in actions.</li>
+<li><code>pipeline</code> — orchestrates every phase across the whole repo; scoping by glob would defeat the purpose.</li>
+<li><code>claude-md-enhancer</code> — operates on any project's <code>CLAUDE.md</code> regardless of layout.</li>
+<li><code>caveman-mode</code> — toggles a session-wide verbosity flag; no file surface to scope.</li>
+<li><code>write-a-skill</code> (the meta-skill) — authors NEW skills, so by definition cannot constrain its own surface to existing files.</li>
 </ul>
-<h2 id="skills-features">Skills + features</h2>
-<blockquote>
-<p>Full catalogs: <a href="skills.html">Skills</a> · <a href="agents.html">Agents</a></p>
-</blockquote>
+<p>Adding a new skill to this allowlist requires a charter-level justification — when in doubt, declare <code>paths:</code> and let the loader filter the skill out where it does not belong.</p>
+<h2 id="authoring-contract">Authoring contract</h2>
+<p>Every NEW skill in <code>claude/skills/&lt;name&gt;/SKILL.md</code> MUST declare <code>paths:</code> unless it appears on the allowlist above. A skill that ships without <code>paths:</code> and is not on the allowlist is a bug — file an issue or add the field before merging.</p>
+<p>The <code>paths:</code> block is part of the skill's reviewable contract: bump the skill's version note in the body when you add, remove, or widen a glob, and rerun the skill's tests if it has any.</p>
+<h2 id="see-also">See also</h2>
 <ul>
-<li><a href="ppr.html"><code>/ppr</code> push-PR flow</a> — everyday push + PR-open closing step of every pipeline feature.</li>
-<li><a href="ppr-research-flag.html"><code>/ppr --research</code> flag</a> — publish research keep-rows to a dedicated branch.</li>
-<li><a href="tsv-viewer.html">Research TSV viewer</a> — sortable / filterable HTML viewer for research-results TSVs.</li>
-<li><a href="github-issues-integration.html">GitHub Issues integration</a> — <code>--issues</code> mode for <code>/pipeline</code>.</li>
-<li><a href="pipeline-charter-revalidation.html"><code>/pipeline --renew</code> charter revalidation</a> — drift detection with 3-valued status + <code>--auto</code> bypass.</li>
-<li><a href="stop-self-reflect-hook.html">Stop self-reflection hook</a> — Stop hook proposes <code>CLAUDE.md</code> amendments per session; opt out via <code>PIPELINE_NO_SELF_REFLECT=1</code>.</li>
-<li><a href="skills-scope-policy.html">Skills scope policy</a> — authoring rules for the <code>paths:</code> frontmatter field and the global-by-design allowlist.</li>
+<li><code>claude/skills/CLAUDE.md</code> — the authoring rules root for the <code>claude/skills/</code> directory.</li>
+<li><code>docs-source/SKILL-AUTHORING-STANDARD.md</code> — the broader 10-pattern skill DNA template (vendored upstream).</li>
 </ul>
-<h2 id="cost-observability">Cost + observability</h2>
-<ul>
-<li><a href="review-cost.html"><code>/review</code> cost profile</a> — token + cost characteristics of the multi-agent review surface.</li>
-</ul>
-<h2 id="reference-standards-vendored">Reference standards (vendored)</h2>
-<ul>
-<li><a href="SKILL-AUTHORING-STANDARD.html">SKILL authoring standard</a> — the 10-pattern skill DNA template, originally vendored from alirezarezvani/claude-skills.</li>
-<li><a href="SKILL_PIPELINE.html">SKILL pipeline lifecycle</a> — Intent → ... → Verify lifecycle.</li>
-<li><a href="NOTICE.html">Vendoring notice</a> — attribution + license.</li>
-</ul>
-<h2 id="built-with-inspired-by">Built with / Inspired by</h2>
-<p>Pipelinekit is MIT-licensed and stands on the shoulders of several upstream projects, plus inspiration from individual researchers and the Claude platform itself.</p>
-<ul>
-<li><strong><a href="https://karpathy.ai/">Andrej Karpathy</a></strong> — the autoresearch-loop pattern (<code>/research</code>). The <code>symbol-verifier</code> anti-hallucination agent is inspired by the same first-principles verification ethos.</li>
-<li><strong><a href="https://www.anthropic.com/">Anthropic</a></strong> — the entire runtime: Claude Code, the Agent SDK, multi-agent dispatch, Skills, Hooks, MCP, <code>PushNotification</code>, and the underlying Claude models that every pipelinekit phase calls.</li>
-</ul>
-<p>See the <strong><a href="credits.html">Credits page</a></strong> for the full table of vendored upstreams (with pinned SHAs, licenses, scope, and re-vendor procedures) — wshobson/agents, alirezarezvani/{claude-skills, ClaudeForge}, mattpocock/skills.</p>
     </div>
 
     <div class="no-results" id="no-results">

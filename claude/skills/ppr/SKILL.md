@@ -5,6 +5,11 @@ argument-hint: (no arguments needed)
 allowed-tools:
   - Bash
   - Read
+paths:
+  - claude/skills/ppr/**
+  - docs/progress.md
+  - docs/pipeline-state.md
+  - docs/review*.md
 ---
 
 # PPR — Push + PR

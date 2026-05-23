@@ -7,6 +7,9 @@ allowed-tools:
   - Bash
   - Read
   - AskUserQuestion
+paths:
+  - claude/skills/new-branch/**
+  - .git/HEAD
 ---
 
 # Create Feature Branch

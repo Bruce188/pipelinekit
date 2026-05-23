@@ -2,6 +2,8 @@
 name: commit-conventions
 description: Conventional commit format, message rules, and attribution policy. Loaded when writing commit messages, creating PRs, or merging branches.
 user-invocable: false
+paths:
+  - claude/skills/commit-conventions/**
 ---
 
 # Commit Conventions

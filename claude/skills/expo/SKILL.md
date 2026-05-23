@@ -1,6 +1,11 @@
 ---
 name: expo
 description: Expo developer workflow — managed vs. bare workflow, EAS Build, EAS Update (OTA), dev-client, Expo Router, expo-modules-core, push notifications via Expo's APNs/FCM gateway
+paths:
+  - claude/skills/expo/**
+  - "**/app.json"
+  - "**/eas.json"
+  - apps/**
 ---
 
 # Expo Developer Workflow

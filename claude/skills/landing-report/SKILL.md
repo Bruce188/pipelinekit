@@ -7,6 +7,10 @@ allowed-tools:
   - Bash
   - Read
   - Write
+paths:
+  - claude/skills/landing-report/**
+  - docs/landing*.md
+  - documentation/**
 ---
 
 # Landing report

@@ -9,6 +9,13 @@ Do not edit in place — re-vendor from upstream and bump the SHA.
 ---
 name: tdd
 description: Test-driven development with red-green-refactor loop. Use when user wants to build features or fix bugs using TDD, mentions "red-green-refactor", wants integration tests, or asks for test-first development.
+paths:
+  - claude/skills/tdd/**
+  - "**/tests/**"
+  - "**/test_*.py"
+  - "**/*_test.py"
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
 ---
 
 # Test-Driven Development

@@ -13,6 +13,10 @@ allowed-tools:
   - WebFetch
   - mcp__local-rag
   - mcp__context7
+paths:
+  - claude/skills/analyze/**
+  - docs/analysis*.md
+  - docs/charter.md
 ---
 
 # Analyze — Codebase & Task Analysis

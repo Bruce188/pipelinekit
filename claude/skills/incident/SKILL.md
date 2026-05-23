@@ -9,6 +9,10 @@ allowed-tools:
   - Grep
   - Glob
   - Agent
+paths:
+  - claude/skills/incident/**
+  - docs/incident*.md
+  - docs/postmortem*.md
 ---
 
 # /incident — Triage post-merge verification failure

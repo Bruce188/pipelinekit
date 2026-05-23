@@ -1,6 +1,11 @@
 ---
 name: playwright
 description: Native Python browser automation using Playwright for navigation, interaction, screenshots, and form filling
+paths:
+  - claude/skills/playwright/**
+  - tests/e2e/**
+  - "playwright.config.*"
+  - e2e/**
 ---
 
 # Playwright Browser Automation

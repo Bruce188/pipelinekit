@@ -9,6 +9,10 @@ allowed-tools:
   - Edit
   - Grep
   - AskUserQuestion
+paths:
+  - claude/skills/research/**
+  - docs/research*.md
+  - documentation/**
 ---
 
 # Research — Karpathy autoresearch loop
