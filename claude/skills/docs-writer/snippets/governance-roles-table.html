@@ -1,0 +1,328 @@
+<!-- snippet:governance-roles-table
+     RACI matrix for AI-Champion / Reviewer / Maintainer governance roles.
+     6 tasks × 4 columns. Click column header to highlight column; click row label
+     to highlight row; hover any cell for a tooltip explaining the role assignment.
+     Scoped CSS prefix `.pkit-grt`. No globals leaked.
+
+     Placeholder usage in markdown source:
+       <div data-snippet="governance-roles-table"></div>
+-->
+<div class="pkit-grt" data-snippet-mount="governance-roles-table">
+  <style>
+    .pkit-grt {
+      margin: 1.5rem 0;
+      font-family: var(--sans);
+    }
+    .pkit-grt .pkit-grt-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg-elev);
+    }
+    .pkit-grt table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    .pkit-grt th,
+    .pkit-grt td {
+      padding: 0.6rem 0.8rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+      transition: background-color 150ms ease;
+    }
+    .pkit-grt thead th {
+      background: var(--bg);
+      color: var(--fg);
+      font-weight: 700;
+      font-size: 0.82rem;
+      letter-spacing: 0.02em;
+    }
+    .pkit-grt .pkit-grt-col-btn {
+      background: transparent;
+      border: none;
+      color: inherit;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 0;
+      text-align: left;
+      width: 100%;
+      transition: color 150ms ease;
+    }
+    .pkit-grt .pkit-grt-col-btn:hover,
+    .pkit-grt .pkit-grt-col-btn:focus {
+      outline: none;
+      color: var(--accent);
+    }
+    .pkit-grt .pkit-grt-row-btn {
+      background: transparent;
+      border: none;
+      color: var(--fg);
+      font: inherit;
+      cursor: pointer;
+      padding: 0;
+      text-align: left;
+      width: 100%;
+      transition: color 150ms ease;
+    }
+    .pkit-grt .pkit-grt-row-btn:hover,
+    .pkit-grt .pkit-grt-row-btn:focus {
+      outline: none;
+      color: var(--accent);
+    }
+    .pkit-grt tbody tr:last-child td {
+      border-bottom: none;
+    }
+    .pkit-grt .pkit-grt-cell {
+      text-align: center;
+      position: relative;
+    }
+    .pkit-grt .pkit-grt-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.8rem;
+      height: 1.8rem;
+      border-radius: 50%;
+      font-weight: 700;
+      font-size: 0.85rem;
+      border: 1px solid transparent;
+      cursor: help;
+    }
+    .pkit-grt .pkit-grt-badge[data-role="R"] {
+      background: rgba(239, 68, 68, 0.12);
+      color: #ef4444;
+      border-color: rgba(239, 68, 68, 0.4);
+    }
+    .pkit-grt .pkit-grt-badge[data-role="A"] {
+      background: rgba(168, 85, 247, 0.12);
+      color: #a855f7;
+      border-color: rgba(168, 85, 247, 0.4);
+    }
+    .pkit-grt .pkit-grt-badge[data-role="C"] {
+      background: rgba(59, 130, 246, 0.12);
+      color: #3b82f6;
+      border-color: rgba(59, 130, 246, 0.4);
+    }
+    .pkit-grt .pkit-grt-badge[data-role="I"] {
+      background: rgba(107, 114, 128, 0.12);
+      color: var(--fg-muted);
+      border-color: rgba(107, 114, 128, 0.4);
+    }
+    .pkit-grt td.pkit-grt-col-highlight,
+    .pkit-grt th.pkit-grt-col-highlight {
+      background: var(--accent-soft);
+    }
+    .pkit-grt tr.pkit-grt-row-highlight td {
+      background: var(--accent-soft);
+    }
+    .pkit-grt tr.pkit-grt-row-highlight td.pkit-grt-col-highlight {
+      background: var(--accent-soft);
+    }
+    .pkit-grt .pkit-grt-tip {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--fg);
+      color: var(--bg);
+      padding: 0.35rem 0.55rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.72rem;
+      line-height: 1.3;
+      white-space: nowrap;
+      max-width: 220px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 150ms ease;
+      z-index: 10;
+    }
+    .pkit-grt .pkit-grt-cell:hover .pkit-grt-tip,
+    .pkit-grt .pkit-grt-cell:focus-within .pkit-grt-tip {
+      opacity: 1;
+    }
+    .pkit-grt .pkit-grt-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.7rem;
+      margin-top: 0.75rem;
+      font-size: 0.78rem;
+      color: var(--fg-muted);
+    }
+    .pkit-grt .pkit-grt-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .pkit-grt .pkit-grt-legend-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.3rem;
+      height: 1.3rem;
+      border-radius: 50%;
+      font-weight: 700;
+      font-size: 0.72rem;
+      border: 1px solid transparent;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .pkit-grt *,
+      .pkit-grt *::before,
+      .pkit-grt *::after {
+        transition: none !important;
+        animation: none !important;
+      }
+    }
+  </style>
+
+  <div class="pkit-grt-wrap">
+    <table aria-label="RACI matrix for governance roles">
+      <thead>
+        <tr>
+          <th scope="col">Task</th>
+          <th scope="col" data-col="champion">
+            <button type="button" class="pkit-grt-col-btn" data-col="champion" aria-label="Highlight AI Champion column">AI Champion</button>
+          </th>
+          <th scope="col" data-col="reviewer">
+            <button type="button" class="pkit-grt-col-btn" data-col="reviewer" aria-label="Highlight Reviewer column">Reviewer</button>
+          </th>
+          <th scope="col" data-col="maintainer">
+            <button type="button" class="pkit-grt-col-btn" data-col="maintainer" aria-label="Highlight Maintainer column">Maintainer</button>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr data-row="author-skill">
+          <td><button type="button" class="pkit-grt-row-btn" data-row="author-skill" aria-label="Highlight Author a new skill row">Author a new skill</button></td>
+          <td class="pkit-grt-cell" data-col="champion"><span class="pkit-grt-badge" data-role="R" tabindex="0" role="button" aria-label="Responsible — drafts the SKILL.md and supporting files">R<span class="pkit-grt-tip">Responsible — drafts SKILL.md and supporting files</span></span></td>
+          <td class="pkit-grt-cell" data-col="reviewer"><span class="pkit-grt-badge" data-role="C" tabindex="0" role="button" aria-label="Consulted — peer reviews frontmatter and routing surface">C<span class="pkit-grt-tip">Consulted — peer reviews frontmatter + routing surface</span></span></td>
+          <td class="pkit-grt-cell" data-col="maintainer"><span class="pkit-grt-badge" data-role="A" tabindex="0" role="button" aria-label="Accountable — approves merge into main">A<span class="pkit-grt-tip">Accountable — approves merge to main</span></span></td>
+        </tr>
+        <tr data-row="author-agent">
+          <td><button type="button" class="pkit-grt-row-btn" data-row="author-agent" aria-label="Highlight Author a new agent row">Author a new agent</button></td>
+          <td class="pkit-grt-cell" data-col="champion"><span class="pkit-grt-badge" data-role="R" tabindex="0" role="button" aria-label="Responsible — drafts the agent markdown with allowlist + persona">R<span class="pkit-grt-tip">Responsible — drafts agent markdown</span></span></td>
+          <td class="pkit-grt-cell" data-col="reviewer"><span class="pkit-grt-badge" data-role="C" tabindex="0" role="button" aria-label="Consulted — reviews tool allowlist and task-notification XML">C<span class="pkit-grt-tip">Consulted — reviews tool allowlist + XML contract</span></span></td>
+          <td class="pkit-grt-cell" data-col="maintainer"><span class="pkit-grt-badge" data-role="A" tabindex="0" role="button" aria-label="Accountable — approves merge into main">A<span class="pkit-grt-tip">Accountable — approves merge to main</span></span></td>
+        </tr>
+        <tr data-row="author-hook">
+          <td><button type="button" class="pkit-grt-row-btn" data-row="author-hook" aria-label="Highlight Author a new hook row">Author a new hook</button></td>
+          <td class="pkit-grt-cell" data-col="champion"><span class="pkit-grt-badge" data-role="R" tabindex="0" role="button" aria-label="Responsible — drafts the hook script and settings entry">R<span class="pkit-grt-tip">Responsible — drafts hook + settings entry</span></span></td>
+          <td class="pkit-grt-cell" data-col="reviewer"><span class="pkit-grt-badge" data-role="C" tabindex="0" role="button" aria-label="Consulted — reviews JSON contract and exit-code semantics">C<span class="pkit-grt-tip">Consulted — reviews JSON I/O + exit codes</span></span></td>
+          <td class="pkit-grt-cell" data-col="maintainer"><span class="pkit-grt-badge" data-role="A" tabindex="0" role="button" aria-label="Accountable — approves merge and validates hook tests">A<span class="pkit-grt-tip">Accountable — approves merge + validates hook tests</span></span></td>
+        </tr>
+        <tr data-row="update-skills-claudemd">
+          <td><button type="button" class="pkit-grt-row-btn" data-row="update-skills-claudemd" aria-label="Highlight Update skills CLAUDE.md row">Update claude/skills/CLAUDE.md conventions</button></td>
+          <td class="pkit-grt-cell" data-col="champion"><span class="pkit-grt-badge" data-role="C" tabindex="0" role="button" aria-label="Consulted — proposes wording and convention shape">C<span class="pkit-grt-tip">Consulted — proposes wording + convention shape</span></span></td>
+          <td class="pkit-grt-cell" data-col="reviewer"><span class="pkit-grt-badge" data-role="C" tabindex="0" role="button" aria-label="Consulted — peer reviews convention impact">C<span class="pkit-grt-tip">Consulted — peer reviews convention impact</span></span></td>
+          <td class="pkit-grt-cell" data-col="maintainer"><span class="pkit-grt-badge" data-role="R" tabindex="0" role="button" aria-label="Responsible — owns the canonical convention text">R<span class="pkit-grt-tip">Responsible — owns canonical convention text</span></span></td>
+        </tr>
+        <tr data-row="rollout-pipelinekit">
+          <td><button type="button" class="pkit-grt-row-btn" data-row="rollout-pipelinekit" aria-label="Highlight Roll out pipelinekit row">Roll out pipelinekit to a new project</button></td>
+          <td class="pkit-grt-cell" data-col="champion"><span class="pkit-grt-badge" data-role="R" tabindex="0" role="button" aria-label="Responsible — runs install.sh, codifies per-project deltas">R<span class="pkit-grt-tip">Responsible — runs install + codifies deltas</span></span></td>
+          <td class="pkit-grt-cell" data-col="reviewer"><span class="pkit-grt-badge" data-role="I" tabindex="0" role="button" aria-label="Informed — kept in the loop on rollout outcomes">I<span class="pkit-grt-tip">Informed — receives rollout outcome notes</span></span></td>
+          <td class="pkit-grt-cell" data-col="maintainer"><span class="pkit-grt-badge" data-role="C" tabindex="0" role="button" aria-label="Consulted — advises on baseline overlay choices">C<span class="pkit-grt-tip">Consulted — advises on baseline overlay</span></span></td>
+        </tr>
+        <tr data-row="investigate-hook-failures">
+          <td><button type="button" class="pkit-grt-row-btn" data-row="investigate-hook-failures" aria-label="Highlight Investigate hook failures row">Investigate hook failures</button></td>
+          <td class="pkit-grt-cell" data-col="champion"><span class="pkit-grt-badge" data-role="R" tabindex="0" role="button" aria-label="Responsible — triages logs and dispatches @incident-responder">R<span class="pkit-grt-tip">Responsible — triages logs + dispatches incident-responder</span></span></td>
+          <td class="pkit-grt-cell" data-col="reviewer"><span class="pkit-grt-badge" data-role="I" tabindex="0" role="button" aria-label="Informed — receives post-mortem summary">I<span class="pkit-grt-tip">Informed — receives post-mortem summary</span></span></td>
+          <td class="pkit-grt-cell" data-col="maintainer"><span class="pkit-grt-badge" data-role="A" tabindex="0" role="button" aria-label="Accountable — approves the fix and updates the hook tests">A<span class="pkit-grt-tip">Accountable — approves fix + updates tests</span></span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pkit-grt-legend" aria-label="RACI legend">
+    <span class="pkit-grt-legend-item"><span class="pkit-grt-legend-badge" data-role="R" style="background:rgba(239,68,68,0.12);color:#ef4444;border-color:rgba(239,68,68,0.4);">R</span>Responsible — does the work</span>
+    <span class="pkit-grt-legend-item"><span class="pkit-grt-legend-badge" data-role="A" style="background:rgba(168,85,247,0.12);color:#a855f7;border-color:rgba(168,85,247,0.4);">A</span>Accountable — owns the outcome</span>
+    <span class="pkit-grt-legend-item"><span class="pkit-grt-legend-badge" data-role="C" style="background:rgba(59,130,246,0.12);color:#3b82f6;border-color:rgba(59,130,246,0.4);">C</span>Consulted — asked for input</span>
+    <span class="pkit-grt-legend-item"><span class="pkit-grt-legend-badge" data-role="I" style="background:rgba(107,114,128,0.12);color:var(--fg-muted);border-color:rgba(107,114,128,0.4);">I</span>Informed — kept in the loop</span>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  var roots = document.querySelectorAll('.pkit-grt[data-snippet-mount="governance-roles-table"]');
+  Array.prototype.forEach.call(roots, function(root) {
+    if (root.dataset.pkitInit) return;
+    root.dataset.pkitInit = '1';
+
+    var table = root.querySelector('table');
+    if (!table) return;
+
+    var activeCol = null;
+    var activeRow = null;
+
+    function clearColHighlight() {
+      var cells = table.querySelectorAll('.pkit-grt-col-highlight');
+      Array.prototype.forEach.call(cells, function(c) {
+        c.classList.remove('pkit-grt-col-highlight');
+      });
+    }
+
+    function clearRowHighlight() {
+      var rows = table.querySelectorAll('tr.pkit-grt-row-highlight');
+      Array.prototype.forEach.call(rows, function(r) {
+        r.classList.remove('pkit-grt-row-highlight');
+      });
+    }
+
+    function highlightCol(col) {
+      if (activeCol === col) {
+        clearColHighlight();
+        activeCol = null;
+        return;
+      }
+      clearColHighlight();
+      activeCol = col;
+      var headers = table.querySelectorAll('thead th[data-col="' + col + '"]');
+      Array.prototype.forEach.call(headers, function(h) {
+        h.classList.add('pkit-grt-col-highlight');
+      });
+      var cells = table.querySelectorAll('tbody td[data-col="' + col + '"]');
+      Array.prototype.forEach.call(cells, function(c) {
+        c.classList.add('pkit-grt-col-highlight');
+      });
+    }
+
+    function highlightRow(row) {
+      if (activeRow === row) {
+        clearRowHighlight();
+        activeRow = null;
+        return;
+      }
+      clearRowHighlight();
+      activeRow = row;
+      var tr = table.querySelector('tbody tr[data-row="' + row + '"]');
+      if (tr) tr.classList.add('pkit-grt-row-highlight');
+    }
+
+    var colBtns = table.querySelectorAll('.pkit-grt-col-btn');
+    Array.prototype.forEach.call(colBtns, function(btn) {
+      btn.addEventListener('click', function() {
+        highlightCol(btn.dataset.col);
+      });
+    });
+
+    var rowBtns = table.querySelectorAll('.pkit-grt-row-btn');
+    Array.prototype.forEach.call(rowBtns, function(btn) {
+      btn.addEventListener('click', function() {
+        highlightRow(btn.dataset.row);
+      });
+    });
+
+    var badges = root.querySelectorAll('.pkit-grt-badge[role="button"]');
+    Array.prototype.forEach.call(badges, function(badge) {
+      badge.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          badge.focus();
+        }
+      });
+    });
+  });
+})();
+</script>

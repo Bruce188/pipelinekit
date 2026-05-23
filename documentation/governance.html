@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Skills scope policy — pipelinekit</title>
-<meta name="description" content="Authoring policy for the paths: frontmatter field on claude/skills/&lt;name&gt;/SKILL.md. Every new skill MUST declare paths: unless it appears on the global-by-design allowlist below.">
+<title>Governance playbook — AI Champions and standardization — pipelinekit</title>
+<meta name="description" content="How to land pipelinekit conventions across multiple projects without skill drift, hook divergence, or a CLAUDE.md that nobody owns. Names a single role per team — the AI Champion — and codifies the playbook that role runs.">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Skills scope policy</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Governance playbook — AI Champions and standardization</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -531,109 +531,387 @@ footer {
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
     <ul>
-      <li class="lvl-2"><a href="#why-scoped-skills">Why scoped skills</a></li>
-      <li class="lvl-2"><a href="#how-to-write-paths">How to write paths:</a></li>
-      <li class="lvl-3"><a href="#scoping-heuristic">Scoping heuristic</a></li>
-      <li class="lvl-2"><a href="#global-by-design-allowlist">Global-by-design allowlist</a></li>
-      <li class="lvl-2"><a href="#authoring-contract">Authoring contract</a></li>
-      <li class="lvl-2"><a href="#see-also">See also</a></li>
+      <li class="lvl-2"><a href="#why-governance-the-standardization-gap">Why governance — the standardization gap</a></li>
+      <li class="lvl-2"><a href="#ai-champions-role-definition">AI Champions — role definition</a></li>
+      <li class="lvl-2"><a href="#standardization-playbook">Standardization playbook</a></li>
+      <li class="lvl-2"><a href="#approval-workflow-adding-skills-agents-hooks">Approval workflow — adding skills / agents / hooks</a></li>
+      <li class="lvl-2"><a href="#adoption-metrics">Adoption metrics</a></li>
     </ul>
   </aside>
 
   <main>
     <header class="page-header">
-      <h1>Skills scope policy</h1>
-      <p class="description">Authoring policy for the paths: frontmatter field on claude/skills/&lt;name&gt;/SKILL.md. Every new skill MUST declare paths: unless it appears on the global-by-design allowlist below.</p>
+      <h1>Governance playbook — AI Champions and standardization</h1>
+      <p class="description">How to land pipelinekit conventions across multiple projects without skill drift, hook divergence, or a CLAUDE.md that nobody owns. Names a single role per team — the AI Champion — and codifies the playbook that role runs.</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
-<!-- richness-exempt: prose-only policy reference — no interactive surface fits the content -->
-<h2 id="why-scoped-skills">Why scoped skills</h2>
-<p>The orchestrator builds a <strong>routing slate</strong> at dispatch time — the set of skills it considers for the current active edit target. A skill participates in the slate when at least one of its <code>paths:</code> globs matches a file in the target set; it is filtered out otherwise.</p>
-<ul>
-<li><strong>Smaller slate per edit target</strong> — the model spends fewer tokens enumerating irrelevant skills and the dispatch decision is faster and more accurate.</li>
-<li><strong>Lower cross-talk</strong> — a skill scoped to <code>docs/plan*.md</code> does not get pulled in when the user is editing TypeScript tests, even if its description happens to mention "plan" in passing.</li>
-<li><strong>Explicit surface contract</strong> — the <code>paths:</code> field documents the skill's edit territory in machine-readable form. Reviewers can audit scope changes alongside behaviour changes.</li>
-</ul>
-<p>Skills that omit <code>paths:</code> are treated as <strong>GLOBAL</strong> — they always participate in routing. Use sparingly. The whole-repo skills below are exempted by design; every other skill must declare a surface.</p>
-<h2 id="how-to-write-paths">How to write <code>paths:</code></h2>
-<p>Use a YAML <strong>block-list</strong> (one entry per indented <code>-</code> line) between <code>allowed-tools:</code> and the closing <code>---</code> of the frontmatter block. The loader treats inline flow-lists (<code>paths: ["a", "b"]</code>) as opaque strings, so the scope check silently passes everything — never use the inline form.</p>
-<div class="codehilite"><pre><span></span><code><span class="nn">---</span>
-<span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-skill</span>
-<span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">...</span>
-<span class="nt">allowed-tools</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Read</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Edit</span>
-<span class="nt">paths</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">claude/skills/my-skill/**</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">docs/my-skill*.md</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;**/*.config.ts&quot;</span>
-<span class="nn">---</span>
-</code></pre></div>
+<h2 id="why-governance-the-standardization-gap">Why governance — the standardization gap</h2>
+<p>AI-tooling adoption tends to grow bottom-up: one engineer installs a hook, another writes a skill, a third edits <code>CLAUDE.md</code> for one project but not the rest. Without explicit ownership, the surface area between projects diverges fast. Two teams running the same orchestrator end up with subtly different never-stage lists, different conventional-commit prefixes, and different memory-feed expectations. The cost shows up as pipeline failures that reproduce on one machine and not another, onboarding sessions that take days because the new engineer's checkout doesn't match the senior engineer's, and <code>/review</code> findings that disagree with <code>/analyze</code> recommendations because they read different rules.</p>
+<p>pipelinekit is the convention-bearer. The skill set, agent personas, hooks, and <code>~/.claude/CLAUDE.md</code> template are the standardization surface. Governance is what keeps that surface coherent across projects. Without a named owner, conventions calcify into folklore — readable in the repo but invisible to the next contributor. With a named owner — the AI Champion — conventions become a deliberate artifact, reviewed and rolled forward on a cadence.</p>
+<h2 id="ai-champions-role-definition">AI Champions — role definition</h2>
+<p>An <strong>AI Champion</strong> is one engineer per team who owns the AI-tooling surface for that team's projects. The role is concrete, not honorific.</p>
+<!-- snippet:governance-roles-table
+     RACI matrix for AI-Champion / Reviewer / Maintainer governance roles.
+     6 tasks × 4 columns. Click column header to highlight column; click row label
+     to highlight row; hover any cell for a tooltip explaining the role assignment.
+     Scoped CSS prefix `.pkit-grt`. No globals leaked.
 
-<p>Glob semantics follow <code>fnmatch</code>:</p>
+     Placeholder usage in markdown source:
+       <div data-snippet="governance-roles-table"></div>
+-->
+<div class="pkit-grt" data-snippet-mount="governance-roles-table">
+  <style>
+    .pkit-grt {
+      margin: 1.5rem 0;
+      font-family: var(--sans);
+    }
+    .pkit-grt .pkit-grt-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg-elev);
+    }
+    .pkit-grt table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    .pkit-grt th,
+    .pkit-grt td {
+      padding: 0.6rem 0.8rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+      transition: background-color 150ms ease;
+    }
+    .pkit-grt thead th {
+      background: var(--bg);
+      color: var(--fg);
+      font-weight: 700;
+      font-size: 0.82rem;
+      letter-spacing: 0.02em;
+    }
+    .pkit-grt .pkit-grt-col-btn {
+      background: transparent;
+      border: none;
+      color: inherit;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 0;
+      text-align: left;
+      width: 100%;
+      transition: color 150ms ease;
+    }
+    .pkit-grt .pkit-grt-col-btn:hover,
+    .pkit-grt .pkit-grt-col-btn:focus {
+      outline: none;
+      color: var(--accent);
+    }
+    .pkit-grt .pkit-grt-row-btn {
+      background: transparent;
+      border: none;
+      color: var(--fg);
+      font: inherit;
+      cursor: pointer;
+      padding: 0;
+      text-align: left;
+      width: 100%;
+      transition: color 150ms ease;
+    }
+    .pkit-grt .pkit-grt-row-btn:hover,
+    .pkit-grt .pkit-grt-row-btn:focus {
+      outline: none;
+      color: var(--accent);
+    }
+    .pkit-grt tbody tr:last-child td {
+      border-bottom: none;
+    }
+    .pkit-grt .pkit-grt-cell {
+      text-align: center;
+      position: relative;
+    }
+    .pkit-grt .pkit-grt-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.8rem;
+      height: 1.8rem;
+      border-radius: 50%;
+      font-weight: 700;
+      font-size: 0.85rem;
+      border: 1px solid transparent;
+      cursor: help;
+    }
+    .pkit-grt .pkit-grt-badge[data-role="R"] {
+      background: rgba(239, 68, 68, 0.12);
+      color: #ef4444;
+      border-color: rgba(239, 68, 68, 0.4);
+    }
+    .pkit-grt .pkit-grt-badge[data-role="A"] {
+      background: rgba(168, 85, 247, 0.12);
+      color: #a855f7;
+      border-color: rgba(168, 85, 247, 0.4);
+    }
+    .pkit-grt .pkit-grt-badge[data-role="C"] {
+      background: rgba(59, 130, 246, 0.12);
+      color: #3b82f6;
+      border-color: rgba(59, 130, 246, 0.4);
+    }
+    .pkit-grt .pkit-grt-badge[data-role="I"] {
+      background: rgba(107, 114, 128, 0.12);
+      color: var(--fg-muted);
+      border-color: rgba(107, 114, 128, 0.4);
+    }
+    .pkit-grt td.pkit-grt-col-highlight,
+    .pkit-grt th.pkit-grt-col-highlight {
+      background: var(--accent-soft);
+    }
+    .pkit-grt tr.pkit-grt-row-highlight td {
+      background: var(--accent-soft);
+    }
+    .pkit-grt tr.pkit-grt-row-highlight td.pkit-grt-col-highlight {
+      background: var(--accent-soft);
+    }
+    .pkit-grt .pkit-grt-tip {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--fg);
+      color: var(--bg);
+      padding: 0.35rem 0.55rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.72rem;
+      line-height: 1.3;
+      white-space: nowrap;
+      max-width: 220px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 150ms ease;
+      z-index: 10;
+    }
+    .pkit-grt .pkit-grt-cell:hover .pkit-grt-tip,
+    .pkit-grt .pkit-grt-cell:focus-within .pkit-grt-tip {
+      opacity: 1;
+    }
+    .pkit-grt .pkit-grt-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.7rem;
+      margin-top: 0.75rem;
+      font-size: 0.78rem;
+      color: var(--fg-muted);
+    }
+    .pkit-grt .pkit-grt-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .pkit-grt .pkit-grt-legend-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.3rem;
+      height: 1.3rem;
+      border-radius: 50%;
+      font-weight: 700;
+      font-size: 0.72rem;
+      border: 1px solid transparent;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .pkit-grt *,
+      .pkit-grt *::before,
+      .pkit-grt *::after {
+        transition: none !important;
+        animation: none !important;
+      }
+    }
+  </style>
+
+  <div class="pkit-grt-wrap">
+    <table aria-label="RACI matrix for governance roles">
+      <thead>
+        <tr>
+          <th scope="col">Task</th>
+          <th scope="col" data-col="champion">
+            <button type="button" class="pkit-grt-col-btn" data-col="champion" aria-label="Highlight AI Champion column">AI Champion</button>
+          </th>
+          <th scope="col" data-col="reviewer">
+            <button type="button" class="pkit-grt-col-btn" data-col="reviewer" aria-label="Highlight Reviewer column">Reviewer</button>
+          </th>
+          <th scope="col" data-col="maintainer">
+            <button type="button" class="pkit-grt-col-btn" data-col="maintainer" aria-label="Highlight Maintainer column">Maintainer</button>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr data-row="author-skill">
+          <td><button type="button" class="pkit-grt-row-btn" data-row="author-skill" aria-label="Highlight Author a new skill row">Author a new skill</button></td>
+          <td class="pkit-grt-cell" data-col="champion"><span class="pkit-grt-badge" data-role="R" tabindex="0" role="button" aria-label="Responsible — drafts the SKILL.md and supporting files">R<span class="pkit-grt-tip">Responsible — drafts SKILL.md and supporting files</span></span></td>
+          <td class="pkit-grt-cell" data-col="reviewer"><span class="pkit-grt-badge" data-role="C" tabindex="0" role="button" aria-label="Consulted — peer reviews frontmatter and routing surface">C<span class="pkit-grt-tip">Consulted — peer reviews frontmatter + routing surface</span></span></td>
+          <td class="pkit-grt-cell" data-col="maintainer"><span class="pkit-grt-badge" data-role="A" tabindex="0" role="button" aria-label="Accountable — approves merge into main">A<span class="pkit-grt-tip">Accountable — approves merge to main</span></span></td>
+        </tr>
+        <tr data-row="author-agent">
+          <td><button type="button" class="pkit-grt-row-btn" data-row="author-agent" aria-label="Highlight Author a new agent row">Author a new agent</button></td>
+          <td class="pkit-grt-cell" data-col="champion"><span class="pkit-grt-badge" data-role="R" tabindex="0" role="button" aria-label="Responsible — drafts the agent markdown with allowlist + persona">R<span class="pkit-grt-tip">Responsible — drafts agent markdown</span></span></td>
+          <td class="pkit-grt-cell" data-col="reviewer"><span class="pkit-grt-badge" data-role="C" tabindex="0" role="button" aria-label="Consulted — reviews tool allowlist and task-notification XML">C<span class="pkit-grt-tip">Consulted — reviews tool allowlist + XML contract</span></span></td>
+          <td class="pkit-grt-cell" data-col="maintainer"><span class="pkit-grt-badge" data-role="A" tabindex="0" role="button" aria-label="Accountable — approves merge into main">A<span class="pkit-grt-tip">Accountable — approves merge to main</span></span></td>
+        </tr>
+        <tr data-row="author-hook">
+          <td><button type="button" class="pkit-grt-row-btn" data-row="author-hook" aria-label="Highlight Author a new hook row">Author a new hook</button></td>
+          <td class="pkit-grt-cell" data-col="champion"><span class="pkit-grt-badge" data-role="R" tabindex="0" role="button" aria-label="Responsible — drafts the hook script and settings entry">R<span class="pkit-grt-tip">Responsible — drafts hook + settings entry</span></span></td>
+          <td class="pkit-grt-cell" data-col="reviewer"><span class="pkit-grt-badge" data-role="C" tabindex="0" role="button" aria-label="Consulted — reviews JSON contract and exit-code semantics">C<span class="pkit-grt-tip">Consulted — reviews JSON I/O + exit codes</span></span></td>
+          <td class="pkit-grt-cell" data-col="maintainer"><span class="pkit-grt-badge" data-role="A" tabindex="0" role="button" aria-label="Accountable — approves merge and validates hook tests">A<span class="pkit-grt-tip">Accountable — approves merge + validates hook tests</span></span></td>
+        </tr>
+        <tr data-row="update-skills-claudemd">
+          <td><button type="button" class="pkit-grt-row-btn" data-row="update-skills-claudemd" aria-label="Highlight Update skills CLAUDE.md row">Update claude/skills/CLAUDE.md conventions</button></td>
+          <td class="pkit-grt-cell" data-col="champion"><span class="pkit-grt-badge" data-role="C" tabindex="0" role="button" aria-label="Consulted — proposes wording and convention shape">C<span class="pkit-grt-tip">Consulted — proposes wording + convention shape</span></span></td>
+          <td class="pkit-grt-cell" data-col="reviewer"><span class="pkit-grt-badge" data-role="C" tabindex="0" role="button" aria-label="Consulted — peer reviews convention impact">C<span class="pkit-grt-tip">Consulted — peer reviews convention impact</span></span></td>
+          <td class="pkit-grt-cell" data-col="maintainer"><span class="pkit-grt-badge" data-role="R" tabindex="0" role="button" aria-label="Responsible — owns the canonical convention text">R<span class="pkit-grt-tip">Responsible — owns canonical convention text</span></span></td>
+        </tr>
+        <tr data-row="rollout-pipelinekit">
+          <td><button type="button" class="pkit-grt-row-btn" data-row="rollout-pipelinekit" aria-label="Highlight Roll out pipelinekit row">Roll out pipelinekit to a new project</button></td>
+          <td class="pkit-grt-cell" data-col="champion"><span class="pkit-grt-badge" data-role="R" tabindex="0" role="button" aria-label="Responsible — runs install.sh, codifies per-project deltas">R<span class="pkit-grt-tip">Responsible — runs install + codifies deltas</span></span></td>
+          <td class="pkit-grt-cell" data-col="reviewer"><span class="pkit-grt-badge" data-role="I" tabindex="0" role="button" aria-label="Informed — kept in the loop on rollout outcomes">I<span class="pkit-grt-tip">Informed — receives rollout outcome notes</span></span></td>
+          <td class="pkit-grt-cell" data-col="maintainer"><span class="pkit-grt-badge" data-role="C" tabindex="0" role="button" aria-label="Consulted — advises on baseline overlay choices">C<span class="pkit-grt-tip">Consulted — advises on baseline overlay</span></span></td>
+        </tr>
+        <tr data-row="investigate-hook-failures">
+          <td><button type="button" class="pkit-grt-row-btn" data-row="investigate-hook-failures" aria-label="Highlight Investigate hook failures row">Investigate hook failures</button></td>
+          <td class="pkit-grt-cell" data-col="champion"><span class="pkit-grt-badge" data-role="R" tabindex="0" role="button" aria-label="Responsible — triages logs and dispatches @incident-responder">R<span class="pkit-grt-tip">Responsible — triages logs + dispatches incident-responder</span></span></td>
+          <td class="pkit-grt-cell" data-col="reviewer"><span class="pkit-grt-badge" data-role="I" tabindex="0" role="button" aria-label="Informed — receives post-mortem summary">I<span class="pkit-grt-tip">Informed — receives post-mortem summary</span></span></td>
+          <td class="pkit-grt-cell" data-col="maintainer"><span class="pkit-grt-badge" data-role="A" tabindex="0" role="button" aria-label="Accountable — approves the fix and updates the hook tests">A<span class="pkit-grt-tip">Accountable — approves fix + updates tests</span></span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pkit-grt-legend" aria-label="RACI legend">
+    <span class="pkit-grt-legend-item"><span class="pkit-grt-legend-badge" data-role="R" style="background:rgba(239,68,68,0.12);color:#ef4444;border-color:rgba(239,68,68,0.4);">R</span>Responsible — does the work</span>
+    <span class="pkit-grt-legend-item"><span class="pkit-grt-legend-badge" data-role="A" style="background:rgba(168,85,247,0.12);color:#a855f7;border-color:rgba(168,85,247,0.4);">A</span>Accountable — owns the outcome</span>
+    <span class="pkit-grt-legend-item"><span class="pkit-grt-legend-badge" data-role="C" style="background:rgba(59,130,246,0.12);color:#3b82f6;border-color:rgba(59,130,246,0.4);">C</span>Consulted — asked for input</span>
+    <span class="pkit-grt-legend-item"><span class="pkit-grt-legend-badge" data-role="I" style="background:rgba(107,114,128,0.12);color:var(--fg-muted);border-color:rgba(107,114,128,0.4);">I</span>Informed — kept in the loop</span>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  var roots = document.querySelectorAll('.pkit-grt[data-snippet-mount="governance-roles-table"]');
+  Array.prototype.forEach.call(roots, function(root) {
+    if (root.dataset.pkitInit) return;
+    root.dataset.pkitInit = '1';
+
+    var table = root.querySelector('table');
+    if (!table) return;
+
+    var activeCol = null;
+    var activeRow = null;
+
+    function clearColHighlight() {
+      var cells = table.querySelectorAll('.pkit-grt-col-highlight');
+      Array.prototype.forEach.call(cells, function(c) {
+        c.classList.remove('pkit-grt-col-highlight');
+      });
+    }
+
+    function clearRowHighlight() {
+      var rows = table.querySelectorAll('tr.pkit-grt-row-highlight');
+      Array.prototype.forEach.call(rows, function(r) {
+        r.classList.remove('pkit-grt-row-highlight');
+      });
+    }
+
+    function highlightCol(col) {
+      if (activeCol === col) {
+        clearColHighlight();
+        activeCol = null;
+        return;
+      }
+      clearColHighlight();
+      activeCol = col;
+      var headers = table.querySelectorAll('thead th[data-col="' + col + '"]');
+      Array.prototype.forEach.call(headers, function(h) {
+        h.classList.add('pkit-grt-col-highlight');
+      });
+      var cells = table.querySelectorAll('tbody td[data-col="' + col + '"]');
+      Array.prototype.forEach.call(cells, function(c) {
+        c.classList.add('pkit-grt-col-highlight');
+      });
+    }
+
+    function highlightRow(row) {
+      if (activeRow === row) {
+        clearRowHighlight();
+        activeRow = null;
+        return;
+      }
+      clearRowHighlight();
+      activeRow = row;
+      var tr = table.querySelector('tbody tr[data-row="' + row + '"]');
+      if (tr) tr.classList.add('pkit-grt-row-highlight');
+    }
+
+    var colBtns = table.querySelectorAll('.pkit-grt-col-btn');
+    Array.prototype.forEach.call(colBtns, function(btn) {
+      btn.addEventListener('click', function() {
+        highlightCol(btn.dataset.col);
+      });
+    });
+
+    var rowBtns = table.querySelectorAll('.pkit-grt-row-btn');
+    Array.prototype.forEach.call(rowBtns, function(btn) {
+      btn.addEventListener('click', function() {
+        highlightRow(btn.dataset.row);
+      });
+    });
+
+    var badges = root.querySelectorAll('.pkit-grt-badge[role="button"]');
+    Array.prototype.forEach.call(badges, function(badge) {
+      badge.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          badge.focus();
+        }
+      });
+    });
+  });
+})();
+</script>
+
+
+<p>Responsibilities:</p>
 <ul>
-<li><code>**</code> recurses across directory boundaries (<code>src/**/*.ts</code> matches any <code>.ts</code> under <code>src/</code>).</li>
-<li><code>*</code> matches a single path segment (<code>src/*.ts</code> does NOT recurse).</li>
-<li><code>?</code> matches one character.</li>
+<li><strong>Skill review</strong> — every new skill, agent, or hook lands on the Champion's desk for review before merge. The Champion validates the contract (frontmatter shape, <code>paths:</code> scoping, <code>allowed-tools</code> precision) against <code>claude/skills/CLAUDE.md</code> and its siblings.</li>
+<li><strong>Hook approval</strong> — hooks are policy. The Champion confirms exit-code semantics, JSON stdin/stdout contracts, and that the hook doesn't bypass <code>block-stage-sensitive.sh</code> or its siblings.</li>
+<li><strong>Onboarding</strong> — new engineers run <code>scripts/install.sh</code>, hit any friction, and surface the friction to the Champion. The Champion either fixes the install path or documents the workaround.</li>
+<li><strong>Escalation</strong> — when <code>@incident-responder</code> triages a pipeline failure that traces back to a convention question (not a code bug), the Champion owns the resolution.</li>
 </ul>
-<p>Quote any glob whose value contains a YAML-significant character (<code>:</code>, <code>,</code>, <code>{</code>, <code>[</code>) so the parser keeps the string intact.</p>
-<h3 id="scoping-heuristic">Scoping heuristic</h3>
-<p>Every skill's <code>paths:</code> should include <code>claude/skills/&lt;name&gt;/**</code> plus the <strong>primary operating surface</strong> the skill touches:</p>
-<table>
-<thead>
-<tr>
-<th>Surface kind</th>
-<th>Example skill</th>
-<th>Example path</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Workflow metadata</td>
-<td><code>create-plan</code></td>
-<td><code>docs/plan*.md</code>, <code>docs/prompts*.md</code></td>
-</tr>
-<tr>
-<td>Application source</td>
-<td><code>tdd</code></td>
-<td><code>**/tests/**</code>, <code>**/*.test.ts</code></td>
-</tr>
-<tr>
-<td>Build artifacts</td>
-<td><code>docs-writer</code></td>
-<td><code>docs-source/**</code>, <code>documentation/**</code></td>
-</tr>
-<tr>
-<td>CLI provider docs</td>
-<td><code>vercel-ops</code></td>
-<td><code>vercel.json</code>, <code>documentation/deployment-vercel.html</code></td>
-</tr>
-<tr>
-<td>Repo-state sentinel</td>
-<td><code>new-branch</code></td>
-<td><code>.git/HEAD</code></td>
-</tr>
-</tbody>
-</table>
-<p>When the heuristic feels ambiguous, prefer the narrowest reasonable surface. Never use <code>**</code> or <code>*</code> as the only entry — that is equivalent to declaring the skill global, but without the explicit allowlist rationale.</p>
-<h2 id="global-by-design-allowlist">Global-by-design allowlist</h2>
-<p>The four skills below intentionally OMIT <code>paths:</code>. Their scope is the whole repository; scoping by glob would defeat their purpose.</p>
+<p>Time commitment: roughly <strong>2 hours per week</strong> in steady-state, weighted toward Mondays (review queue) and Fridays (retrospective + memory write-back). Spikes during onboarding weeks and after a <code>~/.claude/</code> overlay update.</p>
+<p>Succession: rotate the role every <strong>quarter</strong>. The outgoing Champion writes a 1-page handoff covering open review threads, pending convention questions, and any project-specific deltas they introduced. The handoff lands as a <code>feedback_*.md</code> memory under <code>~/.claude/projects/&lt;slug&gt;/memory/</code> so the incoming Champion can read it on day one. Quarterly rotation prevents the role from becoming a knowledge silo.</p>
+<h2 id="standardization-playbook">Standardization playbook</h2>
+<p>Use this playbook to roll pipelinekit conventions out across multiple projects. Each step has a single owner — the Champion — and a single exit criterion.</p>
+<ol>
+<li><strong>Audit existing surface.</strong> Run the <code>claude-md-enhancer</code> skill against each project's <code>CLAUDE.md</code>. Capture the drift between the project's current rules, the user-global rules in <code>~/.claude/CLAUDE.md</code>, and the canonical conventions in <code>claude/skills/CLAUDE.md</code>, <code>claude/agents/CLAUDE.md</code>, and <code>claude/hooks/CLAUDE.md</code>. Exit criterion: a drift list with one row per deviation and a "keep / align / delete" disposition.</li>
+<li><strong>Land the baseline overlay on one pilot project.</strong> Run <code>scripts/install.sh</code> on the project the Champion knows best. Confirm <code>~/.claude/CLAUDE.md</code>, <code>~/.claude/rules/workflow.md</code>, and <code>~/.claude/rules/agents-worktrees.md</code> are in place. Run <code>/pipeline</code> end-to-end on a real feature. Exit criterion: green pipeline run with no manual interventions.</li>
+<li><strong>Codify per-project deltas.</strong> Anything the pilot needs that the baseline does not provide — a project-specific charter, a custom skill, a mode-specific overlay (Azure, Vercel, Railway, Render, DigitalOcean) — goes into the project's <code>CLAUDE.md</code> as an additive section, never an override. The Champion documents each delta with a one-line "why" so the next engineer can read intent, not just rules. Exit criterion: every delta in the project's <code>CLAUDE.md</code> has a justification line.</li>
+<li><strong>Roll out to additional projects.</strong> Repeat steps 2 and 3 for each new project. The Champion is the convention-bearer: when two projects diverge on a convention, the Champion picks one and updates the other to match (or escalates the disagreement back to the user-global rules if the conflict is genuine).</li>
+</ol>
+<h2 id="approval-workflow-adding-skills-agents-hooks">Approval workflow — adding skills / agents / hooks</h2>
+<p>A new skill, agent, or hook crosses the team's convention surface. It needs explicit review. Use this three-stage flow.</p>
+<ol>
+<li><strong>Draft.</strong> Author opens a PR that adds the new artifact. The artifact MUST satisfy the per-file conventions in <code>claude/skills/CLAUDE.md</code> (skills), <code>claude/agents/CLAUDE.md</code> (agents), or <code>claude/hooks/CLAUDE.md</code> (hooks). PR description includes a one-paragraph "why this isn't already covered by an existing skill / agent / hook" — the Champion checks this against the "When to Extend vs Add New" rule in <code>claude/skills/CLAUDE.md</code>.</li>
+<li><strong>Review.</strong> The AI Champion + one peer review the PR. Champion focuses on contract compliance (frontmatter, allowlist, paths scoping); peer focuses on the behavior the artifact ships. Both must approve before merge. Disagreements escalate to a 15-minute synchronous discussion with the user-global rules in <code>~/.claude/CLAUDE.md</code> as the tiebreaker.</li>
+<li><strong>Merge.</strong> Merge after the smoke tests pass — <code>bash claude/skills/docs-writer/tests/test_render.sh</code> for docs-writer changes, the skill's own <code>tests/</code> directory for skill-specific tests, the hook test harness under <code>claude/hooks/</code> for new hooks. The merge commit follows conventional-commit format and never references the AI workflow (no <code>Co-Authored-By</code>, no review-cycle metadata).</li>
+</ol>
+<h2 id="adoption-metrics">Adoption metrics</h2>
+<p>Governance is invisible when it works. Measure adoption to confirm it is working — and to surface drift before it becomes a fire.</p>
 <ul>
-<li><code>pipeline</code> — orchestrates every phase across the whole repo; scoping by glob would defeat the purpose.</li>
-<li><code>claude-md-enhancer</code> — operates on any project's <code>CLAUDE.md</code> regardless of layout.</li>
-<li><code>caveman-mode</code> — toggles a session-wide verbosity flag; no file surface to scope.</li>
-<li><code>write-a-skill</code> (the meta-skill) — authors NEW skills, so by definition cannot constrain its own surface to existing files.</li>
-</ul>
-<p>Adding a new skill to this allowlist requires a charter-level justification — when in doubt, declare <code>paths:</code> and let the loader filter the skill out where it does not belong.</p>
-<h2 id="authoring-contract">Authoring contract</h2>
-<p>Every NEW skill in <code>claude/skills/&lt;name&gt;/SKILL.md</code> MUST declare <code>paths:</code> unless it appears on the allowlist above. A skill that ships without <code>paths:</code> and is not on the allowlist is a bug — file an issue or add the field before merging.</p>
-<p>The <code>paths:</code> block is part of the skill's reviewable contract: bump the skill's version note in the body when you add, remove, or widen a glob, and rerun the skill's tests if it has any.</p>
-<h2 id="see-also">See also</h2>
-<ul>
-<li><code>claude/skills/CLAUDE.md</code> — the authoring rules root for the <code>claude/skills/</code> directory.</li>
-<li><code>docs-source/SKILL-AUTHORING-STANDARD.md</code> — the broader 10-pattern skill DNA template (vendored upstream).</li>
+<li><strong>Skill activation rate.</strong> Which skills actually fire on PRs? Derive from <code>~/.claude/logs/</code> (per-session JSONL) by counting the unique skill-dispatch lines per week. A skill that has not fired in 4 weeks is a candidate for deprecation or for a routing-surface fix in its <code>description:</code> field. Target: every skill in the active catalog fires at least once per quarter.</li>
+<li><strong>Hook failure rate.</strong> Count of <code>exit 1</code> / <code>exit 2</code> outcomes from hooks per week, read from <code>~/.claude/logs/hook-events.jsonl</code> if present, otherwise from grep against the session logs. A spiking failure rate on a single hook signals either a recently introduced bug or a convention the team is rejecting. Target: aggregate hook failure rate stays under 5% of total hook invocations per week.</li>
+<li><strong>Time-to-onboard.</strong> Median minutes from <code>scripts/install.sh</code> (clean checkout) to the first successful <code>/pipeline</code> run on a real feature. Collect manually for now — the Champion notes the metric for each onboarding session and rolls it into the quarterly retrospective. Target: 30 minutes for engineers who have used Claude Code before, 90 minutes for engineers new to the toolchain.</li>
 </ul>
     </div>
 

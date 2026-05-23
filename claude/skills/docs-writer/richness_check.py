@@ -57,6 +57,7 @@ RICHNESS_PATTERNS: list[tuple[str, str]] = [
     ("snippet:command-cheatsheet",        r'data-snippet-mount="command-cheatsheet"'),
     ("snippet:cost-budget-meter",         r'data-snippet-mount="cost-budget-meter"'),
     ("snippet:before-after-slider",       r'data-snippet-mount="before-after-slider"'),
+    ("snippet:governance-roles-table",    r'data-snippet-mount="governance-roles-table"'),
     # Generic detection — any registered snippet mount.
     # Falls back to catch a page that uses ANY data-snippet-mount even if
     # the specific snippet isn't in the known catalog. Counted once.

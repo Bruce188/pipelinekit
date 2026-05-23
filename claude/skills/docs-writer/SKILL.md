@@ -107,6 +107,7 @@ mount root for per-instance configuration.
 | `command-cheatsheet`       | Searchable ≥40-row slash-command table; scoped `<input type="search">` filter with 120ms debounce; arguments + defaults + one-line description. JSON island data (hand-maintained). | `pipeline.html`, `getting-started.html` |
 | `cost-budget-meter`        | Twin dial-gauge SVG showing `$ spent / max-usd` + `turns / max-turns`; CSS-animated fill; degrades to open-ended bar when cap is `unlimited`. Config via `data-spent-usd`/`data-max-usd`/`data-spent-turns`/`data-max-turns` attributes. | `review-cost.html` |
 | `before-after-slider`      | Generic horizontal scrubber with clip-path reveal between two arbitrary content regions; ARIA-compliant `<input type="range">`; respects `prefers-reduced-motion`. Reusable shell. | (optional — future release-notes pages) |
+| `governance-roles-table` | RACI matrix for AI-Champion / Reviewer / Maintainer roles. 6 tasks × 4 columns. Click header to highlight column, click row label to highlight row, hover for tooltip. Scoped CSS `.pkit-grt`. | `governance.html` |
 
 When a use case isn't covered, build a new snippet rather than falling back to
 plain markdown. See § Authoring a new snippet below for the contract.
