@@ -33,8 +33,7 @@ Required sections (15 topics in order):
 12. (Optional) AI Layer subsections — written under a new `## AI Layer` H2 when answered:
     - Topic 12: AI Champion
     - Topic 13: LSP / symbol search MCP
-    - Topic 14: Self-reflection
-    - Topic 15: Codebase Map (root CLAUDE.md)
+    - Topic 14: Codebase Map (root CLAUDE.md)
 
 Optional section (additive — charters without this section continue to validate):
 - `## Stakeholders` (optional, populated only when multi-party scope is signaled during Step 0; captures decision-makers, blockers, reviewers; backward-compat: charters without this section continue to validate)
@@ -77,8 +76,7 @@ The 15 topics enumerated by the convergence check (in order):
 - Topic 11 — Review style
 - Topic 12 — AI Champion
 - Topic 13 — LSP / symbol search MCP
-- Topic 14 — Self-reflection
-- Topic 15 — Codebase Map confirmation
+- Topic 14 — Codebase Map confirmation
 
 The user must see this choice after every topic, including the last. "Ship the charter now" is always available.
 
@@ -312,23 +310,7 @@ Options:
 
 ---
 
-### Topic 14: Self-reflection
-
-**Probe:** Opt in to the F4 Stop hook that proposes `CLAUDE.md` updates at end-of-feature?
-
-**Follow-up:** The hook is enabled by default. Disable by setting `PIPELINE_NO_SELF_REFLECT=1` in the environment.
-
-**Invocation:** Pipeline issues an `AskUserQuestion` with the four options above; the answer is recorded under `## AI Layer` in the charter.
-
-Options:
-- A) `enabled (default)`
-- B) `disabled — set PIPELINE_NO_SELF_REFLECT=1`
-- C) `not sure`
-- D) `Ship the charter now`
-
----
-
-### Topic 15: Codebase Map confirmation
+### Topic 14: Codebase Map confirmation
 
 **Probe:** Confirm the root `CLAUDE.md` Codebase Map is up to date for this repo.
 

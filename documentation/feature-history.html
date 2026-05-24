@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Feature History — pipelinekit</title>
-<meta name="description" content="Rendered audit trail of merged pipelinekit features.">
+<meta name="description" content="Rendered audit trail for pipelinekit features. Each merged feature appears below as its own H2 with a &lt;details&gt; collapsible body. The pipeline appends new entries automatically via claude/lib/pipeline/features_pruner.py during /post-merge…">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -540,7 +540,6 @@ footer {
       <li class="lvl-2"><a href="#f4-feat-write-a-skill-paths-enforcer">F4 — feat/write-a-skill-paths-enforcer</a></li>
       <li class="lvl-2"><a href="#f5-feat-analyze-cites-codebase-map">F5 — feat/analyze-cites-codebase-map</a></li>
       <li class="lvl-2"><a href="#f6-feat-pipeline-verify-gates-hook-smoke">F6 — feat/pipeline-verify-gates-hook-smoke</a></li>
-      <li class="lvl-2"><a href="#f7-feat-stop-reflect-cost-logging">F7 — feat/stop-reflect-cost-logging</a></li>
       <li class="lvl-2"><a href="#f8-feat-review-checks-skill-compliance">F8 — feat/review-checks-skill-compliance</a></li>
       <li class="lvl-2"><a href="#f9-chore-pipeline-terminal-state">F9 — chore/pipeline-terminal-state</a></li>
       <li class="lvl-2"><a href="#f10-chore-html-effectiveness-wiring">F10 — chore/html-effectiveness-wiring</a></li>
@@ -552,17 +551,13 @@ footer {
   <main>
     <header class="page-header">
       <h1>Feature History</h1>
-      <p class="description">Rendered audit trail of merged pipelinekit features.</p>
+      <p class="description">Rendered audit trail for pipelinekit features. Each merged feature appears below as its own H2 with a &lt;details&gt; collapsible body. The pipeline appends new entries automatically via claude/lib/pipeline/features_pruner.py during /post-merge…</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
 <!-- richness budget: spatial timeline + visual-token status pills + interactive collapsible-details (≥ 2 target) -->
 
-<p>Rendered audit trail for pipelinekit features. Each merged feature appears
-below as its own H2 with a <code>&lt;details&gt;</code> collapsible body. The pipeline appends
-new entries automatically via <code>claude/lib/pipeline/features_pruner.py</code> during
-<code>/post-merge</code> Step 12.</p>
 <h2 id="timeline">Timeline</h2>
 <p>Spatial overview of recent feature merges (left to right). Built as inline SVG
 so it renders standalone without any client dependencies.</p>
@@ -713,28 +708,6 @@ _decisions not recovered (analysis file missing from workflow dir)_
 - Pipeline verify phase gates on hook smoke tests
 - Auto-discovers hook test files
 - CLAUDE.md documents the smoke-gate contract for hook authors
-
-</details>
-<details>
-<summary>Decisions</summary>
-
-_decisions not recovered (analysis file missing from workflow dir)_
-</details>
-
-<h2 id="f7-feat-stop-reflect-cost-logging">F7 — feat/stop-reflect-cost-logging</h2>
-<p><strong>Status:</strong> <span class="status-pill status-merged">merged</span>
-<strong>PR:</strong> <a href="https://github.com/Bruce188/pipelinekit/pull/103">#103</a>
-<strong>SHA:</strong> <code>17012ec</code>
-<strong>Merged:</strong> 2026-05-23T09:37:16Z</p>
-<p><code>stop-self-reflect</code> hook now appends a <code>cost-events.jsonl</code> line after each <code>claude -p</code> invocation so Step 1.46 budget preflight reflects all session cost. Best-effort; hook still exits 0 on write failure.</p>
-<details>
-<summary>Details</summary>
-
-- Feature class: dev
-- Hook writes one JSONL line per reflect invocation
-- Budget preflight (Step 1.46) consumes the log
-- Smoke tests cover happy + failure paths
-- Exit-0 guarantee preserved on write failure
 
 </details>
 <details>

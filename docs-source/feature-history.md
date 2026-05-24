@@ -195,32 +195,6 @@ _decisions not recovered (analysis file missing from workflow dir)_
 </details>
 
 
-## F7 — feat/stop-reflect-cost-logging
-
-**Status:** <span class="status-pill status-merged">merged</span>
-**PR:** [#103](https://github.com/Bruce188/pipelinekit/pull/103)
-**SHA:** `17012ec`
-**Merged:** 2026-05-23T09:37:16Z
-
-`stop-self-reflect` hook now appends a `cost-events.jsonl` line after each `claude -p` invocation so Step 1.46 budget preflight reflects all session cost. Best-effort; hook still exits 0 on write failure.
-
-<details>
-<summary>Details</summary>
-
-- Feature class: dev
-- Hook writes one JSONL line per reflect invocation
-- Budget preflight (Step 1.46) consumes the log
-- Smoke tests cover happy + failure paths
-- Exit-0 guarantee preserved on write failure
-
-</details>
-<details>
-<summary>Decisions</summary>
-
-_decisions not recovered (analysis file missing from workflow dir)_
-</details>
-
-
 ## F8 — feat/review-checks-skill-compliance
 
 **Status:** <span class="status-pill status-merged">merged</span>
