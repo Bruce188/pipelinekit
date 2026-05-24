@@ -932,6 +932,12 @@ footer {
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/52">#52</a> — R5 lint coverage for <code>${{ matrix.os }}</code> runner label</li>
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/63">#63</a> — Normalize skill frontmatter <code>allowed-tools</code> to YAML list</li>
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/64">#64</a> — <code>permissionMode: default</code> on azure + vercel deployment-engineers</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/112">#112</a> — Break stop-self-reflect recursion via <code>PIPELINE_NO_SELF_REFLECT=1</code> env-var guard (precursor fix; hook later removed in #117)</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/113">#113</a> — <code>context-budget-advisor.py</code> UserPromptSubmit hook — 200K-token soft cap advisory</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/114">#114</a> — Subagent-First core principle + dispatch defaults documented in <code>~/.claude/rules/agents-worktrees.md</code></li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/115">#115</a> — <code>agent-caveman-gate.sh</code> PreToolUse Agent gate enforces caveman-subagent contract inheritance on every <code>Agent</code> dispatch</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/116">#116</a> — Re-inject caveman contract on <code>/compact</code> + auto-compact via <code>post-compact-context.sh</code>; clarify SessionStart banner so main-agent narrative observes the same three-zone split</li>
+<li><em>This PR</em> — <code>subagent-first-nudge.sh</code> UserPromptSubmit hook makes Subagent-First the <strong>default</strong> mode (no trigger keyword required); per-prompt opt-out via literal phrases (<code>no subagents</code>, <code>do it inline</code>, <code>do it yourself</code>, etc.); kill switch <code>PIPELINE_NO_SUBAGENT_NUDGE=1</code></li>
 </ul>
 <h2 id="mcp-integrations">MCP integrations</h2>
 <p>Model Context Protocol servers shipped or wired.</p>

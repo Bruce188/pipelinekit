@@ -121,6 +121,7 @@ Matcher values:
 | post-compact-context.sh | PostCompact | Reinjects critical rules after compaction |
 | context-warning.py | PostCompact | Warns when compaction fires |
 | context-budget-advisor.py | UserPromptSubmit | Advises `/compact` when session passes ~200K tokens |
+| subagent-first-nudge.sh | UserPromptSubmit | Reminds LEAD to dispatch via `Agent` by default; suppresses on per-prompt opt-out phrases |
 | test-logger.sh | PreToolUse | Logs test executions |
 
 ## Hook Templates

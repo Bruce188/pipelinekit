@@ -101,6 +101,12 @@ PreToolUse / PostToolUse / SessionStart / etc. hooks that enforce contracts at t
 - [#52](https://github.com/Bruce188/pipelinekit/pull/52) — R5 lint coverage for `${{ matrix.os }}` runner label
 - [#63](https://github.com/Bruce188/pipelinekit/pull/63) — Normalize skill frontmatter `allowed-tools` to YAML list
 - [#64](https://github.com/Bruce188/pipelinekit/pull/64) — `permissionMode: default` on azure + vercel deployment-engineers
+- [#112](https://github.com/Bruce188/pipelinekit/pull/112) — Break stop-self-reflect recursion via `PIPELINE_NO_SELF_REFLECT=1` env-var guard (precursor fix; hook later removed in #117)
+- [#113](https://github.com/Bruce188/pipelinekit/pull/113) — `context-budget-advisor.py` UserPromptSubmit hook — 200K-token soft cap advisory
+- [#114](https://github.com/Bruce188/pipelinekit/pull/114) — Subagent-First core principle + dispatch defaults documented in `~/.claude/rules/agents-worktrees.md`
+- [#115](https://github.com/Bruce188/pipelinekit/pull/115) — `agent-caveman-gate.sh` PreToolUse Agent gate enforces caveman-subagent contract inheritance on every `Agent` dispatch
+- [#116](https://github.com/Bruce188/pipelinekit/pull/116) — Re-inject caveman contract on `/compact` + auto-compact via `post-compact-context.sh`; clarify SessionStart banner so main-agent narrative observes the same three-zone split
+- *This PR* — `subagent-first-nudge.sh` UserPromptSubmit hook makes Subagent-First the **default** mode (no trigger keyword required); per-prompt opt-out via literal phrases (`no subagents`, `do it inline`, `do it yourself`, etc.); kill switch `PIPELINE_NO_SUBAGENT_NUDGE=1`
 
 ## MCP integrations
 

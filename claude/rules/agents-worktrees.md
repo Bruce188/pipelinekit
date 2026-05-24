@@ -8,7 +8,9 @@ paths:
 
 ## Subagent Defaults
 
-Subagent dispatch via the `Agent` tool is the DEFAULT execution mode whenever any of these signals is present, even when the user has not explicitly named an agent type:
+Subagent dispatch via the `Agent` tool is the DEFAULT execution mode for ANY non-trivial work — no trigger keyword required. This is reinforced on every prompt by `claude/hooks/subagent-first-nudge.sh` (UserPromptSubmit), which injects a default-mode reminder unless the prompt contains an explicit opt-out phrase.
+
+Common dispatch shapes (all default to subagents — listed for clarity, not as gating criteria):
 
 - **Multi-feature batches**: "process features 7–11", "batch A", "parallel streams", "5 at a time" → one subagent per feature, ALL dispatched in a single message so they run concurrently.
 - **Autonomous runs**: "overnight", "while I sleep", "don't pause", "don't ask for confirmation", "target 10 AM", `--auto` flag → main session orchestrates and never blocks on a single feature's implementation.
@@ -16,11 +18,13 @@ Subagent dispatch via the `Agent` tool is the DEFAULT execution mode whenever an
 - **Long-running phases**: any implement-plan / review phase with > 5 tasks or > 2k LOC diff → dispatch via `/pipeline` Phase Mode `subagent` (default for new features per `~/.claude/rules/workflow.md § Phase Mode Precedence`).
 
 Inline execution is the EXCEPTION, reserved for:
-- One-shots under ~3 tool calls where dispatch overhead exceeds the work itself (e.g. read one file, edit one line, run one test).
-- Interactive Q&A with the user actively present and watching (turn-by-turn pairing).
-- Explicit user instruction: "do it inline", "do it yourself", "no agents", "no subagents".
+- **Trivial one-shots** under ~3 tool calls where dispatch overhead exceeds the work itself (e.g. read one file, edit one line, run one test).
+- **Interactive Q&A** with the user actively present and watching (turn-by-turn pairing).
+- **Per-prompt opt-out** via these literal phrases: `no subagents`, `no agents`, `do it inline`, `inline mode`, `do it yourself`, `skip subagents`, `skip agents`, `no dispatch`, `don't dispatch`. The nudge hook detects these and emits an opt-out notice instead of the default-mode banner.
 
-**Self-correction rule.** If the user has to say "use subagents" or "make sure to continue with subagents" mid-flight, the prior dispatch decision was wrong. Re-read the original prompt for trigger keywords above, switch to dispatch mode for the remaining work immediately, and do NOT finish the current inline step first as a courtesy — abandon it (or stash it for the subagent to pick up) and dispatch.
+**Kill switch.** Export `PIPELINE_NO_SUBAGENT_NUDGE=1` to silence the nudge entirely for a session — the default-mode rule still applies, but the hook stops injecting reminders.
+
+**Self-correction rule.** If the user has to say "use subagents" or "make sure to continue with subagents" mid-flight, the prior dispatch decision was wrong. Switch to dispatch mode for the remaining work immediately, and do NOT finish the current inline step first as a courtesy — abandon it (or stash it for the subagent to pick up) and dispatch.
 
 **Parallelism reminder.** Multiple independent subagents in a SINGLE message run concurrently. Calling `Agent` five times across five sequential turns serializes them and forfeits the parallelism. Bundle into one message.
 
