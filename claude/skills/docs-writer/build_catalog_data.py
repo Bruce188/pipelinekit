@@ -48,6 +48,7 @@ SKILL_SECTION_MAP: dict[str, str] = {
     "document-release": "workflow",
     "handoff-create": "workflow",
     "context-dump": "workflow",
+    "digest-memories": "workflow",
     "landing-report": "workflow",
     "learn": "workflow",
     "zoom-out": "workflow",

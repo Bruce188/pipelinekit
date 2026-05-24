@@ -1048,6 +1048,7 @@ done
   {"name":"/create-plan","args":"(none)","default":"(none)","description":"Generate docs/plan.md AND docs/prompts.md together. Initializes or amends docs/progress.md."},
   {"name":"/dependency-auditor","args":"(none)","default":"(none)","description":"Check dependencies for known vulnerabilities using npm audit, pip-audit, etc."},
   {"name":"/deploy-target","args":"<provider>","default":"(none)","description":"Set the active session deployment target (vercel, railway, render, digitalocean, or none)."},
+  {"name":"/digest-memories","args":"[--since <date>] [--limit N] [--dry-run]","default":"since last digest","description":"Synthesize per-project memory proposals from the session journal (in-session; no claude -p spawn)."},
   {"name":"/digitalocean-ops","args":"(none)","default":"(none)","description":"Deploy and verify DigitalOcean App Platform apps when the charter targets digitalocean."},
   {"name":"/docs-writer","args":"(none)","default":"(none)","description":"Documentation skill — renders markdown to rich, interactive, self-contained HTML for documentation/."},
   {"name":"/document-release","args":"[--since <sha>]","default":"latest merge","description":"Update application documentation in documentation/ after a release."},
