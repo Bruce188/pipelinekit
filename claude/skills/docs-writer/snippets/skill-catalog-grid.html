@@ -185,6 +185,11 @@
       <p class="pkit-skg-desc">Check dependencies for known vulnerabilities using npm audit, pip-audit, etc. Use when package.json or requirements.txt changes, or before deployments. Alerts on vulnerable dependencies. Triggers on dependency file changes, deployment prep, security mentions.</p>
       <span class="pkit-skg-section-badge">ops</span>
     </div>
+    <div class="pkit-skg-card" data-skill-card data-section="workflow" data-name="digest-memories">
+      <span class="pkit-skg-name">digest-memories</span>
+      <p class="pkit-skg-desc">Synthesize per-project memory proposals from the session journal written by memory-journal.sh. User-invoked via /digest-memories slash command. Reads recent sessions, proposes additions to ~/.claude/projects/&lt;slug&gt;/memory/, requires user confirmation before writing.</p>
+      <span class="pkit-skg-section-badge">workflow</span>
+    </div>
     <div class="pkit-skg-card" data-skill-card data-section="ops" data-name="digitalocean-ops">
       <span class="pkit-skg-name">digitalocean-ops</span>
       <p class="pkit-skg-desc">Deploy and verify DigitalOcean App Platform apps when the charter targets digitalocean</p>
@@ -337,7 +342,7 @@
     </div>
     <div class="pkit-skg-empty-msg">No skills match your filter.</div>
   </div>
-  <p class="pkit-skg-count">41 skills</p>
+  <p class="pkit-skg-count">42 skills</p>
   <script type="application/json" data-catalog-data>
 [
   {
@@ -394,6 +399,11 @@
     "name": "dependency-auditor",
     "description": "Check dependencies for known vulnerabilities using npm audit, pip-audit, etc. Use when package.json or requirements.txt changes, or before deployments. Alerts on vulnerable dependencies. Triggers on dependency file changes, deployment prep, security mentions.",
     "section": "ops"
+  },
+  {
+    "name": "digest-memories",
+    "description": "Synthesize per-project memory proposals from the session journal written by memory-journal.sh. User-invoked via /digest-memories slash command. Reads recent sessions, proposes additions to ~/.claude/projects/<slug>/memory/, requires user confirmation before writing.",
+    "section": "workflow"
   },
   {
     "name": "digitalocean-ops",

@@ -122,6 +122,7 @@ Matcher values:
 | context-warning.py | PostCompact | Warns when compaction fires |
 | context-budget-advisor.py | UserPromptSubmit | Advises `/compact` when session passes ~200K tokens |
 | subagent-first-nudge.sh | UserPromptSubmit | Reminds LEAD to dispatch via `Agent` by default; suppresses on per-prompt opt-out phrases |
+| memory-journal.sh | Stop | Appends session metadata to `~/.claude/projects/<slug>/memory-journal.jsonl`. No LLM call, no subprocess. Paired with user-invoked `/digest-memories` skill for in-session synthesis. |
 | test-logger.sh | PreToolUse | Logs test executions |
 
 ## Hook Templates

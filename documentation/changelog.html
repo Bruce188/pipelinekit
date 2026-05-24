@@ -937,7 +937,8 @@ footer {
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/114">#114</a> — Subagent-First core principle + dispatch defaults documented in <code>~/.claude/rules/agents-worktrees.md</code></li>
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/115">#115</a> — <code>agent-caveman-gate.sh</code> PreToolUse Agent gate enforces caveman-subagent contract inheritance on every <code>Agent</code> dispatch</li>
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/116">#116</a> — Re-inject caveman contract on <code>/compact</code> + auto-compact via <code>post-compact-context.sh</code>; clarify SessionStart banner so main-agent narrative observes the same three-zone split</li>
-<li><em>This PR</em> — <code>subagent-first-nudge.sh</code> UserPromptSubmit hook makes Subagent-First the <strong>default</strong> mode (no trigger keyword required); per-prompt opt-out via literal phrases (<code>no subagents</code>, <code>do it inline</code>, <code>do it yourself</code>, etc.); kill switch <code>PIPELINE_NO_SUBAGENT_NUDGE=1</code></li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/119">#119</a> — <code>subagent-first-nudge.sh</code> UserPromptSubmit hook makes Subagent-First the <strong>default</strong> mode (no trigger keyword required); per-prompt opt-out via literal phrases (<code>no subagents</code>, <code>do it inline</code>, <code>do it yourself</code>, etc.); kill switch <code>PIPELINE_NO_SUBAGENT_NUDGE=1</code></li>
+<li><em>This PR</em> — Reimplement removed agentmemory feature as <code>memory-journal.sh</code> (Stop hook, append-only JSONL, no LLM call) + user-invoked <code>/digest-memories</code> skill (in-session synthesis, no <code>claude -p</code> spawn). Replaces #117's stop-self-reflect; cost is bounded and user-controlled</li>
 </ul>
 <h2 id="mcp-integrations">MCP integrations</h2>
 <p>Model Context Protocol servers shipped or wired.</p>
@@ -1048,6 +1049,7 @@ footer {
   {"name":"/create-plan","args":"(none)","default":"(none)","description":"Generate docs/plan.md AND docs/prompts.md together. Initializes or amends docs/progress.md."},
   {"name":"/dependency-auditor","args":"(none)","default":"(none)","description":"Check dependencies for known vulnerabilities using npm audit, pip-audit, etc."},
   {"name":"/deploy-target","args":"<provider>","default":"(none)","description":"Set the active session deployment target (vercel, railway, render, digitalocean, or none)."},
+  {"name":"/digest-memories","args":"[--since <date>] [--limit N] [--dry-run]","default":"since last digest","description":"Synthesize per-project memory proposals from the session journal (in-session; no claude -p spawn)."},
   {"name":"/digitalocean-ops","args":"(none)","default":"(none)","description":"Deploy and verify DigitalOcean App Platform apps when the charter targets digitalocean."},
   {"name":"/docs-writer","args":"(none)","default":"(none)","description":"Documentation skill — renders markdown to rich, interactive, self-contained HTML for documentation/."},
   {"name":"/document-release","args":"[--since <sha>]","default":"latest merge","description":"Update application documentation in documentation/ after a release."},
