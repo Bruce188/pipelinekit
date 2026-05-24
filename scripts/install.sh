@@ -106,7 +106,8 @@ settings = {
             {"matcher": "*", "hooks": hook(f"{h}/hooks/post-compact-context.sh")}
         ],
         "UserPromptSubmit": [
-            {"matcher": "*", "hooks": hook(f"{h}/hooks/context-budget-advisor.py")}
+            {"matcher": "*", "hooks": hook(f"{h}/hooks/context-budget-advisor.py")},
+            {"matcher": "*", "hooks": hook(f"{h}/hooks/subagent-first-nudge.sh")}
         ]
     }
 }
@@ -115,7 +116,7 @@ dst = os.path.join(h, "settings.json")
 with open(dst, "w", encoding="utf-8") as f:
     json.dump(settings, f, indent=2)
     f.write("\n")
-print(f"installed: {dst} (24 hooks wired)")
+print(f"installed: {dst} (25 hooks wired)")
 PYEOF
   else
     # Flag not set: restore user's previous settings.json from backup if present.
