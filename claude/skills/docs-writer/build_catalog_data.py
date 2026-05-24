@@ -40,7 +40,6 @@ SKILL_SECTION_MAP: dict[str, str] = {
     "pipeline": "workflow",
     "analyze": "workflow",
     "create-plan": "workflow",
-    "annotate-plan": "workflow",
     "implement-plan": "workflow",
     "review": "workflow",
     "ppr": "workflow",
