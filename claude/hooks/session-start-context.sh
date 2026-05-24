@@ -215,7 +215,7 @@ if [ -f "$HOME/.claude/.caveman-active" ]; then
 
 ## Caveman state
 
-Active level: \`$CAVEMAN_LEVEL\`. Three-zone content split applies to every subagent dispatch.
+Active level: \`$CAVEMAN_LEVEL\`. The three-zone content split below applies BOTH to your own narrative prose AND to every subagent dispatch — not subagents only.
 
 - Zone 1 (code / paths / commits / errors): normal English, exact strings.
 - Zone 2 (narrative prose): real classical Chinese 文言, Han characters mandatory.
