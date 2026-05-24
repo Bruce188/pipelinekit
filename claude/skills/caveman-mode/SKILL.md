@@ -22,7 +22,9 @@ Switches the verbosity floor of assistant prose. Code, commits, security warning
 
 ## Three-zone content split
 
-Beyond the level system, subagent responses partition into three content zones by kind. The split is enforced via the snippet contract every Agent dispatch inherits: `~/.claude/snippets/caveman-subagent.md` (repo source: `claude/snippets/caveman-subagent.md`).
+Beyond the level system, subagent responses partition into three content zones by kind. The split is defined in the snippet contract at `~/.claude/snippets/caveman-subagent.md` (repo source: `claude/snippets/caveman-subagent.md`).
+
+**Propagation protocol.** The Claude Code harness does NOT auto-inject this contract. When you dispatch a subagent via the `Agent` tool while caveman is active, you MUST prepend the contract — wrapped in `<caveman-inherited level="…">` … `</caveman-inherited>` — to the `prompt` parameter. The same rule applies recursively: a subagent that dispatches further subagents prepends the contract too. The PreToolUse gate `agent-caveman-gate.sh` enforces this: any Agent dispatch under caveman mode whose prompt lacks the contract is blocked with `exit 2` and the dispatching agent retries with the header prepended.
 
 | Zone | Content kind | Style |
 |------|--------------|-------|

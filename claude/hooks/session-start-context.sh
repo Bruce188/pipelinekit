@@ -222,6 +222,22 @@ Active level: \`$CAVEMAN_LEVEL\`. Three-zone content split applies to every suba
 - Zone 3 (fragments / status / beacons): ultra English, drop articles + filler.
 
 Snippet contract: \`~/.claude/snippets/caveman-subagent.md\` (repo: \`claude/snippets/caveman-subagent.md\`).
+
+### Subagent dispatch protocol (MANDATORY while caveman is active)
+
+The harness does NOT auto-inject the contract. When you call the \`Agent\` tool you MUST prepend this block to the \`prompt\` parameter, then put your task instructions below it:
+
+\`\`\`
+<caveman-inherited level="$CAVEMAN_LEVEL">
+(full contents of ~/.claude/snippets/caveman-subagent.md)
+</caveman-inherited>
+
+---
+
+(your original task prompt)
+\`\`\`
+
+A PreToolUse gate (\`agent-caveman-gate.sh\`) enforces this — Agent calls missing the contract get blocked with \`exit 2\` and the dispatching agent retries with the header prepended. The rule applies recursively: subagents that dispatch further subagents prepend the contract too.
 EOF
   )
   OUT="$OUT$CAVEMAN_BLOCK"

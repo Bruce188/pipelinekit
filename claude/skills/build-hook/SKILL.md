@@ -113,6 +113,7 @@ Matcher values:
 
 | Hook | Event | Purpose |
 |------|-------|---------|
+| agent-caveman-gate.sh | PreToolUse (Agent) | Blocks Agent dispatches missing the caveman-subagent contract when caveman is active |
 | block-push-main.sh | PreToolUse | Blocks push to main/master |
 | block-stage-sensitive.sh | PreToolUse | Blocks staging .env, .claude/, workflow docs |
 | strip-ai-attribution.sh | PostToolUse | Removes claude-code-assisted label + Co-authored-by from PRs |

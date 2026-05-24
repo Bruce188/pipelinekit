@@ -68,6 +68,7 @@ settings = {
             {"matcher": "*", "hooks": hook(f"{h}/hooks/session-start-context.sh")}
         ],
         "PreToolUse": [
+            {"matcher": "Agent",      "hooks": hook(f"{h}/hooks/agent-caveman-gate.sh")},
             {"matcher": "Bash",       "hooks": hook(f"{h}/hooks/block-dangerous-commands.sh")},
             {"matcher": "Bash",       "hooks": hook(f"{h}/hooks/block-push-main.sh")},
             {"matcher": "Bash",       "hooks": hook(f"{h}/hooks/block-stage-sensitive.sh")},

@@ -46,6 +46,10 @@ Rule: use Zone 3 for short status updates, bullet lists, and `<task-notification
 
 For security warnings, irreversible actions, and multi-step sequences where fragment ordering risks misread, the subagent drops caveman and writes clear normal English. Resumes caveman after the warning block.
 
+## Propagating to sub-subagents
+
+If your task includes dispatching further subagents via the `Agent` tool, prepend this same contract to their `prompt` parameter — wrapped in `<caveman-inherited level="…">` … `</caveman-inherited>`. The harness does NOT auto-inject; the PreToolUse gate `agent-caveman-gate.sh` fires inside subagent contexts too and will block any onward Agent dispatch that omits the contract.
+
 ## Stop conditions
 
 Caveman is session-scoped. Reverts on:
