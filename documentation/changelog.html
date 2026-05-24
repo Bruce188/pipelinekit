@@ -965,6 +965,7 @@ footer {
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/29">#29</a> — Deprecate <code>/interview-prp</code> in favor of <code>/pipeline</code> Step 0 Charter Discovery (banner + migration notice; skill still installed)</li>
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/68">#68</a> — Remove deprecated <code>/interview-prp</code> skill entirely (second half of 2-release deprecation)</li>
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/81">#81</a> — Remove <code>openhuman</code> skill and vendored <code>agentmemory</code> retrieval layer (8 orphan agents audited and dropped; installer references scrubbed)</li>
+<li><em>This PR</em> — Remove <code>stop-self-reflect</code> Stop hook entirely. Empirical evidence: 28 artifacts written across two projects in ~24h, 100% <code>{"proposals":[]}</code> (zero useful CLAUDE.md amendments produced) while burning ~28 min of <code>claude -p</code> Opus time + MCP load per session. Hook plus its cost-event integration (originally added in #103), recursion guard (#112), tests, charter Topic 14 ("Self-reflection"), and standalone documentation page all dropped. Charter discovery loses Topic 14; Topic 15 (Codebase Map confirmation) renumbers to Topic 14.</li>
 </ul>
 <h2 id="documentation-system">Documentation system</h2>
 <p>The system that produces this very page.</p>

@@ -137,6 +137,7 @@ Pluggable worker layer so /pipeline can dispatch to alternate Claude SDKs or ext
 - [#29](https://github.com/Bruce188/pipelinekit/pull/29) — Deprecate `/interview-prp` in favor of `/pipeline` Step 0 Charter Discovery (banner + migration notice; skill still installed)
 - [#68](https://github.com/Bruce188/pipelinekit/pull/68) — Remove deprecated `/interview-prp` skill entirely (second half of 2-release deprecation)
 - [#81](https://github.com/Bruce188/pipelinekit/pull/81) — Remove `openhuman` skill and vendored `agentmemory` retrieval layer (8 orphan agents audited and dropped; installer references scrubbed)
+- *This PR* — Remove `stop-self-reflect` Stop hook entirely. Empirical evidence: 28 artifacts written across two projects in ~24h, 100% `{"proposals":[]}` (zero useful CLAUDE.md amendments produced) while burning ~28 min of `claude -p` Opus time + MCP load per session. Hook plus its cost-event integration (originally added in #103), recursion guard (#112), tests, charter Topic 14 ("Self-reflection"), and standalone documentation page all dropped. Charter discovery loses Topic 14; Topic 15 (Codebase Map confirmation) renumbers to Topic 14.
 
 ## Documentation system
 

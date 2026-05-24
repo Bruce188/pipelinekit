@@ -550,19 +550,6 @@ footer {
     </header>
 
     <div id="page-content">
-<!-- BEGIN PIPELINEKIT HERO -->
-<section class="dashboard-hero" id="dashboard-hero">
-  <h1>pipelinekit</h1>
-  <p class="hero-tagline">Workflow toolkit for Claude Code.</p>
-  <div class="hero-state">
-    <span class="status-pill">feat/dashboard-and-decisions-log</span>
-    <span class="status-pill">Step: implement</span>
-    <span class="status-pill">Cycle: 0</span>
-  </div>
-  <a class="hero-cta" href="dashboard.html">View dashboard →</a>
-  <a class="hero-cta-secondary" href="decisions.html">Decisions log →</a>
-</section>
-<!-- END PIPELINEKIT HERO -->
 <h2 id="system-architecture">System architecture</h2>
 <!-- snippet:architecture-diagram
      4-layer SVG taxonomy of pipelinekit: user-invocable slash commands,
@@ -1055,7 +1042,6 @@ footer {
 <li><a href="tsv-viewer.html">Research TSV viewer</a> — sortable / filterable HTML viewer for research-results TSVs.</li>
 <li><a href="github-issues-integration.html">GitHub Issues integration</a> — <code>--issues</code> mode for <code>/pipeline</code>.</li>
 <li><a href="pipeline-charter-revalidation.html"><code>/pipeline --renew</code> charter revalidation</a> — drift detection with 3-valued status + <code>--auto</code> bypass.</li>
-<li><a href="stop-self-reflect-hook.html">Stop self-reflection hook</a> — Stop hook proposes <code>CLAUDE.md</code> amendments per session; opt out via <code>PIPELINE_NO_SELF_REFLECT=1</code>.</li>
 <li><a href="harness-paths-investigation.html">Harness <code>paths:</code> field investigation</a> — does the Claude Code loader actually filter dispatch by the <code>paths:</code> frontmatter? Three-vector probe + FINDINGS.</li>
 <li><a href="skills-scope-policy.html">Skills scope policy</a> — authoring rules for the <code>paths:</code> frontmatter field and the global-by-design allowlist.</li>
 <li><a href="governance.html">Governance Playbook</a> — AI Champion role, standardization playbook, adoption metrics.</li>
@@ -1069,10 +1055,6 @@ footer {
 <li><a href="SKILL-AUTHORING-STANDARD.html">SKILL authoring standard</a> — the 10-pattern skill DNA template, originally vendored from alirezarezvani/claude-skills.</li>
 <li><a href="SKILL_PIPELINE.html">SKILL pipeline lifecycle</a> — Intent → ... → Verify lifecycle.</li>
 <li><a href="html-effectiveness-principles.html">HTML effectiveness principles</a> — canonical design rubric for <code>documentation/*.html</code> pages.</li>
-<li><a href="workflow-hygiene.html">Workflow hygiene</a> — drift modes (rotation, orphan janitor, features pruner) + opt-out env vars.</li>
-<li><a href="feature-history.html">Feature history</a> — rendered audit trail of merged pipelinekit features.</li>
-<li><a href="dashboard.html">Dashboard</a> — live current-state snapshot of the pipelinekit workflow (12 sections; sections 1-3 always-visible).</li>
-<li><a href="decisions.html">Decisions log</a> — per-feature OQ + SubQ resolutions in newest-first order.</li>
 <li><a href="NOTICE.html">Vendoring notice</a> — attribution + license.</li>
 </ul>
 <h2 id="built-with-inspired-by">Built with / Inspired by</h2>

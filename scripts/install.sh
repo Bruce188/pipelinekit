@@ -88,8 +88,7 @@ settings = {
         ],
         "Stop": [
             {"matcher": "*", "hooks": hook(f"{h}/hooks/notify-emit.sh")},
-            {"matcher": "*", "hooks": hook(f"{h}/hooks/stop-completion-gate.sh")},
-            {"matcher": "*", "hooks": hook(f"{h}/hooks/stop-self-reflect.sh")}
+            {"matcher": "*", "hooks": hook(f"{h}/hooks/stop-completion-gate.sh")}
         ],
         "SubagentStop": [
             {"matcher": "*", "hooks": hook(f"{h}/hooks/verify-worktree-commit.sh")}
