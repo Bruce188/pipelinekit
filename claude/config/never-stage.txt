@@ -46,6 +46,7 @@ obj/
 .agentmemory/
 .understand-anything/
 .codegraph/
+.graphify/
 *.user
 *.suo
 
