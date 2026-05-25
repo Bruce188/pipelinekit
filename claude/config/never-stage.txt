@@ -45,6 +45,7 @@ bin/
 obj/
 .agentmemory/
 .understand-anything/
+.codegraph/
 *.user
 *.suo
 
