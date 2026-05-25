@@ -39,6 +39,11 @@
       "type": "stdio",
       "command": "npx",
       "args": ["-y", "@colbymchenry/codegraph@^0.9.4", "serve", "--mcp"]
+    },
+    "graphify": {
+      "type": "stdio",
+      "command": "uv",
+      "args": ["tool", "run", "--from", "graphifyy", "graphify", ".", "--mcp"]
     }
   },
   "_mobile_instructions": "Optional iOS-development MCPs. Uncomment-and-move into 'mcpServers' to enable. Both require Xcode on host. ios-simulator-mcp uses git+https — PIN the ref (replace @main with a commit SHA) before sandbox use.",

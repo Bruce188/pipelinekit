@@ -25,6 +25,7 @@
 - **Documentation/specs/PDFs**: `local-rag` MCP query_documents if configured
 - **Web research** (current events, non-cached docs): WebSearch → WebFetch
 - **Symbolic code graph** (function-call traversal, identifier lookup): `codegraph` MCP if configured (pre-flight 50k-file gate via `/codegraph-init`)
+- **Knowledge graph** (entity/relationship extraction from project artifacts): `graphify` MCP if configured (pre-flight 50k-file gate via `/graphify-init`)
 
 ## Memory System
 
