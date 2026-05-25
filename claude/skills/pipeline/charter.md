@@ -77,6 +77,7 @@ The 15 topics enumerated by the convergence check (in order):
 - Topic 12 — AI Champion
 - Topic 13 — LSP / symbol search MCP
 - Topic 14 — Codebase Map confirmation
+- Topic 15 — Production-readiness probe depth
 
 The user must see this choice after every topic, including the last. "Ship the charter now" is always available.
 
@@ -326,6 +327,22 @@ Options:
 
 ---
 
+### Topic 15: Production-readiness probe depth
+
+**Probe:** How deep should the production-probe agent verify each merged feature?
+
+**Follow-up:** Determines which probes 1-7 the production-probe agent runs at Path A step 0.5. Light = boot + log only. Standard = boot + golden + failure + console + log. Paranoid = all 10 probes (1-7 + log + honesty contract + anti-pattern refusal check).
+
+**Invocation:** Pipeline issues an `AskUserQuestion` with the four options below; the answer is recorded under `## Production-readiness probe depth` in the charter.
+
+Options:
+- A) `light — probes 1+8 only (boot + log evidence). Fastest. Good for read-only docs/config repos.`
+- B) `standard — probes 1, 2, 3, 4, 8 (boot + golden path + failure path + console/network + log). Default.`
+- C) `paranoid — all 10 probes (1-7 + 8 log + 9 honesty + 10 anti-pattern refusal check). Slowest. Good for money-loop / live-user-facing surfaces.`
+- D) `Ship the charter now`
+
+---
+
 ## Charter File Template
 
 After all topics are gathered (or user chooses "ship now"), write `docs/charter.md` using this template:
@@ -380,6 +397,9 @@ status: draft
 
 ## Review style
 [Either `always teams`, `never teams`, or `orchestrator decides` (default).]
+
+## Production-readiness probe depth
+[Production-readiness probe depth content]
 
 ## AI Layer
 - **AI Champion:** [name + tenure, or `none` / `not sure`]

@@ -559,7 +559,10 @@ Write/update `docs/pipeline-state.md`:
 **Last phase agent:** [subagent ID, only when Phase Mode = subagent]
 **Charter:** [path to docs/charter.md, or (none) when --no-charter is set]
 **Review style:** [always teams | never teams | orchestrator decides]
+**Probe depth:** $(bash claude/lib/pipeline/detect_repo_class.sh --probe-depth)
+**Repo class:** $(bash claude/lib/pipeline/detect_repo_class.sh --repo-class)
 ```
+<!-- DEFERRED: ~/.claude/rules/workflow.md § Pipeline State Schema gains two new bullets (`**Probe depth:**`, `**Repo class:**`) — out-of-repo edit (user's global rules). Advisory schema doc, not load-bearing for runtime. Tracked as follow-up in docs/progress.md ## Deferred section. -->
 
 Default value for new features: `subagent`. `inline` appears only in legacy state files written under the prior heuristic policy or in Path N nit-attack sub-paths.
 
@@ -1064,6 +1067,7 @@ The gate resolves the verification command in this order, stopping at the first 
    - `package.json` present → `npm test --silent`
    - `pyproject.toml` or `setup.py` present → `pytest -q`
 4. No match → silent skip (return success)
+5. **Probe-block precondition (NEW — F4 gate).** BEFORE evaluating the verification command, gate inspects the feature's `### Run Log` section in the feature file at `docs/features-*.md`. If `Production-Probe: BEGIN` is absent for the current feature's most-recent Run Log entry, append `PostMerge: FAILED (probe missing)` to the Run Log line and route to the existing failure handler. NO probe block → `POSTMERGE_OK` is NEVER appended. **Idempotency:** if `Production-Probe: BEGIN` is already present (e.g. `--restart-from review` resume), proceed to the verification command unchanged — do NOT append a duplicate block.
 
 #### Timeout
 
@@ -1081,10 +1085,14 @@ On non-zero exit:
 2. Preserve work: `git branch "${feature}-postmerge-failed" "$squash_sha"`
 3. Revert merge: `git reset --hard HEAD~1`
 4. Append `PostMerge: FAILED (<cmd> exit <rc>)` to the completion Run Log line
+   - On probe-block-missing: `PostMerge: FAILED (probe missing)`. Same revert + skip-to-next semantics.
+   - On probe-validate-fail: `PostMerge: FAILED (probe-block invalid: <RUNLOG_PROBE_BLOCK_INVALID reason>)`. Same revert + skip-to-next semantics.
 5. Call `log_feature_failed` then `cleanup_failed_feature "${feature}-postmerge-failed"`
 6. Continue to the next feature — the pipeline does not halt
 
 On success, append `POSTMERGE_OK: <cmd>` to the completion Run Log line.
+
+**Backward-compat for pre-gate features.** Features whose Run Log entry pre-dates the gate-merge SHA (parse `YYYY-MM-DD` from the canonical Run Log line; if before the gate-merge commit date) SKIP the probe-block precondition silently. F1-F3 entries are NOT retroactively blocked. See `claude/skills/pipeline/reference.md § Production-Probe block specification`.
 
 After `POSTMERGE_OK` is appended, dispatch `Skill: learn` (via `claude/lib/learn-append.sh`) with a one-line lesson capturing post-merge outcome:
 ```bash
