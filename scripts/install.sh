@@ -29,6 +29,35 @@ log()  { printf '[install] %s\n' "$*" | tee -a "$LOG"; }
 warn() { printf '[install][warn] %s\n' "$*" | tee -a "$LOG" >&2; }
 die()  { printf '[install][error] %s\n' "$*" | tee -a "$LOG" >&2; exit 1; }
 
+# ---------- selftest harness ----------
+_selftest_main() {
+  local pass=0 fail=0
+  # Enumerate _selftest_* functions; skip _selftest_main itself.
+  local fn
+  while IFS= read -r fn; do
+    [[ "$fn" == "_selftest_main" ]] && continue
+    if ( "$fn" ); then
+      pass=$((pass+1))
+      echo "  [PASS] $fn"
+    else
+      fail=$((fail+1))
+      echo "  [FAIL] $fn"
+    fi
+  done < <(declare -F | awk '/_selftest_[a-z_]+$/ {print $NF}')
+  echo "Results: $pass PASS / $fail FAIL"
+  return "$fail"
+}
+
+_selftest_smoke_harness() {
+  # Placeholder: proves the harness fires at least one case.
+  return 0
+}
+
+# ---------- selftest dispatcher ----------
+# Short-circuit: `bash scripts/install.sh --selftest` runs only the selftest harness
+# and exits before touching the filesystem (STAGE/mv/BACKUP surface).
+if [[ "${1:-}" == "--selftest" ]]; then _selftest_main; exit $?; fi
+
 # ---------- optional: settings.json hook wiring ----------
 # Gated by CLAUDE_INSTALL_SETTINGS=1. Off by default — safe for existing users.
 # When the flag is unset and the previous install backed up a settings.json,
