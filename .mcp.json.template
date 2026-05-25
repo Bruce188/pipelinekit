@@ -34,6 +34,11 @@
         "AGENTMEMORY_EMBED_FALLBACK": "local-onnx-quant",
         "AGENTMEMORY_DB_PATH": ".agentmemory/agentmemory.db"
       }
+    },
+    "codegraph": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@colbymchenry/codegraph@^0.9.4", "serve", "--mcp"]
     }
   },
   "_mobile_instructions": "Optional iOS-development MCPs. Uncomment-and-move into 'mcpServers' to enable. Both require Xcode on host. ios-simulator-mcp uses git+https — PIN the ref (replace @main with a commit SHA) before sandbox use.",

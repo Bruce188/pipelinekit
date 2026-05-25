@@ -24,6 +24,7 @@
 - **Structural code patterns** (class hierarchies, call graphs): `RepoMapper` MCP if configured
 - **Documentation/specs/PDFs**: `local-rag` MCP query_documents if configured
 - **Web research** (current events, non-cached docs): WebSearch → WebFetch
+- **Symbolic code graph** (function-call traversal, identifier lookup): `codegraph` MCP if configured (pre-flight 50k-file gate via `/codegraph-init`)
 
 ## Memory System
 
