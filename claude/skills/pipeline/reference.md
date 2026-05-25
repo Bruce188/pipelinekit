@@ -324,6 +324,34 @@ See SKILL.md § Step 5.5.7 for the orchestrator-facing short summary.
    ```
    Failure NEVER blocks Path A (helper always exits 0). This is the post-review trigger for `Skill: learn`. The helper writes to `~/.pipelinekit/projects/<slug>/learnings.jsonl`.
 
+0.5. **Dispatch production-probe agent (F4 gate).** Between review-clean and push.
+
+     Inputs to dispatcher prompt: `$FEATURE_NAME`, `$FEATURE_FILE_PATH`, `$BASE_SHA`, `$REPO_CLASS`, `$PROBE_DEPTH` — all read from `docs/pipeline-state.md`.
+
+     **Idempotency check (run FIRST):** if `$FEATURE_FILE_PATH`'s most-recent `### Run Log` entry already contains `Production-Probe: BEGIN`, SKIP step 0.5 entirely and proceed to step 1.
+
+     **Dispatch:**
+     ```
+     Agent({
+       "subagent_type": "production-probe",
+       "prompt": "<dispatcher prompt with the 5 inputs above + the block schema verbatim from § Production-Probe block specification>"
+     })
+     ```
+
+     **Outcome routing** (read `<task-notification>` `<status>` field from agent response):
+
+     - `status: completed` → agent has appended the probe block to `$FEATURE_FILE_PATH`'s `### Run Log`. Orchestrator validates via:
+       ```bash
+       bash claude/lib/pipeline/format_runlog.sh validate-block <(awk '/^Production-Probe: BEGIN$/,/^Production-Probe: END$/' "$FEATURE_FILE_PATH" | tail -12)
+       ```
+       On validate FAIL, synthesize a blocking finding (`F-PROBE-BLOCK-INVALID: validate-block exit 1`) and route to Path B. On validate PASS, proceed to step 1 (push).
+
+     - `status: failed` → at least one probe returned FAIL. Synthesize a blocking finding (`F-PROBE-FAIL: <one-line agent summary>`) and route to Path B step 1.5 (treat as new blocking finding — increments `**Review cycles:**`, re-enters `/implement`). Do NOT push.
+
+     - `status: blocked` (agent could not run probes — e.g. boot failed, mvn missing) → identical to `status: failed` routing.
+
+     **Constraint:** the probe agent has NO Agent-tool access (per agent frontmatter — `tools: Bash, Read, Edit, WebFetch` only). It cannot recursively dispatch `/review` or `/pipeline`. The orchestrator owns Path B routing.
+
 1. **Pre-push auto-format** — run the project's formatter unconditionally. Detect by marker file; if clean, it's a fast no-op, so there's no gating.
    ```bash
    if ls *.sln 2>/dev/null | head -1 >/dev/null; then
