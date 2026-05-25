@@ -115,6 +115,145 @@ assert d['mcpServers']['agentmemory']['env']['AGENTMEMORY_EMBED_PROVIDER']=='loc
   return 0
 }
 
+_selftest_codegraph_mcp_provisioned() {
+  # AC #1: .mcp.json contains codegraph entry with correct pin + args.
+  # AC #4: settings.json sha256 byte-identity (provision_codegraph_mcp must NOT touch settings.json).
+  # AC #4: pgrep pre/post snapshot equality (no daemon spawned).
+  # AC #3: never-stage.txt contains `.codegraph/`.
+  # AC #2: codegraph-init SKILL.md exists with correct frontmatter.
+  # AC #6: CLAUDE.md.template contains codegraph bullet + /codegraph-init reference.
+  # Cross-MCP no-collision canary: agentmemory + understand-anything keys still present after codegraph write.
+  local sandbox
+  sandbox=$(mktemp -d)
+  # shellcheck disable=SC2064
+  trap "rm -rf '$sandbox'" RETURN
+  local saved_home="${CLAUDE_HOME:-}"
+  export CLAUDE_HOME="$sandbox/.claude"
+  mkdir -p "$CLAUDE_HOME"
+
+  # Synthesize known settings.json to detect any mutation.
+  printf '{"hooks":{}}\n' > "$CLAUDE_HOME/settings.json"
+  local sha_before
+  sha_before=$(sha256sum "$CLAUDE_HOME/settings.json" | awk '{print $1}')
+
+  # Synthesize .mcp.json with existing sibling keys (agentmemory + understand-anything canary).
+  python3 -c "
+import json
+d = {
+  'mcpServers': {
+    'agentmemory': {'type': 'stdio', 'command': 'npx', 'args': []},
+    'understand-anything': {'type': 'stdio', 'command': 'npx', 'args': []}
+  }
+}
+with open('$CLAUDE_HOME/.mcp.json', 'w') as f:
+    json.dump(d, f, indent=2)
+    f.write('\n')
+"
+
+  # Pgrep snapshot before invocation.
+  local pgrep_before
+  pgrep_before=$(pgrep -f "codegraph serve" 2>/dev/null | wc -l)
+
+  # Invoke the function under test.
+  provision_codegraph_mcp
+
+  # Pgrep snapshot after invocation.
+  local pgrep_after
+  pgrep_after=$(pgrep -f "codegraph serve" 2>/dev/null | wc -l)
+
+  # Assertion 1: .mcp.json exists and has correct codegraph entry shape.
+  if ! python3 -c "
+import json, sys
+try:
+    d = json.load(open('$CLAUDE_HOME/.mcp.json'))
+    assert d['mcpServers']['codegraph']['command'] == 'npx', 'command mismatch'
+    assert '@colbymchenry/codegraph@^0.9.4' in d['mcpServers']['codegraph']['args'], 'pin missing'
+    assert 'serve' in d['mcpServers']['codegraph']['args'], 'serve missing'
+    assert '--mcp' in d['mcpServers']['codegraph']['args'], '--mcp missing'
+except Exception as e:
+    sys.exit(f'AC#1 JSON shape FAIL: {e}')
+" 2>&1; then
+    echo "FAIL: _selftest_codegraph_mcp_provisioned — AC#1 JSON shape"
+    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+    return 1
+  fi
+
+  # Assertion 2: caret-pin regex matches literal @^0.9.x.
+  if ! python3 -c "
+import json, re, sys
+d = json.load(open('$CLAUDE_HOME/.mcp.json'))
+args = d['mcpServers']['codegraph']['args']
+pin_args = [a for a in args if re.search(r'@\^0\.9\.\d+', a)]
+if not pin_args:
+    sys.exit('AC#1 pin regex FAIL: no arg matches @^0.9.x')
+" 2>&1; then
+    echo "FAIL: _selftest_codegraph_mcp_provisioned — AC#1 pin regex"
+    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+    return 1
+  fi
+
+  # Assertion 3: settings.json sha256 unchanged (provision_codegraph_mcp must not touch it).
+  local sha_after
+  sha_after=$(sha256sum "$CLAUDE_HOME/settings.json" | awk '{print $1}')
+  if [[ "$sha_before" != "$sha_after" ]]; then
+    echo "FAIL: _selftest_codegraph_mcp_provisioned — AC#4 settings.json sha256 changed"
+    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+    return 1
+  fi
+
+  # Assertion 4: pgrep snapshot unchanged (no daemon spawned).
+  if [[ "$pgrep_after" -ne "$pgrep_before" ]]; then
+    echo "FAIL: _selftest_codegraph_mcp_provisioned — AC#4 codegraph serve daemon count changed"
+    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+    return 1
+  fi
+
+  # Assertion 5: never-stage.txt contains .codegraph/.
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if ! grep -q '^\.codegraph/$' "$script_dir/../claude/config/never-stage.txt" 2>/dev/null; then
+    echo "FAIL: _selftest_codegraph_mcp_provisioned — AC#3 .codegraph/ missing from never-stage.txt"
+    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+    return 1
+  fi
+
+  # Assertion 6: codegraph-init SKILL.md exists with correct frontmatter.
+  local skill_path="$script_dir/../claude/skills/codegraph-init/SKILL.md"
+  if ! [[ -f "$skill_path" ]] \
+      || ! grep -qE "^name: codegraph-init$" "$skill_path" \
+      || ! grep -qE "^[[:space:]]+-[[:space:]]Bash$" "$skill_path"; then
+    echo "FAIL: _selftest_codegraph_mcp_provisioned — AC#2 SKILL.md missing or frontmatter incomplete"
+    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+    return 1
+  fi
+
+  # Assertion 7: CLAUDE.md.template has codegraph bullet + /codegraph-init reference.
+  local template_path="$script_dir/../claude/CLAUDE.md.template"
+  if ! grep -q "codegraph" "$template_path" 2>/dev/null \
+      || ! grep -q "/codegraph-init" "$template_path" 2>/dev/null; then
+    echo "FAIL: _selftest_codegraph_mcp_provisioned — AC#6 CLAUDE.md.template missing codegraph/codegraph-init"
+    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+    return 1
+  fi
+
+  # Assertion 8: Cross-MCP no-collision canary — agentmemory + understand-anything keys still present.
+  if ! python3 -c "
+import json, sys
+d = json.load(open('$CLAUDE_HOME/.mcp.json'))
+missing = [k for k in ('agentmemory', 'understand-anything') if k not in d.get('mcpServers', {})]
+if missing:
+    sys.exit(f'AC canary FAIL: sibling keys removed: {missing}')
+" 2>&1; then
+    echo "FAIL: _selftest_codegraph_mcp_provisioned — cross-MCP no-collision canary"
+    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+    return 1
+  fi
+
+  [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+  echo "PASS: _selftest_codegraph_mcp_provisioned"
+  return 0
+}
+
 _selftest_understand_anything_provisioned() {
   # AC #1: marketplace-path mock — function logs invocation but does NOT execute live CLI.
   # AC #2: settings.json sha256 byte-identity before/after invocation.
@@ -251,6 +390,59 @@ PYEOF
     (timeout 30 npx -y @agentmemory/agentmemory@0.9.21 doctor 2>>"$LOG" 1>>"$LOG") \
       || warn "agentmemory doctor smoke failed — first MCP-client invocation will lazily re-fetch; see $LOG"
   fi
+}
+
+# ---------- Codegraph MCP (symbolic-graph layer; inert until first MCP client call) ----------
+# Writes a single JSON entry to ${CLAUDE_HOME}/.mcp.json. Does NOT invoke
+# `codegraph init`, `codegraph index`, or any stateful subcommand — those are
+# deferred to the user invoking `/codegraph-init` per project.
+# AC #1/#4 binding — see docs/features-mem-graph-stack.md § feat/codegraph-default-mcp.
+provision_codegraph_mcp() {
+  # Step 1: Backup existing .mcp.json if present.
+  local mcp_target="${CLAUDE_HOME}/.mcp.json"
+  if [[ -f "$mcp_target" ]]; then
+    local mcp_bak="${mcp_target}.bak-$(date +%s)"
+    cp -a "$mcp_target" "$mcp_bak"
+    log "Backed up existing .mcp.json → $mcp_bak"
+  fi
+
+  # Step 2: Write codegraph MCP entry via python3 heredoc (atomic temp + os.replace).
+  python3 - "$mcp_target" <<'PYEOF'
+import json, os, sys
+
+dst = sys.argv[1]
+
+# Load existing JSON or start fresh.
+if os.path.isfile(dst):
+    with open(dst, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+else:
+    data = {"mcpServers": {}}
+
+if "mcpServers" not in data:
+    data["mcpServers"] = {}
+
+data["mcpServers"]["codegraph"] = {
+    "type": "stdio",
+    "command": "npx",
+    "args": ["-y", "@colbymchenry/codegraph@^0.9.4", "serve", "--mcp"]
+}
+
+# Atomic write via temp file + os.replace.
+tmp = dst + ".tmp"
+with open(tmp, 'w', encoding='utf-8') as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+os.replace(tmp, dst)
+print(f"codegraph MCP entry written to {dst}")
+PYEOF
+
+  # Step 3: Log completion.
+  log "codegraph MCP entry written (pin @^0.9.4)"
+  # NO doctor smoke — codegraph has no documented doctor subcommand.
+  # NO daemon spawn — npx -y lazily fetches + spawns at first MCP-client tool call.
+  # NO codegraph init / index — deferred to user invocation of /codegraph-init per project.
+  return 0
 }
 
 # ---------- Understand-Anything plugin (Claude Code plugin, NOT MCP) ----------
@@ -604,6 +796,7 @@ fi
 log "Provisioning agentmemory MCP (default-on; cloud embeddings preferred)"
 provision_agentmemory_mcp
 provision_understand_anything
+provision_codegraph_mcp
 
 # gstack is a third-party overlay project (alirezarezvani/gstack); install instructions live in its own README.
 log "gstack is a third-party overlay; for install instructions see https://github.com/alirezarezvani/gstack"
