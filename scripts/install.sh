@@ -25,6 +25,7 @@ SERENA_REF="${SERENA_REF:-main}"
 # Override UNDERSTAND_ANYTHING_SHA=<commit-sha> to pin to a specific commit.
 UNDERSTAND_ANYTHING_SHA="${UNDERSTAND_ANYTHING_SHA:-470cc01dc5f9236a93eb704afdd479cd5db79710}"
 CLAUDE_CLI_SHA256="${CLAUDE_CLI_SHA256:-}"   # optional sha256 of https://claude.ai/install.sh
+readonly GRAPHIFY_VERSION="0.8.18"
 LSP_FAILURES=0
 
 log()  { printf '[install] %s\n' "$*" | tee -a "$LOG"; }
@@ -254,6 +255,162 @@ if missing:
   return 0
 }
 
+_selftest_graphify_mcp_provisioned() {
+  # AC #1: .mcp.json contains graphify entry with correct args (SB-2/SB-3 enforcement).
+  # AC #2: settings.json sha256 byte-identity (provision_graphify_mcp must NOT touch settings.json).
+  # AC #3: no bracket-syntax extras in args or provision_graphify_mcp source body.
+  # AC #4: never-stage.txt contains `.graphify/`.
+  # AC #5: graphify-init SKILL.md exists with correct frontmatter.
+  # AC #6: no daemon process spawned (pgrep snapshot equality).
+  # AC #7: CLAUDE.md.template has graphify bullet + /graphify-init reference.
+  # Cross-MCP no-collision canary: agentmemory + codegraph keys still present after graphify write.
+  local sandbox
+  sandbox=$(mktemp -d)
+  # shellcheck disable=SC2064
+  trap "rm -rf '$sandbox'" RETURN
+  local saved_home="${CLAUDE_HOME:-}"
+  export CLAUDE_HOME="$sandbox/.claude"
+  mkdir -p "$CLAUDE_HOME"
+
+  # Synthesize known settings.json to detect any mutation.
+  printf '{"hooks":{}}\n' > "$CLAUDE_HOME/settings.json"
+  local sha_before
+  sha_before=$(sha256sum "$CLAUDE_HOME/settings.json" | awk '{print $1}')
+
+  # Synthesize .mcp.json with existing sibling keys (agentmemory + codegraph canary).
+  python3 -c "
+import json
+d = {
+  'mcpServers': {
+    'agentmemory': {'type': 'stdio', 'command': 'npx', 'args': []},
+    'codegraph': {'type': 'stdio', 'command': 'npx', 'args': []}
+  }
+}
+with open('$CLAUDE_HOME/.mcp.json', 'w') as f:
+    json.dump(d, f, indent=2)
+    f.write('\n')
+"
+
+  # Pgrep snapshot before invocation.
+  local pgrep_before
+  pgrep_before=$(pgrep -f "graphify.*--mcp" 2>/dev/null | wc -l)
+
+  # Invoke the function under test (mock mode — skip uv tool install).
+  __pkit_mock_graphify_install_skip=1 provision_graphify_mcp
+
+  # Pgrep snapshot after invocation.
+  local pgrep_after
+  pgrep_after=$(pgrep -f "graphify.*--mcp" 2>/dev/null | wc -l)
+
+  # Assertion 1: .mcp.json exists and has correct graphify entry shape (AC #1 / SB-2 / SB-3).
+  if ! python3 -c "
+import json, sys
+try:
+    d = json.load(open('$CLAUDE_HOME/.mcp.json'))
+    entry = d['mcpServers']['graphify']
+    assert entry['command'] == 'uv', 'command mismatch: expected uv'
+    args = entry['args']
+    assert 'tool' in args, 'tool missing from args'
+    assert 'run' in args, 'run missing from args'
+    assert '--from' in args, '--from missing from args'
+    assert 'graphifyy' in args, 'graphifyy missing from args'
+    assert 'graphify' in args, 'graphify missing from args'
+    assert '--mcp' in args, '--mcp missing from args'
+    assert '.' in args, '. missing from args'
+    assert 'serve' not in args, 'serve in args (SB-2 violation)'
+    assert not any('[' in a for a in args), 'bracket-syntax leak in args'
+except Exception as e:
+    sys.exit(f'AC#1 JSON shape FAIL: {e}')
+" 2>&1; then
+    echo "FAIL: _selftest_graphify_mcp_provisioned — AC#1 JSON shape"
+    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+    return 1
+  fi
+
+  # Assertion 2: pin regex — install.sh body contains graphifyy==0.8.18.
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local install_sh="$script_dir/install.sh"
+  if ! python3 -c "
+import re, sys
+body = open('$install_sh').read()
+if not re.search(r'graphifyy==0\\.8\\.18', body):
+    sys.exit('AC#1 pin regex FAIL: graphifyy==0.8.18 not found in install.sh')
+" 2>&1; then
+    echo "FAIL: _selftest_graphify_mcp_provisioned — AC#1 pin regex"
+    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+    return 1
+  fi
+
+  # Assertion 3: settings.json sha256 unchanged (provision_graphify_mcp must not touch it).
+  local sha_after
+  sha_after=$(sha256sum "$CLAUDE_HOME/settings.json" | awk '{print $1}')
+  if [[ "$sha_before" != "$sha_after" ]]; then
+    echo "FAIL: _selftest_graphify_mcp_provisioned — AC#2 settings.json sha256 changed"
+    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+    return 1
+  fi
+
+  # Assertion 4: no bracket-syntax extras in install.sh source (AC #3).
+  if grep -qE 'graphifyy\[' "$install_sh" 2>/dev/null; then
+    echo "FAIL: _selftest_graphify_mcp_provisioned — AC#3 bracket-syntax leak in install.sh"
+    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+    return 1
+  fi
+
+  # Assertion 5: pgrep snapshot unchanged — no daemon spawned (AC #6).
+  if [[ "$pgrep_after" -ne "$pgrep_before" ]]; then
+    echo "FAIL: _selftest_graphify_mcp_provisioned — AC#6 graphify daemon count changed"
+    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+    return 1
+  fi
+
+  # Assertion 6: never-stage.txt contains .graphify/ (AC #4).
+  if ! grep -q '^\.graphify/$' "$script_dir/../claude/config/never-stage.txt" 2>/dev/null; then
+    echo "FAIL: _selftest_graphify_mcp_provisioned — AC#4 .graphify/ missing from never-stage.txt"
+    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+    return 1
+  fi
+
+  # Assertion 7: graphify-init SKILL.md exists with correct frontmatter (AC #5).
+  local skill_path="$script_dir/../claude/skills/graphify-init/SKILL.md"
+  if ! [[ -f "$skill_path" ]] \
+      || ! grep -qE "^name: graphify-init$" "$skill_path" \
+      || ! grep -qE "^disable-model-invocation: true$" "$skill_path" \
+      || ! grep -qE "^## Step 1: Pre-flight" "$skill_path" \
+      || ! grep -qE "^[[:space:]]+-[[:space:]]Bash$" "$skill_path"; then
+    echo "FAIL: _selftest_graphify_mcp_provisioned — AC#5 SKILL.md missing or frontmatter incomplete"
+    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+    return 1
+  fi
+
+  # Assertion 8: CLAUDE.md.template has graphify bullet + /graphify-init reference (AC #7).
+  local template_path="$script_dir/../claude/CLAUDE.md.template"
+  if ! grep -q "graphify" "$template_path" 2>/dev/null \
+      || ! grep -q "/graphify-init" "$template_path" 2>/dev/null; then
+    echo "FAIL: _selftest_graphify_mcp_provisioned — AC#7 CLAUDE.md.template missing graphify/graphify-init"
+    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+    return 1
+  fi
+
+  # Assertion 9: Cross-MCP no-collision canary — agentmemory + codegraph keys still present.
+  if ! python3 -c "
+import json, sys
+d = json.load(open('$CLAUDE_HOME/.mcp.json'))
+missing = [k for k in ('agentmemory', 'codegraph') if k not in d.get('mcpServers', {})]
+if missing:
+    sys.exit(f'AC canary FAIL: sibling keys removed: {missing}')
+" 2>&1; then
+    echo "FAIL: _selftest_graphify_mcp_provisioned — cross-MCP no-collision canary"
+    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+    return 1
+  fi
+
+  [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+  echo "PASS: _selftest_graphify_mcp_provisioned"
+  return 0
+}
+
 _selftest_understand_anything_provisioned() {
   # AC #1: marketplace-path mock — function logs invocation but does NOT execute live CLI.
   # AC #2: settings.json sha256 byte-identity before/after invocation.
@@ -442,6 +599,84 @@ PYEOF
   # NO doctor smoke — codegraph has no documented doctor subcommand.
   # NO daemon spawn — npx -y lazily fetches + spawns at first MCP-client tool call.
   # NO codegraph init / index — deferred to user invocation of /codegraph-init per project.
+  return 0
+}
+
+# ---------- Graphify MCP (knowledge-graph layer; inert until first MCP client call) ----------
+# Writes a single JSON entry to ${CLAUDE_HOME}/.mcp.json. Does NOT invoke
+# `graphify .` or any stateful build subcommand — those are deferred to the user
+# invoking `/graphify-init` per project.
+# Pre-flight: probes for `uv` (required) and Python 3.10+ (required). If either
+# is absent, logs an actionable message and returns 0 (non-fatal skip).
+# Hermeticity: honour __pkit_mock_graphify_install_skip=1 to skip uv tool install
+# (used by _selftest_graphify_mcp_provisioned for hermetic testing).
+provision_graphify_mcp() {
+  # Step 1: Pre-flight — probe for uv.
+  if ! command -v uv >/dev/null 2>&1; then
+    log "SKIP provision_graphify_mcp: uv not found. Install via: curl -LsSf https://astral.sh/uv/install.sh | sh"
+    return 0
+  fi
+
+  # Step 1b: Pre-flight — probe for Python 3.10+ (Style B: exit-code only).
+  if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)' 2>/dev/null; then
+    log "SKIP provision_graphify_mcp: Python 3.10+ not found (python3 exited non-zero). Install Python >= 3.10 and re-run."
+    return 0
+  fi
+
+  # Step 2: Install graphifyy (skip under mock env var for hermetic selftest).
+  if [[ "${__pkit_mock_graphify_install_skip:-0}" != "1" ]]; then
+    log "Installing graphifyy==${GRAPHIFY_VERSION} via uv tool install"
+    uv tool install "graphifyy==${GRAPHIFY_VERSION}" 2>>"$LOG" \
+      || { log "WARN: uv tool install graphifyy failed — MCP entry still written; re-run install to retry."; }
+  else
+    log "SKIP uv tool install graphifyy (mock mode __pkit_mock_graphify_install_skip=1)"
+  fi
+
+  # Step 3: Backup existing .mcp.json if present.
+  local mcp_target="${CLAUDE_HOME}/.mcp.json"
+  if [[ -f "$mcp_target" ]]; then
+    local mcp_bak="${mcp_target}.bak-$(date +%s)"
+    cp -a "$mcp_target" "$mcp_bak"
+    log "Backed up existing .mcp.json → $mcp_bak"
+  fi
+
+  # Step 4: Write graphify MCP entry via python3 heredoc (atomic temp + os.replace).
+  python3 - "$mcp_target" <<'PYEOF'
+import json, os, sys
+
+dst = sys.argv[1]
+
+# Load existing JSON or start fresh.
+if os.path.isfile(dst):
+    with open(dst, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+else:
+    data = {"mcpServers": {}}
+
+if "mcpServers" not in data:
+    data["mcpServers"] = {}
+
+data["mcpServers"]["graphify"] = {
+    "type": "stdio",
+    "command": "uv",
+    "args": ["tool", "run", "--from", "graphifyy", "graphify", ".", "--mcp"]
+}
+
+# Atomic write via temp file + os.replace.
+tmp = dst + ".tmp"
+with open(tmp, 'w', encoding='utf-8') as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+os.replace(tmp, dst)
+print(f"graphify MCP entry written to {dst}")
+PYEOF
+
+  # Step 5: Log completion.
+  log "graphify MCP entry written (graphifyy==${GRAPHIFY_VERSION})"
+  # NO doctor smoke — graphify has no documented doctor subcommand.
+  # NO daemon spawn — uv tool run lazily invokes at first MCP-client tool call.
+  # NO graph build / eager index — deferred to user invocation of /graphify-init per project.
+  # NO mutation of settings.json.
   return 0
 }
 
@@ -797,6 +1032,7 @@ log "Provisioning agentmemory MCP (default-on; cloud embeddings preferred)"
 provision_agentmemory_mcp
 provision_understand_anything
 provision_codegraph_mcp
+provision_graphify_mcp
 
 # gstack is a third-party overlay project (alirezarezvani/gstack); install instructions live in its own README.
 log "gstack is a third-party overlay; for install instructions see https://github.com/alirezarezvani/gstack"
