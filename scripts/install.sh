@@ -182,6 +182,79 @@ PYEOF
   fi
 }
 
+provision_agentmemory_mcp() {
+  # Step 1: WSL2 RAM gate — warn-and-continue on insufficient RAM.
+  if ! _wsl2_ram_gate; then
+    warn "agentmemory MCP install skipped (WSL2 RAM gate)"
+    return 0
+  fi
+
+  # Step 2: Resolve embedding provider via env-var probe chain.
+  local EMBED_PROVIDER
+  if [[ -n "${VOYAGE_API_KEY:-}" ]]; then
+    EMBED_PROVIDER="voyage"
+  elif [[ -n "${OPENAI_API_KEY:-}" ]]; then
+    EMBED_PROVIDER="openai"
+  else
+    EMBED_PROVIDER="local-onnx-quant"
+    warn "agentmemory: no VOYAGE_API_KEY / OPENAI_API_KEY in env — falling back to local-onnx-quant. Add VOYAGE_API_KEY to ~/.bashrc for better recall quality."
+  fi
+
+  # Step 3: Write MCP entry to ${CLAUDE_HOME}/.mcp.json via python3 heredoc.
+  # Backup existing file first if present (mirrors maybe_install_settings lines 51-55).
+  local mcp_target="${CLAUDE_HOME}/.mcp.json"
+  if [[ -f "$mcp_target" ]]; then
+    local mcp_bak="${mcp_target}.bak-$(date +%s)"
+    cp -a "$mcp_target" "$mcp_bak"
+    log "Backed up existing .mcp.json → $mcp_bak"
+  fi
+
+  python3 - "$mcp_target" "$EMBED_PROVIDER" <<'PYEOF'
+import json, os, sys
+
+dst, embed_provider = sys.argv[1], sys.argv[2]
+
+# Load existing JSON or start fresh.
+if os.path.isfile(dst):
+    with open(dst, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+else:
+    data = {"mcpServers": {}}
+
+if "mcpServers" not in data:
+    data["mcpServers"] = {}
+
+data["mcpServers"]["agentmemory"] = {
+    "type": "stdio",
+    "command": "npx",
+    "args": ["-y", "@agentmemory/agentmemory@0.9.21", "mcp"],
+    "env": {
+        "AGENTMEMORY_EMBED_PROVIDER": embed_provider,
+        "VOYAGE_API_KEY": "${VOYAGE_API_KEY}",
+        "OPENAI_API_KEY": "${OPENAI_API_KEY}",
+        "AGENTMEMORY_EMBED_FALLBACK": "local-onnx-quant",
+        "AGENTMEMORY_DB_PATH": ".agentmemory/agentmemory.db"
+    }
+}
+
+# Atomic write via temp file + os.replace.
+tmp = dst + ".tmp"
+with open(tmp, 'w', encoding='utf-8') as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+os.replace(tmp, dst)
+print(f"agentmemory MCP entry written to {dst} (provider={embed_provider})")
+PYEOF
+
+  log "agentmemory MCP entry written (provider=$EMBED_PROVIDER)"
+
+  # Step 4: Doctor smoke — warn-and-continue on failure.
+  if command -v npx >/dev/null 2>&1; then
+    (timeout 30 npx -y @agentmemory/agentmemory@0.9.21 doctor 2>>"$LOG" 1>>"$LOG") \
+      || warn "agentmemory doctor smoke failed — first MCP-client invocation will lazily re-fetch; see $LOG"
+  fi
+}
+
 # ---------- preflight ----------
 command -v bash    >/dev/null || die "bash required"
 command -v git     >/dev/null || die "git required"
@@ -354,6 +427,10 @@ if command -v uv >/dev/null; then
 else
   pip install --quiet "git+https://github.com/oraios/serena@${SERENA_REF}" 2>>"$LOG" || warn "serena install failed (need uv or pip)"
 fi
+
+# Agentmemory MCP (default-on; cloud embeddings preferred with local-ONNX-quant fallback).
+log "Provisioning agentmemory MCP (default-on; cloud embeddings preferred)"
+provision_agentmemory_mcp
 
 # gstack is a third-party overlay project (alirezarezvani/gstack); install instructions live in its own README.
 log "gstack is a third-party overlay; for install instructions see https://github.com/alirezarezvani/gstack"
