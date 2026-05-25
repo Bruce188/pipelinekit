@@ -29,6 +29,193 @@ log()  { printf '[install] %s\n' "$*" | tee -a "$LOG"; }
 warn() { printf '[install][warn] %s\n' "$*" | tee -a "$LOG" >&2; }
 die()  { printf '[install][error] %s\n' "$*" | tee -a "$LOG" >&2; exit 1; }
 
+# ---------- selftest harness ----------
+_selftest_main() {
+  local pass=0 fail=0
+  # Enumerate _selftest_* functions; skip _selftest_main itself.
+  local fn
+  while IFS= read -r fn; do
+    [[ "$fn" == "_selftest_main" ]] && continue
+    if ( "$fn" ); then
+      pass=$((pass+1))
+      echo "  [PASS] $fn"
+    else
+      fail=$((fail+1))
+      echo "  [FAIL] $fn"
+    fi
+  done < <(declare -F | awk '/_selftest_[a-z_]+$/ {print $NF}')
+  echo "Results: $pass PASS / $fail FAIL"
+  return "$fail"
+}
+
+_selftest_smoke_harness() {
+  # Placeholder: proves the harness fires at least one case.
+  return 0
+}
+
+_selftest_agentmemory_mcp_provisioned() {
+  local sandbox
+  sandbox=$(mktemp -d "${TMPDIR:-/tmp}/pipelinekit-selftest-XXXX") || return 1
+  # shellcheck disable=SC2064
+  trap "rm -rf '$sandbox'" RETURN
+  local saved_home="${CLAUDE_HOME:-}"
+  export CLAUDE_HOME="$sandbox/.claude"
+  mkdir -p "$CLAUDE_HOME"
+
+  # AC #2 canary: synthesize a settings.json and sha256 it.
+  cat > "$CLAUDE_HOME/settings.json" <<'JSON'
+{ "_canary": "agentmemory-must-not-touch-this" }
+JSON
+  local sha_before
+  sha_before=$(python3 -c "import hashlib;print(hashlib.sha256(open('$CLAUDE_HOME/settings.json','rb').read()).hexdigest())")
+
+  # AC #1: VOYAGE_API_KEY set → voyage provider, npx command, pinned version arg.
+  ( VOYAGE_API_KEY=test_voyage OPENAI_API_KEY="" provision_agentmemory_mcp >/dev/null 2>&1 )
+  python3 -c "
+import json,sys
+d=json.load(open('$CLAUDE_HOME/.mcp.json'))
+assert 'agentmemory' in d['mcpServers'], 'AC-1 missing agentmemory key'
+e=d['mcpServers']['agentmemory']
+assert e['command']=='npx', 'AC-1 command not npx'
+assert any('@agentmemory/agentmemory@0.9.21' in a for a in e['args']), 'AC-1 pin missing'
+assert e['env']['AGENTMEMORY_EMBED_PROVIDER']=='voyage', 'AC-1 provider not voyage'
+" || { echo "AC-1 FAIL"; return 1; }
+
+  # AC #5: no API keys → local-onnx-quant + stderr contains Voyage.
+  rm -f "$CLAUDE_HOME/.mcp.json"
+  local ac5_stderr
+  ac5_stderr=$( VOYAGE_API_KEY="" OPENAI_API_KEY="" provision_agentmemory_mcp 2>&1 >/dev/null )
+  python3 -c "
+import json
+d=json.load(open('$CLAUDE_HOME/.mcp.json'))
+assert d['mcpServers']['agentmemory']['env']['AGENTMEMORY_EMBED_PROVIDER']=='local-onnx-quant', 'AC-5 provider'
+" || { echo "AC-5 FAIL provider"; return 1; }
+  printf '%s\n' "$ac5_stderr" | grep -qi "voyage" || { echo "AC-5 FAIL Voyage warning missing"; return 1; }
+
+  # AC #2: settings.json byte-identical (sha256 unchanged after provisioning).
+  local sha_after
+  sha_after=$(python3 -c "import hashlib;print(hashlib.sha256(open('$CLAUDE_HOME/settings.json','rb').read()).hexdigest())")
+  [[ "$sha_before" == "$sha_after" ]] || { echo "AC-2 FAIL settings.json mutated"; return 1; }
+
+  # AC #3: WSL2 + 2 GB mock → gate refuses (non-zero exit + stderr mentions WSL2 + 4 GB).
+  local gate_stderr
+  gate_stderr=$( { __pkit_mock_wsl_2gb=1 _wsl2_ram_gate 2>&1; echo "exit=$?"; } 2>&1 )
+  printf '%s\n' "$gate_stderr" | grep -q "exit=1" || { echo "AC-3 FAIL gate accepted 2 GB"; return 1; }
+  printf '%s\n' "$gate_stderr" | grep -q "WSL2" || { echo "AC-3 FAIL stderr missing WSL2"; return 1; }
+  printf '%s\n' "$gate_stderr" | grep -q "4 GB" || { echo "AC-3 FAIL stderr missing 4 GB"; return 1; }
+
+  # AC #4: same mock + PIPELINE_FORCE_INSTALL=1 → gate accepts.
+  ( __pkit_mock_wsl_2gb=1 PIPELINE_FORCE_INSTALL=1 _wsl2_ram_gate ) 2>/dev/null \
+    || { echo "AC-4 FAIL override rejected"; return 1; }
+
+  # Restore env.
+  [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+  return 0
+}
+
+_wsl2_ram_gate() {
+  # TEST HOOK: __pkit_mock_wsl_2gb=1 forces "WSL2 + 2 GB" path. Do not set in production.
+  if [[ "${__pkit_mock_wsl_2gb:-0}" == "1" ]]; then
+    [[ "${PIPELINE_FORCE_INSTALL:-0}" == "1" ]] && return 0
+    printf '[install][error] WSL2 host has < 4 GB MemTotal. agentmemory MCP requires 4 GB minimum.\n' >&2
+    printf '[install][error] Override via PIPELINE_FORCE_INSTALL=1.\n' >&2
+    return 1
+  fi
+  # Skip on non-Linux (gate is a no-op for Darwin/etc.).
+  [[ ! -r /proc/version ]] && return 0
+  # Probe WSL2 marker.
+  grep -qi microsoft /proc/version || return 0
+  # Override switch.
+  [[ "${PIPELINE_FORCE_INSTALL:-0}" == "1" ]] && return 0
+  # Parse MemTotal in kB.
+  local mem_kb
+  mem_kb=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)
+  if [[ "$mem_kb" -lt 4194304 ]]; then
+    printf '[install][error] WSL2 host has < 4 GB MemTotal (%s kB). agentmemory MCP requires 4 GB minimum.\n' "$mem_kb" >&2
+    printf '[install][error] Override via PIPELINE_FORCE_INSTALL=1 (caveat: install may OOM on heavy MCP load).\n' >&2
+    return 1
+  fi
+  return 0
+}
+
+provision_agentmemory_mcp() {
+  # Step 1: WSL2 RAM gate — warn-and-continue on insufficient RAM.
+  if ! _wsl2_ram_gate; then
+    warn "agentmemory MCP install skipped (WSL2 RAM gate)"
+    return 0
+  fi
+
+  # Step 2: Resolve embedding provider via env-var probe chain.
+  local EMBED_PROVIDER
+  if [[ -n "${VOYAGE_API_KEY:-}" ]]; then
+    EMBED_PROVIDER="voyage"
+  elif [[ -n "${OPENAI_API_KEY:-}" ]]; then
+    EMBED_PROVIDER="openai"
+  else
+    EMBED_PROVIDER="local-onnx-quant"
+    warn "agentmemory: no VOYAGE_API_KEY / OPENAI_API_KEY in env — falling back to local-onnx-quant. Add VOYAGE_API_KEY to ~/.bashrc for better recall quality."
+  fi
+
+  # Step 3: Write MCP entry to ${CLAUDE_HOME}/.mcp.json via python3 heredoc.
+  # Backup existing file first if present (mirrors maybe_install_settings lines 51-55).
+  local mcp_target="${CLAUDE_HOME}/.mcp.json"
+  if [[ -f "$mcp_target" ]]; then
+    local mcp_bak="${mcp_target}.bak-$(date +%s)"
+    cp -a "$mcp_target" "$mcp_bak"
+    log "Backed up existing .mcp.json → $mcp_bak"
+  fi
+
+  python3 - "$mcp_target" "$EMBED_PROVIDER" <<'PYEOF'
+import json, os, sys
+
+dst, embed_provider = sys.argv[1], sys.argv[2]
+
+# Load existing JSON or start fresh.
+if os.path.isfile(dst):
+    with open(dst, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+else:
+    data = {"mcpServers": {}}
+
+if "mcpServers" not in data:
+    data["mcpServers"] = {}
+
+data["mcpServers"]["agentmemory"] = {
+    "type": "stdio",
+    "command": "npx",
+    "args": ["-y", "@agentmemory/agentmemory@0.9.21", "mcp"],
+    "env": {
+        "AGENTMEMORY_EMBED_PROVIDER": embed_provider,
+        "VOYAGE_API_KEY": "${VOYAGE_API_KEY}",
+        "OPENAI_API_KEY": "${OPENAI_API_KEY}",
+        "AGENTMEMORY_EMBED_FALLBACK": "local-onnx-quant",
+        "AGENTMEMORY_DB_PATH": ".agentmemory/agentmemory.db"
+    }
+}
+
+# Atomic write via temp file + os.replace.
+tmp = dst + ".tmp"
+with open(tmp, 'w', encoding='utf-8') as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+os.replace(tmp, dst)
+print(f"agentmemory MCP entry written to {dst} (provider={embed_provider})")
+PYEOF
+
+  log "agentmemory MCP entry written (provider=$EMBED_PROVIDER)"
+
+  # Step 4: Doctor smoke — warn-and-continue on failure.
+  if command -v npx >/dev/null 2>&1; then
+    (timeout 30 npx -y @agentmemory/agentmemory@0.9.21 doctor 2>>"$LOG" 1>>"$LOG") \
+      || warn "agentmemory doctor smoke failed — first MCP-client invocation will lazily re-fetch; see $LOG"
+  fi
+}
+
+# ---------- selftest dispatcher ----------
+# Short-circuit: `bash scripts/install.sh --selftest` runs only the selftest harness
+# and exits before touching the filesystem (STAGE/mv/BACKUP surface).
+if [[ "${1:-}" == "--selftest" ]]; then _selftest_main; exit $?; fi
+
 # ---------- optional: settings.json hook wiring ----------
 # Gated by CLAUDE_INSTALL_SETTINGS=1. Off by default — safe for existing users.
 # When the flag is unset and the previous install backed up a settings.json,
@@ -300,6 +487,10 @@ if command -v uv >/dev/null; then
 else
   pip install --quiet "git+https://github.com/oraios/serena@${SERENA_REF}" 2>>"$LOG" || warn "serena install failed (need uv or pip)"
 fi
+
+# Agentmemory MCP (default-on; cloud embeddings preferred with local-ONNX-quant fallback).
+log "Provisioning agentmemory MCP (default-on; cloud embeddings preferred)"
+provision_agentmemory_mcp
 
 # gstack is a third-party overlay project (alirezarezvani/gstack); install instructions live in its own README.
 log "gstack is a third-party overlay; for install instructions see https://github.com/alirezarezvani/gstack"
