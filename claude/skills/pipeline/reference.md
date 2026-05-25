@@ -921,6 +921,7 @@ Constraints:
 - Do NOT invoke `/review` — that's the next phase.
 - Do NOT rewrite or edit the plan or prompts files.
 - If the budget remaining is below your estimate, STOP and emit `status: failed` with reason `budget exceeded`.
+- On review-clean post-implementation, the orchestrator dispatches the production-probe agent (see § "Production-Probe block specification"). Implementer phase emits NO probe block — that is the probe agent's surface.
 
 Report back with this XML block as the very last content in your response:
 
@@ -977,6 +978,7 @@ Constraints:
 - Do NOT invoke `/implement-plan` — path selection is the orchestrator's responsibility.
 - Do NOT embed finding details in your response — they are on disk in the review file.
 - If the budget remaining is below your estimate, STOP and emit `status: failed` with reason `budget exceeded`.
+- Review-clean exit triggers Path A step 0.5 (production-probe dispatch). Reviewers MUST NOT emit a probe block; that is the probe agent's sole surface.
 
 Report back with this XML block as the very last content in your response:
 
@@ -1129,6 +1131,48 @@ expected during the transition window; the orchestrator's pre-append validator
 only sees the candidate string just-built for the current merge, never the
 file's existing contents. See `docs/analysis-v35.md` § 3.3 for the full
 backward-compat policy.
+
+### Production-Probe block specification
+
+Authored by feat/pipeline-production-probe-gate (F4/9). Defines the multi-line block the production-probe agent appends to the feature's `### Run Log` section at Path A step 0.5.
+
+**Schema (12 lines):**
+
+```
+Production-Probe: BEGIN
+1. Boot: <PASS|FAIL|NOT EXECUTED> (<evidence>)
+2. Golden path: <PASS|FAIL|NOT EXECUTED> (<evidence>)
+3. Failure path: <PASS|FAIL|NOT EXECUTED> (<evidence>)
+4. Console + Network: <PASS|FAIL|NOT EXECUTED> (<evidence>)
+5. Screenshot / what users see: <PASS|FAIL|NOT EXECUTED> (<evidence>)
+6. Background tasks / leaks: <PASS|FAIL|NOT EXECUTED> (<evidence>)
+7. State survives restart: <PASS|FAIL|NOT EXECUTED> (<evidence>)
+Summary: <one-line; ≤200 chars>
+Repo class: <web-app|service|workflow-toolkit|library>
+Probe depth: <light|standard|paranoid>
+Production-Probe: END
+```
+
+Validate via `bash claude/lib/pipeline/format_runlog.sh validate-block <file-or-stdin>` (added by Task 1.1 of feat/pipeline-production-probe-gate).
+
+**Honesty contract (probe 9):** `NOT EXECUTED (<reason>)` is the only honest fallback when a probe cannot run. Inventing `PASS` for a probe that did not run is a contract violation surfaced at review time.
+
+**Anti-pattern refusals (probe 10):** the following phrases MUST NOT appear in any probe's `<evidence>` field — they are not evidence:
+- `all tests pass`
+- `CI green`
+- `I read the code`
+- `fix it next iteration`
+- `pre-existing flaky`
+
+**Workflow-toolkit carve-out:** when `**Repo class:**` = `workflow-toolkit`, probes 1-7 all emit `NOT EXECUTED (workflow-toolkit)` and an additional line lands ABOVE the `Summary:` line:
+
+```
+Boot: NOT EXECUTED (workflow-toolkit) — selftest <X PASS/Y FAIL>, hook-smoke <X PASS/Y FAIL>, skill-smoke <X PASS/Y FAIL>
+```
+
+**No-HTTP-surface carve-out:** when repo-class is non-workflow-toolkit AND `git diff $BASE^ $BASE` contains zero net-new HTTP route handlers, probes 1-3 emit `NOT EXECUTED (no HTTP surface in diff)`. Probes 4-7 run if applicable per `**Probe depth:**`.
+
+See `claude/agents/production-probe.md` for the production-probe agent that emits this block.
 
 ---
 

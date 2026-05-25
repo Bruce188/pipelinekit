@@ -43,9 +43,10 @@ RUNLOG_RE='^- [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}: (SUCCESS|FAILED|PART
 usage() {
   cat >&2 <<'USAGE'
 usage: format_runlog.sh <subcommand> [args...]
-  validate <line>   exit 0 if <line> matches the canonical Run Log regex
-  format <flags>    assemble a canonical line from 18 named flags
-  selftest          run built-in assertions
+  validate <line>       exit 0 if <line> matches the canonical Run Log regex
+  validate-block <file|->  exit 0 if probe block is well-formed
+  format <flags>        assemble a canonical line from 18 named flags
+  selftest              run built-in assertions
 See docs/analysis-v35.md § 3.1 and claude/skills/pipeline/reference.md
 "Run Log Canonical Format" for the contract.
 USAGE
@@ -62,6 +63,73 @@ cmd_validate() {
   fi
   printf 'RUNLOG_FORMAT_INVALID: line does not match canonical regex\n' >&2
   return 1
+}
+
+cmd_validate_block() {
+  local input
+  if [[ "${1:-}" == "-" || $# -lt 1 ]]; then
+    input=$(cat)
+  else
+    input=$(cat "$1")
+  fi
+
+  # Extract the probe block via sed
+  local block
+  block=$(printf '%s\n' "$input" | sed -n '/^Production-Probe: BEGIN$/,/^Production-Probe: END$/p')
+
+  if [[ -z "$block" ]]; then
+    printf 'RUNLOG_PROBE_BLOCK_INVALID: no Production-Probe: BEGIN...END block found\n' >&2
+    return 1
+  fi
+
+  # Check END marker is present
+  if ! printf '%s\n' "$block" | grep -q '^Production-Probe: END$'; then
+    printf 'RUNLOG_PROBE_BLOCK_INVALID: missing Production-Probe: END marker\n' >&2
+    return 1
+  fi
+
+  # Write block to temp file for line-count assertions
+  local tmp
+  tmp=$(mktemp)
+  # shellcheck disable=SC2064
+  trap "rm -f $tmp" RETURN
+  printf '%s\n' "$block" > "$tmp"
+
+  # Assert exactly 7 probe lines (numbered 1-7 with canonical labels)
+  local probe_count
+  probe_count=$(grep -cE '^[1-7]\. (Boot|Golden path|Failure path|Console \+ Network|Screenshot \/ what users see|Background tasks \/ leaks|State survives restart):' "$tmp" || true)
+  if [[ "$probe_count" -ne 7 ]]; then
+    printf 'RUNLOG_PROBE_BLOCK_INVALID: expected 7 probe lines (1-7), found %s\n' "$probe_count" >&2
+    return 1
+  fi
+
+  # Assert each numbered probe has a valid value: PASS, FAIL, or NOT EXECUTED
+  local invalid_values
+  invalid_values=$(grep -E '^[1-7]\.' "$tmp" | grep -vE ': (PASS|FAIL|NOT EXECUTED)' || true)
+  if [[ -n "$invalid_values" ]]; then
+    printf 'RUNLOG_PROBE_BLOCK_INVALID: probe value must be PASS, FAIL, or NOT EXECUTED\n' >&2
+    return 1
+  fi
+
+  # Assert Summary: line present
+  if ! grep -q '^Summary:' "$tmp"; then
+    printf 'RUNLOG_PROBE_BLOCK_INVALID: missing Summary: line\n' >&2
+    return 1
+  fi
+
+  # Assert Repo class: line present
+  if ! grep -q '^Repo class:' "$tmp"; then
+    printf 'RUNLOG_PROBE_BLOCK_INVALID: missing Repo class: line\n' >&2
+    return 1
+  fi
+
+  # Assert Probe depth: line present
+  if ! grep -q '^Probe depth:' "$tmp"; then
+    printf 'RUNLOG_PROBE_BLOCK_INVALID: missing Probe depth: line\n' >&2
+    return 1
+  fi
+
+  return 0
 }
 
 cmd_format() {
@@ -194,6 +262,83 @@ cmd_selftest() {
     printf 'selftest FAIL [round-trip]: format/validate round-trip did not green-path\n  out: %s\n' "$rt_out" >&2
   fi
 
+  # match4: canonical SUCCESS line + adjacent valid probe block -> both cmd_validate AND cmd_validate_block PASS
+  local match4_block
+  match4_block='Production-Probe: BEGIN
+1. Boot: PASS (mvn spring-boot:run, 8.4s to ready)
+2. Golden path: PASS (GET /api/health -> 200, 142ms)
+3. Failure path: PASS (invalid token -> 401, 23ms)
+4. Console + Network: PASS (no console errors)
+5. Screenshot / what users see: PASS (login form rendered)
+6. Background tasks / leaks: PASS (no orphan threads)
+7. State survives restart: PASS (session resumed)
+Summary: All probes green.
+Repo class: web-app
+Probe depth: standard
+Production-Probe: END'
+
+  total=$((total + 1))
+  if printf '%s' "$match1" | grep -qE -- "$RUNLOG_RE" && printf '%s\n' "$match4_block" | cmd_validate_block - 2>/dev/null; then
+    pass=$((pass + 1))
+  else
+    fail=$((fail + 1))
+    printf 'selftest FAIL [match4 (probe block adjacent)]: expected both validate and validate-block PASS\n' >&2
+  fi
+
+  # match5_legacy: F1-shape canonical line (no probe block) -> cmd_validate PASS (backward-compat)
+  local match5_legacy='- 2026-05-22 18:30: SUCCESS — PR #115 merged as 9c4991c. non-dev feature. analysis-v90 / plan-v90 / prompts-v88 / review-v100. 0 Path B cycles, 0 inline cycles. 0 blocking, 0 non-blocking, 0 nits. 2 files, +12/-3. Re-inject caveman contract on /compact + auto-compact.'
+  total=$((total + 1))
+  if printf '%s' "$match5_legacy" | grep -qE -- "$RUNLOG_RE"; then
+    pass=$((pass + 1))
+  else
+    fail=$((fail + 1))
+    printf 'selftest FAIL [match5_legacy (F1-shape backward-compat)]: expected cmd_validate PASS\n  line: %s\n' "$match5_legacy" >&2
+  fi
+
+  # nomatch_block1: probe block missing END marker -> cmd_validate_block FAIL
+  local nomatch_block1
+  nomatch_block1='Production-Probe: BEGIN
+1. Boot: PASS (evidence)
+2. Golden path: PASS (evidence)
+3. Failure path: PASS (evidence)
+4. Console + Network: PASS (evidence)
+5. Screenshot / what users see: PASS (evidence)
+6. Background tasks / leaks: PASS (evidence)
+7. State survives restart: PASS (evidence)
+Summary: test
+Repo class: web-app
+Probe depth: standard'
+
+  total=$((total + 1))
+  if printf '%s\n' "$nomatch_block1" | cmd_validate_block - 2>/dev/null; then
+    fail=$((fail + 1))
+    printf 'selftest FAIL [nomatch_block1 (missing END)]: expected validate-block FAIL but got PASS\n' >&2
+  else
+    pass=$((pass + 1))
+  fi
+
+  # nomatch_block2: probe block missing probe 3 -> cmd_validate_block FAIL
+  local nomatch_block2
+  nomatch_block2='Production-Probe: BEGIN
+1. Boot: PASS (evidence)
+2. Golden path: PASS (evidence)
+4. Console + Network: PASS (evidence)
+5. Screenshot / what users see: PASS (evidence)
+6. Background tasks / leaks: PASS (evidence)
+7. State survives restart: PASS (evidence)
+Summary: test missing probe 3
+Repo class: web-app
+Probe depth: standard
+Production-Probe: END'
+
+  total=$((total + 1))
+  if printf '%s\n' "$nomatch_block2" | cmd_validate_block - 2>/dev/null; then
+    fail=$((fail + 1))
+    printf 'selftest FAIL [nomatch_block2 (missing probe 3)]: expected validate-block FAIL but got PASS\n' >&2
+  else
+    pass=$((pass + 1))
+  fi
+
   if [[ $fail -eq 0 ]]; then
     printf 'selftest: %d/%d PASS\n' "$pass" "$total"
     return 0
@@ -209,8 +354,9 @@ main() {
   fi
   local sub="$1"; shift
   case "$sub" in
-    validate) cmd_validate "$@" ;;
-    format)   cmd_format "$@" ;;
+    validate)       cmd_validate "$@" ;;
+    validate-block) cmd_validate_block "$@" ;;
+    format)         cmd_format "$@" ;;
     selftest) cmd_selftest ;;
     -h|--help|help) usage; return 0 ;;
     *)
