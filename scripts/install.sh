@@ -22,6 +22,8 @@ mkdir -p "$(dirname "$LOG")"
 # Supply-chain refs. Override via env vars before running install.
 # Default = `main` (rolling); CI/prod use should pin to a commit SHA.
 SERENA_REF="${SERENA_REF:-main}"
+# Override UNDERSTAND_ANYTHING_SHA=<commit-sha> to pin to a specific commit.
+UNDERSTAND_ANYTHING_SHA="${UNDERSTAND_ANYTHING_SHA:-470cc01dc5f9236a93eb704afdd479cd5db79710}"
 CLAUDE_CLI_SHA256="${CLAUDE_CLI_SHA256:-}"   # optional sha256 of https://claude.ai/install.sh
 LSP_FAILURES=0
 
@@ -110,6 +112,46 @@ assert d['mcpServers']['agentmemory']['env']['AGENTMEMORY_EMBED_PROVIDER']=='loc
 
   # Restore env.
   [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+  return 0
+}
+
+_selftest_understand_anything_provisioned() {
+  # AC #1: marketplace-path mock — function logs invocation but does NOT execute live CLI.
+  # AC #2: settings.json sha256 byte-identity before/after invocation.
+  # AC #4: never-stage.txt contains `.understand-anything/`.
+  # AC #5: clone-failure mock — function emits warn + exits 0 (non-fatal).
+  local tmp; tmp=$(mktemp -d)
+  # shellcheck disable=SC2064
+  trap "rm -rf '$tmp'" RETURN
+  export CLAUDE_HOME="$tmp/.claude"
+  mkdir -p "$CLAUDE_HOME"
+  # Synthesize a known settings.json to detect any mutation.
+  printf '{"hooks":{}}\n' > "$CLAUDE_HOME/settings.json"
+  local pre_sha; pre_sha=$(sha256sum "$CLAUDE_HOME/settings.json" | awk '{print $1}')
+
+  # AC #1 marketplace mock — should not invoke live CLI.
+  local m_out
+  m_out=$( __pkit_mock_understand_anything_marketplace=1 provision_understand_anything 2>&1 )
+  echo "$m_out" | grep -q "would invoke: claude plugin marketplace add Lum1104/Understand-Anything" \
+    || { echo "FAIL: marketplace mock did not emit expected log line"; return 1; }
+
+  # AC #5 clone-fail mock — should warn + return 0 (non-fatal).
+  __pkit_mock_understand_anything_clone_fail=1 provision_understand_anything >/dev/null 2>&1
+  local clone_rc=$?
+  [[ $clone_rc -eq 0 ]] \
+    || { echo "FAIL: clone-fail mock did not return 0 (got $clone_rc)"; return 1; }
+
+  # AC #2 settings.json byte-identity after invocation.
+  local post_sha; post_sha=$(sha256sum "$CLAUDE_HOME/settings.json" | awk '{print $1}')
+  [[ "$pre_sha" == "$post_sha" ]] \
+    || { echo "FAIL: settings.json sha256 changed (pre=$pre_sha post=$post_sha)"; return 1; }
+
+  # AC #4 never-stage.txt contains the new pattern (resolve relative to repo root).
+  local NEVERSTAGE; NEVERSTAGE="$(dirname "${BASH_SOURCE[0]}")/../claude/config/never-stage.txt"
+  grep -q '^\.understand-anything/$' "$NEVERSTAGE" \
+    || { echo "FAIL: .understand-anything/ not found in $NEVERSTAGE"; return 1; }
+
+  echo "PASS: _selftest_understand_anything_provisioned"
   return 0
 }
 
@@ -208,6 +250,76 @@ PYEOF
   if command -v npx >/dev/null 2>&1; then
     (timeout 30 npx -y @agentmemory/agentmemory@0.9.21 doctor 2>>"$LOG" 1>>"$LOG") \
       || warn "agentmemory doctor smoke failed — first MCP-client invocation will lazily re-fetch; see $LOG"
+  fi
+}
+
+# ---------- Understand-Anything plugin (Claude Code plugin, NOT MCP) ----------
+# Probes for the `claude plugin marketplace add` CLI subcommand; falls back to
+# git-clone + pinned-SHA when absent. Network failure is non-fatal (warn + return 0).
+# AC #1/#2/#3/#5 binding — see docs/features-mem-graph-stack.md § feat/understand-anything-plugin.
+provision_understand_anything() {
+  local UA_URL="https://github.com/Lum1104/Understand-Anything"
+  local UA_DIR="${CLAUDE_HOME:-$HOME/.claude}/plugins/understand-anything"
+  local UA_SOURCE=""
+  local UA_MODE=""
+
+  # SHA-pin policy: warn if user overrides to a floating ref.
+  if [[ ! "$UNDERSTAND_ANYTHING_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+    warn "UNDERSTAND_ANYTHING_SHA=$UNDERSTAND_ANYTHING_SHA is not a 40-char hex commit SHA (floating ref); proceeding but supply-chain pin is weakened."
+  fi
+
+  # Mock hooks for selftest (hermetic; never hit live network).
+  if [[ "${__pkit_mock_understand_anything_marketplace:-0}" == "1" ]]; then
+    log "[mock] understand-anything marketplace path forced; skipping live CLI."
+    UA_MODE="marketplace"
+    UA_SOURCE="Lum1104/Understand-Anything"
+    log "[mock] would invoke: claude plugin marketplace add $UA_SOURCE"
+    log "[mock] would invoke: claude plugin install understand-anything"
+    return 0
+  fi
+  if [[ "${__pkit_mock_understand_anything_clone_fail:-0}" == "1" ]]; then
+    warn "[mock] understand-anything git-clone synthesized failure; install skipped."
+    return 0
+  fi
+
+  # Capability probe: NO leading slash. Spec text used `/plugin` which is an in-session
+  # slash command, not a CLI subcommand — see analysis-v93 § OQ-1.
+  if command -v claude >/dev/null 2>&1 \
+     && claude plugin marketplace --help 2>/dev/null | grep -q "^[[:space:]]*add "; then
+    UA_MODE="marketplace"
+    UA_SOURCE="Lum1104/Understand-Anything"
+  else
+    UA_MODE="git-clone"
+    UA_SOURCE="$UA_DIR"
+  fi
+
+  log "Installing Understand-Anything plugin via $UA_MODE path (SHA=$UNDERSTAND_ANYTHING_SHA)"
+
+  if [[ "$UA_MODE" == "git-clone" ]]; then
+    # Three-step pinned clone (portable across git versions; see analysis-v93 § OQ-2).
+    if [[ -d "$UA_DIR/.git" ]]; then
+      log "Understand-Anything already cloned at $UA_DIR; skipping clone."
+    else
+      mkdir -p "$(dirname "$UA_DIR")"
+      git clone --depth 1 "$UA_URL" "$UA_DIR" 2>>"$LOG" \
+        || { warn "Understand-Anything git clone failed (network?); continuing without plugin."; return 0; }
+      git -C "$UA_DIR" fetch --depth 1 origin "$UNDERSTAND_ANYTHING_SHA" 2>>"$LOG" \
+        || { warn "Understand-Anything fetch of pinned SHA failed; cloned dir left at HEAD."; }
+      git -C "$UA_DIR" checkout --detach "$UNDERSTAND_ANYTHING_SHA" 2>>"$LOG" \
+        || { warn "Understand-Anything checkout of pinned SHA failed; cloned dir left at HEAD."; }
+    fi
+  fi
+
+  # Uniform finalize per analysis-v93 § Risk-4 (A): both paths end in
+  # `claude plugin marketplace add <source>` — only `<source>` differs.
+  if command -v claude >/dev/null 2>&1; then
+    claude plugin marketplace add "$UA_SOURCE" 2>&1 | tee -a "$LOG" \
+      || warn "Understand-Anything marketplace registration failed (exit $?); continuing."
+    # Optimistic enable (Risk-3); warn-and-continue on failure.
+    claude plugin install understand-anything 2>&1 | tee -a "$LOG" \
+      || warn "Understand-Anything plugin enable failed; user may enable manually via /plugin."
+  else
+    warn "claude CLI not on PATH; Understand-Anything plugin files staged but not registered."
   fi
 }
 
@@ -491,6 +603,7 @@ fi
 # Agentmemory MCP (default-on; cloud embeddings preferred with local-ONNX-quant fallback).
 log "Provisioning agentmemory MCP (default-on; cloud embeddings preferred)"
 provision_agentmemory_mcp
+provision_understand_anything
 
 # gstack is a third-party overlay project (alirezarezvani/gstack); install instructions live in its own README.
 log "gstack is a third-party overlay; for install instructions see https://github.com/alirezarezvani/gstack"
