@@ -791,7 +791,9 @@ def hook(cmd, args=None):
 settings = {
     "hooks": {
         "SessionStart": [
-            {"matcher": "*", "hooks": hook(f"{h}/hooks/session-start-context.sh")}
+            {"matcher": "*", "hooks": hook(f"{h}/hooks/session-start-context.sh")},
+            {"matcher": "*", "hooks": hook(f"{h}/hooks/kill-rogue-mcp-daemon.sh")},
+            {"matcher": "*", "hooks": hook(f"{h}/hooks/mcp-rss-cap.sh")}
         ],
         "PreToolUse": [
             {"matcher": "Agent",      "hooks": hook(f"{h}/hooks/agent-caveman-gate.sh")},
