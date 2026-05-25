@@ -53,6 +53,31 @@ _selftest_smoke_harness() {
   return 0
 }
 
+_wsl2_ram_gate() {
+  # TEST HOOK: __pkit_mock_wsl_2gb=1 forces "WSL2 + 2 GB" path. Do not set in production.
+  if [[ "${__pkit_mock_wsl_2gb:-0}" == "1" ]]; then
+    [[ "${PIPELINE_FORCE_INSTALL:-0}" == "1" ]] && return 0
+    printf '[install][error] WSL2 host has < 4 GB MemTotal. agentmemory MCP requires 4 GB minimum.\n' >&2
+    printf '[install][error] Override via PIPELINE_FORCE_INSTALL=1.\n' >&2
+    return 1
+  fi
+  # Skip on non-Linux (gate is a no-op for Darwin/etc.).
+  [[ ! -r /proc/version ]] && return 0
+  # Probe WSL2 marker.
+  grep -qi microsoft /proc/version || return 0
+  # Override switch.
+  [[ "${PIPELINE_FORCE_INSTALL:-0}" == "1" ]] && return 0
+  # Parse MemTotal in kB.
+  local mem_kb
+  mem_kb=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)
+  if [[ "$mem_kb" -lt 4194304 ]]; then
+    printf '[install][error] WSL2 host has < 4 GB MemTotal (%s kB). agentmemory MCP requires 4 GB minimum.\n' "$mem_kb" >&2
+    printf '[install][error] Override via PIPELINE_FORCE_INSTALL=1 (caveat: install may OOM on heavy MCP load).\n' >&2
+    return 1
+  fi
+  return 0
+}
+
 # ---------- selftest dispatcher ----------
 # Short-circuit: `bash scripts/install.sh --selftest` runs only the selftest harness
 # and exits before touching the filesystem (STAGE/mv/BACKUP surface).
