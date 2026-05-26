@@ -640,6 +640,79 @@ MD
   return 0
 }
 
+_selftest_native_commit_msg_hook_install() {
+  # Sandbox: fresh git repo, scoped $REPO_ROOT override so install_native_commit_msg_hook
+  # writes into the sandbox .git/hooks rather than the real pipelinekit checkout.
+  local sandbox
+  sandbox=$(mktemp -d "${TMPDIR:-/tmp}/pipelinekit-selftest-native-hook-XXXX") || return 1
+  # shellcheck disable=SC2064
+  trap "rm -rf '$sandbox'" RETURN
+
+  # Stage a fake "REPO_ROOT" that contains the wrapper AND is its own git repo
+  # (install_native_commit_msg_hook reads $REPO_ROOT both for wrapper source AND
+  # for git-common-dir resolution).
+  mkdir -p "$sandbox/claude/hooks"
+  cp -a "$REPO_ROOT/claude/hooks/commit-msg-wrapper.sh" "$sandbox/claude/hooks/commit-msg-wrapper.sh"
+  cp -a "$REPO_ROOT/claude/hooks/validate-commit-msg.sh" "$sandbox/claude/hooks/validate-commit-msg.sh"
+  chmod +x "$sandbox/claude/hooks/commit-msg-wrapper.sh" "$sandbox/claude/hooks/validate-commit-msg.sh"
+  ( cd "$sandbox" && git init -b main >/dev/null 2>&1 ) || { echo "FAIL: git init"; return 1; }
+
+  local saved_repo_root="$REPO_ROOT"
+  REPO_ROOT="$sandbox"
+
+  # AC #1: first invocation creates symlink at .git/hooks/commit-msg.
+  install_native_commit_msg_hook >/dev/null 2>&1
+  if [[ ! -L "$sandbox/.git/hooks/commit-msg" ]]; then
+    REPO_ROOT="$saved_repo_root"
+    echo "FAIL AC-1: symlink not created at .git/hooks/commit-msg"
+    return 1
+  fi
+  local link_target
+  link_target="$(readlink "$sandbox/.git/hooks/commit-msg")"
+  if [[ "$link_target" != "$sandbox/claude/hooks/commit-msg-wrapper.sh" ]]; then
+    REPO_ROOT="$saved_repo_root"
+    echo "FAIL AC-1: symlink target wrong (got $link_target)"
+    return 1
+  fi
+
+  # AC #2: idempotency — second invocation no-op, symlink unchanged.
+  local mtime_before
+  mtime_before=$(stat -c '%Y' "$sandbox/.git/hooks/commit-msg" 2>/dev/null || stat -f '%m' "$sandbox/.git/hooks/commit-msg")
+  install_native_commit_msg_hook >/dev/null 2>&1
+  local mtime_after
+  mtime_after=$(stat -c '%Y' "$sandbox/.git/hooks/commit-msg" 2>/dev/null || stat -f '%m' "$sandbox/.git/hooks/commit-msg")
+  # We accept either same mtime, or different mtime as long as target still matches.
+  link_target="$(readlink "$sandbox/.git/hooks/commit-msg")"
+  if [[ "$link_target" != "$sandbox/claude/hooks/commit-msg-wrapper.sh" ]]; then
+    REPO_ROOT="$saved_repo_root"
+    echo "FAIL AC-2: idempotency broke symlink target"
+    return 1
+  fi
+
+  # AC #3: alien pre-existing hook is backed up to .pre-pipelinekit.
+  rm -f "$sandbox/.git/hooks/commit-msg" "$sandbox/.git/hooks/commit-msg.pre-pipelinekit"
+  cat > "$sandbox/.git/hooks/commit-msg" <<'ALIEN'
+#!/bin/sh
+exit 0
+ALIEN
+  chmod +x "$sandbox/.git/hooks/commit-msg"
+  install_native_commit_msg_hook >/dev/null 2>&1
+  if [[ ! -L "$sandbox/.git/hooks/commit-msg" ]]; then
+    REPO_ROOT="$saved_repo_root"
+    echo "FAIL AC-3: collision did not produce symlink"
+    return 1
+  fi
+  if [[ ! -e "$sandbox/.git/hooks/commit-msg.pre-pipelinekit" ]]; then
+    REPO_ROOT="$saved_repo_root"
+    echo "FAIL AC-3: alien hook not backed up"
+    return 1
+  fi
+
+  REPO_ROOT="$saved_repo_root"
+  echo "PASS: _selftest_native_commit_msg_hook_install"
+  return 0
+}
+
 _wsl2_ram_gate() {
   # TEST HOOK: __pkit_mock_wsl_2gb=1 forces "WSL2 + 2 GB" path. Do not set in production.
   if [[ "${__pkit_mock_wsl_2gb:-0}" == "1" ]]; then
@@ -1030,6 +1103,65 @@ PYSTRIP2
   log "INSTALL_MODE_SYMLINKED: $value"
 }
 
+# ---------- native git commit-msg hook ----------
+# Installs a symlink at <git_dir>/hooks/commit-msg pointing to the in-repo
+# wrapper claude/hooks/commit-msg-wrapper.sh. The wrapper bridges git's
+# argv-passed message-file contract to the existing PreToolUse JSON-stdin
+# contract of claude/hooks/validate-commit-msg.sh, so the conventional-commit
+# gate fires on EVERY git commit (Claude-mediated, bare-shell, CI, IDE) — not
+# just commits driven through the harness PreToolUse event.
+#
+# Worktree-compat: uses `git rev-parse --git-common-dir` (returns the main
+# .git/ from linked worktrees) — commit-msg hooks live in the shared hook dir.
+# Idempotent: re-runs no-op when the symlink already points at the wrapper.
+# Backup-on-collision: any pre-existing commit-msg (regular file OR alien
+# symlink) is preserved at <hook>.pre-pipelinekit; collision adds .<ts> suffix.
+install_native_commit_msg_hook() {
+  # Resolve the wrapper path (must exist in the staged overlay's source repo).
+  local wrapper_src="$REPO_ROOT/claude/hooks/commit-msg-wrapper.sh"
+  if [[ ! -f "$wrapper_src" ]]; then
+    log "INSTALL_NATIVE_HOOK_NO_WRAPPER: $wrapper_src missing — skip"
+    return 0
+  fi
+  chmod +x "$wrapper_src" 2>/dev/null || true
+
+  # Resolve the hook destination via git-common-dir; tolerate non-git pwd.
+  local git_common_dir
+  git_common_dir="$(cd "$REPO_ROOT" && git rev-parse --git-common-dir 2>/dev/null)" || {
+    log "INSTALL_NATIVE_HOOK_NO_GIT_DIR (pwd not inside a git repo) — skip"
+    return 0
+  }
+  # rev-parse may return a relative path; absolutise against $REPO_ROOT.
+  case "$git_common_dir" in
+    /*) ;;
+    *) git_common_dir="$REPO_ROOT/$git_common_dir" ;;
+  esac
+  local hook_dir="$git_common_dir/hooks"
+  mkdir -p "$hook_dir"
+  local hook_target="$hook_dir/commit-msg"
+
+  # Fast-path: symlink already points at the wrapper.
+  if [[ -L "$hook_target" ]]; then
+    local existing
+    existing="$(readlink "$hook_target")"
+    if [[ "$existing" == "$wrapper_src" ]]; then
+      log "INSTALL_NATIVE_HOOK_ALREADY_LINKED: $hook_target"
+      return 0
+    fi
+  fi
+
+  # Collision: preserve any pre-existing hook (regular file OR alien symlink).
+  if [[ -e "$hook_target" || -L "$hook_target" ]]; then
+    local backup="$hook_target.pre-pipelinekit"
+    [[ -e "$backup" ]] && backup="$backup.$(date +%s)"
+    mv "$hook_target" "$backup"
+    log "INSTALL_NATIVE_HOOK_BACKED_UP: $backup"
+  fi
+
+  ln -sfn "$wrapper_src" "$hook_target"
+  log "INSTALL_NATIVE_HOOK_SYMLINKED: $hook_target -> $wrapper_src"
+}
+
 # ---------- optional: settings.json hook wiring ----------
 # Gated by CLAUDE_INSTALL_SETTINGS=1. Off by default — safe for existing users.
 # When the flag is unset and the previous install backed up a settings.json,
@@ -1265,6 +1397,13 @@ fi
 # referenced from CLAUDE.md.template as `@~/.claude/modes/active.md`. Reads
 # docs/active-deployment for the provider slug. Absent file ⇒ strip overlay line.
 provision_modes_overlay
+
+# ---------- native git commit-msg hook ----------
+# Symlinks <git_dir>/hooks/commit-msg → claude/hooks/commit-msg-wrapper.sh so the
+# conventional-commit gate fires on EVERY git commit (bare shell, CI, IDE,
+# Claude-mediated alike) — not just commits driven through the harness
+# PreToolUse event. Idempotent, worktree-compat, backs up alien hooks.
+install_native_commit_msg_hook
 
 # ---------- env file ----------
 ENV_FILE="$REPO_ROOT/.env"

@@ -86,6 +86,7 @@ Parity is gated by `claude/hooks/tests/test_install_settings_shape.sh` test_05 (
 Exclusions:
 - `validate-task-spec.py` — git pre-commit hook (lives at `.git/hooks/pre-commit` after install). NOT a Claude-harness hook; never appears in `settings.json`.
 - `cost_log.py` — pipeline cost-event CLI invoked by skills (e.g. `claude/skills/research/research-loop.sh`). Requires positional `start|end|report|parse-json` args, so wiring it raw to `PostToolUse` emits an argparse usage error on every tool call. NOT a hook; never appears in `settings.json`.
+- `commit-msg-wrapper.sh` — native git commit-msg hook adapter (installed as a symlink at `<git_dir>/hooks/commit-msg` by `scripts/install.sh:install_native_commit_msg_hook`). Bridges git's argv-passed message-file contract to `validate-commit-msg.sh`'s PreToolUse JSON-stdin contract so the conventional-commit gate fires on EVERY git commit, not just harness-mediated ones. NOT a Claude-harness hook; never appears in `settings.json`.
 
 ## Denial Tracking
 
