@@ -1162,6 +1162,68 @@ install_native_commit_msg_hook() {
   log "INSTALL_NATIVE_HOOK_SYMLINKED: $hook_target -> $wrapper_src"
 }
 
+# ---------- pre-commit hook (chains validate-task-spec.py + scan-secrets-staged.sh) ----------
+# Writes a dispatcher shim at <git_dir>/hooks/pre-commit that invokes each
+# chained hook in order, short-circuiting on the first non-zero exit. Both
+# chained hooks are existence-guarded so a missing source is non-fatal.
+# Pre-existing alien pre-commit hooks are backed up to .pre-pipelinekit.
+install_pre_commit_hook() {
+  local validate_src="$REPO_ROOT/claude/hooks/validate-task-spec.py"
+  local scanner_src="$REPO_ROOT/claude/hooks/scan-secrets-staged.sh"
+
+  # Make sure source hooks are executable (no-op if already +x).
+  [[ -f "$validate_src" ]] && chmod +x "$validate_src" 2>/dev/null || true
+  [[ -f "$scanner_src" ]]  && chmod +x "$scanner_src"  2>/dev/null || true
+
+  # Resolve hook destination via git-common-dir; tolerate non-git pwd.
+  local git_common_dir
+  git_common_dir="$(cd "$REPO_ROOT" && git rev-parse --git-common-dir 2>/dev/null)" || {
+    log "INSTALL_PRE_COMMIT_NO_GIT_DIR (pwd not inside a git repo) -- skip"
+    return 0
+  }
+  case "$git_common_dir" in
+    /*) ;;
+    *) git_common_dir="$REPO_ROOT/$git_common_dir" ;;
+  esac
+  local hook_dir="$git_common_dir/hooks"
+  mkdir -p "$hook_dir"
+  local hook_target="$hook_dir/pre-commit"
+
+  local SENTINEL='# pipelinekit pre-commit dispatcher'
+
+  # Idempotent: if our dispatcher is already installed, no-op.
+  if [[ -f "$hook_target" ]] && head -2 "$hook_target" 2>/dev/null | grep -qF "$SENTINEL"; then
+    log "INSTALL_PRE_COMMIT_ALREADY_INSTALLED: $hook_target"
+    return 0
+  fi
+
+  # Collision: preserve any pre-existing alien hook (regular file OR symlink).
+  if [[ -e "$hook_target" || -L "$hook_target" ]]; then
+    local backup="$hook_target.pre-pipelinekit"
+    [[ -e "$backup" ]] && backup="$backup.$(date +%s)"
+    mv "$hook_target" "$backup"
+    log "INSTALL_PRE_COMMIT_BACKED_UP: $backup"
+  fi
+
+  # Write dispatcher (chains both hooks; each guarded by existence check).
+  cat > "$hook_target" <<DISPATCH
+#!/usr/bin/env bash
+$SENTINEL -- chains validate-task-spec.py + scan-secrets-staged.sh
+set -e
+VALIDATE="$validate_src"
+SCANNER="$scanner_src"
+if [[ -f "\$VALIDATE" ]]; then
+  python3 "\$VALIDATE" || exit \$?
+fi
+if [[ -f "\$SCANNER" ]]; then
+  bash "\$SCANNER" || exit \$?
+fi
+exit 0
+DISPATCH
+  chmod +x "$hook_target"
+  log "INSTALL_PRE_COMMIT_HOOK_WRITTEN: $hook_target"
+}
+
 # ---------- optional: settings.json hook wiring ----------
 # Gated by CLAUDE_INSTALL_SETTINGS=1. Off by default — safe for existing users.
 # When the flag is unset and the previous install backed up a settings.json,
@@ -1404,6 +1466,13 @@ provision_modes_overlay
 # Claude-mediated alike) — not just commits driven through the harness
 # PreToolUse event. Idempotent, worktree-compat, backs up alien hooks.
 install_native_commit_msg_hook
+
+# ---------- native git pre-commit hook (secret scanner chain) ----------
+# Writes <git_dir>/hooks/pre-commit dispatcher that chains the task-spec
+# validator with the gitleaks-backed secret scanner. Both chained hooks
+# degrade gracefully when their dependencies (gitleaks binary; staged
+# task-spec files) are absent. Idempotent + backs up alien hooks.
+install_pre_commit_hook
 
 # ---------- env file ----------
 ENV_FILE="$REPO_ROOT/.env"

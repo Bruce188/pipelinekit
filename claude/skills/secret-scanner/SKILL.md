@@ -15,6 +15,17 @@ paths:
 
 Prevent accidental secret exposure in your codebase.
 
+## Step 0: Pre-Commit Wiring
+
+This skill ships a git pre-commit hook (`claude/hooks/scan-secrets-staged.sh`) wired by `scripts/install.sh` into `.git/hooks/pre-commit`. The hook chains alongside `validate-task-spec.py`; both run on every `git commit`.
+
+- **Triggered by:** any `git commit` in a pipelinekit-installed repo.
+- **Invokes:** `gitleaks detect --staged --redact --no-banner --report-format json --report-path /dev/null`.
+- **Exit semantics:** exit 0 on clean staged content; exit 2 on a finding (commit aborted, redacted advisory printed); exit 0 with stderr notice when `gitleaks` is not on PATH (graceful degrade).
+- **Opt-out (single commit):** `PIPELINEKIT_ALLOW_SECRET=1 git commit -m "..."` short-circuits the scan with a stderr notice. Use sparingly — prefer rotating the secret.
+
+False-positive customization: ship a repo-local `.gitleaks.toml` allowlist when a legitimate test fixture trips the default config. See <https://github.com/gitleaks/gitleaks#configuration> for the schema.
+
 ## When I Activate
 
 - ✅ Before git commits
