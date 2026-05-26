@@ -198,7 +198,7 @@ Do not use this skill for:
 
 - Bootstrapping a new Railway account — that requires interactive signup + `railway login`.
 - Long-running unattended automation — the skill is built for interactive ops, not for `cron`-style schedulers (use GitHub Actions + the Railway deploy webhook, or a deploy bot wired with `RAILWAY_TOKEN` managed outside Claude).
-- Dashboard-only configuration (custom domains, volume mounts, env-var creation, log-sink wiring) — those tasks belong with the `@railway-deployment-engineer` agent and the Railway dashboard.
+- Dashboard-only configuration (custom domains, volume mounts, env-var creation, log-sink wiring) — those tasks belong with the `@deployment-engineer` agent (dispatched with `provider: railway`) and the Railway dashboard.
 - Multi-cloud deploys — this skill is Railway-only.
 
 ## Limitations

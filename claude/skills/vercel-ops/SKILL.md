@@ -201,7 +201,7 @@ Do not use this skill for:
 
 - Bootstrapping a new Vercel account — that requires interactive signup + `vercel login`.
 - Long-running unattended automation — the skill is built for interactive ops, not for `cron`-style schedulers (use GitHub Actions + the Vercel deploy hook, or a deploy bot wired with `VERCEL_TOKEN` managed outside Claude).
-- Dashboard-only configuration (custom domains, env-var creation, log-drain wiring) — those tasks belong with the `@vercel-deployment-engineer` agent and the Vercel dashboard.
+- Dashboard-only configuration (custom domains, env-var creation, log-drain wiring) — those tasks belong with the `@deployment-engineer` agent (dispatched with `provider: vercel`) and the Vercel dashboard.
 - Multi-cloud deploys — this skill is Vercel-only.
 - Vercel Enterprise tenant administration — out of scope for v1.
 

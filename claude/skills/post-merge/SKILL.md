@@ -81,13 +81,13 @@ Clean up local and remote state after a PR has been merged.
    - `az-deploy.sh` (project-local Azure deploy script)
    ```bash
    if ls azure-pipelines.yml .azure/config az-deploy.sh 2>/dev/null | head -1 >/dev/null; then
-     echo "Azure project signal detected. Consider @azure-deployment-engineer for deploy review."
+     echo "Azure project signal detected. Consider @deployment-engineer (provider: azure) for deploy review."
    fi
    ```
    This step is advisory and non-blocking. It NEVER invokes `az` from inside `/post-merge` —
    the deployment-engineer agent is the executor; `/post-merge` only signals presence of
-   Azure-flavored artifacts. The user decides whether to invoke `@azure-deployment-engineer`
-   for the next iteration.
+   Azure-flavored artifacts. The user decides whether to invoke `@deployment-engineer`
+   (with `provider: azure`) for the next iteration.
    If `ls` returns no matches: skip silently (no output).
 
 10. Advisory: Run Hook Tests
