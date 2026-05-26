@@ -1,6 +1,6 @@
 ---
-name: review
-description: Multi-agent parallel review with auto-scaling agent selection. Scales from 2 agents (small diffs) to 6-agent teams (large diffs). Teams mode is default-on; pass --no-teams to opt out. Supports --scope, --force, --no-teams.
+name: pipeline-review
+description: Multi-agent parallel review with auto-scaling agent selection. Scales from 2 agents (small diffs) to 6-agent teams (large diffs). Teams mode is default-on; pass --no-teams to opt out. Supports --scope, --force, --no-teams. Renamed from `review` per F20 to avoid collision with the harness's built-in GitHub PR-review template — the bare `review` slug stays reserved for direct user `/review <PR#>` invocation.
 argument-hint: [--scope <task-id|path>] [--force] [--no-teams]
 allowed-tools:
   - Bash
@@ -20,7 +20,7 @@ paths:
   - docs/pipeline-state.md
 ---
 
-# Review — Multi-Agent Parallel Review
+# Pipeline-Review — Multi-Agent Parallel Review
 
 ## Threshold Constants
 
@@ -496,7 +496,7 @@ All five `Agent` invocations live inside a single assistant message — the harn
 
 1. **Wrap-as-one-Agent.** Dispatch a SINGLE generic `Agent` (e.g. `Agent(name='F<N> review', prompt='do a 5-perspective review')`) that runs all five perspectives inside one subagent's context. This forfeits parallelism, forfeits per-role specialist prompts, and forfeits inter-agent context isolation. The single subagent runs ~5× the tool calls and produces a flat single-voice review. **This is a contract violation.**
 2. **One-per-turn serial dispatch.** Dispatch `code-reviewer` alone in one assistant turn, then `security-auditor` alone in the next turn, then `test-engineer` alone in the next, and so on. Each individual call IS a real specialist dispatch — but the assistant turns are serial, so the harness runs them sequentially instead of concurrently. Total wall time is ~5× the bundled shape. **This is a contract violation.**
-3. **Fall-back-to-inline.** When dispatch feels expensive, "just run /review quickly to wrap up" by invoking the `Skill: review` tool inline OR by reading the diff and emitting findings directly. This skips the entire teams-mode contract: no specialist roles, no parallel execution, no Step 6 dispatch shape at all. **This is a contract violation** (see also `claude/skills/pipeline/SKILL.md` § Phase Mode Precedence — direct `Skill: review` invocations are forbidden when Phase Mode is `subagent`).
+3. **Fall-back-to-inline.** When dispatch feels expensive, "just run /pipeline-review quickly to wrap up" by invoking the `Skill: pipeline-review` tool inline OR by reading the diff and emitting findings directly. This skips the entire teams-mode contract: no specialist roles, no parallel execution, no Step 6 dispatch shape at all. **This is a contract violation** (see also `claude/skills/pipeline/SKILL.md` § Phase Mode Precedence — direct `Skill: pipeline-review` invocations are forbidden when Phase Mode is `subagent`).
 
 **Background:** F6 of castellum branch `test/taxii-misp-self-hosted-smoke` (2026-05-26, 560-line diff, teams-on per heuristic) exhibited all three violations sequentially in the same lead session: wrap-as-one → one-per-turn → recovery only on second user nudge. This subsection exists to give the lead a pattern-match surface against those specific failures.
 
