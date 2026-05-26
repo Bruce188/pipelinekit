@@ -351,7 +351,7 @@ See SKILL.md § Step 5.5.7 for the orchestrator-facing short summary.
 
      - `status: blocked` (agent could not run probes — e.g. boot failed, mvn missing) → identical to `status: failed` routing.
 
-     **Constraint:** the probe agent has NO Agent-tool access (per agent frontmatter — `tools: Bash, Read, Edit, WebFetch` only). It cannot recursively dispatch `/review` or `/pipeline`. The orchestrator owns Path B routing.
+     **Constraint:** the probe agent has NO Agent-tool access (per agent frontmatter — `tools: Bash, Read, Edit, WebFetch` only). It cannot recursively dispatch `/pipeline-review` or `/pipeline`. The orchestrator owns Path B routing.
 
 1. **Pre-push auto-format** — run the project's formatter unconditionally. Detect by marker file; if clean, it's a fast no-op, so there's no gating.
    ```bash
@@ -572,7 +572,7 @@ On Path B entry, the orchestrator emits a `path-b-pre` beacon. The notification 
 
    Branch:
    - **If `Phase Mode = subagent` (default):** Dispatch via the `Agent` tool using the prompt template matching `<!-- PHASE: review -->`. Substitute `FEATURE_NAME`, `BRANCH_NAME`, `REVIEW_PATH` (the Versioning-Convention next-version path), `BUDGET_REMAINING`, `MAX_USD`. Pass `model: opus` (REVIEW.md `review-model:` override applies inside the subagent if present). Capture `<task-notification>`; on `status: completed`, follow the `**Review:**` pointer in `docs/progress.md` to the new review file. Update `**Last phase agent:**`. On `status: failed`: log `Path: B | Review cycles: [N] | Status: FAILED (review subagent error)` and skip to next feature.
-   - **If `Phase Mode = inline` (legacy):** invoke `Skill: review` (if `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` — teams default-on takes effect) or `Skill: review --no-teams` (otherwise).
+   - **If `Phase Mode = inline` (legacy):** invoke `Skill: pipeline-review` (if `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` — teams default-on takes effect) or `Skill: pipeline-review --no-teams` (otherwise).
 7. Emit phase transition signal (progress beacon **and** TodoWrite update, tag=`path-b-post`) per the helpers in SKILL.md Step 5.0. Return to Step 5.7 (path determination)
 
 ### Path C — Scope Change (max 1 re-plan)
@@ -600,7 +600,7 @@ On Path C entry, the orchestrator emits a `path-c-pre` beacon. The notification 
    Branch identically to Path B step 6:
    - `subagent` → `Agent` tool with `<!-- PHASE: review -->` template, `model: opus`.
    - `subprocess` → unreachable; re-route as subagent with warning.
-   - `inline` (legacy) → `Skill: review` (teams default-on if env var set; `Skill: review --no-teams` otherwise).
+   - `inline` (legacy) → `Skill: pipeline-review` (teams default-on if env var set; `Skill: pipeline-review --no-teams` otherwise).
 7. Emit phase transition signal (progress beacon **and** TodoWrite update, tag=`path-c-post`) per the helpers in SKILL.md Step 5.0. Return to Step 5.7 (path determination)
 
 ### Path D — Fresh-context Salvage (max 1 attempt)
@@ -651,7 +651,7 @@ Triggered from Path C step 2 — when the replan-count check would have skipped 
    Branch identically to Path B step 6:
    - `subagent` → `Agent` tool with `<!-- PHASE: review -->` template, `model: opus`.
    - `subprocess` → unreachable in /pipeline; re-route as subagent with warning.
-   - `inline` (legacy) → `Skill: review` (teams default-on if env var set; `Skill: review --no-teams` otherwise).
+   - `inline` (legacy) → `Skill: pipeline-review` (teams default-on if env var set; `Skill: pipeline-review --no-teams` otherwise).
 5. Return to Step 5.7
 
 ### Path N — Nit-Only Inline (max 2 cycles)
@@ -659,14 +659,14 @@ Triggered from Path C step 2 — when the replan-count check would have skipped 
 Triggered by Step 5.7 row 1.5 (review file has 0 blocking + 0 non-blocking + N nit findings, N>0). Also reusable as a preamble inside Path B / Path C step 3 when `PIPELINE_NIT_FIRST=1` is set.
 
 This is the ONLY legitimate inline-dispatch path in the pipeline. It exists because:
-- `/review` Step 7.5 already auto-fixes nits inline inside the review subagent's context.
+- `/pipeline-review` Step 7.5 already auto-fixes nits inline inside the review subagent's context.
 - Nits surviving auto-fix are typically style/naming/comment-level — Edit-tool changes that do not justify a full re-implement subagent dispatch.
 - Subagent dispatch overhead (~5× phase startup) is wasteful for purely cosmetic edits when no logic decisions are required.
 
 Steps:
 
 1. Read the review file (via `**Review:**` pointer in `docs/progress.md`). Extract findings tagged `severity: nit`. For each, capture: file path, line range, description, suggested fix (if present).
-2. Track nit-cycle count in `docs/pipeline-state.md` as `**Nit cycles:**`. Increment. If > 2: append `Path: N | Nit cycles: 2 | Status: FAILED (nit fix did not converge — escalating)` and ESCALATE to Path B step 6 (re-review only; do NOT route through step 5 re-implement — surviving nits do not produce reopened tasks, so the implement subagent would exit with "No reopened tasks" and the loop would wedge). Set `**Step:** review` and let the next reviewer subagent re-categorize the stuck nits as non-blocking; Step 9 of `/review` will then create reopened tasks on the following cycle.
+2. Track nit-cycle count in `docs/pipeline-state.md` as `**Nit cycles:**`. Increment. If > 2: append `Path: N | Nit cycles: 2 | Status: FAILED (nit fix did not converge — escalating)` and ESCALATE to Path B step 6 (re-review only; do NOT route through step 5 re-implement — surviving nits do not produce reopened tasks, so the implement subagent would exit with "No reopened tasks" and the loop would wedge). Set `**Step:** review` and let the next reviewer subagent re-categorize the stuck nits as non-blocking; Step 9 of `/pipeline-review` will then create reopened tasks on the following cycle.
 3. Snapshot tracked files: `EXISTING_FILES=$(git ls-files)`.
 4. For each nit finding:
    - Verify the file is within `git diff $BASE...HEAD` scope (do not edit files outside the feature's diff).
@@ -678,7 +678,7 @@ Steps:
    b. Commit: `git commit -m "fix: minor code quality improvements"` — clean conventional message, no AI attribution, no nit count or stream references (per `~/.claude/rules/agents-worktrees.md` § Commit Message Hygiene).
    c. Remove the auto-fixed nit findings from the review file's findings list (leave the file in place for audit; just strike the resolved entries).
 7. **If sanity gate fails:** revert the inline nit edits:
-   a. `git checkout HEAD -- <files>` for each modified file in the snapshot. Path N is Edit-tool only, so no new files can have been created — the snapshot diff is sufficient. (If somehow a future Path N variant introduces `Write`, also run the `EXISTING_FILES` cleanup pattern from `/review` Step 7.5.f.)
+   a. `git checkout HEAD -- <files>` for each modified file in the snapshot. Path N is Edit-tool only, so no new files can have been created — the snapshot diff is sufficient. (If somehow a future Path N variant introduces `Write`, also run the `EXISTING_FILES` cleanup pattern from `/pipeline-review` Step 7.5.f.)
    b. Keep the surviving nits in the review file. Append to Run Log: `Path: N | Nit cycles: [N] | Status: PARTIAL (sanity-gate revert)` and continue.
 8. **Re-route via Step 5.7** — read the review file again (now with auto-fixed nits removed) and re-evaluate path detection. Typical outcomes:
    - All nits cleared, no other findings → Path A (passed).
@@ -707,7 +707,7 @@ Steps:
    - Aggregate lines across findings ≤ 8.
    - Every finding has a mechanical `Suggestion:` field (no logic interpretation required).
 
-   If predicate FAILS → fall through to Path B step 5 subagent dispatch (existing flow unchanged). Severity regex reuses Path B Step 1.5: `^- \*\*Severity:\*\* (non-blocking|nit)`. Lines / Files counts come from the finding's `Lines:` / `Files:` fields (populated by `/review` finding emission — Path M does NOT change that format).
+   If predicate FAILS → fall through to Path B step 5 subagent dispatch (existing flow unchanged). Severity regex reuses Path B Step 1.5: `^- \*\*Severity:\*\* (non-blocking|nit)`. Lines / Files counts come from the finding's `Lines:` / `Files:` fields (populated by `/pipeline-review` finding emission — Path M does NOT change that format).
 
 1. Track inline-cycle count in `docs/pipeline-state.md` as `**Inline cycles:**` (default 0, cap 2). Increment. If `Inline cycles > 2`: append `Path: M | Inline cycles: 2 | Status: FAILED (mini-fix did not converge — escalating)` to the feature's Run Log and ESCALATE to Path B step 6 (re-review only; do NOT route through step 5 re-implement — the surviving findings already have reopened tasks if applicable, so dropping into step 6 lets the next reviewer subagent re-categorize them; same escalation pattern Path N uses at step 2 / line 478).
 
@@ -726,7 +726,7 @@ Steps:
    c. Strike the resolved findings from the review file's findings list (leave the file in place for audit).
 
 6. **If sanity gate fails:** revert the inline mini-fix edits:
-   a. `git checkout HEAD -- <files>` for each modified file in the snapshot. Path M is Edit-tool only, so no new files can have been created — the snapshot diff is sufficient. (If a future Path M variant introduces `Write`, also run the `EXISTING_FILES` cleanup pattern from `/review` Step 7.5.f.)
+   a. `git checkout HEAD -- <files>` for each modified file in the snapshot. Path M is Edit-tool only, so no new files can have been created — the snapshot diff is sufficient. (If a future Path M variant introduces `Write`, also run the `EXISTING_FILES` cleanup pattern from `/pipeline-review` Step 7.5.f.)
    b. Keep the surviving findings in the review file. Append to Run Log: `Path: M | Inline cycles: [N] | Status: PARTIAL (sanity-gate revert)` and ESCALATE to Path B step 5 (subagent dispatch).
 
 7. **Re-route via Step 5.7** — read the review file again (now with resolved findings struck) and re-evaluate path detection. Typical outcomes:
@@ -865,7 +865,7 @@ Your job:
 Constraints:
 - Do NOT modify any source file. This phase is read-only except for `{{ANALYSIS_PATH}}` and `docs/progress.md`.
 - If intel context is "None", skip step 7 entirely. Do not create an empty Cross-Feature Intel section.
-- Do NOT invoke `/implement-plan` or `/review`.
+- Do NOT invoke `/implement-plan` or `/pipeline-review`.
 - Do NOT embed file contents in your response — write them to `{{ANALYSIS_PATH}}`.
 - If the budget remaining is below your estimate, STOP and emit `status: failed` with reason `budget exceeded`.
 
@@ -928,7 +928,7 @@ Your job:
 
 Constraints:
 - Do NOT modify any source file. This phase writes only `{{PLAN_PATH}}`, `{{PROMPTS_PATH}}`, and `docs/progress.md`.
-- Do NOT invoke `/implement-plan` or `/review`.
+- Do NOT invoke `/implement-plan` or `/pipeline-review`.
 - Do NOT embed file contents in your response — write them to disk.
 - If the budget remaining is below your estimate, STOP and emit `status: failed` with reason `budget exceeded`.
 
@@ -980,7 +980,7 @@ Your job:
 
 Constraints:
 - Do NOT modify files outside the plan's file lists.
-- Do NOT invoke `/review` — that's the next phase.
+- Do NOT invoke `/pipeline-review` — that's the next phase.
 - Do NOT rewrite or edit the plan or prompts files.
 - If the budget remaining is below your estimate, STOP and emit `status: failed` with reason `budget exceeded`.
 - On review-clean post-implementation, the orchestrator dispatches the production-probe agent (see § "Production-Probe block specification"). Implementer phase emits NO probe block — that is the probe agent's surface.
@@ -1006,7 +1006,7 @@ Report back with this XML block as the very last content in your response:
 
 <!-- PHASE: review -->
 
-> NOTE: The orchestrator (SKILL.md Step 5.6.0) decides per-feature whether `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` should be set before this template is dispatched. Teams mode in `/review` is default-on as of the flag-cleanup refactor — the template body below conditionally passes `--no-teams` (opt-out) when the env var is NOT set, and invokes plain `Skill: review` (teams default-on takes effect) when the env var IS set. Do NOT add env-var management inside the template — the orchestrator owns the symmetric `export` / `unset` lifecycle around each `Agent` dispatch (initial Step 5.6 plus Path B / Path C / Retry re-reviews). See SKILL.md Step 5.6.0 for the decision logic and the `teams_was_set` / `teams_orchestrator_set` invariants.
+> NOTE: The orchestrator (SKILL.md Step 5.6.0) decides per-feature whether `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` should be set before this template is dispatched. Teams mode in `/pipeline-review` is default-on as of the flag-cleanup refactor — the template body below conditionally passes `--no-teams` (opt-out) when the env var is NOT set, and invokes plain `Skill: pipeline-review` (teams default-on takes effect) when the env var IS set. Do NOT add env-var management inside the template — the orchestrator owns the symmetric `export` / `unset` lifecycle around each `Agent` dispatch (initial Step 5.6 plus Path B / Path C / Retry re-reviews). See SKILL.md Step 5.6.0 for the decision logic and the `teams_was_set` / `teams_orchestrator_set` invariants. The HTML-comment anchor `<!-- PHASE: review -->` above is the orchestrator's per-phase template-lookup name, NOT a routing slug — it stays unchanged across the F20 rename.
 
 ```
 You are dispatched by the pipeline orchestrator as the REVIEW phase subagent for feature `{{FEATURE_NAME}}` ({{FEATURE_INDEX}}/{{FEATURE_TOTAL}}). Remaining budget: ${{BUDGET_REMAINING}} of ${{MAX_USD}}.
@@ -1024,20 +1024,20 @@ Your job:
    git branch --show-current
    ```
    If you are NOT on `{{BRANCH_NAME}}`: STOP immediately and emit `status: failed` with reason `wrong branch`.
-2. Invoke the `/review` skill via the Skill tool. Teams mode is default-on in `/review` as of the flag-cleanup refactor. If the environment variable `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set (orchestrator decided `dispatch_with_teams=true`), invoke plain (teams default-on takes effect):
+2. Invoke the `/pipeline-review` skill via the Skill tool. Teams mode is default-on in `/pipeline-review` as of the flag-cleanup refactor. If the environment variable `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set (orchestrator decided `dispatch_with_teams=true`), invoke plain (teams default-on takes effect):
    ```
-   Skill: review
+   Skill: pipeline-review
    ```
    Otherwise (orchestrator decided `dispatch_with_teams=false`), opt out via `--no-teams`:
    ```
-   Skill: review --no-teams
+   Skill: pipeline-review --no-teams
    ```
-3. After `/review` completes, read `docs/progress.md` and follow the `**Review:**` pointer to locate the review file that was just written. Record that path as `{{REVIEW_PATH}}`.
+3. After `/pipeline-review` completes, read `docs/progress.md` and follow the `**Review:**` pointer to locate the review file that was just written. Record that path as `{{REVIEW_PATH}}`.
 4. Read the review file and count blocking and non-blocking findings.
    - Write surface: use Bash heredoc (`cat > {{REVIEW_PATH}} <<'EOF' … EOF`) per § Subagent Write-Surface Convention. The `Write` tool is rejected by the agent harness on `docs/*.md` from subagent context. For updates to `docs/progress.md`, use the `Edit` tool (Edit is permitted in subagent context).
 
 Constraints:
-- Do NOT modify source files. Review is read-only except for the review file (written by `/review`) and `docs/progress.md` (updated by `/review` via task reopening).
+- Do NOT modify source files. Review is read-only except for the review file (written by `/pipeline-review`) and `docs/progress.md` (updated by `/pipeline-review` via task reopening).
 - Do NOT invoke `/implement-plan` — path selection is the orchestrator's responsibility.
 - Do NOT embed finding details in your response — they are on disk in the review file.
 - If the budget remaining is below your estimate, STOP and emit `status: failed` with reason `budget exceeded`.

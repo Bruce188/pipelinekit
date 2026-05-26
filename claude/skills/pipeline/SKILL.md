@@ -130,7 +130,7 @@ Parse `$ARGUMENTS`:
 - `--no-charter` = skip Step 0 Charter Discovery entirely; restores legacy autonomous flow.
 - `--charter <path>` = adopt an existing charter file at `<path>`. Skips Step 0 discovery loop; sets the `**Charter:**` pointer in `progress.md`. STOP if the path does not exist: "ERROR: --charter path not found: <path>"
 - `--max-questions <N>` = cap the total number of `AskUserQuestion` invocations in Step 0 at `N`. Default: unbounded. `--max-questions 0` is an alias for `--no-charter` (no discovery at all).
-- `--no-teams` = force-disable Agent Teams for this run. Resolves `PIPELINE_TEAMS_OVERRIDE=never`. Persists into `**Review style:** never teams` for every feature in the run (overrides Charter Topic 11 and the heuristic). The orchestrator dispatches `Skill: review --no-teams` at every review boundary. Teams mode is otherwise default-on (decided per-feature by the Step 5.6.0 heuristic).
+- `--no-teams` = force-disable Agent Teams for this run. Resolves `PIPELINE_TEAMS_OVERRIDE=never`. Persists into `**Review style:** never teams` for every feature in the run (overrides Charter Topic 11 and the heuristic). The orchestrator dispatches `Skill: pipeline-review --no-teams` at every review boundary. Teams mode is otherwise default-on (decided per-feature by the Step 5.6.0 heuristic).
 
 **Removed (deprecated) flags — STOP on use:**
 - `--teams` (pipeline-level): REMOVED. The orchestrator's per-feature Step 5.6.0 heuristic + the persisted `**Review style:**` (Charter Topic 11) already cover the "force teams on" surface. STOP with `DEPRECATED: --teams (pipeline) removed. Teams mode is default-on per-feature; pass --no-teams to opt out for this run.`
@@ -390,11 +390,11 @@ The `--restart-from` argument overrides the saved step (but not the saved featur
 
 | Recorded mode | Required behavior on resume |
 |---------------|------------------------------|
-| `subagent` | Every subsequent phase (analyze, plan, implement, review) MUST be dispatched via the `Agent` tool using the corresponding `<!-- PHASE: ... -->` template from `reference.md`. **Inline invocation is FORBIDDEN.** Direct calls to `Skill: implement-plan` or `Skill: review` (without an enclosing Agent dispatch) are a contract violation — they bypass context isolation and must not be used. If the assistant is tempted to "just run /review quickly to wrap up", STOP and dispatch via Agent instead. |
+| `subagent` | Every subsequent phase (analyze, plan, implement, review) MUST be dispatched via the `Agent` tool using the corresponding `<!-- PHASE: ... -->` template from `reference.md`. **Inline invocation is FORBIDDEN.** Direct calls to `Skill: implement-plan` or `Skill: pipeline-review` (without an enclosing Agent dispatch) are a contract violation — they bypass context isolation and must not be used. If the assistant is tempted to "just run /pipeline-review quickly to wrap up", STOP and dispatch via Agent instead. |
 | `inline` | Legacy mode preserved for in-flight features only. Continue inline for the current feature. New features added to the run dispatch via `subagent`. Log: `LEGACY_PHASE_MODE: inline mode preserved for in-flight feature; new features dispatch via subagent`. |
 | (missing/empty) | Default to `subagent` and write `**Phase Mode:** subagent` back to the state file before proceeding. Leave `**Last phase agent:**` absent until the next phase actually dispatches and returns an ID. |
 
-**Self-check before any phase invocation on resume:** Before invoking a phase skill or Agent, the assistant must explicitly answer two questions: (1) "What does `**Phase Mode:**` say in `docs/pipeline-state.md` right now?" (read it, do not rely on memory), and (2) "Does my next planned tool call match that mode?" If the planned call is `Skill: review` and Phase Mode is `subagent`, the call is wrong — switch to `Agent(... <!-- PHASE: review --> template ...)` instead.
+**Self-check before any phase invocation on resume:** Before invoking a phase skill or Agent, the assistant must explicitly answer two questions: (1) "What does `**Phase Mode:**` say in `docs/pipeline-state.md` right now?" (read it, do not rely on memory), and (2) "Does my next planned tool call match that mode?" If the planned call is `Skill: pipeline-review` and Phase Mode is `subagent`, the call is wrong — switch to `Agent(... <!-- PHASE: review --> template ...)` instead.
 
 ---
 
@@ -408,7 +408,7 @@ If `--dry-run` is present, for each feature output this preview and then **STOP*
   2. Generate plan → docs/plan-vN.md + docs/prompts-vN.md
   3. Create branch → <type>/<name>
   4. Invoke /implement-plan
-  5. Invoke /review
+  5. Invoke /pipeline-review
   6. Path A: push → PR → CI check (fix if failing, max 3 attempts) → auto-merge → cleanup
      Path B: fix reopened tasks → re-review (max 5 cycles)
      Path C: re-plan with findings → implement → review (max 1 re-plan)
@@ -466,7 +466,7 @@ Status mapping per tag:
 
 Implementation note: build the new list in memory, then call `TodoWrite` with the full array — TodoWrite replaces the whole list on every call, so partial updates are fine. Do not gate the TodoWrite call on `$PHASE_MODE` — it fires identically for `subagent` and `inline`.
 
-**Why subagent always (rationale):** Anthropic's multi-agent guidance: isolated context per phase reduces token usage by ~67% on average and prevents cross-phase contamination — the reviewer's findings should not bias the re-implementer's reasoning. The cost of subagent dispatch on truly trivial features is negligible compared to the bug surface of mode drift on resume (incident: a `subagent`-mode feature dropped to inline post-review because Path B did not honor the recorded mode, and the assistant on resume invoked `Skill: review` directly without consulting `**Phase Mode:**`). `inline` is the exception, not the default — reserved exclusively for the Path N nit-attack sub-path.
+**Why subagent always (rationale):** Anthropic's multi-agent guidance: isolated context per phase reduces token usage by ~67% on average and prevents cross-phase contamination — the reviewer's findings should not bias the re-implementer's reasoning. The cost of subagent dispatch on truly trivial features is negligible compared to the bug surface of mode drift on resume (incident: a `subagent`-mode feature dropped to inline post-review because Path B did not honor the recorded mode, and the assistant on resume invoked `Skill: pipeline-review` directly without consulting `**Phase Mode:**`). `inline` is the exception, not the default — reserved exclusively for the Path N nit-attack sub-path.
 
 **Phase routing contract:** Each phase below (Step 5.2 analyze, 5.3 plan, 5.5 implement, 5.6 review) is dispatched via the `Agent` tool using the corresponding template from `reference.md` § "Step 5.x: Phase Subagent Dispatch — Prompt Templates". The orchestrator reads the on-disk artifact (analysis/plan/prompts/review file) for state instead of phase output. Path B and Path C re-invocations also dispatch via Agent — they MUST read `**Phase Mode:**` fresh from `docs/pipeline-state.md` before each re-invoke, never trust a stale local variable. See `reference.md` § "Step 5.8: Execute Path — Full Details".
 
@@ -905,7 +905,7 @@ The gate is ADDITIVE to build/test verification already performed by `/implement
 
 ##### Step 5.6.0: Compute Teams Decision (per-feature, before Step 5.6 dispatch)
 
-Before the Step 5.6 review dispatch (initial cycle and every Path B / Path C / Retry re-review), the orchestrator decides whether to set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` so the `<!-- PHASE: review -->` template inside the dispatched subagent invokes `/review` (teams default-on) versus `/review --no-teams` (opt-out). Teams mode in `/review` is default-on as of the flag-cleanup refactor; the orchestrator opts a feature OUT via `--no-teams` when the heuristic / persisted `**Review style:**` resolves to "never teams".
+Before the Step 5.6 review dispatch (initial cycle and every Path B / Path C / Retry re-review), the orchestrator decides whether to set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` so the `<!-- PHASE: review -->` template inside the dispatched subagent invokes `/pipeline-review` (teams default-on) versus `/pipeline-review --no-teams` (opt-out). Teams mode in `/pipeline-review` is default-on as of the flag-cleanup refactor; the orchestrator opts a feature OUT via `--no-teams` when the heuristic / persisted `**Review style:**` resolves to "never teams".
 
 **Read state (fresh — never trust local cache):**
 1. Read `**Review style:**` from `docs/pipeline-state.md`. Treat missing field as `orchestrator decides` (backward-compatible default for state files written under prior versions).
@@ -913,7 +913,7 @@ Before the Step 5.6 review dispatch (initial cycle and every Path B / Path C / R
 
 **Resolve `dispatch_with_teams`:**
 - `Review style = always teams` → `dispatch_with_teams = true`. Skip heuristic.
-- `Review style = never teams` → `dispatch_with_teams = false`. Skip heuristic. Even on very large diffs, the user's explicit `never teams` choice overrides the heuristic at the orchestrator layer. (Note: `/review`'s own Step 4.5 large-diff escalation at >5,000 lines may still auto-enable teams inside the subagent — that is the inner skill's last-resort safety net and is out of scope here.)
+- `Review style = never teams` → `dispatch_with_teams = false`. Skip heuristic. Even on very large diffs, the user's explicit `never teams` choice overrides the heuristic at the orchestrator layer. (Note: `/pipeline-review`'s own Step 4.5 large-diff escalation at >5,000 lines may still auto-enable teams inside the subagent — that is the inner skill's last-resort safety net and is out of scope here.)
 - `Review style = orchestrator decides` → compute the heuristic:
 
 ```bash
@@ -950,7 +950,7 @@ The host-shell-preserves invariant: if the user had `CLAUDE_CODE_EXPERIMENTAL_AG
 
 **Stickiness contract:** Once `**Review style:**` is written at Step 5.1, Step 5.6.0 re-reads it on every Path B / Path C / Retry re-review but does NOT recompute the heuristic per cycle — the persisted style is sticky. The heuristic constants (500 / 8 / dev) are tunable inline; env-var overrides (`PIPELINE_TEAMS_LINE_THRESHOLD`, `PIPELINE_TEAMS_FILE_THRESHOLD`) are deferred to a follow-up iteration.
 
-**Path N exemption:** Path N nit-attack runs Edit-tool only and does not invoke `/review` — Step 5.6.0 does NOT apply to Path N. The env var is neither set nor unset for the nit pass.
+**Path N exemption:** Path N nit-attack runs Edit-tool only and does not invoke `/pipeline-review` — Step 5.6.0 does NOT apply to Path N. The env var is neither set nor unset for the nit pass.
 
 ---
 
@@ -962,7 +962,7 @@ The host-shell-preserves invariant: if the user had `CLAUDE_CODE_EXPERIMENTAL_AG
 3. Emit the `phase-done` beacon as if review completed normally.
 4. Proceed to Step 5.7 — path detection Row 1 (0 findings) will route to Path A.
 
-**If Phase Mode is `subagent`:** Emit phase transition signal (progress beacon **and** TodoWrite update, tag=`phase-pre`) per the helpers in Step 5.0. Dispatch this phase via the Agent tool using the prompt template from `reference.md` § "Step 5.x: Phase Subagent Dispatch — Prompt Templates" matching `<!-- PHASE: review -->`. Substitute placeholders with current feature values. Pass `model: opus` (the phase default; the `/review` skill applies REVIEW.md `review-model:` override internally if present) in the Agent tool parameters. Capture the returned `<task-notification>` XML; on `status: completed`, read the resulting on-disk artifact (review file via `docs/progress.md` `**Review:**` pointer), emit phase transition signal (progress beacon **and** TodoWrite update, tag=`phase-done`), and continue. Update `docs/pipeline-state.md` `**Last phase agent:**` with the subagent ID. Skip the inline instructions below. On `status: failed`, follow the same failure handling as the inline path (log to feature run log, advance state, skip to next feature).
+**If Phase Mode is `subagent`:** Emit phase transition signal (progress beacon **and** TodoWrite update, tag=`phase-pre`) per the helpers in Step 5.0. Dispatch this phase via the Agent tool using the prompt template from `reference.md` § "Step 5.x: Phase Subagent Dispatch — Prompt Templates" matching `<!-- PHASE: review -->`. Substitute placeholders with current feature values. Pass `model: opus` (the phase default; the `/pipeline-review` skill applies REVIEW.md `review-model:` override internally if present) in the Agent tool parameters. Capture the returned `<task-notification>` XML; on `status: completed`, read the resulting on-disk artifact (review file via `docs/progress.md` `**Review:**` pointer), emit phase transition signal (progress beacon **and** TodoWrite update, tag=`phase-done`), and continue. Update `docs/pipeline-state.md` `**Last phase agent:**` with the subagent ID. Skip the inline instructions below. On `status: failed`, follow the same failure handling as the inline path (log to feature run log, advance state, skip to next feature).
 
 **Teams-mode dispatch-shape preflight beacon:** Immediately before the `Agent` dispatch above, the orchestrator MUST emit the following beacon to its own assistant turn (one line, verbatim):
 
@@ -974,19 +974,19 @@ This beacon is a no-op for the harness — it is a self-reminder to the lead tha
 
 **Otherwise (Phase Mode is `inline`, legacy state files only — see Step 5.0):** Execute the inline instructions below. New features always run as `subagent`; this branch is preserved only for resuming features that were already running under the previous heuristic-based policy.
 
-Invoke `/review` via the Skill tool. Teams mode in `/review` is default-on as of the flag-cleanup refactor; the orchestrator's Step 5.6.0 decides whether to opt out via `--no-teams`. If `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set in the environment (orchestrator decided `dispatch_with_teams=true`), invoke with `/review`'s teams default (no extra flag):
+Invoke `/pipeline-review` via the Skill tool. Teams mode in `/pipeline-review` is default-on as of the flag-cleanup refactor; the orchestrator's Step 5.6.0 decides whether to opt out via `--no-teams`. If `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set in the environment (orchestrator decided `dispatch_with_teams=true`), invoke with `/pipeline-review`'s teams default (no extra flag):
 
 ```
-Skill: review
+Skill: pipeline-review
 ```
 
 If the env var is NOT set (orchestrator decided `dispatch_with_teams=false`), pass `--no-teams` to opt out of the new default:
 
 ```
-Skill: review --no-teams
+Skill: pipeline-review --no-teams
 ```
 
-Note: `/review` is default-on for teams as of this refactor. The orchestrator decides per-feature via Step 5.6.0 whether to pass `--no-teams`.
+Note: `/pipeline-review` is default-on for teams as of this refactor. The orchestrator decides per-feature via Step 5.6.0 whether to pass `--no-teams`. The skill was renamed from `/review` per F20 to avoid collision with the harness's built-in GitHub PR-review template; see `claude/CLAUDE.md.template` Lean Conventions for the regression target.
 
 After completion: proceed to Step 5.7.
 
@@ -1005,7 +1005,7 @@ Check conditions in order — first match wins.
 |---|-----------|------|
 | 0 | `git diff $BASE...HEAD` is empty AND review file contains "BLOCKED", "nothing to review", "empty diff", or "implementation no-op" (case-insensitive) | **FAILED (no changes)** |
 | 1 | No review file exists, OR review file has 0 blocking + 0 non-blocking + 0 nit findings | **A** (passed) |
-| 1.5 | Review file has 0 blocking + 0 non-blocking + N nit findings (N>0) — nits survived `/review` Step 7.5 auto-fix | **N** (inline nit-attack, then re-route via Step 5.7) |
+| 1.5 | Review file has 0 blocking + 0 non-blocking + N nit findings (N>0) — nits survived `/pipeline-review` Step 7.5 auto-fix | **N** (inline nit-attack, then re-route via Step 5.7) |
 | 1.7 | Review file has 0 blocking + N>0 non-blocking findings AND Path M gate predicate holds (severity ∈ {non-blocking, nit} ∧ lines_changed ≤ 5 ∧ files_changed ≤ 1 per finding ∧ total_finding_count ≤ 3 ∧ total_lines_across_findings ≤ 8 ∧ every finding has mechanical Suggestion:) | **M** (inline mini-fix, then re-route via Step 5.7) |
 | 2 | Review file has blocking or non-blocking findings AND progress.md has tasks with `reopened:` notes | **B** (fixable) |
 | 3 | Review file contains "beyond current scope" or all findings require re-planning | **C** (scope change) |
@@ -1013,7 +1013,7 @@ Check conditions in order — first match wins.
 
 **Row 0 rationale (critical):** without this guard the pipeline silently skips features that produced no code. The old table matched row 1 first — "0 blocking + 0 non-blocking findings" is trivially true for an empty-diff review because there's no code to find issues in, so the feature routed to Path A (pass) even though nothing was implemented. Symptom: Run Log shows "Completed SUCCESS (NO_CHANGES)" or similar and the feature branch has zero commits ahead of `$BASE`. Every green-phase-no-commit / template-parser-drift upstream ends up here, so this row is the load-bearing catch-all.
 
-**Row 1.5 rationale (nit-only inline carve-out):** `/review` Step 7.5 already auto-fixes nits inline before writing the review file — so most of the time, surviving nits = 0 and Row 1 fires. When `/review`'s auto-fix path failed (sanity-gate revert, file outside scope, etc.), nits remain in the review file. These nits should be addressed before merging (the user explicitly does NOT want to ship surviving cosmetic issues), but they don't justify a full subagent re-implement. Path N runs an inline nit-fix pass (the only legitimate inline path in the pipeline) and re-routes through Step 5.7 — typically falling into Path A if nits clear successfully.
+**Row 1.5 rationale (nit-only inline carve-out):** `/pipeline-review` Step 7.5 already auto-fixes nits inline before writing the review file — so most of the time, surviving nits = 0 and Row 1 fires. When `/pipeline-review`'s auto-fix path failed (sanity-gate revert, file outside scope, etc.), nits remain in the review file. These nits should be addressed before merging (the user explicitly does NOT want to ship surviving cosmetic issues), but they don't justify a full subagent re-implement. Path N runs an inline nit-fix pass (the only legitimate inline path in the pipeline) and re-routes through Step 5.7 — typically falling into Path A if nits clear successfully.
 
 **Row 1.7 rationale (mini-fix inline carve-out — strict superset of Path N):** Path N (Row 1.5) handles pure-nit-only review files. Path M extends Path N to small non-blocking findings — same Edit-tool-mechanical contract, conservative gate predicate (encoded in Row 1.7 above), capped at 2 inline cycles via a separate `**Inline cycles:**` counter (Path N's `**Nit cycles:**` is preserved as an independent 2-cycle budget). Path M fires only when at least one finding is `severity: non-blocking`; pure-nit-only review files continue to route to Path N first. On gate-fail or cycle overflow (`Inline cycles > 2`), escalates to Path B step 6 (re-review only). On sanity-gate failure post-Edit, snapshot-revert and escalate to Path B step 5. See `reference.md` § "Path M — Inline Mini-Fix (max 2 inline cycles)" for full step body.
 
@@ -1041,7 +1041,7 @@ Full per-path flows are defined in `reference.md` § "Step 5.8: Execute Path —
 - **Path D — Fresh-context Salvage:** one-shot `general-purpose` subagent dispatch armed with the full Run Log + review history + plan/prompts + current diff. Fires only after Path C exhausts AND `**Path D attempted:**` is `false`. On any failure (subagent error, lingering findings, blocked status, budget breach mid-dispatch), proceeds directly to the feature-failed terminal — never loops back to Path B / C / N / M / Retry. See `reference.md` § "Path D — Fresh-context Salvage" for the full body and the no-infinite-loop backstop.
 - **Path N — Nit-Only Inline:** Edit-tool nit fixes inline → sanity gate → commit → re-route via Step 5.7. Capped at 2 cycles. **A legitimate inline path (alongside Path M).**
 - **Path M — Inline Mini-Fix:** Gate-predicate-qualified small non-blocking fixes inline via Edit tool → sanity gate → commit (`fix: address review feedback inline`) → re-route via Step 5.7. Capped at 2 inline cycles (`**Inline cycles:**` state field). Edit-tool only — snapshot-revert + Path B escalation on sanity-gate failure. See `reference.md` § Path M for full body.
-- **Retry — BLOCKED:** retry /review on transient failures only, capped at 3 attempts. Re-review honors `Phase Mode`.
+- **Retry — BLOCKED:** retry /pipeline-review on transient failures only, capped at 3 attempts. Re-review honors `Phase Mode`.
 
 Select the path from Step 5.7, load the corresponding flow from `reference.md`, and execute. **Inline tool dispatch is forbidden in Paths A, B, C, and Retry when `Phase Mode = subagent` — those paths must use `Agent` tool dispatch with the corresponding `<!-- PHASE: ... -->` template.** Path N and Path M are the only legitimate inline paths (plus the optional Row-2 nit preamble); see § "Inline-mode boundary (REQUIRED INVARIANT)" above.
 

@@ -170,6 +170,8 @@ Autonomous: `/pipeline [feature-file]` — full workflow per feature. Supports *
 
 **Charter Mode (default-on):** `/pipeline` opens with Charter Discovery (Step 0) — 9 questions → `docs/charter.md`. Downstream phases read it. Skip with `--no-charter`, adopt with `--charter <path>`. See `docs/pipeline.md` § Charter Mode.
 
+**Pipeline review slug (F20):** the pipeline phase review skill registers under `/pipeline-review`, NOT `/review`. The bare `/review` slug is reserved for the harness's built-in GitHub PR-review template (direct user invocation `/review <PR#>` against an open PR). Pipeline-internal dispatch — `Agent(... <!-- PHASE: review --> template ...)` body and Path B / Path C / Retry inline fallbacks — calls `Skill: pipeline-review` (or `Skill: pipeline-review --no-teams` when teams-off). Do NOT re-introduce `name: review` for the pipeline phase; the collision treats `--no-teams` as a PR number under the built-in template. Regression target documented in F20 (`fix/review-skill-namespace-collision`).
+
 See `~/.claude/rules/workflow.md` for arguments, base-branch detection, context-aware clearing.
 
 ## Consumer Web App Workflows

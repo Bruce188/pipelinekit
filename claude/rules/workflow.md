@@ -11,16 +11,16 @@ paths:
 
 ## Global Argument Convention
 
-技能接受可選 `--` 參數。參數在命令後傳遞（例如 `/review --scope 2.3`）。
+技能接受可選 `--` 參數。參數在命令後傳遞（例如 `/pipeline-review --scope 2.3`）。
 
 | Argument | Available on | Behavior |
 |----------|-------------|----------|
-| `--scope` | `/review` | Target task ID (`--scope 2.3`) or path (`--scope src/auth/`) |
+| `--scope` | `/pipeline-review` | Target task ID (`--scope 2.3`) or path (`--scope src/auth/`) |
 | `--no-parallel` | `/implement-plan` | Force sequential execution, skip parallel detection |
 | `--renew` | `/pipeline` | Regenerate feature file from deferred items + failed features, then process |
-| `--force` | `/review` | Override review cycle cap (manual only — never passed by pipeline) |
-| `--no-teams` | `/review` | Opt out of Agent Teams. Teams default-on; disables cross-agent comms for run. |
-| `--no-teams` | `/pipeline` | Force `never teams` — dispatches `Skill: review --no-teams` at every review boundary, suppressing heuristic and persisted `**Review style:**`. |
+| `--force` | `/pipeline-review` | Override review cycle cap (manual only — never passed by pipeline) |
+| `--no-teams` | `/pipeline-review` | Opt out of Agent Teams. Teams default-on; disables cross-agent comms for run. |
+| `--no-teams` | `/pipeline` | Force `never teams` — dispatches `Skill: pipeline-review --no-teams` at every review boundary, suppressing heuristic and persisted `**Review style:**`. |
 | `--max-usd` | `/pipeline` | Hard cap on cumulative USD. Default: unlimited. Halts at phase boundaries when next phase would exceed cap. |
 | `--max-turns` | `/pipeline` | Hard cap on accumulated sub-agent turns. Default: unlimited. Halts at phase boundaries. |
 | `--from` | `/pipeline` | Free-text context for feature-file auto-gen. Step 1.5. Excl `--adopt`, `--renew`. |
@@ -41,7 +41,7 @@ paths:
 
 ### --scope
 
-`--scope` 出現於 `/review` 時：
+`--scope` 出現於 `/pipeline-review` 時：
 1. If value matches task ID pattern (e.g., `2.3`): look up task files in plan, scope git diff to those files
 2. If value is a path: scope git diff to that path
 
@@ -65,7 +65,7 @@ Default (no --scope): auto-detect from reopened tasks (review Step 3.5). If no r
 3. Run `/pipeline`, step through Charter Discovery (Step 0) → `docs/charter.md`.
 
 **Existing project / defined task — pre-check:**
-執行 `/analyze` 前，以基底分支偵測片段（見 § Base Branch Detection）確認基底分支存在。偵測失敗且無遠端者，提示創建：`git branch main <first-commit-hash>`。防 `/review` 後段阻塞。
+執行 `/analyze` 前，以基底分支偵測片段（見 § Base Branch Detection）確認基底分支存在。偵測失敗且無遠端者，提示創建：`git branch main <first-commit-hash>`。防 `/pipeline-review` 後段阻塞。
 
 **Resuming:** Read `docs/progress.md` first → current plan + current task → read plan and task prompt.
 
@@ -79,11 +79,11 @@ Default (no --scope): auto-detect from reopened tasks (review Step 3.5). If no r
 
 - **Versioning:** Plan and prompts follow **Versioning Convention** below.
 - **progress.md history-preserving:** `done` tasks never removed. Superseded `todo`/`doing` may be replaced. New tasks appended. Superseded Status tables → `docs/archive/progress-v<N>.md` via `/create-plan` Step 5.
-- **Task reopening:** `/review` may set completed back to `todo` with `reopened: review-vN`. `/implement-plan` reads review file for guidance. New micro-tasks created if findings unmapped.
-- **Pointer system:** `progress.md` has `**Plan:**`, `**Prompts:**`, `**Charter:**` pointing to active files. Readers (`/implement-plan`, `/review`, `/ppr`) follow — never hardcode `docs/plan.md`.
+- **Task reopening:** `/pipeline-review` may set completed back to `todo` with `reopened: review-vN`. `/implement-plan` reads review file for guidance. New micro-tasks created if findings unmapped.
+- **Pointer system:** `progress.md` has `**Plan:**`, `**Prompts:**`, `**Charter:**` pointing to active files. Readers (`/implement-plan`, `/pipeline-review`, `/ppr`) follow — never hardcode `docs/plan.md`.
 - **Charter pointer:** `**Charter:**` field. `/pipeline` Step 0 writes on create or adopt. Downstream reads to locate `docs/charter.md`.
 - **Analysis pointer:** `**Analysis:**` field. `/analyze` updates. `/create-plan` follows instead of hardcoding.
-- **Review pointer:** `**Review:**` field. `/review` updates on save. `/implement-plan` follows for reopened tasks.
+- **Review pointer:** `**Review:**` field. `/pipeline-review` updates on save. `/implement-plan` follows for reopened tasks.
 - **analysis.md:** Follows **Versioning Convention**. Pointer in progress.md tracks current.
 - **prp.md:** User asked before overwriting.
 - **Never stage:** `~/.claude/config/never-stage.txt` — hook `block-stage-sensitive.sh` reads same file.
@@ -111,20 +111,20 @@ Skills reference this convention rather than duplicating logic.
 | `/analyze` | `/create-plan` | `/compact` | Analysis output is the input — keep in context |
 | `/create-plan` | `/new-branch` | (none) | Trivial operation, context still relevant |
 | `/new-branch` | `/implement-plan` | `/clear` | Fresh context for implementation, plan is on disk |
-| `/implement-plan` | `/review` | `/clear` | Fresh context prevents bias toward own code |
-| `/review` (pass) | `/ppr` | `/compact` | Lightweight transition; preserves session continuity |
-| `/review` (findings) | `/implement-plan` | `/clear` | Fresh context for fix implementation |
-| `/review` (scope change) | `/create-plan` | `/clear` | Re-planning needs fresh context |
+| `/implement-plan` | `/pipeline-review` | `/clear` | Fresh context prevents bias toward own code |
+| `/pipeline-review` (pass) | `/ppr` | `/compact` | Lightweight transition; preserves session continuity |
+| `/pipeline-review` (findings) | `/implement-plan` | `/clear` | Fresh context for fix implementation |
+| `/pipeline-review` (scope change) | `/create-plan` | `/clear` | Re-planning needs fresh context |
 | `/create-plan` (re-plan) | `/implement-plan` | `/clear` | Same as initial plan→implement; branch exists, skip `/new-branch` |
 | `/ppr` | `/post-merge` | (none) | Trivial cleanup |
 | `/post-merge` | next task | `/clear` | Full reset for new work |
 | `/pipeline` phase→phase (subagent mode) | any | Agent dispatch | Replaces `/compact` with true context isolation |
 
-**Manual edits between steps:** Commit before `/review`:
+**Manual edits between steps:** Commit before `/pipeline-review`:
 ```bash
 git add <files> && git commit -m "fix: <description>"
 ```
-`/review` analyzes committed only (`git diff $BASE...HEAD`). Uncommitted edits invisible and block `/ppr`.
+`/pipeline-review` analyzes committed only (`git diff $BASE...HEAD`). Uncommitted edits invisible and block `/ppr`.
 
 ## Deferred Items
 
@@ -147,12 +147,12 @@ git add <files> && git commit -m "fix: <description>"
 Review findings follow **Versioning Convention** above.
 - `progress.md` `**Review:**` pointer to current file
 - Review files: each finding, related task, severity (blocking/non-blocking)
-- `/review` saves findings AND reopens tasks in progress.md
+- `/pipeline-review` saves findings AND reopens tasks in progress.md
 - `/implement-plan` reads review file on reopened tasks
 
 ## Base Branch Detection
 
-需基底分支之技能（如 `/review`, `/post-merge`, `/ppr`）均用此標準片段：
+需基底分支之技能（如 `/pipeline-review`, `/post-merge`, `/ppr`）均用此標準片段：
 
 ```bash
 BASE=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
@@ -184,7 +184,7 @@ If this snippet needs updating, change here — all skills reference this sectio
 - `**Last phase agent:**` subagent ID of last dispatched phase — present when via `Agent`. Omitted on inline (Path N).
 - `**Feature class:**` `dev` | `non-dev` — at Step 5.5.0. Drives TDD: `dev` dispatches tdd-test-writer + tdd-implementer pair per task; `non-dev` uses standard implement-plan.
 - `**Charter:**` path to charter (e.g., `docs/charter.md`), or `(none)` on `--no-charter`. From Step 5.1. Step 3 (resume) reads and preserves; valid → Step 0 not re-run.
-- `**Review style:**` `always teams` | `never teams` | `orchestrator decides` — per-feature teams toggle. Priority: (1) `--no-teams` override (`never teams`), (2) Charter Topic 11, (3) default `orchestrator decides`. With `orchestrator decides`, Step 5.6.0 heuristic: `DIFF_LINES > 500 OR DIFF_FILES > 8 OR feature_class = dev → teams-on`. Teams default-on, "never teams" → `Skill: review --no-teams`; else plain `Skill: review`. Sticky per feature.
+- `**Review style:**` `always teams` | `never teams` | `orchestrator decides` — per-feature teams toggle. Priority: (1) `--no-teams` override (`never teams`), (2) Charter Topic 11, (3) default `orchestrator decides`. With `orchestrator decides`, Step 5.6.0 heuristic: `DIFF_LINES > 500 OR DIFF_FILES > 8 OR feature_class = dev → teams-on`. Teams default-on, "never teams" → `Skill: pipeline-review --no-teams`; else plain `Skill: pipeline-review`. Sticky per feature.
 - `**Prior finding count:**` total findings (blocking + non-blocking) from prev cycle — Path B heuristic
 - `**Non-converging cycles:**` consecutive cycles where count didn't decrease — observability only; Path B bounded by 5-cycle hard cap (Path C escalates)
 - `**Conv guard logged:**` 0 or 1 — set 1 first time `CONVERGENCE_GUARD_DISABLED` emitted for feature. Persisted so resumes do not re-emit. Cleared at feature init; not reset by `path_c_replan`.
@@ -214,7 +214,7 @@ If this snippet needs updating, change here — all skills reference this sectio
 - **Disqualifying (logic suggestion):** `Suggestion:` reads "rework error-handling to use new `Result<T,E>` pattern". No mechanical Edit → Path B.
 - **Disqualifying (blocker present):** any blocker short-circuits clause 1 → Path B.
 
-**On resume:** Preserve saved `**Phase Mode:**` from `docs/pipeline-state.md`. Never silently downgrade `subagent` → `inline`. Direct `Skill: implement-plan` or `Skill: review` on `subagent`-mode resume is contract violation — see SKILL.md Step 3 § "Phase Mode preservation contract".
+**On resume:** Preserve saved `**Phase Mode:**` from `docs/pipeline-state.md`. Never silently downgrade `subagent` → `inline`. Direct `Skill: implement-plan` or `Skill: pipeline-review` on `subagent`-mode resume is contract violation — see SKILL.md Step 3 § "Phase Mode preservation contract".
 
 **Legacy state files:** Resumed file recording `**Phase Mode:** inline` (prior heuristic) preserved for in-flight feature only. New features post-legacy-resume dispatch `subagent`. Pipeline logs `LEGACY_PHASE_MODE: inline mode preserved for in-flight feature; new features dispatch via subagent` once per resume.
 
@@ -266,10 +266,12 @@ Example `.mcp.json` for project needing RepoMapper:
 | `/analyze` | context7 (resolve + query), local-rag (query + ingest) | — | — | `user_profile.md`, `feedback_plan_trust.md`, `reference_claude_skills.md`, `reference_tresor.md` | block-stage-sensitive, block-dangerous-commands | — |
 | `/create-plan` | context7 (resolve + query), local-rag (query) | — | — | `feedback_workflow.md`, `feedback_plan_trust.md`, `project_env_cleanup.md` | block-stage-sensitive | — |
 | `/implement-plan` | context7 (API), local-rag (query) | tdd-test-writer, tdd-implementer, worktree agents, docs-writer, trading-bot-developer, data-pipeline-engineer | `/simplify` | `feedback_worktree_commit.md`, `feedback_parallel_sessions.md`, `feedback_hooks_jq.md` | pre-edit-protect, tdd-order-check, post-edit-format, test-logger, block-stage-sensitive, block-dangerous-commands, stop-completion-gate | WorkerProvider (claude default) |
-| `/review` | — | code-reviewer, security-auditor, test-engineer, performance-tuner, spec-tracer | `/code-health` (sibling skill — run directly) | `feedback_review_verification.md`, `feedback_docs_gitignore.md` | strip-ai-attribution, block-stage-sensitive | — |
+| `/pipeline-review` | — | code-reviewer, security-auditor, test-engineer, performance-tuner, spec-tracer | `/code-health` (sibling skill — run directly) | `feedback_review_verification.md`, `feedback_docs_gitignore.md` | strip-ai-attribution, block-stage-sensitive | — |
 | `/ppr` | — | — | — | `feedback_docs_gitignore.md` | strip-ai-attribution, block-push-main | — |
 | `/post-merge` | — | — | — | — | block-dangerous-commands | — |
-| `/pipeline` | (delegates to phase skills) | phase subagents (--phase-mode subagent) | `/implement-plan`, `/review` (inline) | (delegates to phase skills) | (delegates to phase skills) | (delegates to /implement-plan) |
+| `/pipeline` | (delegates to phase skills) | phase subagents (--phase-mode subagent) | `/implement-plan`, `/pipeline-review` (inline) | (delegates to phase skills) | (delegates to phase skills) | (delegates to /implement-plan) |
+
+> Note: the pipeline-phase review skill registers under `/pipeline-review` (renamed from `/review` per F20 `fix/review-skill-namespace-collision` to avoid collision with the harness's built-in GitHub PR-review template). The bare `/review` slug is reserved for direct user-driven PR-review invocation (`/review <PR#>`). See `claude/CLAUDE.md.template` Lean Conventions for the regression target.
 
 ### Memory Feed
 
