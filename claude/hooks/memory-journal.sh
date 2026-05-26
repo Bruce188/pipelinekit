@@ -45,6 +45,8 @@
 #
 # Self-test: bash memory-journal.sh --selftest
 
+# denial_tracker:no — Stop hooks never block per spec; opt-out is contractual
+
 set -uo pipefail
 
 KILL_SWITCH="${PIPELINE_NO_MEMORY_JOURNAL:-0}"
