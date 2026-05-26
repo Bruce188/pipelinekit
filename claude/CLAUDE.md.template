@@ -46,7 +46,15 @@
 
 ## Memory System
 
-記憶存於 agentmemory MCP，為正典讀寫面。舊式平檔於 `~/.claude/projects/<project-slug>/memory/*.md`，保留三十日唯讀備回滾；清理另議。除非設 `PIPELINE_KEEP_FLAT_FILE_MEMORY=1`，勿寫新記憶 markdown 檔。
+### Primary surface — agentmemory MCP
+
+正典讀寫面為 `agentmemory` MCP。安裝後（`bash scripts/install.sh` 已於 `~/.claude.json` 之 `mcpServers.agentmemory` 註冊），所有 `/analyze`, `/create-plan`, `/implement-plan`, `/review` 等技能皆優先呼叫 `mcp__agentmemory__memory_recall` 取得語境，並由保存協議（user/feedback/project/reference 分類）寫入新條目。**這是唯一活躍寫入面。** Skills degrade gracefully when the MCP is offline — they log "agentmemory not configured — skipping memory recall" and proceed.
+
+### Secondary surface — flat-file rollback window
+
+舊式平檔於 `~/.claude/projects/<project-slug>/memory/*.md` 為 **30 日唯讀回滾窗口**，非活躍寫入面。除非設 `PIPELINE_KEEP_FLAT_FILE_MEMORY=1` 啟用 dual-write 開關（詳見下方 § Dual-write opt-in），否則勿再寫入新記憶 markdown 檔。30 日後平檔將由後續功能硬刪；本版保留以利異常情況下手動比對。
+
+判別當前活躍面：執行 `claude mcp list | grep agentmemory` — 若見 `agentmemory: ✓ Connected`，agentmemory 即活躍主面，平檔僅供回滾。若連線失敗或缺失，技能自動降級無記憶上下文（不自動回退寫入平檔）；用戶須執行 `bash scripts/install.sh` 重新註冊。
 
 ### Tool surface
 
@@ -75,7 +83,7 @@ agentmemory computes recency-weighted relevance via Ebbinghaus forgetting curve 
 
 ### Rollback window
 
-三十日內，`~/.claude/projects/<project-slug>/memory/*.md` 可讀作比對基準。平檔硬刪為後續功能，本版不移除任何 markdown 檔。
+三十日內，`~/.claude/projects/<project-slug>/memory/*.md` 可讀作比對基準（**唯讀，非活躍寫入面**）。平檔硬刪為後續功能，本版不移除任何 markdown 檔。新記憶寫入應走 `mcp__agentmemory__memory_save` — 詳見上方 § Primary surface。
 
 ### Dual-write opt-in
 

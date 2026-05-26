@@ -762,8 +762,18 @@ provision_agentmemory_mcp() {
     warn "agentmemory: no VOYAGE_API_KEY / OPENAI_API_KEY in env — falling back to local-onnx-quant. Add VOYAGE_API_KEY to ~/.bashrc for better recall quality."
   fi
 
-  # Step 3: Write MCP entry to ${CLAUDE_HOME}/.mcp.json via python3 heredoc.
-  # Backup existing file first if present (mirrors maybe_install_settings lines 51-55).
+  # Step 3: Write MCP entry to BOTH user-scope (~/.claude.json `mcpServers` block,
+  # the canonical location Claude CLI reads) AND the legacy ${CLAUDE_HOME}/.mcp.json
+  # path (preserved for selftest fixtures + downstream tooling that grepped the
+  # legacy location). Claude CLI ignores ${CLAUDE_HOME}/.mcp.json — only the
+  # user-scope ~/.claude.json `mcpServers` block surfaces in `claude mcp list`.
+  # Previous behaviour wrote ONLY to the legacy phantom path → agentmemory never
+  # connected. See fix/agentmemory-restore-or-demote for the diagnostic that
+  # surfaced this. The legacy write stays in place for backward-compat and is
+  # the surface the existing _selftest_agentmemory_mcp_provisioned sandbox
+  # exercises.
+
+  # 3a — legacy ${CLAUDE_HOME}/.mcp.json write (preserved for selftest + tooling).
   local mcp_target="${CLAUDE_HOME}/.mcp.json"
   if [[ -f "$mcp_target" ]]; then
     local mcp_bak="${mcp_target}.bak-$(date +%s)"
@@ -771,10 +781,21 @@ provision_agentmemory_mcp() {
     log "Backed up existing .mcp.json → $mcp_bak"
   fi
 
-  python3 - "$mcp_target" "$EMBED_PROVIDER" <<'PYEOF'
+  # Compose env block: ALWAYS include EMBED_PROVIDER, FALLBACK, DB_PATH. Include
+  # VOYAGE_API_KEY / OPENAI_API_KEY only when the corresponding shell env var
+  # is set — otherwise Claude CLI warns about missing env vars (it does not
+  # silently drop literal `${...}` placeholders for unset vars) and refuses to
+  # connect the server.
+  local _have_voyage="0" _have_openai="0"
+  [[ -n "${VOYAGE_API_KEY:-}" ]] && _have_voyage="1"
+  [[ -n "${OPENAI_API_KEY:-}" ]] && _have_openai="1"
+
+  python3 - "$mcp_target" "$EMBED_PROVIDER" "$_have_voyage" "$_have_openai" <<'PYEOF'
 import json, os, sys
 
-dst, embed_provider = sys.argv[1], sys.argv[2]
+dst, embed_provider, have_voyage, have_openai = sys.argv[1:5]
+have_voyage = have_voyage == "1"
+have_openai = have_openai == "1"
 
 # Load existing JSON or start fresh.
 if os.path.isfile(dst):
@@ -786,17 +807,21 @@ else:
 if "mcpServers" not in data:
     data["mcpServers"] = {}
 
+env_block = {
+    "AGENTMEMORY_EMBED_PROVIDER": embed_provider,
+    "AGENTMEMORY_EMBED_FALLBACK": "local-onnx-quant",
+    "AGENTMEMORY_DB_PATH": ".agentmemory/agentmemory.db",
+}
+if have_voyage:
+    env_block["VOYAGE_API_KEY"] = "${VOYAGE_API_KEY}"
+if have_openai:
+    env_block["OPENAI_API_KEY"] = "${OPENAI_API_KEY}"
+
 data["mcpServers"]["agentmemory"] = {
     "type": "stdio",
     "command": "npx",
     "args": ["-y", "@agentmemory/agentmemory@0.9.21", "mcp"],
-    "env": {
-        "AGENTMEMORY_EMBED_PROVIDER": embed_provider,
-        "VOYAGE_API_KEY": "${VOYAGE_API_KEY}",
-        "OPENAI_API_KEY": "${OPENAI_API_KEY}",
-        "AGENTMEMORY_EMBED_FALLBACK": "local-onnx-quant",
-        "AGENTMEMORY_DB_PATH": ".agentmemory/agentmemory.db"
-    }
+    "env": env_block,
 }
 
 # Atomic write via temp file + os.replace.
@@ -808,7 +833,84 @@ os.replace(tmp, dst)
 print(f"agentmemory MCP entry written to {dst} (provider={embed_provider})")
 PYEOF
 
-  log "agentmemory MCP entry written (provider=$EMBED_PROVIDER)"
+  log "agentmemory MCP entry written to legacy path $mcp_target (provider=$EMBED_PROVIDER)"
+
+  # 3b — user-scope ~/.claude.json write (the actual location Claude CLI reads).
+  # Skip if HOME unset or if the file isn't a valid JSON object (don't corrupt
+  # an existing settings file). The script is idempotent: re-running merges
+  # rather than replacing, and preserves all unrelated top-level keys.
+  local user_scope_target="${HOME}/.claude.json"
+  if [[ -z "${HOME:-}" ]]; then
+    warn "agentmemory: HOME unset — skipping user-scope ~/.claude.json registration; only legacy $mcp_target written"
+  else
+    if [[ -f "$user_scope_target" ]]; then
+      local user_scope_bak="${user_scope_target}.bak-$(date +%s)"
+      cp -a "$user_scope_target" "$user_scope_bak"
+      log "Backed up existing ~/.claude.json → $user_scope_bak"
+    fi
+    python3 - "$user_scope_target" "$EMBED_PROVIDER" "$_have_voyage" "$_have_openai" <<'PYEOF'
+import json, os, sys
+
+dst, embed_provider, have_voyage, have_openai = sys.argv[1:5]
+have_voyage = have_voyage == "1"
+have_openai = have_openai == "1"
+
+# Load existing JSON or start fresh — ~/.claude.json holds user-wide Claude
+# Code settings (auth metadata, onboarding flags, mcpServers, ...). We touch
+# ONLY the `mcpServers.agentmemory` subkey; every other top-level key is
+# preserved byte-for-byte (modulo JSON-roundtrip whitespace, which Claude CLI
+# also rewrites on its own mutations).
+if os.path.isfile(dst):
+    with open(dst, 'r', encoding='utf-8') as f:
+        try:
+            data = json.load(f)
+        except json.JSONDecodeError as exc:
+            sys.stderr.write(
+                f"[install][warn] {dst} is not valid JSON ({exc}); refusing to overwrite — agentmemory user-scope registration SKIPPED\n"
+            )
+            sys.exit(0)
+else:
+    data = {}
+
+if not isinstance(data, dict):
+    sys.stderr.write(
+        f"[install][warn] {dst} top-level is not a JSON object; refusing to overwrite — agentmemory user-scope registration SKIPPED\n"
+    )
+    sys.exit(0)
+
+mcp_servers = data.setdefault("mcpServers", {})
+if not isinstance(mcp_servers, dict):
+    sys.stderr.write(
+        f"[install][warn] {dst} `mcpServers` is not a JSON object; refusing to overwrite — agentmemory user-scope registration SKIPPED\n"
+    )
+    sys.exit(0)
+
+env_block = {
+    "AGENTMEMORY_EMBED_PROVIDER": embed_provider,
+    "AGENTMEMORY_EMBED_FALLBACK": "local-onnx-quant",
+    "AGENTMEMORY_DB_PATH": ".agentmemory/agentmemory.db",
+}
+if have_voyage:
+    env_block["VOYAGE_API_KEY"] = "${VOYAGE_API_KEY}"
+if have_openai:
+    env_block["OPENAI_API_KEY"] = "${OPENAI_API_KEY}"
+
+mcp_servers["agentmemory"] = {
+    "type": "stdio",
+    "command": "npx",
+    "args": ["-y", "@agentmemory/agentmemory@0.9.21", "mcp"],
+    "env": env_block,
+}
+
+tmp = dst + ".tmp"
+with open(tmp, 'w', encoding='utf-8') as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+os.replace(tmp, dst)
+print(f"agentmemory MCP entry merged into user-scope {dst} (provider={embed_provider})")
+PYEOF
+    log "agentmemory MCP entry merged into user-scope $user_scope_target (provider=$EMBED_PROVIDER)"
+  fi
 
   # Step 4: Doctor smoke — warn-and-continue on failure.
   if command -v npx >/dev/null 2>&1; then

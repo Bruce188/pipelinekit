@@ -11,6 +11,7 @@ allowed-tools:
   - Grep
   - Agent
   - mcp__local-rag
+  - mcp__agentmemory
 context: fork
 effort: high
 paths:
@@ -51,7 +52,15 @@ If `docs/progress.md` doesn't exist:
 
 ### Step 1.2: Auto-Detect RAG
 
-Attempt one `mcp__local-rag__query_documents` call with the first phase's name and its first task's objective. If it succeeds (even with empty results): RAG is available — cache results for phase 1. If it errors or times out: mark unavailable for this run, do not retry.
+**Step 1.2a — agentmemory recall (canonical memory):** Call `mcp__agentmemory__memory_recall` once at the top of the implement run, before any task dispatch. Three passes:
+- Pass A — `category: user` (no tags) → user profile / preferences (e.g., commit cadence, hooks/jq vs python3, worktree-commit habits).
+- Pass B — `tags: [project, <project-slug>]` AND `category: project` → project state, prior environment cleanup notes.
+- Pass C (optional) — `tags: [feedback]` filtered to `name`-derived tags relating to `worktree-commit` / `parallel-sessions` / `hooks-jq` / `plan-trust` so workflow corrections feed forward.
+- If available + results returned: surface relevant entries as context for the implementation run (e.g., honour worktree-commit instructions when dispatching worktree agents). Do not transcribe memory into task code or prompts. Treat as advisory.
+- If available + no results: log `"agentmemory recall returned no results"` and continue.
+- If agentmemory MCP is unavailable (offline / not provisioned): log `"agentmemory not configured — skipping memory recall"` and continue. The implementation run proceeds without canonical memory context.
+
+**Step 1.2b — local-rag probe:** Attempt one `mcp__local-rag__query_documents` call with the first phase's name and its first task's objective. If it succeeds (even with empty results): RAG is available — cache results for phase 1. If it errors or times out: mark unavailable for this run, do not retry.
 
 **Context7 per-task guard:** If the task body imports, calls, or configures an external library/framework, consult `mcp__context7__query-docs` for current API. Skip if no external library is touched this task (internal-only edits, refactors, or config changes do not warrant a context7 call). Library identifiers should reuse those resolved during analysis/plan phases — re-resolution via `mcp__context7__resolve-library-id` only when a new dependency appears mid-implementation.
 
