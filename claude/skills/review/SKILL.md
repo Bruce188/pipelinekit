@@ -1,7 +1,7 @@
 ---
 name: review
-description: Multi-agent parallel review with auto-scaling agent selection. Scales from 2 agents (small diffs) to 6-agent teams (large diffs). Supports --scope, --health, --force, --teams, and --design-pass.
-argument-hint: [--scope <task-id|path>] [--health] [--force] [--teams] [--design-pass]
+description: Multi-agent parallel review with auto-scaling agent selection. Scales from 2 agents (small diffs) to 6-agent teams (large diffs). Teams mode is default-on; pass --no-teams to opt out. Supports --scope, --force, --no-teams.
+argument-hint: [--scope <task-id|path>] [--force] [--no-teams]
 allowed-tools:
   - Bash
   - Read
@@ -55,7 +55,7 @@ Every finding is classified by **severity** and **category**. Agents emit findin
 7. **Observability** — silent error paths, missing logs at boundaries, no metrics on new code paths
 8. **Documentation** — public API not documented, README out of date, ADRs missing for non-obvious choices
 
-### Categories (web/UI review — used when `--design-pass` is on)
+### Categories (web/UI review — used when charter project_type = web)
 
 1. **Visual/UI** — layout breaks, broken images, alignment, dark mode issues
 2. **Functional** — broken links, dead buttons, validation bypass, state-not-persisting
@@ -251,20 +251,19 @@ If no test framework is detected: warn and proceed. Output "Sanity gate: skipped
 
 ---
 
-### Step 2.5: Health Check (--health only)
+### Step 2.5: --health and --design-pass deprecation STOPs
 
-Only if `--health` was passed as an argument:
+If `--health` is present in the arguments, STOP immediately with:
+```
+DEPRECATED: --health removed from /review. Run /code-health directly (it is a sibling skill, not a /review alias).
+```
 
-1. Run `/code-health --quick --scope quality,tests` on the project. If `/code-health` fails or is unavailable, note "Health check: unavailable" in the report and continue.
-2. Capture the health score and top issues
-3. Include in the final report (Step 10) as an additional section:
-   ```
-   Health: [score]/10 ([quality], [tests])
-     [Top 2-3 issues if score < 8.0]
-   ```
-4. Health results are informational — they do not block or create findings
+If `--design-pass` is present in the arguments, STOP immediately with:
+```
+DEPRECATED: --design-pass removed from /review. Web-UI review is now gated by charter project_type (Topic 4 = web); when the charter declares `project_type: web`, /review auto-spawns the design-pass agent without a flag.
+```
 
-If `--health` is not present: skip this step.
+If neither flag is present: skip this step.
 
 ---
 
@@ -360,7 +359,7 @@ After computing the diff, check if escalation to Agent Teams is warranted:
 
 **Cleanup:** After Step 7 completes (success or failure): if `teams_auto_set` is true AND `teams_was_set` was not '1', unset `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`. This ensures the environment is not permanently modified.
 
-Note: This step can set teams_mode=true independently of Step 5.5 (--teams flag). Either source activates teams mode. The 2,000-line size guard warning (Step 4) and the 5,000-line escalation threshold are separate concerns — both can fire on the same diff.
+Note: This step can set teams_mode=true independently of Step 5.5 (default-on; --no-teams opt-out). Either source activates teams mode. The 2,000-line size guard warning (Step 4) and the 5,000-line escalation threshold are separate concerns — both can fire on the same diff.
 
 ---
 
@@ -395,21 +394,23 @@ If clean: proceed to agent review.
 
 ---
 
-### Step 5.5: Agent Teams Detection (--teams only)
+### Step 5.5: Agent Teams Detection (default-on; --no-teams to opt out)
 
 If `teams_mode` is already true (set by Step 4.5 large diff escalation): log "Teams mode already active (large diff escalation)." Skip to Step 6.
 
-If `--teams` argument is present:
+If `--no-teams` argument is present:
+1. Set `teams_mode=false`. Log "Agent Teams disabled via --no-teams."
+2. Skip to Step 6.
+
+Otherwise (default behaviour — teams ON):
 
 1. Save current env var state: `teams_was_set=$CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`
 2. If env var is not set or not "1": auto-export it for this review run:
    - Set `teams_auto_set=true`
-   - Log: "Auto-enabling Agent Teams for --teams flag."
+   - Log: "Auto-enabling Agent Teams (default; pass --no-teams to disable)."
    Note: The `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` env var controls whether Claude Code's Agent tool uses the teams protocol. Setting it via Bash `export` makes it available to subsequent Agent tool calls within the same session. The cleanup section of Step 7 (sub-item 9) reverts this if auto-set.
 3. Set `teams_mode=true`. Log: "Agent Teams mode enabled — agents will communicate during review."
 4. If `review_tier=small`: upgrade `review_tier=medium`. Log: "Upgrading from small to medium tier for teams mode."
-
-If `--teams` is NOT present AND `teams_mode` is not already true: set teams_mode=false. Proceed to Step 6.
 
 ---
 
@@ -432,7 +433,7 @@ If `--teams` is NOT present AND `teams_mode` is not already true: set teams_mode
 
 All selected agents receive the path to $DIFF_FILE (from Step 4) and objective. Launch all selected agents in a single message using the Agent tool (parallel tool calls — up to 6 in medium / large tier). Each agent reads the diff via the Read tool. This avoids duplicating the full diff across agent prompts (~75% token savings).
 
-Note: `teams_mode` can be activated by either `--teams` flag (Step 5.5) or large diff escalation (Step 4.5). Both paths lead to the same team-based review below.
+Note: `teams_mode` is default-on (Step 5.5) and can also be activated by large diff escalation (Step 4.5). Either source — the default OR the escalation — leads to the same team-based review below. `--no-teams` opts out of the default; the 5000-line escalation still overrides the opt-out as a last-resort safety net.
 
 If an agent fails to return structured output or times out, note that agent as "incomplete" and continue collecting results from the remaining agents. Do not block on a single agent failure.
 
@@ -805,11 +806,9 @@ Select the template matching the outcome and substitute placeholder values (`[N 
 
 ---
 
-## Optional: --design-pass (UI / web review)
+## Web/UI review (charter-gated)
 
-When `--design-pass` is present in the arguments, spawn one **additional** review agent in Step 6 (alongside the standard 2/5/5+teams set). This agent rates the diff against seven design dimensions and produces "what would make this a 10" specifications for any dimension scoring below 8.
-
-**When to use:** the diff touches user-facing pages, components, design tokens, layout/spacing, accessibility attributes, or interaction patterns. Skip for pure backend diffs.
+When the project's `docs/charter.md` declares `project_type: web` (Charter Topic 4), Step 6 auto-spawns one additional review agent alongside the standard 2/5/5+teams set. The agent rates the diff against seven design dimensions and produces "what would make this a 10" specifications for any dimension scoring below 8. This replaces the legacy `--design-pass` flag — gating is now charter-driven, not flag-driven.
 
 **Categorisation:** findings from this agent use the web/UI categories from the Issue Taxonomy section above (Visual/UI, Functional, UX, Content, Performance, Console/Errors, Accessibility).
 

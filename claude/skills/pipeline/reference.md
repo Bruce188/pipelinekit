@@ -571,7 +571,7 @@ On Path B entry, the orchestrator emits a `path-b-pre` beacon. The notification 
 
    Branch:
    - **If `Phase Mode = subagent` (default):** Dispatch via the `Agent` tool using the prompt template matching `<!-- PHASE: review -->`. Substitute `FEATURE_NAME`, `BRANCH_NAME`, `REVIEW_PATH` (the Versioning-Convention next-version path), `BUDGET_REMAINING`, `MAX_USD`. Pass `model: opus` (REVIEW.md `review-model:` override applies inside the subagent if present). Capture `<task-notification>`; on `status: completed`, follow the `**Review:**` pointer in `docs/progress.md` to the new review file. Update `**Last phase agent:**`. On `status: failed`: log `Path: B | Review cycles: [N] | Status: FAILED (review subagent error)` and skip to next feature.
-   - **If `Phase Mode = inline` (legacy):** invoke `Skill: review --teams` (if `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) or `Skill: review`.
+   - **If `Phase Mode = inline` (legacy):** invoke `Skill: review` (if `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` — teams default-on takes effect) or `Skill: review --no-teams` (otherwise).
 7. Emit phase transition signal (progress beacon **and** TodoWrite update, tag=`path-b-post`) per the helpers in SKILL.md Step 5.0. Return to Step 5.7 (path determination)
 
 ### Path C — Scope Change (max 1 re-plan)
@@ -598,7 +598,7 @@ On Path C entry, the orchestrator emits a `path-c-pre` beacon. The notification 
    Branch identically to Path B step 6:
    - `subagent` → `Agent` tool with `<!-- PHASE: review -->` template, `model: opus`.
    - `subprocess` → unreachable; re-route as subagent with warning.
-   - `inline` (legacy) → `Skill: review` (with `--teams` if env var set).
+   - `inline` (legacy) → `Skill: review` (teams default-on if env var set; `Skill: review --no-teams` otherwise).
 7. Emit phase transition signal (progress beacon **and** TodoWrite update, tag=`path-c-post`) per the helpers in SKILL.md Step 5.0. Return to Step 5.7 (path determination)
 
 ### Retry — BLOCKED (max 3 retries)
@@ -620,7 +620,7 @@ On Path C entry, the orchestrator emits a `path-c-pre` beacon. The notification 
    Branch identically to Path B step 6:
    - `subagent` → `Agent` tool with `<!-- PHASE: review -->` template, `model: opus`.
    - `subprocess` → unreachable in /pipeline; re-route as subagent with warning.
-   - `inline` (legacy) → `Skill: review` (with `--teams` if env var set).
+   - `inline` (legacy) → `Skill: review` (teams default-on if env var set; `Skill: review --no-teams` otherwise).
 5. Return to Step 5.7
 
 ### Path N — Nit-Only Inline (max 2 cycles)
@@ -975,7 +975,7 @@ Report back with this XML block as the very last content in your response:
 
 <!-- PHASE: review -->
 
-> NOTE: The orchestrator (SKILL.md Step 5.6.0) decides per-feature whether `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` should be set before this template is dispatched. The template body below already conditionally passes `--teams` based on that env var. Do NOT add env-var management inside the template — the orchestrator owns the symmetric `export` / `unset` lifecycle around each `Agent` dispatch (initial Step 5.6 plus Path B / Path C / Retry re-reviews). See SKILL.md Step 5.6.0 for the decision logic and the `teams_was_set` / `teams_orchestrator_set` invariants.
+> NOTE: The orchestrator (SKILL.md Step 5.6.0) decides per-feature whether `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` should be set before this template is dispatched. Teams mode in `/review` is default-on as of the flag-cleanup refactor — the template body below conditionally passes `--no-teams` (opt-out) when the env var is NOT set, and invokes plain `Skill: review` (teams default-on takes effect) when the env var IS set. Do NOT add env-var management inside the template — the orchestrator owns the symmetric `export` / `unset` lifecycle around each `Agent` dispatch (initial Step 5.6 plus Path B / Path C / Retry re-reviews). See SKILL.md Step 5.6.0 for the decision logic and the `teams_was_set` / `teams_orchestrator_set` invariants.
 
 ```
 You are dispatched by the pipeline orchestrator as the REVIEW phase subagent for feature `{{FEATURE_NAME}}` ({{FEATURE_INDEX}}/{{FEATURE_TOTAL}}). Remaining budget: ${{BUDGET_REMAINING}} of ${{MAX_USD}}.
@@ -993,13 +993,13 @@ Your job:
    git branch --show-current
    ```
    If you are NOT on `{{BRANCH_NAME}}`: STOP immediately and emit `status: failed` with reason `wrong branch`.
-2. Invoke the `/review` skill via the Skill tool. If the environment variable `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set, pass `--teams`:
-   ```
-   Skill: review --teams
-   ```
-   Otherwise:
+2. Invoke the `/review` skill via the Skill tool. Teams mode is default-on in `/review` as of the flag-cleanup refactor. If the environment variable `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set (orchestrator decided `dispatch_with_teams=true`), invoke plain (teams default-on takes effect):
    ```
    Skill: review
+   ```
+   Otherwise (orchestrator decided `dispatch_with_teams=false`), opt out via `--no-teams`:
+   ```
+   Skill: review --no-teams
    ```
 3. After `/review` completes, read `docs/progress.md` and follow the `**Review:**` pointer to locate the review file that was just written. Record that path as `{{REVIEW_PATH}}`.
 4. Read the review file and count blocking and non-blocking findings.
