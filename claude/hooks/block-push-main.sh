@@ -14,8 +14,9 @@ echo "$COMMAND" | grep -qE '(^|\s*&&\s*|\s*;\s*|\s*\|\|\s*)git push' || exit 0
 
 # Block pushes targeting main or master (catches all patterns):
 # git push origin main, git push origin HEAD:main, git push origin feature:main,
-# git push --force origin main, git push -u origin main
-if echo "$COMMAND" | grep -qE "(git push\s+(-[a-zA-Z]+\s+)*\S+\s+(main|master)(\s|$))|(:(main|master)(\s|$))"; then
+# git push --force origin main, git push -u origin main, git push --force-with-lease origin main
+# Flag pattern: -{1,2}[a-zA-Z][a-zA-Z-]* (single-dash short, double-dash long, hyphen-internal long)
+if echo "$COMMAND" | grep -qE "(git push\s+(-{1,2}[a-zA-Z][a-zA-Z-]*\s+)*\S+\s+(main|master)(\s|$))|(:(main|master)(\s|$))"; then
   echo "BLOCKED: Direct push to main/master. Use a feature branch." >&2
   exit 2
 fi
