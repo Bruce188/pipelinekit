@@ -72,6 +72,8 @@ Operator checklist (fill in after running `--apply`):
 
 ## Dual-Write Opt-In via PIPELINE_KEEP_FLAT_FILE_MEMORY
 
+<div data-snippet="comparison-tabs"></div>
+
 `PIPELINE_KEEP_FLAT_FILE_MEMORY=1` is a system-prompt-level toggle. When this environment variable is set, Claude emits a flat-file sidecar alongside each `memory_save` invocation. The hook does NOT change — only Claude's session-time behavior changes.
 
 **Sidecar filename convention:** `<category>_<tags-joined-with-underscores>.md`. For example, a `memory_save` call with `category=feedback` and `tags=[feedback, subagent-first]` produces `feedback_feedback_subagent-first.md`.
@@ -81,6 +83,8 @@ Operator checklist (fill in after running `--apply`):
 **When to turn it off.** Immediately after the rollback window closes. Dual-write is not the steady-state — it exists for the A/B verification period only. Running with the toggle indefinitely produces stale flat files that diverge from agentmemory as entries age and are consolidated.
 
 ## Verification Steps
+
+<div data-snippet="terminal-simulator"></div>
 
 The following steps require a live `~/.claude.json` with `mcpServers.agentmemory` (Layer-2 operator probes — deferred from the in-band test suite because they require a live MCP router).
 
