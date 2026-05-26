@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Workflow hygiene — pipelinekit</title>
-<meta name="description" content="Drift modes (rotation, orphan janitor, features pruner, dashboard + decisions renderers) and their opt-out env vars.">
+<title>Workflow Hygiene — pipelinekit</title>
+<meta name="description" content="Three documented drift modes accumulated in docs/ over the pipelinekit lifetime: rotation drift, orphan snapshots, and features.md bloat. As of 2026-05-23 the docs/ tree had grown to ~7 MB across 424 files with docs/progress.md alone at…">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -510,7 +510,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Workflow hygiene</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Workflow Hygiene</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -541,19 +541,14 @@ footer {
 
   <main>
     <header class="page-header">
-      <h1>Workflow hygiene</h1>
-      <p class="description">Drift modes (rotation, orphan janitor, features pruner, dashboard + decisions renderers) and their opt-out env vars.</p>
+      <h1>Workflow Hygiene</h1>
+      <p class="description">Three documented drift modes accumulated in docs/ over the pipelinekit lifetime: rotation drift, orphan snapshots, and features.md bloat. As of 2026-05-23 the docs/ tree had grown to ~7 MB across 424 files with docs/progress.md alone at…</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
 <!-- richness budget: visual-token status pills + comparison-tabs (≥ 1 — default threshold) -->
 
-<p>Three documented drift modes accumulated in <code>docs/</code> over the pipelinekit lifetime:
-rotation drift, orphan snapshots, and <code>features.md</code> bloat. As of 2026-05-23 the
-<code>docs/</code> tree had grown to ~7 MB across 424 files with <code>docs/progress.md</code> alone at
-265 KB / ~66 K tokens per <code>Read</code>. This page documents the hygiene contract that
-keeps the tree small from now on.</p>
 <h2 id="what">WHAT</h2>
 <p>The three drift modes (each fixed independently — see the corresponding skill):</p>
 <div data-snippet-mount="comparison-tabs">
@@ -627,7 +622,12 @@ new plan version is being written, not at <code>/post-merge</code> time.</p>
 (fnmatch globs, default-allow on missing) and intersects each candidate against
 <code>claude/config/never-stage.txt</code> (default-deny). Double-matched paths are NEVER
 deleted. Single-matched paths are removed under <code>PIPELINE_JANITOR_DRY_RUN=0</code>,
-logged under <code>=1</code>.</p>
+logged under <code>=1</code>. The never-stage list covers root <code>.env</code>, env-file variants
+(<code>.env.local</code>, <code>.env.production</code>, <code>.env.development</code>, <code>.env.*</code>), crypto material
+(<code>*.pem</code>, <code>*.key</code>, <code>*.p12</code>, <code>*.pfx</code>, <code>*.cer</code>, <code>*.crt</code>, SSH keypairs <code>id_rsa*</code> /
+<code>id_ed25519*</code> / <code>id_dsa*</code> / <code>id_ecdsa*</code>), and credential directories (<code>.aws/</code>,
+<code>.ssh/</code>, <code>.gnupg/</code>, <code>.kube/config</code>) — coverage asserted by
+<code>claude/hooks/tests/test_never_stage_expanded.sh</code>.</p>
 <p><span class="status-pill status-success">PRUNER</span> &nbsp; reads <code>docs/features.md</code>,
 detects <code>ppr-done — PR #N squashed</code> markers in each <code>##</code> H2 block's Run Log,
 moves matching blocks to <code>docs-source/feature-history.md</code>, and re-renders
