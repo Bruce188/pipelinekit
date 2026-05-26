@@ -107,7 +107,8 @@ PreToolUse / PostToolUse / SessionStart / etc. hooks that enforce contracts at t
 - [#115](https://github.com/Bruce188/pipelinekit/pull/115) — `agent-caveman-gate.sh` PreToolUse Agent gate enforces caveman-subagent contract inheritance on every `Agent` dispatch
 - [#116](https://github.com/Bruce188/pipelinekit/pull/116) — Re-inject caveman contract on `/compact` + auto-compact via `post-compact-context.sh`; clarify SessionStart banner so main-agent narrative observes the same three-zone split
 - [#119](https://github.com/Bruce188/pipelinekit/pull/119) — `subagent-first-nudge.sh` UserPromptSubmit hook makes Subagent-First the **default** mode (no trigger keyword required); per-prompt opt-out via literal phrases (`no subagents`, `do it inline`, `do it yourself`, etc.); kill switch `PIPELINE_NO_SUBAGENT_NUDGE=1`
-- *This PR* — Reimplement removed agentmemory feature as `memory-journal.sh` (Stop hook, append-only JSONL, no LLM call) + user-invoked `/digest-memories` skill (in-session synthesis, no `claude -p` spawn). Replaces #117's stop-self-reflect; cost is bounded and user-controlled
+- [#120](https://github.com/Bruce188/pipelinekit/pull/120) — Reimplement removed agentmemory feature as `memory-journal.sh` (Stop hook, append-only JSONL, no LLM call) + user-invoked `/digest-memories` skill (in-session synthesis, no `claude -p` spawn). Replaces #117's stop-self-reflect; cost is bounded and user-controlled
+- [#133](https://github.com/Bruce188/pipelinekit/pull/133) — `/caveman-compress <file>` sub-command — Tier 1 in-place compression (`CLAUDE.md*`, `rules/*.md`) via deterministic shell allowlist gate + three-zone byte-preserving rewrite. Applied to 4 Tier 1 source files: total -3084 bytes (64205 → 61121).
 
 ## MCP integrations
 
@@ -137,7 +138,7 @@ Pluggable worker layer so /pipeline can dispatch to alternate Claude SDKs or ext
 - [#110](https://github.com/Bruce188/pipelinekit/pull/110) — un-wire `cost_log.py` from `PostToolUse` (it's a CLI, not a hook — was emitting argparse usage errors on every tool call) + scrub three hardcoded `/home/bruce/pipelinekit/` paths from `task-spec.md`
 - [#111](https://github.com/Bruce188/pipelinekit/pull/111) — README hook inventory: drop `cost_log` (not a hook); 24 → 23
 - [#112](https://github.com/Bruce188/pipelinekit/pull/112) — break `stop-self-reflect` recursion via `PIPELINE_NO_SELF_REFLECT=1` env-var guard on the `claude -p` spawn (memory-thrash root cause)
-- *This PR* — add `context-budget-advisor.py` UserPromptSubmit hook: emits a `/compact` advisory once session context passes 200K tokens (configurable via `PIPELINE_COMPACT_THRESHOLD_TOKENS`); re-warns every +20K, resets after a 50K drop. Independent of model window size — even 1M-context models benefit from a reset around 200K because attention quality and per-call cost both degrade as context grows.
+- [#113](https://github.com/Bruce188/pipelinekit/pull/113) — add `context-budget-advisor.py` UserPromptSubmit hook: emits a `/compact` advisory once session context passes 200K tokens (configurable via `PIPELINE_COMPACT_THRESHOLD_TOKENS`); re-warns every +20K, resets after a 50K drop. Independent of model window size — even 1M-context models benefit from a reset around 200K because attention quality and per-call cost both degrade as context grows.
 
 ## Skill removals (breaking)
 
@@ -145,7 +146,7 @@ Pluggable worker layer so /pipeline can dispatch to alternate Claude SDKs or ext
 - [#68](https://github.com/Bruce188/pipelinekit/pull/68) — Remove deprecated `/interview-prp` skill entirely (second half of 2-release deprecation)
 - [#81](https://github.com/Bruce188/pipelinekit/pull/81) — Remove `openhuman` skill and vendored `agentmemory` retrieval layer (8 orphan agents audited and dropped; installer references scrubbed)
 - [#117](https://github.com/Bruce188/pipelinekit/pull/117) — Remove `stop-self-reflect` Stop hook entirely. Empirical evidence: 28 artifacts written across two projects in ~24h, 100% `{"proposals":[]}` (zero useful CLAUDE.md amendments produced) while burning ~28 min of `claude -p` Opus time + MCP load per session. Hook plus its cost-event integration (originally added in #103), recursion guard (#112), tests, charter Topic 14 ("Self-reflection"), and standalone documentation page all dropped. Charter discovery loses Topic 14; Topic 15 (Codebase Map confirmation) renumbers to Topic 14.
-- *This PR* — Remove `annotate-plan` skill (slash command `/annotate-plan`). Inserted in the manual workflow between `/create-plan` and `/implement-plan`; dead-by-disuse for the `/pipeline`-driven flow that drives all production use. Empirical: zero invocations across all session transcripts. Removes the skill dir, the catalog entry, and the slash-command cheatsheet row. The manual workflow stays valid — users can still hand-edit plan files between phases — just without an `/annotate-plan` orchestration helper.
+- [#118](https://github.com/Bruce188/pipelinekit/pull/118) — Remove `annotate-plan` skill (slash command `/annotate-plan`). Inserted in the manual workflow between `/create-plan` and `/implement-plan`; dead-by-disuse for the `/pipeline`-driven flow that drives all production use. Empirical: zero invocations across all session transcripts. Removes the skill dir, the catalog entry, and the slash-command cheatsheet row. The manual workflow stays valid — users can still hand-edit plan files between phases — just without an `/annotate-plan` orchestration helper.
 
 ## Documentation system
 
@@ -155,7 +156,7 @@ The system that produces this very page.
 - [#43](https://github.com/Bruce188/pipelinekit/pull/43) — docs-vs-documentation format split (markdown for LLMs, HTML for humans)
 - [#67](https://github.com/Bruce188/pipelinekit/pull/67) — Native surface docs + bundled NB cleanup
 - [#72](https://github.com/Bruce188/pipelinekit/pull/72) — Docs refresh post-PR44-to-PR71 (cloud providers, /ppr --research, skill/agent counts)
-- *This PR* — docs-writer/2 rich-template + interactive HTML throughout `documentation/`
+- [#73](https://github.com/Bruce188/pipelinekit/pull/73) — docs-writer/2 rich-template + interactive HTML throughout `documentation/`
 
 ## Counts at end of v0.0.1
 

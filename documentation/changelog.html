@@ -938,7 +938,8 @@ footer {
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/115">#115</a> — <code>agent-caveman-gate.sh</code> PreToolUse Agent gate enforces caveman-subagent contract inheritance on every <code>Agent</code> dispatch</li>
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/116">#116</a> — Re-inject caveman contract on <code>/compact</code> + auto-compact via <code>post-compact-context.sh</code>; clarify SessionStart banner so main-agent narrative observes the same three-zone split</li>
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/119">#119</a> — <code>subagent-first-nudge.sh</code> UserPromptSubmit hook makes Subagent-First the <strong>default</strong> mode (no trigger keyword required); per-prompt opt-out via literal phrases (<code>no subagents</code>, <code>do it inline</code>, <code>do it yourself</code>, etc.); kill switch <code>PIPELINE_NO_SUBAGENT_NUDGE=1</code></li>
-<li><em>This PR</em> — Reimplement removed agentmemory feature as <code>memory-journal.sh</code> (Stop hook, append-only JSONL, no LLM call) + user-invoked <code>/digest-memories</code> skill (in-session synthesis, no <code>claude -p</code> spawn). Replaces #117's stop-self-reflect; cost is bounded and user-controlled</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/120">#120</a> — Reimplement removed agentmemory feature as <code>memory-journal.sh</code> (Stop hook, append-only JSONL, no LLM call) + user-invoked <code>/digest-memories</code> skill (in-session synthesis, no <code>claude -p</code> spawn). Replaces #117's stop-self-reflect; cost is bounded and user-controlled</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/133">#133</a> — <code>/caveman-compress &lt;file&gt;</code> sub-command — Tier 1 in-place compression (<code>CLAUDE.md*</code>, <code>rules/*.md</code>) via deterministic shell allowlist gate + three-zone byte-preserving rewrite. Applied to 4 Tier 1 source files: total -3084 bytes (64205 → 61121).</li>
 </ul>
 <h2 id="mcp-integrations">MCP integrations</h2>
 <p>Model Context Protocol servers shipped or wired.</p>
@@ -965,7 +966,7 @@ footer {
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/110">#110</a> — un-wire <code>cost_log.py</code> from <code>PostToolUse</code> (it's a CLI, not a hook — was emitting argparse usage errors on every tool call) + scrub three hardcoded <code>/home/bruce/pipelinekit/</code> paths from <code>task-spec.md</code></li>
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/111">#111</a> — README hook inventory: drop <code>cost_log</code> (not a hook); 24 → 23</li>
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/112">#112</a> — break <code>stop-self-reflect</code> recursion via <code>PIPELINE_NO_SELF_REFLECT=1</code> env-var guard on the <code>claude -p</code> spawn (memory-thrash root cause)</li>
-<li><em>This PR</em> — add <code>context-budget-advisor.py</code> UserPromptSubmit hook: emits a <code>/compact</code> advisory once session context passes 200K tokens (configurable via <code>PIPELINE_COMPACT_THRESHOLD_TOKENS</code>); re-warns every +20K, resets after a 50K drop. Independent of model window size — even 1M-context models benefit from a reset around 200K because attention quality and per-call cost both degrade as context grows.</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/113">#113</a> — add <code>context-budget-advisor.py</code> UserPromptSubmit hook: emits a <code>/compact</code> advisory once session context passes 200K tokens (configurable via <code>PIPELINE_COMPACT_THRESHOLD_TOKENS</code>); re-warns every +20K, resets after a 50K drop. Independent of model window size — even 1M-context models benefit from a reset around 200K because attention quality and per-call cost both degrade as context grows.</li>
 </ul>
 <h2 id="skill-removals-breaking">Skill removals (breaking)</h2>
 <ul>
@@ -973,7 +974,7 @@ footer {
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/68">#68</a> — Remove deprecated <code>/interview-prp</code> skill entirely (second half of 2-release deprecation)</li>
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/81">#81</a> — Remove <code>openhuman</code> skill and vendored <code>agentmemory</code> retrieval layer (8 orphan agents audited and dropped; installer references scrubbed)</li>
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/117">#117</a> — Remove <code>stop-self-reflect</code> Stop hook entirely. Empirical evidence: 28 artifacts written across two projects in ~24h, 100% <code>{"proposals":[]}</code> (zero useful CLAUDE.md amendments produced) while burning ~28 min of <code>claude -p</code> Opus time + MCP load per session. Hook plus its cost-event integration (originally added in #103), recursion guard (#112), tests, charter Topic 14 ("Self-reflection"), and standalone documentation page all dropped. Charter discovery loses Topic 14; Topic 15 (Codebase Map confirmation) renumbers to Topic 14.</li>
-<li><em>This PR</em> — Remove <code>annotate-plan</code> skill (slash command <code>/annotate-plan</code>). Inserted in the manual workflow between <code>/create-plan</code> and <code>/implement-plan</code>; dead-by-disuse for the <code>/pipeline</code>-driven flow that drives all production use. Empirical: zero invocations across all session transcripts. Removes the skill dir, the catalog entry, and the slash-command cheatsheet row. The manual workflow stays valid — users can still hand-edit plan files between phases — just without an <code>/annotate-plan</code> orchestration helper.</li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/118">#118</a> — Remove <code>annotate-plan</code> skill (slash command <code>/annotate-plan</code>). Inserted in the manual workflow between <code>/create-plan</code> and <code>/implement-plan</code>; dead-by-disuse for the <code>/pipeline</code>-driven flow that drives all production use. Empirical: zero invocations across all session transcripts. Removes the skill dir, the catalog entry, and the slash-command cheatsheet row. The manual workflow stays valid — users can still hand-edit plan files between phases — just without an <code>/annotate-plan</code> orchestration helper.</li>
 </ul>
 <h2 id="documentation-system">Documentation system</h2>
 <p>The system that produces this very page.</p>
@@ -982,7 +983,7 @@ footer {
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/43">#43</a> — docs-vs-documentation format split (markdown for LLMs, HTML for humans)</li>
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/67">#67</a> — Native surface docs + bundled NB cleanup</li>
 <li><a href="https://github.com/Bruce188/pipelinekit/pull/72">#72</a> — Docs refresh post-PR44-to-PR71 (cloud providers, /ppr --research, skill/agent counts)</li>
-<li><em>This PR</em> — docs-writer/2 rich-template + interactive HTML throughout <code>documentation/</code></li>
+<li><a href="https://github.com/Bruce188/pipelinekit/pull/73">#73</a> — docs-writer/2 rich-template + interactive HTML throughout <code>documentation/</code></li>
 </ul>
 <h2 id="counts-at-end-of-v0-0-1">Counts at end of v0.0.1</h2>
 <ul>
