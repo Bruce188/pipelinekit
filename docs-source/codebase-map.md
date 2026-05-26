@@ -46,6 +46,10 @@ The pipelinekit repository top-level layout — one line per directory, one line
 - `docs/` — workflow metadata: analyses, plans, prompts, reviews, progress, pipeline state. Pattern: `docs/<type>-v<N>.md`. Pipeline-managed; NEVER committed. Enforced by `claude/hooks/block-stage-sensitive.sh` reading `claude/config/never-stage.txt`.
 - `documentation/` — application documentation: reader-facing HTML pages. Committed. Source lives in `docs-source/*.md`; HTML is rendered via `python3 claude/skills/docs-writer/render.py <input.md> <output.html>`.
 
+## Default MCP stack
+
+pipelinekit ships four memory + graph tools enabled by default after `scripts/install.sh` provisioning: **agentmemory** (canonical memory store via MCP), **Understand-Anything** (interactive UI plugin), **codegraph** (symbolic code graph via MCP), **graphify** (knowledge graph via MCP). All four are configured per project via `/codegraph-init` and `/graphify-init` slash commands (agentmemory + Understand-Anything need no per-project setup). Cumulative RSS ceiling is governed by the F6 `claude/hooks/mcp-rss-cap.sh` cap (default `PIPELINE_MAX_MCP_RSS_MB=800`); F7's `claude/hooks/tests/test_wsl2_multi_daemon_ram_budget.sh` enforces the same in CI. See [memory-graph-stack.html](memory-graph-stack.html) for the full integration shape, RAM budget, embedding-provider matrix, and troubleshooting flow.
+
 ## Where New Work Lands
 
 See root [CLAUDE.md § Working Surface](../CLAUDE.md#working-surface) for the canonical edit-surface list.

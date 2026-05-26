@@ -26,6 +26,8 @@
 - **Web research** (current events, non-cached docs): WebSearch → WebFetch
 - **Symbolic code graph** (function-call traversal, identifier lookup): `codegraph` MCP if configured (pre-flight 50k-file gate via `/codegraph-init`)
 - **Knowledge graph** (entity/relationship extraction from project artifacts): `graphify` MCP if configured (pre-flight 50k-file gate via `/graphify-init`)
+- **Canonical memory store** (read/write project memories via MCP tools): `agentmemory` MCP — see § Memory System for the tool surface and Ebbinghaus curve detail.
+- **Interactive UI / annotation surface** (visual front-end for tool / memory inspection): `Understand-Anything` plugin (NOT an MCP server — installed via the harness plugin marketplace at `scripts/install.sh` provisioning time; see [memory-graph-stack.html](memory-graph-stack.html) for the four-tool stack overview).
 
 ## Memory System
 

@@ -534,6 +534,7 @@ footer {
       <li class="lvl-2"><a href="#top-level-directories">Top-Level Directories</a></li>
       <li class="lvl-2"><a href="#root-files">Root Files</a></li>
       <li class="lvl-2"><a href="#workflow-vs-application-documentation">Workflow vs Application Documentation</a></li>
+      <li class="lvl-2"><a href="#default-mcp-stack">Default MCP stack</a></li>
       <li class="lvl-2"><a href="#where-new-work-lands">Where New Work Lands</a></li>
       <li class="lvl-2"><a href="#skills-agents-hooks-quick-pointers">Skills, Agents, Hooks — quick pointers</a></li>
     </ul>
@@ -713,6 +714,8 @@ footer {
 <li><code>docs/</code> — workflow metadata: analyses, plans, prompts, reviews, progress, pipeline state. Pattern: <code>docs/&lt;type&gt;-v&lt;N&gt;.md</code>. Pipeline-managed; NEVER committed. Enforced by <code>claude/hooks/block-stage-sensitive.sh</code> reading <code>claude/config/never-stage.txt</code>.</li>
 <li><code>documentation/</code> — application documentation: reader-facing HTML pages. Committed. Source lives in <code>docs-source/*.md</code>; HTML is rendered via <code>python3 claude/skills/docs-writer/render.py &lt;input.md&gt; &lt;output.html&gt;</code>.</li>
 </ul>
+<h2 id="default-mcp-stack">Default MCP stack</h2>
+<p>pipelinekit ships four memory + graph tools enabled by default after <code>scripts/install.sh</code> provisioning: <strong>agentmemory</strong> (canonical memory store via MCP), <strong>Understand-Anything</strong> (interactive UI plugin), <strong>codegraph</strong> (symbolic code graph via MCP), <strong>graphify</strong> (knowledge graph via MCP). All four are configured per project via <code>/codegraph-init</code> and <code>/graphify-init</code> slash commands (agentmemory + Understand-Anything need no per-project setup). Cumulative RSS ceiling is governed by the F6 <code>claude/hooks/mcp-rss-cap.sh</code> cap (default <code>PIPELINE_MAX_MCP_RSS_MB=800</code>); F7's <code>claude/hooks/tests/test_wsl2_multi_daemon_ram_budget.sh</code> enforces the same in CI. See <a href="memory-graph-stack.html">memory-graph-stack.html</a> for the full integration shape, RAM budget, embedding-provider matrix, and troubleshooting flow.</p>
 <h2 id="where-new-work-lands">Where New Work Lands</h2>
 <p>See root <a href="../CLAUDE.md#working-surface">CLAUDE.md § Working Surface</a> for the canonical edit-surface list.</p>
 <h2 id="skills-agents-hooks-quick-pointers">Skills, Agents, Hooks — quick pointers</h2>
