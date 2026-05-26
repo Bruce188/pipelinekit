@@ -1,7 +1,7 @@
 ---
 name: pipeline
 description: Autonomous pipeline orchestrator. Processes a feature list through the full workflow (analyze → plan → implement → review → merge) with zero human intervention. Supports --dry-run and --restart-from.
-argument-hint: ([feature-file]|[--renew [--auto]]|[--adopt]|[--from "<text>"]|[--plan [<path>]]) [--restart-from analyze|plan|implement|review] [--dry-run] [--no-charter|--charter <path>|--max-questions <N>]
+argument-hint: ([feature-file]|[--renew [--no-prompts]]|[--adopt]|[--from "<text>"]|[--plan [<path>]]|[--issues <selector>]) [--restart-from analyze|plan|implement|review] [--dry-run] [--no-charter|--charter <path>|--max-questions <N>] [--no-prompts] [--no-teams] [--no-review] [--no-ppr] [--no-docs] [--no-tdd] [--no-notifications]
 allowed-tools:
   - Read
   - Write
@@ -85,7 +85,7 @@ Charter Discovery is the default-on front-loaded alignment phase. It produces `d
       - **"go deeper / follow-up"** → ask the topic's follow-up question (if any), then advance.
       - **"edit manually"** → write current draft to `docs/charter.md` (status: `draft`), print path, **STOP** pipeline. User resumes via `/pipeline --charter docs/charter.md` when ready.
 
-**Auto-detect short-circuit (Topic 10 only):** Before asking Topic 10 (Deployment target), check `docs/active-deployment`. If present, treat its value as the answer and skip the topic. If absent, probe the working tree for `vercel.json`, `railway.toml`, `render.yaml`, `.do/app.yaml`. If exactly one is found, pre-fill the Topic 10 answer with the matching provider slug and ask the user only for confirmation (single `AskUserQuestion` — exempt from the `--max-questions` topic-cap). If multiple config files coexist, log `DEPLOY_TARGET_AUTO_DETECT_CONFLICT: <files>` and fall through to a full Topic 10 prompt. If none found, ask the full Topic 10 prompt as normal. **Monorepo sub-dir probe (only when the root probe above returned zero matches):** additionally probe `apps/`, `packages/`, `services/` up to 2 levels deep (i.e. `apps/<x>/vercel.json` and `apps/<x>/<y>/vercel.json` are in-scope; `node_modules/**` and other roots are NOT) for the same four provider config files (`vercel.json`, `railway.toml`, `render.yaml`, `.do/app.yaml`). If exactly one sub-dir config is found, pre-fill the Topic 10 answer with its provider slug and ask for confirmation (single `AskUserQuestion` — exempt from `--max-questions`). If multiple sub-dir configs are found, log `DEPLOY_TARGET_MONOREPO_MULTI_CONFIG: <files>` and fall through to `AskUserQuestion` listing the candidate paths (interactive sessions); in `--auto` mode, auto-pick the first alphabetical match and log `MONOREPO_AUTO_FIRST_MATCH: <file>` instead of prompting. If no sub-dir config is found either, ask the full Topic 10 prompt as normal.
+**Auto-detect short-circuit (Topic 10 only):** Before asking Topic 10 (Deployment target), check `docs/active-deployment`. If present, treat its value as the answer and skip the topic. If absent, probe the working tree for `vercel.json`, `railway.toml`, `render.yaml`, `.do/app.yaml`. If exactly one is found, pre-fill the Topic 10 answer with the matching provider slug and ask the user only for confirmation (single `AskUserQuestion` — exempt from the `--max-questions` topic-cap). If multiple config files coexist, log `DEPLOY_TARGET_AUTO_DETECT_CONFLICT: <files>` and fall through to a full Topic 10 prompt. If none found, ask the full Topic 10 prompt as normal. **Monorepo sub-dir probe (only when the root probe above returned zero matches):** additionally probe `apps/`, `packages/`, `services/` up to 2 levels deep (i.e. `apps/<x>/vercel.json` and `apps/<x>/<y>/vercel.json` are in-scope; `node_modules/**` and other roots are NOT) for the same four provider config files (`vercel.json`, `railway.toml`, `render.yaml`, `.do/app.yaml`). If exactly one sub-dir config is found, pre-fill the Topic 10 answer with its provider slug and ask for confirmation (single `AskUserQuestion` — exempt from `--max-questions`). If multiple sub-dir configs are found, log `DEPLOY_TARGET_MONOREPO_MULTI_CONFIG: <files>` and fall through to `AskUserQuestion` listing the candidate paths (interactive sessions); when `$NO_PROMPTS=true` (set by `--no-prompts` or the deprecation alias `--auto`), auto-pick the first alphabetical match and log `MONOREPO_AUTO_FIRST_MATCH: <file>` instead of prompting. If no sub-dir config is found either, ask the full Topic 10 prompt as normal.
 
 4. After the final topic, run a final convergence check. If user is satisfied, write `docs/charter.md` (status: `ratified`), set `**Charter:**` pointer in `progress.md`.
 
@@ -110,7 +110,13 @@ Parse `$ARGUMENTS`:
 - `--dry-run` flag = preview mode
 - `--restart-from <step>` = resume from a specific step. Valid: `analyze`, `plan`, `implement`, `review`
 - `--renew` flag = regenerate feature file from failed/deferred items
-- `--auto` = autonomous-bypass modifier. **First use-site:** when paired with `--renew`, every `AskUserQuestion` invocation inside the Step 1.6 charter re-validation pass (reference.md sub-step 6.5) is skipped; the resolved drift set is recorded as an HTML-comment header block in `docs/features-renewed.md`. **Second use-site:** inside Step 0 Topic 10 (Deployment target) auto-detect, when the monorepo sub-dir probe returns multiple matches, `--auto` causes the orchestrator to auto-pick the first alphabetical match and log `MONOREPO_AUTO_FIRST_MATCH: <file>` instead of invoking `AskUserQuestion`. Outside these two use-sites, `--auto` is ignored.
+- `--no-prompts` = session-wide autonomy modifier. Skip every `AskUserQuestion` invocation for the remainder of this pipeline run. Affects Step 0 (Charter Discovery topic loop, Stakeholders probe, Topic 10 deployment auto-detect / monorepo conflict probe), Step 0 auto-extract `accept/edit/start fresh discovery`, and Step 1.6 sub-step 6.5 charter re-validation drift. Each prompt site falls back to its safe default (skip the topic; take first-detected provider; auto-accept the auto-extracted draft; auto-accept drift entries into an HTML-comment header in `docs/features-renewed.md`). Set `NO_PROMPTS=true` for the rest of the run.
+- `--auto` (DEPRECATED) = legacy alias for `--no-prompts`. On use, log to stderr: `DEPRECATED: --auto is now --no-prompts (scoped semantics extended to all prompts)`, then proceed as if `--no-prompts` were passed. Slated for removal one release after this change.
+- `--no-review` = skip the review phase for every feature in this run. Step 5.6 synthesises a Path A (passed) outcome — writes a one-line skip notice review file, updates the `**Review:**` pointer in `docs/progress.md`, emits `phase-done`, and advances to Step 5.7 which routes to Path A. Use when you want implement → push → PR without multi-agent review.
+- `--no-ppr` = skip `/ppr` for every feature. Halts each feature after review with `Status: COMPLETED (--no-ppr halt; no push/PR/merge)`. Skips docs and post-merge entirely. Useful for dry-running implement+review without touching origin.
+- `--no-docs` = skip the Documentation Update Phase. Aliases `PIPELINE_SKIP_DOCS=1` at parse time (both honoured; either is sufficient).
+- `--no-tdd` = force `FEATURE_CLASS = non-dev` for every feature in this run. Bypasses the Step 5.5.0 prefix-derived classification — every feature dispatches via the standard `implement-plan` path with no TDD pairing.
+- `--no-notifications` = disable notification emission for the run. Aliases `PIPELINE_NO_NOTIFICATIONS=1` at parse time (both honoured; either is sufficient). The orchestrator exports `PIPELINE_NO_NOTIFICATIONS=1` for the rest of the session.
 - `--adopt` flag = adopt current manual workflow state into pipeline
 - `--max-usd <N>` = hard cap on cumulative USD across the entire run. Default: **unlimited** (flag omitted disables the budget check).
 - `--max-turns <N>` = hard cap on accumulated sub-agent turns. Default: **unlimited**. When set, counts Agent tool invocations.
@@ -123,9 +129,12 @@ Parse `$ARGUMENTS`:
 - `--no-charter` = skip Step 0 Charter Discovery entirely; restores legacy autonomous flow.
 - `--charter <path>` = adopt an existing charter file at `<path>`. Skips Step 0 discovery loop; sets the `**Charter:**` pointer in `progress.md`. STOP if the path does not exist: "ERROR: --charter path not found: <path>"
 - `--max-questions <N>` = cap the total number of `AskUserQuestion` invocations in Step 0 at `N`. Default: unbounded. `--max-questions 0` is an alias for `--no-charter` (no discovery at all).
-- `--teams` = force-enable Agent Teams for this run. Resolves `PIPELINE_TEAMS_OVERRIDE=always`. Persists into `**Review style:** always teams` for every feature in the run (overrides Charter Topic 11 and the heuristic). Mutually exclusive with `--no-teams`.
-- `--no-teams` = force-disable Agent Teams for this run. Resolves `PIPELINE_TEAMS_OVERRIDE=never`. Persists into `**Review style:** never teams` for every feature in the run (overrides Charter Topic 11 and the heuristic). Mutually exclusive with `--teams`.
-Validate mutual exclusivity: if `--from` and `--adopt` are both present, STOP with "ERROR: --from and --adopt are mutually exclusive." If `--from` and `--renew` are both present, STOP with "ERROR: --from and --renew are mutually exclusive." If `--plan` is combined with `--from`, `--adopt`, `--renew`, or a positional feature file, STOP with `ERROR: --plan is mutually exclusive with --from/--adopt/--renew/positional path`. If `--issues` is combined with `--from`, `--adopt`, `--renew`, `--plan`, or a positional feature file, STOP with `ERROR: --issues is mutually exclusive with --plan/--adopt/--renew/--from/positional path`. If `--no-charter` and `--charter <path>` are both present, STOP with "ERROR: --no-charter and --charter are mutually exclusive." If `--teams` and `--no-teams` are both present, STOP with "ERROR: --teams and --no-teams are mutually exclusive."
+- `--no-teams` = force-disable Agent Teams for this run. Resolves `PIPELINE_TEAMS_OVERRIDE=never`. Persists into `**Review style:** never teams` for every feature in the run (overrides Charter Topic 11 and the heuristic). The orchestrator dispatches `Skill: review --no-teams` at every review boundary. Teams mode is otherwise default-on (decided per-feature by the Step 5.6.0 heuristic).
+
+**Removed (deprecated) flags — STOP on use:**
+- `--teams` (pipeline-level): REMOVED. The orchestrator's per-feature Step 5.6.0 heuristic + the persisted `**Review style:**` (Charter Topic 11) already cover the "force teams on" surface. STOP with `DEPRECATED: --teams (pipeline) removed. Teams mode is default-on per-feature; pass --no-teams to opt out for this run.`
+
+Validate mutual exclusivity: if `--from` and `--adopt` are both present, STOP with "ERROR: --from and --adopt are mutually exclusive." If `--from` and `--renew` are both present, STOP with "ERROR: --from and --renew are mutually exclusive." If `--plan` is combined with `--from`, `--adopt`, `--renew`, or a positional feature file, STOP with `ERROR: --plan is mutually exclusive with --from/--adopt/--renew/positional path`. If `--issues` is combined with `--from`, `--adopt`, `--renew`, `--plan`, or a positional feature file, STOP with `ERROR: --issues is mutually exclusive with --plan/--adopt/--renew/--from/positional path`. If `--no-charter` and `--charter <path>` are both present, STOP with "ERROR: --no-charter and --charter are mutually exclusive."
 
 Determine feature file source (in priority order):
 1. If `--adopt` is present → go to Step 1.7 (Adopt Manual Workflow). `--adopt` is mutually exclusive with providing a feature file path, `--renew`, and `--from`.
@@ -141,9 +150,16 @@ Validate `--restart-from` if present: must be one of `analyze`, `plan`, `impleme
 Record `--max-usd` and `--max-turns` in `docs/pipeline-state.md` as `**Max USD:**` and `**Max turns:**` fields so the budget check at every phase boundary can read them. Write `unlimited` when the flag was not provided — the budget-check step treats `unlimited` as a no-op.
 
 Record the teams override in a local variable for use by Step 5.1:
-- If `--teams` is present: `PIPELINE_TEAMS_OVERRIDE=always`.
 - If `--no-teams` is present: `PIPELINE_TEAMS_OVERRIDE=never`.
 - Otherwise: `PIPELINE_TEAMS_OVERRIDE=decide`.
+
+**`--no-prompts` / `--auto` short-circuit (applies to every `AskUserQuestion` call site in Step 0, Step 1.6, and elsewhere):** If `--no-prompts` was passed (or its deprecation alias `--auto`), set `$NO_PROMPTS=true`. Every `AskUserQuestion` invocation downstream is wrapped in `if [ "${NO_PROMPTS:-}" != "true" ]; then ... else <safe-default> fi`. Safe defaults per call site: Topic loop → skip the topic; Stakeholders multi-party probe → skip; Topic 10 deployment monorepo conflict → first-alphabetical match (legacy `--auto` carve-out behaviour); auto-extract `accept / edit / start fresh discovery` → `accept`; Step 1.6 sub-step 6.5 drift entries → auto-accept (recorded as HTML-comment header in `docs/features-renewed.md`, mirroring legacy `--renew --auto`).
+
+**`--no-notifications` / `PIPELINE_NO_NOTIFICATIONS=1` export:** If `--no-notifications` is present at parse, export `PIPELINE_NO_NOTIFICATIONS=1` so the existing `claude/hooks/notify-emit.sh` short-circuit (line 20 of that script) fires for the rest of the session. The env var continues to work standalone (set before launching `/pipeline`); either is sufficient.
+
+**`--no-docs` / `PIPELINE_SKIP_DOCS=1` export:** If `--no-docs` is present at parse, export `PIPELINE_SKIP_DOCS=1` so the existing Documentation Update Phase escape hatch fires.
+
+**`--no-review` / `--no-ppr` / `--no-tdd` recording:** These flags are not env vars — record them as local variables (`NO_REVIEW`, `NO_PPR`, `NO_TDD`) for the orchestrator to check at Step 5.5.0 (no-tdd), Step 5.6 (no-review), and Step 5.8 Path A entry (no-ppr).
 
 The orchestrator exports `PIPELINE_FEATURE_INDEX="<N>/<M>"` (NB1 `N/M` shape from `docs/pipeline-state.md` `**Feature:**` line; set at Step 5.1) and `PIPELINE_FEATURE_NAME="<feature-name>"` so the notification payload's `feature_index` / `feature_name` fields are populated without re-parsing pipeline state.
 
@@ -325,7 +341,7 @@ Triggered when no feature file path is provided.
 
 ### Step 1.6: Renew Feature File
 
-Triggered when `--renew` is present. Full flow defined in `reference.md` § "Step 1.6: Renew Feature File (--renew)". After renewal, proceed to Step 2 with `docs/features-renewed.md`. Includes a charter re-validation pass (see reference.md § Step 1.6 sub-step 6.5) when `**Charter:**` is not `(none)`. Emits a drift artifact at `docs/charter-drift.md` (or `docs/charter-drift-vN.md` per the Versioning Convention). When `--renew --auto` is combined, the `AskUserQuestion` gating inside sub-step 6.5 is bypassed and drift entries are auto-accepted into an HTML-comment header block.
+Triggered when `--renew` is present. Full flow defined in `reference.md` § "Step 1.6: Renew Feature File (--renew)". After renewal, proceed to Step 2 with `docs/features-renewed.md`. Includes a charter re-validation pass (see reference.md § Step 1.6 sub-step 6.5) when `**Charter:**` is not `(none)`. Emits a drift artifact at `docs/charter-drift.md` (or `docs/charter-drift-vN.md` per the Versioning Convention). When `--renew --no-prompts` is combined (or the deprecation alias `--renew --auto`), the `AskUserQuestion` gating inside sub-step 6.5 is bypassed and drift entries are auto-accepted into an HTML-comment header block.
 
 ---
 
@@ -774,7 +790,9 @@ Skip if `--restart-from` is `review`.
 
 **Step 5.5.0: Classify feature (dev vs non-dev) — determines TDD routing.**
 
-Derive `FEATURE_CLASS` from the feature H2 prefix and the optional `**Type:**` override line:
+**`--no-tdd` short-circuit:** If `NO_TDD=true` (set by `--no-tdd` at Step 1), set `FEATURE_CLASS=non-dev` unconditionally, skip both the prefix-derived classification and the `**Type:**` override, log `INFO: --no-tdd forced FEATURE_CLASS=non-dev`, append `**Feature class:** non-dev` to `docs/pipeline-state.md`, then continue to Step 5.5.1.
+
+Otherwise, derive `FEATURE_CLASS` from the feature H2 prefix and the optional `**Type:**` override line:
 
 1. Parse the H2 type prefix from the feature name (e.g., `feat`, `fix`, `refactor`, `docs`, `chore`, `test`, `perf`, `style`, `build`, `ci`, `content`, `ops`, `research`).
 2. Re-read the feature block. If it contains a line `**Type:** dev` or `**Type:** non-dev`, that value overrides the prefix-derived class.
@@ -885,7 +903,7 @@ The gate is ADDITIVE to build/test verification already performed by `/implement
 
 ##### Step 5.6.0: Compute Teams Decision (per-feature, before Step 5.6 dispatch)
 
-Before the Step 5.6 review dispatch (initial cycle and every Path B / Path C / Retry re-review), the orchestrator decides whether to set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` so the `<!-- PHASE: review -->` template inside the dispatched subagent passes `--teams` to `/review`.
+Before the Step 5.6 review dispatch (initial cycle and every Path B / Path C / Retry re-review), the orchestrator decides whether to set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` so the `<!-- PHASE: review -->` template inside the dispatched subagent invokes `/review` (teams default-on) versus `/review --no-teams` (opt-out). Teams mode in `/review` is default-on as of the flag-cleanup refactor; the orchestrator opts a feature OUT via `--no-teams` when the heuristic / persisted `**Review style:**` resolves to "never teams".
 
 **Read state (fresh — never trust local cache):**
 1. Read `**Review style:**` from `docs/pipeline-state.md`. Treat missing field as `orchestrator decides` (backward-compatible default for state files written under prior versions).
@@ -918,7 +936,7 @@ fi
 **Env var lifecycle (symmetric):**
 1. `teams_was_set=$CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` — snapshot.
 2. If `dispatch_with_teams = true` AND `teams_was_set != '1'`: `export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`; set `teams_orchestrator_set=true`.
-3. Perform the existing Step 5.6 Agent dispatch (the `<!-- PHASE: review -->` template reads the env var and decides whether to pass `--teams`).
+3. Perform the existing Step 5.6 Agent dispatch (the `<!-- PHASE: review -->` template reads the env var and decides whether to pass `--no-teams` — env-var-set means default teams-on, env-var-unset means pass `--no-teams`).
 4. After capturing `<task-notification>`: if `teams_orchestrator_set = true`: `unset CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`.
 
 The host-shell-preserves invariant: if the user had `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` set before launching `/pipeline`, `teams_was_set` was `1`, `teams_orchestrator_set` stays unset, and the unset step does NOT fire — the host environment is preserved.
@@ -936,23 +954,29 @@ The host-shell-preserves invariant: if the user had `CLAUDE_CODE_EXPERIMENTAL_AG
 
 ##### Step 5.6: Review
 
+**`--no-review` short-circuit:** If `NO_REVIEW=true` (set by `--no-review` at Step 1), skip the review dispatch entirely. Synthesise a Path A (passed) outcome:
+1. Write an empty review file at the Versioning-Convention next-version path (e.g., `docs/review-v<N+1>.md`) containing the single line `## Review skipped via --no-review (Step 5.6)`. Use Bash heredoc per § Subagent Write-Surface Convention.
+2. Update the `**Review:**` pointer in `docs/progress.md` to the new path (Edit tool).
+3. Emit the `phase-done` beacon as if review completed normally.
+4. Proceed to Step 5.7 — path detection Row 1 (0 findings) will route to Path A.
+
 **If Phase Mode is `subagent`:** Emit phase transition signal (progress beacon **and** TodoWrite update, tag=`phase-pre`) per the helpers in Step 5.0. Dispatch this phase via the Agent tool using the prompt template from `reference.md` § "Step 5.x: Phase Subagent Dispatch — Prompt Templates" matching `<!-- PHASE: review -->`. Substitute placeholders with current feature values. Pass `model: opus` (the phase default; the `/review` skill applies REVIEW.md `review-model:` override internally if present) in the Agent tool parameters. Capture the returned `<task-notification>` XML; on `status: completed`, read the resulting on-disk artifact (review file via `docs/progress.md` `**Review:**` pointer), emit phase transition signal (progress beacon **and** TodoWrite update, tag=`phase-done`), and continue. Update `docs/pipeline-state.md` `**Last phase agent:**` with the subagent ID. Skip the inline instructions below. On `status: failed`, follow the same failure handling as the inline path (log to feature run log, advance state, skip to next feature).
 
 **Otherwise (Phase Mode is `inline`, legacy state files only — see Step 5.0):** Execute the inline instructions below. New features always run as `subagent`; this branch is preserved only for resuming features that were already running under the previous heuristic-based policy.
 
-Invoke `/review` via the Skill tool. If `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set in the environment, pass `--teams`:
-
-```
-Skill: review --teams
-```
-
-If Agent Teams is not available (env var not set), invoke without --teams:
+Invoke `/review` via the Skill tool. Teams mode in `/review` is default-on as of the flag-cleanup refactor; the orchestrator's Step 5.6.0 decides whether to opt out via `--no-teams`. If `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set in the environment (orchestrator decided `dispatch_with_teams=true`), invoke with `/review`'s teams default (no extra flag):
 
 ```
 Skill: review
 ```
 
-Note: The pipeline defaults to --teams when available because autonomous execution benefits most from cross-agent communication. Manual `/review` uses --teams opt-in.
+If the env var is NOT set (orchestrator decided `dispatch_with_teams=false`), pass `--no-teams` to opt out of the new default:
+
+```
+Skill: review --no-teams
+```
+
+Note: `/review` is default-on for teams as of this refactor. The orchestrator decides per-feature via Step 5.6.0 whether to pass `--no-teams`.
 
 After completion: proceed to Step 5.7.
 
@@ -996,6 +1020,8 @@ For mixed findings (some fixable, some scope-change): treat as **Path B** first 
 ---
 
 ##### Step 5.8: Execute Path
+
+**`--no-ppr` short-circuit (Path A only):** If `NO_PPR=true` (set by `--no-ppr` at Step 1) AND the path resolved by Step 5.7 is Path A: halt the feature immediately. Append to the feature Run Log: `Status: COMPLETED (--no-ppr halt; no push/PR/merge)`. Skip Path A push/PR/CI/merge, the Post-Merge Verification Gate, and the Documentation Update Phase. Emit `feature-done` (the feature is not a failure — it completed implement+review successfully; the merge step was intentionally skipped). Advance to the next feature. This short-circuit does NOT apply to Path B, Path C, Path N, Path M, or Retry — those paths re-enter the review loop until Path A is reached, at which point the `--no-ppr` short-circuit fires.
 
 Full per-path flows are defined in `reference.md` § "Step 5.8: Execute Path — Full Details":
 
@@ -1127,7 +1153,7 @@ failure-revert checkpoint, and `feature-done` is the terminal signal.
 
 #### Escape Hatch
 
-Set `PIPELINE_SKIP_DOCS=1` to bypass the docs phase entirely. Default behavior is
+Set `PIPELINE_SKIP_DOCS=1` (or pass the `--no-docs` flag, which exports the env var at parse) to bypass the docs phase entirely. Default behavior is
 "docs phase runs" — opt-out, not opt-in (mirrors the `SKIP_POSTMERGE_VERIFY=1`
 semantics above). When skipped, append `Docs: SKIPPED (PIPELINE_SKIP_DOCS=1)`
 to the Run Log and proceed to `feature-done`. No beacon is emitted for the skipped
