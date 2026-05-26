@@ -160,6 +160,28 @@ with open('$JOURNAL', 'w') as f:
     rec "cwd_fallback_to_pwd" FAIL "fallback journal not created at $FALLBACK_JOURNAL"
   fi
 
+  # Test 9: memory_save payload appears on stdout alongside JSONL append
+  rm -f "$JOURNAL"
+  rm -rf "$TMPHOME/.claude/projects/-tmp-proj"
+  ENV9='{"session_id":"sess-9","transcript_path":"/tmp/t.jsonl","cwd":"/tmp/proj","stop_hook_active":false}'
+  OUT9=$(printf '%s' "$ENV9" | HOME="$TMPHOME" bash "$SCRIPT" 2>/dev/null)
+  if printf '%s' "$OUT9" | python3 -c "
+import sys, json
+line = sys.stdin.read().strip()
+if not line:
+    sys.exit(1)
+obj = json.loads(line)
+if obj.get('_payload_kind') != 'memory_save':
+    sys.exit(1)
+required = {'tags', 'category', 'content', 'ts'}
+if not required.issubset(obj.keys()):
+    sys.exit(1)
+" 2>/dev/null; then
+    rec "memory_save_emission_on_stdout" PASS
+  else
+    rec "memory_save_emission_on_stdout" FAIL "expected memory_save payload on stdout"
+  fi
+
   echo "Results: $PASS PASS / $FAIL FAIL"
   [ "$FAIL" -ne 0 ] && { echo "Failed: ${FAILED[*]}"; exit 1; }
   exit 0
