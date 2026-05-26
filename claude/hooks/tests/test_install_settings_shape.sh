@@ -136,6 +136,11 @@ expected = set()
 for p in sorted(hooks_dir.glob("*.sh")):
     if p.name.startswith("_"):
         continue
+    # commit-msg-wrapper.sh is a native git commit-msg hook adapter installed
+    # as a symlink at <git_dir>/hooks/commit-msg — NOT a Claude-harness hook.
+    # See claude/hooks/CLAUDE.md § Exclusions.
+    if p.name == "commit-msg-wrapper.sh":
+        continue
     expected.add(p.name)
 for p in sorted(hooks_dir.glob("*.py")):
     if p.name.startswith("_"):

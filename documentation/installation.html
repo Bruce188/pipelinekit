@@ -531,11 +531,13 @@ footer {
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
     <ul>
+      <li class="lvl-2"><a href="#stability">Stability</a></li>
       <li class="lvl-2"><a href="#local-install-linux-wsl-macos-bash">Local install (Linux / WSL / macOS bash)</a></li>
       <li class="lvl-2"><a href="#cloud-cold-start-oracle-hetzner">Cloud cold-start (Oracle / Hetzner)</a></li>
       <li class="lvl-2"><a href="#codespaces-devcontainer">Codespaces / Devcontainer</a></li>
       <li class="lvl-2"><a href="#environment-variables">Environment variables</a></li>
       <li class="lvl-2"><a href="#optional-components">Optional components</a></li>
+      <li class="lvl-2"><a href="#git-hooks-native-enforcement">Git hooks (native enforcement)</a></li>
       <li class="lvl-2"><a href="#verify">Verify</a></li>
       <li class="lvl-2"><a href="#update">Update</a></li>
       <li class="lvl-2"><a href="#install-command-playback">Install command playback</a></li>
@@ -550,6 +552,9 @@ footer {
     </header>
 
     <div id="page-content">
+<h2 id="stability">Stability</h2>
+<blockquote>
+</blockquote>
 <h2 id="local-install-linux-wsl-macos-bash">Local install (Linux / WSL / macOS bash)</h2>
 <!-- snippet:chooser-quiz
      Multi-step decision tree. Default question set: "Which deployment
@@ -677,7 +682,13 @@ footer {
 </script>
 
 
-<div class="codehilite"><p>Non-interactive:</p>
+<div class="codehilite"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/Bruce188/pipelinekit.git
+<span class="nb">cd</span><span class="w"> </span>pipelinekit
+./scripts/install.sh
+</code></pre></div>
+
+<p>Interactive prompts ask which optional components to install.</p>
+<p>Non-interactive:</p>
 <div class="codehilite"><pre><span></span><code><span class="nv">CLAUDE_INSTALL_NONINTERACTIVE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
 <span class="nv">CLAUDE_INSTALL_OPTIONALS</span><span class="o">=</span>tresor,lsp,mcp,serena<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>./scripts/install.sh
@@ -773,6 +784,16 @@ footer {
 </tr>
 </tbody>
 </table>
+<h2 id="git-hooks-native-enforcement">Git hooks (native enforcement)</h2>
+<p>The installer drops a thin symlink at <code>&lt;git_dir&gt;/hooks/commit-msg</code> pointing at <code>claude/hooks/commit-msg-wrapper.sh</code>. The wrapper invokes the same conventional-commit validator (<code>claude/hooks/validate-commit-msg.sh</code>) that the Claude harness fires on <code>PreToolUse:Bash</code>, so the gate runs for <strong>every</strong> commit path — bare-shell <code>git commit</code>, IDE commit dialogs, CI workflows, and Claude-mediated commits alike. Without the native hook, the validator only fires inside the harness, which means human-driven commits silently bypass the conventional-commit + emoji-ban + author-attribution checks.</p>
+<p><strong>Behaviour:</strong></p>
+<ul>
+<li>Idempotent — re-running <code>scripts/install.sh</code> leaves the symlink in place when it already targets the wrapper.</li>
+<li>Worktree-compat — resolved via <code>git rev-parse --git-common-dir</code>; linked worktrees share the main repo's <code>commit-msg</code> hook.</li>
+<li>Silent allow on rebase reword / <code>--amend --no-edit</code> — empty or missing message-file path exits 0 without consulting the validator.</li>
+<li>Backup-on-collision — any pre-existing <code>commit-msg</code> hook (regular file or alien symlink) is preserved at <code>&lt;git_dir&gt;/hooks/commit-msg.pre-pipelinekit</code> (with a <code>.&lt;timestamp&gt;</code> suffix on second collision) before the symlink lands.</li>
+</ul>
+<p><strong>Remove:</strong> <code>rm "$(git rev-parse --git-common-dir)/hooks/commit-msg"</code> — restore your backup from <code>commit-msg.pre-pipelinekit</code> if needed.</p>
 <h2 id="verify">Verify</h2>
 <div class="codehilite"><pre><span></span><code>./scripts/verify.sh
 </code></pre></div>
