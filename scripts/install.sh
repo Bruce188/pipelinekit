@@ -11,6 +11,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 REPO_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
+PIPELINEKIT_VERSION="$( [[ -f "$REPO_ROOT/VERSION" ]] && cat "$REPO_ROOT/VERSION" || echo unknown )"
 CLAUDE_HOME="${CLAUDE_HOME:-$HOME/.claude}"
 if [[ "$CLAUDE_HOME" == *'${containerEnv:HOME}'* ]]; then
   CLAUDE_HOME="${CLAUDE_HOME//\$\{containerEnv:HOME\}/$HOME}"
@@ -1152,6 +1153,30 @@ PYEOF
   fi
 }
 
+# ---------- help dispatcher ----------
+# Short-circuit: `bash scripts/install.sh --help` prints version + usage and exits 0.
+# First line MUST be `pipelinekit v<VERSION>` (regression-checked by AC #3 grep).
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  printf 'pipelinekit v%s\n' "$PIPELINEKIT_VERSION"
+  cat <<'HELP'
+
+Usage: bash scripts/install.sh [--help|-h] [--selftest]
+
+  --help, -h    Print version + usage and exit 0.
+  --selftest    Run the embedded selftest harness and exit.
+
+Environment variables (selected):
+  CLAUDE_HOME                       Target overlay dir (default: $HOME/.claude)
+  CLAUDE_INSTALL_NONINTERACTIVE=1   Skip all prompts; assume sane defaults.
+  CLAUDE_INSTALL_SETTINGS=1         Wire optional hooks into ~/.claude/settings.json.
+  SERENA_REF                        serena MCP commit ref (default: main).
+  CLAUDE_CLI_SHA256                 Optional sha256 of https://claude.ai/install.sh.
+
+Source: https://github.com/Bruce188/pipelinekit
+HELP
+  exit 0
+fi
+
 # ---------- selftest dispatcher ----------
 # Short-circuit: `bash scripts/install.sh --selftest` runs only the selftest harness
 # and exits before touching the filesystem (STAGE/mv/BACKUP surface). Positioned
@@ -1163,6 +1188,8 @@ command -v bash    >/dev/null || die "bash required"
 command -v git     >/dev/null || die "git required"
 command -v python3 >/dev/null || die "python3 required (used by hooks for JSON parsing)"
 command -v rsync   >/dev/null || die "rsync required"
+
+log "pipelinekit v$PIPELINEKIT_VERSION"
 
 NONINTERACTIVE="${CLAUDE_INSTALL_NONINTERACTIVE:-0}"
 ask() {
