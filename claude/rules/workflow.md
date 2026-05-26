@@ -34,6 +34,7 @@ paths:
 | `--no-ppr` | `/pipeline` | Skip `/ppr` for every feature. Halts each feature after review with `Status: COMPLETED (--no-ppr halt; no push/PR/merge)`. Useful for dry-running implement+review without touching origin. |
 | `--no-docs` | `/pipeline` | Skip the Documentation Update Phase. Aliases `PIPELINE_SKIP_DOCS=1` at parse time. |
 | `--no-tdd` | `/pipeline` | Force `FEATURE_CLASS = non-dev` for every feature. Bypasses Step 5.5.0 prefix-derived classification — every feature dispatches via the standard `implement-plan` path with no TDD pairing. |
+| `--no-test-loop` | `/pipeline` | Disable the implement-plan test-run inner loop (Step 2e.5). Records `NO_TEST_LOOP=true`. Does not affect TDD red/green phases — only suppresses the post-task project test command + fix-retry loop. |
 | `--no-notifications` | `/pipeline` | Disable notification emission for the run. Aliases `PIPELINE_NO_NOTIFICATIONS=1` at parse time. |
 
 **Note:** `/code-health` has its own arguments (`--scope`, `--quick`, `--threshold`) — it sits outside the main pipeline. Its `--scope` scopes quality dimensions, not file paths.
