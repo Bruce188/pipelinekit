@@ -29,11 +29,40 @@
 
 ## Memory System
 
-Memories live at `~/.claude/memory/` (or `~/.claude/projects/<project-slug>/memory/` for per-project memories), indexed by `MEMORY.md`. Memory writes always land as plain markdown files (`user_profile.md`, `feedback_*.md`, `project_*.md`, `reference_*.md`) — this flat-file system is the **canonical write path and source of truth**. You can always `cat`, Read, or grep these files directly; the memory format is not locked behind any tool.
+Memories live in agentmemory MCP — the canonical write and read surface. The legacy flat-file store at `~/.claude/projects/<project-slug>/memory/*.md` is preserved read-only for a 30-day rollback window; cleanup of the flat-file store is a separate future feature. Do NOT write new markdown memory files unless `PIPELINE_KEEP_FLAT_FILE_MEMORY=1` is set (see § Dual-write opt-in below).
 
-### Recency-weighted confidence
+### Tool surface
 
-Each memory carries `last_seen` (date last revalidated) and `confidence` (0.0-1.0). Read-time decay rule: `confidence_now = confidence * (1 - 0.05) ^ weeks_since_last_seen`. Memories below `confidence_now ≈ 0.6` should be cross-checked before use. See `~/.claude/memory/MEMORY.md` for the canonical decay schema.
+The agentmemory MCP exposes four tools — use them in this order of decreasing frequency:
+- `memory_save` — write one memory entry. Fields: `tags` (list of strings), `category` (one of `user|feedback|project|reference|other`), `content` (the memory body, free-form text).
+- `memory_recall` — read by tags AND/OR category. Returns matching entries ranked by Ebbinghaus recency.
+- `memory_smart_search` — semantic search across all memories regardless of tags. Use when tags are unknown.
+- `memory_consolidate` — periodic relation-graph rebuild. Operator-invoked; not session-frequency.
+
+### Taxonomy mapping
+
+| Pipelinekit type (legacy) | agentmemory `tags`                                            | agentmemory `category` |
+|---------------------------|---------------------------------------------------------------|------------------------|
+| `user`                    | `[profile]`                                                   | `user`                 |
+| `feedback`                | `[feedback]` + derived from `name` (e.g. `subagent-first`)    | `feedback`             |
+| `project`                 | `[project, <slug>]`                                           | `project`              |
+| `reference`               | `[reference]`                                                 | `reference`            |
+
+### When NOT to save
+
+Do not invoke `memory_save` for transient session state (active TODO trackers, intermediate scratchpads, partial command outputs), for project file contents (use `Read` against the file directly), for user PII unless the user has explicitly directed it as a saved preference, or for information already covered by an existing memory entry on the same `tags`. When in doubt, leave it unsaved — memory pollution is harder to fix than a missed save.
+
+### Ebbinghaus curve
+
+agentmemory computes recency-weighted relevance via an Ebbinghaus forgetting curve over `last_accessed` (not stored confidence). Recall ranking decays automatically; you do NOT need to track `last_seen` / `confidence` fields manually. See the upstream agentmemory README for the curve coefficients.
+
+### Rollback window
+
+The flat-file store at `~/.claude/projects/<project-slug>/memory/*.md` remains readable for 30 days following migration. Use it as a side-by-side comparison surface while validating agentmemory's behavior. Hard-deletion of the flat-file store is deferred to a separate future feature; this feature does NOT remove any markdown file.
+
+### Dual-write opt-in
+
+Set `PIPELINE_KEEP_FLAT_FILE_MEMORY=1` in the environment to ALSO emit a flat-file sidecar at `~/.claude/projects/<project-slug>/memory/<filename>.md` alongside each `memory_save` invocation. This is a system-prompt-level toggle (Claude's save behavior changes), NOT a hook-level toggle. The dual-write surface exists for operator-driven A/B verification during the 30-day rollback window. The sidecar filename convention (`<category>_<tags-joined-with-underscores>.md`) is documented in `documentation/memory-migration-notes.html`.
 
 ## Notifications
 
