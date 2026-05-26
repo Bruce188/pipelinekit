@@ -1,5 +1,9 @@
 # Installation
 
+## Stability
+
+> **v0.0.1 — pre-release.** Actively developed; API not yet stable. Pin to a specific commit SHA when integrating into your own workflows.
+
 ## Local install (Linux / WSL / macOS bash)
 
 <div data-snippet="chooser-quiz" data-question-set="deploy"></div>
