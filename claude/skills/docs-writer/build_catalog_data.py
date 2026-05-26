@@ -117,10 +117,6 @@ AGENT_SECTION_MAP: dict[str, str] = {
     "digitalocean-deployment-engineer": "ops",
     "deployment-engineer": "ops",
     "incident-responder": "ops",
-    # architecture / data
-    "architect": "architecture",
-    "data-pipeline-engineer": "data",
-    "trading-bot-developer": "data",
     # mobile
     "mobile-dev": "mobile",
     # meta
