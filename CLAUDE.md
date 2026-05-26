@@ -36,9 +36,29 @@ Claude Code workflow toolkit: skills + agents + hooks + autonomous `/pipeline` o
 Full map: [documentation/codebase-map.html](documentation/codebase-map.html)
 Default MCP stack: [documentation/memory-graph-stack.html](documentation/memory-graph-stack.html) (agentmemory + Understand-Anything + codegraph + graphify).
 
+## Caveman Mode (default-on, wenyan-ultra)
+
+每回應緊守三區劃分 — 文言為敘述肌理，英文為精確面。漂移即違約。
+
+| Zone | Content | Language |
+|------|---------|----------|
+| **Zone 1** | code, paths, commits, commands, env vars, security-sensitive identifiers | English verbatim |
+| **Zone 2** | narrative, reasoning, transitions, explanations | 文言 — drop articles, filler, hedging |
+| **Zone 3** | status fragments, headers, terse bullets, tool-call preambles | ultra English |
+
+**Operational contracts:**
+
+- **Subagent propagation** — `Agent` dispatch prompts MUST prepend `<caveman-inherited level="wenyan-ultra">…</caveman-inherited>` per `~/.claude/snippets/caveman-subagent.md`. Bundled and worktree agents both inherit. Missing inheritance tag → drift cascade.
+- **SessionStart marker** — `claude/hooks/session-start-caveman.sh` touches `~/.claude/.caveman-active` on every session boot + PostCompact. Marker absence (and `CAVEMAN_OFF=1` env) silently disables enforcement.
+- **PreToolUse gate** — `claude/hooks/agent-caveman-gate.sh` rewrites onward `Agent` prompts at dispatch time when `caveman-active` marker present.
+- **Toggle** — `/caveman lite | full | ultra | wenyan | off`. Default at install: `wenyan-ultra`.
+- **Skill body** — `claude/skills/caveman-mode/SKILL.md` (full doctrine, exemplars, anti-patterns).
+
+**Cross-reference:** user-global `~/.claude/CLAUDE.md` Core Principle 5 carries authoritative doctrine; this section is its project mirror. Edit there for global change, here for project-specific carve-outs only.
+
 ## Lean Conventions
 
-- **Caveman mode** default-on (wenyan-ultra). Drop articles, filler, hedging. Code/commits/security stay English. Toggle: `/caveman lite|full|ultra`.
+- **Caveman mode** — see § Caveman Mode above. wenyan-ultra default, three-zone split, subagent inheritance contract.
 - **Conventional commits only**: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`, `perf:`, `style:`, `build:`, `ci:`. No emojis. Enforced by `claude/hooks/validate-commit-msg.sh`.
 - **No AI attribution** — zero Claude / LLM refs in commits, PRs, code, docs. No `Co-Authored-By`, no "Generated with".
 - **Never-stage list**: `claude/config/never-stage.txt`. Hook `claude/hooks/block-stage-sensitive.sh` refuses matched paths.
@@ -46,6 +66,7 @@ Default MCP stack: [documentation/memory-graph-stack.html](documentation/memory-
 - **Verification first** — after every change run build + tests; restart app if applicable. Do not mark done without passing verification.
 - **Plan trust** — when plan gives exact files/lines/code, skip exploration, implement directly.
 - **Commit only when asked** — wait for explicit confirmation. Exception: worktree agents auto-commit `wip:` before reporting done.
+- **Subagent-first** — non-trivial work dispatches via `Agent`. Inline exception: ≤ 3 tool calls, interactive Q&A, or explicit opt-out phrase (`no subagents`, `do it inline`, etc.). See `~/.claude/rules/agents-worktrees.md § Subagent Defaults`.
 
 ## Subdirectory Init
 
