@@ -1,0 +1,4 @@
+# pipelinekit shellcheck config
+# SC1091: sourcing-without-resolve common in helpers (see docs/features-best-practices.md chore/lint-configs)
+enable=quote-safe-variables,require-variable-braces,deprecate-which
+disable=SC1091

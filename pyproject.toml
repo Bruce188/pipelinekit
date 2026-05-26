@@ -1,0 +1,14 @@
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# Add per-file overrides ONLY where a rule demonstrably fires on existing code.
+# Empty for now — hook helpers stdlib-only per claude/hooks/CLAUDE.md.
+
+[tool.mypy]
+python_version = "3.10"
+strict = false
+files = ["claude/hooks/", "claude/lib/"]
