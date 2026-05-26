@@ -451,6 +451,93 @@ _selftest_understand_anything_provisioned() {
   return 0
 }
 
+_selftest_settings_env_block() {
+  # Per docs/analysis-v100.md § R5. 4 cases (A, B, C, D) — assert env-block additive-merge invariants.
+  local tmp; tmp=$(mktemp -d)
+  # shellcheck disable=SC2064
+  trap "rm -rf '$tmp'" RETURN
+
+  ## --- Case A: empty sandbox → both keys appear with defaults ---
+  export CLAUDE_HOME="$tmp/case_a/.claude"
+  mkdir -p "$CLAUDE_HOME"
+  CLAUDE_INSTALL_SETTINGS=1 maybe_install_settings "" >/dev/null 2>&1 \
+    || { echo "FAIL: Case A maybe_install_settings exit non-zero"; return 1; }
+  python3 -c "
+import json, sys
+d = json.load(open('$CLAUDE_HOME/settings.json'))
+e = d.get('env', {})
+assert e.get('CLAUDE_CODE_DISABLE_1M_CONTEXT') == '1', f'Case A: DISABLE_1M_CONTEXT = {e.get(\"CLAUDE_CODE_DISABLE_1M_CONTEXT\")!r}'
+assert e.get('CLAUDE_CODE_AUTO_COMPACT_WINDOW') == '100000', f'Case A: AUTO_COMPACT_WINDOW = {e.get(\"CLAUDE_CODE_AUTO_COMPACT_WINDOW\")!r}'
+assert 'hooks' in d, 'Case A: hooks key missing'
+" || { echo "FAIL: Case A assertions"; return 1; }
+
+  ## --- Case B: pre-existing CUSTOM_VAR survives, new keys added ---
+  local case_b_home="$tmp/case_b/.claude"
+  local case_b_backup="$tmp/case_b/backup"
+  mkdir -p "$case_b_home" "$case_b_backup"
+  cat > "$case_b_backup/settings.json" <<'JSON'
+{"env": {"CUSTOM_VAR": "foo"}, "hooks": {}}
+JSON
+  export CLAUDE_HOME="$case_b_home"
+  CLAUDE_INSTALL_SETTINGS=1 maybe_install_settings "$case_b_backup" >/dev/null 2>&1 \
+    || { echo "FAIL: Case B maybe_install_settings exit non-zero"; return 1; }
+  python3 -c "
+import json
+d = json.load(open('$case_b_home/settings.json'))
+e = d.get('env', {})
+assert e.get('CUSTOM_VAR') == 'foo', f'Case B: CUSTOM_VAR clobbered → {e.get(\"CUSTOM_VAR\")!r}'
+assert e.get('CLAUDE_CODE_DISABLE_1M_CONTEXT') == '1', 'Case B: new DISABLE_1M_CONTEXT missing'
+assert e.get('CLAUDE_CODE_AUTO_COMPACT_WINDOW') == '100000', 'Case B: new AUTO_COMPACT_WINDOW missing'
+" || { echo "FAIL: Case B assertions"; return 1; }
+
+  ## --- Case C: pre-existing DISABLE_1M_CONTEXT=0 survives (user wins) ---
+  local case_c_home="$tmp/case_c/.claude"
+  local case_c_backup="$tmp/case_c/backup"
+  mkdir -p "$case_c_home" "$case_c_backup"
+  cat > "$case_c_backup/settings.json" <<'JSON'
+{"env": {"CLAUDE_CODE_DISABLE_1M_CONTEXT": "0"}}
+JSON
+  export CLAUDE_HOME="$case_c_home"
+  CLAUDE_INSTALL_SETTINGS=1 maybe_install_settings "$case_c_backup" >/dev/null 2>&1 \
+    || { echo "FAIL: Case C maybe_install_settings exit non-zero"; return 1; }
+  python3 -c "
+import json
+d = json.load(open('$case_c_home/settings.json'))
+e = d.get('env', {})
+assert e.get('CLAUDE_CODE_DISABLE_1M_CONTEXT') == '0', f'Case C: user value clobbered → {e.get(\"CLAUDE_CODE_DISABLE_1M_CONTEXT\")!r}'
+assert e.get('CLAUDE_CODE_AUTO_COMPACT_WINDOW') == '100000', 'Case C: AUTO_COMPACT_WINDOW (no prior value) missing'
+" || { echo "FAIL: Case C assertions"; return 1; }
+
+  ## --- Case D: malformed prior JSON → swallow + start fresh (no crash) ---
+  local case_d_home="$tmp/case_d/.claude"
+  local case_d_backup="$tmp/case_d/backup"
+  mkdir -p "$case_d_home" "$case_d_backup"
+  printf '{' > "$case_d_backup/settings.json"   # syntactically invalid
+  export CLAUDE_HOME="$case_d_home"
+  CLAUDE_INSTALL_SETTINGS=1 maybe_install_settings "$case_d_backup" >/dev/null 2>&1 \
+    || { echo "FAIL: Case D maybe_install_settings exit non-zero (should swallow + continue)"; return 1; }
+  python3 -c "
+import json
+d = json.load(open('$case_d_home/settings.json'))
+e = d.get('env', {})
+assert e.get('CLAUDE_CODE_DISABLE_1M_CONTEXT') == '1', 'Case D: defaults missing after malformed prior'
+" || { echo "FAIL: Case D assertions"; return 1; }
+
+  ## --- AC #6 tripwire: heredoc must not have touched repo-local claude/ ---
+  local repo_root="$(dirname "${BASH_SOURCE[0]}")/.."
+  if [[ -d "$repo_root/.git" ]]; then
+    local dirty
+    dirty=$(cd "$repo_root" && git status --porcelain claude/ 2>/dev/null)
+    if [[ -n "$dirty" ]]; then
+      echo "FAIL: AC#6 tripwire — heredoc mutated repo-local claude/: $dirty"
+      return 1
+    fi
+  fi
+
+  echo "PASS: _selftest_settings_env_block"
+  return 0
+}
+
 _wsl2_ram_gate() {
   # TEST HOOK: __pkit_mock_wsl_2gb=1 forces "WSL2 + 2 GB" path. Do not set in production.
   if [[ "${__pkit_mock_wsl_2gb:-0}" == "1" ]]; then
@@ -750,11 +837,6 @@ provision_understand_anything() {
   fi
 }
 
-# ---------- selftest dispatcher ----------
-# Short-circuit: `bash scripts/install.sh --selftest` runs only the selftest harness
-# and exits before touching the filesystem (STAGE/mv/BACKUP surface).
-if [[ "${1:-}" == "--selftest" ]]; then _selftest_main; exit $?; fi
-
 # ---------- optional: settings.json hook wiring ----------
 # Gated by CLAUDE_INSTALL_SETTINGS=1. Off by default — safe for existing users.
 # When the flag is unset and the previous install backed up a settings.json,
@@ -780,15 +862,34 @@ maybe_install_settings() {
       cp -a "$prev_settings" "$bak"
       log "Backed up existing settings.json → $bak"
     fi
-    python3 - "$CLAUDE_HOME" <<'PYEOF'
+    python3 - "$CLAUDE_HOME" "${prev_settings:-}" <<'PYEOF'
 import json, os, sys
 
 h = sys.argv[1]
+
+# Additive merge: preserve user's existing env vars (if any), then default-add the two pinned keys.
+prev_settings_path = sys.argv[2] if len(sys.argv) > 2 else ""
+existing_env = {}
+if prev_settings_path and os.path.exists(prev_settings_path):
+    try:
+        with open(prev_settings_path, "r", encoding="utf-8") as pf:
+            prev = json.load(pf)
+        existing_env = dict(prev.get("env", {}))
+    except (json.JSONDecodeError, OSError):
+        existing_env = {}
+
+new_env_defaults = {
+    "CLAUDE_CODE_DISABLE_1M_CONTEXT": "1",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "100000",
+}
+# User wins on collision — never clobber an explicitly-set value.
+merged_env = {**new_env_defaults, **existing_env}
 
 def hook(cmd, args=None):
     return [{"type": "command", "command": cmd, "args": args or []}]
 
 settings = {
+    "env": merged_env,
     "hooks": {
         "SessionStart": [
             {"matcher": "*", "hooks": hook(f"{h}/hooks/session-start-context.sh")},
@@ -845,7 +946,7 @@ dst = os.path.join(h, "settings.json")
 with open(dst, "w", encoding="utf-8") as f:
     json.dump(settings, f, indent=2)
     f.write("\n")
-print(f"installed: {dst} (26 hooks wired)")
+print(f"installed: {dst} (26 hooks wired, {len(merged_env)} env vars)")
 PYEOF
   else
     # Flag not set: restore user's previous settings.json from backup if present.
@@ -855,6 +956,12 @@ PYEOF
     fi
   fi
 }
+
+# ---------- selftest dispatcher ----------
+# Short-circuit: `bash scripts/install.sh --selftest` runs only the selftest harness
+# and exits before touching the filesystem (STAGE/mv/BACKUP surface). Positioned
+# after all function definitions so selftests can reference any function above.
+if [[ "${1:-}" == "--selftest" ]]; then _selftest_main; exit $?; fi
 
 # ---------- preflight ----------
 command -v bash    >/dev/null || die "bash required"
