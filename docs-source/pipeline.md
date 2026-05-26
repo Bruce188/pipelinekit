@@ -1,5 +1,5 @@
 <!--
-diataxis: explanation
+diataxis: reference
 -->
 # /pipeline
 
