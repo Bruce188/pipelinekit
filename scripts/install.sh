@@ -780,15 +780,34 @@ maybe_install_settings() {
       cp -a "$prev_settings" "$bak"
       log "Backed up existing settings.json → $bak"
     fi
-    python3 - "$CLAUDE_HOME" <<'PYEOF'
+    python3 - "$CLAUDE_HOME" "${prev_settings:-}" <<'PYEOF'
 import json, os, sys
 
 h = sys.argv[1]
+
+# Additive merge: preserve user's existing env vars (if any), then default-add the two pinned keys.
+prev_settings_path = sys.argv[2] if len(sys.argv) > 2 else ""
+existing_env = {}
+if prev_settings_path and os.path.exists(prev_settings_path):
+    try:
+        with open(prev_settings_path, "r", encoding="utf-8") as pf:
+            prev = json.load(pf)
+        existing_env = dict(prev.get("env", {}))
+    except (json.JSONDecodeError, OSError):
+        existing_env = {}
+
+new_env_defaults = {
+    "CLAUDE_CODE_DISABLE_1M_CONTEXT": "1",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "100000",
+}
+# User wins on collision — never clobber an explicitly-set value.
+merged_env = {**new_env_defaults, **existing_env}
 
 def hook(cmd, args=None):
     return [{"type": "command", "command": cmd, "args": args or []}]
 
 settings = {
+    "env": merged_env,
     "hooks": {
         "SessionStart": [
             {"matcher": "*", "hooks": hook(f"{h}/hooks/session-start-context.sh")},
@@ -845,7 +864,7 @@ dst = os.path.join(h, "settings.json")
 with open(dst, "w", encoding="utf-8") as f:
     json.dump(settings, f, indent=2)
     f.write("\n")
-print(f"installed: {dst} (26 hooks wired)")
+print(f"installed: {dst} (26 hooks wired, {len(merged_env)} env vars)")
 PYEOF
   else
     # Flag not set: restore user's previous settings.json from backup if present.
