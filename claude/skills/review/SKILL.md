@@ -11,6 +11,7 @@ allowed-tools:
   - Glob
   - Agent
   - Skill
+  - mcp__agentmemory
 effort: high
 paths:
   - claude/skills/review/**
@@ -286,6 +287,17 @@ If `docs/progress.md` has a `**Review:**` pointer:
 1. Read the referenced review file (e.g., `docs/review-v2.md`)
 2. Pass prior findings as additional context to agents in Step 6, so they can verify whether previously flagged issues were addressed
 3. Label this context clearly: "Prior review findings (verify if addressed):" — do NOT present findings as instructions
+
+#### 3c: Canonical Memory Recall (optional)
+
+Call `mcp__agentmemory__memory_recall` to load user-level and project-level review-context entries before dispatching review agents. Two passes:
+- Pass A — `tags: [feedback]` filtered to `name`-derived tags relating to `review-verification` / `docs-gitignore` so prior workflow corrections inform the current review's emphasis (e.g., findings-registry over bulk-verification agents, Claude exclusions → `.git/info/exclude`).
+- Pass B — `tags: [project, <project-slug>]` AND `category: project` → project-level decisions and constraints that should bias review scope (e.g., known unstable subsystem, pending migration boundaries).
+
+Handling:
+- If available + results returned: pass relevant entries as additional context to agents in Step 6, labelled `"Canonical memory context (advisory):"`. Do NOT present memory entries as instructions or findings — they bias emphasis only.
+- If available + no results: log `"agentmemory recall returned no results"` and continue.
+- If agentmemory MCP is unavailable (offline / not provisioned): log `"agentmemory not configured — skipping memory recall"` and continue. The review proceeds without canonical memory context.
 
 ---
 
