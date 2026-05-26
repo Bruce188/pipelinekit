@@ -7,12 +7,11 @@ paths:
 
 # Workflow Operational Details
 
-> Detailed conventions for plan management, directory structure, RAG, and project startup.
-> Core principles stay in ~/.claude/CLAUDE.md. This file covers operational details.
+> 計劃管理、目錄結構、RAG、專案啟動之詳細規範。核心原則留於 ~/.claude/CLAUDE.md；此檔專述操作細節。
 
 ## Global Argument Convention
 
-Pipeline skills accept optional `--` arguments that modify their behavior. Arguments are passed after the command (e.g., `/review --scope 2.3`).
+技能接受可選 `--` 參數。參數在命令後傳遞（例如 `/review --scope 2.3`）。
 
 | Argument | Available on | Behavior |
 |----------|-------------|----------|
@@ -34,7 +33,7 @@ Pipeline skills accept optional `--` arguments that modify their behavior. Argum
 
 ### --scope
 
-When `--scope` is present on `/review`:
+`--scope` 出現於 `/review` 時：
 1. If value matches task ID pattern (e.g., `2.3`): look up task files in plan, scope git diff to those files
 2. If value is a path: scope git diff to that path
 
@@ -42,7 +41,7 @@ Default (no --scope): auto-detect from reopened tasks (review Step 3.5). If no r
 
 ### --no-parallel
 
-When `--no-parallel` is present on `/implement-plan`:
+`--no-parallel` 出現於 `/implement-plan` 時：
 1. Skip parallel detection entirely
 2. Execute all tasks sequentially (Step 2 of implement-plan)
 3. Use when: worktree issues, debugging, or tasks with implicit dependencies not captured in the plan
@@ -58,7 +57,7 @@ When `--no-parallel` is present on `/implement-plan`:
 3. Run `/pipeline` and step through Charter Discovery (Step 0) to capture requirements as `docs/charter.md`.
 
 **Existing project / defined task — pre-check:**
-Before running `/analyze`, verify a base branch exists using the Base Branch Detection snippet (see § Base Branch Detection below). If detection fails and there's no remote, prompt the user to create one: `git branch main <first-commit-hash>`. This prevents `/review` from blocking later in the pipeline.
+執行 `/analyze` 前，以基底分支偵測片段（見 § Base Branch Detection）確認基底分支存在。偵測失敗且無遠端者，提示用戶創建：`git branch main <first-commit-hash>`。此舉防止 `/review` 後段阻塞。
 
 **Resuming:** Read `docs/progress.md` first → current plan + current task → read the plan and task prompt.
 
@@ -84,7 +83,7 @@ Before running `/analyze`, verify a base branch exists using the Base Branch Det
 
 ## Versioning Convention
 
-All versioned workflow files (plan, prompts, analysis, review, charter) follow the same archiving convention:
+版本化工作流文件（plan, prompts, analysis, review, charter）遵同一歸檔規範：
 
 1. Check for existing files: `ls docs/<type>*.md`
 2. Find highest version N among `docs/<type>-v*.md` files (if none, N = 0)
@@ -96,7 +95,7 @@ Skills reference this convention rather than duplicating the logic.
 
 ## Context-Aware Clearing
 
-Not all pipeline transitions need `/clear`. Use the right tool for each transition:
+非所有管道轉換均需 `/clear`。各轉換選合適工具：
 
 | From | To | Action | Reason |
 |------|----|--------|--------|
@@ -145,7 +144,7 @@ Review findings follow the **Versioning Convention** above.
 
 ## Base Branch Detection
 
-All skills that need the base branch (e.g., `/review`, `/post-merge`, `/ppr`) use this standard snippet:
+需基底分支之技能（如 `/review`, `/post-merge`, `/ppr`）均用此標準片段：
 
 ```bash
 BASE=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
@@ -183,7 +182,7 @@ If this snippet needs updating, change it here — all skills reference this sec
 
 ## Phase Mode Precedence
 
-The pipeline selects `subagent` as the phase mode at every feature-loop entry. There is no surface-area heuristic. A mode-drift incident exposed the underlying bug: a `subagent`-mode feature was dropping to inline post-review because Path B did not honor the recorded `**Phase Mode:**`. The Path B fix (read-fresh + Agent dispatch) closes the drift; the DESC_LEN/HAS_CONSTRAINTS/HAS_AC heuristic was removed alongside it because once Path B always dispatches as `subagent`, every feature ends up `subagent` regardless of surface area, making the heuristic dead policy.
+管道在每次特性循環入口選 `subagent` 為階段模式，無界面面積啟發式。模式漂移事件揭示根本缺陷：`subagent` 模式特性在審查後因 Path B 未遵從所記 `**Phase Mode:**` 而降級為 inline。Path B 修復（讀取最新 + Agent 派送）閉合漂移；DESC_LEN/HAS_CONSTRAINTS/HAS_AC 啟發式隨之移除——一旦 Path B 始終以 `subagent` 派送，每個特性不論界面面積均為 `subagent`，啟發式成廢策略。
 
 | Stage | Mode |
 |-------|------|
@@ -216,7 +215,7 @@ Mode is recorded in `docs/pipeline-state.md` at Step 5.1 per-feature.
 
 `/pipeline` (Skill — in-process) is the only entry point in the portable build. It runs all phases inside a single Claude Code session. Phase Mode is always `subagent` for new features (Agent-tool dispatch per phase) — there is no surface-area heuristic. Path N nit-attack sub-paths run inline by design (Edit-tool only, max 2 cycles).
 
-An out-of-process subprocess driver is intentionally not shipped. If you need a long unattended run outside an interactive Claude session, fork and add your own driver — the per-phase prompt templates in `~/.claude/skills/pipeline/reference.md` are the contract a driver must implement.
+子程序驅動器不隨附交付。若需在互動 Claude session 外進行長時間無人值守執行，請自行分叉並添加驅動器——`~/.claude/skills/pipeline/reference.md` 中的各階段提示模板是驅動器必須實現的契約。
 
 ---
 
@@ -251,7 +250,7 @@ Example `.mcp.json` for a project needing RepoMapper:
 
 ## Phase Tool Routing
 
-Compact routing table for each pipeline phase. Native tools (Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch) are in each SKILL.md `allowed-tools` — not repeated here. MCPs listed are available when configured; skills auto-detect availability at runtime.
+各管道階段緊湊路由表。原生工具（Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch）在各 SKILL.md `allowed-tools` 中——此處不重複。MCP 在已配置時可用；技能在執行期自動偵測。
 
 | Phase | MCPs | Agent Types | Sub-Skills | Memory Reads | Hooks | WorkerProvider |
 |-------|------|-------------|------------|--------------|-------|----------------|
@@ -265,7 +264,7 @@ Compact routing table for each pipeline phase. Native tools (Read, Write, Edit, 
 
 ### Memory Feed
 
-How acquired memories (`~/.claude/projects/<project-slug>/memory/`) inform each phase. Reads are advisory — Claude reads memories when contextually relevant, not on every invocation.
+已獲記憶（`~/.claude/projects/<project-slug>/memory/`）如何指導各階段。讀取為建議性——Claude 在上下文相關時讀取，非每次調用。
 
 | Memory File | Phases | How It's Used |
 |-------------|--------|---------------|
@@ -283,9 +282,9 @@ How acquired memories (`~/.claude/projects/<project-slug>/memory/`) inform each 
 
 ### Memory Integration
 
-All memory files are in `~/.claude/projects/<project-slug>/memory/`, indexed by `MEMORY.md` which is loaded into system context at session start.
+記憶檔於 `~/.claude/projects/<project-slug>/memory/`，由 `MEMORY.md` 索引，於 session 啟動時載入系統上下文。
 
-**Memory writes:** Any phase can write new memories when:
+**Memory writes:** 任何階段在以下情形可寫入新記憶：
 - User corrects Claude's approach → write feedback memory
 - New project context surfaces → write project memory
 - New external resources discovered → write reference memory

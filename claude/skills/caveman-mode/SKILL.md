@@ -64,6 +64,7 @@ Caveman drops automatically for, then resumes:
 Shortcuts (additive — pre-existing levels unchanged):
 - `/caveman wenyan` — alias for `wenyan-ultra`. Activates Zone 2 (real Han characters in narrative prose).
 - `/caveman ultra` — keeps existing English-fragment semantics (Zone 3 only; no Han characters required).
+- `/caveman-compress <file> [--in-place]` — compress a Tier 1 file (`CLAUDE.md*` | `rules/*.md`). Default writes `<file>.compressed` sidecar; `--in-place` overwrites source.
 
 Activation marker (optional): `~/.claude/.caveman-active` file. Hooks may read this to enrich `SessionStart:compact` context with the active level.
 
@@ -82,3 +83,17 @@ Assistant: `池reuse conn。skip handshake → fast。`
 ## Bound
 
 Code blocks unchanged. Error messages quoted exact. Tool calls unaffected. Commit messages normal English.
+
+## Compress sub-command
+
+`/caveman-compress <file> [--in-place]` rewrites a Tier 1 file (`CLAUDE.md*` or `rules/*.md`) per the three-zone contract.
+
+- Tier 1 allowlist is enforced by `claude/skills/caveman-mode/tier1_allowlist.sh` — deterministic regex, no LLM gate.
+  - Accept: `(^|/)CLAUDE\.md(\.template)?$` OR `(^|/)rules/[^/]+\.md$`.
+  - Reject: exit 2 + stderr refusal naming the path.
+- Default mode writes `<file>.compressed` sidecar; `--in-place` overwrites the source.
+- Zone 1 (code, backticks, URLs, paths, commands) preserved byte-exact.
+- Zone 2 (narrative prose) → classical Chinese 文言.
+- Zone 3 (fragments, bullets) → ultra English.
+
+See `claude/skills/caveman-mode/compress.md` for the full algorithm and verification gates.

@@ -1,6 +1,6 @@
 # pipelinekit
 
-Workflow toolkit for Claude Code. Skills + agents + hooks + the autonomous `/pipeline` orchestrator.
+Claude Code 工作流工具包：技能 + 代理 + 鉤子 + 自主 `/pipeline` 協調器。
 
 > Additive to `~/.claude/CLAUDE.md` (user-global) — never overrides. Project-specific rules only.
 
@@ -46,17 +46,17 @@ Default MCP stack: [documentation/memory-graph-stack.html](documentation/memory-
 
 ## Subdirectory Init
 
-Subdirectory `CLAUDE.md` files override-extend root rules with directory-specific conventions. The harness loads them when Claude Code is working inside the matching directory tree:
+子目錄 `CLAUDE.md` 以目錄特定規範覆蓋擴展根規則。harness 在 Claude Code 於匹配目錄樹內工作時載入：
 
 - `claude/skills/CLAUDE.md` — skill authoring conventions (frontmatter shape, `paths:` scoping, `allowed-tools` precision, snippet contracts).
 - `claude/agents/CLAUDE.md` — agent authoring conventions (tool allowlist, model selection, `<task-notification>` XML, prompt body shape).
 - `claude/hooks/CLAUDE.md` — hook authoring conventions (stdin / stdout JSON contract, exit-code semantics, python3 vs bash, denial-tracker integration).
 
-Each subdir file is self-contained — read it on entry without needing to cross-reference this root file for required context.
+各子目錄文件自足——進入時讀取，無需交叉引用此根文件。
 
 ## Working Surface
 
-pipelinekit-canonical edit surfaces (where new work lands):
+pipelinekit 規範編輯面（新工作落地處）：
 
 - `claude/skills/<name>/SKILL.md` — new skills (plus supporting files in the same directory).
 - `claude/agents/<name>.md` — new agents (single-file markdown with YAML frontmatter).
