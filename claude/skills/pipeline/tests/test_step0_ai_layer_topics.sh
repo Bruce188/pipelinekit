@@ -22,19 +22,19 @@ if [[ "$AUQ_COUNT" -lt 4 ]]; then
 fi
 echo "OK: AskUserQuestion mentions in charter.md >= 4 ($AUQ_COUNT)"
 
-# Assertion 3 (reconciled AC-3, Risk-C): schema header bumped to "15 topics in order"
-if ! grep -qE "^Required sections \(15 topics in order\)" "$CHARTER"; then
-  echo "FAIL: 'Required sections (15 topics in order)' not found in charter.md"
+# Assertion 3 (reconciled AC-3, Risk-C): schema header bumped to "19 topics in order"
+if ! grep -qE "^Required sections \(19 topics in order\)" "$CHARTER"; then
+  echo "FAIL: 'Required sections (19 topics in order)' not found in charter.md"
   exit 1
 fi
-echo "OK: schema header reads '15 topics in order'"
+echo "OK: schema header reads '19 topics in order'"
 
-# Assertion 4 (reconciled AC-3, Risk-C): convergence-check header bumped to "15 topics enumerated"
-if ! grep -qE "^The 15 topics enumerated" "$CHARTER"; then
-  echo "FAIL: 'The 15 topics enumerated' not found in charter.md"
+# Assertion 4 (reconciled AC-3, Risk-C): convergence-check header bumped to "19 topics enumerated"
+if ! grep -qE "^The 19 topics enumerated" "$CHARTER"; then
+  echo "FAIL: 'The 19 topics enumerated' not found in charter.md"
   exit 1
 fi
-echo "OK: convergence-check header reads '15 topics enumerated'"
+echo "OK: convergence-check header reads '19 topics enumerated'"
 
 # Assertion 5 (reconciled AC-3, Risk-C): 4 new convergence-check bullets (12-15)
 BULLET_COUNT=$(grep -cE "^- Topic (12|13|14|15) —" "$CHARTER" || true)
@@ -44,25 +44,25 @@ if [[ "$BULLET_COUNT" -ne 4 ]]; then
 fi
 echo "OK: 4 new convergence-check bullets present"
 
-# Assertion 6 (reconciled AC-3, Risk-C): SKILL.md explainer bumped to "15 topics"
-if ! grep -qF "I'll ask about 15 topics" "$SKILL"; then
-  echo "FAIL: \"I'll ask about 15 topics\" not found in SKILL.md"
+# Assertion 6 (reconciled AC-3, Risk-C): SKILL.md explainer bumped to "19 topics"
+if ! grep -qF "I'll ask about 19 topics" "$SKILL"; then
+  echo "FAIL: \"I'll ask about 19 topics\" not found in SKILL.md"
   exit 1
 fi
-echo "OK: SKILL.md explainer reads '15 topics'"
+echo "OK: SKILL.md explainer reads '19 topics'"
 
-# Assertion 7 (reconciled AC-3, Risk-C): reference.md 9-topic -> 15-topic
-NINE_COUNT=$(grep -cE "9-topic" "$REFERENCE" || true)
-FIFTEEN_COUNT=$(grep -cE "15-topic" "$REFERENCE" || true)
+# Assertion 7 (reconciled AC-3, Risk-C): reference.md 9-topic -> 19-topic
+NINE_COUNT=$(grep -cE "(^|[^0-9])9-topic" "$REFERENCE" || true)
+NINETEEN_COUNT=$(grep -cE "19-topic" "$REFERENCE" || true)
 if [[ "$NINE_COUNT" -ne 0 ]]; then
   echo "FAIL: expected 0 '9-topic' mentions in reference.md, got $NINE_COUNT"
   exit 1
 fi
-if [[ "$FIFTEEN_COUNT" -lt 2 ]]; then
-  echo "FAIL: expected >= 2 '15-topic' mentions in reference.md, got $FIFTEEN_COUNT"
+if [[ "$NINETEEN_COUNT" -lt 2 ]]; then
+  echo "FAIL: expected >= 2 '19-topic' mentions in reference.md, got $NINETEEN_COUNT"
   exit 1
 fi
-echo "OK: reference.md scrubbed 9-topic -> 15-topic ($FIFTEEN_COUNT hits)"
+echo "OK: reference.md scrubbed 9-topic -> 19-topic ($NINETEEN_COUNT hits)"
 
 # Assertion 8 (positional ordering): Topic 12 after Topic 11; AI Layer template after Review style; Stakeholders preserved
 T11_OFFSET=$(grep -ob '### Topic 11: Review style' "$CHARTER" | head -1 | cut -d: -f1)

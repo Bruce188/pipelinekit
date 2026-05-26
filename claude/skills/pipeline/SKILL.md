@@ -69,7 +69,7 @@ Charter Discovery is the default-on front-loaded alignment phase. It produces `d
 5. User-wins contract: if the user's topic answers contradict the persona's emphasis, the user's answers win — proceed without persona bias.
 
 1. Print an explainer to the user:
-   > "Charter Discovery (Step 0): Before the pipeline runs autonomously, let's align on what you want to build. I'll ask about 15 topics. You can exit at any point — just choose 'ship the charter now' to write the charter with what we have so far and continue."
+   > "Charter Discovery (Step 0): Before the pipeline runs autonomously, let's align on what you want to build. I'll ask about 19 topics. You can exit at any point — just choose 'ship the charter now' to write the charter with what we have so far and continue."
    >
    > "To skip entirely: re-invoke with `--no-charter`. To adopt an existing charter: `--charter <path>`."
 
