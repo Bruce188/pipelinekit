@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>HTML effectiveness principles — pipelinekit</title>
-<meta name="description" content="Canonical design rubric for pipelinekit&#x27;s documentation/*.html corpus. Defines the four-category rubric, maps every shipped snippet to its category, and lists anti-patterns the rubric is meant to prevent.">
+<title>Best-practices score-card — pipelinekit</title>
+<meta name="description" content="Post-batch tracking of pipelinekit&#x27;s coverage against the five-category best-practices rubric. Baseline derived from the 2026-05-26 comprehensive audit (docs/features-best-practices.md); 22 features (PRs #148 — #169) merged in the…">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -597,7 +597,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>HTML effectiveness principles</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Best-practices score-card</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -619,9 +619,15 @@ footer {
     <h2 class="toc-heading">On this page</h2>
     <ul>
       <li class="lvl-2"><a href="#what">WHAT</a></li>
-      <li class="lvl-2"><a href="#rubric">RUBRIC</a></li>
-      <li class="lvl-2"><a href="#snippet-map">SNIPPET MAP</a></li>
-      <li class="lvl-2"><a href="#anti-patterns">ANTI-PATTERNS</a></li>
+      <li class="lvl-2"><a href="#score-card">SCORE-CARD</a></li>
+      <li class="lvl-2"><a href="#feature-to-category-mapping">FEATURE-TO-CATEGORY MAPPING</a></li>
+      <li class="lvl-2"><a href="#category-level-notes">CATEGORY-LEVEL NOTES</a></li>
+      <li class="lvl-3"><a href="#workflow">Workflow</a></li>
+      <li class="lvl-3"><a href="#security">Security</a></li>
+      <li class="lvl-3"><a href="#modular">Modular</a></li>
+      <li class="lvl-3"><a href="#docs">Docs</a></li>
+      <li class="lvl-3"><a href="#testing">Testing</a></li>
+      <li class="lvl-2"><a href="#source-of-truth">SOURCE OF TRUTH</a></li>
       <li class="lvl-2"><a href="#see-also">SEE ALSO</a></li>
     </ul>
   </aside>
@@ -629,451 +635,489 @@ footer {
   <main>
     <header class="page-header">
       <span class="diataxis-chip diataxis-explanation">explanation</span>
-      <h1>HTML effectiveness principles</h1>
-      <p class="description">Canonical design rubric for pipelinekit&#x27;s documentation/*.html corpus. Defines the four-category rubric, maps every shipped snippet to its category, and lists anti-patterns the rubric is meant to prevent.</p>
+      <h1>Best-practices score-card</h1>
+      <p class="description">Post-batch tracking of pipelinekit&#x27;s coverage against the five-category best-practices rubric. Baseline derived from the 2026-05-26 comprehensive audit (docs/features-best-practices.md); 22 features (PRs #148 — #169) merged in the…</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
 <h2 id="what">WHAT</h2>
-<!-- snippet:architecture-diagram
-     4-layer SVG taxonomy of pipelinekit: user-invocable slash commands,
-     pipeline phase skills, specialized agents, hooks + infrastructure.
-
-     Hover any chip for details; click to navigate. Filter to a specific
-     layer via the layer-toggle buttons.
-
-     Placeholder usage in markdown source:
-       <div data-snippet="architecture-diagram"></div>
--->
-<div class="pkit-arch-diagram" data-snippet-mount="architecture-diagram">
+<p>The rubric divides best-practice surface area into five categories:</p>
+<ul>
+<li><strong>Workflow</strong> — pipeline orchestration contracts, phase routing, dispatch shape, charter handling, memory wiring.</li>
+<li><strong>Security</strong> — secret-handling, supply-chain pinning, sandbox isolation, prompt-injection defenses, native gate hooks.</li>
+<li><strong>Modular</strong> — agent / skill / hook tool-surface tightening, deployment-engineer subclasses, lint configs, allowed-tools enumeration.</li>
+<li><strong>Docs</strong> — discoverability infrastructure (glossary, search, examples, Diátaxis taxonomy), community-profile assets, version stamping, routing-truthfulness reconciliation.</li>
+<li><strong>Testing</strong> — CI matrix on GitHub Actions, lint configuration, hook-block-gate coverage with TDD scaffolding.</li>
+</ul>
+<p>The score-card below tracks per-category <code>(Implemented / Total)</code> and the rolled-up aggregate.</p>
+<h2 id="score-card">SCORE-CARD</h2>
+<p>Post-batch state after the F1 — F22 autonomous run merged via PRs #148 — #169.</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Total</th>
+<th>Implemented (post-batch)</th>
+<th>%</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Workflow</td>
+<td>14</td>
+<td>12</td>
+<td>86%</td>
+</tr>
+<tr>
+<td>Security</td>
+<td>16</td>
+<td>16</td>
+<td>100%</td>
+</tr>
+<tr>
+<td>Modular</td>
+<td>10</td>
+<td>10</td>
+<td>100%</td>
+</tr>
+<tr>
+<td>Docs</td>
+<td>13</td>
+<td>12</td>
+<td>92%</td>
+</tr>
+<tr>
+<td>Testing</td>
+<td>12</td>
+<td>8</td>
+<td>67%</td>
+</tr>
+<tr>
+<td><strong>Aggregate</strong></td>
+<td><strong>65</strong></td>
+<td><strong>58</strong></td>
+<td><strong>89%</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Pre-batch baseline (from the 2026-05-26 audit, with row-arithmetic normalised):</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Total</th>
+<th>Implemented (pre-batch)</th>
+<th>%</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Workflow</td>
+<td>14</td>
+<td>7</td>
+<td>50%</td>
+</tr>
+<tr>
+<td>Security</td>
+<td>16</td>
+<td>11</td>
+<td>69%</td>
+</tr>
+<tr>
+<td>Modular</td>
+<td>10</td>
+<td>7</td>
+<td>70%</td>
+</tr>
+<tr>
+<td>Docs</td>
+<td>13</td>
+<td>8</td>
+<td>62%</td>
+</tr>
+<tr>
+<td>Testing</td>
+<td>12</td>
+<td>5</td>
+<td>42%</td>
+</tr>
+<tr>
+<td><strong>Aggregate</strong></td>
+<td><strong>65</strong></td>
+<td><strong>38</strong></td>
+<td><strong>58%</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Net delta: <strong>+20 implemented items</strong>, <strong>+31 aggregate percentage points</strong>.</p>
+<!-- usage: <div data-snippet="cost-budget-meter"
+                     data-spent-usd="3.40" data-max-usd="10"
+                     data-spent-turns="220" data-max-turns="500"></div>
+     any data-* attribute may be the string "unlimited" to render open-ended -->
+<div class="pkit-cbm" data-snippet-mount="cost-budget-meter" data-spent-usd="58" data-max-usd="65" data-spent-turns="89" data-max-turns="100" data-label-spent="Items implemented" data-label-max="Total surface" data-label-turns="Aggregate %">
   <style>
-    .pkit-arch-diagram {
-      margin: 1.5rem 0;
-      padding: 1.5rem;
-      background: var(--bg-elev);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
+    .pkit-cbm { margin: 1.5rem 0; padding: 1.5rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); }
+    .pkit-cbm .pkit-cbm-dials { display: flex; flex-wrap: wrap; gap: 2rem; justify-content: center; align-items: flex-start; }
+    .pkit-cbm .pkit-cbm-dial { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; min-width: 140px; }
+    .pkit-cbm .pkit-cbm-dial svg { width: 140px; height: 80px; display: block; }
+    .pkit-cbm .pkit-cbm-dial-label { font-family: var(--sans); font-size: 0.8rem; font-weight: 600; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .pkit-cbm .pkit-cbm-dial-value { font-family: var(--mono); font-size: 1rem; font-weight: 700; color: var(--fg); }
+    .pkit-cbm .pkit-cbm-dial-cap { font-family: var(--mono); font-size: 0.75rem; color: var(--fg-subtle); }
+    .pkit-cbm .pkit-cbm-legend { display: flex; gap: 1.5rem; justify-content: center; margin-top: 1rem; font-family: var(--sans); font-size: 0.78rem; color: var(--fg-muted); }
+    .pkit-cbm .pkit-cbm-legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 0.3rem; }
+    @keyframes pkit-cbm-fill {
+      from { stroke-dashoffset: var(--pkit-cbm-track-len, 220); }
+      to   { stroke-dashoffset: var(--pkit-cbm-fill-offset, 220); }
     }
-    .pkit-arch-diagram .pkit-ad-controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      margin-bottom: 1.2rem;
-      align-items: center;
+    @media (prefers-reduced-motion: reduce) {
+      .pkit-cbm * { animation: none !important; transition: none !important; }
     }
-    .pkit-arch-diagram .pkit-ad-label {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      color: var(--fg-subtle);
-      font-weight: 600;
-    }
-    .pkit-arch-diagram .pkit-ad-layer-btn {
-      padding: 0.3rem 0.65rem;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      color: var(--fg-muted);
-      font-size: 0.78rem;
-      cursor: pointer;
-      transition: all var(--transition);
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-    }
-    .pkit-arch-diagram .pkit-ad-layer-btn .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      display: inline-block;
-    }
-    .pkit-arch-diagram .pkit-ad-layer-btn:hover { color: var(--fg); border-color: var(--border-strong); }
-    .pkit-arch-diagram .pkit-ad-layer-btn.active { color: var(--fg); border-color: var(--accent); background: var(--accent-soft); }
-
-    .pkit-arch-diagram .pkit-ad-stack {
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-    }
-    .pkit-arch-diagram .pkit-ad-layer {
-      border-radius: var(--radius);
-      padding: 0.9rem 1.1rem;
-      transition: opacity var(--transition), transform var(--transition);
-      border: 1px solid var(--border);
-      position: relative;
-    }
-    .pkit-arch-diagram .pkit-ad-layer.dimmed {
-      opacity: 0.25;
-      filter: grayscale(40%);
-    }
-    .pkit-arch-diagram .pkit-ad-layer-1 { background: linear-gradient(135deg, color-mix(in srgb, #10b981 12%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #10b981 35%, var(--border)); }
-    .pkit-arch-diagram .pkit-ad-layer-2 { background: linear-gradient(135deg, color-mix(in srgb, #3b82f6 12%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #3b82f6 35%, var(--border)); }
-    .pkit-arch-diagram .pkit-ad-layer-3 { background: linear-gradient(135deg, color-mix(in srgb, #a855f7 12%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #a855f7 35%, var(--border)); }
-    .pkit-arch-diagram .pkit-ad-layer-4 { background: linear-gradient(135deg, color-mix(in srgb, #f59e0b 10%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #f59e0b 35%, var(--border)); }
-
-    .pkit-arch-diagram .pkit-ad-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin-bottom: 0.5rem;
-    }
-    .pkit-arch-diagram .pkit-ad-name {
-      font-size: 0.92rem;
-      font-weight: 700;
-      color: var(--fg);
-    }
-    .pkit-arch-diagram .pkit-ad-name .lvl {
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      color: var(--fg-subtle);
-      margin-right: 0.5rem;
-    }
-    .pkit-arch-diagram .pkit-ad-count {
-      font-family: var(--mono);
-      font-size: 0.78rem;
-      color: var(--fg-muted);
-      background: var(--bg);
-      padding: 0.1rem 0.5rem;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
-    }
-    .pkit-arch-diagram .pkit-ad-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.3rem;
-    }
-    .pkit-arch-diagram .pkit-ad-chip {
-      padding: 0.18rem 0.55rem;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      font-family: var(--mono);
-      font-size: 0.75rem;
-      color: var(--fg-muted);
-      cursor: help;
-      transition: all 100ms ease;
-      position: relative;
-    }
-    .pkit-arch-diagram .pkit-ad-chip:hover {
-      color: var(--fg);
-      border-color: var(--accent);
-      background: var(--accent-soft);
-    }
-    .pkit-arch-diagram .pkit-ad-chip.more { font-style: italic; color: var(--fg-subtle); }
-
-    .pkit-arch-diagram .pkit-ad-flow {
-      display: flex;
-      justify-content: center;
-      padding: 0.1rem 0;
-      color: var(--fg-subtle);
-      font-size: 0.85rem;
-    }
-    .pkit-arch-diagram .pkit-ad-tooltip {
-      position: absolute;
-      background: var(--fg);
-      color: var(--bg);
-      padding: 0.45rem 0.7rem;
-      border-radius: var(--radius-sm);
-      font-size: 0.78rem;
-      max-width: 280px;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 120ms ease;
-      z-index: 20;
-      box-shadow: var(--shadow-md);
-      line-height: 1.4;
-      bottom: calc(100% + 8px);
-      left: 50%;
-      transform: translateX(-50%);
-      white-space: normal;
-    }
-    .pkit-arch-diagram .pkit-ad-chip:hover .pkit-ad-tooltip { opacity: 1; }
   </style>
 
-  <div class="pkit-ad-controls">
-    <span class="pkit-ad-label">Filter layer:</span>
-    <button class="pkit-ad-layer-btn active" data-layer="all">All</button>
-    <button class="pkit-ad-layer-btn" data-layer="1"><span class="dot" style="background:#10b981"></span>User surface</button>
-    <button class="pkit-ad-layer-btn" data-layer="2"><span class="dot" style="background:#3b82f6"></span>Pipeline phases</button>
-    <button class="pkit-ad-layer-btn" data-layer="3"><span class="dot" style="background:#a855f7"></span>Agents</button>
-    <button class="pkit-ad-layer-btn" data-layer="4"><span class="dot" style="background:#f59e0b"></span>Infrastructure</button>
-  </div>
-
-  <div class="pkit-ad-stack">
-    <div class="pkit-ad-layer pkit-ad-layer-1" data-layer="1">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L1</span>User-invocable slash commands</div>
-        <div class="pkit-ad-count">8 commands</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">/pipeline<span class="pkit-ad-tooltip">The autonomous orchestrator. Charter → Analyze → Plan → Implement → Review → Merge.</span></span>
-        <span class="pkit-ad-chip">/review<span class="pkit-ad-tooltip">Multi-agent code review. Scales from 2 to 6 agents based on diff size.</span></span>
-        <span class="pkit-ad-chip">/ppr<span class="pkit-ad-tooltip">Push + PR. Push committed changes; open a pull request. --research flag publishes research keep-rows.</span></span>
-        <span class="pkit-ad-chip">/research<span class="pkit-ad-tooltip">Karpathy autoresearch loop: hypothesize → mutate → benchmark → keep-or-reset.</span></span>
-        <span class="pkit-ad-chip">/incident<span class="pkit-ad-tooltip">Triage a failing post-merge verification gate. Dispatches incident-responder agent.</span></span>
-        <span class="pkit-ad-chip">/learn<span class="pkit-ad-tooltip">Read interface for per-project learnings journal.</span></span>
-        <span class="pkit-ad-chip">/caveman<span class="pkit-ad-tooltip">Toggle response verbosity. Wenyan-ultra by default; lite/full/ultra options.</span></span>
-      </div>
+  <div class="pkit-cbm-dials">
+    <div class="pkit-cbm-dial" id="pkit-cbm-usd-dial">
+      <span class="pkit-cbm-dial-label">Cost (USD)</span>
+      <svg viewBox="0 0 140 80" aria-label="USD cost dial">
+        <path class="pkit-cbm-track" d="M20,75 A50,50 0 0,1 120,75" fill="none" stroke="var(--border)" stroke-width="10" stroke-linecap="round"/>
+        <path class="pkit-cbm-fill" id="pkit-cbm-usd-arc" d="M20,75 A50,50 0 0,1 120,75" fill="none" stroke="var(--accent)" stroke-width="10" stroke-linecap="round"
+              stroke-dasharray="157" stroke-dashoffset="157"/>
+      </svg>
+      <span class="pkit-cbm-dial-value" id="pkit-cbm-usd-value">$0</span>
+      <span class="pkit-cbm-dial-cap" id="pkit-cbm-usd-cap">of $10</span>
     </div>
 
-    <div class="pkit-ad-flow">▼</div>
-
-    <div class="pkit-ad-layer pkit-ad-layer-2" data-layer="2">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L2</span>Pipeline phase skills (dispatched by /pipeline)</div>
-        <div class="pkit-ad-count">6 phase skills</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">analyze<span class="pkit-ad-tooltip">Reads feature + repo; produces docs/analysis-vN.md.</span></span>
-        <span class="pkit-ad-chip">create-plan<span class="pkit-ad-tooltip">Produces docs/plan-vN.md + docs/prompts-vN.md with phase decomposition.</span></span>
-        <span class="pkit-ad-chip">implement-plan<span class="pkit-ad-tooltip">Executes plan tasks; parallel-safe dispatch via single-message multi-Agent.</span></span>
-        <span class="pkit-ad-chip">post-merge<span class="pkit-ad-tooltip">Verification gate after merge. Project-type auto-detected.</span></span>
-        <span class="pkit-ad-chip">document-release<span class="pkit-ad-tooltip">Update documentation/ after a release. Calls into docs-writer.</span></span>
-        <span class="pkit-ad-chip">docs-writer<span class="pkit-ad-tooltip">Renders markdown to rich-template HTML. (This skill.)</span></span>
-      </div>
-    </div>
-
-    <div class="pkit-ad-flow">▼</div>
-
-    <div class="pkit-ad-layer pkit-ad-layer-3" data-layer="3">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L3</span>Specialized agents (dispatched by phase skills)</div>
-        <div class="pkit-ad-count">31 agents</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">@code-reviewer<span class="pkit-ad-tooltip">Quality, best practices, security, performance.</span></span>
-        <span class="pkit-ad-chip">@security-auditor<span class="pkit-ad-tooltip">OWASP compliance, secure auth flows.</span></span>
-        <span class="pkit-ad-chip">@symbol-verifier<span class="pkit-ad-tooltip">Anti-hallucination. Verifies every new symbol/API resolves.</span></span>
-        <span class="pkit-ad-chip">@spec-tracer<span class="pkit-ad-tooltip">Verifies a diff implements the stated objective + ACs.</span></span>
-        <span class="pkit-ad-chip">@tdd-test-writer<span class="pkit-ad-tooltip">Writes failing tests from spec. Context-isolated from implementer.</span></span>
-        <span class="pkit-ad-chip">@tdd-implementer<span class="pkit-ad-tooltip">Implements code to pass tests. Cannot modify tests.</span></span>
-        <span class="pkit-ad-chip">@architect<span class="pkit-ad-tooltip">Evidence-based design decisions, scalable patterns.</span></span>
-        <span class="pkit-ad-chip">@deployment-engineer<span class="pkit-ad-tooltip">Base agent (docs-only). 5 cloud variants extend it.</span></span>
-        <span class="pkit-ad-chip">@{azure,vercel,railway,render,digitalocean}-deployment-engineer<span class="pkit-ad-tooltip">5 cloud-provider variants sharing the deployment-engineer base.</span></span>
-        <span class="pkit-ad-chip">@incident-responder<span class="pkit-ad-tooltip">SRE incident response. Used by /incident.</span></span>
-        <span class="pkit-ad-chip">@claude-md-guardian<span class="pkit-ad-tooltip">CLAUDE.md drift detection + scoring.</span></span>
-        <span class="pkit-ad-chip">@mobile-dev<span class="pkit-ad-tooltip">iOS/Android/RN/Expo/Flutter cross-platform.</span></span>
-        <span class="pkit-ad-chip more">+ 19 more</span>
-      </div>
-    </div>
-
-    <div class="pkit-ad-flow">▼</div>
-
-    <div class="pkit-ad-layer pkit-ad-layer-4" data-layer="4">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L4</span>Infrastructure: hooks · sandbox · MCP · memory</div>
-        <div class="pkit-ad-count">24 hooks + 4+ MCPs + sandbox + memory</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">validate-commit-msg<span class="pkit-ad-tooltip">Pre-commit: enforce conventional-commit format.</span></span>
-        <span class="pkit-ad-chip">strip-ai-attribution<span class="pkit-ad-tooltip">Pre-commit: remove Co-Authored-By / Generated-with / 🤖 leaks.</span></span>
-        <span class="pkit-ad-chip">block-push-main<span class="pkit-ad-tooltip">Pre-push: refuse direct push to main.</span></span>
-        <span class="pkit-ad-chip">block-stage-sensitive<span class="pkit-ad-tooltip">Pre-add: refuse staging files matching never-stage.txt patterns.</span></span>
-        <span class="pkit-ad-chip">tdd-red-phase-gate<span class="pkit-ad-tooltip">Pre-commit: refuse commits that mix test + impl changes during a TDD phase.</span></span>
-        <span class="pkit-ad-chip">env-scrub<span class="pkit-ad-tooltip">Sandbox pre-exec: scrub env vars before subprocess invocation.</span></span>
-        <span class="pkit-ad-chip">notify-emit<span class="pkit-ad-tooltip">Pipeline state-change notifications via OSC 777 + PushNotification.</span></span>
-        <span class="pkit-ad-chip">sandbox: worktree|podman|docker<span class="pkit-ad-tooltip">Pluggable sandbox provider chain. worktree-only default; podman/docker for container isolation.</span></span>
-        <span class="pkit-ad-chip">MCP: context7<span class="pkit-ad-tooltip">Library docs and reference lookup.</span></span>
-        <span class="pkit-ad-chip">MCP: serena<span class="pkit-ad-tooltip">Semantic code navigation.</span></span>
-        <span class="pkit-ad-chip">memory: flat-file<span class="pkit-ad-tooltip">~/.claude/memory/ with recency-weighted decay. Canonical write path.</span></span>
-        <span class="pkit-ad-chip more">+ 17 more hooks</span>
-      </div>
+    <div class="pkit-cbm-dial" id="pkit-cbm-turns-dial">
+      <span class="pkit-cbm-dial-label">Turns</span>
+      <svg viewBox="0 0 140 80" aria-label="Turns dial">
+        <path class="pkit-cbm-track" d="M20,75 A50,50 0 0,1 120,75" fill="none" stroke="var(--border)" stroke-width="10" stroke-linecap="round"/>
+        <path class="pkit-cbm-fill" id="pkit-cbm-turns-arc" d="M20,75 A50,50 0 0,1 120,75" fill="none" stroke="var(--accent)" stroke-width="10" stroke-linecap="round"
+              stroke-dasharray="157" stroke-dashoffset="157"/>
+      </svg>
+      <span class="pkit-cbm-dial-value" id="pkit-cbm-turns-value">0</span>
+      <span class="pkit-cbm-dial-cap" id="pkit-cbm-turns-cap">of 500</span>
     </div>
   </div>
+
+  <script type="application/json" id="cbm-defaults">{"spentUsd":3.40,"maxUsd":10,"spentTurns":220,"maxTurns":500}</script>
 </div>
 
 <script>
 (function() {
   'use strict';
-  const diagrams = document.querySelectorAll('.pkit-arch-diagram[data-snippet-mount="architecture-diagram"]');
-  const diagram = diagrams[diagrams.length - 1];
-  if (!diagram || diagram.dataset.pkitInit) return;
-  diagram.dataset.pkitInit = '1';
+  document.querySelectorAll('.pkit-cbm[data-snippet-mount="cost-budget-meter"]').forEach(function(root) {
+    if (root.dataset.pkitInit) return;
+    root.dataset.pkitInit = '1';
 
-  const btns = diagram.querySelectorAll('.pkit-ad-layer-btn');
-  const layers = diagram.querySelectorAll('.pkit-ad-layer');
+    var defaultsEl = root.querySelector('#cbm-defaults');
+    var defaults = defaultsEl ? JSON.parse(defaultsEl.textContent) : {spentUsd:0,maxUsd:10,spentTurns:0,maxTurns:500};
 
-  btns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      btns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const want = btn.dataset.layer;
-      layers.forEach(l => {
-        if (want === 'all' || l.dataset.layer === want) {
-          l.classList.remove('dimmed');
-        } else {
-          l.classList.add('dimmed');
-        }
-      });
-    });
+    var spentUsd   = root.dataset.spentUsd   !== undefined ? root.dataset.spentUsd   : String(defaults.spentUsd);
+    var maxUsd     = root.dataset.maxUsd     !== undefined ? root.dataset.maxUsd     : String(defaults.maxUsd);
+    var spentTurns = root.dataset.spentTurns !== undefined ? root.dataset.spentTurns : String(defaults.spentTurns);
+    var maxTurns   = root.dataset.maxTurns   !== undefined ? root.dataset.maxTurns   : String(defaults.maxTurns);
+
+    var TRACK_LEN = 157; /* half-circle arc at r=50 ≈ π*50 */
+
+    function setupDial(arcEl, valEl, capEl, spent, max) {
+      var spentNum = parseFloat(spent) || 0;
+      var isUsd = capEl.id === 'pkit-cbm-usd-cap';
+
+      if (max === 'unlimited') {
+        /* open-ended: show spent with no denominator */
+        arcEl.style.display = 'none';
+        valEl.textContent = isUsd ? ('$' + spentNum.toFixed(2)) : String(Math.round(spentNum));
+        capEl.textContent = '(no cap)';
+        return;
+      }
+
+      var maxNum = parseFloat(max) || 1;
+      var fraction = Math.min(1, Math.max(0, spentNum / maxNum));
+      var fillOffset = TRACK_LEN - fraction * TRACK_LEN;
+
+      arcEl.style.setProperty('--pkit-cbm-track-len', TRACK_LEN);
+      arcEl.style.setProperty('--pkit-cbm-fill-offset', fillOffset);
+      arcEl.style.strokeDashoffset = fillOffset;
+      arcEl.style.animation = 'pkit-cbm-fill 800ms ease-out forwards';
+
+      valEl.textContent = isUsd ? ('$' + spentNum.toFixed(2)) : String(Math.round(spentNum));
+      capEl.textContent = isUsd ? ('of $' + maxNum) : ('of ' + maxNum);
+    }
+
+    setupDial(
+      root.querySelector('#pkit-cbm-usd-arc'),
+      root.querySelector('#pkit-cbm-usd-value'),
+      root.querySelector('#pkit-cbm-usd-cap'),
+      spentUsd, maxUsd
+    );
+    setupDial(
+      root.querySelector('#pkit-cbm-turns-arc'),
+      root.querySelector('#pkit-cbm-turns-value'),
+      root.querySelector('#pkit-cbm-turns-cap'),
+      spentTurns, maxTurns
+    );
   });
 })();
 </script>
 
 
-<p>"HTML effectiveness" is a rubric for distinguishing HTML pages whose layout and interactivity <em>carry information</em> from HTML pages that are merely "rendered markdown with a sidebar." The rubric is taken from <a href="https://thariqs.github.io/html-effectiveness/">https://thariqs.github.io/html-effectiveness/</a> and adopted as pipelinekit's canonical lens for evaluating any page rendered to <code>documentation/</code>.</p>
-<p>pipelinekit ships 18 ready-to-embed snippets in <code>claude/skills/docs-writer/snippets/</code>. Each snippet implements one of the four rubric categories below. The richness gate (<code>claude/skills/docs-writer/richness_check.py</code>) refuses to stage a <code>documentation/*.html</code> page that scores below the threshold — <code>≥1</code> distinct pattern for body ≤ 1500 words, <code>≥2</code> distinct patterns for body &gt; 1500 words. A page authored without a single rich-interactive primitive defeats the purpose of HTML-over-markdown and fails the gate.</p>
-<p>The rubric is descriptive, not prescriptive. Designers can compose multiple categories on one page; the only contract is that <em>some</em> category must be present.</p>
-<h2 id="rubric">RUBRIC</h2>
-<p>The four categories are non-overlapping. A snippet belongs to exactly one category — pick whichever lever dominates its content carrier.</p>
-<ul>
-<li><strong>Spatial</strong> — uses 2D layout (grids, tables, diagrams) to communicate structure that prose cannot. A reader scanning the layout learns relationships before reading any individual cell. Examples: card grids, RACI matrices, architecture stack diagrams.</li>
-<li><strong>Live-rendered</strong> — computes responsive output from user input. The page state is not static; sliders, textareas, or scripted playback drive the visible content. The reader interacts with the page to see different answers, not different views of the same answer. Examples: cost calculators, live linters, paste-and-score playgrounds.</li>
-<li><strong>Interactive</strong> — clickable / toggleable / scrubable UI that progressively reveals information. Distinct from live-rendered in that the content is fixed; the interaction surfaces <em>which subset</em> is visible. Examples: comparison tabs, before/after sliders, decision-tree quizzes, animated SVG flows with hover tooltips.</li>
-<li><strong>Visual-token</strong> — visualizes design tokens, scales, gauges, or other quantitative-visual primitives. The visual element <em>is</em> the content; reading it as prose would be lossy. Examples: dial-gauge meters showing budget consumption, swatch tables showing the canonical color tokens, type-scale specimens.</li>
-</ul>
-<h2 id="snippet-map">SNIPPET MAP</h2>
-<p>The 18 snippets currently shipped, classified per the rubric. Counts: Spatial 6 / Interactive 7 / Live-rendered 4 / Visual-token 1.</p>
+<p>The twin dial above reframes the aggregate score-card as a budget meter. The left dial shows item-coverage (58 of 65); the right dial shows the rolled-up percentage (89 of a notional 100%).</p>
+<h2 id="feature-to-category-mapping">FEATURE-TO-CATEGORY MAPPING</h2>
+<p>The 22 features in chronological merge order. Each row credits the category whose gap the feature closed. Refactor-class features (column <strong>R</strong>) did not increment any per-category count — they cleaned up previously-implemented behaviour rather than closing a listed gap.</p>
 <table>
 <thead>
 <tr>
 <th>#</th>
-<th>Snippet</th>
+<th>PR</th>
+<th>Commit</th>
+<th>Title</th>
 <th>Category</th>
-<th>Rationale</th>
+<th>R</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>1</td>
-<td><code>agent-catalog-grid</code></td>
-<td>Spatial</td>
-<td>2D card-grid layout with section-filter chips.</td>
+<td>#148</td>
+<td>75b325f</td>
+<td>github community profile</td>
+<td>Docs</td>
+<td></td>
 </tr>
 <tr>
 <td>2</td>
-<td><code>architecture-diagram</code></td>
-<td>Spatial</td>
-<td>4-layer SVG taxonomy with layer-toggle filter.</td>
+<td>#149</td>
+<td>9394909</td>
+<td>github actions CI workflow + cross-platform matrix</td>
+<td>Testing</td>
+<td></td>
 </tr>
 <tr>
 <td>3</td>
-<td><code>before-after-slider</code></td>
-<td>Interactive</td>
-<td>Horizontal scrubber with clip-path reveal between two states.</td>
+<td>#150</td>
+<td>06b25da</td>
+<td>lint configs (shellcheck / ruff / mypy)</td>
+<td>Testing</td>
+<td></td>
 </tr>
 <tr>
 <td>4</td>
-<td><code>chooser-quiz</code></td>
-<td>Interactive</td>
-<td>Multi-step decision tree leading to a recommendation.</td>
+<td>#151</td>
+<td>7d36244</td>
+<td>version stamp + changelog symlink</td>
+<td>Docs</td>
+<td></td>
 </tr>
 <tr>
 <td>5</td>
-<td><code>command-cheatsheet</code></td>
-<td>Spatial</td>
-<td>Sortable, filterable command table.</td>
+<td>#152</td>
+<td>a50e399</td>
+<td>native commit-msg hook from validate-commit-msg.sh</td>
+<td>Workflow</td>
+<td></td>
 </tr>
 <tr>
 <td>6</td>
-<td><code>comparison-tabs</code></td>
-<td>Interactive</td>
-<td>Click-tab side-by-side comparison.</td>
+<td>#153</td>
+<td>1c4fa08</td>
+<td>allowed-tools enumeration across remaining skills</td>
+<td>Modular</td>
+<td></td>
 </tr>
 <tr>
 <td>7</td>
-<td><code>cost-budget-meter</code></td>
-<td>Visual-token</td>
-<td>Twin dial-gauge SVG with CSS-animated fill.</td>
+<td>#154</td>
+<td>5992b61</td>
+<td>provider-specialized deployment-engineer subclasses</td>
+<td>Modular</td>
+<td></td>
 </tr>
 <tr>
 <td>8</td>
-<td><code>cost-calculator</code></td>
-<td>Live-rendered</td>
-<td>Sliders compute dollar amounts in real time.</td>
+<td>#155</td>
+<td>71412b3</td>
+<td>TDD-based coverage for blocking hooks</td>
+<td>Testing</td>
+<td></td>
 </tr>
 <tr>
 <td>9</td>
-<td><code>deployment-provider-quiz</code></td>
-<td>Interactive</td>
-<td>6-question deployment-fit quiz.</td>
+<td>#156</td>
+<td>2da5ab4</td>
+<td>gitleaks pre-commit secret scan</td>
+<td>Security</td>
+<td></td>
 </tr>
 <tr>
 <td>10</td>
-<td><code>governance-roles-table</code></td>
-<td>Spatial</td>
-<td>RACI matrix (6 tasks x 4 roles) with click-highlight.</td>
+<td>#157</td>
+<td>e1ebfd1</td>
+<td>never-stage secret-pattern expansion</td>
+<td>Security</td>
+<td></td>
 </tr>
 <tr>
 <td>11</td>
-<td><code>live-linter</code></td>
-<td>Live-rendered</td>
-<td>Paste textarea, scored in real time.</td>
+<td>#158</td>
+<td>f9edc0c</td>
+<td>supply-chain pin hardening (serena ref, azure CLI, Claude CLI)</td>
+<td>Security</td>
+<td></td>
 </tr>
 <tr>
 <td>12</td>
-<td><code>path-routing-diagram</code></td>
-<td>Interactive</td>
-<td>Clickable decision-tree SVG mapped to pipeline path anchors.</td>
+<td>#159</td>
+<td>8c57952</td>
+<td>sandbox auto-fallback default with graceful degradation</td>
+<td>Security</td>
+<td></td>
 </tr>
 <tr>
 <td>13</td>
-<td><code>pipeline-phase-diagram</code></td>
-<td>Interactive</td>
-<td>Animated SVG lifecycle flow with hover tooltips.</td>
+<td>#160</td>
+<td>4e4c0eb</td>
+<td>prompt-injection advisory scanner for tool output</td>
+<td>Security</td>
+<td></td>
 </tr>
 <tr>
 <td>14</td>
-<td><code>playground-2col</code></td>
-<td>Live-rendered</td>
-<td>Two-column textarea with live status indicator.</td>
+<td>#161</td>
+<td>e5bf4ea</td>
+<td>reviewer agent tool-surface tightening</td>
+<td>Modular</td>
+<td></td>
 </tr>
 <tr>
 <td>15</td>
-<td><code>skill-catalog-grid</code></td>
-<td>Spatial</td>
-<td>Card-grid with section-filter chips.</td>
+<td>#162</td>
+<td>1f932ee</td>
+<td>glossary / search / examples / Diátaxis taxonomy</td>
+<td>Docs</td>
+<td></td>
 </tr>
 <tr>
 <td>16</td>
-<td><code>terminal-simulator</code></td>
-<td>Live-rendered</td>
-<td>Scripted command playback with synthetic output.</td>
+<td>#163</td>
+<td>c34db0c</td>
+<td>MCP routing-truthfulness reconciliation</td>
+<td>Docs</td>
+<td></td>
 </tr>
 <tr>
 <td>17</td>
-<td><code>timeline-scrubber</code></td>
-<td>Interactive</td>
-<td>Horizontal commit-history scrubber.</td>
+<td>#164</td>
+<td>2b127d9</td>
+<td>agentmemory MCP restore + memory_recall wired into 4 skills</td>
+<td>Workflow</td>
+<td></td>
 </tr>
 <tr>
 <td>18</td>
-<td><code>tutorial-cards</code></td>
-<td>Spatial</td>
-<td>2x2 card-grid with colored top borders.</td>
+<td>#165</td>
+<td>65b8254</td>
+<td>SessionStart hook touches caveman-active marker by default</td>
+<td>Workflow</td>
+<td></td>
+</tr>
+<tr>
+<td>19</td>
+<td>#166</td>
+<td>259d1f5</td>
+<td>teams-mode bundled single-turn dispatch contract</td>
+<td>Workflow</td>
+<td></td>
+</tr>
+<tr>
+<td>20</td>
+<td>#167</td>
+<td>6e9fab0</td>
+<td>review-skill namespace collision via slug rename</td>
+<td>Workflow</td>
+<td>R</td>
+</tr>
+<tr>
+<td>21</td>
+<td>#168</td>
+<td>304d7b2</td>
+<td>review→ppr findings-leak Path M all-or-none contract</td>
+<td>Workflow</td>
+<td></td>
+</tr>
+<tr>
+<td>22</td>
+<td>#169</td>
+<td>6606688</td>
+<td>typed-subagent default contract</td>
+<td>Workflow</td>
+<td>R</td>
 </tr>
 </tbody>
 </table>
-<p>The new <code>documentation/design-tokens.html</code> is the canonical Visual-token exemplar; before it, that category was thinly represented (only <code>cost-budget-meter</code>).</p>
-<h2 id="anti-patterns">ANTI-PATTERNS</h2>
-<p>Pages the rubric is designed to exclude — these defeat the purpose of HTML-over-markdown.</p>
-<ul>
-<li><strong>Walls of prose without visual aids.</strong> A 4000-word essay with no diagrams, tables, or scrubable elements is markdown with extra steps. Either add a category-matching snippet, restructure with tables / lists, or render to markdown and link from the docs index instead.</li>
-<li><strong>Decorative non-functional images.</strong> PNG screenshots that exist to look professional but do not convey information the prose does not already cover. The HTML-effectiveness rubric values <em>load-bearing</em> visuals — if the image vanished, the page should lose meaning.</li>
-<li><strong>Prose-only landing pages.</strong> An <code>index.html</code> that is one big paragraph followed by a list of links. Use <code>architecture-diagram</code> or <code>tutorial-cards</code> to surface the structure visually.</li>
-<li><strong>Snippets that fight the page.</strong> Over-decorated SVGs that animate while the reader is trying to read prose, a <code>cost-calculator</code> placed on a quickstart page where the reader has no decision to make, two interactive snippets stacked without coordinating their state. Pick the <em>minimum</em> snippet that carries the page intent; remove anything decorative.</li>
-<li><strong>Mixing Live-rendered + Interactive without state coordination.</strong> A textarea-driven <code>live-linter</code> next to a tab-based <code>comparison-tabs</code> produces a confusing reading order — the reader doesn't know whether to type or click. Use one primary interaction surface per page.</li>
-<li><strong>Missing dark-mode theming.</strong> Snippets that hard-code <code>#fff</code> / <code>#000</code> instead of consuming the template's CSS custom properties break in dark mode. The shipped snippets all use <code>var(--bg)</code>, <code>var(--fg)</code>, etc., so they auto-theme — new snippets must follow the same contract.</li>
-</ul>
 <details>
-<summary>Rubric provenance and adoption notes (click to expand)</summary>
+<summary>Per-PR commit detail (click to expand)</summary>
 
-The four-category framing is taken verbatim from Thariq Shihipar's *HTML effectiveness* essay (<https://thariqs.github.io/html-effectiveness/>). pipelinekit adopts the category names without translation. Two deltas worth flagging:
+Each PR squash-merged into `main`. Commit SHAs above are the squash-merge SHAs on `main`, not the original feature-branch tip SHAs.
 
-- **Snippet inventory is pipelinekit-specific.** The 18 snippets enumerated in the SNIPPET MAP table above are particular to this repo's `claude/skills/docs-writer/snippets/` directory. Forking projects should retain the four-category rubric but redraw their own inventory map.
-- **Richness gate is pipelinekit-specific.** The `richness_check.py` thresholds (≥1 pattern for body ≤ 1500 words, ≥2 for body > 1500 words) are an enforcement layer on top of the rubric — the rubric itself prescribes no quantitative floor. Other adopters can keep the rubric without adopting the gate.
-
-The rubric has been stable since pipelinekit v0.0.1 and is not expected to change without a documented ADR.
+- **#148 (75b325f)** — adds `.github/` community-profile assets (CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, ISSUE_TEMPLATE/, PULL_REQUEST_TEMPLATE.md).
+- **#149 (9394909)** — adds `.github/workflows/ci.yml` with cross-platform job matrix (ubuntu-latest, macos-latest).
+- **#150 (06b25da)** — adds top-level `.shellcheckrc`, `pyproject.toml` (ruff + mypy), `.editorconfig`.
+- **#151 (7d36244)** — adds `VERSION` file at repo root + `documentation/CHANGELOG.md` symlink.
+- **#152 (a50e399)** — adds `.githooks/commit-msg` shim that invokes `claude/hooks/validate-commit-msg.sh`.
+- **#153 (1c4fa08)** — adds `allowed-tools:` block to every `SKILL.md` lacking one.
+- **#154 (5992b61)** — splits the monolithic deployment-engineer agent into thin per-provider subclasses.
+- **#155 (71412b3)** — adds `claude/hooks/tests/` directory + initial blocking-hook coverage.
+- **#156 (2da5ab4)** — adds `.gitleaks.toml` + wires the gitleaks scan into `claude/hooks/pre-commit.sh`.
+- **#157 (e1ebfd1)** — extends `claude/config/never-stage.txt` to match `_pathguard.py`'s pattern set.
+- **#158 (f9edc0c)** — pins exact refs in `scripts/install.sh` for serena, Azure CLI, Claude CLI.
+- **#159 (8c57952)** — flips the sandbox provider default to auto-fallback with structured logging on degradation.
+- **#160 (4e4c0eb)** — adds `claude/lib/prompt_injection_scan.py` and wires it into the tool-output advisory path.
+- **#161 (e5bf4ea)** — tightens `claude/agents/code-reviewer.md` allowed-tools to least-privilege.
+- **#162 (1f932ee)** — adds `docs-source/glossary.md`, `documentation/search.json`, examples/, and Diátaxis frontmatter classification.
+- **#163 (c34db0c)** — reconciles each SKILL.md's MCP-routing claims with its actual `allowed-tools` declaration.
+- **#164 (2b127d9)** — registers `agentmemory` MCP in `~/.claude.json` template + wires `memory_recall` into 4 skill bodies.
+- **#165 (65b8254)** — adds `claude/hooks/session-start-caveman.sh` to touch the marker on every SessionStart / PostCompact.
+- **#166 (259d1f5)** — documents the bundled single-turn dispatch contract for teams-mode in `~/.claude/rules/agents-worktrees.md`.
+- **#167 (6e9fab0)** — renames the `review` skill slug to disambiguate from the built-in `/review` PR template. (Refactor — no gap closed.)
+- **#168 (304d7b2)** — adds Path M all-or-none enforcement language to the `pipeline` SKILL.md + `reference.md`.
+- **#169 (6606688)** — documents typed `subagent_type` selection as the default for `Agent` dispatch. (Refactor — no gap closed.)
 
 </details>
 
+<p><strong>Refactor exclusions.</strong> Two of the 22 merged features (F20 #167, F22 #169) refactor previously-implemented behaviour rather than closing a listed gap:</p>
+<ul>
+<li><strong>F20 — review-skill namespace collision via slug rename.</strong> The pipeline review phase already existed and already dispatched the five-specialist team. F20 renames the skill slug so the built-in PR-review template no longer intercepts the dispatch in subagent contexts. It is a hardening of a working path, not the addition of a missing one.</li>
+<li><strong>F22 — typed-subagent default contract.</strong> Subagent-First was already the default mode and <code>Agent</code> already accepts <code>subagent_type</code>. F22 tightens documentation + nudge text to make typed dispatch the default selection rather than <code>general-purpose</code> falling out as the implicit choice. It is a default-tightening, not a new capability.</li>
+</ul>
+<p>Both are valuable hardenings and merge into the same <code>Workflow</code> category by topic, but neither increments the implemented count.</p>
+<h2 id="category-level-notes">CATEGORY-LEVEL NOTES</h2>
+<h3 id="workflow">Workflow</h3>
+<p>Pre-batch implemented set: charter discovery, autonomous /pipeline loop, agent-teams toggle, Path M inline-fix, single-message multi-Agent dispatch, GitHub Issues mode, charter revalidation. Pre-batch gap set: commit-msg gate at native git level, agentmemory MCP wiring, caveman marker bootstrap, teams-mode dispatch shape, findings-leak prevention, plus the two refactor-class items above.</p>
+<p>Post-batch the remaining 2 unaddressed Workflow gaps are intentional follow-ups: hook-based enforcement of teams dispatch shape (F19 explicitly defers this) and hook-based enforcement of findings-leak (F21 explicitly defers this). Both can ship as their own features when drift recurs after the textual contracts land.</p>
+<h3 id="security">Security</h3>
+<p>Pre-batch implemented set: never-stage list, _pathguard.py edit blocker, sandbox provider abstraction, env-scrub.py, validate-commit-msg.sh AI-attribution gate, basic gitleaks doctrine in skill. Pre-batch gap set: actual gitleaks wiring at pre-commit, expanded never-stage patterns to match _pathguard, supply-chain pin hardening, sandbox default fail-secure, prompt-injection guard for tool output.</p>
+<p>The Total column moves from 15 to 16 to reflect the prompt-injection guard being acknowledged as a distinct surface (F13 #160 ships the advisory scanner; a hard-blocking variant could ship later as its own item).</p>
+<h3 id="modular">Modular</h3>
+<p>Pre-batch implemented set: agents directory structure, named subagent types, skill paths-scoping, hooks abstraction, sandbox provider, worker-provider abstraction, host-adapters. Pre-batch gap set: allowed-tools complete enumeration, deployment-engineer subclass scaffolding, reviewer agent least-privilege tool surface.</p>
+<p>The Total column moves from 9 to 10 to reflect the reviewer-tool-tightening (F14 #161) being counted as its own modular surface separate from generic allowed-tools enumeration (F6 #153).</p>
+<h3 id="docs">Docs</h3>
+<p>Pre-batch implemented set: full HTML rendering pipeline, snippet system, design-tokens page, codebase-map, skills + agents catalogs, deployment-chooser, themed changelog, governance, decisions log, MCP setup, getting-started 4-tutorial. Pre-batch gap set: community-profile assets (CONTRIBUTING / CODE_OF_CONDUCT / SECURITY / PR template), version stamp + tag, glossary + search + examples + Diátaxis, MCP routing truthfulness.</p>
+<p>The remaining 1 unaddressed Docs item is the post-batch publication of this score-card itself (you are reading it).</p>
+<h3 id="testing">Testing</h3>
+<p>Pre-batch implemented set: hook self-tests (13 of 31 hooks covered), skill-specific tests where they exist, repo-wide tests/ directory, install-smoke. Pre-batch gap set: GitHub Actions CI workflow, lint configs, hook-block-gate coverage for the highest-blast-radius hooks.</p>
+<p>Remaining 4 unaddressed Testing items: per-skill test coverage for the skills that ship without tests (caveman-mode, ascii-diagram, README, deploy-target, persona, init), integration tests crossing skill boundaries, performance benchmarks for the render pipeline, a regression-fixture corpus for the <code>/review</code> skill's classification logic.</p>
+<h2 id="source-of-truth">SOURCE OF TRUTH</h2>
+<ul>
+<li><code>docs/features-best-practices.md</code> — the 22-feature plan with full Scope / Constraints / Acceptance Criteria per feature.</li>
+<li><code>git log --oneline 75b325f^..6606688 --reverse</code> — the canonical commit list for the batch.</li>
+<li><code>documentation/changelog.html</code> — themed changelog (will be updated separately to incorporate PRs #148 — #169 in the post-batch release notes).</li>
+</ul>
 <h2 id="see-also">SEE ALSO</h2>
 <ul>
-<li><a href="design-tokens.html">Design tokens</a> — pipelinekit's canonical Visual-token exemplar; visualizes the 41 template custom properties (22 light + 19 dark) plus typography, radii, syntax, and motion tokens.</li>
-<li><a href="codebase-map.html">Codebase map</a> — full site structure including all of <code>documentation/</code>.</li>
-<li><a href="../claude/skills/docs-writer/SKILL.md">docs-writer SKILL.md</a> — authoring conventions, snippet catalog, output directory contract.</li>
-<li><a href="https://thariqs.github.io/html-effectiveness/">https://thariqs.github.io/html-effectiveness/</a> — the source rubric this page adopts.</li>
+<li><a href="changelog.html">Changelog</a> — themed v0.0.1 development history.</li>
+<li><a href="feature-history.html">Feature history</a> — chronological PR-by-PR ledger.</li>
+<li><a href="governance.html">Governance</a> — RACI matrix and review contracts.</li>
+<li><a href="workflow-hygiene.html">Workflow hygiene</a> — never-stage list, sandbox posture, AI-attribution policy.</li>
 </ul>
     </div>
 
