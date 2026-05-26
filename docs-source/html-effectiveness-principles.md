@@ -7,6 +7,8 @@ Canonical design rubric for pipelinekit's `documentation/*.html` corpus. Defines
 
 ## WHAT
 
+<div data-snippet="architecture-diagram"></div>
+
 "HTML effectiveness" is a rubric for distinguishing HTML pages whose layout and interactivity *carry information* from HTML pages that are merely "rendered markdown with a sidebar." The rubric is taken from <https://thariqs.github.io/html-effectiveness/> and adopted as pipelinekit's canonical lens for evaluating any page rendered to `documentation/`.
 
 pipelinekit ships 18 ready-to-embed snippets in `claude/skills/docs-writer/snippets/`. Each snippet implements one of the four rubric categories below. The richness gate (`claude/skills/docs-writer/richness_check.py`) refuses to stage a `documentation/*.html` page that scores below the threshold — `≥1` distinct pattern for body ≤ 1500 words, `≥2` distinct patterns for body > 1500 words. A page authored without a single rich-interactive primitive defeats the purpose of HTML-over-markdown and fails the gate.
@@ -25,8 +27,6 @@ The four categories are non-overlapping. A snippet belongs to exactly one catego
 ## SNIPPET MAP
 
 The 18 snippets currently shipped, classified per the rubric. Counts: Spatial 6 / Interactive 7 / Live-rendered 4 / Visual-token 1.
-
-<div data-snippet="command-cheatsheet"></div>
 
 | # | Snippet | Category | Rationale |
 |---|---------|----------|-----------|
@@ -62,9 +62,19 @@ Pages the rubric is designed to exclude — these defeat the purpose of HTML-ove
 - **Mixing Live-rendered + Interactive without state coordination.** A textarea-driven `live-linter` next to a tab-based `comparison-tabs` produces a confusing reading order — the reader doesn't know whether to type or click. Use one primary interaction surface per page.
 - **Missing dark-mode theming.** Snippets that hard-code `#fff` / `#000` instead of consuming the template's CSS custom properties break in dark mode. The shipped snippets all use `var(--bg)`, `var(--fg)`, etc., so they auto-theme — new snippets must follow the same contract.
 
-## SEE ALSO
+<details>
+<summary>Rubric provenance and adoption notes (click to expand)</summary>
 
-<div data-snippet="comparison-tabs"></div>
+The four-category framing is taken verbatim from Thariq Shihipar's *HTML effectiveness* essay (<https://thariqs.github.io/html-effectiveness/>). pipelinekit adopts the category names without translation. Two deltas worth flagging:
+
+- **Snippet inventory is pipelinekit-specific.** The 18 snippets enumerated in the SNIPPET MAP table above are particular to this repo's `claude/skills/docs-writer/snippets/` directory. Forking projects should retain the four-category rubric but redraw their own inventory map.
+- **Richness gate is pipelinekit-specific.** The `richness_check.py` thresholds (≥1 pattern for body ≤ 1500 words, ≥2 for body > 1500 words) are an enforcement layer on top of the rubric — the rubric itself prescribes no quantitative floor. Other adopters can keep the rubric without adopting the gate.
+
+The rubric has been stable since pipelinekit v0.0.1 and is not expected to change without a documented ADR.
+
+</details>
+
+## SEE ALSO
 
 - [Design tokens](design-tokens.html) — pipelinekit's canonical Visual-token exemplar; visualizes the 41 template custom properties (22 light + 19 dark) plus typography, radii, syntax, and motion tokens.
 - [Codebase map](codebase-map.html) — full site structure including all of `documentation/`.

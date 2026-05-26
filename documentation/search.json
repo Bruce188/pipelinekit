@@ -24,6 +24,12 @@
     "quadrant": "reference"
   },
   {
+    "title": "Best-practices score-card",
+    "slug": "best-practices",
+    "excerpt": "Post-batch tracking of pipelinekit's coverage against the five-category best-practices rubric. Baseline derived from the 2026-05-26 comprehensive audit (docs/features-best-practices.md); 22 features…",
+    "quadrant": "explanation"
+  },
+  {
     "title": "Changelog — pipelinekit v0.0.1",
     "slug": "changelog",
     "excerpt": "The complete development history of pipelinekit, organized by theme. This is the first version (v0.0.1, not yet released as a tag). PRs are linked to GitHub; the bullet summary is the one-line…",
@@ -189,7 +195,7 @@
     "title": "/pipeline",
     "slug": "pipeline",
     "excerpt": "The /pipeline autonomous orchestrator. Charter discovery → analyze → plan → implement → review → merge, all driven by multi-agent dispatch with no human in the loop unless you opt in. Per-phase…",
-    "quadrant": "explanation"
+    "quadrant": "reference"
   },
   {
     "title": "/ppr --research flag",
