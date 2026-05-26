@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# denial_tracker:no UserPromptSubmit context-injection hook — emits system reminder only, never denies tool calls
 # subagent-first-nudge.sh — UserPromptSubmit hook
 #
 # Pipelinekit's Subagent-First principle says non-trivial work should dispatch
