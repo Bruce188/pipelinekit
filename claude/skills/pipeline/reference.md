@@ -50,7 +50,7 @@ g. Invoke `AskUserQuestion` with the following exact shape:
    - Options (single-letter prefixes, in order):
      - A) `accept` — set `**Charter:** docs/charter.md` in `docs/progress.md`. Charter draft stays on disk as `status: draft`. Pipeline continues to Step 1.
      - B) `edit` — keep `docs/charter.md` on disk with `status: draft`. Print to the user: `"Charter draft written to docs/charter.md. Edit, then resume via: /pipeline --charter docs/charter.md"`. **STOP** the pipeline (parallel to existing Step 0 "edit manually" escape).
-     - C) `start fresh discovery` — rename `docs/charter.md` → `docs/charter.draft.discarded.md` (non-destructive audit trail). Then fall through to the existing 15-topic discovery loop (SKILL.md Step 0 lines 41-59). Topic 1 is the first question.
+     - C) `start fresh discovery` — rename `docs/charter.md` → `docs/charter.draft.discarded.md` (non-destructive audit trail). Then fall through to the existing 19-topic discovery loop (SKILL.md Step 0 lines 41-59). Topic 1 is the first question.
 
 h. **AskUserQuestion-cap exemption.** When `--max-questions <N>` is in effect, this single auto-extract question is **exempt** from the cap because it is a meta-choice over the discovery loop, not a topic question. When the user picks `start fresh discovery`, the subsequent topic questions count against the cap as usual.
 
@@ -60,7 +60,7 @@ h. **AskUserQuestion-cap exemption.** When `--max-questions <N>` is in effect, t
 - AC2: When prior artifacts exist and no charter, a single `AskUserQuestion` with exactly three options (`accept` / `edit` / `start fresh discovery`) is invoked.
 - AC3: The `accept` option sets `**Charter:**` pointer in `progress.md` and continues the pipeline.
 - AC4: The `edit` option writes the draft to `docs/charter.md`, prints the path, and stops the pipeline.
-- AC5: The `start fresh discovery` option renames the draft file and falls through to the 15-topic loop.
+- AC5: The `start fresh discovery` option renames the draft file and falls through to the 19-topic loop.
 - AC6: In subprocess mode (`CLAUDE_INTERACTIVE` unset or `"0"`), `CHARTER_AUTO_EXTRACT_SKIPPED: subprocess mode` is logged and auto-extract is skipped.
 - AC7: The auto-extract question is exempt from the `--max-questions <N>` cap.
 - AC8: Extraction is deterministic stdlib-only — no LLM calls.

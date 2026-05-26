@@ -17,7 +17,7 @@ status: draft | ratified
 ---
 ```
 
-Required sections (15 topics in order):
+Required sections (19 topics in order):
 1. `## Goal`
 2. `## Users`
 3. `## Problem`
@@ -60,7 +60,7 @@ Ready to ship? Choose:
   D) Edit manually — write current draft and pause (resume via /pipeline --charter docs/charter.md)
 ```
 
-The 15 topics enumerated by the convergence check (in order):
+The 19 topics enumerated by the convergence check (in order):
 
 - Topic 1 — Goal
 - Topic 2 — Users
@@ -78,6 +78,10 @@ The 15 topics enumerated by the convergence check (in order):
 - Topic 13 — LSP / symbol search MCP
 - Topic 14 — Codebase Map confirmation
 - Topic 15 — Production-readiness probe depth
+- Topic 16 — Risk class
+- Topic 17 — Effort budget
+- Topic 18 — Failure tolerance
+- Topic 19 — Charter applicability
 
 The user must see this choice after every topic, including the last. "Ship the charter now" is always available.
 
@@ -259,6 +263,21 @@ Options:
 - F) `none` — no deployment from this repo
 - G) `Ship the charter now`
 
+### follow-up: free-form provider
+
+**Follow-up: free-form provider** — If the user picks option A and supplies
+a provider slug NOT in the {`vercel`, `railway`, `render`, `digitalocean`,
+`none`} set (e.g. `fly.io`, `netlify`, `self-hosted`, `kubernetes`):
+
+- Record the free-form value verbatim in the charter under `## Deployment target`.
+- Skip the deploy classifier described above (the `scope: out` provider-mismatch
+  tagger at `claude/skills/review/SKILL.md § Step 7.8`) — without a recognized
+  provider slug, the classifier has no lookup-table entry and would emit no-ops
+  anyway. Logging `DEPLOY_CLASSIFIER_SKIPPED_FREE_FORM: <slug>` makes the
+  bypass explicit.
+- The deployment-engineer sub-agent (vercel / railway / render / digitalocean)
+  is NOT dispatched. The user is on their own for deploy operations.
+
 ---
 
 ### Topic 11: Review style
@@ -343,6 +362,95 @@ Options:
 
 ---
 
+### Topic 16: Risk class
+
+**Probe:** What is the risk profile of this work? Higher risk routes
+through stricter review and (when wired) auto-dispatches the
+security-auditor agent.
+
+**Follow-up:** `security-sensitive` answer is intended to route downstream
+review through the `security-auditor` agent automatically. Wiring lands in
+a follow-up feature; for now the answer is recorded in the charter as a
+documented expectation.
+
+**Example values:** `routine`, `security-sensitive`, `data-migration`,
+`breaking-change`.
+
+Options:
+- A) `routine`
+- B) `security-sensitive`
+- C) `data-migration`
+- D) `breaking-change`
+- E) `[User provides free-form answer]`
+- F) `Ship the charter now`
+
+---
+
+### Topic 17: Effort budget
+
+**Probe:** What is the expected scope of file changes for this work?
+Drives plan task granularity and review effort scaling.
+
+**Follow-up:** Used by `/create-plan` to right-size task decomposition.
+`XL` features should be split into sub-features at the feature-file level
+before reaching `/pipeline`.
+
+**Example values:** `S (1 file)`, `M (≤5 files)`, `L (≤20 files)`, `XL`.
+
+Options:
+- A) `S (1 file)`
+- B) `M (≤5 files)`
+- C) `L (≤20 files)`
+- D) `XL`
+- E) `[User provides free-form answer]`
+- F) `Ship the charter now`
+
+---
+
+### Topic 18: Failure tolerance
+
+**Probe:** When a phase fails (review blockers, test failures, budget
+breach), how should the pipeline respond?
+
+**Follow-up:** `strict` halts on first hard failure. `lenient` continues
+past non-blocking findings and logs a deferred-item entry.
+`retry-once-then-skip` retries the failing phase once, then defers the
+feature and continues with the next feature in the queue.
+
+**Example values:** `strict`, `lenient`, `retry-once-then-skip`.
+
+Options:
+- A) `strict`
+- B) `lenient`
+- C) `retry-once-then-skip`
+- D) `[User provides free-form answer]`
+- E) `Ship the charter now`
+
+---
+
+### Topic 19: Charter applicability
+
+**Probe:** Should this charter apply to every feature in the queue, only
+to features above a size threshold, or be re-derived per feature?
+
+**Follow-up:** `apply to all` reuses the same charter for every feature
+(default). `skip for <5 LOC diff` short-circuits charter loading for
+trivial features. `charter-per-feature` re-runs Step 0 at the start of
+every feature loop (expensive — use only when features genuinely diverge
+in goal).
+
+**Example values:** `apply to all`, `skip for <5 LOC diff`,
+`charter-per-feature`.
+
+Options:
+- A) `apply to all` (default)
+- B) `skip for <5 LOC diff`
+- C) `charter-per-feature`
+- D) `[User provides free-form answer]`
+- E) `Ship the charter now`
+
+---
+
 ## Charter File Template
 
 After all topics are gathered (or user chooses "ship now"), write `docs/charter.md` using this template:
@@ -400,6 +508,18 @@ status: draft
 
 ## Production-readiness probe depth
 [Production-readiness probe depth content]
+
+## Risk class
+[Either `routine`, `security-sensitive`, `data-migration`, or `breaking-change`.]
+
+## Effort budget
+[Either `S (1 file)`, `M (≤5 files)`, `L (≤20 files)`, or `XL`.]
+
+## Failure tolerance
+[Either `strict`, `lenient`, or `retry-once-then-skip`.]
+
+## Charter applicability
+[Either `apply to all` (default), `skip for <5 LOC diff`, or `charter-per-feature`.]
 
 ## AI Layer
 - **AI Champion:** [name + tenure, or `none` / `not sure`]
