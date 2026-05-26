@@ -481,6 +481,8 @@ Model overlay (claude/model-overlays/<resolved-file>):
 
 When no overlay file resolves: `MODEL_OVERLAY_NOTE=""` (empty, no-op). A missing overlay is silent — backward compatible, defaults inherited from current behavior. The fallback chain ensures `claude.md` (generic) carries universal hints when no model-specific file exists; if `claude.md` itself is missing, no overlay note is emitted and behavior is identical to today.
 
+**Charter summary resolution:** Before each phase dispatch, resolve the `{{CHARTER_SUMMARY}}` placeholder in the phase prompt template by invoking `claude.lib.pipeline.charter_summary.extract_charter_summary(charter_field)` where `charter_field` is the value of the `**Charter:**` line in `docs/pipeline-state.md`. The helper returns either the first 800 characters of the charter's `## Goal` body (hard-truncated via `text[:800]` — NOT word-bounded) or the literal string `(no charter)` when the charter is `(none)`, absent, unreadable, or lacks a `## Goal` section. Substitute the returned string literally for `{{CHARTER_SUMMARY}}` in every phase template (analyze, plan, implement, review, docs) at dispatch time — NOT at template-load time, so charter edits mid-run propagate to later phases. The helper is pure stdlib Python (no subprocess, no LLM); contract bound by `claude/lib/pipeline/tests/test_charter_summary.py`. This placeholder is the operator-trust bucket — the 800-char cap IS the length bound; the helper applies no further sanitisation because the charter is committed source. Treat as additive to the existing `**Placeholder Substitution Safety**` contract in `reference.md` (the 7 rules there continue to apply to every other `{{...}}` placeholder).
+
 ---
 
 ##### Step 5.1: Log Feature Start
@@ -1153,6 +1155,7 @@ under `<!-- PHASE: docs -->`. Substitute placeholders before dispatch:
 - `{{BRANCH_NAME}}` — feature branch (already merged; passed for reference only)
 - `{{MERGE_SHA}}` — capture immediately before dispatch via `MERGE_SHA=$(git rev-parse HEAD)`; HEAD = squash-merge commit at this point per Path A step 7
 - `{{BUDGET_REMAINING}}`, `{{MAX_USD}}` — standard
+- `{{CHARTER_SUMMARY}}` — resolved via `claude.lib.pipeline.charter_summary.extract_charter_summary` per § "Charter summary resolution"
 
 Pass `model: sonnet` (the docs-writer agent has `model: inherit`, but the pipeline
 sets sonnet as the operational default — see model defaults table above).
