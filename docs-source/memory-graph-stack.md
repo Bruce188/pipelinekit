@@ -14,6 +14,8 @@ pipelinekit ships four tools that together form the default memory and graph sur
 
 **graphify** is the knowledge graph MCP. It extracts named entities (people, tools, concepts, plans, decisions) and their relationships from project artifacts — markdown, code, docs — and stores the result in `.graphify/` per project. Upstream: [https://github.com/safishamsi/graphify](https://github.com/safishamsi/graphify). In pipelinekit, graphify is provisioned per project via `/graphify-init` (same 50k-file gate and daemon pattern). The question graphify answers is: "what entities and relationships are relevant to this concept, and how do they connect?"
 
+> See also the **Claude Code Environment Defaults** section of `claude/CLAUDE.md.template` for the env-var pin (`CLAUDE_CODE_DISABLE_1M_CONTEXT=1`) that interacts with prompt-cache behavior at the 200K boundary.
+
 ## How they compose
 
 The four tools form a layered retrieval stack. When Claude needs to reason about a project at session start, the retrieval chain moves from cheapest to richest: agentmemory supplies the cross-session learned context first (fast, already indexed, Ebbinghaus-ranked by recency), then codegraph fills in the structural code surface (where symbols live, what calls what), then graphify adds the semantic relationship layer (how concepts and decisions connect), and Understand-Anything sits above all three as the human-readable inspection surface.

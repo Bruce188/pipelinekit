@@ -29,6 +29,20 @@
 - **Canonical memory store** (read/write project memories via MCP tools): `agentmemory` MCP — see § Memory System for the tool surface and Ebbinghaus curve detail.
 - **Interactive UI / annotation surface** (visual front-end for tool / memory inspection): `Understand-Anything` plugin (NOT an MCP server — installed via the harness plugin marketplace at `scripts/install.sh` provisioning time; see [memory-graph-stack.html](memory-graph-stack.html) for the four-tool stack overview).
 
+## Claude Code Environment Defaults
+
+pipelinekit pins one Claude Code env var at install time via `~/.claude/settings.json`. The pin is additive: any value you set in `settings.json` before re-running install wins on collision (user-wins semantics).
+
+**Pinned default:** `CLAUDE_CODE_DISABLE_1M_CONTEXT=1` — disables the 1M extended-context window so prompt caching stays aligned to the 200K boundary where Anthropic's 5-minute cache TTL applies most efficiently. Documented at <https://docs.claude.com/en/docs/claude-code/model-config>.
+
+**Where it lives:** `~/.claude/settings.json` `env` block, written by `bash scripts/install.sh` when invoked with `CLAUDE_INSTALL_SETTINGS=1`.
+
+**Opt-out:** set `CLAUDE_CODE_DISABLE_1M_CONTEXT=0` (or any other value) in `~/.claude/settings.json` BEFORE re-running install. pipelinekit only fills absent keys; your value survives untouched.
+
+**Apply on an existing install:** re-run `CLAUDE_INSTALL_SETTINGS=1 bash scripts/install.sh`. Other top-level keys (`model`, `enabledPlugins`, `extraKnownMarketplaces`, etc.) are preserved across the re-run.
+
+**Withdrawn:** `CLAUDE_CODE_AUTO_COMPACT_WINDOW=100000` was previously considered but is NOT a real Claude Code env var — it appeared in a third-party post but is not documented in the Anthropic env-var catalog (<https://docs.claude.com/en/docs/claude-code/settings>) or model-config page. Claude Code silently ignores unknown env vars, so it had no effect. The auto-compact threshold is not currently user-configurable via env var; if you need to compact early, invoke `/compact` manually.
+
 ## Memory System
 
 Memories live in agentmemory MCP — the canonical write and read surface. The legacy flat-file store at `~/.claude/projects/<project-slug>/memory/*.md` is preserved read-only for a 30-day rollback window; cleanup of the flat-file store is a separate future feature. Do NOT write new markdown memory files unless `PIPELINE_KEEP_FLAT_FILE_MEMORY=1` is set (see § Dual-write opt-in below).
