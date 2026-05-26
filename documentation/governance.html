@@ -535,6 +535,7 @@ footer {
       <li class="lvl-2"><a href="#ai-champions-role-definition">AI Champions — role definition</a></li>
       <li class="lvl-2"><a href="#standardization-playbook">Standardization playbook</a></li>
       <li class="lvl-2"><a href="#approval-workflow-adding-skills-agents-hooks">Approval workflow — adding skills / agents / hooks</a></li>
+      <li class="lvl-2"><a href="#advisory-hooks-prompt-injection-scanner">Advisory hooks — prompt-injection scanner</a></li>
       <li class="lvl-2"><a href="#adoption-metrics">Adoption metrics</a></li>
       <li class="lvl-2"><a href="#governance-command-cheatsheet">Governance command cheatsheet</a></li>
     </ul>
@@ -907,6 +908,17 @@ footer {
 <li><strong>Review.</strong> The AI Champion + one peer review the PR. Champion focuses on contract compliance (frontmatter, allowlist, paths scoping); peer focuses on the behavior the artifact ships. Both must approve before merge. Disagreements escalate to a 15-minute synchronous discussion with the user-global rules in <code>~/.claude/CLAUDE.md</code> as the tiebreaker.</li>
 <li><strong>Merge.</strong> Merge after the smoke tests pass — <code>bash claude/skills/docs-writer/tests/test_render.sh</code> for docs-writer changes, the skill's own <code>tests/</code> directory for skill-specific tests, the hook test harness under <code>claude/hooks/</code> for new hooks. The merge commit follows conventional-commit format and never references the AI workflow (no <code>Co-Authored-By</code>, no review-cycle metadata).</li>
 </ol>
+<h2 id="advisory-hooks-prompt-injection-scanner">Advisory hooks — prompt-injection scanner</h2>
+<p>The orchestrator validates substituted user input before dispatching a prompt (<code>claude/skills/pipeline/reference.md § Placeholder Substitution Safety</code>). That covers feature names, descriptions, and path placeholders. It does NOT cover tool output — <code>WebFetch</code> responses, <code>Read</code> calls against <code>/tmp/</code> or <code>/var/</code>, PR-comment data ingested via <code>--issues</code>. That untrusted text otherwise flows into subsequent prompts unchecked, which is the classic prompt-injection vector for an LLM-with-shell agent (CWE-94 / CWE-74).</p>
+<p><code>claude/hooks/scan-tool-output.sh</code> is the v1 advisory layer for that gap. It registers as a <code>PostToolUse</code> hook:</p>
+<ul>
+<li>Fires on <code>WebFetch</code> always.</li>
+<li>Fires on <code>Read</code> only when the resolved file path is outside the repo root (<code>/tmp/</code>, <code>/var/</code>, <code>/home/&lt;other&gt;/</code>, or any URL form).</li>
+<li>Calls <code>claude.hooks._promptguard.scan(text)</code> and emits a stderr warning of the form <code>WARN: prompt-injection pattern detected: &lt;pattern&gt; in &lt;source&gt;</code> for each match.</li>
+<li>Always exits 0 — <strong>advisory only</strong>. v1 will not strand the operator mid-workflow on a false positive. A hard-block layer can follow once the false-positive rate is empirically known.</li>
+</ul>
+<p>Pattern catalogue: the canonical list lives in <code>claude/hooks/_promptguard.py</code> and covers XML-shape system tags, the canonical instruction-override prefaces, role-reassignment markers, column-0 role-impersonation prefixes, and ChatML role markers. Matching is case-insensitive. The scanner logs only the <code>(source, pattern, position)</code> triple to stderr — never the scanned text — to keep credential-bearing fetches out of the session log.</p>
+<p>The Champion owns the catalog. Adding a pattern requires a PR that (a) extends <code>_LITERAL_PATTERNS</code> / <code>_FLEX_PATTERNS</code> / <code>_ROLE_PREFIXES</code> in <code>claude/hooks/_promptguard.py</code>, (b) adds positive + negative test cases in <code>claude/hooks/tests/test_promptguard.py</code>, and (c) re-scans <code>docs-source/</code> to confirm the corpus stays under the documented allowlist threshold (&lt; 5 hits at v1, enumerated as a top-of-file comment in <code>_promptguard.py</code>).</p>
 <h2 id="adoption-metrics">Adoption metrics</h2>
 <p>Governance is invisible when it works. Measure adoption to confirm it is working — and to surface drift before it becomes a fire.</p>
 <ul>

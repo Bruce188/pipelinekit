@@ -1309,8 +1309,9 @@ settings["hooks"] = {
             {"matcher": "Write",      "hooks": hook(f"{h}/hooks/block-bare-repo-markers.py")}
         ],
         "PostToolUse": [
-            {"matcher": "Bash",       "hooks": hook(f"{h}/hooks/strip-ai-attribution.sh")},
-            {"matcher": "Edit|Write", "hooks": hook(f"{h}/hooks/post-edit-format.sh")}
+            {"matcher": "Edit|Write",   "hooks": hook(f"{h}/hooks/post-edit-format.sh")},
+            {"matcher": "WebFetch|Read","hooks": hook(f"{h}/hooks/scan-tool-output.sh")},
+            {"matcher": "Bash",         "hooks": hook(f"{h}/hooks/strip-ai-attribution.sh")}
         ],
         "Stop": [
             {"matcher": "*", "hooks": hook(f"{h}/hooks/memory-journal.sh")},
@@ -1342,7 +1343,7 @@ dst = os.path.join(h, "settings.json")
 with open(dst, "w", encoding="utf-8") as f:
     json.dump(settings, f, indent=2)
     f.write("\n")
-print(f"installed: {dst} (26 hooks wired, {len(merged_env)} env vars)")
+print(f"installed: {dst} (27 hooks wired, {len(merged_env)} env vars)")
 PYEOF
   else
     # Flag not set: restore user's previous settings.json from backup if present.
