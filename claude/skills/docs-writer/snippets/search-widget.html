@@ -30,9 +30,14 @@
       });
     });
   }
+  var QUADRANTS = ['tutorial', 'how-to', 'reference', 'explanation'];
+  function clearResults() {
+    while (results.firstChild) results.removeChild(results.firstChild);
+  }
   function search(q) {
     var toks = tokenize(q);
-    if (!toks.length) { results.innerHTML = ''; return; }
+    clearResults();
+    if (!toks.length) return;
     var counts = new Map();
     toks.forEach(function(tok) {
       index.forEach(function(ids, key) {
@@ -40,15 +45,34 @@
       });
     });
     var scored = Array.from(counts.entries()).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 8);
-    results.innerHTML = scored.map(function(p) {
+    scored.forEach(function(p) {
       var d = docs[p[0]];
-      var q = d.quadrant ? ' <span class="docs-search-quadrant">' + d.quadrant + '</span>' : '';
-      var e = d.excerpt ? '<div class="docs-search-excerpt">' + d.excerpt + '</div>' : '';
-      return '<li><a href="' + d.slug + '.html">' + d.title + q + '</a>' + e + '</li>';
-    }).join('');
+      var li = document.createElement('li');
+      var a = document.createElement('a');
+      a.href = (d.slug || '') + '.html';
+      a.textContent = d.title || '';
+      if (d.quadrant) {
+        var safeQ = QUADRANTS.indexOf(d.quadrant) !== -1 ? d.quadrant : 'reference';
+        var chip = document.createElement('span');
+        chip.className = 'docs-search-quadrant';
+        chip.textContent = ' ' + safeQ;
+        a.appendChild(chip);
+      }
+      li.appendChild(a);
+      if (d.excerpt) {
+        var ex = document.createElement('div');
+        ex.className = 'docs-search-excerpt';
+        ex.textContent = d.excerpt;
+        li.appendChild(ex);
+      }
+      results.appendChild(li);
+    });
   }
   fetch('search.json').then(function(r){ return r.json(); }).then(buildIndex).catch(function(){
-    results.innerHTML = '<li>Search index unavailable.</li>';
+    clearResults();
+    var li = document.createElement('li');
+    li.textContent = 'Search index unavailable.';
+    results.appendChild(li);
   });
   var deb;
   input.addEventListener('input', function(e) {
