@@ -563,6 +563,82 @@ assert d.get('hooks') and len(d['hooks']) > 0, 'Case E: hooks block missing or e
   return 0
 }
 
+_selftest_modes_overlay_active_present() {
+  # Exercise provision_modes_overlay when docs/active-deployment selects a
+  # valid provider: expect symlink at $CLAUDE_HOME/modes/active.md → railway.md
+  # and the rendered CLAUDE.md to still contain the overlay reference line.
+  local tmp; tmp=$(mktemp -d)
+  # shellcheck disable=SC2064
+  trap "rm -rf '$tmp'" RETURN
+
+  export CLAUDE_HOME="$tmp/.claude"
+  export REPO_ROOT="$tmp/repo"
+  mkdir -p "$CLAUDE_HOME/modes" "$REPO_ROOT/docs"
+  printf '## Railway Mode\nstub content\n' > "$CLAUDE_HOME/modes/railway.md"
+  printf '## Azure Mode\nstub content\n'   > "$CLAUDE_HOME/modes/azure.md"
+  cat > "$CLAUDE_HOME/CLAUDE.md" <<MD
+# header
+
+body
+
+@~/.claude/modes/active.md
+
+## User Identity
+MD
+  printf 'railway\n' > "$REPO_ROOT/docs/active-deployment"
+
+  provision_modes_overlay >/dev/null 2>&1 \
+    || { echo "FAIL: provision_modes_overlay exit non-zero (active present)"; return 1; }
+
+  [[ -L "$CLAUDE_HOME/modes/active.md" ]] \
+    || { echo "FAIL: active.md is not a symlink"; return 1; }
+  local resolved
+  resolved="$(readlink "$CLAUDE_HOME/modes/active.md")"
+  [[ "$resolved" == "$CLAUDE_HOME/modes/railway.md" ]] \
+    || { echo "FAIL: active.md → '$resolved' (expected railway.md)"; return 1; }
+  grep -qF '@~/.claude/modes/active.md' "$CLAUDE_HOME/CLAUDE.md" \
+    || { echo "FAIL: overlay reference stripped despite active-deployment present"; return 1; }
+
+  echo "PASS: _selftest_modes_overlay_active_present"
+  return 0
+}
+
+_selftest_modes_overlay_active_absent() {
+  # Exercise provision_modes_overlay when docs/active-deployment is missing:
+  # expect no symlink + overlay reference stripped from rendered CLAUDE.md.
+  local tmp; tmp=$(mktemp -d)
+  # shellcheck disable=SC2064
+  trap "rm -rf '$tmp'" RETURN
+
+  export CLAUDE_HOME="$tmp/.claude"
+  export REPO_ROOT="$tmp/repo"
+  mkdir -p "$CLAUDE_HOME/modes" "$REPO_ROOT/docs"
+  printf '## Railway Mode\nstub content\n' > "$CLAUDE_HOME/modes/railway.md"
+  cat > "$CLAUDE_HOME/CLAUDE.md" <<MD
+# header
+
+body
+
+@~/.claude/modes/active.md
+
+## User Identity
+MD
+  # Deliberately do NOT create $REPO_ROOT/docs/active-deployment.
+
+  provision_modes_overlay >/dev/null 2>&1 \
+    || { echo "FAIL: provision_modes_overlay exit non-zero (active absent)"; return 1; }
+
+  [[ ! -e "$CLAUDE_HOME/modes/active.md" ]] \
+    || { echo "FAIL: active.md unexpectedly created when no active-deployment"; return 1; }
+  if grep -qF '@~/.claude/modes/active.md' "$CLAUDE_HOME/CLAUDE.md"; then
+    echo "FAIL: overlay reference not stripped from rendered CLAUDE.md"
+    return 1
+  fi
+
+  echo "PASS: _selftest_modes_overlay_active_absent"
+  return 0
+}
+
 _wsl2_ram_gate() {
   # TEST HOOK: __pkit_mock_wsl_2gb=1 forces "WSL2 + 2 GB" path. Do not set in production.
   if [[ "${__pkit_mock_wsl_2gb:-0}" == "1" ]]; then
@@ -862,6 +938,97 @@ provision_understand_anything() {
   fi
 }
 
+# ---------- modes overlay (per-provider deploy-mode mini-CLAUDE.md) ----------
+# Reads $REPO_ROOT/docs/active-deployment (a single-line file, one provider slug),
+# symlinks $CLAUDE_HOME/modes/<value>.md → $CLAUDE_HOME/modes/active.md, and
+# strips the `@~/.claude/modes/active.md` line from the rendered CLAUDE.md when
+# no active deployment is set. Atomic symlink via `ln -sfn`. User-wins: a
+# regular file at $CLAUDE_HOME/modes/active.md is preserved untouched.
+# Caller provides $CLAUDE_HOME and $REPO_ROOT. Side-effects only; no return value.
+provision_modes_overlay() {
+  local modes_dir="$CLAUDE_HOME/modes"
+  local active_link="$modes_dir/active.md"
+  local rendered_md="$CLAUDE_HOME/CLAUDE.md"
+  local deploy_file="$REPO_ROOT/docs/active-deployment"
+  local overlay_line='@~/.claude/modes/active.md'
+  local allowed='^(azure|vercel|railway|render|digitalocean)$'
+
+  # Pre-flight: nothing to do if modes dir wasn't staged.
+  [[ -d "$modes_dir" ]] || { log "INSTALL_MODE_NO_MODES_DIR (skip — overlay not provisioned)"; return 0; }
+
+  # Branch 1: docs/active-deployment absent → strip overlay line, no symlink.
+  if [[ ! -f "$deploy_file" ]]; then
+    log "INSTALL_MODE_NO_ACTIVE_DEPLOYMENT"
+    if [[ -f "$rendered_md" ]] && grep -qF "$overlay_line" "$rendered_md"; then
+      # Strip the overlay reference + the blank line that follows it (if any).
+      python3 - "$rendered_md" "$overlay_line" <<'PYSTRIP'
+import sys
+path, marker = sys.argv[1], sys.argv[2]
+with open(path, 'r', encoding='utf-8') as f:
+    lines = f.readlines()
+out = []
+i = 0
+while i < len(lines):
+    if lines[i].rstrip('\n') == marker:
+        # Skip the marker; also swallow a single trailing blank line.
+        i += 1
+        if i < len(lines) and lines[i].strip() == '':
+            i += 1
+        continue
+    out.append(lines[i])
+    i += 1
+with open(path, 'w', encoding='utf-8') as f:
+    f.writelines(out)
+PYSTRIP
+    fi
+    return 0
+  fi
+
+  # Branch 2: docs/active-deployment present — read + validate.
+  local value
+  value="$(head -n 1 "$deploy_file" | tr -d '[:space:]')"
+  if [[ ! "$value" =~ $allowed ]]; then
+    log "INSTALL_MODE_UNKNOWN_PROVIDER: $value (skip symlink + strip overlay line)"
+    if [[ -f "$rendered_md" ]] && grep -qF "$overlay_line" "$rendered_md"; then
+      python3 - "$rendered_md" "$overlay_line" <<'PYSTRIP2'
+import sys
+path, marker = sys.argv[1], sys.argv[2]
+with open(path, 'r', encoding='utf-8') as f:
+    lines = f.readlines()
+out = []
+i = 0
+while i < len(lines):
+    if lines[i].rstrip('\n') == marker:
+        i += 1
+        if i < len(lines) and lines[i].strip() == '':
+            i += 1
+        continue
+    out.append(lines[i])
+    i += 1
+with open(path, 'w', encoding='utf-8') as f:
+    f.writelines(out)
+PYSTRIP2
+    fi
+    return 0
+  fi
+
+  local target_md="$modes_dir/${value}.md"
+  if [[ ! -f "$target_md" ]]; then
+    warn "INSTALL_MODE_TARGET_MISSING: $target_md (overlay file not staged; skip symlink)"
+    return 0
+  fi
+
+  # User-wins: if active.md exists as a regular file (not a symlink), preserve it.
+  if [[ -e "$active_link" && ! -L "$active_link" ]]; then
+    log "INSTALL_MODE_SKIPPED_USER_FILE (preserved user-set $active_link)"
+    return 0
+  fi
+
+  # Atomic symlink swap.
+  ln -sfn "$target_md" "$active_link"
+  log "INSTALL_MODE_SYMLINKED: $value"
+}
+
 # ---------- optional: settings.json hook wiring ----------
 # Gated by CLAUDE_INSTALL_SETTINGS=1. Off by default — safe for existing users.
 # When the flag is unset and the previous install backed up a settings.json,
@@ -1065,6 +1232,12 @@ with open(dst, 'w', encoding='utf-8') as f:
 PYEOF
   unset _CP_CLAUDE_HOME _CP_USER_EMAIL _CP_USER_NAME
 fi
+
+# ---------- deploy-mode overlay ----------
+# Activates the per-provider mini-CLAUDE.md fragment (claude/modes/<provider>.md)
+# referenced from CLAUDE.md.template as `@~/.claude/modes/active.md`. Reads
+# docs/active-deployment for the provider slug. Absent file ⇒ strip overlay line.
+provision_modes_overlay
 
 # ---------- env file ----------
 ENV_FILE="$REPO_ROOT/.env"
