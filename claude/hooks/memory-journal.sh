@@ -45,6 +45,8 @@
 #
 # Self-test: bash memory-journal.sh --selftest
 
+# denial_tracker:no — Stop hooks never block per spec; opt-out is contractual
+
 set -uo pipefail
 
 KILL_SWITCH="${PIPELINE_NO_MEMORY_JOURNAL:-0}"
@@ -160,6 +162,28 @@ with open('$JOURNAL', 'w') as f:
     rec "cwd_fallback_to_pwd" FAIL "fallback journal not created at $FALLBACK_JOURNAL"
   fi
 
+  # Test 9: memory_save payload appears on stdout alongside JSONL append
+  rm -f "$JOURNAL"
+  rm -rf "$TMPHOME/.claude/projects/-tmp-proj"
+  ENV9='{"session_id":"sess-9","transcript_path":"/tmp/t.jsonl","cwd":"/tmp/proj","stop_hook_active":false}'
+  OUT9=$(printf '%s' "$ENV9" | HOME="$TMPHOME" bash "$SCRIPT" 2>/dev/null)
+  if printf '%s' "$OUT9" | python3 -c "
+import sys, json
+line = sys.stdin.read().strip()
+if not line:
+    sys.exit(1)
+obj = json.loads(line)
+if obj.get('_payload_kind') != 'memory_save':
+    sys.exit(1)
+required = {'tags', 'category', 'content', 'ts'}
+if not required.issubset(obj.keys()):
+    sys.exit(1)
+" 2>/dev/null; then
+    rec "memory_save_emission_on_stdout" PASS
+  else
+    rec "memory_save_emission_on_stdout" FAIL "expected memory_save payload on stdout"
+  fi
+
   echo "Results: $PASS PASS / $FAIL FAIL"
   [ "$FAIL" -ne 0 ] && { echo "Failed: ${FAILED[*]}"; exit 1; }
   exit 0
@@ -243,5 +267,29 @@ fi
 
 # Append
 printf '%s\n' "$LINE" >> "$JOURNAL" 2>/dev/null || true
+
+# ─── Emit memory_save payload on stdout (additive, fire-and-forget) ───────────
+# Routing marker: `_payload_kind: memory_save`. A harness that learns to route
+# MCP RPCs from stdout can grep for this key; absent such routing, the payload
+# emerges as harmless output noise on the next Claude Code output stream.
+# Construction mirrors the existing JE_* env-var pattern (no subprocess spawn
+# beyond the existing python3 child).
+PAYLOAD=$(JE_TS="$TS" JE_SID="$SESSION_ID" JE_CWD="$CWD" JE_BR="$BRANCH" \
+          JE_SLUG="$SLUG" python3 -c "
+import json, os, sys
+payload = {
+    '_payload_kind': 'memory_save',
+    'tags': ['journal', 'session-end', os.environ.get('JE_SLUG', '').lstrip('-') or 'unknown-slug'],
+    'category': 'reference',
+    'content': 'session-end journal entry; metadata-only',
+    'session_id': os.environ.get('JE_SID', ''),
+    'cwd': os.environ.get('JE_CWD', ''),
+    'branch': os.environ.get('JE_BR', '') or None,
+    'ts': os.environ.get('JE_TS', ''),
+}
+sys.stdout.write(json.dumps(payload))
+" 2>/dev/null) || PAYLOAD=""
+
+[ -n "$PAYLOAD" ] && printf '%s\n' "$PAYLOAD"
 
 exit 0
