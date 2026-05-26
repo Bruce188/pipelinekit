@@ -582,7 +582,8 @@ On Path C entry, the orchestrator emits a `path-c-pre` beacon. The notification 
 1. Read current replan count from pipeline state. Increment.
 2. If replan count > 1:
    - Append to Run Log: `Path: C | Replans: 1 | Status: FAILED (max re-plans exceeded)`
-   - Skip to next feature.
+   - Before skipping, consult Path D (Fresh-context Salvage, below): if `**Path D attempted:**` is `false` AND the Step 5.0 budget gate passes, dispatch Path D EXACTLY ONCE. On Path D PASS → land via Step 5.8 Path A. On Path D failure (status `failed`/`blocked`, lingering findings, or budget breach) → skip to next feature.
+   - If Path D was already attempted (`**Path D attempted:** true`), skip to next feature.
 3. Update pipeline state: `**Replan count:** [new count]`, `**Step:** plan`. Persist immediately. Emit phase transition signal (progress beacon **and** TodoWrite update, tag=`path-c-pre`) per the helpers in SKILL.md Step 5.0.
 4. **Re-generate plan (Step 5.3).** Step 5.3's own `If Phase Mode = subagent` branch handles dispatch — the plan regeneration honors the recorded mode automatically via Agent dispatch using `<!-- PHASE: plan -->`. (Read-fresh consistency: Step 5.3 reads `**Phase Mode:**` per its own contract; the read-fresh requirement Path B step 5 establishes is satisfied there, not here.) Pass `model: opus`. Capture `<task-notification>`; on `status: failed`, log `Path: C | Replans: [N] | Status: FAILED (plan subagent error)` and skip.
 5. **Re-invoke implement.** Read `**Phase Mode:**` fresh. Branch identically to Path B step 5:
