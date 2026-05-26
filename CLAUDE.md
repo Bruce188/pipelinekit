@@ -10,6 +10,8 @@ Workflow toolkit for Claude Code. Skills + agents + hooks + the autonomous `/pip
 |------|---------|
 | `claude/` | Workflow toolkit source — skills, agents, hooks, commands, rules, lib |
 | `claude/skills/` | 42 skills authored as `SKILL.md` + supporting files (`tdd`, `pipeline`, `docs-writer`, ...) |
+| `claude/skills/codegraph-init/` | Pre-flight + serve init for the codegraph MCP (symbolic code graph). |
+| `claude/skills/graphify-init/` | Pre-flight + serve init for the graphify MCP (knowledge graph). |
 | `claude/agents/` | 25 subagent personas (`code-reviewer.md`, `tdd-test-writer.md`, ...) |
 | `claude/hooks/` | Bash + python pre/post hooks (`validate-commit-msg.sh`, `block-stage-sensitive.sh`, ...) |
 | `claude/commands/` | Slash-command stubs (`/persona`, `/deploy-target`, ...) |
@@ -29,6 +31,7 @@ Workflow toolkit for Claude Code. Skills + agents + hooks + the autonomous `/pip
 | `lancedb/` | Local RAG index storage |
 
 Full map: [documentation/codebase-map.html](documentation/codebase-map.html)
+Default MCP stack: [documentation/memory-graph-stack.html](documentation/memory-graph-stack.html) (agentmemory + Understand-Anything + codegraph + graphify).
 
 ## Lean Conventions
 
