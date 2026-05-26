@@ -452,7 +452,7 @@ _selftest_understand_anything_provisioned() {
 }
 
 _selftest_settings_env_block() {
-  # Per docs/analysis-v100.md § R5. 4 cases (A, B, C, D) — assert env-block additive-merge invariants.
+  # Per docs/analysis-v101.md § R1. 5 cases (A, B, C, D, E) — assert additive-merge invariants (env + top-level keys).
   local tmp; tmp=$(mktemp -d)
   # shellcheck disable=SC2064
   trap "rm -rf '$tmp'" RETURN
@@ -467,7 +467,6 @@ import json, sys
 d = json.load(open('$CLAUDE_HOME/settings.json'))
 e = d.get('env', {})
 assert e.get('CLAUDE_CODE_DISABLE_1M_CONTEXT') == '1', f'Case A: DISABLE_1M_CONTEXT = {e.get(\"CLAUDE_CODE_DISABLE_1M_CONTEXT\")!r}'
-assert e.get('CLAUDE_CODE_AUTO_COMPACT_WINDOW') == '100000', f'Case A: AUTO_COMPACT_WINDOW = {e.get(\"CLAUDE_CODE_AUTO_COMPACT_WINDOW\")!r}'
 assert 'hooks' in d, 'Case A: hooks key missing'
 " || { echo "FAIL: Case A assertions"; return 1; }
 
@@ -487,7 +486,6 @@ d = json.load(open('$case_b_home/settings.json'))
 e = d.get('env', {})
 assert e.get('CUSTOM_VAR') == 'foo', f'Case B: CUSTOM_VAR clobbered → {e.get(\"CUSTOM_VAR\")!r}'
 assert e.get('CLAUDE_CODE_DISABLE_1M_CONTEXT') == '1', 'Case B: new DISABLE_1M_CONTEXT missing'
-assert e.get('CLAUDE_CODE_AUTO_COMPACT_WINDOW') == '100000', 'Case B: new AUTO_COMPACT_WINDOW missing'
 " || { echo "FAIL: Case B assertions"; return 1; }
 
   ## --- Case C: pre-existing DISABLE_1M_CONTEXT=0 survives (user wins) ---
@@ -505,7 +503,6 @@ import json
 d = json.load(open('$case_c_home/settings.json'))
 e = d.get('env', {})
 assert e.get('CLAUDE_CODE_DISABLE_1M_CONTEXT') == '0', f'Case C: user value clobbered → {e.get(\"CLAUDE_CODE_DISABLE_1M_CONTEXT\")!r}'
-assert e.get('CLAUDE_CODE_AUTO_COMPACT_WINDOW') == '100000', 'Case C: AUTO_COMPACT_WINDOW (no prior value) missing'
 " || { echo "FAIL: Case C assertions"; return 1; }
 
   ## --- Case D: malformed prior JSON → swallow + start fresh (no crash) ---
@@ -522,6 +519,34 @@ d = json.load(open('$case_d_home/settings.json'))
 e = d.get('env', {})
 assert e.get('CLAUDE_CODE_DISABLE_1M_CONTEXT') == '1', 'Case D: defaults missing after malformed prior'
 " || { echo "FAIL: Case D assertions"; return 1; }
+
+  ## --- Case E: prior settings.json has many top-level keys → ALL preserved + new env defaults added ---
+  local case_e_home="$tmp/case_e/.claude"
+  local case_e_backup="$tmp/case_e/backup"
+  mkdir -p "$case_e_home" "$case_e_backup"
+  cat > "$case_e_backup/settings.json" <<'JSON'
+{
+  "model": "opus",
+  "enabledPlugins": {"foo": "bar"},
+  "extraKnownMarketplaces": {"baz": {}},
+  "env": {"CUSTOM_VAR": "x"},
+  "hooks": {}
+}
+JSON
+  export CLAUDE_HOME="$case_e_home"
+  CLAUDE_INSTALL_SETTINGS=1 maybe_install_settings "$case_e_backup" >/dev/null 2>&1 \
+    || { echo "FAIL: Case E maybe_install_settings exit non-zero"; return 1; }
+  python3 -c "
+import json
+d = json.load(open('$case_e_home/settings.json'))
+e = d.get('env', {})
+assert d.get('model') == 'opus', f'Case E: model not preserved → {d.get(\"model\")!r}'
+assert d.get('enabledPlugins', {}).get('foo') == 'bar', f'Case E: enabledPlugins not preserved → {d.get(\"enabledPlugins\")!r}'
+assert d.get('extraKnownMarketplaces', {}).get('baz') == {}, f'Case E: extraKnownMarketplaces not preserved → {d.get(\"extraKnownMarketplaces\")!r}'
+assert e.get('CUSTOM_VAR') == 'x', f'Case E: CUSTOM_VAR not preserved → {e.get(\"CUSTOM_VAR\")!r}'
+assert e.get('CLAUDE_CODE_DISABLE_1M_CONTEXT') == '1', f'Case E: DISABLE_1M_CONTEXT default missing'
+assert d.get('hooks') and len(d['hooks']) > 0, 'Case E: hooks block missing or empty'
+" || { echo "FAIL: Case E assertions"; return 1; }
 
   ## --- AC #6 tripwire: heredoc must not have touched repo-local claude/ ---
   local repo_root="$(dirname "${BASH_SOURCE[0]}")/.."
@@ -867,30 +892,34 @@ import json, os, sys
 
 h = sys.argv[1]
 
-# Additive merge: preserve user's existing env vars (if any), then default-add the two pinned keys.
+# Additive merge: preserve ALL top-level keys from the prior settings.json,
+# overlay pipelinekit env defaults UNDER any prior env (user wins on collision),
+# then re-attach the pipelinekit-canonical hooks block last.
 prev_settings_path = sys.argv[2] if len(sys.argv) > 2 else ""
-existing_env = {}
+prev = {}
 if prev_settings_path and os.path.exists(prev_settings_path):
     try:
         with open(prev_settings_path, "r", encoding="utf-8") as pf:
-            prev = json.load(pf)
-        existing_env = dict(prev.get("env", {}))
+            loaded = json.load(pf)
+        if isinstance(loaded, dict):
+            prev = loaded
     except (json.JSONDecodeError, OSError):
-        existing_env = {}
+        prev = {}
 
 new_env_defaults = {
     "CLAUDE_CODE_DISABLE_1M_CONTEXT": "1",
-    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "100000",
 }
 # User wins on collision — never clobber an explicitly-set value.
+existing_env = dict(prev.get("env", {})) if isinstance(prev.get("env"), dict) else {}
 merged_env = {**new_env_defaults, **existing_env}
 
 def hook(cmd, args=None):
     return [{"type": "command", "command": cmd, "args": args or []}]
 
-settings = {
-    "env": merged_env,
-    "hooks": {
+# Start from prior top-level keys, drop pipelinekit-owned hooks, then re-assemble.
+settings = {k: v for k, v in prev.items() if k != "hooks"}
+settings["env"] = merged_env
+settings["hooks"] = {
         "SessionStart": [
             {"matcher": "*", "hooks": hook(f"{h}/hooks/session-start-context.sh")},
             {"matcher": "*", "hooks": hook(f"{h}/hooks/kill-rogue-mcp-daemon.sh")},
@@ -939,7 +968,6 @@ settings = {
             {"matcher": "*", "hooks": hook(f"{h}/hooks/context-budget-advisor.py")},
             {"matcher": "*", "hooks": hook(f"{h}/hooks/subagent-first-nudge.sh")}
         ]
-    }
 }
 
 dst = os.path.join(h, "settings.json")
