@@ -237,6 +237,7 @@ Triggered when `--adopt` is present. Reads current manual workflow state and cre
    **Step:** <resume step>
    **Review cycles:** <count of review-v*.md files>
    **Replan count:** 0
+   **Path D attempted:** false
    **Started:** [current date]
    ```
 
@@ -245,7 +246,7 @@ Triggered when `--adopt` is present. Reads current manual workflow state and cre
 
 Do not modify any existing `docs/` files during adoption — only create `features-adopted.md` and `pipeline-state.md`. Branch naming mismatch is acceptable — the pipeline uses the existing branch as-is.
 
-**Terminal state:** On clean exit (every feature successfully merged, no failed_list members, no Path C escalation stuck), the pipeline writes `**Step:** done` along with `**Completed:** <ISO8601 UTC>` and `**Features merged:** <count>` to `docs/pipeline-state.md`. The terminal marker is the canonical signal that no further `--restart-from` invocation is valid on this state file. On any halt path (failed feature, BUDGET_EXCEEDED, Path C stuck), terminal cleanup is skipped and the state file is left at its mid-flight position so a subsequent resume can pick up where the run left off.
+**Terminal state:** On clean exit (every feature successfully merged, no failed_list members, no Path C escalation stuck, no Path D salvage stuck), the pipeline writes `**Step:** done` along with `**Completed:** <ISO8601 UTC>` and `**Features merged:** <count>` to `docs/pipeline-state.md`. The terminal marker is the canonical signal that no further `--restart-from` invocation is valid on this state file. On any halt path (failed feature, BUDGET_EXCEEDED, Path C stuck, Path D stuck), terminal cleanup is skipped and the state file is left at its mid-flight position so a subsequent resume can pick up where the run left off.
 
 See SKILL.md § Step 5.10: Terminal Cleanup for the predicate and write logic.
 
@@ -600,6 +601,35 @@ On Path C entry, the orchestrator emits a `path-c-pre` beacon. The notification 
    - `subprocess` → unreachable; re-route as subagent with warning.
    - `inline` (legacy) → `Skill: review` (teams default-on if env var set; `Skill: review --no-teams` otherwise).
 7. Emit phase transition signal (progress beacon **and** TodoWrite update, tag=`path-c-post`) per the helpers in SKILL.md Step 5.0. Return to Step 5.7 (path determination)
+
+### Path D — Fresh-context Salvage (max 1 attempt)
+
+Path D is the salvage hop that fires AFTER Path C exhausts (`Replan count > 1`) and BEFORE the feature-failed terminal. It dispatches ONE fresh-context `general-purpose` subagent armed with the full Run Log, every review file written for this feature, and the original feature block. Path D is one-shot: it either lands the feature on Path A, or the feature is declared lost.
+
+Triggered from Path C step 2 — when the replan-count check would have skipped to the next feature, the orchestrator first consults Path D.
+
+1. Read `**Path D attempted:**` from `docs/pipeline-state.md`. Treat an absent field on a legacy state file as `false` (untried). Treat any non-`false` value (including a corrupted `true`) as `true` to fail safe. If already `true`: skip Path D entirely and proceed to the feature-failed terminal — Path D dispatches EXACTLY ONCE per feature.
+2. Evaluate the Step 5.0 budget gate BEFORE dispatching. A breach halts with `BUDGET_EXCEEDED` and leaves `**Path D attempted:**` at `false` so a subsequent resume under a wider `--max-usd` / `--max-turns` cap can still salvage the feature.
+3. Set `**Path D attempted:** true` in `docs/pipeline-state.md` and persist immediately — the write happens BEFORE the subagent dispatch so a crash mid-dispatch still bars a double-fire on resume. Emit phase transition signal (progress beacon **and** TodoWrite update, tag=`path-d-pre`) per the helpers in SKILL.md Step 5.0.
+4. Build the salvage prompt for a `general-purpose` agent containing:
+   - The full feature block (verbatim from the active feature file).
+   - The feature's complete `### Run Log` section.
+   - Every review file written so far for this feature (up to 5 Path B cycles + 1 Path C re-review = 6 files maximum).
+   - The current `docs/plan-*.md` and `docs/prompts-*.md` referenced by the `**Plan:**` / `**Prompts:**` pointers in `docs/progress.md`.
+   - The freshly-recomputed `git diff $BASE...HEAD` so the salvage agent sees the implementation surface.
+   - An explicit charter: "land this feature on Path A, or report blocked."
+5. Dispatch ONE `Agent` call (`subagent_type: general-purpose`, `model: opus`). The agent is expected to re-implement against the plan + reviews, then re-review, and produce a `<task-notification>` with the converged status.
+6. Capture the returned `<task-notification>`. Branch:
+   - `status: completed` AND the resulting review file has 0 findings → proceed to Step 5.8 Path A (push → PR → CI → merge). Append to the feature Run Log: `Path: D | Status: PASSED (fresh-context salvage)`.
+   - `status: completed` AND findings remain → append `Path: D | Status: FAILED (fresh-context salvage did not converge)` and fall through to the feature-failed terminal.
+   - `status: failed` or `status: blocked` → append `Path: D | Status: FAILED (salvage subagent <status>)` and fall through to the feature-failed terminal.
+7. Emit phase transition signal (tag=`path-d-post`) per the helpers in SKILL.md Step 5.0. DO NOT loop back to Path B, Path C, Path N, Path M, or Retry — Path D's single attempt is the entire salvage budget. The next step is always either Step 5.8 Path A (on the PASSED branch above) or directly to the feature-failed terminal (every other branch).
+
+**Backstop invariant (no infinite loop):** Path D dispatches EXACTLY ONCE per feature. The `**Path D attempted:**` boolean is the only gate; there is intentionally no "Path D cycles" counter because the contract is one-shot. If Path D itself fails for any reason — subagent error, lingering findings, blocked status, budget breach mid-dispatch — the orchestrator advances directly to the feature-failed terminal with no loop back to Path B / Path C / Path N / Path M / Retry. This is the load-bearing guarantee that prevents Path D from re-entering an unbounded review cycle.
+
+**Budget contribution:** the single `Agent` dispatch contributes to `--max-usd` and `--max-turns` via the same `cost_log.py` surface every other phase subagent uses. Budget evaluation happens at step 2 above; Path D NEVER fires without checking the budget first.
+
+**Notification payload:** when the feature-failed terminal emits the `feature-failed` beacon, the helper invocation sets `NOTIFY_PATH_D_ATTEMPTED=true` (the env-var shape consumed by `claude/hooks/notify-emit.sh`). The beacon-mode JSON payload surfaces the value as the `path_d_attempted` boolean so the user can tell whether the salvage path ran before the feature died.
 
 ### Retry — BLOCKED (max 3 retries)
 
