@@ -54,3 +54,58 @@ After rewrite, run these assertions:
 - 0: compression complete and verified.
 - 2: path rejected by Tier 1 allowlist.
 - 1: any other failure (read error, write error, verification failure).
+
+## v2 — bounded paraphrase mode
+
+v1 (above) is pure deterministic compression: every Zone-1 byte-string is preserved but only ~5% byte / 1-3% token reduction is achieved because most narrative is already terse. v2 adds LLM-driven bounded paraphrase with a critical-section heuristic. Projected -17% Tier 1 tokens.
+
+### Invocation
+
+- `/caveman-compress --mode=v2 <path>` — v2 with sidecar output.
+- `/caveman-compress --mode=v2 <path> --in-place` — v2 overwriting source.
+- `/caveman-compress --mode=v2 <path> --unrestricted` — bypass Tier 1 allowlist (ad-hoc paths).
+- Default mode stays `v1` (deterministic) for backward compatibility — `--mode=v1` is the implicit default.
+
+### Dispatch contract
+
+v2 dispatch goes through the `Agent` tool with `model: haiku`. NEVER spawn `claude -p` or any other LLM subprocess (PR #117 lesson). The orchestrator (not the skill body itself) invokes the Agent tool; this skill describes the contract that the orchestrator MUST honour.
+
+### Critical-section heuristic — PRESERVE byte-exact
+
+The Haiku paraphrase prompt MUST be instructed to preserve the following whole lines / spans byte-exact in addition to the v1 Zone 1 contract:
+
+| Critical-section kind | Detection pattern |
+|------------------------|-------------------|
+| MUST / NEVER literals | Whole-word match: `\b(MUST\|NEVER\|DO NOT\|do not\|Do not)\b` |
+| Numeric thresholds | `≤70`, `5-cycle`, `≥3`, `200 KB`, `40-90%`, `±15%`, etc. — any line containing a digit-bearing constraint token |
+| Filesystem paths | `/foo/bar`, `~/.claude/...`, `claude/skills/...`, `docs/...` |
+| Conventional commit-type prefixes | `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`, `perf:`, `style:`, `build:`, `ci:` at line start or in code spans |
+| Triple-fenced code blocks + inline backticks | Already covered by v1 Zone 1; explicit reminder for the Haiku prompt |
+| Procedural step lines | Numbered list items: `^\d+\. ` (steps 1. 2. 3.) — DO NOT collapse or reorder |
+
+### Validator gate — `v2_validator.py`
+
+After the Haiku Agent returns, the orchestrator MUST run `python3 claude/skills/caveman-mode/v2_validator.py <pre> <post>` BEFORE writing the output file. The validator runs 7 checks:
+
+1. All URLs in pre present in post byte-exact.
+2. All fenced code blocks byte-exact.
+3. MUST/NEVER literal counts in post ≥ pre counts.
+4. Heading count and order preserved.
+5. Bullet count within ±10% of pre.
+6. Length ratio 40-90% of pre (sanity guard).
+7. Negation density (`no|not|never|don't` per 1k chars) within ±15% of pre.
+
+On validator pass (exit 0): orchestrator writes sidecar or in-place output. On validator fail (exit 1): orchestrator aborts the write and emits the `failures: list[str]` so a tighter re-prompt is possible.
+
+### Sidecar vs in-place
+
+Same semantics as v1: default writes `<path>.compressed`; `--in-place` overwrites source. Both honour the validator gate — no write happens on validator fail.
+
+### Allowlist
+
+`tier1_allowlist.sh` still gates by default. `--unrestricted` bypasses for ad-hoc paths (e.g. compressing third-party docs, throwaway markdown). The flag MUST be explicit per invocation; there is no session-wide unrestricted mode.
+
+### Behavioral Q&A
+
+`tests/test_v2_qa.sh` is a manual-eval smoke pack: 5 sample input files with 3 questions each that MUST yield equivalent answers pre/post compression. The script exits 0 with a `MANUAL_EVAL_REQUIRED` marker — pass is recorded by a human reviewer, not the script itself.
+
