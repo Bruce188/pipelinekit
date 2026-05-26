@@ -11,7 +11,9 @@
 #   2. SANDBOX_PROVIDER=<name>          → use that provider if binary exists; else log to stderr
 #                                          and fall back to worktree-only
 #   3. SANDBOX_PROVIDER=auto            → try podman → docker → worktree-only
-#      SANDBOX_PROVIDER unset           → worktree-only (no behavior change from pre-sandbox default)
+#                                          (one-line stderr log on fallback)
+#      SANDBOX_PROVIDER unset           → auto (default-on isolation; engine-when-present,
+#                                          graceful fallback to worktree-only with stderr log)
 #
 # Sourcing pattern (callers):
 #   source "$CLAUDE_HOME/lib/sandbox/SandboxProvider.sh"
@@ -26,7 +28,7 @@
 # This file is sourced, never executed directly.
 #
 # Env vars:
-#   SANDBOX_PROVIDER        — provider name: worktree-only | podman | docker | auto (default: worktree-only)
+#   SANDBOX_PROVIDER        — provider name: worktree-only | podman | docker | auto (default: auto)
 #   PIPELINE_NO_SANDBOX     — set to 1 to unconditionally skip container isolation
 #   SANDBOX_PODMAN_IMAGE    — per-engine image override for the podman provider
 #                             (highest precedence). Default fallback path:
@@ -52,7 +54,7 @@ provider_detect() {
     return 0
   fi
 
-  local req="${SANDBOX_PROVIDER:-worktree-only}"
+  local req="${SANDBOX_PROVIDER:-auto}"
   case "$req" in
     worktree-only)
       echo worktree-only
@@ -79,6 +81,7 @@ provider_detect() {
       elif command -v docker >/dev/null 2>&1; then
         echo docker
       else
+        echo "sandbox: container runtime not found — using worktree-only fallback" >&2
         echo worktree-only
       fi
       ;;
