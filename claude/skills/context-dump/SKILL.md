@@ -1,6 +1,10 @@
 ---
 name: context-dump
 description: Save current session context to docs/context-dump.md for handoff or resumption
+allowed-tools:
+  - Read
+  - Write
+  - Bash
 disable-model-invocation: true
 paths:
   - claude/skills/context-dump/**

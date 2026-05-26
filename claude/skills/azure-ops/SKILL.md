@@ -1,6 +1,8 @@
 ---
 name: azure-ops
 description: Azure CLI (`az`) wrapper for common ops — resource listing, deploy (App Service / Container Apps / Function Apps), log tail, app-service restart. STOPS and prompts the user if `az account show` fails — never auto-authenticates. Use when running day-to-day Azure operations against an already-authenticated context.
+allowed-tools:
+  - Bash
 paths:
   - claude/skills/azure-ops/**
   - documentation/deployment-azure.html

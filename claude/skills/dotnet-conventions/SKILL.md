@@ -1,6 +1,8 @@
 ---
 name: dotnet-conventions
 description: .NET architecture, DI, data access, and testing conventions. Loaded when working with C#, .NET, controllers, services, entities, repositories, or solution files.
+allowed-tools:
+  - Read
 user-invocable: false
 paths:
   - "**/*.cs"

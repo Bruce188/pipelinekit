@@ -35,7 +35,7 @@
 | `railway-ops` | Deploy and verify Railway projects when the charter targets railway |
 | `render-ops` | Deploy and verify Render services when the charter targets render |
 | `research` | Karpathy autoresearch loop — hypothesize, mutate one file, run benchmark, keep-or-reset, append TSV row. Repeat until budget or iteration cap. |
-| `review` | Multi-agent parallel review with auto-scaling agent selection. Scales from 2 agents (small diffs) to 6-agent teams (large diffs). Supports --scope, --health, --force, --teams, and --design-pass. |
+| `review` | Multi-agent parallel review with auto-scaling agent selection. Scales from 2 agents (small diffs) to 6-agent teams (large diffs). Teams mode is default-on; pass --no-teams to opt out. Supports --scope, --force, --no-teams. |
 | `secret-scanner` | Detect exposed secrets, API keys, credentials, and tokens in code. Use before commits, on file saves, or when security is mentioned. Prevents accidental secret exposure. Triggers on file changes, git commits, security checks, .env file modifications. |
 | `security-conventions` | ASP.NET Core security conventions — anti-forgery, authorization, secret storage, parameterized queries, HTTPS. Loaded when working with controllers, API endpoints, authentication, authorization, or user input handling. |
 | `simplify` | Post-green reductive refactor: remove unused helpers, dead branches, over-generalized abstractions, and redundant null checks; revert on test failure. |

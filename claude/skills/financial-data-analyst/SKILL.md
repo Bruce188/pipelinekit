@@ -1,6 +1,10 @@
 ---
 name: financial-data-analyst
 description: Automatically analyzes financial and trading data using Python to calculate performance metrics, technical indicators, risk analysis, and portfolio statistics with visualizations
+allowed-tools:
+  - Read
+  - Write
+  - Bash
 paths:
   - claude/skills/financial-data-analyst/**
   - "**/*.csv"
