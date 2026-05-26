@@ -120,6 +120,11 @@ if [ "${PIPELINE_NO_SESSION_START_CONTEXT:-0}" = "1" ]; then
   exit 0
 fi
 
+# Clear the subagent-nudge marker so the first prompt of a fresh session
+# re-emits the default-mode banner. See claude/hooks/subagent-first-nudge.sh
+# for the once-per-session cap mechanism.
+rm -f "$HOME/.claude/.subagent-nudge-fired" 2>/dev/null || true
+
 # Not a git repo — print advisory and exit 0.
 if ! git rev-parse --git-dir >/dev/null 2>&1; then
   printf '# Session Context\n\n(not a git repo)\n'

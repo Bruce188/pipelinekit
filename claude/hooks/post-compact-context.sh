@@ -5,6 +5,11 @@
 # Consume stdin (hook protocol)
 cat > /dev/null
 
+# Clear the subagent-nudge marker so the next user prompt after compaction
+# re-emits the default-mode banner. See claude/hooks/subagent-first-nudge.sh
+# for the once-per-session cap mechanism.
+rm -f "$HOME/.claude/.subagent-nudge-fired" 2>/dev/null || true
+
 cat << 'EOF'
 ## Post-Compaction Reminders
 
