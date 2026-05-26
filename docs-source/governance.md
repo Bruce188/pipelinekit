@@ -42,6 +42,21 @@ A new skill, agent, or hook crosses the team's convention surface. It needs expl
 2. **Review.** The AI Champion + one peer review the PR. Champion focuses on contract compliance (frontmatter, allowlist, paths scoping); peer focuses on the behavior the artifact ships. Both must approve before merge. Disagreements escalate to a 15-minute synchronous discussion with the user-global rules in `~/.claude/CLAUDE.md` as the tiebreaker.
 3. **Merge.** Merge after the smoke tests pass — `bash claude/skills/docs-writer/tests/test_render.sh` for docs-writer changes, the skill's own `tests/` directory for skill-specific tests, the hook test harness under `claude/hooks/` for new hooks. The merge commit follows conventional-commit format and never references the AI workflow (no `Co-Authored-By`, no review-cycle metadata).
 
+## Advisory hooks — prompt-injection scanner
+
+The orchestrator validates substituted user input before dispatching a prompt (`claude/skills/pipeline/reference.md § Placeholder Substitution Safety`). That covers feature names, descriptions, and path placeholders. It does NOT cover tool output — `WebFetch` responses, `Read` calls against `/tmp/` or `/var/`, PR-comment data ingested via `--issues`. That untrusted text otherwise flows into subsequent prompts unchecked, which is the classic prompt-injection vector for an LLM-with-shell agent (CWE-94 / CWE-74).
+
+`claude/hooks/scan-tool-output.sh` is the v1 advisory layer for that gap. It registers as a `PostToolUse` hook:
+
+- Fires on `WebFetch` always.
+- Fires on `Read` only when the resolved file path is outside the repo root (`/tmp/`, `/var/`, `/home/<other>/`, or any URL form).
+- Calls `claude.hooks._promptguard.scan(text)` and emits a stderr warning of the form `WARN: prompt-injection pattern detected: <pattern> in <source>` for each match.
+- Always exits 0 — **advisory only**. v1 will not strand the operator mid-workflow on a false positive. A hard-block layer can follow once the false-positive rate is empirically known.
+
+Pattern catalogue: the canonical list lives in `claude/hooks/_promptguard.py` and covers XML-shape system tags, the canonical instruction-override prefaces, role-reassignment markers, column-0 role-impersonation prefixes, and ChatML role markers. Matching is case-insensitive. The scanner logs only the `(source, pattern, position)` triple to stderr — never the scanned text — to keep credential-bearing fetches out of the session log.
+
+The Champion owns the catalog. Adding a pattern requires a PR that (a) extends `_LITERAL_PATTERNS` / `_FLEX_PATTERNS` / `_ROLE_PREFIXES` in `claude/hooks/_promptguard.py`, (b) adds positive + negative test cases in `claude/hooks/tests/test_promptguard.py`, and (c) re-scans `docs-source/` to confirm the corpus stays under the documented allowlist threshold (< 5 hits at v1, enumerated as a top-of-file comment in `_promptguard.py`).
+
 ## Adoption metrics
 
 Governance is invisible when it works. Measure adoption to confirm it is working — and to surface drift before it becomes a fire.
