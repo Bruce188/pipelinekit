@@ -193,7 +193,7 @@ Do not use this skill for:
 
 - Bootstrapping a new DigitalOcean account — that requires interactive signup and `doctl auth init`.
 - Long-running unattended automation — the skill is built for interactive ops, not for `cron`-style schedulers (use GitHub Actions + the DigitalOcean deploy webhook, or a deploy bot wired with `DIGITALOCEAN_ACCESS_TOKEN` managed outside Claude).
-- Dashboard-only configuration (custom domains, managed databases, managed Redis, log-destination wiring, notification rules) — those tasks belong with the `@digitalocean-deployment-engineer` agent and the DigitalOcean dashboard.
+- Dashboard-only configuration (custom domains, managed databases, managed Redis, log-destination wiring, notification rules) — those tasks belong with the `@deployment-engineer` agent (dispatched with `provider: digitalocean`) and the DigitalOcean dashboard.
 - Multi-cloud deploys — this skill is DigitalOcean-only.
 
 ## Limitations

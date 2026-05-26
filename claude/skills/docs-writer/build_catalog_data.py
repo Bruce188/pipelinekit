@@ -110,11 +110,6 @@ AGENT_SECTION_MAP: dict[str, str] = {
     # docs / content
     "docs-writer": "docs",
     # ops / cloud
-    "azure-deployment-engineer": "ops",
-    "vercel-deployment-engineer": "ops",
-    "railway-deployment-engineer": "ops",
-    "render-deployment-engineer": "ops",
-    "digitalocean-deployment-engineer": "ops",
     "deployment-engineer": "ops",
     "incident-responder": "ops",
     # mobile
@@ -228,7 +223,7 @@ def collect_agents() -> list[dict]:
     """
     Scan claude/agents/*.md and return a sorted list of agent dicts.
     Skips files without a 'name:' frontmatter key (e.g. NOTICE.md, README.md,
-    deployment-engineer.md which is a documentation-only base file).
+    INDEX.md, CLAUDE.md — non-agent supporting docs).
     Keys: name, description, section.
     """
     items: list[dict] = []

@@ -26,10 +26,7 @@ Specialized subagents for software development. Each is defined as a `.md` file 
 - **@mobile-dev** — iOS (Swift/Xcode), Android (Kotlin), React Native, Expo, Flutter; native modules, mobile CI/CD, App Store / Play Console workflows
 
 ### Cloud Deployment
-- **@azure-deployment-engineer** — Azure CLI (`az`) ops, App Service / Container Apps / Function Apps / AKS deployment, Bicep / ARM templates, Log Analytics + Application Insights, RBAC + Managed Identity
-- **@vercel-deployment-engineer** — Vercel CLI ops, project/team/scope layout, `vercel.json` + framework presets (Next.js / SvelteKit / Astro), preview-URL smoke + `vercel inspect` verification, Web Analytics + log drains, Hobby/Pro/Enterprise plan guardrails
-
-Note: `claude/agents/deployment-engineer.md` is a documentation-only base shared by the provider-specific deployment engineers — it carries no frontmatter and is NOT directly invokable as `@deployment-engineer` (see the file's first paragraph for the authoritative statement).
+- **@deployment-engineer** — Unified cloud deployment specialist for Azure / Vercel / Railway / Render / DigitalOcean. Dispatch with `provider: <name>` in the task prompt body to invoke the matching per-provider playbook (CLI command tables, topology, configuration shape, deployment verification chain, plan-tier guardrails). Cross-provider principles (auth posture, secret hygiene, health-check polling, no-direct-REST) apply uniformly.
 
 ### Personas
 - **@devops** — Infra / operational / deployment / observability emphasis

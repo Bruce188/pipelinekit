@@ -131,11 +131,6 @@
     </div>
   </div>
   <div class="pkit-akg-grid" role="list" aria-label="Agents catalog">
-    <div class="pkit-akg-card" data-agent-card data-section="ops" data-name="azure-deployment-engineer">
-      <span class="pkit-akg-name">azure-deployment-engineer</span>
-      <p class="pkit-akg-desc">Expert Azure deployment engineer specializing in Azure CLI (`az`) operations, App Service / Container Apps / Function Apps / AKS deployment, Bicep + ARM IaC, Log Analytics + Application Insights observability, and RBAC + Managed Identity security. Use when deploying or operating Azure-hosted workloads.</p>
-      <span class="pkit-akg-section-badge">ops</span>
-    </div>
     <div class="pkit-akg-card" data-agent-card data-section="meta" data-name="claude-md-guardian">
       <span class="pkit-akg-name">claude-md-guardian</span>
       <p class="pkit-akg-desc">CLAUDE.md drift detection and best-practices audit. Reads CLAUDE.md, scores it 0-100, lists missing sections, conflicting rules, references to dead files/skills. Output: structured findings list (section/severity/recommendation) for /review consumption.</p>
@@ -151,9 +146,9 @@
       <p class="pkit-akg-desc">Expert debugging specialist focused on root cause analysis, systematic problem-solving, and minimal-impact fixes. Use proactively when encountering errors, performance issues, or unexpected behavior.</p>
       <span class="pkit-akg-section-badge">dev</span>
     </div>
-    <div class="pkit-akg-card" data-agent-card data-section="ops" data-name="digitalocean-deployment-engineer">
-      <span class="pkit-akg-name">digitalocean-deployment-engineer</span>
-      <p class="pkit-akg-desc">Deploys to DigitalOcean App Platform and verifies via doctl + health-check polling. Use this when the charter targets digitalocean as the deployment provider.</p>
+    <div class="pkit-akg-card" data-agent-card data-section="ops" data-name="deployment-engineer">
+      <span class="pkit-akg-name">deployment-engineer</span>
+      <p class="pkit-akg-desc">Expert cloud deployment engineer for Azure / Vercel / Railway / Render / DigitalOcean. Dispatch with `provider: &lt;name&gt;` in the task prompt body to invoke the matching per-provider playbook below. Use when deploying or operating cloud-hosted workloads.</p>
       <span class="pkit-akg-section-badge">ops</span>
     </div>
     <div class="pkit-akg-card" data-agent-card data-section="docs" data-name="docs-writer">
@@ -181,20 +176,10 @@
       <p class="pkit-akg-desc">Live-app prober. Runs probes 1-7 against a merged feature on $BASE and emits a Production-Probe block to the feature's</p>
       <span class="pkit-akg-section-badge">misc</span>
     </div>
-    <div class="pkit-akg-card" data-agent-card data-section="ops" data-name="railway-deployment-engineer">
-      <span class="pkit-akg-name">railway-deployment-engineer</span>
-      <p class="pkit-akg-desc">Deploys to Railway and verifies via railway-CLI health-check polling. Use this when the charter targets railway as the deployment provider.</p>
-      <span class="pkit-akg-section-badge">ops</span>
-    </div>
     <div class="pkit-akg-card" data-agent-card data-section="dev" data-name="refactor-expert">
       <span class="pkit-akg-name">refactor-expert</span>
       <p class="pkit-akg-desc">Code refactoring specialist focused on clean architecture, SOLID principles, and technical debt reduction. Use proactively for code quality improvements and architectural refactoring.</p>
       <span class="pkit-akg-section-badge">dev</span>
-    </div>
-    <div class="pkit-akg-card" data-agent-card data-section="ops" data-name="render-deployment-engineer">
-      <span class="pkit-akg-name">render-deployment-engineer</span>
-      <p class="pkit-akg-desc">Deploys to Render and verifies via render-CLI + health-check polling. Use this when the charter targets render as the deployment provider.</p>
-      <span class="pkit-akg-section-badge">ops</span>
     </div>
     <div class="pkit-akg-card" data-agent-card data-section="review" data-name="security-auditor">
       <span class="pkit-akg-name">security-auditor</span>
@@ -226,21 +211,11 @@
       <p class="pkit-akg-desc">Specialized testing expert for comprehensive test creation, validation, and quality assurance across all testing levels. Use proactively for test generation and coverage analysis.</p>
       <span class="pkit-akg-section-badge">review</span>
     </div>
-    <div class="pkit-akg-card" data-agent-card data-section="ops" data-name="vercel-deployment-engineer">
-      <span class="pkit-akg-name">vercel-deployment-engineer</span>
-      <p class="pkit-akg-desc">Expert Vercel deployment engineer specializing in Vercel CLI (`vercel`) operations, project/team/scope topology, `vercel.json` + framework-preset authoring (Next.js / SvelteKit / Astro / Remix), preview-URL + `vercel inspect` deployment verification, Web Analytics + log-drain observability, and Hobby/Pro/Enterprise plan-tier guardrails. Use when deploying or operating Vercel-hosted workloads.</p>
-      <span class="pkit-akg-section-badge">ops</span>
-    </div>
     <div class="pkit-akg-empty-msg">No agents match your filter.</div>
   </div>
-  <p class="pkit-akg-count">20 agents</p>
+  <p class="pkit-akg-count">16 agents</p>
   <script type="application/json" data-catalog-data>
 [
-  {
-    "name": "azure-deployment-engineer",
-    "description": "Expert Azure deployment engineer specializing in Azure CLI (`az`) operations, App Service / Container Apps / Function Apps / AKS deployment, Bicep + ARM IaC, Log Analytics + Application Insights observability, and RBAC + Managed Identity security. Use when deploying or operating Azure-hosted workloads.",
-    "section": "ops"
-  },
   {
     "name": "claude-md-guardian",
     "description": "CLAUDE.md drift detection and best-practices audit. Reads CLAUDE.md, scores it 0-100, lists missing sections, conflicting rules, references to dead files/skills. Output: structured findings list (section/severity/recommendation) for /review consumption.",
@@ -257,8 +232,8 @@
     "section": "dev"
   },
   {
-    "name": "digitalocean-deployment-engineer",
-    "description": "Deploys to DigitalOcean App Platform and verifies via doctl + health-check polling. Use this when the charter targets digitalocean as the deployment provider.",
+    "name": "deployment-engineer",
+    "description": "Expert cloud deployment engineer for Azure / Vercel / Railway / Render / DigitalOcean. Dispatch with `provider: <name>` in the task prompt body to invoke the matching per-provider playbook below. Use when deploying or operating cloud-hosted workloads.",
     "section": "ops"
   },
   {
@@ -287,19 +262,9 @@
     "section": "misc"
   },
   {
-    "name": "railway-deployment-engineer",
-    "description": "Deploys to Railway and verifies via railway-CLI health-check polling. Use this when the charter targets railway as the deployment provider.",
-    "section": "ops"
-  },
-  {
     "name": "refactor-expert",
     "description": "Code refactoring specialist focused on clean architecture, SOLID principles, and technical debt reduction. Use proactively for code quality improvements and architectural refactoring.",
     "section": "dev"
-  },
-  {
-    "name": "render-deployment-engineer",
-    "description": "Deploys to Render and verifies via render-CLI + health-check polling. Use this when the charter targets render as the deployment provider.",
-    "section": "ops"
   },
   {
     "name": "security-auditor",
@@ -330,11 +295,6 @@
     "name": "test-engineer",
     "description": "Specialized testing expert for comprehensive test creation, validation, and quality assurance across all testing levels. Use proactively for test generation and coverage analysis.",
     "section": "review"
-  },
-  {
-    "name": "vercel-deployment-engineer",
-    "description": "Expert Vercel deployment engineer specializing in Vercel CLI (`vercel`) operations, project/team/scope topology, `vercel.json` + framework-preset authoring (Next.js / SvelteKit / Astro / Remix), preview-URL + `vercel inspect` deployment verification, Web Analytics + log-drain observability, and Hobby/Pro/Enterprise plan-tier guardrails. Use when deploying or operating Vercel-hosted workloads.",
-    "section": "ops"
   }
 ]
   </script>

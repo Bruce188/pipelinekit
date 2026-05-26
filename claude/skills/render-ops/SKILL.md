@@ -193,7 +193,7 @@ Do not use this skill for:
 
 - Bootstrapping a new Render account — that requires interactive signup and `render login`.
 - Long-running unattended automation — the skill is built for interactive ops, not for `cron`-style schedulers (use GitHub Actions + the Render deploy webhook, or a deploy bot wired with `RENDER_API_KEY` managed outside Claude).
-- Dashboard-only configuration (custom domains, disks, env-group creation, log-sink wiring) — those tasks belong with the `@render-deployment-engineer` agent and the Render dashboard.
+- Dashboard-only configuration (custom domains, disks, env-group creation, log-sink wiring) — those tasks belong with the `@deployment-engineer` agent (dispatched with `provider: render`) and the Render dashboard.
 - Multi-cloud deploys — this skill is Render-only.
 
 ## Limitations

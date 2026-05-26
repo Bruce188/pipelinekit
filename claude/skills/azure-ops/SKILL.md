@@ -179,8 +179,8 @@ Do not use this skill for:
 
 - Bootstrapping a new tenant or subscription — that requires interactive `az login` and is the user's responsibility.
 - Long-running unattended automation — the skill is built for interactive ops, not for `cron`-style schedulers (use Azure-native automation: Functions, Logic Apps, Azure Pipelines).
-- Bulk resource lifecycle (create dozens of resources from scratch) — use Bicep or ARM IaC via the `@azure-deployment-engineer` agent instead.
-- AKS day-2 operations beyond `az aks get-credentials` — full AKS workflows belong with `kubectl` and the `@azure-deployment-engineer` agent.
+- Bulk resource lifecycle (create dozens of resources from scratch) — use Bicep or ARM IaC via the `@deployment-engineer` agent (dispatched with `provider: azure`) instead.
+- AKS day-2 operations beyond `az aks get-credentials` — full AKS workflows belong with `kubectl` and the `@deployment-engineer` agent (`provider: azure`).
 - Azure Government / Azure China cloud endpoints — v1 supports the public commercial cloud only.
 
 ## Limitations
@@ -189,7 +189,7 @@ Do not use this skill for:
 - No token refresh handling. If your `az login` session expires mid-workflow, the next command will fail; STOP and prompt the user to re-authenticate.
 - No automatic `az` upgrade. The skill checks `az version` and warns when the installed CLI is older than 30 days, but does not auto-upgrade — the user owns the install lifecycle.
 - No support for Azure Government, Azure China, or Azure Stack endpoints in v1 (public commercial cloud only).
-- No bulk-create / bulk-delete operations. For multi-resource lifecycle, defer to IaC (Bicep / ARM) via the `@azure-deployment-engineer` agent.
+- No bulk-create / bulk-delete operations. For multi-resource lifecycle, defer to IaC (Bicep / ARM) via the `@deployment-engineer` agent (`provider: azure`).
 
 ## Best Practices
 
