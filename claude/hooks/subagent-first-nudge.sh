@@ -33,6 +33,11 @@ if [ "${PIPELINE_NO_SUBAGENT_NUDGE:-0}" = "1" ]; then
   exit 0
 fi
 
+# ─── Once-per-session marker ──────────────────────────────────────────────────
+# Cap firing to one banner per session lifecycle. SessionStart and PostCompact
+# hooks clear the marker. Delete the marker manually to force a re-emit.
+NUDGE_MARKER="${HOME}/.claude/.subagent-nudge-fired"
+
 # ─── Self-test ────────────────────────────────────────────────────────────────
 if [ "${1:-}" = "--selftest" ]; then
   PASS=0; FAIL=0; FAILED=()
@@ -42,9 +47,14 @@ if [ "${1:-}" = "--selftest" ]; then
   }
 
   run_with() {
-    # $1 = prompt string; returns stdout
-    printf '%s' "{\"prompt\":\"$1\",\"session_id\":\"test\"}" \
-      | bash "${BASH_SOURCE[0]}" 2>/dev/null
+    # $1 = prompt string; returns stdout.
+    # Each invocation runs in a sandboxed HOME so the once-per-session marker
+    # does not bleed between selftest cases (or touch the real user marker).
+    local _sandbox
+    _sandbox=$(mktemp -d)
+    HOME="$_sandbox" printf '%s' "{\"prompt\":\"$1\",\"session_id\":\"test\"}" \
+      | HOME="$_sandbox" bash "${BASH_SOURCE[0]}" 2>/dev/null
+    rm -rf "$_sandbox"
   }
 
   # Test 1: default prompt → nudge present
@@ -150,6 +160,18 @@ When dispatching multiple independent streams, bundle them in a SINGLE assistant
 
 Kill switch for this nudge: export \`PIPELINE_NO_SUBAGENT_NUDGE=1\`."
 fi
+
+# ─── Marker gate ──────────────────────────────────────────────────────────────
+# Once-per-session cap. If the marker exists, the banner already fired this
+# session — exit silently. Otherwise touch the marker and fall through to emit.
+# Applies to BOTH the DEFAULT-MODE banner and the opt-out notice (analysis OQ).
+# SessionStart and PostCompact hooks clear the marker so the banner re-emits
+# after a fresh boot or context compaction.
+if [ -f "$NUDGE_MARKER" ]; then
+  exit 0
+fi
+mkdir -p "$(dirname "$NUDGE_MARKER")" 2>/dev/null || true
+: > "$NUDGE_MARKER" 2>/dev/null || true
 
 # ─── Emit ─────────────────────────────────────────────────────────────────────
 python3 - "$MSG" <<'PYEOF'
