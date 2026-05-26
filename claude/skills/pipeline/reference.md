@@ -666,7 +666,7 @@ This is the ONLY legitimate inline-dispatch path in the pipeline. It exists beca
 Steps:
 
 1. Read the review file (via `**Review:**` pointer in `docs/progress.md`). Extract findings tagged `severity: nit`. For each, capture: file path, line range, description, suggested fix (if present).
-2. Track nit-cycle count in `docs/pipeline-state.md` as `**Nit cycles:**`. Increment. If > 2: append `Path: N | Nit cycles: 2 | Status: FAILED (nit fix did not converge — escalating)` and ESCALATE to Path B step 6 (re-review only; do NOT route through step 5 re-implement — surviving nits do not produce reopened tasks, so the implement subagent would exit with "No reopened tasks" and the loop would wedge). Set `**Step:** review` and let the next reviewer subagent re-categorize the stuck nits as non-blocking; Step 9 of `/review` will then create reopened tasks on the following cycle.
+2. Track nit-cycle count in `docs/pipeline-state.md` as `**Nit cycles:**`. Increment. If > 2: append `Path: N | Nit cycles: 2 | Status: FAILED (nit fix did not converge — escalating)` and ESCALATE to Path B step 6 (re-review only; do NOT route through step 5 re-implement — surviving nits do not produce reopened tasks, so the implement subagent would exit with "No reopened tasks" and the loop would wedge). Set `**Step:** review` and let the next reviewer subagent re-categorize the stuck nits as non-blocking; Step 9 of `/pipeline-review` will then create reopened tasks on the following cycle.
 3. Snapshot tracked files: `EXISTING_FILES=$(git ls-files)`.
 4. For each nit finding:
    - Verify the file is within `git diff $BASE...HEAD` scope (do not edit files outside the feature's diff).
