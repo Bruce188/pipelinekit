@@ -28,6 +28,42 @@ Inline execution is the EXCEPTION, reserved for:
 
 **Parallelism reminder.** 單消息中多獨立子代理並行。跨五輪循序呼叫 `Agent` 五次會串行。打包至一條消息。
 
+### Typed-subagent selection rule
+
+Each dispatch MUST set `subagent_type` to the most specific matching agent. `general-purpose` is the legitimate fallback only when no specialist applies OR when a specialist explicitly fails (e.g. namespace collision); the fallback reason MUST be named in the dispatch prompt or surrounding narrative.
+
+<!-- inventory parity: rows below must cover every entry in `ls claude/agents/*.md` (minus meta files CLAUDE.md / INDEX.md / NOTICE.md / README.md). When agents are added or removed, update both this table and the agents/ dir in the same commit. -->
+
+| Task kind | `subagent_type` |
+|-----------|-----------------|
+| Code review against the diff | `code-reviewer` |
+| Security audit / secret scan | `security-auditor` |
+| Test-coverage analysis / new test authoring | `test-engineer` |
+| Performance tuning / hot-path profiling | `performance-tuner` |
+| Spec / requirements traceability | `spec-tracer` |
+| Symbol / cross-file ref verification | `symbol-verifier` |
+| Stack-trace triage / runtime debugging | `debugger` |
+| Refactor / structural code reshape | `refactor-expert` |
+| TDD red-phase test authoring | `tdd-test-writer` |
+| TDD green-phase implementation | `tdd-implementer` |
+| Docs authoring / changelog drafting | `docs-writer` |
+| iOS / Expo mobile-app work | `mobile-dev` |
+| Cloud deploy (Azure, Vercel, Railway, Render, DigitalOcean) | `deployment-engineer` (per-provider variants exist: `azure-deployment-engineer`, `vercel-deployment-engineer`, `railway-deployment-engineer`, `render-deployment-engineer`, `digitalocean-deployment-engineer`) |
+| Live production smoke probe | `production-probe` |
+| Incident response / outage triage | `incident-responder` |
+| CLAUDE.md guardrail checks | `claude-md-guardian` |
+| Read-only file/symbol exploration | `Explore` (built-in) |
+| Plan-mode dry run | `Plan` (built-in) |
+| Catch-all (no specialist matches) | `general-purpose` (built-in) — WITH justification |
+
+### Anti-patterns — general-purpose default observations
+
+Future contributors: pattern-match against these prior drift episodes.
+
+- **F14 (subagent_type omission → silent general-purpose):** dispatched `Agent` calls without naming `subagent_type` defaulted to `general-purpose`; specialist context (e.g. `code-reviewer` rubric) never loaded. Symptom: review-phase panels produced generic findings without the panel-specific rubric.
+- **F19 (review-teams bundle dispatched as one general-purpose call):** the 5-panel `--teams` review path collapsed onto a single `general-purpose` subagent rather than 5 named-specialist dispatches in one turn. Root cause: prose-only typed-dispatch contract; no enforcement at the dispatch boundary.
+- **F20 (specialist-name collision → general-purpose substitution):** a typed-name resolution failure fell back to `general-purpose` silently. The fallback was correct, but the absence of a named justification in the dispatch prompt made the fallback invisible to reviewers, recurring as a regression two iterations later.
+
 ## Skill Isolation
 Skills writing code should use `context: fork` in SKILL.md frontmatter. For parallel skill execution on different files, combine `context: fork` with `isolation: "worktree"`.
 

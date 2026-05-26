@@ -262,6 +262,8 @@ Example `.mcp.json` for project needing RepoMapper:
 
 各管道階段緊湊路由表。原生工具（Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch）在各 SKILL.md `allowed-tools`——此處不重複。MCP 在已配置時可用；技能執行期自動偵測。
 
+> *Agent-type selection for the rows below follows `~/.claude/rules/agents-worktrees.md § Typed-subagent selection rule` — pick the most specific specialist; `general-purpose` is a justified fallback only.*
+
 | Phase | MCPs | Agent Types | Sub-Skills | Memory Reads | Hooks | WorkerProvider |
 |-------|------|-------------|------------|--------------|-------|----------------|
 | `/analyze` | context7 (resolve + query), local-rag (query + ingest) | — | — | `user_profile.md`, `feedback_plan_trust.md`, `reference_claude_skills.md`, `reference_tresor.md` | block-stage-sensitive, block-dangerous-commands | — |

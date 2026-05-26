@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# denial_tracker:no UserPromptSubmit context-injection hook — emits system reminder only, never denies tool calls
 # subagent-first-nudge.sh — UserPromptSubmit hook
 #
 # Pipelinekit's Subagent-First principle says non-trivial work should dispatch
@@ -146,15 +147,17 @@ if echo "$PROMPT" | grep -qiE "$OPT_OUT_REGEX"; then
 
 The user requested INLINE execution for this prompt. Do NOT dispatch via the \`Agent\` tool unless structurally required (worktree isolation, parallel streams that cannot share context). The default-mode nudge is suppressed for this turn only."
 else
-  MSG="## Subagent dispatch — DEFAULT MODE
+  MSG="## Subagent dispatch — DEFAULT MODE (Typed-Subagent-First)
 
-Per pipelinekit's Subagent-First principle, dispatch work via the \`Agent\` tool by default. The only inline exceptions are:
+Per pipelinekit's Typed-Subagent-First principle, dispatch work via the \`Agent\` tool by default AND set \`subagent_type\` to the most specific matching specialist. Common specialists: \`code-reviewer\`, \`debugger\`, \`docs-writer\`, \`security-auditor\`, \`test-engineer\`, \`performance-tuner\`, \`spec-tracer\`, \`refactor-expert\`, \`tdd-test-writer\`, \`tdd-implementer\`, \`deployment-engineer\`. \`general-purpose\` is a fallback only when no specialist matches — name the reason in the dispatch prompt.
+
+Inline exceptions:
 
 1. **Trivial one-shots** (≤ ~3 tool calls, e.g. read-one-file-then-edit)
 2. **Interactive Q&A** with the user actively turn-by-turn
 3. **Explicit per-prompt opt-out** — phrases like \`no subagents\`, \`do it inline\`, \`do it yourself\`, \`skip agents\`, \`no dispatch\` (none detected in this prompt)
 
-For pipeline-eligible work (features, slices), prefer \`Skill: pipeline <features-file>\` invoked from the LEAD session — see \`~/.claude/rules/agents-worktrees.md § /pipeline invocation policy\`.
+For pipeline-eligible work (features, slices), prefer \`Skill: pipeline <features-file>\` invoked from the LEAD session — see \`~/.claude/rules/agents-worktrees.md § Subagent Defaults\` and \`§ Typed-subagent selection rule\`.
 
 When dispatching multiple independent streams, bundle them in a SINGLE assistant turn (multiple \`Agent\` tool calls in one message) so they run concurrently. Sequential dispatch across turns forfeits the parallelism.
 
