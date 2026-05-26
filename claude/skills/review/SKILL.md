@@ -466,6 +466,42 @@ Instead of 5 independent Agent calls, spawn all 5 as named teammates that commun
 3. Each agent prompt still includes: objective, REVIEW.md rules (if loaded), prior findings (if re-review), path to $DIFF_FILE
 4. Agents self-coordinate: if security-auditor finds an auth issue, test-engineer can check coverage for that path
 
+#### Teams dispatch shape — MANDATORY
+
+When `teams_mode=true`, the lead MUST dispatch the base reviewer set as **exactly N `Agent` tool calls in a single assistant turn**, where N is the count of selected reviewer agents (5 for the base panel, +1 if `symbol-verifier` is included). The base agent types are, verbatim:
+
+- `code-reviewer`
+- `security-auditor`
+- `test-engineer`
+- `performance-tuner`
+- `spec-tracer`
+
+Optional additions per Step 6 tier rules: `symbol-verifier` (medium / large tier). When included, it counts toward the bundle and the single-turn rule applies to it too.
+
+**Correct shape (worked example, 5-agent base panel):**
+
+```
+<one assistant turn>
+  Agent(name='code-reviewer',     prompt=…, model=opus)
+  Agent(name='security-auditor',  prompt=…, model=opus)
+  Agent(name='test-engineer',     prompt=…, model=sonnet)
+  Agent(name='performance-tuner', prompt=…, model=sonnet)
+  Agent(name='spec-tracer',       prompt=…, model=haiku)
+</one assistant turn>
+```
+
+All five `Agent` invocations live inside a single assistant message — the harness fans them out concurrently, each in its own context window, each with its own specialist prompt from `agent-prompts.md`. Serial turns or wrapping-as-one are contract violations.
+
+**Contract violations (do NOT do any of these):**
+
+1. **Wrap-as-one-Agent.** Dispatch a SINGLE generic `Agent` (e.g. `Agent(name='F<N> review', prompt='do a 5-perspective review')`) that runs all five perspectives inside one subagent's context. This forfeits parallelism, forfeits per-role specialist prompts, and forfeits inter-agent context isolation. The single subagent runs ~5× the tool calls and produces a flat single-voice review. **This is a contract violation.**
+2. **One-per-turn serial dispatch.** Dispatch `code-reviewer` alone in one assistant turn, then `security-auditor` alone in the next turn, then `test-engineer` alone in the next, and so on. Each individual call IS a real specialist dispatch — but the assistant turns are serial, so the harness runs them sequentially instead of concurrently. Total wall time is ~5× the bundled shape. **This is a contract violation.**
+3. **Fall-back-to-inline.** When dispatch feels expensive, "just run /review quickly to wrap up" by invoking the `Skill: review` tool inline OR by reading the diff and emitting findings directly. This skips the entire teams-mode contract: no specialist roles, no parallel execution, no Step 6 dispatch shape at all. **This is a contract violation** (see also `claude/skills/pipeline/SKILL.md` § Phase Mode Precedence — direct `Skill: review` invocations are forbidden when Phase Mode is `subagent`).
+
+**Background:** F6 of castellum branch `test/taxii-misp-self-hosted-smoke` (2026-05-26, 560-line diff, teams-on per heuristic) exhibited all three violations sequentially in the same lead session: wrap-as-one → one-per-turn → recovery only on second user nudge. This subsection exists to give the lead a pattern-match surface against those specific failures.
+
+**Cross-reference:** the generic parallelism reminder lives in `~/.claude/rules/agents-worktrees.md` § Subagent Defaults. This subsection is the teams-on review-specific instantiation of that rule.
+
 **If teams_mode=false (default):**
 
 Launch as independent agents (existing behavior below).

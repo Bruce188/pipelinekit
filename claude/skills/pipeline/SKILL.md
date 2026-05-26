@@ -964,6 +964,14 @@ The host-shell-preserves invariant: if the user had `CLAUDE_CODE_EXPERIMENTAL_AG
 
 **If Phase Mode is `subagent`:** Emit phase transition signal (progress beacon **and** TodoWrite update, tag=`phase-pre`) per the helpers in Step 5.0. Dispatch this phase via the Agent tool using the prompt template from `reference.md` § "Step 5.x: Phase Subagent Dispatch — Prompt Templates" matching `<!-- PHASE: review -->`. Substitute placeholders with current feature values. Pass `model: opus` (the phase default; the `/review` skill applies REVIEW.md `review-model:` override internally if present) in the Agent tool parameters. Capture the returned `<task-notification>` XML; on `status: completed`, read the resulting on-disk artifact (review file via `docs/progress.md` `**Review:**` pointer), emit phase transition signal (progress beacon **and** TodoWrite update, tag=`phase-done`), and continue. Update `docs/pipeline-state.md` `**Last phase agent:**` with the subagent ID. Skip the inline instructions below. On `status: failed`, follow the same failure handling as the inline path (log to feature run log, advance state, skip to next feature).
 
+**Teams-mode dispatch-shape preflight beacon:** Immediately before the `Agent` dispatch above, the orchestrator MUST emit the following beacon to its own assistant turn (one line, verbatim):
+
+```
+TEAMS_DISPATCH_SHAPE_REMINDER: bundle all N reviewer Agent calls in this single turn
+```
+
+This beacon is a no-op for the harness — it is a self-reminder to the lead that the review subagent (which itself dispatches the 5-agent base panel when `teams_mode=true`) MUST emit those N `Agent` calls in a single assistant turn. See `claude/skills/review/SKILL.md` § Teams dispatch shape — MANDATORY for the worked example and the three F6 anti-patterns (wrap-as-one, one-per-turn, fall-back-to-inline).
+
 **Otherwise (Phase Mode is `inline`, legacy state files only — see Step 5.0):** Execute the inline instructions below. New features always run as `subagent`; this branch is preserved only for resuming features that were already running under the previous heuristic-based policy.
 
 Invoke `/review` via the Skill tool. Teams mode in `/review` is default-on as of the flag-cleanup refactor; the orchestrator's Step 5.6.0 decides whether to opt out via `--no-teams`. If `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set in the environment (orchestrator decided `dispatch_with_teams=true`), invoke with `/review`'s teams default (no extra flag):
