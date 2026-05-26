@@ -1,3 +1,6 @@
+<!--
+diataxis: reference
+-->
 # Changelog — pipelinekit v0.0.1
 
 The complete development history of pipelinekit, organized by theme. This is the first version (v0.0.1, not yet released as a tag). PRs are linked to GitHub; the bullet summary is the one-line headline.

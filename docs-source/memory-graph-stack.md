@@ -1,3 +1,6 @@
+<!--
+diataxis: how-to
+-->
 # Memory + Graph Stack
 
 pipelinekit ships four tools that together form the default memory and graph surface: **agentmemory**, **Understand-Anything**, **codegraph**, and **graphify**. Each tool answers a distinct question class; none is redundant with the others. This page documents what each tool does, how they compose during a session, the WSL2 RAM budget you should plan around, the embedding-provider fallback chain, and the first-run setup steps for a new project.

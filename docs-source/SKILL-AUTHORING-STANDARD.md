@@ -1,11 +1,6 @@
 <!--
-Vendored from alirezarezvani/claude-skills @ 0d477a06589aa730b98e351f46985c5c937de0bf
-Upstream path: SKILL-AUTHORING-STANDARD.md
-License: MIT — Copyright (c) 2025 Alireza Rezvani
-Source: https://github.com/alirezarezvani/claude-skills/blob/0d477a06589aa730b98e351f46985c5c937de0bf/SKILL-AUTHORING-STANDARD.md
-Do not edit in place — re-vendor from upstream and bump the SHA in documentation/NOTICE.md.
+diataxis: reference
 -->
-
 # Skill Authoring Standard
 
 The DNA of every skill in this repository. Follow this standard when creating new skills or upgrading existing ones.

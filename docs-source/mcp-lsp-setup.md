@@ -1,3 +1,6 @@
+<!--
+diataxis: how-to
+-->
 # MCP LSP Setup
 
 <div data-snippet="terminal-simulator"></div>

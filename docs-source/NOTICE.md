@@ -1,3 +1,6 @@
+<!--
+diataxis: reference
+-->
 # Notice
 
 Pipelinekit vendors source from several upstream projects. The authoritative attribution lives in per-directory `NOTICE.md` files inside the repo:

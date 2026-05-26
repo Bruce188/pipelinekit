@@ -470,6 +470,93 @@ details > *:not(summary) { padding: 0 1rem 0.8rem; }
 .search-hit { background: rgba(255, 230, 0, 0.45); border-radius: 2px; padding: 0 2px; }
 html[data-theme="dark"] .search-hit, :root[data-theme="dark"] .search-hit { background: rgba(255, 200, 0, 0.35); }
 
+/* === Diataxis quadrant chip === */
+.diataxis-chip {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  margin-bottom: 0.7rem;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--fg-muted);
+}
+.diataxis-chip.diataxis-tutorial { color: #047857; border-color: #6ee7b7; background: #ecfdf5; }
+.diataxis-chip.diataxis-how-to { color: #1d4ed8; border-color: #93c5fd; background: #eff6ff; }
+.diataxis-chip.diataxis-reference { color: #6d28d9; border-color: #c4b5fd; background: #f5f3ff; }
+.diataxis-chip.diataxis-explanation { color: #b45309; border-color: #fcd34d; background: #fffbeb; }
+html[data-theme="dark"] .diataxis-chip.diataxis-tutorial, :root[data-theme="dark"] .diataxis-chip.diataxis-tutorial { color: #6ee7b7; background: #064e3b33; border-color: #047857; }
+html[data-theme="dark"] .diataxis-chip.diataxis-how-to, :root[data-theme="dark"] .diataxis-chip.diataxis-how-to { color: #93c5fd; background: #1e3a8a33; border-color: #1d4ed8; }
+html[data-theme="dark"] .diataxis-chip.diataxis-reference, :root[data-theme="dark"] .diataxis-chip.diataxis-reference { color: #c4b5fd; background: #4c1d9533; border-color: #6d28d9; }
+html[data-theme="dark"] .diataxis-chip.diataxis-explanation, :root[data-theme="dark"] .diataxis-chip.diataxis-explanation { color: #fcd34d; background: #78350f33; border-color: #b45309; }
+
+/* === Docs index search widget === */
+.docs-search {
+  margin: 1.5rem 0 2rem;
+  padding: 1.2rem 1.4rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.docs-search input[type="search"] {
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  transition: border-color var(--transition);
+}
+.docs-search input[type="search"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.docs-search-results {
+  list-style: none;
+  padding: 0;
+  margin: 0.8rem 0 0;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.docs-search-results li {
+  margin: 0;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+.docs-search-results li:last-child { border-bottom: none; }
+.docs-search-results a {
+  display: block;
+  color: var(--fg);
+  text-decoration: none;
+  font-weight: 500;
+  border-bottom: none;
+}
+.docs-search-results a:hover { color: var(--accent); }
+.docs-search-results .docs-search-excerpt {
+  font-size: 0.83rem;
+  color: var(--fg-muted);
+  margin-top: 0.15rem;
+}
+.docs-search-results .docs-search-quadrant {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-left: 0.5rem;
+  color: var(--fg-subtle);
+}
+.docs-search-hint {
+  font-size: 0.82rem;
+  color: var(--fg-subtle);
+  margin: 0.5rem 0 0;
+}
+
 /* === Footer === */
 footer {
   margin: 4rem auto 0;
@@ -544,12 +631,98 @@ footer {
 
   <main>
     <header class="page-header">
+      <span class="diataxis-chip diataxis-reference">reference</span>
       <h1>pipelinekit documentation</h1>
       <p class="description">The complete user-facing documentation for pipelinekit \(autonomous /pipeline orchestrator + skills + agents + hooks\). Every page below is self-contained HTML \(no CDN, no remote assets\) — clone the repo and open any page directly via…</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
+<!-- snippet:search-widget
+     Self-contained docs-index search widget. Loads search.json from the
+     sibling documentation/ directory at runtime, builds a hand-rolled
+     prefix-trie over title + excerpt tokens, and displays the top 8 hits
+     as the user types. No CDN, no external deps. Works under file://
+     and any static HTTP origin.
+
+     Placeholder usage in markdown source:
+       <div data-snippet="search-widget"></div>
+-->
+<div class="docs-search" data-snippet-mount="search-widget">
+  <input type="search" id="docs-search" placeholder="Search docs (title + excerpt)..." aria-label="Search documentation">
+  <ul id="docs-search-results" class="docs-search-results" aria-live="polite"></ul>
+  <p class="docs-search-hint">Type to search across every page. Results update live (max 8 shown).</p>
+</div>
+<script>
+(function() {
+  'use strict';
+  var input = document.getElementById('docs-search');
+  var results = document.getElementById('docs-search-results');
+  if (!input || !results) return;
+  var docs = [], index = new Map();
+  function tokenize(s) { return (s || '').toLowerCase().split(/[^a-z0-9]+/).filter(function(t){ return t.length > 1; }); }
+  function buildIndex(rows) {
+    docs = rows;
+    rows.forEach(function(row, i) {
+      tokenize(row.title + ' ' + (row.excerpt || '')).forEach(function(tok) {
+        var list = index.get(tok); if (!list) { list = []; index.set(tok, list); }
+        if (list.indexOf(i) === -1) list.push(i);
+      });
+    });
+  }
+  var QUADRANTS = ['tutorial', 'how-to', 'reference', 'explanation'];
+  function clearResults() {
+    while (results.firstChild) results.removeChild(results.firstChild);
+  }
+  function search(q) {
+    var toks = tokenize(q);
+    clearResults();
+    if (!toks.length) return;
+    var counts = new Map();
+    toks.forEach(function(tok) {
+      index.forEach(function(ids, key) {
+        if (key.indexOf(tok) === 0) ids.forEach(function(id) { counts.set(id, (counts.get(id) || 0) + 1); });
+      });
+    });
+    var scored = Array.from(counts.entries()).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 8);
+    scored.forEach(function(p) {
+      var d = docs[p[0]];
+      var li = document.createElement('li');
+      var a = document.createElement('a');
+      a.href = (d.slug || '') + '.html';
+      a.textContent = d.title || '';
+      if (d.quadrant) {
+        var safeQ = QUADRANTS.indexOf(d.quadrant) !== -1 ? d.quadrant : 'reference';
+        var chip = document.createElement('span');
+        chip.className = 'docs-search-quadrant';
+        chip.textContent = ' ' + safeQ;
+        a.appendChild(chip);
+      }
+      li.appendChild(a);
+      if (d.excerpt) {
+        var ex = document.createElement('div');
+        ex.className = 'docs-search-excerpt';
+        ex.textContent = d.excerpt;
+        li.appendChild(ex);
+      }
+      results.appendChild(li);
+    });
+  }
+  fetch('search.json').then(function(r){ return r.json(); }).then(buildIndex).catch(function(){
+    clearResults();
+    var li = document.createElement('li');
+    li.textContent = 'Search index unavailable.';
+    results.appendChild(li);
+  });
+  var deb;
+  input.addEventListener('input', function(e) {
+    clearTimeout(deb); var v = e.target.value.trim();
+    deb = setTimeout(function() { search(v); }, 60);
+  });
+})();
+</script>
+
+
 <h2 id="system-architecture">System architecture</h2>
 <!-- snippet:architecture-diagram
      4-layer SVG taxonomy of pipelinekit: user-invocable slash commands,
@@ -970,7 +1143,7 @@ footer {
     <svg class="pkit-tc-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
     <div class="pkit-tc-num">TUTORIAL 3</div>
     <h3 class="pkit-tc-title">Cloud deploy to Vercel</h3>
-    <p class="pkit-tc-desc">Charter targets Vercel; /pipeline does analyze + plan + implement + deploy. End-to-end cloud integration via the vercel-deployment-engineer agent.</p>
+    <p class="pkit-tc-desc">Charter targets Vercel; /pipeline does analyze + plan + implement + deploy. End-to-end cloud integration via the deployment-engineer agent (provider: vercel).</p>
     <div class="pkit-tc-meta">
       <span class="pkit-tc-badge diff-med">⚡⚡ Medium</span>
       <span class="pkit-tc-badge">⏱ ~30 min</span>

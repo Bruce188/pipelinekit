@@ -1,3 +1,6 @@
+<!--
+diataxis: how-to
+-->
 # Cloud Setup
 
 This file covers two distinct topics:

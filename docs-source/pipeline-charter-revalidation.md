@@ -1,3 +1,6 @@
+<!--
+diataxis: explanation
+-->
 # Pipeline Charter Revalidation
 
 `/pipeline --renew` now revalidates `docs/charter.md` against the current repository state before regenerating feature files. This page describes the revalidation pass, the drift report artifact, the `--auto` flag, and the 7-day freshness skip.

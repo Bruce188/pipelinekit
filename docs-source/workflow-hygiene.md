@@ -1,3 +1,6 @@
+<!--
+diataxis: explanation
+-->
 # Workflow Hygiene
 
 <!-- richness budget: visual-token status pills + comparison-tabs (≥ 1 — default threshold) -->

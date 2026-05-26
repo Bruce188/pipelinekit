@@ -1,3 +1,6 @@
+<!--
+diataxis: how-to
+-->
 # TSV Viewer
 
 `tsv-viewer.sh` reads a research-results TSV file and generates a self-contained HTML page with a sortable, filterable table, light/dark CSS, and an optional browser-open hook.

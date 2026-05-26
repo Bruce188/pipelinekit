@@ -1,3 +1,6 @@
+<!--
+diataxis: tutorial
+-->
 # Getting started with pipelinekit
 
 A tutorial-driven walkthrough. You'll install pipelinekit, run your first autonomous `/pipeline`, then work through three real-world scenarios — a TDD feature, a Vercel deploy, and a meta-walkthrough of how pipelinekit built one of its own features.

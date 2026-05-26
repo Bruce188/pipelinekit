@@ -4,6 +4,8 @@ docs-writer/2 renderer — markdown to rich-template HTML.
 
 Usage:
     render.py <input.md> <output.html> [--title TITLE] [--description DESC] [--source-link URL]
+    render.py                  # batch mode: render every docs-source/*.md → documentation/*.html
+                               # and emit documentation/search.json
 
 Reads markdown from <input.md>, renders to semantic HTML via the python-markdown
 library with codehilite (Pygments) syntax highlighting, generates an in-page
@@ -14,6 +16,18 @@ The template ships its own CSS + JS (inline, self-contained, no CDN). The
 output is a single .html file that renders identically when served from any
 origin, copied to disk, or viewed via the file:// URL scheme.
 
+Diataxis frontmatter (optional, supported in either YAML or HTML-comment form):
+
+    ---
+    diataxis: reference
+    ---
+
+    <!-- diataxis: reference -->
+
+When absent, the renderer classifies the page via the slug-based heuristic
+in `classify_diataxis()`. The resolved quadrant is rendered as a `.diataxis-chip`
+above the page H1.
+
 Required deps (install via: pip install --user --break-system-packages markdown pygments):
     - markdown (>= 3.10)
     - pygments (>= 2.17)
@@ -22,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import html as html_lib
+import json
 import re
 import sys
 from pathlib import Path
@@ -36,6 +51,125 @@ except ImportError:
 SKILL_DIR = Path(__file__).resolve().parent
 TEMPLATE_PATH = SKILL_DIR / "template.html"
 SNIPPETS_DIR = SKILL_DIR / "snippets"
+
+# Repo root resolved from the skill dir: pipelinekit/claude/skills/docs-writer → pipelinekit/
+REPO_ROOT = SKILL_DIR.parents[2]
+DOCS_SOURCE_DIR = REPO_ROOT / "docs-source"
+DOCS_OUTPUT_DIR = REPO_ROOT / "documentation"
+
+VALID_DIATAXIS = {"tutorial", "how-to", "reference", "explanation"}
+
+# Heuristic: slug-stem → diataxis quadrant when frontmatter is absent.
+# Order matters: more-specific patterns first. Tested against every current
+# docs-source/*.md filename at module import time? No — just dispatched
+# per-file by classify_diataxis().
+_DIATAXIS_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"^(getting-started|tutorial-)"), "tutorial"),
+    (re.compile(r"(installation|cloud-setup|mcp-lsp-setup|deployment-|ci-blacksmith|memory-graph-stack)"), "how-to"),
+    (re.compile(r"^(governance|workflow-hygiene|pipeline|html-effectiveness-principles|skills-scope-policy|design-tokens|review-cost|decisions|harness-paths-investigation|memory-migration-notes|pipeline-charter-revalidation|supply-chain|ppr-research-flag)$"), "explanation"),
+]
+
+
+def parse_frontmatter(md_text: str) -> tuple[dict, str]:
+    """Parse a leading YAML frontmatter block or HTML-comment metadata block.
+
+    Recognised forms (both at the very top of the file):
+
+        ---
+        diataxis: reference
+        key: value
+        ---
+
+        <!--
+        diataxis: reference
+        -->
+
+    Returns (metadata_dict, remaining_body). Unrecognised top-of-file content
+    leaves the input unchanged and returns an empty dict.
+    """
+    # YAML frontmatter
+    m = re.match(r"^---\s*\n(.*?)\n---\s*\n", md_text, re.DOTALL)
+    if m:
+        meta = _parse_kv_block(m.group(1))
+        return meta, md_text[m.end():]
+    # HTML-comment frontmatter (used when YAML frontmatter would conflict with
+    # downstream tooling that doesn't strip it before rendering).
+    m = re.match(r"^<!--\s*\n?(.*?)\n?-->\s*\n", md_text, re.DOTALL)
+    if m:
+        meta = _parse_kv_block(m.group(1))
+        # Only treat as frontmatter if it actually contains key:value lines we recognise.
+        if meta:
+            return meta, md_text[m.end():]
+    return {}, md_text
+
+
+def _parse_kv_block(block: str) -> dict:
+    """Parse a flat `key: value` block (one pair per line). Ignores blank lines
+    and lines that don't match the pattern."""
+    out: dict[str, str] = {}
+    for line in block.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        kv = re.match(r"^([a-zA-Z][\w-]*)\s*:\s*(.+?)\s*$", line)
+        if kv:
+            out[kv.group(1)] = kv.group(2)
+    return out
+
+
+def classify_diataxis(stem: str) -> str:
+    """Map a source-file stem to its Diataxis quadrant via the slug heuristic.
+
+    Default: 'reference'. The default reflects that most pages in pipelinekit
+    documentation describe a stable surface (schemas, field tables, glossary
+    entries) rather than a step-by-step or conceptual narrative.
+    """
+    for pattern, quadrant in _DIATAXIS_PATTERNS:
+        if pattern.search(stem):
+            return quadrant
+    return "reference"
+
+
+def resolve_diataxis(meta: dict, stem: str) -> str:
+    """Frontmatter wins; heuristic falls back. Unknown values fall back too."""
+    explicit = meta.get("diataxis", "").strip().lower()
+    if explicit in VALID_DIATAXIS:
+        return explicit
+    return classify_diataxis(stem)
+
+
+def build_diataxis_chip(quadrant: str) -> str:
+    """Return the HTML for the chip placed above the page H1.
+
+    Empty string when quadrant is empty (so callers can opt out by passing '')."""
+    if not quadrant:
+        return ""
+    return (
+        f'<span class="diataxis-chip diataxis-{html_lib.escape(quadrant)}">'
+        f'{html_lib.escape(quadrant)}</span>'
+    )
+
+
+def derive_excerpt(md_text: str, length: int = 200) -> str:
+    """Extract the first ~length chars of the first paragraph after H1 for
+    indexing. Strips markdown inline syntax (backticks, bold, italic, links)
+    so the excerpt reads cleanly in the search-widget result list."""
+    body = re.sub(r"^#\s+.+\n?", "", md_text, count=1, flags=re.MULTILINE)
+    for para in re.split(r"\n\s*\n", body):
+        para = para.strip()
+        if not para:
+            continue
+        if para.startswith(("#", "-", "*", "+", "```", ">", "|", "<")):
+            continue
+        text = re.sub(r"\s+", " ", para)
+        text = re.sub(r"`([^`]+)`", r"\1", text)
+        text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
+        text = re.sub(r"\*([^*]+)\*", r"\1", text)
+        text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+        if len(text) > length:
+            text = text[:length].rsplit(" ", 1)[0] + "…"
+        return text
+    return ""
 
 # H2 / H3 capture regex (used to build the ToC and to seed `id=` attrs)
 HEADING_RE = re.compile(r'^(#{2,3})\s+(.+?)\s*$', re.MULTILINE)
@@ -218,6 +352,7 @@ def fill_template(
     content_html: str,
     meta_html: str = "",
     footer_right: str = "",
+    diataxis_chip: str = "",
 ) -> str:
     """Substitute {{PLACEHOLDERS}} in the template."""
     return (
@@ -227,6 +362,7 @@ def fill_template(
         .replace("{{CONTENT}}", content_html)
         .replace("{{META}}", meta_html)
         .replace("{{FOOTER_RIGHT}}", footer_right)
+        .replace("{{DIATAXIS_CHIP}}", diataxis_chip)
     )
 
 
@@ -477,10 +613,177 @@ def strip_first_paragraph(html_body: str) -> str:
     return re.sub(r"<p[^>]*>.*?</p>\s*", "", html_body, count=1, flags=re.DOTALL)
 
 
+def render_one(
+    md_text: str,
+    *,
+    input_stem: str,
+    template: str,
+    from_html: bool = False,
+    title_arg: str | None = None,
+    description_arg: str | None = None,
+    source_link: str | None = None,
+    extra_meta: list[str] | None = None,
+) -> tuple[str, dict]:
+    """Render a single document. Returns (html_output, search_record).
+
+    The search_record is `{title, slug, excerpt, quadrant}` and is suitable
+    for inclusion in the search.json index.
+    """
+    extra_meta = extra_meta or []
+
+    # Parse frontmatter (only meaningful in markdown mode; harmless in HTML mode).
+    if not from_html:
+        meta_dict, md_text = parse_frontmatter(md_text)
+    else:
+        meta_dict = {}
+
+    quadrant = resolve_diataxis(meta_dict, input_stem)
+
+    if from_html:
+        title = title_arg or derive_title_from_html(
+            md_text, input_stem.replace("-", " ").title()
+        )
+        description = description_arg or derive_description_from_html(
+            md_text, f"{title} — pipelinekit application documentation"
+        )
+        body_html = extract_html_body(md_text)
+        body_html = ensure_heading_ids(body_html)
+        if description_arg is None:
+            first_p = re.search(r"<p[^>]*>(.*?)</p>", body_html, re.DOTALL | re.IGNORECASE)
+            if first_p:
+                first_text = re.sub(r"<[^>]+>", "", first_p.group(1)).strip()
+                first_text = re.sub(r"\s+", " ", first_text)
+                if first_text[:120] == description[:120]:
+                    body_html = strip_first_paragraph(body_html)
+        body_html, snippets_used = substitute_snippets(body_html)
+        toc_html = extract_toc_from_html(body_html)
+    else:
+        title = title_arg or derive_title(md_text, input_stem.replace("-", " ").title())
+        description_was_derived = description_arg is None
+        description = description_arg or derive_description(
+            md_text, f"{title} — pipelinekit application documentation"
+        )
+        slug_sequence = build_slug_sequence(md_text)
+        body_html = render_markdown(md_text)
+        body_html = strip_first_h1(body_html)
+        if description_was_derived:
+            body_html = strip_first_paragraph(body_html)
+        body_html = fix_heading_ids(body_html, slug_sequence)
+        body_html, snippets_used = substitute_snippets(body_html)
+        toc_html = extract_toc(md_text)
+
+    if snippets_used:
+        print(f"  snippets: {', '.join(snippets_used)}", file=sys.stderr)
+
+    meta_items = []
+    if source_link:
+        meta_items.append(
+            f'<span class="meta-item">Source: <a href="{html_lib.escape(source_link)}">{html_lib.escape(source_link)}</a></span>'
+        )
+    for item in extra_meta:
+        if ":" in item:
+            label, value = item.split(":", 1)
+            meta_items.append(
+                f'<span class="meta-item"><strong>{html_lib.escape(label.strip())}:</strong> {html_lib.escape(value.strip())}</span>'
+            )
+        else:
+            meta_items.append(f'<span class="meta-item">{html_lib.escape(item)}</span>')
+    meta_html = " · ".join(meta_items)
+    footer_right = "Self-contained HTML · no CDN · no remote assets"
+
+    diataxis_chip = build_diataxis_chip(quadrant)
+
+    html_output = fill_template(
+        template,
+        title=title,
+        description=description,
+        toc_html=toc_html,
+        content_html=body_html,
+        meta_html=meta_html,
+        footer_right=footer_right,
+        diataxis_chip=diataxis_chip,
+    )
+
+    excerpt = derive_excerpt(md_text) if not from_html else description
+    record = {
+        "title": title,
+        "slug": input_stem,
+        "excerpt": excerpt,
+        "quadrant": quadrant,
+    }
+    return html_output, record
+
+
+def batch_render() -> int:
+    """Render every docs-source/*.md → documentation/*.html and emit search.json.
+
+    Pages that produce non-trivial sub-paths (e.g. `documentation/docs/<x>.html`)
+    are NOT auto-rendered by batch mode — those have explicit invocations in
+    upstream tooling (typically a separate makefile target or one-off CLI call).
+    Batch mode only walks the flat `docs-source/*.md` slate.
+    """
+    if not TEMPLATE_PATH.exists():
+        print(f"error: template not found at {TEMPLATE_PATH}", file=sys.stderr)
+        return 2
+    if not DOCS_SOURCE_DIR.is_dir():
+        print(f"error: docs-source/ not found at {DOCS_SOURCE_DIR}", file=sys.stderr)
+        return 2
+    DOCS_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    template = TEMPLATE_PATH.read_text(encoding="utf-8")
+
+    records: list[dict] = []
+    sources = sorted(DOCS_SOURCE_DIR.glob("*.md"))
+    if not sources:
+        print(f"warning: no markdown sources in {DOCS_SOURCE_DIR}", file=sys.stderr)
+
+    for src in sources:
+        md_text = src.read_text(encoding="utf-8")
+        out_path = DOCS_OUTPUT_DIR / (src.stem + ".html")
+        try:
+            html_output, record = render_one(
+                md_text,
+                input_stem=src.stem,
+                template=template,
+            )
+        except FileNotFoundError as exc:
+            # Missing snippet: log and continue so a single broken page doesn't
+            # halt the whole batch. The page is skipped (no HTML written, no
+            # search record emitted) so the existing rendered copy survives.
+            print(f"  skip {src.name}: {exc}", file=sys.stderr)
+            continue
+        out_path.write_text(html_output, encoding="utf-8")
+        print(
+            f"Rendered {src.relative_to(REPO_ROOT)} → {out_path.relative_to(REPO_ROOT)} "
+            f"({len(html_output)} bytes, diataxis={record['quadrant']})",
+            file=sys.stderr,
+        )
+        records.append(record)
+
+    search_path = DOCS_OUTPUT_DIR / "search.json"
+    search_path.write_text(
+        json.dumps(records, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    print(
+        f"Wrote search index {search_path.relative_to(REPO_ROOT)} "
+        f"({len(records)} entries)",
+        file=sys.stderr,
+    )
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="pipelinekit docs-writer/2 renderer")
-    parser.add_argument("input", help="Input .md (or .html with --from-html) file (or '-' for stdin)")
-    parser.add_argument("output", help="Output .html file (or '-' for stdout)")
+    parser.add_argument(
+        "input",
+        nargs="?",
+        help=(
+            "Input .md (or .html with --from-html) file (or '-' for stdin). "
+            "Omit BOTH input and output to trigger batch mode: every docs-source/*.md "
+            "renders to documentation/*.html and documentation/search.json is emitted."
+        ),
+    )
+    parser.add_argument("output", nargs="?", help="Output .html file (or '-' for stdout)")
     parser.add_argument("--title", help="Page title (default: derived from first H1)")
     parser.add_argument("--description", help="Meta description (default: derived from first paragraph)")
     parser.add_argument("--source-link", help="Source link added to meta line (e.g., a GitHub URL)")
@@ -497,7 +800,13 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    # Read input
+    # Batch mode: no positional args → render every docs-source/*.md and emit search.json.
+    if args.input is None and args.output is None:
+        return batch_render()
+
+    if args.input is None or args.output is None:
+        parser.error("both input and output are required (or omit both for batch mode)")
+
     if args.input == "-":
         md_text = sys.stdin.read()
         input_stem = "stdin"
@@ -506,84 +815,22 @@ def main() -> int:
         md_text = input_path.read_text(encoding="utf-8")
         input_stem = input_path.stem
 
-    # Read template
     if not TEMPLATE_PATH.exists():
         print(f"error: template not found at {TEMPLATE_PATH}", file=sys.stderr)
         return 2
     template = TEMPLATE_PATH.read_text(encoding="utf-8")
 
-    if args.from_html:
-        # HTML rewrap mode: keep semantic HTML, just slot into the new template.
-        title = args.title or derive_title_from_html(
-            md_text, input_stem.replace("-", " ").title()
-        )
-        description = args.description or derive_description_from_html(
-            md_text, f"{title} — pipelinekit application documentation"
-        )
-        body_html = extract_html_body(md_text)
-        body_html = ensure_heading_ids(body_html)
-        # Strip lead paragraph if it duplicates the description we derived
-        # (only when description was auto-derived from body)
-        if args.description is None:
-            first_p = re.search(r"<p[^>]*>(.*?)</p>", body_html, re.DOTALL | re.IGNORECASE)
-            if first_p:
-                first_text = re.sub(r"<[^>]+>", "", first_p.group(1)).strip()
-                first_text = re.sub(r"\s+", " ", first_text)
-                if first_text[:120] == description[:120]:
-                    body_html = strip_first_paragraph(body_html)
-        body_html, snippets_used = substitute_snippets(body_html)
-        toc_html = extract_toc_from_html(body_html)
-    else:
-        # Markdown render mode (default).
-        title = args.title or derive_title(md_text, input_stem.replace("-", " ").title())
-        description_was_derived = args.description is None
-        description = args.description or derive_description(
-            md_text, f"{title} — pipelinekit application documentation"
-        )
-
-        slug_sequence = build_slug_sequence(md_text)
-        body_html = render_markdown(md_text)
-        body_html = strip_first_h1(body_html)
-        if description_was_derived:
-            body_html = strip_first_paragraph(body_html)
-        body_html = fix_heading_ids(body_html, slug_sequence)
-        body_html, snippets_used = substitute_snippets(body_html)
-        toc_html = extract_toc(md_text)
-
-    # Log snippets used to stderr (visible to caller, not embedded in output)
-    if snippets_used:
-        print(f"  snippets: {', '.join(snippets_used)}", file=sys.stderr)
-
-    # Meta-line items
-    meta_items = []
-    if args.source_link:
-        meta_items.append(
-            f'<span class="meta-item">Source: <a href="{html_lib.escape(args.source_link)}">{html_lib.escape(args.source_link)}</a></span>'
-        )
-    for item in args.meta:
-        if ":" in item:
-            label, value = item.split(":", 1)
-            meta_items.append(
-                f'<span class="meta-item"><strong>{html_lib.escape(label.strip())}:</strong> {html_lib.escape(value.strip())}</span>'
-            )
-        else:
-            meta_items.append(f'<span class="meta-item">{html_lib.escape(item)}</span>')
-    meta_html = " · ".join(meta_items)
-
-    footer_right = "Self-contained HTML · no CDN · no remote assets"
-
-    # Fill template
-    html_output = fill_template(
-        template,
-        title=title,
-        description=description,
-        toc_html=toc_html,
-        content_html=body_html,
-        meta_html=meta_html,
-        footer_right=footer_right,
+    html_output, _record = render_one(
+        md_text,
+        input_stem=input_stem,
+        template=template,
+        from_html=args.from_html,
+        title_arg=args.title,
+        description_arg=args.description,
+        source_link=args.source_link,
+        extra_meta=args.meta,
     )
 
-    # Write output
     if args.output == "-":
         sys.stdout.write(html_output)
     else:

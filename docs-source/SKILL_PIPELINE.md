@@ -1,11 +1,6 @@
 <!--
-Vendored from alirezarezvani/claude-skills @ 0d477a06589aa730b98e351f46985c5c937de0bf
-Upstream path: SKILL_PIPELINE.md
-License: MIT — Copyright (c) 2025 Alireza Rezvani
-Source: https://github.com/alirezarezvani/claude-skills/blob/0d477a06589aa730b98e351f46985c5c937de0bf/SKILL_PIPELINE.md
-Do not edit in place — re-vendor from upstream and bump the SHA in documentation/NOTICE.md.
+diataxis: reference
 -->
-
 # Skill Production Pipeline — claude-skills
 
 > **Effective: 2026-03-07** | Applies to ALL new skills, improvements, and deployments.

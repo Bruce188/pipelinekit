@@ -1,3 +1,6 @@
+<!--
+diataxis: explanation
+-->
 # /ppr --research flag
 
 /ppr --research publishes keep-rows from research-results.tsv to a research/<tag>-<date> branch. Dry-run by default. Per-branch review before merge.

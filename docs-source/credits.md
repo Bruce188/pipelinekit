@@ -1,5 +1,6 @@
-<!-- richness-exempt: attribution-only page — pure table of vendored upstreams, no interactive snippets needed -->
-
+<!--
+diataxis: reference
+-->
 # Credits
 
 Pipelinekit ships under the MIT license and stands on the shoulders of several upstream projects, plus inspiration from individual researchers and the Claude platform itself. This page consolidates every vendored upstream + its pinned SHA + license, plus the inspirational-but-not-vendored credits.

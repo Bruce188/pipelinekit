@@ -1,3 +1,6 @@
+<!--
+diataxis: reference
+-->
 # /pipeline
 
 The `/pipeline` autonomous orchestrator. Charter discovery → analyze → plan → implement → review → merge, all driven by multi-agent dispatch with no human in the loop unless you opt in. Per-phase reference, flag catalog, and the 5 routes the orchestrator can use to derive a feature file.

@@ -1,3 +1,6 @@
+<!--
+diataxis: how-to
+-->
 # CI/CD on Blacksmith
 
 > [INFO] Looking at deployment too? See the [provider chooser](deployment-chooser.html).

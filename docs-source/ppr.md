@@ -1,3 +1,6 @@
+<!--
+diataxis: how-to
+-->
 # /ppr — Push + PR
 
 The closing step of every pipeline feature: push the committed branch to origin and open a pull request. Runs after `/review` passes. The human approves the PR separately — `/ppr` never auto-merges. This page documents the everyday push-PR flow; for the separate research-publish flow, see [/ppr --research flag](ppr-research-flag.html).

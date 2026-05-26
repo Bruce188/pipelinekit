@@ -1,0 +1,242 @@
+[
+  {
+    "title": "Notice",
+    "slug": "NOTICE",
+    "excerpt": "Pipelinekit vendors source from several upstream projects. The authoritative attribution lives in per-directory NOTICE.md files inside the repo:",
+    "quadrant": "reference"
+  },
+  {
+    "title": "Skill Authoring Standard",
+    "slug": "SKILL-AUTHORING-STANDARD",
+    "excerpt": "The DNA of every skill in this repository. Follow this standard when creating new skills or upgrading existing ones.",
+    "quadrant": "reference"
+  },
+  {
+    "title": "Skill Production Pipeline — claude-skills",
+    "slug": "SKILL_PIPELINE",
+    "excerpt": "Every skill MUST go through this pipeline. No exceptions.",
+    "quadrant": "reference"
+  },
+  {
+    "title": "Agents catalog",
+    "slug": "agents",
+    "excerpt": "Browse all 16 pipelinekit specialized agents — code review, security, TDD, deployment, architecture, data, mobile, and more. Use the search box or section filter to find what you need.",
+    "quadrant": "reference"
+  },
+  {
+    "title": "Changelog — pipelinekit v0.0.1",
+    "slug": "changelog",
+    "excerpt": "The complete development history of pipelinekit, organized by theme. This is the first version (v0.0.1, not yet released as a tag). PRs are linked to GitHub; the bullet summary is the one-line…",
+    "quadrant": "reference"
+  },
+  {
+    "title": "CI/CD on Blacksmith",
+    "slug": "ci-blacksmith",
+    "excerpt": "Pipelinekit defaults to Blacksmith runners (runs-on: blacksmith) for GitHub Actions CI/CD: cost, speed, and per-job pricing characteristics vs ubuntu-latest.",
+    "quadrant": "how-to"
+  },
+  {
+    "title": "Cloud Setup",
+    "slug": "cloud-setup",
+    "excerpt": "This file covers two distinct topics:",
+    "quadrant": "how-to"
+  },
+  {
+    "title": "Codebase Map",
+    "slug": "codebase-map",
+    "excerpt": "The pipelinekit repository top-level layout — one line per directory, one line per significant root file. Cross-linked from the root CLAUDE.md.",
+    "quadrant": "reference"
+  },
+  {
+    "title": "Credits",
+    "slug": "credits",
+    "excerpt": "Pipelinekit ships under the MIT license and stands on the shoulders of several upstream projects, plus inspiration from individual researchers and the Claude platform itself. This page consolidates…",
+    "quadrant": "reference"
+  },
+  {
+    "title": "pipelinekit dashboard",
+    "slug": "dashboard",
+    "excerpt": "Generated: 2026-05-23T14:34:35+00:00",
+    "quadrant": "reference"
+  },
+  {
+    "title": "pipelinekit decisions log",
+    "slug": "decisions",
+    "excerpt": "Generated: 2026-05-23T14:34:35+00:00",
+    "quadrant": "explanation"
+  },
+  {
+    "title": "Azure Deployment Provider",
+    "slug": "deployment-azure",
+    "excerpt": "Azure deployment via App Service, Container Apps, Function Apps. Auth (Managed Identity), Key Vault, Bicep/ARM, environment config, runtime verification, and provider comparison.",
+    "quadrant": "how-to"
+  },
+  {
+    "title": "Deployment + CI provider chooser",
+    "slug": "deployment-chooser",
+    "excerpt": "Not sure which cloud or CI runner fits your project? Answer six questions and the quiz below will narrow it down.",
+    "quadrant": "how-to"
+  },
+  {
+    "title": "DigitalOcean App Platform Deployment Provider",
+    "slug": "deployment-digitalocean",
+    "excerpt": "DigitalOcean App Platform setup, doctl CLI, .do/app.yaml App Spec, pipelinekit integration via Charter Topic 10, env config, runtime verification, and provider comparison.",
+    "quadrant": "how-to"
+  },
+  {
+    "title": "Railway Deployment Provider",
+    "slug": "deployment-railway",
+    "excerpt": "Railway account setup, project linking, CLI install posture, pipelinekit integration via Charter Topic 10, Nixpacks build, environment configuration, and provider comparison.",
+    "quadrant": "how-to"
+  },
+  {
+    "title": "Render Deployment Provider",
+    "slug": "deployment-render",
+    "excerpt": "Render account setup, service config, render.yaml IaC, environment groups, pipelinekit integration via Charter Topic 10, runtime verification, and provider comparison.",
+    "quadrant": "how-to"
+  },
+  {
+    "title": "Vercel Deployment Provider",
+    "slug": "deployment-vercel",
+    "excerpt": "Vercel account setup, project linking, CLI install posture, pipelinekit integration via Charter Topic 10, environment configuration, runtime verification commands, auth posture, and provider…",
+    "quadrant": "how-to"
+  },
+  {
+    "title": "Design tokens",
+    "slug": "design-tokens",
+    "excerpt": "Canonical visual reference for pipelinekit's claude/skills/docs-writer/template.html design tokens. Every page rendered via render.py consumes these CSS custom properties — modifying them retheme…",
+    "quadrant": "explanation"
+  },
+  {
+    "title": "Feature History",
+    "slug": "feature-history",
+    "excerpt": "Rendered audit trail for pipelinekit features. Each merged feature appears below as its own H2 with a <details> collapsible body. The pipeline appends new entries automatically via…",
+    "quadrant": "reference"
+  },
+  {
+    "title": "Getting started with pipelinekit",
+    "slug": "getting-started",
+    "excerpt": "A tutorial-driven walkthrough. You'll install pipelinekit, run your first autonomous /pipeline, then work through three real-world scenarios — a TDD feature, a Vercel deploy, and a meta-walkthrough…",
+    "quadrant": "tutorial"
+  },
+  {
+    "title": "GitHub Issues Integration",
+    "slug": "github-issues-integration",
+    "excerpt": "/pipeline --issues <selector> ingests open GitHub Issues as the feature source for an autonomous pipeline run. Map a label, milestone, or filter to a queue of features, and each open issue becomes…",
+    "quadrant": "how-to"
+  },
+  {
+    "title": "Glossary",
+    "slug": "glossary",
+    "excerpt": "Definitions of the terms that recur across pipelinekit skills, agents, hooks, and prompts. Each entry links to a primary source where the term is defined and used.",
+    "quadrant": "reference"
+  },
+  {
+    "title": "Governance playbook — AI Champions and standardization",
+    "slug": "governance",
+    "excerpt": "How to land pipelinekit conventions across multiple projects without skill drift, hook divergence, or a CLAUDE.md that nobody owns. Names a single role per team — the AI Champion — and codifies the…",
+    "quadrant": "explanation"
+  },
+  {
+    "title": "Harness paths: field — investigation",
+    "slug": "harness-paths-investigation",
+    "excerpt": "F5 of a prior pipeline run added paths: to 31 skills on the assumption that the harness builds a routing slate at dispatch time and filters by paths:. Two on-disk surfaces ship this same unverified…",
+    "quadrant": "explanation"
+  },
+  {
+    "title": "HTML effectiveness principles",
+    "slug": "html-effectiveness-principles",
+    "excerpt": "Canonical design rubric for pipelinekit's documentation/*.html corpus. Defines the four-category rubric, maps every shipped snippet to its category, and lists anti-patterns the rubric is meant to…",
+    "quadrant": "explanation"
+  },
+  {
+    "title": "pipelinekit documentation",
+    "slug": "index",
+    "excerpt": "The complete user-facing documentation for pipelinekit \\(autonomous /pipeline orchestrator + skills + agents + hooks\\). Every page below is self-contained HTML \\(no CDN, no remote assets\\) — clone…",
+    "quadrant": "reference"
+  },
+  {
+    "title": "Installation",
+    "slug": "installation",
+    "excerpt": "Interactive prompts ask which optional components to install.",
+    "quadrant": "how-to"
+  },
+  {
+    "title": "MCP LSP Setup",
+    "slug": "mcp-lsp-setup",
+    "excerpt": "Symbol-level Go-to-Definition and Find-References across your pipelinekit checkout, served by an LSP-backed MCP. Ships as .mcp.json at the repo root with a serena entry (pinned placeholder) and a…",
+    "quadrant": "how-to"
+  },
+  {
+    "title": "Memory + Graph Stack",
+    "slug": "memory-graph-stack",
+    "excerpt": "pipelinekit ships four tools that together form the default memory and graph surface: agentmemory, Understand-Anything, codegraph, and graphify. Each tool answers a distinct question class; none is…",
+    "quadrant": "how-to"
+  },
+  {
+    "title": "Memory Migration Notes",
+    "slug": "memory-migration-notes",
+    "excerpt": "How pipelinekit migrates from flat-file memory to agentmemory MCP.",
+    "quadrant": "explanation"
+  },
+  {
+    "title": "Pipeline Charter Revalidation",
+    "slug": "pipeline-charter-revalidation",
+    "excerpt": "/pipeline --renew now revalidates docs/charter.md against the current repository state before regenerating feature files. This page describes the revalidation pass, the drift report artifact, the…",
+    "quadrant": "explanation"
+  },
+  {
+    "title": "/pipeline",
+    "slug": "pipeline",
+    "excerpt": "The /pipeline autonomous orchestrator. Charter discovery → analyze → plan → implement → review → merge, all driven by multi-agent dispatch with no human in the loop unless you opt in. Per-phase…",
+    "quadrant": "explanation"
+  },
+  {
+    "title": "/ppr --research flag",
+    "slug": "ppr-research-flag",
+    "excerpt": "/ppr --research publishes keep-rows from research-results.tsv to a research/<tag>-<date> branch. Dry-run by default. Per-branch review before merge.",
+    "quadrant": "explanation"
+  },
+  {
+    "title": "/ppr — Push + PR",
+    "slug": "ppr",
+    "excerpt": "The closing step of every pipeline feature: push the committed branch to origin and open a pull request. Runs after /review passes. The human approves the PR separately — /ppr never auto-merges. This…",
+    "quadrant": "how-to"
+  },
+  {
+    "title": "/review cost profile",
+    "slug": "review-cost",
+    "excerpt": "/review dispatches up to 6 parallel agents per invocation (medium and large tiers).",
+    "quadrant": "explanation"
+  },
+  {
+    "title": "Skills scope policy",
+    "slug": "skills-scope-policy",
+    "excerpt": "Authoring policy for the paths: frontmatter field on claude/skills/<name>/SKILL.md. Every new skill MUST declare paths: unless it appears on the global-by-design allowlist below.",
+    "quadrant": "explanation"
+  },
+  {
+    "title": "Skills catalog",
+    "slug": "skills",
+    "excerpt": "Browse all 42 pipelinekit skills — workflow orchestration, development, ops, mobile, authoring, and AI-tool utilities. Use the search box or section filter to find what you need.",
+    "quadrant": "reference"
+  },
+  {
+    "title": "Supply-Chain Pin Hardening",
+    "slug": "supply-chain",
+    "excerpt": "pipelinekit's installer fetches code from upstream sources at install time:",
+    "quadrant": "explanation"
+  },
+  {
+    "title": "TSV Viewer",
+    "slug": "tsv-viewer",
+    "excerpt": "tsv-viewer.sh reads a research-results TSV file and generates a self-contained HTML page with a sortable, filterable table, light/dark CSS, and an optional browser-open hook.",
+    "quadrant": "how-to"
+  },
+  {
+    "title": "Workflow Hygiene",
+    "slug": "workflow-hygiene",
+    "excerpt": "Three documented drift modes accumulated in docs/ over the pipelinekit lifetime: rotation drift, orphan snapshots, and features.md bloat. As of 2026-05-23 the docs/ tree had grown to ~7 MB across 424…",
+    "quadrant": "explanation"
+  }
+]
