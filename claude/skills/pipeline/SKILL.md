@@ -1,7 +1,7 @@
 ---
 name: pipeline
 description: Autonomous pipeline orchestrator. Processes a feature list through the full workflow (analyze → plan → implement → review → merge) with zero human intervention. Supports --dry-run and --restart-from.
-argument-hint: ([feature-file]|[--renew [--no-prompts]]|[--adopt]|[--from "<text>"]|[--plan [<path>]]|[--issues <selector>]) [--restart-from analyze|plan|implement|review] [--dry-run] [--no-charter|--charter <path>|--max-questions <N>] [--no-prompts] [--no-teams] [--no-review] [--no-ppr] [--no-docs] [--no-tdd] [--no-notifications]
+argument-hint: ([feature-file]|[--renew [--no-prompts]]|[--adopt]|[--from "<text>"]|[--plan [<path>]]|[--issues <selector>]) [--restart-from analyze|plan|implement|review] [--dry-run] [--no-charter|--charter <path>|--max-questions <N>] [--no-prompts] [--no-teams] [--no-review] [--no-ppr] [--no-docs] [--no-tdd] [--no-test-loop] [--no-notifications]
 allowed-tools:
   - Read
   - Write
@@ -116,6 +116,7 @@ Parse `$ARGUMENTS`:
 - `--no-ppr` = skip `/ppr` for every feature. Halts each feature after review with `Status: COMPLETED (--no-ppr halt; no push/PR/merge)`. Skips docs and post-merge entirely. Useful for dry-running implement+review without touching origin.
 - `--no-docs` = skip the Documentation Update Phase. Aliases `PIPELINE_SKIP_DOCS=1` at parse time (both honoured; either is sufficient).
 - `--no-tdd` = force `FEATURE_CLASS = non-dev` for every feature in this run. Bypasses the Step 5.5.0 prefix-derived classification — every feature dispatches via the standard `implement-plan` path with no TDD pairing.
+- `--no-test-loop` = disable the implement-plan test-run inner loop (Step 2e.5). Records `NO_TEST_LOOP=true` for the implement-plan dispatch. Does NOT affect TDD red/green phases — only suppresses the post-task project test command + fix-retry loop. Use when the project test command is slow or noisy in CI.
 - `--no-notifications` = disable notification emission for the run. Aliases `PIPELINE_NO_NOTIFICATIONS=1` at parse time (both honoured; either is sufficient). The orchestrator exports `PIPELINE_NO_NOTIFICATIONS=1` for the rest of the session.
 - `--adopt` flag = adopt current manual workflow state into pipeline
 - `--max-usd <N>` = hard cap on cumulative USD across the entire run. Default: **unlimited** (flag omitted disables the budget check).
@@ -159,7 +160,7 @@ Record the teams override in a local variable for use by Step 5.1:
 
 **`--no-docs` / `PIPELINE_SKIP_DOCS=1` export:** If `--no-docs` is present at parse, export `PIPELINE_SKIP_DOCS=1` so the existing Documentation Update Phase escape hatch fires.
 
-**`--no-review` / `--no-ppr` / `--no-tdd` recording:** These flags are not env vars — record them as local variables (`NO_REVIEW`, `NO_PPR`, `NO_TDD`) for the orchestrator to check at Step 5.5.0 (no-tdd), Step 5.6 (no-review), and Step 5.8 Path A entry (no-ppr).
+**`--no-review` / `--no-ppr` / `--no-tdd` / `--no-test-loop` recording:** These flags are not env vars — record them as local variables (`NO_REVIEW`, `NO_PPR`, `NO_TDD`, `NO_TEST_LOOP`) for the orchestrator to check at Step 5.5.0 (no-tdd), Step 5.6 (no-review), Step 5.8 Path A entry (no-ppr), and the implement-plan Step 2e.5 inner loop short-circuit (no-test-loop). `NO_TEST_LOOP` is forwarded into the implement-plan subagent dispatch context so the per-task inner loop honours it.
 
 The orchestrator exports `PIPELINE_FEATURE_INDEX="<N>/<M>"` (NB1 `N/M` shape from `docs/pipeline-state.md` `**Feature:**` line; set at Step 5.1) and `PIPELINE_FEATURE_NAME="<feature-name>"` so the notification payload's `feature_index` / `feature_name` fields are populated without re-parsing pipeline state.
 

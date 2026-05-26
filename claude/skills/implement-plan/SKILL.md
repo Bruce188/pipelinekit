@@ -421,6 +421,50 @@ Constraints:
    - If a build step: run it
    - If behavioral: describe what was checked and the observed result
 
+#### 2e.5. Test-Run Inner Loop
+
+OpenHands-style fix-retry loop on the project's full test command. Runs after Step 2e (TDD integrity check passed) and before Step 2f (verification-result handling). Per-task; bounded to <= 3 fix retries before escalating to Path B.
+
+**Short-circuits (in order — first match wins, skip the loop and proceed to Step 2f):**
+
+1. `NO_TEST_LOOP=true` (set by `/pipeline --no-test-loop`) → log `NO_TEST_LOOP: skipped per --no-test-loop` and proceed to Step 2f.
+2. `NO_TDD=true` (set by `/pipeline --no-tdd`) → log `NO_TEST_LOOP: skipped per --no-tdd` and proceed to Step 2f.
+3. `detect_test_runner(project_root)` returns `None` → log `NO_TEST_RUNNER_DETECTED` and proceed to Step 2f.
+
+The detect helper lives at `claude/lib/pipeline/test_runner_detect.py`. It is pure stdlib, never `eval`/`exec`s, and returns one of `"pytest"`, `"npm test"`, `"go test ./..."`, `"make test"`, or `None`. First-match-wins probe order: pytest (pyproject.toml | setup.py) → npm test (package.json with non-empty scripts.test) → go test (go.mod) → make test (Makefile with `^test:` target). Auto-detection is best-effort — projects using `tox`, `nox`, `cargo test`, `dotnet test`, `mix test`, etc. fall through to `NO_TEST_RUNNER_DETECTED` and the loop is skipped.
+
+**Loop pseudocode (executes only when none of the short-circuits fired):**
+
+```
+CMD = detect_test_runner(project_root)
+RETRY = 0
+LOOP:
+    rc, out = run(CMD)              # capture stdout+stderr together; cap to last 4 KB
+    IF rc == 0:                     # full project test suite passed
+        break LOOP                  # proceed to Step 2f (PASS path)
+    RETRY = RETRY + 1
+    IF RETRY > 3:                   # 4th failure -> escalate
+        emit "TEST_LOOP_EXHAUSTED: task X.Y, last 4KB attached"
+        return failure to orchestrator   # halt feature -> /pipeline Path B
+    dispatch tdd-implementer subagent with:
+        - original task prompt
+        - failing-test output (last 4 KB of combined stdout+stderr)
+        - instruction: "Fix the failing tests. Do NOT modify test files."
+    wait for subagent (it commits its fix on success)
+    re-run Step 2e TDD-integrity check:
+        git diff $RED_COMMIT -- $TEST_FILES
+    IF diff non-empty (test files modified during fix):
+        STOP with the same TDD-integrity violation message as Step 2e step 3.
+```
+
+**Output capping.** Combined stdout+stderr is truncated to the last 4 KB before being passed to the fix subagent. Larger outputs would overrun the subagent context budget; the tail almost always contains the actionable failure.
+
+**Budget accounting.** Each `run(CMD)` is a subprocess invocation, not an LLM call — it does NOT consume `--max-usd` tokens directly. The fix-retry subagent dispatches ARE counted by the existing `--max-usd` / `--max-turns` accounting. The orchestrator's existing phase-boundary budget check (`/pipeline` Step 1.46) suffices; no new budget plumbing.
+
+**Path B escalation contract.** A 4th-retry failure (i.e. `RETRY > 3`) returns failure to the orchestrator using the same exit semantics as any other implement-phase failure. `/pipeline` Step 5.7 routes implement-phase failures to Path B (re-implement under review feedback) by default. The TEST_LOOP_EXHAUSTED log line + the captured 4 KB tail surface in the orchestrator's run log so Path B receives the failing-test context.
+
+**Parallel path inheritance.** When `/implement-plan` runs in parallel mode (Step 1.5 worktree fan-out), each worktree agent inherits this Step 2e.5 contract by reference — the per-task loop runs inside the worktree before the agent reports done. The lead does NOT re-run Step 2e.5 after squash-merge; it only re-runs the plan's verification step (Step 1.5 sub-step 5.e). Per-worktree TEST_LOOP_EXHAUSTED escalations surface via the worktree agent's `<task-notification>` `<status>failed</status>`.
+
 #### 2f. Handle verification result
 
 **PASS:**
