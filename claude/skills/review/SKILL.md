@@ -636,6 +636,34 @@ No flag needed — nit auto-fix always runs when nits are present.
 
 ---
 
+### Step 7.6: Path M / Defer Enforcement Contract
+
+Before Step 8 writes the review file, the reviewer MUST honor three contracts that close the F21 root-cause failure mode: Path M cherry-pick + prose `Defer.` remainder + silent non-blocking acceptance leaking findings between phases.
+
+**Contract 1 — Path M is ALL findings or NONE.**
+
+Path M (per `~/.claude/rules/workflow.md` § "Path M gate examples") is a batch gate. When Path M qualifies, it applies to ALL non-blocking + nit findings in the batch — or to NONE. Partial Path M (apply the N qualifying findings inline + defer the M-N remainder in prose) is FORBIDDEN. When `>= 1` finding disqualifies any Path M per-finding gate (`lines_changed > 5`, `files_changed > 1`, `total_finding_count > 3`, `total_lines_across_findings > 8`, non-mechanical `Suggestion:`, or any blocker present), the ENTIRE batch routes to Path B for re-implement subagent dispatch.
+
+Symptom of violation: review file shows N findings, commit applies fixes to a subset K < N, remaining N-K findings carry `Defer.` / `Out of scope.` / `bundle with ...` prose annotations with no state transition out of the review file. This is the failure pattern documented in castellum F6 review-v40.md (2026-05-26, F21 root cause). The pipeline accepted the Path M outcome, advanced to `/ppr`, and merged a PR while 16 findings (10 non-blocking + 6 nits) lived only in the review file body — invisible to `/pipeline --renew`, `/create-plan` Deferred consumption, and `progress.md` readers.
+
+**Contract 2 — Defer requires a state transition.**
+
+When a finding is legitimately Defer-class (truly out-of-scope, future iteration, multi-line documentation polish bundling with a follow-up PR), the reviewer MUST perform exactly ONE of the following three state transitions per deferred finding. Prose `Defer.` without a state transition is a contract violation.
+
+The three legitimate Defer destinations:
+
+1. **`docs/progress.md` `## Deferred` table row** — append a row of the shape `| <finding-id-or-short-name> | review-vN.md | <reason> | <target-iteration> |` to the active `progress.md`'s `## Deferred` table. Create the table if absent. This is the cheapest and most visible destination — default to it when unsure.
+2. **New feature block in the active feature file** — append a new H2 feature block (matching the existing feature-file schema) to the in-flight feature file (the one driving the current pipeline run; see `~/.claude/memory/feedback-pipeline-feature-add-to-running-file.md` when present). Suitable when the deferred work is non-trivial and merits its own future feature.
+3. **Task reopen in `progress.md`** — set the closest matching task back to `todo` with note `reopened: review-vN` and add the finding's remediation guidance to the task's prompt body in the prompts file (the standard Step 9 task-reopen flow). Suitable when the deferred work belongs to an existing task that simply needs a follow-up touch.
+
+**Contract 3 — Silent non-blocking acceptance is FORBIDDEN.**
+
+A non-blocking finding that exits review without ONE of: (a) Path M inline-applied (under Contract 1's all-or-none rule), (b) Path B reopened-task (Step 9 standard flow), (c) Defer state transition per Contract 2 above, is dropped silently between phases. This is a contract violation. The reviewer MUST route every non-blocking finding through one of the three actionable surfaces before exiting Step 8. If unsure, default to Defer destination 1 (`progress.md` `## Deferred` row) — the table is cheap and visible to `/pipeline --renew` / `/create-plan` consumption.
+
+The same contract applies uniformly to inline Path N (Edit-tool nit), Path M (Edit-tool mini-fix), the F19 teams-on dispatch shape, and the F20 `pipeline-review` slug. Every reviewer subagent reads this section before Step 8.
+
+---
+
 ### Step 7.8: Charter Scope Classification (if charter present)
 
 This classifier runs after Step 7.5 (Auto-Fix Detection) and before Step 8 (Save Review Findings). The call is strictly post-aggregation: it consumes the merged, deduped, auto-fix-finalized findings list and decorates each entry with a `scope_tag`. The 5-agent panel composition (Step 6) is untouched — no agent prompts, agent count, or agent communication semantics change.
@@ -829,6 +857,8 @@ For findings that do NOT require scope changes (can be fixed within existing tas
    - Same format as item 4 above
    - Note: `nit: [description]` — these are fixed in the next `/implement-plan` run
    - Review Tests: "N/A — no testable behavior" (nits are style/formatting)
+
+6. **Non-blocking finding contract (from Step 7.6):** Every non-blocking finding NOT auto-fixed by Step 7.5 nit pass and NOT eligible for Path M inline application MUST be one of: (a) mapped to a reopened task per step 1-2 above, (b) given a new micro-task per step 4 above, or (c) propagated to `docs/progress.md` `## Deferred` table per Step 7.6 Contract 2 destination 1. Silent acceptance — leaving the finding only in `review-vN.md` body without a state transition — is a contract violation forbidden by Step 7.6 Contract 3. See Step 7.6 for the full enforcement contract.
 
 If ALL findings require scope changes (none map to existing tasks and all suggest architectural changes): skip this step entirely — tasks will be re-planned via `/create-plan`.
 

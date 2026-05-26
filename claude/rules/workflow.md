@@ -213,6 +213,7 @@ If this snippet needs updating, change here — all skills reference this sectio
 - **Disqualifying (aggregate lines):** 3 findings of 4+3+3 (10 total). Each ≤ 5 per-finding, BUT `total_lines_across_findings > 8` → Path B.
 - **Disqualifying (logic suggestion):** `Suggestion:` reads "rework error-handling to use new `Result<T,E>` pattern". No mechanical Edit → Path B.
 - **Disqualifying (blocker present):** any blocker short-circuits clause 1 → Path B.
+- **Disqualifying (partial-application):** Review batch contains 5 findings; 3 qualify per-finding (each ≤ 5 lines, 1 file, mechanical) but 2 disqualify (multi-line or non-mechanical). Reviewer's instinct: "apply Path M to the 3, defer the other 2 in prose." FORBIDDEN. The entire batch routes to Path B. Defer is NOT a fallback for the unqualified remainder — Defer requires a state transition (see `claude/skills/review/SKILL.md` Step 7.6 Contract 2: `progress.md` `## Deferred` row, new feature block, or task reopen). Path M is all-findings-or-none.
 
 **On resume:** Preserve saved `**Phase Mode:**` from `docs/pipeline-state.md`. Never silently downgrade `subagent` → `inline`. Direct `Skill: implement-plan` or `Skill: pipeline-review` on `subagent`-mode resume is contract violation — see SKILL.md Step 3 § "Phase Mode preservation contract".
 

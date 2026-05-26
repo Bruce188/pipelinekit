@@ -997,6 +997,37 @@ After completion: proceed to Step 5.7.
 Read `docs/progress.md` (fresh read — review may have modified it).
 Read the review file from the `**Review:**` pointer in progress.md.
 
+**Findings-leak preflight (before path detection):**
+
+Before evaluating the path-detection table, count findings in the active review file and verify each one is accounted for via Path M / Path B reopen / Defer state transition. This preflight catches the F21 root-cause failure mode (Path M cherry-pick + prose `Defer.` remainder) before it propagates to `/ppr`.
+
+```
+TOTAL_FINDINGS = (count of `severity: blocking` entries)
+               + (count of `severity: non-blocking` entries)
+               + (count of `severity: nit` entries)
+
+APPLIED_INLINE     = count of findings explicitly marked as applied inline in the review file
+                     (Path M / Path N auto-fix commit — reviewer's "### Path M inline fixes (this commit)"
+                     block, Step 7.5 nit auto-fix manifest, or equivalent)
+REOPENED           = count of reopened tasks in `progress.md` with note `reopened: review-vN`
+                     matching the current review file's N
+DEFERRED_TO_TABLE  = count of new rows appended to `progress.md` `## Deferred` table
+                     citing the current review file
+DEFERRED_TO_FEATURE = count of new feature blocks appended to the active feature file
+                      citing the current review file
+
+ACCOUNTED = APPLIED_INLINE + REOPENED + DEFERRED_TO_TABLE + DEFERRED_TO_FEATURE
+```
+
+If `TOTAL_FINDINGS > ACCOUNTED`, halt with the canonical beacon:
+
+```
+FINDINGS_LEAK: <N> findings unaccounted for in <review-file-path>
+Unaccounted IDs: <comma-separated finding identifiers extracted from the review file>
+```
+
+where `<N> = TOTAL_FINDINGS - ACCOUNTED`. The orchestrator MUST NOT advance to path selection until the operator either (a) reopens / defers / inlines the unaccounted findings via one of the Step 7.6 contracts in `claude/skills/review/SKILL.md`, or (b) explicitly overrides via manual confirmation logged in the feature Run Log. See `claude/skills/review/SKILL.md` Step 7.6 (Path M / Defer Enforcement Contract) for the upstream contract this preflight enforces.
+
 **Path detection:**
 
 Check conditions in order — first match wins.
@@ -1042,6 +1073,8 @@ Full per-path flows are defined in `reference.md` § "Step 5.8: Execute Path —
 - **Path N — Nit-Only Inline:** Edit-tool nit fixes inline → sanity gate → commit → re-route via Step 5.7. Capped at 2 cycles. **A legitimate inline path (alongside Path M).**
 - **Path M — Inline Mini-Fix:** Gate-predicate-qualified small non-blocking fixes inline via Edit tool → sanity gate → commit (`fix: address review feedback inline`) → re-route via Step 5.7. Capped at 2 inline cycles (`**Inline cycles:**` state field). Edit-tool only — snapshot-revert + Path B escalation on sanity-gate failure. See `reference.md` § Path M for full body.
 - **Retry — BLOCKED:** retry /pipeline-review on transient failures only, capped at 3 attempts. Re-review honors `Phase Mode`.
+
+**Findings-leak post-routing check:** After Path M or Path N completes its inline fix commit, re-run the Step 5.7 preflight accounting check against the same review file. If `TOTAL_FINDINGS > ACCOUNTED` after the inline path runs, emit the canonical beacon `FINDINGS_LEAK: <N> findings unaccounted for after <Path M|N> commit <sha>` (naming the unaccounted finding IDs from the review file) and halt the feature for operator review. Path B re-implement followed by re-review re-enters Step 5.7, so the preflight catches leaks at the next cycle entry naturally — no additional post-routing call needed for Path B / Path C / Retry. See `claude/skills/review/SKILL.md` Step 7.6 for the underlying Path M all-or-none contract this check enforces.
 
 Select the path from Step 5.7, load the corresponding flow from `reference.md`, and execute. **Inline tool dispatch is forbidden in Paths A, B, C, and Retry when `Phase Mode = subagent` — those paths must use `Agent` tool dispatch with the corresponding `<!-- PHASE: ... -->` template.** Path N and Path M are the only legitimate inline paths (plus the optional Row-2 nit preamble); see § "Inline-mode boundary (REQUIRED INVARIANT)" above.
 
