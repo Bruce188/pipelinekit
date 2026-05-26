@@ -799,6 +799,7 @@ You are dispatched by the pipeline orchestrator as the ANALYZE phase subagent fo
 {{MODEL_OVERLAY_NOTE}}
 
 Inputs:
+- Charter summary: {{CHARTER_SUMMARY}}
 - Feature description: {{FEATURE_DESCRIPTION}}
 - Feature constraints: {{FEATURE_CONSTRAINTS}}
 - Target analysis path: {{ANALYSIS_PATH}}
@@ -863,6 +864,7 @@ You are dispatched by the pipeline orchestrator as the PLAN phase subagent for f
 {{MODEL_OVERLAY_NOTE}}
 
 Inputs:
+- Charter summary: {{CHARTER_SUMMARY}}
 - Feature description: {{FEATURE_DESCRIPTION}}
 - Feature constraints: {{FEATURE_CONSTRAINTS}}
 - Analysis file: {{ANALYSIS_PATH}}
@@ -926,6 +928,7 @@ You are dispatched by the pipeline orchestrator as the IMPLEMENT phase subagent 
 {{MODEL_OVERLAY_NOTE}}
 
 Inputs:
+- Charter summary: {{CHARTER_SUMMARY}}
 - Plan file: {{PLAN_PATH}}
 - Prompts file: {{PROMPTS_PATH}}
 - Branch name: {{BRANCH_NAME}}
@@ -980,6 +983,7 @@ You are dispatched by the pipeline orchestrator as the REVIEW phase subagent for
 {{MODEL_OVERLAY_NOTE}}
 
 Inputs:
+- Charter summary: {{CHARTER_SUMMARY}}
 - Branch name: {{BRANCH_NAME}}
 - Review file path (after review writes it): {{REVIEW_PATH}}
 
@@ -1034,6 +1038,7 @@ You are dispatched by the pipeline orchestrator as the DOCS phase subagent (suba
 {{MODEL_OVERLAY_NOTE}}
 
 Inputs:
+- Charter summary: {{CHARTER_SUMMARY}}
 - Feature description: {{FEATURE_DESCRIPTION}}
 - Branch name (already merged; reference only): {{BRANCH_NAME}}
 - Squash-merge SHA on base branch: {{MERGE_SHA}}
