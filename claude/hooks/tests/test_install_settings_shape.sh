@@ -141,6 +141,12 @@ for p in sorted(hooks_dir.glob("*.sh")):
     # See claude/hooks/CLAUDE.md § Exclusions.
     if p.name == "commit-msg-wrapper.sh":
         continue
+    # scan-secrets-staged.sh is a native git pre-commit hook chained inside
+    # <git_dir>/hooks/pre-commit via the dispatcher written by
+    # scripts/install.sh:install_pre_commit_hook. NOT a Claude-harness hook.
+    # See claude/hooks/CLAUDE.md § Exclusions.
+    if p.name == "scan-secrets-staged.sh":
+        continue
     expected.add(p.name)
 for p in sorted(hooks_dir.glob("*.py")):
     if p.name.startswith("_"):
