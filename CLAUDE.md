@@ -30,6 +30,7 @@ Claude Code workflow toolkit: skills + agents + hooks + autonomous `/pipeline` o
 | `documentation/` | Rendered HTML docs (committed) |
 | `docs/` | Workflow metadata (`analysis-v*`, `plan-v*`, `progress.md`, ...) — NEVER committed |
 | `tests/` | Repo-wide smoke / integration tests |
+| `.github/workflows/` | GitHub Actions workflows — currently `ci.yml` (lint / selftests / install-smoke) |
 | `lancedb/` | Local RAG index storage |
 
 Full map: [documentation/codebase-map.html](documentation/codebase-map.html)
