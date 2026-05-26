@@ -31,7 +31,7 @@
 
 ## Claude Code Environment Defaults
 
-pipelinekit pins one Claude Code env var at install time via `~/.claude/settings.json`. The pin is additive: any value you set in `settings.json` before re-running install wins on collision (user-wins semantics).
+安裝時固定一環境變數於 `~/.claude/settings.json`，疊加而非覆蓋，用戶先設值者優先。
 
 **Pinned default:** `CLAUDE_CODE_DISABLE_1M_CONTEXT=1` — disables the 1M extended-context window so prompt caching stays aligned to the 200K boundary where Anthropic's 5-minute cache TTL applies most efficiently. Documented at <https://docs.claude.com/en/docs/claude-code/model-config>.
 
@@ -45,11 +45,11 @@ pipelinekit pins one Claude Code env var at install time via `~/.claude/settings
 
 ## Memory System
 
-Memories live in agentmemory MCP — the canonical write and read surface. The legacy flat-file store at `~/.claude/projects/<project-slug>/memory/*.md` is preserved read-only for a 30-day rollback window; cleanup of the flat-file store is a separate future feature. Do NOT write new markdown memory files unless `PIPELINE_KEEP_FLAT_FILE_MEMORY=1` is set (see § Dual-write opt-in below).
+記憶存於 agentmemory MCP，為正典讀寫面。舊式平檔存於 `~/.claude/projects/<project-slug>/memory/*.md`，保留三十日唯讀以備回滾；清理另議。除非設 `PIPELINE_KEEP_FLAT_FILE_MEMORY=1`，否則勿寫新記憶 markdown 檔。
 
 ### Tool surface
 
-The agentmemory MCP exposes four tools — use them in this order of decreasing frequency:
+四工具，頻降序用之：
 - `memory_save` — write one memory entry. Fields: `tags` (list of strings), `category` (one of `user|feedback|project|reference|other`), `content` (the memory body, free-form text).
 - `memory_recall` — read by tags AND/OR category. Returns matching entries ranked by Ebbinghaus recency.
 - `memory_smart_search` — semantic search across all memories regardless of tags. Use when tags are unknown.
@@ -66,7 +66,7 @@ The agentmemory MCP exposes four tools — use them in this order of decreasing 
 
 ### When NOT to save
 
-Do not invoke `memory_save` for transient session state (active TODO trackers, intermediate scratchpads, partial command outputs), for project file contents (use `Read` against the file directly), for user PII unless the user has explicitly directed it as a saved preference, or for information already covered by an existing memory entry on the same `tags`. When in doubt, leave it unsaved — memory pollution is harder to fix than a missed save.
+勿存：瞬態會話狀態、暫存輸出、專案檔案內容、未經用戶指示之個人資料、既有同標籤條目已涵蓋之資訊。存疑則棄存——污染難除甚於漏存。
 
 ### Ebbinghaus curve
 
@@ -74,15 +74,15 @@ agentmemory computes recency-weighted relevance via an Ebbinghaus forgetting cur
 
 ### Rollback window
 
-The flat-file store at `~/.claude/projects/<project-slug>/memory/*.md` remains readable for 30 days following migration. Use it as a side-by-side comparison surface while validating agentmemory's behavior. Hard-deletion of the flat-file store is deferred to a separate future feature; this feature does NOT remove any markdown file.
+三十日內，`~/.claude/projects/<project-slug>/memory/*.md` 可讀作比對基準。平檔硬刪為後續功能，本版不移除任何 markdown 檔。
 
 ### Dual-write opt-in
 
-Set `PIPELINE_KEEP_FLAT_FILE_MEMORY=1` in the environment to ALSO emit a flat-file sidecar at `~/.claude/projects/<project-slug>/memory/<filename>.md` alongside each `memory_save` invocation. This is a system-prompt-level toggle (Claude's save behavior changes), NOT a hook-level toggle. The dual-write surface exists for operator-driven A/B verification during the 30-day rollback window. The sidecar filename convention (`<category>_<tags-joined-with-underscores>.md`) is documented in `documentation/memory-migration-notes.html`.
+設 `PIPELINE_KEEP_FLAT_FILE_MEMORY=1` 以同步輸出平檔副本至 `~/.claude/projects/<project-slug>/memory/<filename>.md`。此為系統提示層開關，非鉤子層。副本命名規則見 `documentation/memory-migration-notes.html`。
 
 ## Notifications
 
-When `/pipeline` reaches a state requiring user attention — budget breach, error, end-of-feature, permission prompt — it emits a push notification via native Claude Code surfaces. There is no custom notification config file, no parallel rate limiter — Channels' built-in mechanics are authoritative.
+`/pipeline` 達需用戶注意之狀態時——超預算、錯誤、功能完成、權限請求——發推播通知。無自訂設定檔，無獨立限速——以 Channels 内建機制為準。
 
 ### Hook event mapping
 
@@ -101,7 +101,7 @@ When `/pipeline` reaches a state requiring user attention — budget breach, err
 
 ### Payload (6 fields)
 
-Notifications carry: `feature_index`, `step`, `event_type`, `text` (≤ 200 chars, truncated with ellipsis), `action_link` (deep link OR signal-file path), `feature_name`. Charter / analysis / plan / review file contents do not leak — the 200-char cap is a hard limit. Full schema in `~/.claude/skills/pipeline/reference.md § Notification payload schema`.
+通知攜六欄位：`feature_index`, `step`, `event_type`, `text` (≤ 200 chars, truncated with ellipsis), `action_link` (deep link OR signal-file path), `feature_name`. Charter / analysis / plan / review 檔內容不洩露——200 字符硬限。完整 schema 見 `~/.claude/skills/pipeline/reference.md § Notification payload schema`。
 
 ### Opt-out
 
@@ -117,7 +117,7 @@ Notifications carry: `feature_index`, `step`, `event_type`, `text` (≤ 200 char
 
 ### Session naming
 
-Name sessions `<project-slug>/<feature-or-task-slug>` to distinguish concurrent `/resume` entries by purpose rather than timestamp or UUID. This is advisory — no enforcement mechanism.
+以 `<project-slug>/<feature-or-task-slug>` 命名 session，區分同時 `/resume` 條目。建議性，無強制機制。
 
 ```bash
 claude -n "myproject/feature-x"
@@ -154,7 +154,7 @@ When a task prompt specifies a model, pass it via the Agent tool's `model` param
 
 ## Workflow Pipelines
 
-Pipelines are defined by skills. Each pipeline skill ends with a "What's Next" block — follow it. Human drives forward; Claude does not auto-advance.
+技能定義流程。每技能末附「下一步」區塊——遵之。人為推進，Claude 不自動前進。
 
 Autonomous option: `/pipeline [feature-file]` — runs the full workflow per feature. Supports both **dev** items (auto-routed through TDD: `tdd-test-writer` → `tdd-implementer`) and **non-dev** items (docs, ops, chores — skip TDD). Routing is derived from the feature's commit-type prefix; override with `**Type:** dev|non-dev` in the feature block. See `~/.claude/skills/pipeline/SKILL.md` § Step 5.5 for full routing detail.
 
@@ -164,19 +164,19 @@ See `~/.claude/rules/workflow.md` for the argument convention, base-branch detec
 
 ## Consumer Web App Workflows
 
-The native pipelinekit toolchain ships by default and covers backend, library, data-pipeline, and CLI workloads out of the box. Consumer web app workflows are out of scope for pipelinekit's default install. `gstack` is a third-party project (`alirezarezvani/gstack`); to install it, see its own README.
+原生 pipelinekit 工具鏈預設涵蓋後端、函式庫、資料管道、CLI 工作負載。消費者 Web 應用超出預設範疇。`gstack` 為第三方專案 (`alirezarezvani/gstack`)，另行安裝。
 
 ## Mobile App Workflows
 
-The mobile toolchain ships by default. `claude/agents/mobile-dev.md`, `claude/skills/ios/SKILL.md`, and `claude/skills/expo/SKILL.md` are always available. iOS-specific build steps runtime-detect Xcode (`xcrun --find` probe) and skip silently on non-macOS hosts.
+行動工具鏈預設隨附。`claude/agents/mobile-dev.md`, `claude/skills/ios/SKILL.md`, `claude/skills/expo/SKILL.md` 常備。iOS 建置步驟執行期偵測 Xcode (`xcrun --find`)，非 macOS 主機靜默跳過。
 
 ## Azure Workflows
 
-The Azure toolchain ships by default. `@azure-deployment-engineer` and the `azure-ops` skill are always available. Azure CLI auto-install runs at `scripts/install.sh` time on Debian / Ubuntu hosts; on other hosts the installer prints the Homebrew / Microsoft-docs link and continues without failure.
+Azure 工具鏈預設隨附。`@azure-deployment-engineer` 與 `azure-ops` 技能常備。Debian / Ubuntu 主機安裝時自動裝 Azure CLI；其他主機印 Homebrew / Microsoft-docs 連結後繼續，不中止。
 
 ## Azure Mode
 
-Per-project workflow overlay for Azure deployments. Use when a project ships to Azure (App Service, Container Apps, Function Apps, or Azure DB). Routes deployment-shaped work through `@azure-deployment-engineer` and the `azure-ops` skill; non-deployment phases continue to use the default pipeline agents.
+Azure 部署專案工作流疊加層。適用專案部署至 Azure (App Service, Container Apps, Function Apps, Azure DB)。部署相關工作透過 `@azure-deployment-engineer` 與 `azure-ops` 技能路由；非部署階段沿用預設管道代理。
 
 | Phase | Agents / Skills | Notes |
 |-------|-----------------|-------|
@@ -194,15 +194,15 @@ Per-project workflow overlay for Azure deployments. Use when a project ships to 
 
 ## Vercel Workflows
 
-The Vercel toolchain ships by default. `@vercel-deployment-engineer` and the `vercel-ops` skill are always available. The Vercel CLI itself is user-driven (`npm i -g vercel`); the skill stops cleanly with an install prompt if the CLI is absent.
+Vercel 工具鏈預設隨附。`@vercel-deployment-engineer` 與 `vercel-ops` 技能常備。Vercel CLI 由用戶安裝 (`npm i -g vercel`)；缺失時技能停止並提示安裝。
 
 ## Railway Workflows
 
-The Railway toolchain ships by default. `@railway-deployment-engineer` and the `railway-ops` skill are always available. The Railway CLI itself is user-driven (`npm i -g @railway/cli`); the skill stops cleanly with an install prompt if the CLI is absent.
+Railway 工具鏈預設隨附。`@railway-deployment-engineer` 與 `railway-ops` 技能常備。Railway CLI 由用戶安裝 (`npm i -g @railway/cli`)；缺失時技能停止並提示安裝。
 
 ## Railway Mode
 
-Per-project workflow overlay for Railway deployments. Use when a project ships to Railway. Routes deployment-shaped work through `@railway-deployment-engineer` and the `railway-ops` skill; non-deployment phases continue to use the default pipeline agents.
+Railway 部署專案工作流疊加層。部署相關工作透過 `@railway-deployment-engineer` 與 `railway-ops` 路由；非部署階段沿用預設代理。
 
 | Phase | Agents / Skills | Notes |
 |-------|-----------------|-------|
@@ -219,11 +219,11 @@ Per-project workflow overlay for Railway deployments. Use when a project ships t
 
 ## Render Workflows
 
-The Render toolchain ships by default. `@render-deployment-engineer` and the `render-ops` skill are always available. The Render CLI itself is user-driven; the skill stops cleanly with an install prompt if the CLI is absent.
+Render 工具鏈預設隨附。`@render-deployment-engineer` 與 `render-ops` 技能常備。Render CLI 由用戶安裝；缺失時技能停止並提示安裝。
 
 ## Render Mode
 
-Per-project workflow overlay for Render deployments. Use when a project ships to Render (Web Services, Workers, Cron Jobs, or Static Sites). Routes deployment-shaped work through `@render-deployment-engineer` and the `render-ops` skill; non-deployment phases continue to use the default pipeline agents.
+Render 部署專案工作流疊加層。適用 Web Services, Workers, Cron Jobs, Static Sites。部署工作透過 `@render-deployment-engineer` 與 `render-ops` 路由；非部署階段沿用預設代理。
 
 | Phase | Agents / Skills | Notes |
 |-------|-----------------|-------|
@@ -240,11 +240,11 @@ Per-project workflow overlay for Render deployments. Use when a project ships to
 
 ## DigitalOcean Workflows
 
-The DigitalOcean toolchain ships by default. `@digitalocean-deployment-engineer` and the `digitalocean-ops` skill are always available. The DigitalOcean CLI (`doctl`) is user-driven; the skill stops cleanly with an install prompt if the CLI is absent.
+DigitalOcean 工具鏈預設隨附。`@digitalocean-deployment-engineer` 與 `digitalocean-ops` 技能常備。`doctl` 由用戶安裝；缺失時技能停止並提示安裝。
 
 ## DigitalOcean Mode
 
-Per-project workflow overlay for DigitalOcean App Platform deployments. Use when a project ships to DigitalOcean App Platform. Routes deployment-shaped work through `@digitalocean-deployment-engineer` and the `digitalocean-ops` skill; non-deployment phases continue to use the default pipeline agents.
+DigitalOcean App Platform 部署專案工作流疊加層。部署工作透過 `@digitalocean-deployment-engineer` 與 `digitalocean-ops` 路由；非部署階段沿用預設代理。
 
 | Phase | Agents / Skills | Notes |
 |-------|-----------------|-------|
