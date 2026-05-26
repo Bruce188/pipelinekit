@@ -26,7 +26,7 @@ Or download just the `documentation/` folder as a zip and open `index.html` — 
 
 - **42 skills + 31 agents + 24 hooks** wired together so `/pipeline` can take a feature from charter to merged PR without intervention.
 - **5 cloud deployment providers** (Azure, Vercel, Railway, Render, DigitalOcean) on a shared `deployment-engineer.md` base. Your charter selects one; /pipeline routes deployment automatically.
-- **Sandbox-isolated execution** — every subprocess in a podman/docker/worktree sandbox with auto-detected provider chain.
+- **Sandbox-isolated execution (default-on)** — every subprocess in a podman/docker/worktree sandbox with auto-detected provider chain. Engine-when-present: prefer `podman`, else `docker`, else graceful fallback to worktree-only with a one-line stderr log. Opt out per run via `SANDBOX_PROVIDER=worktree-only` or `PIPELINE_NO_SANDBOX=1`.
 - **TDD doctrine baked in** — `dev`-class features auto-route through `tdd-test-writer` → `tdd-implementer` for red/green pairing, enforced by `tdd-red-phase-gate.sh` hook.
 - **Multi-agent /review** — 2–6 specialized review agents (test-engineer, security-auditor, symbol-verifier, spec-tracer, code-reviewer) with charter-aware finding classification + Path A/B/M/N routing.
 - **Research loop** — Karpathy-style autoresearch via `/research`: hypothesize → mutate → benchmark → keep-or-reset, with optional auto-publish to a branch via `/ppr --research`.

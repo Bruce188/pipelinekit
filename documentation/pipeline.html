@@ -1535,10 +1535,12 @@ plans today; routing arrives in a future iteration.</p>
 <code>claude/lib/sandbox/SandboxProvider.sh</code>. The provider selection ladder is:</p>
 <ol>
 <li><code>SANDBOX_PROVIDER=podman</code> | <code>docker</code> | <code>worktree-only</code> — explicit override.</li>
-<li><code>SANDBOX_PROVIDER=auto</code> (default) — <strong>engine-when-present</strong>: prefer <code>podman</code>,
-   else <code>docker</code>, else fall back to <code>worktree-only</code>. The fallback keeps the
-   pipeline runnable on hosts without a container engine; on engines-available
-   hosts the container provider is selected automatically.</li>
+<li><code>SANDBOX_PROVIDER=auto</code> (default — unset and <code>=auto</code> both resolve here) —
+   <strong>engine-when-present</strong>: prefer <code>podman</code>, else <code>docker</code>, else fall back to
+   <code>worktree-only</code>. The fallback keeps the pipeline runnable on hosts without a
+   container engine; on engines-available hosts the container provider is
+   selected automatically. On fall-through to <code>worktree-only</code> one stderr line is
+   emitted: <code>sandbox: container runtime not found — using worktree-only fallback</code>.</li>
 <li><code>PIPELINE_NO_SANDBOX=1</code> — short-circuit to <code>worktree-only</code> regardless of
    detected engines.</li>
 </ol>

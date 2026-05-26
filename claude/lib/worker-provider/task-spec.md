@@ -76,9 +76,9 @@ When `routing.sandbox` is omitted, the pipeline uses the SandboxProvider
 resolution order from `claude/lib/sandbox/SandboxProvider.sh` (env-var
 driven: `PIPELINE_NO_SANDBOX=1` → worktree-only; `SANDBOX_PROVIDER=<name>`
 → that provider with fallback; `SANDBOX_PROVIDER=auto` → podman → docker →
-worktree-only; `SANDBOX_PROVIDER` unset → worktree-only, no behavior change
-from pre-sandbox pipelinekit). See `claude/lib/sandbox/README.md` for the
-full contract.
+worktree-only (one-line stderr log on fallback); `SANDBOX_PROVIDER` unset →
+`auto` (F12 default — engine-when-present, graceful fallback to
+worktree-only). See `claude/lib/sandbox/README.md` for the full contract.
 
 ---
 

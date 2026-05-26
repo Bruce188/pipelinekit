@@ -128,7 +128,11 @@ mkdir -p "$wt_stub"
 
 set +e
 actual_stdout=$(
-  unset SANDBOX_PROVIDER PIPELINE_NO_SANDBOX LIB_DIR __provider 2>/dev/null || true
+  # F12: SANDBOX_PROVIDER default flipped from worktree-only to auto. This test
+  # exercises the sandbox_wrap library, not provider resolution — pin the
+  # provider explicitly so the test is independent of host engine presence.
+  export SANDBOX_PROVIDER=worktree-only
+  unset PIPELINE_NO_SANDBOX LIB_DIR __provider 2>/dev/null || true
   # shellcheck disable=SC1090
   . "$SANDBOX_WRAP_LIB"
   sandbox_wrap test-task "$wt_stub" bash -c 'echo SHARED_OK' 2>"$stderr_file"
@@ -156,9 +160,11 @@ else
 fi
 
 # Assert provider= field matches provider_detect output.
+# F12: pin SANDBOX_PROVIDER=worktree-only for consistency with the sandbox_wrap
+# invocation above, since the default is now auto (engine-when-present).
 # shellcheck disable=SC1090
 . "$SANDBOX_WRAP_LIB"
-expected_provider="$(provider_detect)"
+expected_provider="$(SANDBOX_PROVIDER=worktree-only provider_detect)"
 if grep -qF "provider=$expected_provider" "$stderr_file"; then
   pass "sandbox_wrap_provider_field_matches_detect"
 else
@@ -183,7 +189,9 @@ stderr_file2="$tmpdir/stderr_sandbox_wrap2.txt"
 
 set +e
 actual_stdout2=$(
-  unset SANDBOX_PROVIDER PIPELINE_NO_SANDBOX LIB_DIR __provider 2>/dev/null || true
+  # F12: pin worktree-only for the same reason as the sandbox_wrap invocation.
+  export SANDBOX_PROVIDER=worktree-only
+  unset PIPELINE_NO_SANDBOX LIB_DIR __provider 2>/dev/null || true
   # shellcheck disable=SC1090
   . "$SANDBOX_WRAP_LIB"
   _sandbox_wrap test-task-2 "$wt_stub" bash -c 'echo ALIAS_OK' 2>"$stderr_file2"

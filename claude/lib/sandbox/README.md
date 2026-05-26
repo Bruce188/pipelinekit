@@ -7,10 +7,15 @@ isolation provider selected by environment variables.
 
 ## Contract
 
-When `SANDBOX_PROVIDER` is unset, the dispatcher defaults to `worktree-only` — the same
-no-op isolation that pipelinekit has always used. **No behavior change from pre-sandbox
-pipelinekit.** This is a deliberate backward-compat promise (plan-v9 Constraint #1,
-audited in review-v7 N1). Container isolation requires explicit opt-in.
+When `SANDBOX_PROVIDER` is unset, the dispatcher defaults to `auto` — engine-when-present
+discovery (`podman` → `docker` → `worktree-only`). On hosts with no container engine, the
+auto branch falls through to `worktree-only` and emits one stderr line:
+`sandbox: container runtime not found — using worktree-only fallback`. This makes
+container isolation default-on without breaking engine-less hosts (mobile, Codespaces,
+minimal CI). Explicit opt-out: `SANDBOX_PROVIDER=worktree-only` or `PIPELINE_NO_SANDBOX=1`.
+History: the original contract defaulted to `worktree-only` for backward compat (plan-v9);
+F12 (2026-05-26) flipped the default to `auto` once the engine-when-present chain was
+proven safe and the stderr-fallback log was added.
 
 ---
 
@@ -28,7 +33,7 @@ Priority evaluated top-to-bottom; first match wins:
    → discovery chain: `podman` → `docker` → `worktree-only`
 
 4. `SANDBOX_PROVIDER` unset
-   → `worktree-only` (no behavior change from pre-sandbox pipelinekit)
+   → `auto` (F12 default — engine-when-present with stderr-logged fallback)
 
 5. `SANDBOX_PROVIDER=<unknown-value>`
    → stderr warning + `worktree-only`
@@ -36,13 +41,15 @@ Priority evaluated top-to-bottom; first match wins:
 
 ---
 
-## Opt-In Discovery
+## Default Discovery
 
-`SANDBOX_PROVIDER=auto` is the explicit opt-in for container-runtime discovery. The
-dispatcher probes PATH in order: `podman` first, then `docker`, then falls through to
-`worktree-only`. Discovery is silent on success. On fall-through to `worktree-only`, no
-stderr log is emitted — the fallback is intentional and expected. Callers that want
-observability can log the resolved provider after calling `provider_detect`:
+`auto` is the default — used both when `SANDBOX_PROVIDER` is unset and when explicitly set
+to `auto`. The dispatcher probes PATH in order: `podman` first, then `docker`, then falls
+through to `worktree-only`. Discovery is silent on engine-present resolution. On
+fall-through to `worktree-only`, one stderr line is emitted so users discover why
+container isolation did not engage:
+`sandbox: container runtime not found — using worktree-only fallback`. Callers that want
+observability of the resolved provider can log it after calling `provider_detect`:
 
 ```bash
 source "$CLAUDE_HOME/lib/sandbox/SandboxProvider.sh"
@@ -71,22 +78,23 @@ rootless podman fails on a hardened host, or a CI environment lacks a container 
 | `worktree-only` | No-op isolation; cd into worktree and exec the command directly. |
 | `podman` | Rootless Podman container; falls back to `worktree-only` if podman not on PATH. |
 | `docker` | Docker container; falls back to `worktree-only` if docker not on PATH. |
-| `auto` | Discovery chain: `podman` → `docker` → `worktree-only`. |
-| (unset) | Defaults to `worktree-only` (backward-compat contract). |
+| `auto` | Discovery chain: `podman` → `docker` → `worktree-only` (stderr-logged fallback). |
+| (unset) | Defaults to `auto` (F12 — engine-when-present, graceful fallback). |
 | any other | stderr warning + `worktree-only` fallback. |
 
 ---
 
 ## Rationale
 
-Unset defaults to `worktree-only` rather than `auto` for three reasons: (1) backward
-compatibility is the stronger contract — users who never set `SANDBOX_PROVIDER` should
-not silently acquire container isolation; (2) silent activation of container isolation can
-break CI environments and hardened hosts where container runtimes require specific
-configuration; (3) `worktree-only` is the proven-production-safe default that has shipped
-since the start of pipelinekit. The `auto` discovery path exists for users who explicitly
-want it. See plan-v9 Constraint #1 for the original promise and review-v7 N1 for the
-contradiction audit that produced this fix.
+F12 (2026-05-26) flipped the unset default from `worktree-only` to `auto` for three
+reasons: (1) the marketing claim in README.md ("sandbox-isolated execution by default")
+was contradicted by the implementation — unset users got no isolation; (2) `docs-source/
+pipeline.md` documented `auto` as the default while the code did not — drift; (3) the
+engine-when-present chain is proven safe via four-case test coverage
+(`tests/test_provider_auto_resolution.sh`). Hosts without a container engine fall through
+to `worktree-only` with a single stderr line, preserving engine-less environments
+(mobile, Codespaces, CI without runtimes). Users wanting the pre-F12 behaviour set
+`SANDBOX_PROVIDER=worktree-only` or `PIPELINE_NO_SANDBOX=1`.
 
 ---
 
