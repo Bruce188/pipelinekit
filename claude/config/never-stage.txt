@@ -6,6 +6,30 @@
 .env
 credentials*
 
+# Env variants
+.env.*
+.env.local
+.env.production
+.env.development
+
+# Crypto material
+*.pem
+*.key
+*.p12
+*.pfx
+*.cer
+*.crt
+id_rsa*
+id_ed25519*
+id_dsa*
+id_ecdsa*
+
+# Credential directories
+.aws/
+.ssh/
+.gnupg/
+.kube/config
+
 # Claude config (allowlist exceptions handled in the hook, not here)
 .claude/*
 

@@ -71,7 +71,12 @@ new plan version is being written, not at `/post-merge` time.
 (fnmatch globs, default-allow on missing) and intersects each candidate against
 `claude/config/never-stage.txt` (default-deny). Double-matched paths are NEVER
 deleted. Single-matched paths are removed under `PIPELINE_JANITOR_DRY_RUN=0`,
-logged under `=1`.
+logged under `=1`. The never-stage list covers root `.env`, env-file variants
+(`.env.local`, `.env.production`, `.env.development`, `.env.*`), crypto material
+(`*.pem`, `*.key`, `*.p12`, `*.pfx`, `*.cer`, `*.crt`, SSH keypairs `id_rsa*` /
+`id_ed25519*` / `id_dsa*` / `id_ecdsa*`), and credential directories (`.aws/`,
+`.ssh/`, `.gnupg/`, `.kube/config`) — coverage asserted by
+`claude/hooks/tests/test_never_stage_expanded.sh`.
 
 <span class="status-pill status-success">PRUNER</span> &nbsp; reads `docs/features.md`,
 detects `ppr-done — PR #N squashed` markers in each `## ` H2 block's Run Log,
