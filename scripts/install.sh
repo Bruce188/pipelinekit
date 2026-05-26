@@ -1391,6 +1391,7 @@ settings = {k: v for k, v in prev.items() if k != "hooks"}
 settings["env"] = merged_env
 settings["hooks"] = {
         "SessionStart": [
+            {"matcher": "*", "hooks": hook(f"{h}/hooks/session-start-caveman.sh")},
             {"matcher": "*", "hooks": hook(f"{h}/hooks/session-start-context.sh")},
             {"matcher": "*", "hooks": hook(f"{h}/hooks/kill-rogue-mcp-daemon.sh")},
             {"matcher": "*", "hooks": hook(f"{h}/hooks/mcp-rss-cap.sh")}
@@ -1445,7 +1446,7 @@ dst = os.path.join(h, "settings.json")
 with open(dst, "w", encoding="utf-8") as f:
     json.dump(settings, f, indent=2)
     f.write("\n")
-print(f"installed: {dst} (27 hooks wired, {len(merged_env)} env vars)")
+print(f"installed: {dst} (28 hooks wired, {len(merged_env)} env vars)")
 PYEOF
   else
     # Flag not set: restore user's previous settings.json from backup if present.
