@@ -75,8 +75,28 @@ for var in USER_EMAIL USER_NAME GH_TOKEN ANTHROPIC_API_KEY; do
   fi
 done
 
+if [ -z "${CLAUDE_CLI_SHA256:-}" ] && [ "${CLAUDE_CLI_ALLOW_UNVERIFIED:-0}" != "1" ]; then
+  cat >&2 <<'CLAUDE_CLI_REFUSE'
+[bootstrap][error] Refusing to install Claude CLI without a sha256 pin.
+
+The Claude CLI installer at https://claude.ai/install.sh is curl-to-bash and
+runs as the bootstrap user. Without a sha256 pin a MITM or upstream-account
+compromise executes arbitrary code on this host. Choose one:
+
+  1. Pin to a known-good checksum (recommended):
+       export CLAUDE_CLI_SHA256=<64-char hex sha256>
+     Anthropic publishes release notes at:
+       https://docs.claude.com/en/release-notes/claude-code
+
+  2. Opt out of the safety gate (NOT recommended for shared / CI hosts):
+       export CLAUDE_CLI_ALLOW_UNVERIFIED=1
+
+Re-run the bootstrap after setting one of the above.
+CLAUDE_CLI_REFUSE
+  die "Claude CLI sha256 refusal (set CLAUDE_CLI_SHA256=<hex> or CLAUDE_CLI_ALLOW_UNVERIFIED=1)"
+fi
 if [ -z "${CLAUDE_CLI_SHA256:-}" ]; then
-  log "CLAUDE_CLI_SHA256 not set — Claude CLI installer will run unpinned (warn). Set CLAUDE_CLI_SHA256 for reproducible installs."
+  log "CLAUDE_CLI_SHA256 not set — CLAUDE_CLI_ALLOW_UNVERIFIED=1 acknowledged; installer will run unpinned."
 fi
 
 # --------------------------------------------------------------------------- #

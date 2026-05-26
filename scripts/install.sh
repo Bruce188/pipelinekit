@@ -25,7 +25,13 @@ mkdir -p "$(dirname "$LOG")"
 SERENA_REF="${SERENA_REF:-main}"
 # Override UNDERSTAND_ANYTHING_SHA=<commit-sha> to pin to a specific commit.
 UNDERSTAND_ANYTHING_SHA="${UNDERSTAND_ANYTHING_SHA:-470cc01dc5f9236a93eb704afdd479cd5db79710}"
-CLAUDE_CLI_SHA256="${CLAUDE_CLI_SHA256:-}"   # optional sha256 of https://claude.ai/install.sh
+# CLAUDE_CLI_SHA256 — sha256 of the Claude CLI installer at https://claude.ai/install.sh.
+# Pin to a known-good value for reproducible installs; consult Anthropic release notes
+# (https://docs.claude.com/en/release-notes/claude-code) for the current installer
+# checksum. Cloud-bootstrap scripts (scripts/cloud/oracle-bootstrap.sh and
+# scripts/cloud/hetzner-bootstrap.sh) refuse to install the Claude CLI when this is
+# empty unless CLAUDE_CLI_ALLOW_UNVERIFIED=1 is set. See docs-source/supply-chain.md.
+CLAUDE_CLI_SHA256="${CLAUDE_CLI_SHA256:-}"
 readonly GRAPHIFY_VERSION="0.8.18"
 LSP_FAILURES=0
 
@@ -1562,9 +1568,30 @@ if [[ -f "$REPO_ROOT/.mcp.json.template" ]]; then
 fi
 
 # Serena (semantic MCP). Pinnable via $SERENA_REF.
+# Fail-closed supply-chain gate: refuse rolling 'main' unless explicit opt-out.
+if [[ "$SERENA_REF" == "main" && "${SERENA_ALLOW_ROLLING:-0}" != "1" ]]; then
+  cat >&2 <<'SERENA_REFUSE'
+[install][error] Refusing to install serena from rolling ref 'main'.
+
+The serena MCP is installed from git+https://github.com/oraios/serena and
+loaded at MCP-client startup; an upstream takeover at the floating 'main'
+branch would execute arbitrary code on your host. Choose one:
+
+  1. Pin to a commit SHA (recommended):
+       export SERENA_REF=<40-char commit hash>
+     A current pin is documented in .mcp.json.template under the
+     serena entry.
+
+  2. Opt out of the safety gate (NOT recommended for shared / CI hosts):
+       export SERENA_ALLOW_ROLLING=1
+
+Re-run the installer after setting one of the above.
+SERENA_REFUSE
+  die "serena rolling-ref refusal (set SERENA_REF=<sha> or SERENA_ALLOW_ROLLING=1)"
+fi
 log "Installing serena (semantic code MCP) @ ref=$SERENA_REF"
 if [[ "$SERENA_REF" == "main" ]]; then
-  warn "serena pinned to 'main' (rolling). Override with SERENA_REF=<commit-sha> for reproducibility."
+  warn "serena pinned to 'main' (rolling) — SERENA_ALLOW_ROLLING=1 acknowledged. Pin to a SHA in CI/prod."
 fi
 if command -v uv >/dev/null; then
   uv tool install --quiet "git+https://github.com/oraios/serena@${SERENA_REF}" 2>>"$LOG" || warn "serena install failed"
@@ -1594,18 +1621,64 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
 fi
 
 # Azure CLI. Auto-installed via Microsoft-published one-liner on Debian/Ubuntu.
-# Trust pattern: curl-to-bash; Microsoft does not publish a sha256 for this script —
-# verify https origin only. User is responsible for `az login` afterwards — the install
-# does NOT authenticate.
+#
+# Trust posture for Azure CLI install:
+#
+#   Default path (no env var) — curl-to-bash from https://aka.ms/InstallAzureCLIDeb.
+#   Microsoft does not publish a sha256 for this script, so trust is bound to the
+#   https origin (and CT logs). This is the same trust path documented at
+#   https://learn.microsoft.com/cli/azure/install-azure-cli-linux. Equivalent to
+#   prior pipelinekit behaviour; preserved as the default for backward-compat.
+#
+#   Opt-in verified path — set INSTALL_AZURE_CLI_DOWNLOAD_AND_VERIFY=1 and provide
+#   AZURE_CLI_DEB_URL plus AZURE_CLI_DEB_SHA256. The installer downloads the .deb,
+#   verifies sha256, and installs via `dpkg -i`. Mismatch → die. .deb files are
+#   published under https://packages.microsoft.com/repos/azure-cli/pool/main/a/azure-cli/.
+#
+# User is responsible for `az login` afterwards — the install does NOT authenticate.
 if command -v az >/dev/null; then
   log "az already installed; skipping (run 'az version' to check version)"
 elif [[ "$(uname -s)" == "Linux" ]]; then
   if [[ -f /etc/os-release ]] && grep -qE 'ID(_LIKE)?=.*(ubuntu|debian)' /etc/os-release; then
-    log "Installing Azure CLI via Microsoft one-liner (https://aka.ms/InstallAzureCLIDeb)"
-    if curl -sL https://aka.ms/InstallAzureCLIDeb | bash 2>>"$LOG"; then
-      log "Azure CLI installed. Authenticate yourself with the standard interactive sign-in (the installer does not log you in)."
+    if [[ "${INSTALL_AZURE_CLI_DOWNLOAD_AND_VERIFY:-0}" == "1" ]]; then
+      az_deb_url="${AZURE_CLI_DEB_URL:-}"
+      az_deb_sha="${AZURE_CLI_DEB_SHA256:-}"
+      if [[ -z "$az_deb_url" || -z "$az_deb_sha" ]]; then
+        warn "INSTALL_AZURE_CLI_DOWNLOAD_AND_VERIFY=1 requires both AZURE_CLI_DEB_URL and AZURE_CLI_DEB_SHA256 — falling back to curl-to-bash default."
+        log "Installing Azure CLI via Microsoft one-liner (https://aka.ms/InstallAzureCLIDeb) — default trust path"
+        if curl -sL https://aka.ms/InstallAzureCLIDeb | bash 2>>"$LOG"; then
+          log "Azure CLI installed."
+        else
+          warn "Azure CLI install failed — see $LOG. Manual install: https://learn.microsoft.com/cli/azure/install-azure-cli-linux"
+        fi
+      else
+        log "Azure CLI verified-path install: $az_deb_url (sha256 verify on)"
+        az_tmp="$(mktemp /tmp/azure-cli.XXXXXX.deb)"
+        if curl -fsSL "$az_deb_url" -o "$az_tmp" 2>>"$LOG"; then
+          if echo "${az_deb_sha}  ${az_tmp}" | sha256sum -c - >>"$LOG" 2>&1; then
+            if sudo -n true 2>/dev/null; then
+              sudo dpkg -i "$az_tmp" 2>>"$LOG" || warn "dpkg -i azure-cli failed — see $LOG"
+            else
+              dpkg -i "$az_tmp" 2>>"$LOG" || warn "dpkg -i azure-cli failed (no sudo) — see $LOG"
+            fi
+            log "Azure CLI installed via verified .deb."
+          else
+            rm -f "$az_tmp"
+            die "Azure CLI .deb sha256 mismatch (expected ${az_deb_sha}). Refusing to install."
+          fi
+        else
+          warn "Azure CLI .deb download failed from $az_deb_url — see $LOG."
+        fi
+        rm -f "$az_tmp"
+      fi
     else
-      warn "Azure CLI install failed — see $LOG. Manual install: https://learn.microsoft.com/cli/azure/install-azure-cli-linux"
+      log "Installing Azure CLI via Microsoft one-liner (https://aka.ms/InstallAzureCLIDeb) — default trust path"
+      log "  (opt-in sha256-verified path: INSTALL_AZURE_CLI_DOWNLOAD_AND_VERIFY=1 + AZURE_CLI_DEB_URL + AZURE_CLI_DEB_SHA256)"
+      if curl -sL https://aka.ms/InstallAzureCLIDeb | bash 2>>"$LOG"; then
+        log "Azure CLI installed. Authenticate yourself with the standard interactive sign-in (the installer does not log you in)."
+      else
+        warn "Azure CLI install failed — see $LOG. Manual install: https://learn.microsoft.com/cli/azure/install-azure-cli-linux"
+      fi
     fi
   else
     warn "Azure CLI auto-install supports Debian/Ubuntu only. Other Linux distros: see https://learn.microsoft.com/cli/azure/install-azure-cli-linux"
