@@ -58,9 +58,11 @@ Also read `.claude/CLAUDE.md` for project-specific constraints (if it exists).
 
 2. **Context7:** First check if analysis file (from Step 1) contains a `## Library Documentation` section.
    If found: reuse as design context, skip queries. If not found: log "No library docs in analysis — querying Context7 directly."
-   If not found and Context7 is available: identify 1-3 key libraries from
-   tech stack, resolve and query each. Use results to inform task design.
-   If unavailable: log "Context7 not configured — skipping" and continue.
+   If not found and Context7 is available: only invoke when the plan touches an external library or framework (skip for internal-only refactors, configuration, or restructuring tasks).
+   For each: `mcp__context7__resolve-library-id` → `mcp__context7__query-docs`. Identify 1-3 key libraries from tech stack, resolve and query each. Use results to inform task design.
+   - If available + results: use to inform task design (API patterns, current syntax)
+   - If resolution fails for a library: log and continue with remaining
+   - If unavailable: log "Context7 not configured — skipping" and continue
 
 ---
 

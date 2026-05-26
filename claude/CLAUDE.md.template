@@ -21,7 +21,8 @@
 - **Code search**: Grep/Glob (native)
 - **Semantic code navigation** (cross-file refs, symbol graph): `serena` MCP if configured
 - **Library/framework docs**: `context7` MCP resolve-library-id → query-docs
-- **Structural patterns** (hierarchies, call graphs): `RepoMapper` MCP if configured
+- **Structural patterns** (hierarchies, call graphs): `RepoMapper` MCP if configured (not pipeline-wired by default)
+- **Deep reasoning chains** (multi-step logic): `sequential-thinking` MCP if configured (not pipeline-wired by default)
 - **Docs/specs/PDFs**: `local-rag` MCP query_documents if configured
 - **Web research**: WebSearch → WebFetch
 - **Symbolic code graph** (function-call traversal): `codegraph` MCP if configured (50k-file gate via `/codegraph-init`)
