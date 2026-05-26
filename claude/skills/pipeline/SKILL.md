@@ -438,9 +438,9 @@ Record `**Phase Mode:** subagent` in `docs/pipeline-state.md` (Step 5.1 writes t
 
 **Progress beacon helper:** At each phase transition (Step 5.1, 5.2, 5.3, 5.5, 5.6, and on Path B/C entry), emit a beacon to the user via:
 `Bash(command='printf "[PIPELINE] feat=%s/%s step=%s cycle=%s :: %s (%s) worker=%s\n" "$IDX" "$TOTAL" "$STEP" "$CYC" "$NAME" "$TAG" "$WORKER" >&2', description='Progress beacon')`
-where `$IDX/$TOTAL/$STEP/$CYC/$NAME/$TAG/$WORKER` are the current values from `docs/pipeline-state.md`. Tags: `phase-pre`, `phase-done`, `path-b-pre`, `path-c-pre`, `feature-start`, `feature-done`, `feature-failed`, `docs-pre`, `docs-done`.
+where `$IDX/$TOTAL/$STEP/$CYC/$NAME/$TAG/$WORKER` are the current values from `docs/pipeline-state.md`. Tags: `phase-pre`, `phase-done`, `path-b-pre`, `path-c-pre`, `path-d-pre`, `path-d-post`, `feature-start`, `feature-done`, `feature-failed`, `docs-pre`, `docs-done`.
 
-For notify-class tags (`feature-failed`, `path-b-pre`, `path-c-pre`, `feature-done`), the beacon helper ALSO invokes `claude/hooks/notify-emit.sh --mode beacon` with `NOTIFY_*` env vars derived from `docs/pipeline-state.md` (`NOTIFY_FEATURE_INDEX` from `**Feature:**`, `NOTIFY_STEP` from `**Step:**`, `NOTIFY_FEATURE_NAME` from `**Name:**`, `NOTIFY_EVENT_TYPE` per the canonical hook event mapping in § Notifications below, `NOTIFY_TEXT` from the in-memory `<task-notification>` `<summary>` or the beacon's tag context, capped at 200 chars by the helper). For interactive sessions with Remote Control + "Push when Claude decides" enabled, the orchestrator captures the helper's JSON-line stdout and forwards it to the `PushNotification` tool (Claude Code 2.1.110+). For non-interactive subprocess-driver runs (`orchestrate.sh`, `claude -p`), `PushNotification` is interactive-session-only and the helper falls through to the `Notification`-hook OSC 777 `terminalSequence` path. The non-notify tags (`phase-pre`, `phase-done`, `feature-start`, `docs-pre`, `docs-done`) emit only the printf beacon — no notify-emit invocation. The helper short-circuits to a no-op when `PIPELINE_NO_NOTIFICATIONS=1` is set in the environment.
+For notify-class tags (`feature-failed`, `path-b-pre`, `path-c-pre`, `feature-done`), the beacon helper ALSO invokes `claude/hooks/notify-emit.sh --mode beacon` with `NOTIFY_*` env vars derived from `docs/pipeline-state.md` (`NOTIFY_FEATURE_INDEX` from `**Feature:**`, `NOTIFY_STEP` from `**Step:**`, `NOTIFY_FEATURE_NAME` from `**Name:**`, `NOTIFY_EVENT_TYPE` per the canonical hook event mapping in § Notifications below, `NOTIFY_TEXT` from the in-memory `<task-notification>` `<summary>` or the beacon's tag context, capped at 200 chars by the helper). For `feature-failed` specifically, the helper invocation also sets `NOTIFY_PATH_D_ATTEMPTED` to the current `**Path D attempted:**` boolean from `docs/pipeline-state.md` so the beacon-mode payload surfaces `path_d_attempted` — letting the user tell at a glance whether the salvage path ran before the feature died. For interactive sessions with Remote Control + "Push when Claude decides" enabled, the orchestrator captures the helper's JSON-line stdout and forwards it to the `PushNotification` tool (Claude Code 2.1.110+). For non-interactive subprocess-driver runs (`orchestrate.sh`, `claude -p`), `PushNotification` is interactive-session-only and the helper falls through to the `Notification`-hook OSC 777 `terminalSequence` path. The non-notify tags (`phase-pre`, `phase-done`, `feature-start`, `docs-pre`, `docs-done`) emit only the printf beacon — no notify-emit invocation. The helper short-circuits to a no-op when `PIPELINE_NO_NOTIFICATIONS=1` is set in the environment.
 
 `$WORKER` defaults to `claude` when no routing override is in effect. When `/implement-plan` Step 1.5 resolves a per-task `worker:` header to an alternate class, `$WORKER` is set to that class name before the beacon fires. The resolution order for `$WORKER` is defined in `claude/lib/worker-provider/interface.md` § Env-var resolution.
 
@@ -572,6 +572,7 @@ Write/update `docs/pipeline-state.md`:
 **Step:** analyze
 **Review cycles:** 0
 **Replan count:** 0
+**Path D attempted:** false
 **Started:** [YYYY-MM-DD HH:MM]
 **Phase Mode:** <subagent|subprocess|inline>
 **Last phase agent:** [subagent ID, only when Phase Mode = subagent]
@@ -1028,6 +1029,7 @@ Full per-path flows are defined in `reference.md` § "Step 5.8: Execute Path —
 - **Path A — Review Passed:** push → create PR → CI monitor (max 3 fix attempts) → auto-merge → post-merge cleanup → CD health check → log SUCCESS
 - **Path B — Fixable Findings:** re-implement → re-review, capped at 5 review cycles. **Always honors `**Phase Mode:**` from `docs/pipeline-state.md`** — re-implement and re-review dispatch via `Agent` tool when `Phase Mode = subagent` (the default). Optional `PIPELINE_NIT_FIRST=1` runs a Path-N-style inline nit preamble first.
 - **Path C — Scope Change:** re-plan (capped at 1) → re-implement → re-review. Same `Phase Mode` honoring as Path B.
+- **Path D — Fresh-context Salvage:** one-shot `general-purpose` subagent dispatch armed with the full Run Log + review history + plan/prompts + current diff. Fires only after Path C exhausts AND `**Path D attempted:**` is `false`. On any failure (subagent error, lingering findings, blocked status, budget breach mid-dispatch), proceeds directly to the feature-failed terminal — never loops back to Path B / C / N / M / Retry. See `reference.md` § "Path D — Fresh-context Salvage" for the full body and the no-infinite-loop backstop.
 - **Path N — Nit-Only Inline:** Edit-tool nit fixes inline → sanity gate → commit → re-route via Step 5.7. Capped at 2 cycles. **A legitimate inline path (alongside Path M).**
 - **Path M — Inline Mini-Fix:** Gate-predicate-qualified small non-blocking fixes inline via Edit tool → sanity gate → commit (`fix: address review feedback inline`) → re-route via Step 5.7. Capped at 2 inline cycles (`**Inline cycles:**` state field). Edit-tool only — snapshot-revert + Path B escalation on sanity-gate failure. See `reference.md` § Path M for full body.
 - **Retry — BLOCKED:** retry /review on transient failures only, capped at 3 attempts. Re-review honors `Phase Mode`.
@@ -1254,7 +1256,7 @@ When `TERMINAL=1`, append/replace these fields in `docs/pipeline-state.md`:
 - Append (or replace if present) `**Completed:** $(date -u +%Y-%m-%dT%H:%M:%SZ)`.
 - Append (or replace if present) `**Features merged:** $features_merged`.
 
-When `TERMINAL=0` (any feature failed, Path C escalation stuck, BUDGET_EXCEEDED hit, or pipeline halted mid-flight): SKIP terminal cleanup entirely. The state file is left at its mid-flight position so a subsequent `/pipeline --restart-from <phase>` can resume cleanly.
+When `TERMINAL=0` (any feature failed, Path C escalation stuck, Path D salvage stuck, BUDGET_EXCEEDED hit, or pipeline halted mid-flight): SKIP terminal cleanup entirely. The state file is left at its mid-flight position so a subsequent `/pipeline --restart-from <phase>` can resume cleanly.
 
 After terminal cleanup, proceed to Step 6 Final Summary which prints the run report.
 
@@ -1333,7 +1335,7 @@ The Step 5.0 beacon helper's notify-class tags (`feature-failed`, `path-b-pre`, 
 5. **Base branch detection.** Use the standard snippet from `~/.claude/rules/workflow.md` § Base Branch Detection wherever the base branch is needed.
 6. **Feature file is the log.** All run results are appended to the feature file — no separate log files.
 7. **Context management.** Phase-as-Subagent architecture is the default — each phase runs in a fresh `Agent` context for true isolation, replacing the prior conditional `/compact` mitigation. Path N nit-attack sub-paths are the only inline-context exception, and they are bounded (max 2 cycles, Edit-tool only). The conditional `/compact` calls in Step 5.2 / 5.3 / 5.5 / 5.6 remain documented but are unreachable on a `subagent`-mode dispatch — they apply only to legacy `inline`-mode resumes.
-8. **Maximum review cycles per feature.** Path B allows 5 review cycles. Path C allows 1 re-plan, which then re-enters Path B (5 more cycles). Theoretical maximum: 11 review iterations per feature. Retries for BLOCKED outcomes add up to 3 more attempts (transient failures only).
+8. **Maximum review cycles per feature.** Path B allows 5 review cycles. Path C allows 1 re-plan, which then re-enters Path B (5 more cycles). Path D adds 1 more salvage attempt after Path C exhausts (fresh-context `general-purpose` dispatch — see `reference.md` § "Path D — Fresh-context Salvage"). Theoretical maximum: 12 review iterations per feature. Retries for BLOCKED outcomes add up to 3 more attempts (transient failures only).
 
 ---
 

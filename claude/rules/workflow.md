@@ -174,6 +174,7 @@ If this snippet needs updating, change it here — all skills reference this sec
 - `**Features merged:**` — integer count of features that completed `/ppr` successfully. Written by Step 5.10. Absent on halt paths.
 - `**Review cycles:**` — integer, incremented on each Path B iteration
 - `**Replan count:**` — integer, incremented on each Path C iteration
+- `**Path D attempted:**` — boolean (`true` | `false`), default `false`. Set to `true` immediately before the Path D salvage dispatch fires (persist before subagent invocation so a crash mid-dispatch still bars a double-fire on resume). Absent field on legacy state files is treated as `false` (untried). See SKILL.md Step 5.8 Path D row and `reference.md` § "Path D — Fresh-context Salvage" for the full salvage contract and the no-infinite-loop backstop.
 - `**Started:**` — pipeline start timestamp
 - `**Max USD:**` — hard cap for cumulative cost across the run (from `--max-usd`). Value is `unlimited` when the flag was omitted; the budget check treats `unlimited` as a no-op.
 - `**Max turns:**` — hard cap for accumulated sub-agent turns (from `--max-turns`). Value is `unlimited` when the flag was omitted.

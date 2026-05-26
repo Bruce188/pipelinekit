@@ -56,6 +56,11 @@ payload = {
     "text":          os.environ.get("NOTIFY_TEXT_OUT", ""),
     "action_link":   os.environ.get("NOTIFY_ACTION_LINK", ""),
     "feature_name":  os.environ.get("NOTIFY_FEATURE_NAME", ""),
+    # path_d_attempted surfaces Path D salvage state for feature-failed events.
+    # Defaults to False when the env var is absent (legacy callers, non-failed
+    # events). The orchestrator sets NOTIFY_PATH_D_ATTEMPTED=true when emitting
+    # the feature-failed beacon after a Path D dispatch has fired.
+    "path_d_attempted": os.environ.get("NOTIFY_PATH_D_ATTEMPTED", "false").lower() == "true",
 }
 sys.stdout.write(json.dumps(payload) + "\n")
 '
