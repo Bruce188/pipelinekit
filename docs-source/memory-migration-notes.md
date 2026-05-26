@@ -1,3 +1,6 @@
+<!--
+diataxis: explanation
+-->
 # Memory Migration Notes
 
 How pipelinekit migrates from flat-file memory to agentmemory MCP.

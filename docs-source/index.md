@@ -1,6 +1,11 @@
+<!--
+diataxis: reference
+-->
 # pipelinekit documentation
 
 The complete user-facing documentation for pipelinekit \(autonomous `/pipeline` orchestrator + skills + agents + hooks\). Every page below is self-contained HTML \(no CDN, no remote assets\) — clone the repo and open any page directly via `file://` URL, or serve the folder via any static HTTP server.
+
+<div data-snippet="search-widget"></div>
 
 ## System architecture
 

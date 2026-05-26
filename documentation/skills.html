@@ -470,6 +470,93 @@ details > *:not(summary) { padding: 0 1rem 0.8rem; }
 .search-hit { background: rgba(255, 230, 0, 0.45); border-radius: 2px; padding: 0 2px; }
 html[data-theme="dark"] .search-hit, :root[data-theme="dark"] .search-hit { background: rgba(255, 200, 0, 0.35); }
 
+/* === Diataxis quadrant chip === */
+.diataxis-chip {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  margin-bottom: 0.7rem;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--fg-muted);
+}
+.diataxis-chip.diataxis-tutorial { color: #047857; border-color: #6ee7b7; background: #ecfdf5; }
+.diataxis-chip.diataxis-how-to { color: #1d4ed8; border-color: #93c5fd; background: #eff6ff; }
+.diataxis-chip.diataxis-reference { color: #6d28d9; border-color: #c4b5fd; background: #f5f3ff; }
+.diataxis-chip.diataxis-explanation { color: #b45309; border-color: #fcd34d; background: #fffbeb; }
+html[data-theme="dark"] .diataxis-chip.diataxis-tutorial, :root[data-theme="dark"] .diataxis-chip.diataxis-tutorial { color: #6ee7b7; background: #064e3b33; border-color: #047857; }
+html[data-theme="dark"] .diataxis-chip.diataxis-how-to, :root[data-theme="dark"] .diataxis-chip.diataxis-how-to { color: #93c5fd; background: #1e3a8a33; border-color: #1d4ed8; }
+html[data-theme="dark"] .diataxis-chip.diataxis-reference, :root[data-theme="dark"] .diataxis-chip.diataxis-reference { color: #c4b5fd; background: #4c1d9533; border-color: #6d28d9; }
+html[data-theme="dark"] .diataxis-chip.diataxis-explanation, :root[data-theme="dark"] .diataxis-chip.diataxis-explanation { color: #fcd34d; background: #78350f33; border-color: #b45309; }
+
+/* === Docs index search widget === */
+.docs-search {
+  margin: 1.5rem 0 2rem;
+  padding: 1.2rem 1.4rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.docs-search input[type="search"] {
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  transition: border-color var(--transition);
+}
+.docs-search input[type="search"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.docs-search-results {
+  list-style: none;
+  padding: 0;
+  margin: 0.8rem 0 0;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.docs-search-results li {
+  margin: 0;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+.docs-search-results li:last-child { border-bottom: none; }
+.docs-search-results a {
+  display: block;
+  color: var(--fg);
+  text-decoration: none;
+  font-weight: 500;
+  border-bottom: none;
+}
+.docs-search-results a:hover { color: var(--accent); }
+.docs-search-results .docs-search-excerpt {
+  font-size: 0.83rem;
+  color: var(--fg-muted);
+  margin-top: 0.15rem;
+}
+.docs-search-results .docs-search-quadrant {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-left: 0.5rem;
+  color: var(--fg-subtle);
+}
+.docs-search-hint {
+  font-size: 0.82rem;
+  color: var(--fg-subtle);
+  margin: 0.5rem 0 0;
+}
+
 /* === Footer === */
 footer {
   margin: 4rem auto 0;
@@ -537,6 +624,7 @@ footer {
 
   <main>
     <header class="page-header">
+      <span class="diataxis-chip diataxis-reference">reference</span>
       <h1>Skills catalog</h1>
       <p class="description">Browse all 42 pipelinekit skills — workflow orchestration, development, ops, mobile, authoring, and AI-tool utilities. Use the search box or section filter to find what you need.</p>
       <div class="page-meta"></div>
@@ -669,6 +757,7 @@ footer {
       <button class="pkit-skg-chip" data-section="ai-tools">ai-tools</button>
       <button class="pkit-skg-chip" data-section="authoring">authoring</button>
       <button class="pkit-skg-chip" data-section="dev">dev</button>
+      <button class="pkit-skg-chip" data-section="misc">misc</button>
       <button class="pkit-skg-chip" data-section="mobile">mobile</button>
       <button class="pkit-skg-chip" data-section="ops">ops</button>
       <button class="pkit-skg-chip" data-section="workflow">workflow</button>
@@ -710,6 +799,11 @@ footer {
       <p class="pkit-skg-desc">Comprehensive codebase health assessment with quality metrics, test coverage, documentation, and maintainability analysis. Use for quality gates, pre-release checks, or periodic health monitoring.</p>
       <span class="pkit-skg-section-badge">dev</span>
     </div>
+    <div class="pkit-skg-card" data-skill-card data-section="misc" data-name="codegraph-init">
+      <span class="pkit-skg-name">codegraph-init</span>
+      <p class="pkit-skg-desc">Initialize codegraph index in the current project. Walks the 50k-file pre-flight gate. Use when starting symbolic-graph work in a new repo.</p>
+      <span class="pkit-skg-section-badge">misc</span>
+    </div>
     <div class="pkit-skg-card" data-skill-card data-section="authoring" data-name="commit-conventions">
       <span class="pkit-skg-name">commit-conventions</span>
       <p class="pkit-skg-desc">Conventional commit format, message rules, and attribution policy. Loaded when writing commit messages, creating PRs, or merging branches.</p>
@@ -729,6 +823,11 @@ footer {
       <span class="pkit-skg-name">dependency-auditor</span>
       <p class="pkit-skg-desc">Check dependencies for known vulnerabilities using npm audit, pip-audit, etc. Use when package.json or requirements.txt changes, or before deployments. Alerts on vulnerable dependencies. Triggers on dependency file changes, deployment prep, security mentions.</p>
       <span class="pkit-skg-section-badge">ops</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="workflow" data-name="digest-memories">
+      <span class="pkit-skg-name">digest-memories</span>
+      <p class="pkit-skg-desc">Synthesize per-project memory proposals from the session journal written by memory-journal.sh. User-invoked via /digest-memories slash command. Reads recent sessions, proposes additions to ~/.claude/projects/&lt;slug&gt;/memory/, requires user confirmation before writing.</p>
+      <span class="pkit-skg-section-badge">workflow</span>
     </div>
     <div class="pkit-skg-card" data-skill-card data-section="ops" data-name="digitalocean-ops">
       <span class="pkit-skg-name">digitalocean-ops</span>
@@ -764,6 +863,11 @@ footer {
       <span class="pkit-skg-name">fix-issue</span>
       <p class="pkit-skg-desc">Fix a GitHub issue by number. Reads the issue, implements a fix with TDD, and commits.</p>
       <span class="pkit-skg-section-badge">dev</span>
+    </div>
+    <div class="pkit-skg-card" data-skill-card data-section="misc" data-name="graphify-init">
+      <span class="pkit-skg-name">graphify-init</span>
+      <p class="pkit-skg-desc">Initialize graphify build in the current project. Walks the 50k-file pre-flight gate. Use when starting graph-knowledge work in a new repo.</p>
+      <span class="pkit-skg-section-badge">misc</span>
     </div>
     <div class="pkit-skg-card" data-skill-card data-section="workflow" data-name="handoff-create">
       <span class="pkit-skg-name">handoff-create</span>
@@ -882,7 +986,7 @@ footer {
     </div>
     <div class="pkit-skg-empty-msg">No skills match your filter.</div>
   </div>
-  <p class="pkit-skg-count">41 skills</p>
+  <p class="pkit-skg-count">44 skills</p>
   <script type="application/json" data-catalog-data>
 [
   {
@@ -921,6 +1025,11 @@ footer {
     "section": "dev"
   },
   {
+    "name": "codegraph-init",
+    "description": "Initialize codegraph index in the current project. Walks the 50k-file pre-flight gate. Use when starting symbolic-graph work in a new repo.",
+    "section": "misc"
+  },
+  {
     "name": "commit-conventions",
     "description": "Conventional commit format, message rules, and attribution policy. Loaded when writing commit messages, creating PRs, or merging branches.",
     "section": "authoring"
@@ -939,6 +1048,11 @@ footer {
     "name": "dependency-auditor",
     "description": "Check dependencies for known vulnerabilities using npm audit, pip-audit, etc. Use when package.json or requirements.txt changes, or before deployments. Alerts on vulnerable dependencies. Triggers on dependency file changes, deployment prep, security mentions.",
     "section": "ops"
+  },
+  {
+    "name": "digest-memories",
+    "description": "Synthesize per-project memory proposals from the session journal written by memory-journal.sh. User-invoked via /digest-memories slash command. Reads recent sessions, proposes additions to ~/.claude/projects/<slug>/memory/, requires user confirmation before writing.",
+    "section": "workflow"
   },
   {
     "name": "digitalocean-ops",
@@ -974,6 +1088,11 @@ footer {
     "name": "fix-issue",
     "description": "Fix a GitHub issue by number. Reads the issue, implements a fix with TDD, and commits.",
     "section": "dev"
+  },
+  {
+    "name": "graphify-init",
+    "description": "Initialize graphify build in the current project. Walks the 50k-file pre-flight gate. Use when starting graph-knowledge work in a new repo.",
+    "section": "misc"
   },
   {
     "name": "handoff-create",

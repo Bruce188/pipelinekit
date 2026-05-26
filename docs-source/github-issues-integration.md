@@ -1,3 +1,6 @@
+<!--
+diataxis: how-to
+-->
 # GitHub Issues Integration
 
 `/pipeline --issues <selector>` ingests open GitHub Issues as the feature source for an autonomous pipeline run. Map a label, milestone, or filter to a queue of features, and each open issue becomes one H2 section in `docs/features.md` with a `Closes #N` footer on the resulting PR.

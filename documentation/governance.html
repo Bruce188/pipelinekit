@@ -470,6 +470,93 @@ details > *:not(summary) { padding: 0 1rem 0.8rem; }
 .search-hit { background: rgba(255, 230, 0, 0.45); border-radius: 2px; padding: 0 2px; }
 html[data-theme="dark"] .search-hit, :root[data-theme="dark"] .search-hit { background: rgba(255, 200, 0, 0.35); }
 
+/* === Diataxis quadrant chip === */
+.diataxis-chip {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  margin-bottom: 0.7rem;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--fg-muted);
+}
+.diataxis-chip.diataxis-tutorial { color: #047857; border-color: #6ee7b7; background: #ecfdf5; }
+.diataxis-chip.diataxis-how-to { color: #1d4ed8; border-color: #93c5fd; background: #eff6ff; }
+.diataxis-chip.diataxis-reference { color: #6d28d9; border-color: #c4b5fd; background: #f5f3ff; }
+.diataxis-chip.diataxis-explanation { color: #b45309; border-color: #fcd34d; background: #fffbeb; }
+html[data-theme="dark"] .diataxis-chip.diataxis-tutorial, :root[data-theme="dark"] .diataxis-chip.diataxis-tutorial { color: #6ee7b7; background: #064e3b33; border-color: #047857; }
+html[data-theme="dark"] .diataxis-chip.diataxis-how-to, :root[data-theme="dark"] .diataxis-chip.diataxis-how-to { color: #93c5fd; background: #1e3a8a33; border-color: #1d4ed8; }
+html[data-theme="dark"] .diataxis-chip.diataxis-reference, :root[data-theme="dark"] .diataxis-chip.diataxis-reference { color: #c4b5fd; background: #4c1d9533; border-color: #6d28d9; }
+html[data-theme="dark"] .diataxis-chip.diataxis-explanation, :root[data-theme="dark"] .diataxis-chip.diataxis-explanation { color: #fcd34d; background: #78350f33; border-color: #b45309; }
+
+/* === Docs index search widget === */
+.docs-search {
+  margin: 1.5rem 0 2rem;
+  padding: 1.2rem 1.4rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.docs-search input[type="search"] {
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  transition: border-color var(--transition);
+}
+.docs-search input[type="search"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.docs-search-results {
+  list-style: none;
+  padding: 0;
+  margin: 0.8rem 0 0;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.docs-search-results li {
+  margin: 0;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+.docs-search-results li:last-child { border-bottom: none; }
+.docs-search-results a {
+  display: block;
+  color: var(--fg);
+  text-decoration: none;
+  font-weight: 500;
+  border-bottom: none;
+}
+.docs-search-results a:hover { color: var(--accent); }
+.docs-search-results .docs-search-excerpt {
+  font-size: 0.83rem;
+  color: var(--fg-muted);
+  margin-top: 0.15rem;
+}
+.docs-search-results .docs-search-quadrant {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-left: 0.5rem;
+  color: var(--fg-subtle);
+}
+.docs-search-hint {
+  font-size: 0.82rem;
+  color: var(--fg-subtle);
+  margin: 0.5rem 0 0;
+}
+
 /* === Footer === */
 footer {
   margin: 4rem auto 0;
@@ -538,11 +625,18 @@ footer {
       <li class="lvl-2"><a href="#advisory-hooks-prompt-injection-scanner">Advisory hooks — prompt-injection scanner</a></li>
       <li class="lvl-2"><a href="#adoption-metrics">Adoption metrics</a></li>
       <li class="lvl-2"><a href="#governance-command-cheatsheet">Governance command cheatsheet</a></li>
+      <li class="lvl-2"><a href="#deprecation-policy">Deprecation policy</a></li>
+      <li class="lvl-3"><a href="#notice-window">Notice window</a></li>
+      <li class="lvl-3"><a href="#alias-window">Alias window</a></li>
+      <li class="lvl-3"><a href="#removal-criteria">Removal criteria</a></li>
+      <li class="lvl-3"><a href="#communication-channels">Communication channels</a></li>
+      <li class="lvl-3"><a href="#exceptions">Exceptions</a></li>
     </ul>
   </aside>
 
   <main>
     <header class="page-header">
+      <span class="diataxis-chip diataxis-explanation">explanation</span>
       <h1>Governance playbook — AI Champions and standardization</h1>
       <p class="description">How to land pipelinekit conventions across multiple projects without skill drift, hook divergence, or a CLAUDE.md that nobody owns. Names a single role per team — the AI Champion — and codifies the playbook that role runs.</p>
       <div class="page-meta"></div>
@@ -1070,6 +1164,30 @@ footer {
 })();
 </script>
 
+
+<h2 id="deprecation-policy">Deprecation policy</h2>
+<p>Skills, agents, hooks, slash-commands, and flags are removed on a published schedule — never silently. The Champion owns enforcement; this section is the contract every contributor reads before deleting a surface.</p>
+<h3 id="notice-window">Notice window</h3>
+<p>Any user-visible surface (skill name, agent name, slash-command, CLI flag, configuration key, hook trigger event) MUST land its deprecation notice <strong>at least one minor release before removal</strong>. Patch releases never remove surfaces. The notice has three required parts:</p>
+<ol>
+<li>A bold <code>&gt; ⚠️ **Deprecated in v&lt;X.Y&gt;; removed in v&lt;X.Y+1&gt;.**</code> callout at the top of the surface's documentation page (or its frontmatter section for slash-commands and flags).</li>
+<li>A console-emitted warning printed by the surface itself on every invocation — exactly one line, prefixed <code>DEPRECATED:</code>, naming the replacement (or <code>no replacement — see &lt;doc-link&gt;</code> when none exists).</li>
+<li>A changelog entry under the deprecating release's section, naming the old surface, the planned removal release, and the migration path.</li>
+</ol>
+<h3 id="alias-window">Alias window</h3>
+<p>Renames carry an alias for one full minor release. The new name is canonical from day one; the old name remains invocable, emits the <code>DEPRECATED:</code> warning on every call, and is removed in the next minor release. Aliases are recorded in <code>claude/skills/&lt;new&gt;/SKILL.md</code> (or the equivalent agent / hook / command file) under an <code>## Alias</code> H2 section listing the old name and the alias-removal release. Example: <code>--auto</code> was a deprecation alias for <code>--no-prompts</code> for one release before removal.</p>
+<h3 id="removal-criteria">Removal criteria</h3>
+<p>Surfaces are eligible for removal when ALL of the following hold:</p>
+<ul>
+<li>The notice window has expired (the named removal release has shipped).</li>
+<li>The Champion has verified the surface has zero in-bound references across <code>claude/</code>, <code>documentation/</code>, <code>docs-source/</code>, <code>examples/</code>, <code>scripts/</code>, and the pinned upstream-vendored content in <code>claude/tresor-resources/</code>. A repo-wide grep for the old name MUST return only the changelog entry that documented the deprecation.</li>
+<li>A migration recipe (one paragraph plus a one-line <code>before</code> / <code>after</code> example) exists in the next-release changelog under a <code>### Migration</code> subsection.</li>
+<li>The removal PR is reviewed and merged by the Champion (or a delegated reviewer named in the project's <code>CODEOWNERS</code>), not the author of the deprecation.</li>
+</ul>
+<h3 id="communication-channels">Communication channels</h3>
+<p>Each deprecation appears in three places: the surface's own doc page (callout), the changelog (entry), and the next-release announcement (a single bulleted list under <code>### Deprecations</code> near the top of the release notes). The Champion confirms all three landed before merging the deprecation PR — a deprecation that ships in only one channel is treated as un-shipped.</p>
+<h3 id="exceptions">Exceptions</h3>
+<p>Security fixes may remove surfaces without the notice window when a vulnerability is being actively exploited and a one-release pause would extend the exposure window. Such removals MUST land with: an explicit <code>### Security removal</code> changelog subsection citing the CVE or advisory, a Champion-signed approval recorded in the PR description, and a follow-up migration guide published within seven days of the release.</p>
     </div>
 
     <div class="no-results" id="no-results">

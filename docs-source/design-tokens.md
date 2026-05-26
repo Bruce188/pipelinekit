@@ -1,3 +1,6 @@
+<!--
+diataxis: explanation
+-->
 # Design tokens
 
 Canonical visual reference for pipelinekit's `claude/skills/docs-writer/template.html` design tokens. Every page rendered via `render.py` consumes these CSS custom properties — modifying them retheme every shipped page atomically.

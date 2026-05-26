@@ -1,5 +1,6 @@
-<!-- richness-exempt: codebase reference page — flat table, no interactive surface fits -->
-
+<!--
+diataxis: reference
+-->
 # Codebase Map
 
 The pipelinekit repository top-level layout — one line per directory, one line per significant root file. Cross-linked from the root [CLAUDE.md](../CLAUDE.md).

@@ -1,3 +1,6 @@
+<!--
+diataxis: how-to
+-->
 # Installation
 
 ## Stability

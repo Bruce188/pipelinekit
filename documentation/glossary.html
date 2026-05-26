@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Design tokens — pipelinekit</title>
-<meta name="description" content="Canonical visual reference for pipelinekit&#x27;s claude/skills/docs-writer/template.html design tokens. Every page rendered via render.py consumes these CSS custom properties — modifying them retheme every shipped page atomically.">
+<title>Glossary — pipelinekit</title>
+<meta name="description" content="Definitions of the terms that recur across pipelinekit skills, agents, hooks, and prompts. Each entry links to a primary source where the term is defined and used.">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -597,7 +597,7 @@ footer {
     <span>pipelinekit docs</span>
   </a>
   <div class="crumbs">
-    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Design tokens</span>
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Glossary</span>
   </div>
   <div class="search-box">
     <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -618,615 +618,76 @@ footer {
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
     <ul>
-      <li class="lvl-2"><a href="#what">What</a></li>
-      <li class="lvl-2"><a href="#color-swatch">Color swatch</a></li>
-      <li class="lvl-3"><a href="#backgrounds-4">Backgrounds (4)</a></li>
-      <li class="lvl-3"><a href="#foregrounds-3">Foregrounds (3)</a></li>
-      <li class="lvl-3"><a href="#borders-2">Borders (2)</a></li>
-      <li class="lvl-3"><a href="#accents-3">Accents (3)</a></li>
-      <li class="lvl-3"><a href="#semantic-3">Semantic (3)</a></li>
-      <li class="lvl-3"><a href="#shadows-2">Shadows (2)</a></li>
-      <li class="lvl-2"><a href="#type-scale">Type scale</a></li>
-      <li class="lvl-2"><a href="#spacing-radii-scale">Spacing &amp; radii scale</a></li>
-      <li class="lvl-2"><a href="#syntax-highlighting-tokens">Syntax highlighting tokens</a></li>
-      <li class="lvl-2"><a href="#motion">Motion</a></li>
-      <li class="lvl-2"><a href="#light-vs-dark-scrubber">Light vs dark scrubber</a></li>
-      <li class="lvl-2"><a href="#see-also">See also</a></li>
+      <li class="lvl-2"><a href="#terms">Terms</a></li>
+      <li class="lvl-2"><a href="#cross-reference">Cross-reference</a></li>
     </ul>
   </aside>
 
   <main>
     <header class="page-header">
-      <span class="diataxis-chip diataxis-explanation">explanation</span>
-      <h1>Design tokens</h1>
-      <p class="description">Canonical visual reference for pipelinekit&#x27;s claude/skills/docs-writer/template.html design tokens. Every page rendered via render.py consumes these CSS custom properties — modifying them retheme every shipped page atomically.</p>
+      <span class="diataxis-chip diataxis-reference">reference</span>
+      <h1>Glossary</h1>
+      <p class="description">Definitions of the terms that recur across pipelinekit skills, agents, hooks, and prompts. Each entry links to a primary source where the term is defined and used.</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
-<h2 id="what">What</h2>
-<p>The <code>docs-writer/2</code> template ships with <strong>41 CSS custom properties</strong> (22 light-theme + 19 dark-theme overrides, plus shared typography / radii / syntax / motion tokens). All snippets, all content blocks, and the topbar / sidebar / footer chrome consume these tokens — there are zero hard-coded colors in production. Dark mode is a token swap; print mode skips them entirely.</p>
-<p>This page is the canonical Visual-token exemplar referenced from <a href="html-effectiveness-principles.html">HTML effectiveness principles</a>. It shows every token rendered, side-by-side light vs dark where applicable, with the exact property name. Use it as a reference when authoring a new snippet (snippets MUST use only these tokens — see § Authoring a new snippet in <a href="../claude/skills/docs-writer/SKILL.md">docs-writer SKILL.md</a>).</p>
-<h2 id="color-swatch">Color swatch</h2>
-<p>The 22 light tokens (top) and the 19 dark-mode overrides (bottom). The dark scheme overrides backgrounds, foregrounds, borders, accent, semantic, shadow, and the 7 syntax tokens; radii / typography / motion are shared and do not flip.</p>
-<!-- snippet:comparison-tabs
-     Tabbed side-by-side comparison of the 5 cloud deployment providers.
-     Click a tab to compare against the page's "home" provider on:
-     pricing model, build system, DB story, region story, scaling story.
-
-     The "home" provider is auto-detected from <title> if it contains
-     "Vercel", "Azure", "Railway", "Render", or "DigitalOcean".
-
-     Placeholder usage:
-       <div data-snippet="comparison-tabs"></div>
--->
-<div class="pkit-cmp" data-snippet-mount="comparison-tabs">
-  <style>
-    .pkit-cmp { margin: 1.5rem 0; padding: 1.5rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); }
-    .pkit-cmp .pkit-cmp-tabs { display: flex; gap: 0.3rem; flex-wrap: wrap; border-bottom: 1px solid var(--border); margin-bottom: 1rem; padding-bottom: 0; }
-    .pkit-cmp .pkit-cmp-tab { padding: 0.5rem 0.9rem; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--fg-muted); font-family: var(--sans); font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: all var(--transition); position: relative; bottom: -1px; }
-    .pkit-cmp .pkit-cmp-tab:hover { color: var(--fg); }
-    .pkit-cmp .pkit-cmp-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-    .pkit-cmp .pkit-cmp-tab .icon { margin-right: 0.3rem; }
-    .pkit-cmp .pkit-cmp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    @media (max-width: 720px) { .pkit-cmp .pkit-cmp-grid { grid-template-columns: 1fr; } }
-    .pkit-cmp .pkit-cmp-col { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; }
-    .pkit-cmp .pkit-cmp-col h4 { margin: 0 0 0.8rem; font-size: 1rem; font-weight: 700; color: var(--fg); display: flex; align-items: center; gap: 0.4rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
-    .pkit-cmp .pkit-cmp-col.home h4 { color: var(--accent); }
-    .pkit-cmp .pkit-cmp-col h4 .badge { font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 999px; background: var(--accent-soft); color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
-    .pkit-cmp .pkit-cmp-row { display: flex; flex-direction: column; padding: 0.55rem 0; border-bottom: 1px dashed var(--border); }
-    .pkit-cmp .pkit-cmp-row:last-child { border-bottom: none; padding-bottom: 0; }
-    .pkit-cmp .pkit-cmp-key { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-subtle); font-weight: 600; margin-bottom: 0.2rem; }
-    .pkit-cmp .pkit-cmp-val { font-size: 0.88rem; color: var(--fg); line-height: 1.5; }
-    .pkit-cmp .pkit-cmp-val code { background: var(--bg-elev); padding: 0.1rem 0.4rem; border-radius: var(--radius-sm); font-size: 0.82rem; border: 1px solid var(--border); }
-    .pkit-cmp .pkit-cmp-note { font-size: 0.78rem; color: var(--fg-subtle); margin-top: 0.8rem; font-style: italic; }
-  </style>
-
-  <div class="pkit-cmp-tabs" data-cmp-tabs></div>
-  <div class="pkit-cmp-grid" data-cmp-grid></div>
-  <p class="pkit-cmp-note">Click any tab to compare this page's provider against another. Compare against → switches the right column.</p>
-
-  <script type="application/json" data-cmp-data>
-{
-  "providers": {
-    "vercel": {
-      "name": "Vercel", "icon": "▲", "color": "#000",
-      "rows": {
-        "Pricing model": "Per-invocation (Hobby free / Pro $20/mo + usage). Free tier generous for static + low-traffic SSR.",
-        "Build system": "Auto-detect framework presets (Next.js, SvelteKit, Astro, Remix, Vite). Zero <code>vercel.json</code> needed for the common case.",
-        "Database story": "No first-party. Use Vercel Postgres (Neon-managed) or external (Supabase / Neon direct / PlanetScale).",
-        "Region story": "Global edge by default. Pin functions to specific regions via <code>vercel.json</code>.",
-        "Scaling": "Auto-scale per-function. Cold-start ~50-200ms on warm functions; up to ~1s on rarely-hit ones."
-      }
-    },
-    "azure": {
-      "name": "Azure", "icon": "☁", "color": "#0078d4",
-      "rows": {
-        "Pricing model": "Per-resource (App Service plan, Container Apps consumption, Function Apps Y1/EP). Free tier exists but limited.",
-        "Build system": "Multiple options: App Service auto-build, Container Apps Dockerfile, Bicep IaC for full control.",
-        "Database story": "First-party: Azure SQL, Cosmos DB, PostgreSQL Flexible Server, Redis Cache. Tight integration via Managed Identity.",
-        "Region story": "60+ regions globally. Availability zones for HA. Region pairs for DR.",
-        "Scaling": "Granular: App Service plan instances, Container Apps replicas, Function consumption-plan auto-scale. Some resources scale to zero."
-      }
-    },
-    "railway": {
-      "name": "Railway", "icon": "⚡", "color": "#7c3aed",
-      "rows": {
-        "Pricing model": "Usage-based (~$5 credit/mo free, then $0.000463/GB-hour). Predictable for small projects.",
-        "Build system": "Nixpacks (zero Dockerfile for most runtimes — Node, Python, Go, Ruby). Falls back to Dockerfile if present.",
-        "Database story": "First-party managed Postgres, MySQL, Redis, MongoDB. One-click provisioning inside the same project.",
-        "Region story": "Limited regions (US-West / EU-West / Singapore). Not edge.",
-        "Scaling": "Vertical (CPU/RAM) by default. Horizontal replicas require config. Cron + workers natively supported."
-      }
-    },
-    "render": {
-      "name": "Render", "icon": "🎨", "color": "#46e3b7",
-      "rows": {
-        "Pricing model": "Per-service tier ($7/mo Standard, $25/mo Pro). Free tier for static + cron only — web services don't have a real free tier (spin-down after inactivity).",
-        "Build system": "Native runtime detection (Node, Python, Ruby, Go, Rust, Elixir, Docker). <code>render.yaml</code> for IaC.",
-        "Database story": "First-party managed Postgres + Redis. External: any.",
-        "Region story": "5 regions (Oregon, Ohio, Virginia, Frankfurt, Singapore).",
-        "Scaling": "Manual horizontal scaling on Pro+. Auto-scaling in beta. Predictable instance pricing."
-      }
-    },
-    "digitalocean": {
-      "name": "DigitalOcean App Platform", "icon": "🌊", "color": "#0080ff",
-      "rows": {
-        "Pricing model": "Per-service tier ($5/mo Basic, $12/mo Pro per instance). Predictable. No free tier for App Platform itself.",
-        "Build system": "Buildpacks (Heroku-style) or Dockerfile. Component-based deploy.",
-        "Database story": "First-party DO Managed Databases (Postgres, MySQL, Redis, MongoDB, Kafka). Separate billing from App Platform.",
-        "Region story": "12+ regions. App Platform availability varies per region; check before commit.",
-        "Scaling": "Vertical resize + horizontal scaling. App Platform handles routing automatically."
-      }
-    }
-  }
-}
-  </script>
-</div>
-
-<script>
-(function() {
-  'use strict';
-  document.querySelectorAll('.pkit-cmp[data-snippet-mount="comparison-tabs"]').forEach(cmp => {
-    if (cmp.dataset.pkitInit) return;
-    cmp.dataset.pkitInit = '1';
-
-    const dataEl = cmp.querySelector('script[data-cmp-data]');
-    const tabsEl = cmp.querySelector('[data-cmp-tabs]');
-    const gridEl = cmp.querySelector('[data-cmp-grid]');
-    if (!dataEl || !tabsEl || !gridEl) return;
-    const data = JSON.parse(dataEl.textContent);
-
-  // Detect "home" provider from <title>
-  const title = (document.title || '').toLowerCase();
-  let home = 'vercel';
-  for (const key of Object.keys(data.providers)) {
-    if (title.includes(key)) { home = key; break; }
-  }
-  // Default "other" = first non-home
-  const others = Object.keys(data.providers).filter(k => k !== home);
-  let compareKey = others[0];
-
-  function render() {
-    tabsEl.innerHTML = '';
-    Object.entries(data.providers).forEach(([key, prov]) => {
-      if (key === home) return;
-      const b = document.createElement('button');
-      b.className = 'pkit-cmp-tab' + (key === compareKey ? ' active' : '');
-      b.dataset.key = key;
-      b.innerHTML = `<span class="icon">${prov.icon}</span>${prov.name}`;
-      b.addEventListener('click', () => { compareKey = key; render(); });
-      tabsEl.appendChild(b);
-    });
-
-    const homeProv = data.providers[home];
-    const otherProv = data.providers[compareKey];
-
-    function colHtml(prov, isHome) {
-      const rows = Object.entries(prov.rows).map(([k, v]) =>
-        `<div class="pkit-cmp-row">
-           <div class="pkit-cmp-key">${k}</div>
-           <div class="pkit-cmp-val">${v}</div>
-         </div>`).join('');
-      const badge = isHome ? ' <span class="badge">this page</span>' : '';
-      return `<div class="pkit-cmp-col ${isHome ? 'home' : ''}">
-                <h4>${prov.icon} ${prov.name}${badge}</h4>
-                ${rows}
-              </div>`;
-    }
-
-    gridEl.innerHTML = colHtml(homeProv, true) + colHtml(otherProv, false);
-  }
-
-    render();
-  });
-})();
-</script>
-
-
-<h3 id="backgrounds-4">Backgrounds (4)</h3>
-<table>
-<thead>
-<tr>
-<th>Token</th>
-<th>Light</th>
-<th>Dark</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--bg</code></td>
-<td><code style="background:#ffffff;color:#1a1d23;padding:0 .4em;border:1px solid #e1e5eb">#ffffff</code> page background</td>
-<td><code style="background:#0b0f1a;color:#e8ecf3;padding:0 .4em;border:1px solid #1f2638">#0b0f1a</code></td>
-</tr>
-<tr>
-<td><code>--bg-elev</code></td>
-<td><code style="background:#fafbfc;color:#1a1d23;padding:0 .4em;border:1px solid #e1e5eb">#fafbfc</code> elevated surfaces (topbar / cards)</td>
-<td><code style="background:#131825;color:#e8ecf3;padding:0 .4em;border:1px solid #1f2638">#131825</code></td>
-</tr>
-<tr>
-<td><code>--bg-code</code></td>
-<td><code style="background:#f4f5f7;color:#1a1d23;padding:0 .4em;border:1px solid #e1e5eb">#f4f5f7</code> code-block fill</td>
-<td><code style="background:#161c2c;color:#e8ecf3;padding:0 .4em;border:1px solid #1f2638">#161c2c</code></td>
-</tr>
-<tr>
-<td><code>--bg-sel</code></td>
-<td><code style="background:#e3f2fd;color:#1a1d23;padding:0 .4em;border:1px solid #e1e5eb">#e3f2fd</code> text-selection highlight</td>
-<td><code style="background:#1e3a5f;color:#e8ecf3;padding:0 .4em;border:1px solid #1f2638">#1e3a5f</code></td>
-</tr>
-</tbody>
-</table>
-<h3 id="foregrounds-3">Foregrounds (3)</h3>
-<table>
-<thead>
-<tr>
-<th>Token</th>
-<th>Light</th>
-<th>Dark</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--fg</code></td>
-<td><code style="background:#ffffff;color:#1a1d23;padding:0 .4em;border:1px solid #e1e5eb">#1a1d23</code> primary text</td>
-<td><code style="background:#0b0f1a;color:#e8ecf3;padding:0 .4em;border:1px solid #1f2638">#e8ecf3</code></td>
-</tr>
-<tr>
-<td><code>--fg-muted</code></td>
-<td><code style="background:#ffffff;color:#5a6172;padding:0 .4em;border:1px solid #e1e5eb">#5a6172</code> secondary text</td>
-<td><code style="background:#0b0f1a;color:#9aa3b3;padding:0 .4em;border:1px solid #1f2638">#9aa3b3</code></td>
-</tr>
-<tr>
-<td><code>--fg-subtle</code></td>
-<td><code style="background:#ffffff;color:#8b94a3;padding:0 .4em;border:1px solid #e1e5eb">#8b94a3</code> tertiary / placeholder</td>
-<td><code style="background:#0b0f1a;color:#6b7589;padding:0 .4em;border:1px solid #1f2638">#6b7589</code></td>
-</tr>
-</tbody>
-</table>
-<h3 id="borders-2">Borders (2)</h3>
-<table>
-<thead>
-<tr>
-<th>Token</th>
-<th>Light</th>
-<th>Dark</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--border</code></td>
-<td><code style="background:#e1e5eb;color:#1a1d23;padding:0 .4em">#e1e5eb</code> default dividers</td>
-<td><code style="background:#1f2638;color:#e8ecf3;padding:0 .4em">#1f2638</code></td>
-</tr>
-<tr>
-<td><code>--border-strong</code></td>
-<td><code style="background:#c5cbd4;color:#1a1d23;padding:0 .4em">#c5cbd4</code> emphasized borders</td>
-<td><code style="background:#2a3349;color:#e8ecf3;padding:0 .4em">#2a3349</code></td>
-</tr>
-</tbody>
-</table>
-<h3 id="accents-3">Accents (3)</h3>
-<table>
-<thead>
-<tr>
-<th>Token</th>
-<th>Light</th>
-<th>Dark</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--accent</code></td>
-<td><code style="background:#2563eb;color:#ffffff;padding:0 .4em">#2563eb</code> links, focus rings</td>
-<td><code style="background:#60a5fa;color:#0b0f1a;padding:0 .4em">#60a5fa</code></td>
-</tr>
-<tr>
-<td><code>--accent-hover</code></td>
-<td><code style="background:#1d4ed8;color:#ffffff;padding:0 .4em">#1d4ed8</code> link hover</td>
-<td><code style="background:#93c5fd;color:#0b0f1a;padding:0 .4em">#93c5fd</code></td>
-</tr>
-<tr>
-<td><code>--accent-soft</code></td>
-<td><code style="background:#dbeafe;color:#1a1d23;padding:0 .4em">#dbeafe</code> active-ToC backgrounds</td>
-<td><code style="background:#1e3a8a;color:#e8ecf3;padding:0 .4em">#1e3a8a33</code></td>
-</tr>
-</tbody>
-</table>
-<h3 id="semantic-3">Semantic (3)</h3>
-<table>
-<thead>
-<tr>
-<th>Token</th>
-<th>Light</th>
-<th>Dark</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--success</code></td>
-<td><code style="background:#059669;color:#ffffff;padding:0 .4em">#059669</code> callout success / OK</td>
-<td><code style="background:#34d399;color:#0b0f1a;padding:0 .4em">#34d399</code></td>
-</tr>
-<tr>
-<td><code>--warn</code></td>
-<td><code style="background:#d97706;color:#ffffff;padding:0 .4em">#d97706</code> callout warning</td>
-<td><code style="background:#fbbf24;color:#0b0f1a;padding:0 .4em">#fbbf24</code></td>
-</tr>
-<tr>
-<td><code>--danger</code></td>
-<td><code style="background:#dc2626;color:#ffffff;padding:0 .4em">#dc2626</code> callout danger</td>
-<td><code style="background:#f87171;color:#0b0f1a;padding:0 .4em">#f87171</code></td>
-</tr>
-</tbody>
-</table>
-<h3 id="shadows-2">Shadows (2)</h3>
-<table>
-<thead>
-<tr>
-<th>Token</th>
-<th>Light</th>
-<th>Dark</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--shadow-sm</code></td>
-<td><code>0 1px 2px rgba(0,0,0,0.04)</code></td>
-<td><code>0 1px 2px rgba(0,0,0,0.3)</code></td>
-</tr>
-<tr>
-<td><code>--shadow-md</code></td>
-<td><code>0 4px 12px rgba(0,0,0,0.08)</code></td>
-<td><code>0 4px 12px rgba(0,0,0,0.4)</code></td>
-</tr>
-</tbody>
-</table>
-<h2 id="type-scale">Type scale</h2>
-<p>pipelinekit ships a <strong>2-family type scale</strong> — one monospace stack, one humanist sans stack. Font sizes are NOT tokenized; they live inline at <code>h1</code> 2rem / <code>h2</code> 1.6rem / <code>h3</code> 1.25rem / <code>body</code> 15px / <code>code</code> 0.88em. Adding a third family or token-izing sizes is out of scope per analysis-v88 OQ-5.</p>
-<table>
-<thead>
-<tr>
-<th>Token</th>
-<th>Stack</th>
-<th>Used for</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--mono</code></td>
-<td><code>ui-monospace, "JetBrains Mono", "SF Mono", "Cascadia Code", "Consolas", monospace</code></td>
-<td><code>&lt;code&gt;</code>, <code>&lt;pre&gt;</code>, syntax-highlighted blocks</td>
-</tr>
-<tr>
-<td><code>--sans</code></td>
-<td><code>-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif</code></td>
-<td>body text, headings, UI chrome</td>
-</tr>
-</tbody>
-</table>
-<h2 id="spacing-radii-scale">Spacing &amp; radii scale</h2>
-<p>Radii are tokenized; spacing is not. Spacing follows an observed inline <code>0.4 / 0.5 / 1.0 / 1.5 / 2.0 rem</code> scale — present consistently across the template and shipped snippets but never bound to a custom property. Per analysis-v88 OQ-5 this is "scale observed, not tokenized"; deferring a <code>--spacing-*</code> token series is intentional until a real cross-page inconsistency surfaces.</p>
-<table>
-<thead>
-<tr>
-<th>Token</th>
-<th>Value</th>
-<th>Used for</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--radius</code></td>
-<td><code>6px</code></td>
-<td>default rounded corners (buttons, cards, codeblocks, table wrappers)</td>
-</tr>
-<tr>
-<td><code>--radius-sm</code></td>
-<td><code>4px</code></td>
-<td>smaller inline elements (inline <code>&lt;code&gt;</code>, sortable-header indicators)</td>
-</tr>
-</tbody>
-</table>
-<h2 id="syntax-highlighting-tokens">Syntax highlighting tokens</h2>
-<p>Seven tokens drive Pygments class output. They consume the <code>.codehilite .&lt;class&gt;</code> selector set generated by <code>render.py</code> from fenced code blocks.</p>
-<div class="codehilite"><pre><span></span><code><span class="k">def</span> <span class="nf">example</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Doc string demonstrating syntax-highlight tokens.&quot;&quot;&quot;</span>
-    <span class="n">keyword</span> <span class="o">=</span> <span class="kc">True</span>            <span class="c1"># number token</span>
-    <span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;hello&quot;</span>         <span class="c1"># string token</span>
-    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s2">::</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span>
-</code></pre></div>
-
-<table>
-<thead>
-<tr>
-<th>Token</th>
-<th>Light</th>
-<th>Dark</th>
-<th>Pygments class(es)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--syn-kw</code></td>
-<td><code style="background:#f4f5f7;color:#7c3aed;padding:0 .4em">#7c3aed</code></td>
-<td><code style="background:#161c2c;color:#c084fc;padding:0 .4em">#c084fc</code></td>
-<td><code>.k</code>, <code>.kn</code>, <code>.kd</code>, <code>.kr</code>, <code>.kt</code></td>
-</tr>
-<tr>
-<td><code>--syn-str</code></td>
-<td><code style="background:#f4f5f7;color:#059669;padding:0 .4em">#059669</code></td>
-<td><code style="background:#161c2c;color:#4ade80;padding:0 .4em">#4ade80</code></td>
-<td><code>.s</code>, <code>.s1</code>, <code>.s2</code>, <code>.sb</code></td>
-</tr>
-<tr>
-<td><code>--syn-num</code></td>
-<td><code style="background:#f4f5f7;color:#d97706;padding:0 .4em">#d97706</code></td>
-<td><code style="background:#161c2c;color:#fbbf24;padding:0 .4em">#fbbf24</code></td>
-<td><code>.mi</code>, <code>.mf</code>, <code>.mh</code>, <code>.mo</code></td>
-</tr>
-<tr>
-<td><code>--syn-com</code></td>
-<td><code style="background:#f4f5f7;color:#6b7280;padding:0 .4em">#6b7280</code></td>
-<td><code style="background:#161c2c;color:#94a3b8;padding:0 .4em">#94a3b8</code></td>
-<td><code>.c</code>, <code>.c1</code>, <code>.cm</code>, <code>.ch</code></td>
-</tr>
-<tr>
-<td><code>--syn-fn</code></td>
-<td><code style="background:#f4f5f7;color:#2563eb;padding:0 .4em">#2563eb</code></td>
-<td><code style="background:#161c2c;color:#60a5fa;padding:0 .4em">#60a5fa</code></td>
-<td><code>.nf</code>, <code>.fm</code>, <code>.nv</code>, <code>.nb</code></td>
-</tr>
-<tr>
-<td><code>--syn-cls</code></td>
-<td><code style="background:#f4f5f7;color:#db2777;padding:0 .4em">#db2777</code></td>
-<td><code style="background:#161c2c;color:#f472b6;padding:0 .4em">#f472b6</code></td>
-<td><code>.nc</code>, <code>.ne</code></td>
-</tr>
-<tr>
-<td><code>--syn-op</code></td>
-<td><code style="background:#f4f5f7;color:#1f2937;padding:0 .4em">#1f2937</code></td>
-<td><code style="background:#161c2c;color:#e8ecf3;padding:0 .4em">#e8ecf3</code></td>
-<td><code>.o</code>, <code>.ow</code></td>
-</tr>
-</tbody>
-</table>
-<h2 id="motion">Motion</h2>
-<p>One motion token. Used by hover / focus transitions on links, buttons, ToC items, theme toggle, and code-copy buttons.</p>
-<table>
-<thead>
-<tr>
-<th>Token</th>
-<th>Value</th>
-<th>Used for</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--transition</code></td>
-<td><code>150ms ease</code></td>
-<td>hover-state colour swaps, border swaps, accent ring fade-in</td>
-</tr>
-</tbody>
-</table>
-<p>Snippets respect <code>prefers-reduced-motion: reduce</code> per the accessibility contract — animations are dampened, never the <code>--transition</code> token itself.</p>
-<h2 id="light-vs-dark-scrubber">Light vs dark scrubber</h2>
-<p>Scrub the slider below to compare the same primary token surface under the light theme and the dark theme — the swap operates entirely through CSS custom properties.</p>
-<!-- usage:
-     <div data-snippet="before-after-slider">
-       <div data-bas-before><!-- arbitrary markup --></div>
-       <div data-bas-after><!-- arbitrary markup --></div>
-     </div>
--->
-<div class="pkit-bas" data-snippet-mount="before-after-slider">
-  <style>
-    .pkit-bas { margin: 1.5rem 0; }
-    .pkit-bas .pkit-bas__viewport {
-      position: relative;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      background: var(--bg-elev);
-      min-height: 120px;
-      user-select: none;
-    }
-    .pkit-bas .pkit-bas__layer {
-      position: absolute;
-      inset: 0;
-      padding: 1rem;
-      overflow: hidden;
-    }
-    .pkit-bas .pkit-bas__layer--before {
-      background: var(--bg-elev);
-      z-index: 1;
-    }
-    .pkit-bas .pkit-bas__layer--after {
-      background: var(--bg);
-      z-index: 2;
-      clip-path: inset(0 var(--pkit-bas-clip, 50%) 0 0);
-      transition: clip-path 60ms linear;
-    }
-    .pkit-bas .pkit-bas__handle {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 2px;
-      background: var(--accent);
-      z-index: 3;
-      left: 50%;
-      transform: translateX(-50%);
-      pointer-events: none;
-      transition: left 60ms linear;
-    }
-    .pkit-bas .pkit-bas__handle::after {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      background: var(--accent);
-      border: 2px solid var(--bg);
-      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
-    }
-    .pkit-bas .pkit-bas__labels {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 0.3rem;
-      font-family: var(--sans);
-      font-size: 0.75rem;
-      color: var(--fg-subtle);
-    }
-    .pkit-bas .pkit-bas__range {
-      width: 100%;
-      margin-top: 0.6rem;
-      accent-color: var(--accent);
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .pkit-bas * { transition: none !important; animation: none !important; }
-    }
-  </style>
-
-  <div class="pkit-bas__viewport">
-    <div class="pkit-bas__layer pkit-bas__layer--before"></div>
-    <div class="pkit-bas__layer pkit-bas__layer--after" style="--pkit-bas-clip: 50%"></div>
-    <div class="pkit-bas__handle" aria-hidden="true"></div>
-  </div>
-  <div class="pkit-bas__labels">
-    <span>Before</span>
-    <span>After</span>
-  </div>
-  <input type="range" class="pkit-bas__range" min="0" max="100" value="50"
-         aria-label="Reveal slider — drag to compare before and after">
-</div>
-
-<script>
-(function() {
-  'use strict';
-  document.querySelectorAll('.pkit-bas[data-snippet-mount="before-after-slider"]').forEach(function(root) {
-    if (root.dataset.pkitInit) return;
-    root.dataset.pkitInit = '1';
-
-    var beforeChild = root.querySelector('[data-bas-before]');
-    var afterChild  = root.querySelector('[data-bas-after]');
-    var layerBefore = root.querySelector('.pkit-bas__layer--before');
-    var layerAfter  = root.querySelector('.pkit-bas__layer--after');
-    var handle      = root.querySelector('.pkit-bas__handle');
-    var rangeInput  = root.querySelector('.pkit-bas__range');
-
-    if (beforeChild && layerBefore) {
-      layerBefore.innerHTML = beforeChild.innerHTML;
-      beforeChild.style.display = 'none';
-    }
-    if (afterChild && layerAfter) {
-      layerAfter.innerHTML = afterChild.innerHTML;
-      afterChild.style.display = 'none';
-    }
-
-    function applyValue(val) {
-      var pct = Math.min(100, Math.max(0, parseInt(val, 10)));
-      var clipRight = (100 - pct) + '%';
-      if (layerAfter) layerAfter.style.setProperty('--pkit-bas-clip', clipRight);
-      if (handle) handle.style.left = pct + '%';
-    }
-
-    rangeInput && rangeInput.addEventListener('input', function() {
-      applyValue(rangeInput.value);
-    });
-
-    applyValue(rangeInput ? rangeInput.value : 50);
-  });
-})();
-</script>
-
-
-<h2 id="see-also">See also</h2>
+<h2 id="terms">Terms</h2>
 <ul>
-<li><a href="html-effectiveness-principles.html">HTML effectiveness principles</a> — the four-category rubric that places this page in the Visual-token slot.</li>
-<li><a href="../claude/skills/docs-writer/SKILL.md">docs-writer SKILL.md</a> — § "Authoring a new snippet" and the Snippet catalog.</li>
-<li><code>claude/skills/docs-writer/template.html</code> lines 12-67 — the canonical source for every token enumerated here.</li>
+<li>
+<p><strong>caveman</strong> — Verbosity-floor mode for pipelinekit sessions that drops articles, filler, and hedging from narrative prose while preserving exact strings (code, paths, commit messages, security warnings). Toggle with <code>/caveman lite|full|ultra|wenyan|off</code>. Default verbosity floor is <code>wenyan-ultra</code>. The orchestrator propagates the floor to subagents via the inherited contract block. <a href="../claude/skills/caveman-mode/SKILL.md">Source: caveman-mode SKILL</a></p>
+</li>
+<li>
+<p><strong>wenyan-ultra</strong> — Three-zone caveman variant. Zone 1 (code, paths, commits, errors) renders as exact English. Zone 2 (narrative prose) renders as real classical Chinese 文言 with at least one Han character per paragraph. Zone 3 (status fragments, beacons) renders as ultra-terse English fragments. The default verbosity floor; the inherited contract block at <code>claude/snippets/caveman-subagent.md</code> propagates this contract to onward Agent dispatches. <a href="../claude/snippets/caveman-subagent.md">Source: caveman-subagent contract</a></p>
+</li>
+<li>
+<p><strong>Path A</strong> — Pipeline review-outcome route where <code>/review</code> finds zero blocking and zero non-blocking findings. The feature proceeds straight to <code>/ppr</code> (push + open PR). When <code>--no-review</code> is set, the orchestrator synthesises a Path A pass with a one-line skip-notice. <a href="../claude/rules/workflow.md">Source: workflow rules</a></p>
+</li>
+<li>
+<p><strong>Path B</strong> — Pipeline review-outcome route where <code>/review</code> returns one or more findings. The orchestrator dispatches a fresh <code>Skill: implement-plan</code> subagent in <code>**Phase Mode:** subagent</code> to apply fixes, then re-runs <code>/review</code>. Hard cap of five cycles before escalation. Path B always uses Agent-tool dispatch — never inline. <a href="../claude/skills/pipeline/SKILL.md">Source: pipeline SKILL § Step 5.7</a></p>
+</li>
+<li>
+<p><strong>Path C</strong> — Pipeline replan route triggered when Path B exhausts its five-cycle budget without convergence. Dispatches a fresh <code>Skill: create-plan</code> subagent to rewrite the plan against the same charter, then restarts implement + review from scratch. Tracked via <code>**Replan count:**</code> in <code>docs/pipeline-state.md</code>. <a href="../claude/skills/pipeline/SKILL.md">Source: pipeline SKILL § Step 5.8</a></p>
+</li>
+<li>
+<p><strong>Path D</strong> — Fresh-context salvage route. When the pipeline is stuck after Path B and Path C and <code>**Path D attempted:**</code> is still false, the orchestrator dispatches one final subagent in a clean context to attempt salvage with only the charter and current diff as input. Persisted before dispatch so a mid-dispatch crash cannot double-fire on resume. <a href="../claude/skills/pipeline/reference.md">Source: pipeline reference § Path D</a></p>
+</li>
+<li>
+<p><strong>Path M</strong> — Inline mini-fix route taken after <code>/review</code> when all findings are mechanical non-blockers (≤ 5 lines per finding, ≤ 1 file each, ≤ 3 findings total, ≤ 8 aggregate lines, <code>Suggestion:</code> shape only). The orchestrator applies edits inline with the Edit tool — no subagent dispatch. Max two cycles tracked via <code>**Inline cycles:**</code>. <a href="../claude/skills/pipeline/SKILL.md">Source: pipeline SKILL § Step 5.7 Row 1.7</a></p>
+</li>
+<li>
+<p><strong>Path N</strong> — Nit-only inline route. Similar gate to Path M but specifically for <code>Nit:</code> findings discovered during the optional Row-2 nit preamble. Edit-tool only, max two cycles, falls through to Path B subagent dispatch if any cycle finds a non-nit. Tracked separately from Path M via <code>**Nit cycles:**</code>. <a href="../claude/rules/workflow.md">Source: workflow rules § Phase Mode Precedence</a></p>
+</li>
+<li>
+<p><strong>charter</strong> — One-page project contract written by <code>/pipeline</code> Step 0 (Charter Discovery) covering nine topics: project type, primary language, deployment target, observability, CI host, secret store, testing posture, branching model, and review style. Persisted at <code>docs/charter.md</code>. Downstream phases read the charter to scope analysis depth, plan structure, and review-team composition. Skip with <code>--no-charter</code>. <a href="../claude/skills/pipeline/SKILL.md">Source: pipeline SKILL § Step 0</a></p>
+</li>
+<li>
+<p><strong>Phase Mode (subagent vs inline)</strong> — Per-feature dispatch mode recorded as <code>**Phase Mode:**</code> in <code>docs/pipeline-state.md</code>. <code>subagent</code> (default for every new feature) dispatches each pipeline phase via the Agent tool in a fresh context. <code>inline</code> is preserved only for legacy state files and the Path M / Path N sub-paths; new features never start in <code>inline</code>. Resume must preserve saved mode — silent downgrade is a contract violation. <a href="../claude/rules/workflow.md">Source: workflow rules § Phase Mode Precedence</a></p>
+</li>
+<li>
+<p><strong>Zone 1/2/3</strong> — The three verbosity zones that compose the caveman wenyan-ultra contract. Zone 1 (code, paths, commits, errors) is exact English with no transformation; Zone 2 (narrative prose) renders as classical Chinese 文言; Zone 3 (status fragments, beacons) renders as ultra-terse English. The boundaries are explicit so that pipeline beacons, hook output, and security warnings stay parseable. <a href="../claude/snippets/caveman-subagent.md">Source: caveman-subagent contract</a></p>
+</li>
+<li>
+<p><strong>Inline cycles</strong> — Counter incremented once per Path M cycle, capped at two. Stored as <code>**Inline cycles:**</code> in <code>docs/pipeline-state.md</code>. Resets at feature init. Overflow forces the next review through Path B (re-review only, no second inline pass). Independent from <code>**Nit cycles:**</code> used by Path N. <a href="../claude/skills/pipeline/SKILL.md">Source: pipeline SKILL § Step 5.7</a></p>
+</li>
+<li>
+<p><strong>Review style</strong> — Per-feature toggle controlling whether <code>/review</code> dispatches the multi-agent review team or a single reviewer. Three values: <code>always teams</code>, <code>never teams</code>, <code>orchestrator decides</code>. Set by priority: <code>--no-teams</code> override &gt; Charter Topic 11 &gt; default <code>orchestrator decides</code>. Heuristic for the default: <code>DIFF_LINES &gt; 500 OR DIFF_FILES &gt; 8 OR feature_class = dev → teams-on</code>. Sticky per feature. <a href="../claude/rules/workflow.md">Source: pipeline state schema</a></p>
+</li>
+<li>
+<p><strong>Worktree agent</strong> — A subagent dispatched into an isolated git worktree at <code>$HOME/.claude/worktrees/&lt;branch&gt;</code> so it can edit files without colliding with sibling streams or the main checkout. Required to commit before reporting done with a <code>wip:</code> message; the <code>verify-worktree-commit.sh</code> hook enforces this. Lead squash-merges the worktree branch into the working branch and cleans up afterwards. <a href="../claude/rules/agents-worktrees.md">Source: agents-worktrees rules § Worktree Lifecycle</a></p>
+</li>
+<li>
+<p><strong>Subagent-First</strong> — Default-on policy that routes non-trivial work through Agent-tool dispatch rather than inline execution. The <code>subagent-first-nudge.sh</code> hook injects a reminder on session start and after compaction. Inline execution is the exception, reserved for trivial one-shots (≤ ~3 tool calls), interactive Q&amp;A, or explicit opt-out phrases like <code>no subagents</code>, <code>do it inline</code>. Bundle independent streams in a single message so they run concurrently. <a href="../claude/rules/agents-worktrees.md">Source: agents-worktrees rules § Subagent Defaults</a></p>
+</li>
+<li>
+<p><strong>TDD (red/green)</strong> — Test-Driven Development discipline enforced by pipelinekit for <code>dev</code>-class features. The <code>tdd-test-writer</code> agent writes failing tests first (red phase); a separate run of the <code>tdd-implementer</code> agent writes the minimum production code that makes them pass (green phase). The <code>tdd-red-phase-gate.sh</code> hook blocks any commit that contains both new tests and new production code in the same change. <a href="../claude/skills/tdd/SKILL.md">Source: tdd SKILL</a></p>
+</li>
+<li>
+<p><strong>Acceptance Criteria</strong> — Numbered list of verifiable conditions on a feature block in <code>docs/features.md</code> defining "done." Each criterion must be testable by automated tests or observable behaviour. When present, analysis includes ACs as context, plans map ACs to tasks, review agents verify each AC is met, and PR bodies include AC status. The <code>ac_lint.py</code> library checks criterion shape and uniqueness during Step 1 ingestion. <a href="../claude/skills/pipeline/features-template.md">Source: pipeline features template</a></p>
+</li>
 </ul>
+<h2 id="cross-reference">Cross-reference</h2>
+<p>For pipeline-state field schemas, see <a href="../claude/rules/workflow.md">workflow rules</a> § Pipeline State Schema. For the full subagent-dispatch protocol, see <a href="../claude/rules/agents-worktrees.md">agents-worktrees rules</a>. For the caveman contract that propagates to onward Agent calls, see <a href="../claude/snippets/caveman-subagent.md">the subagent snippet</a>.</p>
     </div>
 
     <div class="no-results" id="no-results">

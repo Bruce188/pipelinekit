@@ -1,3 +1,6 @@
+<!--
+diataxis: explanation
+-->
 # Supply-Chain Pin Hardening
 
 pipelinekit's installer fetches code from upstream sources at install time:

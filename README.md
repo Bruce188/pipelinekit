@@ -1,8 +1,16 @@
 # pipelinekit
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Latest tag](https://img.shields.io/github/v/tag/Bruce188/pipelinekit?label=tag&color=blue)](https://github.com/Bruce188/pipelinekit/releases)
+[![CI](https://github.com/Bruce188/pipelinekit/actions/workflows/ci.yml/badge.svg)](https://github.com/Bruce188/pipelinekit/actions/workflows/ci.yml)
+
 > **Autonomous orchestrator for Claude Code.** Write a one-line feature description; pipelinekit ships a merged PR. Charter → Analyze → Plan → Implement → Review → Merge, all driven by multi-agent dispatch with no human in the loop unless you opt in.
 
 > ⚠️ **v0.0.1 — pre-release.** Actively developed; API not yet stable. Pin to a specific commit SHA when integrating into your own workflows.
+
+### Troubleshooting
+
+Stuck on install or a first run? See [documentation/installation.html#troubleshooting](documentation/installation.html#troubleshooting) for the most common failure modes (missing `python3`, MCP server not registered, `claude` command absent, sandbox provider chain, hook-permission errors).
 
 ---
 

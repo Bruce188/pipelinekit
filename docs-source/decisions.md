@@ -1,3 +1,6 @@
+<!--
+diataxis: explanation
+-->
 # pipelinekit decisions log
 
 Generated: 2026-05-23T14:34:35+00:00

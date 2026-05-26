@@ -1,3 +1,6 @@
+<!--
+diataxis: how-to
+-->
 # DigitalOcean App Platform Deployment Provider
 
 > [INFO] Not sure which provider fits? Try the [provider chooser](deployment-chooser.html).

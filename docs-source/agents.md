@@ -1,3 +1,6 @@
+<!--
+diataxis: reference
+-->
 # Agents catalog
 
 Browse all 16 pipelinekit specialized agents — code review, security, TDD, deployment, architecture, data, mobile, and more. Use the search box or section filter to find what you need.

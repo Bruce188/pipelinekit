@@ -1,3 +1,6 @@
+<!--
+diataxis: explanation
+-->
 # /review cost profile
 
 `/review` dispatches up to 6 parallel agents per invocation (medium and large tiers).

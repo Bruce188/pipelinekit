@@ -1,3 +1,6 @@
+<!--
+diataxis: explanation
+-->
 # Governance playbook — AI Champions and standardization
 
 How to land pipelinekit conventions across multiple projects without skill drift, hook divergence, or a CLAUDE.md that nobody owns. Names a single role per team — the AI Champion — and codifies the playbook that role runs.
@@ -70,3 +73,36 @@ Governance is invisible when it works. Measure adoption to confirm it is working
 Filter the slash-command table by `review`, `pipeline`, or `ppr` to surface the commands a Champion uses most frequently when shepherding adoption.
 
 <div data-snippet="command-cheatsheet"></div>
+
+## Deprecation policy
+
+Skills, agents, hooks, slash-commands, and flags are removed on a published schedule — never silently. The Champion owns enforcement; this section is the contract every contributor reads before deleting a surface.
+
+### Notice window
+
+Any user-visible surface (skill name, agent name, slash-command, CLI flag, configuration key, hook trigger event) MUST land its deprecation notice **at least one minor release before removal**. Patch releases never remove surfaces. The notice has three required parts:
+
+1. A bold `> ⚠️ **Deprecated in v<X.Y>; removed in v<X.Y+1>.**` callout at the top of the surface's documentation page (or its frontmatter section for slash-commands and flags).
+2. A console-emitted warning printed by the surface itself on every invocation — exactly one line, prefixed `DEPRECATED:`, naming the replacement (or `no replacement — see <doc-link>` when none exists).
+3. A changelog entry under the deprecating release's section, naming the old surface, the planned removal release, and the migration path.
+
+### Alias window
+
+Renames carry an alias for one full minor release. The new name is canonical from day one; the old name remains invocable, emits the `DEPRECATED:` warning on every call, and is removed in the next minor release. Aliases are recorded in `claude/skills/<new>/SKILL.md` (or the equivalent agent / hook / command file) under an `## Alias` H2 section listing the old name and the alias-removal release. Example: `--auto` was a deprecation alias for `--no-prompts` for one release before removal.
+
+### Removal criteria
+
+Surfaces are eligible for removal when ALL of the following hold:
+
+- The notice window has expired (the named removal release has shipped).
+- The Champion has verified the surface has zero in-bound references across `claude/`, `documentation/`, `docs-source/`, `examples/`, `scripts/`, and the pinned upstream-vendored content in `claude/tresor-resources/`. A repo-wide grep for the old name MUST return only the changelog entry that documented the deprecation.
+- A migration recipe (one paragraph plus a one-line `before` / `after` example) exists in the next-release changelog under a `### Migration` subsection.
+- The removal PR is reviewed and merged by the Champion (or a delegated reviewer named in the project's `CODEOWNERS`), not the author of the deprecation.
+
+### Communication channels
+
+Each deprecation appears in three places: the surface's own doc page (callout), the changelog (entry), and the next-release announcement (a single bulleted list under `### Deprecations` near the top of the release notes). The Champion confirms all three landed before merging the deprecation PR — a deprecation that ships in only one channel is treated as un-shipped.
+
+### Exceptions
+
+Security fixes may remove surfaces without the notice window when a vulnerability is being actively exploited and a one-release pause would extend the exposure window. Such removals MUST land with: an explicit `### Security removal` changelog subsection citing the CVE or advisory, a Champion-signed approval recorded in the PR description, and a follow-up migration guide published within seven days of the release.

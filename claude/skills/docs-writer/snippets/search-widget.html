@@ -1,0 +1,59 @@
+<!-- snippet:search-widget
+     Self-contained docs-index search widget. Loads search.json from the
+     sibling documentation/ directory at runtime, builds a hand-rolled
+     prefix-trie over title + excerpt tokens, and displays the top 8 hits
+     as the user types. No CDN, no external deps. Works under file://
+     and any static HTTP origin.
+
+     Placeholder usage in markdown source:
+       <div data-snippet="search-widget"></div>
+-->
+<div class="docs-search" data-snippet-mount="search-widget">
+  <input type="search" id="docs-search" placeholder="Search docs (title + excerpt)..." aria-label="Search documentation">
+  <ul id="docs-search-results" class="docs-search-results" aria-live="polite"></ul>
+  <p class="docs-search-hint">Type to search across every page. Results update live (max 8 shown).</p>
+</div>
+<script>
+(function() {
+  'use strict';
+  var input = document.getElementById('docs-search');
+  var results = document.getElementById('docs-search-results');
+  if (!input || !results) return;
+  var docs = [], index = new Map();
+  function tokenize(s) { return (s || '').toLowerCase().split(/[^a-z0-9]+/).filter(function(t){ return t.length > 1; }); }
+  function buildIndex(rows) {
+    docs = rows;
+    rows.forEach(function(row, i) {
+      tokenize(row.title + ' ' + (row.excerpt || '')).forEach(function(tok) {
+        var list = index.get(tok); if (!list) { list = []; index.set(tok, list); }
+        if (list.indexOf(i) === -1) list.push(i);
+      });
+    });
+  }
+  function search(q) {
+    var toks = tokenize(q);
+    if (!toks.length) { results.innerHTML = ''; return; }
+    var counts = new Map();
+    toks.forEach(function(tok) {
+      index.forEach(function(ids, key) {
+        if (key.indexOf(tok) === 0) ids.forEach(function(id) { counts.set(id, (counts.get(id) || 0) + 1); });
+      });
+    });
+    var scored = Array.from(counts.entries()).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 8);
+    results.innerHTML = scored.map(function(p) {
+      var d = docs[p[0]];
+      var q = d.quadrant ? ' <span class="docs-search-quadrant">' + d.quadrant + '</span>' : '';
+      var e = d.excerpt ? '<div class="docs-search-excerpt">' + d.excerpt + '</div>' : '';
+      return '<li><a href="' + d.slug + '.html">' + d.title + q + '</a>' + e + '</li>';
+    }).join('');
+  }
+  fetch('search.json').then(function(r){ return r.json(); }).then(buildIndex).catch(function(){
+    results.innerHTML = '<li>Search index unavailable.</li>';
+  });
+  var deb;
+  input.addEventListener('input', function(e) {
+    clearTimeout(deb); var v = e.target.value.trim();
+    deb = setTimeout(function() { search(v); }, 60);
+  });
+})();
+</script>

@@ -1,8 +1,6 @@
----
-title: Deployment + CI provider chooser
-description: Six-question quiz that recommends a deploy provider (Vercel/Railway/Render/DigitalOcean/Azure) and optionally a CI runner (Blacksmith) based on your workload, budget, observability, region, and CI needs.
----
-
+<!--
+diataxis: how-to
+-->
 # Deployment + CI provider chooser
 
 Not sure which cloud or CI runner fits your project? Answer six questions and the quiz below will narrow it down.

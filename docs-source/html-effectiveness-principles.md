@@ -1,3 +1,6 @@
+<!--
+diataxis: explanation
+-->
 # HTML effectiveness principles
 
 Canonical design rubric for pipelinekit's `documentation/*.html` corpus. Defines the four-category rubric, maps every shipped snippet to its category, and lists anti-patterns the rubric is meant to prevent.

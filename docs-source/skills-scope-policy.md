@@ -1,4 +1,6 @@
-<!-- richness-exempt: prose-only policy reference — no interactive surface fits the content -->
+<!--
+diataxis: explanation
+-->
 # Skills scope policy
 
 Authoring policy for the `paths:` frontmatter field on `claude/skills/<name>/SKILL.md`. Every new skill MUST declare `paths:` unless it appears on the global-by-design allowlist below.

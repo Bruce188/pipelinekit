@@ -1,3 +1,6 @@
+<!--
+diataxis: reference
+-->
 # Feature History
 
 <!-- richness budget: spatial timeline + visual-token status pills + interactive collapsible-details (≥ 2 target) -->

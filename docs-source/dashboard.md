@@ -1,3 +1,6 @@
+<!--
+diataxis: reference
+-->
 # pipelinekit dashboard
 
 Generated: 2026-05-23T14:34:35+00:00
