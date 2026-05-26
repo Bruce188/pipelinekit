@@ -9,25 +9,25 @@ Claude Code workflow toolkit: skills + agents + hooks + autonomous `/pipeline` o
 | Path | Purpose |
 |------|---------|
 | `claude/` | Workflow toolkit source — skills, agents, hooks, commands, rules, lib |
-| `claude/skills/` | 42 skills authored as `SKILL.md` + supporting files (`tdd`, `pipeline`, `docs-writer`, ...) |
-| `claude/skills/INDEX.md` | Auto-generated text catalogue of all skills with one-line descriptions. |
-| `claude/skills/codegraph-init/` | Pre-flight + serve init for the codegraph MCP (symbolic code graph). |
-| `claude/skills/graphify-init/` | Pre-flight + serve init for the graphify MCP (knowledge graph). |
+| `claude/skills/` | 42 skills as `SKILL.md` + support files (`tdd`, `pipeline`, ...) |
+| `claude/skills/INDEX.md` | Auto-generated skill catalogue with one-liners. |
+| `claude/skills/codegraph-init/` | Pre-flight + serve init for codegraph MCP (symbolic code graph). |
+| `claude/skills/graphify-init/` | Pre-flight + serve init for graphify MCP (knowledge graph). |
 | `claude/agents/` | 24 subagent personas (`code-reviewer.md`, `tdd-test-writer.md`, ...) |
-| `claude/agents/INDEX.md` | Auto-generated text catalogue of all callable agents with one-line descriptions. |
-| `claude/hooks/` | Bash + python pre/post hooks (`validate-commit-msg.sh`, `block-stage-sensitive.sh`, ...) |
+| `claude/agents/INDEX.md` | Auto-generated agent catalogue with one-liners. |
+| `claude/hooks/` | Bash + python hooks (`validate-commit-msg.sh`, `block-stage-sensitive.sh`, ...) |
 | `claude/commands/` | Slash-command stubs (`/persona`, `/deploy-target`, ...) |
-| `claude/lib/` | Shared helper libraries (`pipeline/`, `sandbox/`, `worker-provider/`) |
+| `claude/lib/` | Shared helpers (`pipeline/`, `sandbox/`, `worker-provider/`) |
 | `claude/rules/` | Operational rules (`workflow.md`, `agents-worktrees.md`) |
 | `claude/model-overlays/` | Per-model behavioural overlays |
 | `claude/host-adapters/` | Host-shell adapters (claude / codex / cursor / gemini) |
-| `claude/config/` | `never-stage.txt` and other config data files |
+| `claude/config/` | `never-stage.txt` and other config data |
 | `claude/memory/` | Memory index (`MEMORY.md`) |
 | `claude/tresor-resources/` | Vendored prompt templates / standards |
-| `claude/CLAUDE.md.template` | User-global CLAUDE.md template emitted by `scripts/install.sh` |
+| `claude/CLAUDE.md.template` | User-global template emitted by `scripts/install.sh` |
 | `scripts/` | `install.sh`, sandbox helpers, cloud bootstrap, smoke scripts |
-| `docs-source/` | Markdown sources for `documentation/*.html` (rendered via docs-writer) |
-| `documentation/` | Rendered HTML application docs (committed) |
+| `docs-source/` | Markdown sources for `documentation/*.html` |
+| `documentation/` | Rendered HTML docs (committed) |
 | `docs/` | Workflow metadata (`analysis-v*`, `plan-v*`, `progress.md`, ...) — NEVER committed |
 | `tests/` | Repo-wide smoke / integration tests |
 | `lancedb/` | Local RAG index storage |
@@ -37,38 +37,38 @@ Default MCP stack: [documentation/memory-graph-stack.html](documentation/memory-
 
 ## Lean Conventions
 
-- **Caveman mode** active by default (wenyan-ultra). Drop articles, filler, hedging. Code, commits, and security-critical text stay normal English. Toggle: `/caveman lite|full|ultra` or "stop caveman".
+- **Caveman mode** default-on (wenyan-ultra). Drop articles, filler, hedging. Code/commits/security stay English. Toggle: `/caveman lite|full|ultra`.
 - **Conventional commits only**: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`, `perf:`, `style:`, `build:`, `ci:`. No emojis. Enforced by `claude/hooks/validate-commit-msg.sh`.
-- **No AI attribution** — zero Claude / LLM references in commits, PRs, code, or docs. No `Co-Authored-By`, no "Generated with".
-- **Never-stage list** lives at `claude/config/never-stage.txt`. The hook `claude/hooks/block-stage-sensitive.sh` reads it and refuses staging of any matched path.
-- **Base-branch detection** uses the canonical snippet documented in `~/.claude/rules/workflow.md` § Base Branch Detection. All workflow skills reference that single source.
-- **Verification first** — after every code change, run build + tests and restart the app if applicable. Do not mark a task "done" without passing verification.
-- **Plan trust** — when a plan specifies exact files, line numbers, and code changes, skip exploration and implement directly.
-- **Commit only when asked** — wait for explicit user confirmation before creating commits, except in worktree agents which auto-commit `wip:` messages before reporting done.
+- **No AI attribution** — zero Claude / LLM refs in commits, PRs, code, docs. No `Co-Authored-By`, no "Generated with".
+- **Never-stage list**: `claude/config/never-stage.txt`. Hook `claude/hooks/block-stage-sensitive.sh` refuses matched paths.
+- **Base-branch detection**: canonical snippet at `~/.claude/rules/workflow.md` § Base Branch Detection.
+- **Verification first** — after every change run build + tests; restart app if applicable. Do not mark done without passing verification.
+- **Plan trust** — when plan gives exact files/lines/code, skip exploration, implement directly.
+- **Commit only when asked** — wait for explicit confirmation. Exception: worktree agents auto-commit `wip:` before reporting done.
 
 ## Subdirectory Init
 
-Subdir `CLAUDE.md` overrides root w/ dir-specific rules. Harness loads on entry into matching tree:
+Subdir `CLAUDE.md` overrides root w/ dir-specific rules. Harness loads on entry:
 
-- `claude/skills/CLAUDE.md` — skill authoring conventions (frontmatter shape, `paths:` scoping, `allowed-tools` precision, snippet contracts).
-- `claude/agents/CLAUDE.md` — agent authoring conventions (tool allowlist, model selection, `<task-notification>` XML, prompt body shape).
-- `claude/hooks/CLAUDE.md` — hook authoring conventions (stdin / stdout JSON contract, exit-code semantics, python3 vs bash, denial-tracker integration).
+- `claude/skills/CLAUDE.md` — skill authoring (frontmatter, `paths:` scoping, `allowed-tools`, snippets).
+- `claude/agents/CLAUDE.md` — agent authoring (tool allowlist, model, `<task-notification>` XML, prompt shape).
+- `claude/hooks/CLAUDE.md` — hook authoring (stdin/stdout JSON, exit codes, python3 vs bash, denial-tracker).
 
-Each self-contained — no x-ref to root needed.
+Self-contained — no x-ref to root needed.
 
 ## Working Surface
 
-Canonical edit surface (new work lands here):
+New work lands here:
 
-- `claude/skills/<name>/SKILL.md` — new skills (plus supporting files in the same directory).
-- `claude/agents/<name>.md` — new agents (single-file markdown with YAML frontmatter).
-- `claude/hooks/<name>.{sh,py}` — new hooks (plus any helper modules in the same directory).
-- `claude/commands/<name>.md` — new slash-command stubs.
-- `claude/rules/<name>.md` — new operational rules.
-- `docs-source/<page>.md` — new public-facing documentation pages (rendered to `documentation/<page>.html`).
-- `tests/` and `claude/skills/*/tests/` — new tests.
+- `claude/skills/<name>/SKILL.md` — new skills (+ support files alongside).
+- `claude/agents/<name>.md` — new agents (single-file md with YAML frontmatter).
+- `claude/hooks/<name>.{sh,py}` — new hooks (+ helper modules alongside).
+- `claude/commands/<name>.md` — slash-command stubs.
+- `claude/rules/<name>.md` — operational rules.
+- `docs-source/<page>.md` — public docs (rendered to `documentation/<page>.html`).
+- `tests/` and `claude/skills/*/tests/` — tests.
 
 Never edit by hand:
 
-- `documentation/*.html` — auto-rendered from `docs-source/*.md` via `python3 claude/skills/docs-writer/render.py`. Hand-edits are overwritten on the next render.
-- `docs/*` — workflow metadata produced by pipeline phases (never committed; managed by skills, not humans).
+- `documentation/*.html` — auto-rendered from `docs-source/*.md` via `python3 claude/skills/docs-writer/render.py`. Hand-edits overwritten next render.
+- `docs/*` — workflow metadata from pipeline phases (never committed; managed by skills, not humans).
