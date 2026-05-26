@@ -1,6 +1,9 @@
 ---
 name: ios
 description: Xcode 26.3 + Anthropic Claude Agent SDK integration — project setup, in-editor usage, Agent SDK API surface, simulator integration, code signing & TestFlight workflows
+allowed-tools:
+  - Read
+  - Bash
 paths:
   - claude/skills/ios/**
   - "**/*.xcodeproj/**"

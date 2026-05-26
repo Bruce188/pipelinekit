@@ -1,6 +1,12 @@
 ---
 name: fix-issue
 description: Fix a GitHub issue by number. Reads the issue, implements a fix with TDD, and commits.
+allowed-tools:
+  - Read
+  - Edit
+  - Bash
+  - Glob
+  - Grep
 disable-model-invocation: true
 paths:
   - claude/skills/fix-issue/**

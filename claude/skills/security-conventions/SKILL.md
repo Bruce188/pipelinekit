@@ -1,6 +1,8 @@
 ---
 name: security-conventions
 description: ASP.NET Core security conventions — anti-forgery, authorization, secret storage, parameterized queries, HTTPS. Loaded when working with controllers, API endpoints, authentication, authorization, or user input handling.
+allowed-tools:
+  - Read
 user-invocable: false
 paths:
   - claude/skills/security-conventions/**
