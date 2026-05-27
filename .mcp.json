@@ -1,14 +1,15 @@
 {
-  "_comment": "Live .mcp.json shipping the LSP-backed serena recommendation per charter MVP item 6. Serena requires uvx; install via 'pip install uv' or 'brew install uv'. The git+https ref MUST be pinned to a known-good commit SHA before activating (replace <PIN-TO-COMMIT-SHA>). Failure to pin will make the uvx command error out — that is intentional fail-closed behavior.",
-  "_security_note": "git+https without a pinned ref allows upstream takeover to execute arbitrary code via uvx. See documentation/mcp-lsp-setup.html for the pin-and-verify workflow.",
+  "_comment": "Live .mcp.json shipping the LSP-backed serena recommendation per charter MVP item 6. Serena requires uvx; install via 'pip install uv' or 'brew install uv'. The git+https ref is pinned to a known-good commit SHA (9b292a6c8b03c8306f117efeabb0ea7afdb0b3c0); refresh it per the _serena_pin_note in .mcp.json.template and docs-source/supply-chain.md. The MCP entrypoint is 'serena start-mcp-server'.",
+  "_security_note": "This serena ref is pinned to a specific commit SHA; an unpinned git+https ref (or rolling 'main') would allow upstream takeover to execute arbitrary code via uvx. See documentation/mcp-lsp-setup.html for the pin-and-verify workflow.",
   "mcpServers": {
     "serena": {
       "type": "stdio",
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/oraios/serena@<PIN-TO-COMMIT-SHA>",
-        "serena-mcp-server",
+        "git+https://github.com/oraios/serena@9b292a6c8b03c8306f117efeabb0ea7afdb0b3c0",
+        "serena",
+        "start-mcp-server",
         "--project",
         "."
       ]
