@@ -3,7 +3,7 @@ diataxis: reference
 -->
 # /pipeline
 
-The `/pipeline` autonomous orchestrator. Charter discovery → analyze → plan → implement → review → merge, all driven by multi-agent dispatch with no human in the loop unless you opt in. Per-phase reference, flag catalog, and the 5 routes the orchestrator can use to derive a feature file.
+The `/pipeline` autonomous orchestrator. Charter discovery → analyze → plan → implement → review → merge → post-merge gate → UAT → docs, all driven by multi-agent dispatch with no human in the loop unless you opt in. Per-phase reference, flag catalog, and the 5 routes the orchestrator can use to derive a feature file.
 
 <div data-snippet="pipeline-phase-diagram"></div>
 
@@ -134,6 +134,12 @@ Per feature, the pipeline runs:
 5. **Review** — multi-agent: code-reviewer, security-auditor, test-engineer, performance-tuner, spec-tracer
 6. **Path A / B / C** — A: merge clean; B: fix findings (≤5 cycles); C: replan
 
+After a clean merge (Path A), the pipeline runs a fixed post-merge tail:
+
+7. **Post-Merge Verification Gate** — re-run build/tests on the merged tree; revert on failure (`SKIP_POSTMERGE_VERIFY=1` to skip)
+8. **UAT** (non-blocking) — browser-driven RBAC + button journeys via the `uat` skill; records findings, never reverts (`--no-uat` to skip)
+9. **Documentation Update Phase** — best-effort `docs-writer` pass over `documentation/` (`--no-docs` to skip)
+
 State persists in `docs/pipeline-state.md` per run. Resume by re-invoking `/pipeline`.
 
 ## Path routing
@@ -241,6 +247,47 @@ Charter goals (written to `docs/charter.md` during Step 0 and referenced in `doc
 | Evaluation is structured per-phase with explicit Acceptance Criteria | Evaluation is a per-turn model self-check with no structured AC format |
 
 F15 historically considered native `/goal` integration as a pipeline-level stop condition. The current integration surface is none — `/pipeline` charter goals and `/goal` coexist independently.
+
+## UAT Phase
+
+After the **Post-Merge Verification Gate** appends its success marker and BEFORE
+the Documentation Update Phase, the pipeline runs a best-effort, **non-blocking**
+UAT phase. It dispatches the `uat-runner` subagent (via the `uat` skill) to drive a
+real headless browser through RBAC role flows and every button — rendering and
+clicking actual user journeys, not inspecting diffs. A UAT regression is *recorded*,
+never reverted: the merged tree stays merged and the next phase documents it as-is.
+
+**Web-surface detect (silent skip):** At phase entry the runner probes whether the
+repo even has a browser surface — a `playwright.config.*` file, a `package.json`
+containing `@playwright/test`, or an `e2e/` directory. If none is present (and
+pipelinekit itself has none), it logs `UAT: SKIPPED (no web surface)` and continues.
+This mirrors the `landing-report` silent-skip idiom — prose probe-logic, not a copied
+shell guard. The base URL resolves from `UAT_BASE_URL`, then `playwright.config.*`
+`baseURL`, then a dev-server start; unresolvable → `UAT: SKIPPED (no base URL)`.
+
+**In-process browser reuse:** The runner reuses the existing `PlaywrightNative` class
+from `claude/skills/playwright/scripts/playwright_controller.py` as a context manager —
+one `with PlaywrightNative() as pw:` session held across the *whole* flow. It does not
+chain the controller's CLI subcommands, which spawn a fresh browser per process and lose
+cookie/auth state between steps; a multi-step `login → navigate → click` RBAC journey
+only survives inside a single in-process session. It exercises **diff-scoped** routes by
+default (only flows whose source files appear in the feature diff; uncertain file→route
+mapping falls back to a full sweep), with a full role/button sweep run at run/loop end.
+
+**Non-blocking hand-off:** When a flow fails, the orchestrator appends rows to a
+`## UAT Findings` table in the feature file (`docs/features-*.md`) — columns
+`| Flow | Role | Button/Step | Failure | Source feature |` — and writes `UAT: FAILED`
+to the Run Log. The merge is never reverted (UAT does not inherit the gate's
+`git reset --hard HEAD~1`). The bounded outer loop's renew collection consumes those
+findings on the next pass, regenerating one feature entry per row; with `--no-loop` the
+findings log and await a manual `--renew`. A `uat-runner` failure is non-fatal — the Run
+Log gets `UAT: SKIPPED (subagent error)` and the feature keeps its `SUCCESS` status. The
+per-feature outcome is recorded in `docs/pipeline-state.md` as `**UAT:** PASSED | FAILED
+| SKIPPED | n/a`.
+
+**Opt-out:** Pass `--no-uat` (or set `PIPELINE_SKIP_UAT=1`) to skip the phase entirely;
+the Run Log gets `UAT: SKIPPED (PIPELINE_SKIP_UAT=1)`. Pass `--uat-full-every-feature` to
+force the full role/button sweep on every feature instead of the diff-scoped default.
 
 ## Documentation Update Phase
 

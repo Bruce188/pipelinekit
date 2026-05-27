@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>/pipeline — pipelinekit</title>
-<meta name="description" content="The /pipeline autonomous orchestrator. Charter discovery → analyze → plan → implement → review → merge, all driven by multi-agent dispatch with no human in the loop unless you opt in. Per-phase reference, flag catalog, and the 5 routes the…">
+<meta name="description" content="The /pipeline autonomous orchestrator. Charter discovery → analyze → plan → implement → review → merge → post-merge gate → UAT → docs, all driven by multi-agent dispatch with no human in the loop unless you opt in. Per-phase reference,…">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -639,6 +639,7 @@ footer {
       <li class="lvl-3"><a href="#charter-file-shape">Charter file shape</a></li>
       <li class="lvl-3"><a href="#how-downstream-phases-consume-the-charter">How downstream phases consume the charter</a></li>
       <li class="lvl-2"><a href="#relationship-to-native-goal">Relationship to native /goal</a></li>
+      <li class="lvl-2"><a href="#uat-phase">UAT Phase</a></li>
       <li class="lvl-2"><a href="#documentation-update-phase">Documentation Update Phase</a></li>
       <li class="lvl-2"><a href="#worker-delegation">Worker Delegation</a></li>
       <li class="lvl-3"><a href="#worker-classes">Worker classes</a></li>
@@ -655,7 +656,7 @@ footer {
     <header class="page-header">
       <span class="diataxis-chip diataxis-reference">reference</span>
       <h1>/pipeline</h1>
-      <p class="description">The /pipeline autonomous orchestrator. Charter discovery → analyze → plan → implement → review → merge, all driven by multi-agent dispatch with no human in the loop unless you opt in. Per-phase reference, flag catalog, and the 5 routes the…</p>
+      <p class="description">The /pipeline autonomous orchestrator. Charter discovery → analyze → plan → implement → review → merge → post-merge gate → UAT → docs, all driven by multi-agent dispatch with no human in the loop unless you opt in. Per-phase reference,…</p>
       <div class="page-meta"></div>
     </header>
 
@@ -1252,6 +1253,12 @@ footer {
 <li><strong>Review</strong> — multi-agent: code-reviewer, security-auditor, test-engineer, performance-tuner, spec-tracer</li>
 <li><strong>Path A / B / C</strong> — A: merge clean; B: fix findings (≤5 cycles); C: replan</li>
 </ol>
+<p>After a clean merge (Path A), the pipeline runs a fixed post-merge tail:</p>
+<ol start="7">
+<li><strong>Post-Merge Verification Gate</strong> — re-run build/tests on the merged tree; revert on failure (<code>SKIP_POSTMERGE_VERIFY=1</code> to skip)</li>
+<li><strong>UAT</strong> (non-blocking) — browser-driven RBAC + button journeys via the <code>uat</code> skill; records findings, never reverts (<code>--no-uat</code> to skip)</li>
+<li><strong>Documentation Update Phase</strong> — best-effort <code>docs-writer</code> pass over <code>documentation/</code> (<code>--no-docs</code> to skip)</li>
+</ol>
 <p>State persists in <code>docs/pipeline-state.md</code> per run. Resume by re-invoking <code>/pipeline</code>.</p>
 <h2 id="path-routing">Path routing</h2>
 <p>After review completes, the orchestrator selects one of five paths based on the finding set:</p>
@@ -1551,6 +1558,41 @@ footer {
 </tbody>
 </table>
 <p>F15 historically considered native <code>/goal</code> integration as a pipeline-level stop condition. The current integration surface is none — <code>/pipeline</code> charter goals and <code>/goal</code> coexist independently.</p>
+<h2 id="uat-phase">UAT Phase</h2>
+<p>After the <strong>Post-Merge Verification Gate</strong> appends its success marker and BEFORE
+the Documentation Update Phase, the pipeline runs a best-effort, <strong>non-blocking</strong>
+UAT phase. It dispatches the <code>uat-runner</code> subagent (via the <code>uat</code> skill) to drive a
+real headless browser through RBAC role flows and every button — rendering and
+clicking actual user journeys, not inspecting diffs. A UAT regression is <em>recorded</em>,
+never reverted: the merged tree stays merged and the next phase documents it as-is.</p>
+<p><strong>Web-surface detect (silent skip):</strong> At phase entry the runner probes whether the
+repo even has a browser surface — a <code>playwright.config.*</code> file, a <code>package.json</code>
+containing <code>@playwright/test</code>, or an <code>e2e/</code> directory. If none is present (and
+pipelinekit itself has none), it logs <code>UAT: SKIPPED (no web surface)</code> and continues.
+This mirrors the <code>landing-report</code> silent-skip idiom — prose probe-logic, not a copied
+shell guard. The base URL resolves from <code>UAT_BASE_URL</code>, then <code>playwright.config.*</code>
+<code>baseURL</code>, then a dev-server start; unresolvable → <code>UAT: SKIPPED (no base URL)</code>.</p>
+<p><strong>In-process browser reuse:</strong> The runner reuses the existing <code>PlaywrightNative</code> class
+from <code>claude/skills/playwright/scripts/playwright_controller.py</code> as a context manager —
+one <code>with PlaywrightNative() as pw:</code> session held across the <em>whole</em> flow. It does not
+chain the controller's CLI subcommands, which spawn a fresh browser per process and lose
+cookie/auth state between steps; a multi-step <code>login → navigate → click</code> RBAC journey
+only survives inside a single in-process session. It exercises <strong>diff-scoped</strong> routes by
+default (only flows whose source files appear in the feature diff; uncertain file→route
+mapping falls back to a full sweep), with a full role/button sweep run at run/loop end.</p>
+<p><strong>Non-blocking hand-off:</strong> When a flow fails, the orchestrator appends rows to a
+<code>## UAT Findings</code> table in the feature file (<code>docs/features-*.md</code>) — columns
+<code>| Flow | Role | Button/Step | Failure | Source feature |</code> — and writes <code>UAT: FAILED</code>
+to the Run Log. The merge is never reverted (UAT does not inherit the gate's
+<code>git reset --hard HEAD~1</code>). The bounded outer loop's renew collection consumes those
+findings on the next pass, regenerating one feature entry per row; with <code>--no-loop</code> the
+findings log and await a manual <code>--renew</code>. A <code>uat-runner</code> failure is non-fatal — the Run
+Log gets <code>UAT: SKIPPED (subagent error)</code> and the feature keeps its <code>SUCCESS</code> status. The
+per-feature outcome is recorded in <code>docs/pipeline-state.md</code> as <code>**UAT:** PASSED | FAILED
+| SKIPPED | n/a</code>.</p>
+<p><strong>Opt-out:</strong> Pass <code>--no-uat</code> (or set <code>PIPELINE_SKIP_UAT=1</code>) to skip the phase entirely;
+the Run Log gets <code>UAT: SKIPPED (PIPELINE_SKIP_UAT=1)</code>. Pass <code>--uat-full-every-feature</code> to
+force the full role/button sweep on every feature instead of the diff-scoped default.</p>
 <h2 id="documentation-update-phase">Documentation Update Phase</h2>
 <p>After a feature's squash-merge passes the <strong>Post-Merge Verification Gate</strong>
 (<code>claude/skills/pipeline/SKILL.md</code> § Post-Merge Verification Gate), the pipeline
