@@ -43,9 +43,83 @@ Pre-batch baseline (from the 2026-05-26 audit, with row-arithmetic normalised):
 
 Net delta: **+20 implemented items**, **+31 aggregate percentage points**.
 
-<div data-snippet="cost-budget-meter" data-spent-usd="58" data-max-usd="65" data-spent-turns="89" data-max-turns="100" data-label-spent="Items implemented" data-label-max="Total surface" data-label-turns="Aggregate %"></div>
+The grouped bar chart below plots each category's implemented-percentage before the batch against after it — the same numbers carried by the two tables above, read spatially so the per-category lift is legible at a glance.
 
-The twin dial above reframes the aggregate score-card as a budget meter. The left dial shows item-coverage (58 of 65); the right dial shows the rolled-up percentage (89 of a notional 100%).
+<svg viewBox="0 0 720 380" role="img" aria-label="Grouped bar chart: implemented-percentage per category, pre-batch versus post-batch" style="width:100%;height:auto;font-family:var(--sans);">
+  <title>Pre-batch vs post-batch implemented-% per best-practices category</title>
+  <!-- gridlines + y-axis ticks (0,25,50,75,100%) -->
+  <g stroke="var(--border)" stroke-width="1">
+    <line x1="70" y1="320" x2="700" y2="320"></line>
+    <line x1="70" y1="250" x2="700" y2="250" stroke-dasharray="3 3"></line>
+    <line x1="70" y1="180" x2="700" y2="180" stroke-dasharray="3 3"></line>
+    <line x1="70" y1="110" x2="700" y2="110" stroke-dasharray="3 3"></line>
+    <line x1="70" y1="40" x2="700" y2="40" stroke-dasharray="3 3"></line>
+  </g>
+  <g fill="var(--fg-subtle)" font-size="11" text-anchor="end">
+    <text x="62" y="324">0%</text>
+    <text x="62" y="254">25%</text>
+    <text x="62" y="184">50%</text>
+    <text x="62" y="114">75%</text>
+    <text x="62" y="44">100%</text>
+  </g>
+  <!-- y-axis line -->
+  <line x1="70" y1="40" x2="70" y2="320" stroke="var(--border-strong)" stroke-width="1.5"></line>
+  <!-- Workflow 50 -> 86 (group center 122) -->
+  <g>
+    <rect x="98" y="180" width="22" height="140" fill="var(--border-strong)" rx="2"></rect>
+    <rect x="124" y="79" width="22" height="241" fill="var(--accent)" rx="2"></rect>
+    <text x="109" y="172" text-anchor="middle" fill="var(--fg)" font-size="10">50</text>
+    <text x="135" y="71" text-anchor="middle" fill="var(--fg)" font-size="10">86</text>
+    <text x="122" y="338" text-anchor="middle" fill="var(--fg-muted)" font-size="12">Workflow</text>
+  </g>
+  <!-- Security 69 -> 100 (group center 227) -->
+  <g>
+    <rect x="203" y="127" width="22" height="193" fill="var(--border-strong)" rx="2"></rect>
+    <rect x="229" y="40" width="22" height="280" fill="var(--accent)" rx="2"></rect>
+    <text x="214" y="119" text-anchor="middle" fill="var(--fg)" font-size="10">69</text>
+    <text x="240" y="32" text-anchor="middle" fill="var(--fg)" font-size="10">100</text>
+    <text x="227" y="338" text-anchor="middle" fill="var(--fg-muted)" font-size="12">Security</text>
+  </g>
+  <!-- Modular 70 -> 100 (group center 332) -->
+  <g>
+    <rect x="308" y="124" width="22" height="196" fill="var(--border-strong)" rx="2"></rect>
+    <rect x="334" y="40" width="22" height="280" fill="var(--accent)" rx="2"></rect>
+    <text x="319" y="116" text-anchor="middle" fill="var(--fg)" font-size="10">70</text>
+    <text x="345" y="32" text-anchor="middle" fill="var(--fg)" font-size="10">100</text>
+    <text x="332" y="338" text-anchor="middle" fill="var(--fg-muted)" font-size="12">Modular</text>
+  </g>
+  <!-- Docs 62 -> 92 (group center 437) -->
+  <g>
+    <rect x="413" y="146" width="22" height="174" fill="var(--border-strong)" rx="2"></rect>
+    <rect x="439" y="62" width="22" height="258" fill="var(--accent)" rx="2"></rect>
+    <text x="424" y="138" text-anchor="middle" fill="var(--fg)" font-size="10">62</text>
+    <text x="450" y="54" text-anchor="middle" fill="var(--fg)" font-size="10">92</text>
+    <text x="437" y="338" text-anchor="middle" fill="var(--fg-muted)" font-size="12">Docs</text>
+  </g>
+  <!-- Testing 42 -> 67 (group center 542) -->
+  <g>
+    <rect x="518" y="202" width="22" height="118" fill="var(--border-strong)" rx="2"></rect>
+    <rect x="544" y="132" width="22" height="188" fill="var(--accent)" rx="2"></rect>
+    <text x="529" y="194" text-anchor="middle" fill="var(--fg)" font-size="10">42</text>
+    <text x="555" y="124" text-anchor="middle" fill="var(--fg)" font-size="10">67</text>
+    <text x="542" y="338" text-anchor="middle" fill="var(--fg-muted)" font-size="12">Testing</text>
+  </g>
+  <!-- Aggregate 58 -> 89 (group center 647) -->
+  <g>
+    <rect x="623" y="158" width="22" height="162" fill="var(--border-strong)" rx="2"></rect>
+    <rect x="649" y="71" width="22" height="249" fill="var(--accent)" rx="2"></rect>
+    <text x="634" y="150" text-anchor="middle" fill="var(--fg)" font-size="10">58</text>
+    <text x="660" y="63" text-anchor="middle" fill="var(--fg)" font-size="10">89</text>
+    <text x="647" y="338" text-anchor="middle" fill="var(--fg-muted)" font-size="12">Aggregate</text>
+  </g>
+  <!-- legend -->
+  <g font-size="12">
+    <rect x="240" y="356" width="14" height="12" fill="var(--border-strong)" rx="2"></rect>
+    <text x="260" y="366" fill="var(--fg-muted)">Pre-batch</text>
+    <rect x="360" y="356" width="14" height="12" fill="var(--accent)" rx="2"></rect>
+    <text x="380" y="366" fill="var(--fg-muted)">Post-batch</text>
+  </g>
+</svg>
 
 ## FEATURE-TO-CATEGORY MAPPING
 

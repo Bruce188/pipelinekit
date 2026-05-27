@@ -1,6 +1,7 @@
 <!--
 diataxis: explanation
 -->
+<!-- richness-exempt: investigation-spike audit report (method / probe vectors / findings); a frozen audit write-up, not a reader-interaction surface -->
 # Harness `paths:` field — investigation
 
 > Investigation spike for `chore/harness-paths-audit`. Verifies whether the Claude Code harness loader honors the SKILL.md frontmatter `paths:` field as a routing-slate filter, as claimed by `docs-source/skills-scope-policy.md:8` and `claude/skills/CLAUDE.md` § Path Scoping.
