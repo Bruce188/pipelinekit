@@ -19,7 +19,8 @@
       "args": [
         "--from",
         "git+https://github.com/oraios/serena@9b292a6c8b03c8306f117efeabb0ea7afdb0b3c0",
-        "serena-mcp-server",
+        "serena",
+        "start-mcp-server",
         "--project",
         "."
       ]

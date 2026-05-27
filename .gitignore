@@ -69,3 +69,7 @@ documentation/research-results.html
 # Anchor at the repo root so the pattern does NOT also catch
 # documentation/docs/ (the vendored skill-authoring reference pages).
 /docs/
+
+# Local MCP / RAG runtime state (regenerated on demand; never committed)
+lancedb/
+.serena/

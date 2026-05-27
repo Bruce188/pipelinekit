@@ -85,15 +85,20 @@ Triggered when `--renew` is present.
 3. Read `docs/progress.md` for deferred items:
    - If a `## Deferred` section exists: collect all deferred items
 
-4. If zero failed + zero unprocessed + zero deferred: STOP with "Nothing to renew — all features succeeded and no deferred items exist."
+3.5. Read the source feature file for UAT findings:
+   - If a `## UAT Findings` section exists: collect all items listed there as new (unprocessed) feature entries.
+   - **Gracefully optional:** if no `## UAT Findings` section exists, this step contributes the empty set — no error, no warning. An absent section is treated identically to an empty section.
+
+4. If zero failed + zero unprocessed + zero deferred + zero UAT items: STOP with "Nothing to renew — all features succeeded and no deferred items exist."
 
 5. Write `docs/features-renewed.md`:
    - For each failed feature: copy the original H2 header, Description, and Constraints. Clear the Run Log (start fresh).
    - For each unprocessed feature: copy as-is.
    - For each deferred item: create a new feature entry (same logic as Step 1.5 item 4).
+   - For each UAT finding item: create a new feature entry (same logic as Step 1.5 item 4).
    - Append empty `### Run Log` sections to all.
 
-6. Log: "Renewed feature file: docs/features-renewed.md ([N] features: [F] failed, [U] unprocessed, [D] deferred)"
+6. Log: "Renewed feature file: docs/features-renewed.md ([N] features: [F] failed, [U] unprocessed, [D] deferred, [T] UAT findings)"
 
 6.5. Charter re-validation (runs after Step 6 log, before Step 7 proceed):
 
@@ -186,6 +191,20 @@ Triggered when `--renew` is present.
    j. **Proceed.** Fall through to Step 7 below.
 
 7. Proceed to Step 2 with `docs/features-renewed.md`
+
+### Outer Loop Termination (Step 5.11 reference)
+
+When the pipeline is running in outer-loop mode (default — `--no-loop` absent), Step 5.11 invokes the same renew collection logic above (steps 2–3.5, including the UAT-findings step 3.5) after each full sweep. Three exits are defined:
+
+| Exit | Trigger | --max-loops required? |
+|------|---------|------------------------|
+| CLEAN | renew-set empty | no |
+| STALLED | renew-set size did not strictly decrease for 2 consecutive loops | no (guaranteed terminator) |
+| MAX_LOOPS | `Loop count + 1 >= N` (`--max-loops N` given) | yes (opt-in) |
+
+**STALLED no-progress guard (guaranteed terminator):** After each loop iteration, compare `NEW_SET_SIZE` against `**Prev renew set:**` in `docs/pipeline-state.md`. If the renew-set did NOT strictly decrease (`NEW_SET_SIZE >= PREV`), increment `**Loop no-progress count:**` by 1 (reset to 0 when it does decrease). When `**Loop no-progress count:**` reaches 2, exit STALLED — the pipeline stops without requiring `--max-loops`. This is the mandatory terminator that guarantees finite runs even without a user-supplied ceiling.
+
+**UAT Findings source:** The UAT Findings section produced by the `feat/uat-e2e-phase` feature is read as a gracefully-optional source in step 3.5 (heading marker: `## UAT`). Absent section → empty contribution, no error.
 
 ---
 

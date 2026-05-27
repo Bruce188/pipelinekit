@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MCP LSP Setup — pipelinekit</title>
-<meta name="description" content="Symbol-level Go-to-Definition and Find-References across your pipelinekit checkout, served by an LSP-backed MCP. Ships as .mcp.json at the repo root with a serena entry (pinned placeholder) and a commented claude-context alternative.">
+<meta name="description" content="Symbol-level Go-to-Definition and Find-References across your pipelinekit checkout, served by an LSP-backed MCP. Ships as .mcp.json at the repo root with a serena entry (pinned to a known-good commit SHA) and a commented claude-context…">
 <meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
 <style>
 /* === Reset + variables === */
@@ -622,9 +622,8 @@ footer {
       <li class="lvl-2"><a href="#what-ships">What ships</a></li>
       <li class="lvl-2"><a href="#how-to-activate-serena">How to activate serena</a></li>
       <li class="lvl-3"><a href="#1-install-the-uv-toolchain">1. Install the uv toolchain</a></li>
-      <li class="lvl-3"><a href="#2-pick-a-known-good-serena-commit-sha">2. Pick a known-good serena commit SHA</a></li>
-      <li class="lvl-3"><a href="#3-edit-mcp-json-and-replace-the-placeholder">3. Edit .mcp.json and replace the placeholder</a></li>
-      <li class="lvl-3"><a href="#4-restart-claude-code">4. Restart Claude Code</a></li>
+      <li class="lvl-3"><a href="#2-optional-refresh-the-pinned-sha">2. (Optional) Refresh the pinned SHA</a></li>
+      <li class="lvl-3"><a href="#3-restart-claude-code">3. Restart Claude Code</a></li>
       <li class="lvl-2"><a href="#verify">Verify</a></li>
       <li class="lvl-2"><a href="#why-pin-the-sha">Why pin the SHA</a></li>
       <li class="lvl-2"><a href="#alternative-claude-context">Alternative: claude-context</a></li>
@@ -636,7 +635,7 @@ footer {
     <header class="page-header">
       <span class="diataxis-chip diataxis-how-to">how-to</span>
       <h1>MCP LSP Setup</h1>
-      <p class="description">Symbol-level Go-to-Definition and Find-References across your pipelinekit checkout, served by an LSP-backed MCP. Ships as .mcp.json at the repo root with a serena entry (pinned placeholder) and a commented claude-context alternative.</p>
+      <p class="description">Symbol-level Go-to-Definition and Find-References across your pipelinekit checkout, served by an LSP-backed MCP. Ships as .mcp.json at the repo root with a serena entry (pinned to a known-good commit SHA) and a commented claude-context…</p>
       <div class="page-meta"></div>
     </header>
 
@@ -876,9 +875,9 @@ footer {
 <li><strong><code>claude-context</code></strong> (parked in <code>_mcpServers_alt</code>) — AST-chunked semantic RAG, complementary to LSP. Move into <code>mcpServers</code> and add Milvus / embedding credentials to enable. Both can run together for max-power; neither blocks the other.</li>
 </ul>
 <p>Claude Code only reads the <code>mcpServers</code> key — anything under <code>_mcpServers_alt</code>, <code>_comment</code>, or <code>_security_note</code> is inert. The sidebar exists so a maintainer can flip the alternative on with one edit.</p>
-<p>The <code>serena</code> entry's <code>git+https</code> URL has an intentional <code>&lt;PIN-TO-COMMIT-SHA&gt;</code> placeholder. The <code>uvx</code> command will fail until you replace it. This is fail-closed behavior — pipelinekit refuses to execute an unpinned upstream by default.</p>
+<p>The <code>serena</code> entry's <code>git+https</code> URL is pinned to a known-good commit SHA, not a rolling <code>main</code> ref — so <code>uvx</code> resolves one exact, reproducible commit, and a fresh checkout gets a working serena once <code>uv</code> is installed. This is the fail-closed default: pipelinekit never ships an unpinned upstream (see <em>Why pin the SHA</em> below for the supply-chain rationale).</p>
 <h2 id="how-to-activate-serena">How to activate serena</h2>
-<p>Four steps. First time only.</p>
+<p>serena ships pinned and ready. Install the <code>uv</code> toolchain, restart, and confirm — refreshing the pin is optional.</p>
 <h3 id="1-install-the-uv-toolchain">1. Install the <code>uv</code> toolchain</h3>
 <p><code>uvx</code> ships inside the <code>uv</code> package. Pick one:</p>
 <div class="codehilite"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>uv<span class="w">          </span><span class="c1"># any platform with python3 + pip</span>
@@ -889,20 +888,19 @@ brew<span class="w"> </span>install<span class="w"> </span>uv<span class="w">   
 <div class="codehilite"><pre><span></span><code>uvx<span class="w"> </span>--version<span class="w">           </span><span class="c1"># expect 0.4.x or newer</span>
 </code></pre></div>
 
-<h3 id="2-pick-a-known-good-serena-commit-sha">2. Pick a known-good serena commit SHA</h3>
-<p>Visit <a href="https://github.com/oraios/serena/commits/main">https://github.com/oraios/serena/commits/main</a> and copy a recent commit hash that you trust. Pin to a specific SHA — never <code>main</code>, never a tag you don't control. Pin freshness target: ≤ 30 days; older SHAs work but may lag on language-server bugfixes.</p>
-<h3 id="3-edit-mcp-json-and-replace-the-placeholder">3. Edit <code>.mcp.json</code> and replace the placeholder</h3>
-<p>Open <code>.mcp.json</code> at the repo root and replace <code>&lt;PIN-TO-COMMIT-SHA&gt;</code> with the full 40-character SHA from step 2:</p>
+<h3 id="2-optional-refresh-the-pinned-sha">2. (Optional) Refresh the pinned SHA</h3>
+<p>The shipped <code>.mcp.json</code> is already pinned to a known-good commit. Refresh it only when the pin is stale (freshness target: ≤ 30 days) or you want a newer language-server fix. Visit <a href="https://github.com/oraios/serena/commits/main">https://github.com/oraios/serena/commits/main</a>, copy a recent commit hash you trust, and replace the SHA after the <code>@</code> — pin to a specific SHA, never <code>main</code>, never a tag you don't control:</p>
 <div class="codehilite"><pre><span></span><code><span class="nt">&quot;args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">  </span><span class="s2">&quot;--from&quot;</span><span class="p">,</span>
 <span class="w">  </span><span class="s2">&quot;git+https://github.com/oraios/serena@abcdef0123456789abcdef0123456789abcdef01&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="s2">&quot;serena-mcp-server&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;serena&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="s2">&quot;start-mcp-server&quot;</span><span class="p">,</span>
 <span class="w">  </span><span class="s2">&quot;--project&quot;</span><span class="p">,</span>
 <span class="w">  </span><span class="s2">&quot;.&quot;</span>
 <span class="p">]</span>
 </code></pre></div>
 
-<h3 id="4-restart-claude-code">4. Restart Claude Code</h3>
+<h3 id="3-restart-claude-code">3. Restart Claude Code</h3>
 <p>Quit and relaunch — MCP servers are only re-read at session start. Once back in, run <code>/mcp</code> (or open the MCP status panel) and confirm <code>serena</code> appears as a connected <code>stdio</code> MCP server. First connect will take ~30s while <code>uvx</code> resolves the pin and bootstraps the language server.</p>
 <h2 id="verify">Verify</h2>
 <p>Ask Claude to use a serena tool against pipelinekit itself. Examples:</p>
@@ -919,7 +917,7 @@ brew<span class="w"> </span>install<span class="w"> </span>uv<span class="w">   
 <h2 id="why-pin-the-sha">Why pin the SHA</h2>
 <p><code>git+https://github.com/oraios/serena</code> without a pinned ref defaults to whatever <code>main</code> points to right now. If upstream is compromised or a maintainer makes a bad merge, your next <code>uvx</code> invocation pulls and executes the new code on your machine, with full filesystem access, before any tool call returns.</p>
 <p>Pinning to a commit SHA closes that window. The SHA is content-addressed: a malicious force-push to <code>main</code> cannot reach a pinned commit, and any tampered SHA fails the git fetch. This is the same supply-chain control that <code>requirements.txt</code>'s <code>--hash=sha256:</code> flag and <code>package-lock.json</code>'s <code>integrity:</code> field provide — applied to the MCP server bootstrap path.</p>
-<p>Fail-closed default. The placeholder <code>&lt;PIN-TO-COMMIT-SHA&gt;</code> makes <code>uvx</code> error out by design. Activate serena by making a deliberate pin decision; never by leaving an unpinned ref in production.</p>
+<p>Fail-closed default. pipelinekit ships serena pinned to a specific commit, never a rolling <code>main</code> ref — so the window above stays closed out of the box. When you refresh the pin, swap one SHA for another; never replace it with <code>main</code> or an unpinned ref in production.</p>
 <h2 id="alternative-claude-context">Alternative: claude-context</h2>
 <p><code>claude-context</code> is an AST-chunked semantic RAG MCP from Zilliz (the Milvus commercial vendor — NOT Anthropic). It indexes the codebase into a vector store and answers natural-language queries like <em>"where is rate-limiting handled?"</em> with semantic matches.</p>
 <p>Two modes:</p>

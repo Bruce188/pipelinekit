@@ -36,6 +36,8 @@ paths:
 | `--no-tdd` | `/pipeline` | Force `FEATURE_CLASS = non-dev` for every feature. Bypasses Step 5.5.0 — standard `implement-plan`, no TDD pairing. |
 | `--no-test-loop` | `/pipeline` | Disable implement-plan test-run inner loop (Step 2e.5). Records `NO_TEST_LOOP=true`. No effect on TDD red/green; suppresses post-task test+fix-retry loop. |
 | `--no-notifications` | `/pipeline` | Disable notification emission. Aliases `PIPELINE_NO_NOTIFICATIONS=1`. |
+| `--no-loop` | `/pipeline` | Disable the default-on outer feature-sweep loop; restore legacy single-trip Step 5.10 termination. |
+| `--max-loops` | `/pipeline` | OPTIONAL hard ceiling on outer-loop iterations (default unlimited). Termination guaranteed without it via the STALLED no-progress guard. |
 
 **Note:** `/code-health` has its own arguments (`--scope`, `--quick`, `--threshold`) — sits outside main pipeline. Its `--scope` scopes quality dimensions, not file paths.
 
@@ -188,6 +190,11 @@ If this snippet needs updating, change here — all skills reference this sectio
 - `**Prior finding count:**` total findings (blocking + non-blocking) from prev cycle — Path B heuristic
 - `**Non-converging cycles:**` consecutive cycles where count didn't decrease — observability only; Path B bounded by 5-cycle hard cap (Path C escalates)
 - `**Conv guard logged:**` 0 or 1 — set 1 first time `CONVERGENCE_GUARD_DISABLED` emitted for feature. Persisted so resumes do not re-emit. Cleared at feature init; not reset by `path_c_replan`.
+- `**Loop:**` — `on` (default) / `off` (`--no-loop`). Written at Step 5.1; read by Step 5.11 on every iteration.
+- `**Max loops:**` — integer ceiling or `unlimited` (when `--max-loops` omitted). Written at Step 5.1.
+- `**Loop count:**` — integer, +1 per outer-loop re-entry (Step 5.11 path (e)). Starts `0`.
+- `**Prev renew set:**` — last loop's renew-set size (or `(none)` on first trip). Updated by Step 5.11 before re-entry.
+- `**Loop no-progress count:**` — integer; +1 when renew-set did not strictly decrease, reset to 0 otherwise; at 2 → STALLED (guaranteed terminator).
 
 ## Phase Mode Precedence
 

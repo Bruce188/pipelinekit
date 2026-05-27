@@ -5,7 +5,7 @@ diataxis: how-to
 
 <div data-snippet="terminal-simulator"></div>
 
-Symbol-level Go-to-Definition and Find-References across your pipelinekit checkout, served by an LSP-backed MCP. Ships as `.mcp.json` at the repo root with a `serena` entry (pinned placeholder) and a commented `claude-context` alternative.
+Symbol-level Go-to-Definition and Find-References across your pipelinekit checkout, served by an LSP-backed MCP. Ships as `.mcp.json` at the repo root with a `serena` entry (pinned to a known-good commit SHA) and a commented `claude-context` alternative.
 
 ## Why LSP-backed MCP
 
@@ -28,11 +28,11 @@ An LSP-backed MCP server gives Claude these scope-aware operations as first-clas
 
 Claude Code only reads the `mcpServers` key — anything under `_mcpServers_alt`, `_comment`, or `_security_note` is inert. The sidebar exists so a maintainer can flip the alternative on with one edit.
 
-The `serena` entry's `git+https` URL has an intentional `<PIN-TO-COMMIT-SHA>` placeholder. The `uvx` command will fail until you replace it. This is fail-closed behavior — pipelinekit refuses to execute an unpinned upstream by default.
+The `serena` entry's `git+https` URL is pinned to a known-good commit SHA, not a rolling `main` ref — so `uvx` resolves one exact, reproducible commit, and a fresh checkout gets a working serena once `uv` is installed. This is the fail-closed default: pipelinekit never ships an unpinned upstream (see *Why pin the SHA* below for the supply-chain rationale).
 
 ## How to activate serena
 
-Four steps. First time only.
+serena ships pinned and ready. Install the `uv` toolchain, restart, and confirm — refreshing the pin is optional.
 
 ### 1. Install the `uv` toolchain
 
@@ -49,25 +49,22 @@ Verify:
 uvx --version           # expect 0.4.x or newer
 ```
 
-### 2. Pick a known-good serena commit SHA
+### 2. (Optional) Refresh the pinned SHA
 
-Visit [https://github.com/oraios/serena/commits/main](https://github.com/oraios/serena/commits/main) and copy a recent commit hash that you trust. Pin to a specific SHA — never `main`, never a tag you don't control. Pin freshness target: ≤ 30 days; older SHAs work but may lag on language-server bugfixes.
-
-### 3. Edit `.mcp.json` and replace the placeholder
-
-Open `.mcp.json` at the repo root and replace `<PIN-TO-COMMIT-SHA>` with the full 40-character SHA from step 2:
+The shipped `.mcp.json` is already pinned to a known-good commit. Refresh it only when the pin is stale (freshness target: ≤ 30 days) or you want a newer language-server fix. Visit [https://github.com/oraios/serena/commits/main](https://github.com/oraios/serena/commits/main), copy a recent commit hash you trust, and replace the SHA after the `@` — pin to a specific SHA, never `main`, never a tag you don't control:
 
 ```json
 "args": [
   "--from",
   "git+https://github.com/oraios/serena@abcdef0123456789abcdef0123456789abcdef01",
-  "serena-mcp-server",
+  "serena",
+  "start-mcp-server",
   "--project",
   "."
 ]
 ```
 
-### 4. Restart Claude Code
+### 3. Restart Claude Code
 
 Quit and relaunch — MCP servers are only re-read at session start. Once back in, run `/mcp` (or open the MCP status panel) and confirm `serena` appears as a connected `stdio` MCP server. First connect will take ~30s while `uvx` resolves the pin and bootstraps the language server.
 
@@ -90,7 +87,7 @@ If Claude returns scope-aware results (definition line numbers, caller paths, ho
 
 Pinning to a commit SHA closes that window. The SHA is content-addressed: a malicious force-push to `main` cannot reach a pinned commit, and any tampered SHA fails the git fetch. This is the same supply-chain control that `requirements.txt`'s `--hash=sha256:` flag and `package-lock.json`'s `integrity:` field provide — applied to the MCP server bootstrap path.
 
-Fail-closed default. The placeholder `<PIN-TO-COMMIT-SHA>` makes `uvx` error out by design. Activate serena by making a deliberate pin decision; never by leaving an unpinned ref in production.
+Fail-closed default. pipelinekit ships serena pinned to a specific commit, never a rolling `main` ref — so the window above stays closed out of the box. When you refresh the pin, swap one SHA for another; never replace it with `main` or an unpinned ref in production.
 
 ## Alternative: claude-context
 
