@@ -1,7 +1,7 @@
 ---
 name: pipeline
 description: Autonomous pipeline orchestrator. Processes a feature list through the full workflow (analyze → plan → implement → review → merge) with zero human intervention. Supports --dry-run and --restart-from.
-argument-hint: ([feature-file]|[--renew [--no-prompts]]|[--adopt]|[--from "<text>"]|[--plan [<path>]]|[--issues <selector>]) [--restart-from analyze|plan|implement|review] [--dry-run] [--no-charter|--charter <path>|--max-questions <N>] [--no-prompts] [--no-teams] [--no-review] [--no-ppr] [--no-docs] [--no-tdd] [--no-test-loop] [--no-notifications]
+argument-hint: ([feature-file]|[--renew [--no-prompts]]|[--adopt]|[--from "<text>"]|[--plan [<path>]]|[--issues <selector>]) [--restart-from analyze|plan|implement|review] [--dry-run] [--no-charter|--charter <path>|--max-questions <N>] [--no-prompts] [--no-teams] [--no-review] [--no-ppr] [--no-docs] [--no-tdd] [--no-test-loop] [--no-notifications] [--no-loop] [--max-loops <N>]
 allowed-tools:
   - Read
   - Write
@@ -131,6 +131,8 @@ Parse `$ARGUMENTS`:
 - `--charter <path>` = adopt an existing charter file at `<path>`. Skips Step 0 discovery loop; sets the `**Charter:**` pointer in `progress.md`. STOP if the path does not exist: "ERROR: --charter path not found: <path>"
 - `--max-questions <N>` = cap the total number of `AskUserQuestion` invocations in Step 0 at `N`. Default: unbounded. `--max-questions 0` is an alias for `--no-charter` (no discovery at all).
 - `--no-teams` = force-disable Agent Teams for this run. Resolves `PIPELINE_TEAMS_OVERRIDE=never`. Persists into `**Review style:** never teams` for every feature in the run (overrides Charter Topic 11 and the heuristic). The orchestrator dispatches `Skill: pipeline-review --no-teams` at every review boundary. Teams mode is otherwise default-on (decided per-feature by the Step 5.6.0 heuristic).
+- `--no-loop` = disable the default-on outer feature-sweep loop; restores legacy single-trip Step 5.10 termination. When set, Step 5.11 is a no-op and the pipeline exits after the first full sweep exactly as before this feature.
+- `--max-loops <N>` = OPTIONAL hard ceiling on outer-loop iterations; when omitted, termination is still guaranteed by the STALLED no-progress guard. Only evaluated when `--no-loop` is absent.
 
 **Removed (deprecated) flags — STOP on use:**
 - `--teams` (pipeline-level): REMOVED. The orchestrator's per-feature Step 5.6.0 heuristic + the persisted `**Review style:**` (Charter Topic 11) already cover the "force teams on" surface. STOP with `DEPRECATED: --teams (pipeline) removed. Teams mode is default-on per-feature; pass --no-teams to opt out for this run.`
@@ -161,6 +163,13 @@ Record the teams override in a local variable for use by Step 5.1:
 **`--no-docs` / `PIPELINE_SKIP_DOCS=1` export:** If `--no-docs` is present at parse, export `PIPELINE_SKIP_DOCS=1` so the existing Documentation Update Phase escape hatch fires.
 
 **`--no-review` / `--no-ppr` / `--no-tdd` / `--no-test-loop` recording:** These flags are not env vars — record them as local variables (`NO_REVIEW`, `NO_PPR`, `NO_TDD`, `NO_TEST_LOOP`) for the orchestrator to check at Step 5.5.0 (no-tdd), Step 5.6 (no-review), Step 5.8 Path A entry (no-ppr), and the implement-plan Step 2e.5 inner loop short-circuit (no-test-loop). `NO_TEST_LOOP` is forwarded into the implement-plan subagent dispatch context so the per-task inner loop honours it.
+
+**`--no-loop` / `--max-loops` recording:** Record the loop control flags in `docs/pipeline-state.md` at Step 5.1 so Step 5.11 can read them on every iteration:
+- `**Loop:**` — write `on` (default, when `--no-loop` is absent) or `off` (when `--no-loop` is present).
+- `**Max loops:**` — write the integer value of `--max-loops <N>` when provided, or `unlimited` when the flag is absent.
+- `**Loop count:**` — integer, starts `0`, incremented by `+1` at each outer-loop re-entry (Step 5.11 path (e)).
+- `**Prev renew set:**` — last loop's renew-set size as an integer, or `(none)` on the first trip through Step 5.11.
+- `**Loop no-progress count:**` — integer, starts `0`; incremented `+1` when the renew-set size did NOT strictly decrease vs the previous trip; reset to `0` when it does decrease; at `2` → STALLED exit (the guaranteed terminator).
 
 The orchestrator exports `PIPELINE_FEATURE_INDEX="<N>/<M>"` (NB1 `N/M` shape from `docs/pipeline-state.md` `**Feature:**` line; set at Step 5.1) and `PIPELINE_FEATURE_NAME="<feature-name>"` so the notification payload's `feature_index` / `feature_name` fields are populated without re-parsing pipeline state.
 
@@ -581,6 +590,11 @@ Write/update `docs/pipeline-state.md`:
 **Review style:** [always teams | never teams | orchestrator decides]
 **Probe depth:** $(bash claude/lib/pipeline/detect_repo_class.sh --probe-depth)
 **Repo class:** $(bash claude/lib/pipeline/detect_repo_class.sh --repo-class)
+**Loop:** on
+**Max loops:** unlimited
+**Loop count:** 0
+**Prev renew set:** (none)
+**Loop no-progress count:** 0
 ```
 <!-- DEFERRED: ~/.claude/rules/workflow.md § Pipeline State Schema gains two new bullets (`**Probe depth:**`, `**Repo class:**`) — out-of-repo edit (user's global rules). Advisory schema doc, not load-bearing for runtime. Tracked as follow-up in docs/progress.md ## Deferred section. -->
 
@@ -1305,6 +1319,60 @@ After terminal cleanup, proceed to Step 6 Final Summary which prints the run rep
 <!-- OQ-3 resolved: (d) html-archive variant — features.md → docs-source/feature-history.md, see /post-merge Step 12 + claude/lib/pipeline/features_pruner.py -->
 
 Per-feature pruning of done blocks out of `docs/features.md` does NOT live in Step 5.10 — it runs inside `/post-merge` Step 12 (the workflow-hygiene block) via `claude/lib/pipeline/features_pruner.py`. Step 5.10 is the terminal cleanup gate; pruning is a per-feature concern that fires after each successful merge.
+
+---
+
+### Step 5.11: Outer Loop Control
+
+Runs immediately after `TERMINAL=1` would fire in Step 5.10, BEFORE the terminal write, unless `**Loop:** off` (i.e. `--no-loop` was passed).
+
+**When `**Loop:** off`:** Step 5.11 is a no-op. Fall through directly to Step 5.10's terminal write (fields + Step 6). Single-trip behaviour is preserved exactly as before this feature — AC6.
+
+**When `**Loop:** on` (default):**
+
+Read the current `**Loop count:**`, `**Prev renew set:**`, and `**Loop no-progress count:**` from `docs/pipeline-state.md`.
+
+**(a) Run the existing Step 1.6 renew collection** over `FAILED ∪ Unprocessed ∪ Deferred ∪ ## UAT Findings`:
+- Collect FAILED features (last Run Log entry `Status: FAILED`).
+- Collect Unprocessed features (no Run Log / no status line).
+- Collect Deferred items from `docs/progress.md` `## Deferred` section.
+- Collect `## UAT Findings` items from the feature file if that section exists; an absent `## UAT Findings` section contributes the empty set — no error. (Reuse Step 1.6 logic; do NOT redefine `--renew` semantics.)
+
+Let `NEW_SET_SIZE` = total count of items collected above.
+
+**(b) CLEAN exit — empty renew-set:**
+If `NEW_SET_SIZE == 0`: fall through to Step 5.10 terminal write (fields + Step 6). The pipeline terminates cleanly with an empty queue.
+
+**(c) STALLED no-progress guard (guaranteed terminator):**
+Read `PREV = **Prev renew set:**` from state (treat `(none)` as "no previous trip").
+- If `PREV != (none)` and `NEW_SET_SIZE >= PREV` (renew-set did NOT strictly decrease):
+  - Increment `**Loop no-progress count:**` by 1 and write to state.
+  - If `**Loop no-progress count:** >= 2`: exit **STALLED**.
+    - Log: `STALLED: renew-set size did not strictly decrease for 2 consecutive loops (size=$NEW_SET_SIZE). Exiting outer loop to prevent infinite cycling.`
+    - Fall through to Step 5.10 terminal write + Step 6 (STALLED is a clean exit, not a failure; the state file records the reason via the log line).
+- If `NEW_SET_SIZE < PREV` (set did decrease): reset `**Loop no-progress count:**` to `0`.
+
+**(d) MAX_LOOPS ceiling (opt-in):**
+If `**Max loops:**` is an integer `N` (not `unlimited`) and `**Loop count:** + 1 >= N`:
+- Log: `MAX_LOOPS: outer loop ceiling reached (count=$LOOP_COUNT, max=$N). Exiting.`
+- Fall through to Step 5.10 terminal write + Step 6.
+
+**(e) Re-enter loop:**
+None of the three exits fired. Proceed:
+1. Write `docs/features-renewed.md` using the renew-set collected in step (a) (same format as Step 1.6 step 5).
+2. Update `docs/pipeline-state.md`:
+   - `**Prev renew set:**` ← `NEW_SET_SIZE`
+   - `**Loop count:**` ← current value + 1
+   - `**Loop no-progress count:**` ← already set in step (c) (reset to `0` if set decreased, unchanged if no previous trip)
+3. Reset per-feature state: clear `**Step:**` back to `analyze`, clear `**Review cycles:**` to `0`, clear `**Replan count:**` to `0`, clear `**Path D attempted:**` to `false`. (Other fields such as `**Phase Mode:**`, `**Review style:**`, `**Feature:**` are re-derived at Step 5.1 for each feature in the renewed list.)
+4. Log: `OUTER_LOOP: re-entering Step 5.1 (loop count now $LOOP_COUNT; renew-set size $NEW_SET_SIZE). Phase Mode stays subagent.`
+5. **Goto Step 5.1** — this is an in-process step-machine re-entry, NOT a `/pipeline` self-invocation and NOT a subprocess spawn. Phase Mode remains `subagent` for all features in the new sweep.
+
+**Invariants:**
+- STALLED guard is the mandatory terminator; `--max-loops` is purely optional belt-and-suspenders.
+- Renew-set contents are NOT leaked into notification payloads (200-char text cap on `**text**` field applies).
+- Phase Mode stays `subagent` across all loop iterations.
+- The manual `--renew` flag's meaning is unchanged — this step reuses its collection logic, it does not redefine it.
 
 ---
 
