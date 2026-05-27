@@ -1364,12 +1364,13 @@ None of the three exits fired. Proceed:
    - `**Prev renew set:**` ← `NEW_SET_SIZE`
    - `**Loop count:**` ← current value + 1
    - `**Loop no-progress count:**` ← already set in step (c) (reset to `0` if set decreased, unchanged if no previous trip)
-3. Reset per-feature state: clear `**Step:**` back to `analyze`, clear `**Review cycles:**` to `0`, clear `**Replan count:**` to `0`, clear `**Path D attempted:**` to `false`. (Other fields such as `**Phase Mode:**`, `**Review style:**`, `**Feature:**` are re-derived at Step 5.1 for each feature in the renewed list.)
+3. Reset per-feature state: clear `**Step:**` back to `analyze`, clear `**Review cycles:**` to `0`, clear `**Replan count:**` to `0`, clear `**Path D attempted:**` to `false`. (Other fields such as `**Phase Mode:**`, `**Review style:**`, `**Feature:**`, and `**Conv guard logged:**` are re-derived / re-initialized at Step 5.1 feature-init for each feature in the renewed list, so no explicit reset is needed here.)
 4. Log: `OUTER_LOOP: re-entering Step 5.1 (loop count now $LOOP_COUNT; renew-set size $NEW_SET_SIZE). Phase Mode stays subagent.`
 5. **Goto Step 5.1** — this is an in-process step-machine re-entry, NOT a `/pipeline` self-invocation and NOT a subprocess spawn. Phase Mode remains `subagent` for all features in the new sweep.
 
 **Invariants:**
 - STALLED guard is the mandatory terminator; `--max-loops` is purely optional belt-and-suspenders.
+- CLEAN and STALLED jointly guarantee finiteness: a renew-set that keeps strictly decreasing (including a sawtooth like `5,4,4,3,3,2,…` where each decrement resets the no-progress counter) is bounded below by `0` and so reaches the empty set → **CLEAN**; a set that stops strictly decreasing (constant or oscillating at the same size) trips the no-progress counter → **STALLED**. No infinite run is possible even without `--max-loops`.
 - Renew-set contents are NOT leaked into notification payloads (200-char text cap on `**text**` field applies).
 - Phase Mode stays `subagent` across all loop iterations.
 - The manual `--renew` flag's meaning is unchanged — this step reuses its collection logic, it does not redefine it.
