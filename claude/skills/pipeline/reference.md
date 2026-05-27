@@ -867,6 +867,7 @@ The orchestrator MUST apply the following validation steps before substituting a
 5. **Path placeholder allowlist.** `{{ANALYSIS_PATH}}`, `{{PLAN_PATH}}`, `{{PROMPTS_PATH}}`, `{{REVIEW_PATH}}`: resolve via `os.path.realpath()` and require the resolved path to live under the repo-relative `docs/` directory (i.e., `os.path.realpath(path).startswith(os.path.realpath("docs") + os.sep)`). Reject any path that escapes via `..`, symlinks, or absolute paths outside `docs/`.
 6. **Numeric placeholders.** `{{FEATURE_INDEX}}`, `{{FEATURE_TOTAL}}`, `{{BUDGET_REMAINING}}`, `{{MAX_USD}}`: validate as integers or decimals, not arbitrary text.
 7. **Merge SHA shape.** Regex-validate `{{MERGE_SHA}}` against `^[0-9a-f]{40}$`. Reject anything else — branch names, abbreviated SHAs, dirty trees, and shell metacharacters are all forbidden. The orchestrator captures this value via `MERGE_SHA=$(git rev-parse HEAD)` immediately after Path A step 7's `git pull origin "$BASE"` (HEAD = squash-merge commit at that point).
+8. **Operator-trust placeholders (`{{CHARTER_SUMMARY}}`, `{{MCP_GUIDANCE}}`).** Both are resolved from committed charter source (`docs/charter.md`) by pure stdlib helpers (`charter_summary.py`, `mcp_guidance.py`) and carry no user-supplied prose from the feature file. The only bound applied is each resolver's hard `max_chars` cap (800 for charter summary, 1500 for MCP guidance) plus, for `{{MCP_GUIDANCE}}`, the connected-server intersection against `claude mcp list` — a server the user did not declare AND the harness has not connected can never appear. No further backtick/fence sanitisation is applied because the charter is operator-authored committed source, not feature-file input. Both substitute to a no-op sentinel (`(no charter)` / `(no MCP routing)`) when nothing applies, so the template line always renders cleanly.
 
 The orchestrator's substitution code does not yet exist at the time this section is written — this section is a normative contract for the code that will land with Step 5.0 wiring. Until substitution code exists, treat every dispatch as a manual validation step.
 
@@ -881,6 +882,7 @@ You are dispatched by the pipeline orchestrator as the ANALYZE phase subagent fo
 
 Inputs:
 - Charter summary: {{CHARTER_SUMMARY}}
+- MCP guidance: {{MCP_GUIDANCE}}
 - Feature description: {{FEATURE_DESCRIPTION}}
 - Feature constraints: {{FEATURE_CONSTRAINTS}}
 - Target analysis path: {{ANALYSIS_PATH}}
@@ -946,6 +948,7 @@ You are dispatched by the pipeline orchestrator as the PLAN phase subagent for f
 
 Inputs:
 - Charter summary: {{CHARTER_SUMMARY}}
+- MCP guidance: {{MCP_GUIDANCE}}
 - Feature description: {{FEATURE_DESCRIPTION}}
 - Feature constraints: {{FEATURE_CONSTRAINTS}}
 - Analysis file: {{ANALYSIS_PATH}}
@@ -1010,6 +1013,7 @@ You are dispatched by the pipeline orchestrator as the IMPLEMENT phase subagent 
 
 Inputs:
 - Charter summary: {{CHARTER_SUMMARY}}
+- MCP guidance: {{MCP_GUIDANCE}}
 - Plan file: {{PLAN_PATH}}
 - Prompts file: {{PROMPTS_PATH}}
 - Branch name: {{BRANCH_NAME}}
@@ -1065,6 +1069,7 @@ You are dispatched by the pipeline orchestrator as the REVIEW phase subagent for
 
 Inputs:
 - Charter summary: {{CHARTER_SUMMARY}}
+- MCP guidance: {{MCP_GUIDANCE}}
 - Branch name: {{BRANCH_NAME}}
 - Review file path (after review writes it): {{REVIEW_PATH}}
 
@@ -1120,6 +1125,7 @@ You are dispatched by the pipeline orchestrator as the DOCS phase subagent (suba
 
 Inputs:
 - Charter summary: {{CHARTER_SUMMARY}}
+- MCP guidance: {{MCP_GUIDANCE}}
 - Feature description: {{FEATURE_DESCRIPTION}}
 - Branch name (already merged; reference only): {{BRANCH_NAME}}
 - Squash-merge SHA on base branch: {{MERGE_SHA}}
@@ -1185,6 +1191,7 @@ You are dispatched by the pipeline orchestrator as the UAT phase subagent (subag
 
 Inputs:
 - Charter summary: {{CHARTER_SUMMARY}}
+- MCP guidance: {{MCP_GUIDANCE}}
 - Feature description: {{FEATURE_DESCRIPTION}}
 - Branch name (already merged; reference only): {{BRANCH_NAME}}
 - Squash-merge SHA on base branch: {{MERGE_SHA}}
