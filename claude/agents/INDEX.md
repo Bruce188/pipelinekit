@@ -20,6 +20,7 @@
 | `tdd-implementer` | Implements code to pass existing failing tests. Does not modify tests. Context-isolated from test-writer. |
 | `tdd-test-writer` | Writes failing tests from spec. Does not implement. Context-isolated from implementer. |
 | `test-engineer` | Specialized testing expert for comprehensive test creation, validation, and quality assurance across all testing levels. Use proactively for test generation and coverage analysis. |
+| `uat-runner` | UAT runner — drives a real headless browser through RBAC role flows and every button, reporting per-flow PASS/FAIL. Use for the pipeline's non-blocking UAT phase. |
 | `vercel-deployment-engineer` | Vercel-specialized deployment engineer for Next.js, SvelteKit, Astro, Remix, and Nuxt workloads. Inherits cross-provider doctrine from claude/agents/deployment-engineer.md and applies the Vercel playbook. Use when deploying or operating Vercel-hosted projects. |
 
 ## Generation

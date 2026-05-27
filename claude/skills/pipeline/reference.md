@@ -206,6 +206,37 @@ When the pipeline is running in outer-loop mode (default — `--no-loop` absent)
 
 **UAT Findings source:** The UAT Findings section produced by the `feat/uat-e2e-phase` feature is read as a gracefully-optional source in step 3.5 (heading marker: `## UAT`). Absent section → empty contribution, no error.
 
+### `## UAT Findings` schema (producer side)
+
+The UAT Phase (SKILL.md § "UAT Phase") records browser-journey regressions into a `## UAT
+Findings` section. Modelled on the `## Deferred` shape (`~/.claude/rules/workflow.md`
+Deferred Items block), it is a table the orchestrator's Edit appends to:
+
+```
+## UAT Findings
+| Flow | Role | Button/Step | Failure | Source feature |
+|------|------|-------------|---------|----------------|
+| checkout | admin | "Place order" button | 500 after submit | feat/checkout-v2 |
+```
+
+- **Location:** the rows live in the FEATURE FILE (`docs/features-*.md`), NOT in
+  `docs/progress.md`. The orchestrator (Edit tool) owns the append — the `uat-runner`
+  subagent does not write to `docs/`; it reports failures in its `<task-notification>`
+  summary and the orchestrator transcribes them.
+- **Columns:** `Flow` (the user journey), `Role` (RBAC role under test), `Button/Step` (the
+  specific control or step that failed), `Failure` (one-line symptom), `Source feature` (the
+  feature whose merge surfaced the regression).
+- **Consumed by:** the existing renew collection at step 3.5 above (cross-ref L88-101), which
+  turns each row into a new feature entry of shape `fix/uat-<flow>-<role>`. Gracefully
+  optional — an absent section contributes the empty set.
+
+### Pipeline-state `**UAT:**` field
+
+`docs/pipeline-state.md` carries a per-feature `**UAT:**` field = `PASSED | FAILED | SKIPPED |
+n/a`. Written by the UAT Phase: `PASSED` when all exercised flows passed; `FAILED` when one or
+more flows failed (findings recorded); `SKIPPED` on no-web-surface / `--no-uat` /
+`PIPELINE_SKIP_UAT=1` / unresolvable base URL / subagent error; `n/a` before the phase runs.
+
 ---
 
 ## Step 1.7: Adopt Manual Workflow (--adopt)
@@ -1133,6 +1164,53 @@ Report back with this XML block as the very last content in your response:
   <summary>1-3 sentence summary of what was documented (or why it failed).</summary>
   <files>
     <file>documentation/...</file>
+  </files>
+  <usage>
+    <total_tokens>[if available, else omit]</total_tokens>
+    <tool_uses>[if available, else omit]</tool_uses>
+  </usage>
+</task-notification>
+```
+
+<!-- PHASE: uat -->
+
+```
+<caveman-inherited level="wenyan-ultra">
+Respond in caveman wenyan-ultra three-zone mode in your chat reply: Zone 1 (code/paths/identifiers/commands/flags) English verbatim; Zone 2 (narrative) wenyan; Zone 3 (status fragments/headers) ultra-terse English. The throwaway driver and any files you write are technical artifacts — keep them precise English.
+</caveman-inherited>
+
+You are dispatched by the pipeline orchestrator as the UAT phase subagent (subagent_type: uat-runner) for feature `{{FEATURE_NAME}}` ({{FEATURE_INDEX}}/{{FEATURE_TOTAL}}). Remaining budget: ${{BUDGET_REMAINING}} of ${{MAX_USD}}.
+
+{{MODEL_OVERLAY_NOTE}}
+
+Inputs:
+- Charter summary: {{CHARTER_SUMMARY}}
+- Feature description: {{FEATURE_DESCRIPTION}}
+- Branch name (already merged; reference only): {{BRANCH_NAME}}
+- Squash-merge SHA on base branch: {{MERGE_SHA}}
+- Mode: {{UAT_MODE}}  (diff-scoped by default; full sweep when --uat-full-every-feature or run/loop-end)
+
+Your job (follow `claude/skills/uat/SKILL.md` for the full doctrine):
+1. Web-surface detect: confirm a `playwright.config.*` / `package.json` with `@playwright/test` / `e2e/` dir is present and the Playwright runtime is importable. None → report `status: completed` with summary `UAT: SKIPPED (no web surface)` and STOP.
+2. Resolve the base URL (`UAT_BASE_URL` env → `playwright.config.*` baseURL → dev-server start). Unresolvable → `status: completed`, summary `UAT: SKIPPED (no base URL)`, STOP.
+3. Write a THROWAWAY Python driver to a temp/scratch path (never committed, never staged): add `claude/skills/playwright/scripts` to `sys.path`, `from playwright_controller import PlaywrightNative`, then hold ONE `with PlaywrightNative() as pw:` session across the WHOLE flow — `navigate` / `fill_form` / `click` / `wait_for_selector` / `evaluate` in sequence. Run it with `python3 <driver>.py`. Do NOT chain `python3 playwright_controller.py <cmd>` CLI calls (the session is lost between processes); do NOT extend the controller; ship no browser code.
+4. Drive the journeys: diff-scoped (only routes/flows whose source files appear in the feature diff; uncertain mapping → full sweep for that feature) or full sweep (all RBAC role flows + all buttons). Enumerate buttons via `evaluate("[...document.querySelectorAll('button,[role=button]')].map(e=>e.textContent)")` and `click` each in the same session.
+5. Report per-flow PASS/FAIL in your summary so the orchestrator can transcribe failures into `## UAT Findings`. You do NOT write to `docs/`.
+
+Constraints:
+- NON-BLOCKING: you NEVER revert or block a merged feature. Report failures; do not undo the merge.
+- You do NOT re-run unit/integration suites, statically analyse coverage, critique UI from diff text, or health-probe endpoints — those are other layers (see the no-overlap boundary in the `uat` skill).
+- If the budget remaining is below your estimate, STOP and emit `status: failed` with reason `budget exceeded`.
+- This phase is best-effort. The pipeline treats any `status: failed` / `status: blocked` outcome as non-fatal (Run Log gets `UAT: SKIPPED (subagent error)` and the feature still completes).
+
+Report back with this XML block as the very last content in your response:
+
+<task-notification>
+  <task-id>uat:{{FEATURE_NAME}}</task-id>
+  <status>completed|failed|blocked</status>
+  <summary>1-3 sentence summary of flows exercised and per-flow PASS/FAIL (or why the run was skipped/failed).</summary>
+  <files>
+    <file>[temp driver path, if any]</file>
   </files>
   <usage>
     <total_tokens>[if available, else omit]</total_tokens>
