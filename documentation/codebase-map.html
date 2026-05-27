@@ -636,6 +636,70 @@ footer {
     </header>
 
     <div id="page-content">
+<p>The directory tree below renders that layout spatially: solid <code>var(--accent)</code> nodes are committed, dashed <code>var(--fg-subtle)</code> nodes (<code>docs/</code>, <code>lancedb/</code>) are never committed.</p>
+<p><svg viewBox="0 0 700 560" role="img" aria-label="Directory tree of the pipelinekit top-level repository layout" style="width:100%;height:auto;font-family:var(--mono);">
+  <title>pipelinekit top-level directory tree</title>
+  <g stroke="var(--border)" stroke-width="1.5" fill="none">
+    <line x1="40" y1="56" x2="40" y2="492"></line>
+    <line x1="40" y1="92" x2="64" y2="92"></line>
+    <line x1="40" y1="320" x2="64" y2="320"></line>
+    <line x1="40" y1="352" x2="64" y2="352"></line>
+    <line x1="40" y1="384" x2="64" y2="384"></line>
+    <line x1="40" y1="416" x2="64" y2="416"></line>
+    <line x1="40" y1="448" x2="64" y2="448"></line>
+    <line x1="40" y1="480" x2="64" y2="480"></line>
+    <line x1="120" y1="104" x2="120" y2="288"></line>
+    <line x1="120" y1="124" x2="144" y2="124"></line>
+    <line x1="120" y1="148" x2="144" y2="148"></line>
+    <line x1="120" y1="172" x2="144" y2="172"></line>
+    <line x1="120" y1="196" x2="144" y2="196"></line>
+    <line x1="120" y1="220" x2="144" y2="220"></line>
+    <line x1="120" y1="244" x2="144" y2="244"></line>
+    <line x1="120" y1="268" x2="144" y2="268"></line>
+    <line x1="120" y1="288" x2="144" y2="288"></line>
+  </g>
+  <text x="20" y="40" fill="var(--fg)" font-size="15" font-weight="600">pipelinekit/</text>
+  <text x="68" y="96" fill="var(--accent)" font-size="14" font-weight="600">claude/</text>
+  <g font-size="12.5" fill="var(--accent)">
+    <text x="148" y="128">skills/</text>
+    <text x="148" y="152">agents/</text>
+    <text x="148" y="176">hooks/</text>
+    <text x="148" y="200">commands/</text>
+    <text x="148" y="224">lib/</text>
+    <text x="148" y="248">rules/</text>
+    <text x="148" y="272">config/</text>
+    <text x="148" y="292">memory/</text>
+  </g>
+  <text x="240" y="292" fill="var(--fg-subtle)" font-size="11">…model-overlays/ host-adapters/ tresor-resources/</text>
+  <g font-size="14" fill="var(--accent)">
+    <text x="68" y="324">scripts/</text>
+    <text x="68" y="356">docs-source/</text>
+    <text x="68" y="388">documentation/</text>
+    <text x="68" y="452">tests/</text>
+  </g>
+  <text x="68" y="420" fill="var(--fg-subtle)" font-size="14">docs/</text>
+  <line x1="68" y1="424" x2="104" y2="424" stroke="var(--fg-subtle)" stroke-width="1.2" stroke-dasharray="4 3"></line>
+  <text x="68" y="484" fill="var(--fg-subtle)" font-size="14">lancedb/</text>
+  <line x1="68" y1="488" x2="120" y2="488" stroke="var(--fg-subtle)" stroke-width="1.2" stroke-dasharray="4 3"></line>
+  <g font-size="12">
+    <rect x="360" y="510" width="14" height="12" fill="var(--accent)" rx="2"></rect>
+    <text x="380" y="520" fill="var(--fg-muted)" font-family="var(--sans)">committed</text>
+    <line x1="500" y1="516" x2="528" y2="516" stroke="var(--fg-subtle)" stroke-width="1.5" stroke-dasharray="4 3"></line>
+    <text x="534" y="520" fill="var(--fg-muted)" font-family="var(--sans)">never committed</text>
+  </g>
+</svg></p>
+<details>
+<summary>Why <code>docs/</code> and <code>lancedb/</code> are never committed (click to expand)</summary>
+
+The two dashed nodes in the tree above are runtime / workflow state, deliberately kept out of version control:
+
+- **`docs/`** holds pipeline workflow metadata — `analysis-v*.md`, `plan-v*.md`, `progress.md`, `pipeline-state.md`, `review-v*.md`. It is pipeline-managed and never staged. Enforcement is two-layer: a `.gitignore` rule plus `claude/hooks/block-stage-sensitive.sh`, which reads the patterns in `claude/config/never-stage.txt` and refuses any `git add` that matches.
+- **`lancedb/`** is the on-disk index for the local-RAG MCP. It is regenerated from source on demand, so committing it would only bloat history with machine-specific binary state.
+
+Every other node renders solid `var(--accent)` because it is part of the committed toolkit surface.
+
+</details>
+
 <h2 id="top-level-directories">Top-Level Directories</h2>
 <table>
 <thead>

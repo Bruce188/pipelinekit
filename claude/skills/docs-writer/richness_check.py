@@ -27,7 +27,7 @@ import argparse
 import re
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -73,6 +73,51 @@ RICHNESS_PATTERNS: list[tuple[str, str]] = [
     ("collapsible-details", r'<details(?:\s|>)'),
 ]
 
+# ---------------------------------------------------------------------------
+# Topic-affinity layer.
+#
+# The richness scan above only checks that a rich pattern is PRESENT, not that
+# its content fits the page. A page could clear the gate by pasting any snippet
+# regardless of relevance — which is how a cost/turns budget meter ended up on a
+# coverage score-card and a whole-system architecture diagram on a
+# rendering-rubric page.
+#
+# For snippets whose rendered content is baked-in and topic-specific (as opposed
+# to generic containers like comparison-tabs / terminal-simulator that are
+# customized per page via data-attributes), require the page's AUTHOR PROSE to
+# mention at least one of the snippet's topic keywords. Author prose is read from
+# the page's markdown source — the rendered HTML is deliberately NOT used because
+# it contains the widget's own baked text, which would self-match and defeat the
+# check.
+#
+# Generic/neutral snippets are intentionally absent from this map: they carry no
+# baked topic, so affinity cannot be judged by keyword and is not enforced.
+#
+# A page overrides one snippet's affinity requirement with:
+#     <!-- topic-affinity-ok: <snippet-name> reason text -->
+# Keywords are matched with a left word boundary + prefix (`\bkw`), so "deploy"
+# matches "deployment" but "turn" does not match "return".
+SNIPPET_TOPIC_KEYWORDS: dict[str, set[str]] = {
+    "cost-budget-meter": {"usd", "dollar", "spend", "cost"},
+    "cost-calculator": {"usd", "dollar", "cost", "price", "calculat"},
+    "architecture-diagram": {"architectur", "taxonom", "topolog"},
+    "pipeline-phase-diagram": {"phase", "lifecycle"},
+    "path-routing-diagram": {"path", "routing", "route"},
+    "governance-roles-table": {"governance", "raci", "role", "responsib", "accountab"},
+    "deployment-provider-quiz": {"deploy", "provider"},
+    "skill-catalog-grid": {"skill"},
+    "agent-catalog-grid": {"agent"},
+}
+
+DOCS_SOURCE_DIR = REPO_ROOT / "docs-source"
+AFFINITY_OK_RE = re.compile(r'<!--\s*topic-affinity-ok:\s*([A-Za-z0-9_-]+)[^>]*-->', re.IGNORECASE)
+_MOUNT_RE = re.compile(r'data-snippet-mount="([^"]+)"')
+# Scrub from author prose before keyword matching: HTML comments (frontmatter,
+# commented-out usage examples) and the whole snippet placeholder tag (its
+# data-* attributes — e.g. data-max-usd — would otherwise leak topic keywords).
+_HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+_SNIPPET_TAG_RE = re.compile(r'<[^>]*\bdata-snippet="[^"]*"[^>]*>')
+
 # Pages that legitimately cannot be rich (reference / archive content).
 #
 # The v0.0.1 baseline-pending group is now empty — every reader-facing page
@@ -107,11 +152,59 @@ class Result:
     exempt: bool
     exempt_reason: str = ""
     body_words: int = 0
+    affinity_violations: list[str] = field(default_factory=list)
 
     @property
     def passes(self) -> bool:
+        if self.exempt:
+            return True
+        if self.affinity_violations:
+            return False
         threshold = 2 if self.body_words > 1500 else 1
-        return self.exempt or self.score >= threshold
+        return self.score >= threshold
+
+
+def _affinity_prose(html_path: Path) -> str | None:
+    """Author prose for affinity checks, lowercased — or None if no source found.
+
+    Read from the page's markdown source, NOT the rendered HTML: the rendered
+    widget carries its own baked text (e.g. a cost meter literally prints
+    "Cost (USD)"), which would self-match and defeat the check. Resolution order:
+    a sibling ``<stem>.md`` beside the HTML (used by test fixtures), then
+    ``docs-source/<stem>.md``. The ``data-snippet`` placeholder attribute is
+    scrubbed so the snippet's own NAME (e.g. cost-budget-meter) does not count as
+    prose.
+    """
+    candidates = [html_path.with_suffix(".md"), DOCS_SOURCE_DIR / f"{html_path.stem}.md"]
+    for src in candidates:
+        if src.exists():
+            text = src.read_text(encoding="utf-8", errors="replace")
+            text = _HTML_COMMENT_RE.sub(" ", text)
+            text = _SNIPPET_TAG_RE.sub(" ", text)
+            return text.lower()
+    return None
+
+
+def _affinity_violations(html_path: Path, content: str) -> list[str]:
+    """Flag baked-content snippets mounted on a page whose prose never discusses them."""
+    signature_mounts = {m for m in _MOUNT_RE.findall(content) if m in SNIPPET_TOPIC_KEYWORDS}
+    if not signature_mounts:
+        return []
+    overridden = {name.strip().lower() for name in AFFINITY_OK_RE.findall(content)}
+    prose = _affinity_prose(html_path)
+    if prose is None:
+        return []  # no source to judge against — do not enforce
+    violations: list[str] = []
+    for snippet in sorted(signature_mounts):
+        if snippet in overridden:
+            continue
+        keywords = SNIPPET_TOPIC_KEYWORDS[snippet]
+        if not any(re.search(r"\b" + re.escape(kw), prose) for kw in keywords):
+            kws = ", ".join(sorted(keywords))
+            violations.append(
+                f"off-topic snippet '{snippet}': page prose mentions none of {{{kws}}}"
+            )
+    return violations
 
 
 def check_file(path: Path, repo_root: Path) -> Result:
@@ -142,7 +235,8 @@ def check_file(path: Path, repo_root: Path) -> Result:
     if has_specific and "snippet:any" in matched:
         matched.remove("snippet:any")
 
-    return Result(rel, len(matched), matched, exempt=False, body_words=body_words)
+    affinity = _affinity_violations(path, content)
+    return Result(rel, len(matched), matched, exempt=False, body_words=body_words, affinity_violations=affinity)
 
 
 def gather_staged_html() -> list[Path]:
@@ -201,6 +295,8 @@ def main() -> int:
             elif r.matched:
                 extra = f"  [{', '.join(r.matched)}]"
             print(f"  {mark:4} {r.path}  score={r.score}{extra}")
+            for violation in r.affinity_violations:
+                print(f"         off-topic: {violation}")
 
     print()
     print(f"Total: {len(passed)} pass, {len(failed)} fail (of {len(results)} checked)")
@@ -213,6 +309,11 @@ def main() -> int:
         print()
         print("To exempt a page (use sparingly), add to its <head>:", file=sys.stderr)
         print("    <!-- richness-exempt: reason text -->", file=sys.stderr)
+        print(file=sys.stderr)
+        print("An 'off-topic' line means a baked-content snippet was mounted on a", file=sys.stderr)
+        print("page whose prose never discusses it. Swap it for an on-topic snippet,", file=sys.stderr)
+        print("or override (rarely) with:", file=sys.stderr)
+        print("    <!-- topic-affinity-ok: <snippet-name> reason text -->", file=sys.stderr)
         return 1
 
     return 0

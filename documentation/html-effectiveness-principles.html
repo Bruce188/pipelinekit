@@ -636,284 +636,38 @@ footer {
 
     <div id="page-content">
 <h2 id="what">WHAT</h2>
-<!-- snippet:architecture-diagram
-     4-layer SVG taxonomy of pipelinekit: user-invocable slash commands,
-     pipeline phase skills, specialized agents, hooks + infrastructure.
-
-     Hover any chip for details; click to navigate. Filter to a specific
-     layer via the layer-toggle buttons.
-
-     Placeholder usage in markdown source:
-       <div data-snippet="architecture-diagram"></div>
--->
-<div class="pkit-arch-diagram" data-snippet-mount="architecture-diagram">
-  <style>
-    .pkit-arch-diagram {
-      margin: 1.5rem 0;
-      padding: 1.5rem;
-      background: var(--bg-elev);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-    }
-    .pkit-arch-diagram .pkit-ad-controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      margin-bottom: 1.2rem;
-      align-items: center;
-    }
-    .pkit-arch-diagram .pkit-ad-label {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      color: var(--fg-subtle);
-      font-weight: 600;
-    }
-    .pkit-arch-diagram .pkit-ad-layer-btn {
-      padding: 0.3rem 0.65rem;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      color: var(--fg-muted);
-      font-size: 0.78rem;
-      cursor: pointer;
-      transition: all var(--transition);
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-    }
-    .pkit-arch-diagram .pkit-ad-layer-btn .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      display: inline-block;
-    }
-    .pkit-arch-diagram .pkit-ad-layer-btn:hover { color: var(--fg); border-color: var(--border-strong); }
-    .pkit-arch-diagram .pkit-ad-layer-btn.active { color: var(--fg); border-color: var(--accent); background: var(--accent-soft); }
-
-    .pkit-arch-diagram .pkit-ad-stack {
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-    }
-    .pkit-arch-diagram .pkit-ad-layer {
-      border-radius: var(--radius);
-      padding: 0.9rem 1.1rem;
-      transition: opacity var(--transition), transform var(--transition);
-      border: 1px solid var(--border);
-      position: relative;
-    }
-    .pkit-arch-diagram .pkit-ad-layer.dimmed {
-      opacity: 0.25;
-      filter: grayscale(40%);
-    }
-    .pkit-arch-diagram .pkit-ad-layer-1 { background: linear-gradient(135deg, color-mix(in srgb, #10b981 12%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #10b981 35%, var(--border)); }
-    .pkit-arch-diagram .pkit-ad-layer-2 { background: linear-gradient(135deg, color-mix(in srgb, #3b82f6 12%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #3b82f6 35%, var(--border)); }
-    .pkit-arch-diagram .pkit-ad-layer-3 { background: linear-gradient(135deg, color-mix(in srgb, #a855f7 12%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #a855f7 35%, var(--border)); }
-    .pkit-arch-diagram .pkit-ad-layer-4 { background: linear-gradient(135deg, color-mix(in srgb, #f59e0b 10%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #f59e0b 35%, var(--border)); }
-
-    .pkit-arch-diagram .pkit-ad-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin-bottom: 0.5rem;
-    }
-    .pkit-arch-diagram .pkit-ad-name {
-      font-size: 0.92rem;
-      font-weight: 700;
-      color: var(--fg);
-    }
-    .pkit-arch-diagram .pkit-ad-name .lvl {
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      color: var(--fg-subtle);
-      margin-right: 0.5rem;
-    }
-    .pkit-arch-diagram .pkit-ad-count {
-      font-family: var(--mono);
-      font-size: 0.78rem;
-      color: var(--fg-muted);
-      background: var(--bg);
-      padding: 0.1rem 0.5rem;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
-    }
-    .pkit-arch-diagram .pkit-ad-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.3rem;
-    }
-    .pkit-arch-diagram .pkit-ad-chip {
-      padding: 0.18rem 0.55rem;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      font-family: var(--mono);
-      font-size: 0.75rem;
-      color: var(--fg-muted);
-      cursor: help;
-      transition: all 100ms ease;
-      position: relative;
-    }
-    .pkit-arch-diagram .pkit-ad-chip:hover {
-      color: var(--fg);
-      border-color: var(--accent);
-      background: var(--accent-soft);
-    }
-    .pkit-arch-diagram .pkit-ad-chip.more { font-style: italic; color: var(--fg-subtle); }
-
-    .pkit-arch-diagram .pkit-ad-flow {
-      display: flex;
-      justify-content: center;
-      padding: 0.1rem 0;
-      color: var(--fg-subtle);
-      font-size: 0.85rem;
-    }
-    .pkit-arch-diagram .pkit-ad-tooltip {
-      position: absolute;
-      background: var(--fg);
-      color: var(--bg);
-      padding: 0.45rem 0.7rem;
-      border-radius: var(--radius-sm);
-      font-size: 0.78rem;
-      max-width: 280px;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 120ms ease;
-      z-index: 20;
-      box-shadow: var(--shadow-md);
-      line-height: 1.4;
-      bottom: calc(100% + 8px);
-      left: 50%;
-      transform: translateX(-50%);
-      white-space: normal;
-    }
-    .pkit-arch-diagram .pkit-ad-chip:hover .pkit-ad-tooltip { opacity: 1; }
-  </style>
-
-  <div class="pkit-ad-controls">
-    <span class="pkit-ad-label">Filter layer:</span>
-    <button class="pkit-ad-layer-btn active" data-layer="all">All</button>
-    <button class="pkit-ad-layer-btn" data-layer="1"><span class="dot" style="background:#10b981"></span>User surface</button>
-    <button class="pkit-ad-layer-btn" data-layer="2"><span class="dot" style="background:#3b82f6"></span>Pipeline phases</button>
-    <button class="pkit-ad-layer-btn" data-layer="3"><span class="dot" style="background:#a855f7"></span>Agents</button>
-    <button class="pkit-ad-layer-btn" data-layer="4"><span class="dot" style="background:#f59e0b"></span>Infrastructure</button>
-  </div>
-
-  <div class="pkit-ad-stack">
-    <div class="pkit-ad-layer pkit-ad-layer-1" data-layer="1">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L1</span>User-invocable slash commands</div>
-        <div class="pkit-ad-count">8 commands</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">/pipeline<span class="pkit-ad-tooltip">The autonomous orchestrator. Charter → Analyze → Plan → Implement → Review → Merge.</span></span>
-        <span class="pkit-ad-chip">/review<span class="pkit-ad-tooltip">Multi-agent code review. Scales from 2 to 6 agents based on diff size.</span></span>
-        <span class="pkit-ad-chip">/ppr<span class="pkit-ad-tooltip">Push + PR. Push committed changes; open a pull request. --research flag publishes research keep-rows.</span></span>
-        <span class="pkit-ad-chip">/research<span class="pkit-ad-tooltip">Karpathy autoresearch loop: hypothesize → mutate → benchmark → keep-or-reset.</span></span>
-        <span class="pkit-ad-chip">/incident<span class="pkit-ad-tooltip">Triage a failing post-merge verification gate. Dispatches incident-responder agent.</span></span>
-        <span class="pkit-ad-chip">/learn<span class="pkit-ad-tooltip">Read interface for per-project learnings journal.</span></span>
-        <span class="pkit-ad-chip">/caveman<span class="pkit-ad-tooltip">Toggle response verbosity. Wenyan-ultra by default; lite/full/ultra options.</span></span>
-      </div>
-    </div>
-
-    <div class="pkit-ad-flow">▼</div>
-
-    <div class="pkit-ad-layer pkit-ad-layer-2" data-layer="2">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L2</span>Pipeline phase skills (dispatched by /pipeline)</div>
-        <div class="pkit-ad-count">6 phase skills</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">analyze<span class="pkit-ad-tooltip">Reads feature + repo; produces docs/analysis-vN.md.</span></span>
-        <span class="pkit-ad-chip">create-plan<span class="pkit-ad-tooltip">Produces docs/plan-vN.md + docs/prompts-vN.md with phase decomposition.</span></span>
-        <span class="pkit-ad-chip">implement-plan<span class="pkit-ad-tooltip">Executes plan tasks; parallel-safe dispatch via single-message multi-Agent.</span></span>
-        <span class="pkit-ad-chip">post-merge<span class="pkit-ad-tooltip">Verification gate after merge. Project-type auto-detected.</span></span>
-        <span class="pkit-ad-chip">document-release<span class="pkit-ad-tooltip">Update documentation/ after a release. Calls into docs-writer.</span></span>
-        <span class="pkit-ad-chip">docs-writer<span class="pkit-ad-tooltip">Renders markdown to rich-template HTML. (This skill.)</span></span>
-      </div>
-    </div>
-
-    <div class="pkit-ad-flow">▼</div>
-
-    <div class="pkit-ad-layer pkit-ad-layer-3" data-layer="3">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L3</span>Specialized agents (dispatched by phase skills)</div>
-        <div class="pkit-ad-count">31 agents</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">@code-reviewer<span class="pkit-ad-tooltip">Quality, best practices, security, performance.</span></span>
-        <span class="pkit-ad-chip">@security-auditor<span class="pkit-ad-tooltip">OWASP compliance, secure auth flows.</span></span>
-        <span class="pkit-ad-chip">@symbol-verifier<span class="pkit-ad-tooltip">Anti-hallucination. Verifies every new symbol/API resolves.</span></span>
-        <span class="pkit-ad-chip">@spec-tracer<span class="pkit-ad-tooltip">Verifies a diff implements the stated objective + ACs.</span></span>
-        <span class="pkit-ad-chip">@tdd-test-writer<span class="pkit-ad-tooltip">Writes failing tests from spec. Context-isolated from implementer.</span></span>
-        <span class="pkit-ad-chip">@tdd-implementer<span class="pkit-ad-tooltip">Implements code to pass tests. Cannot modify tests.</span></span>
-        <span class="pkit-ad-chip">@architect<span class="pkit-ad-tooltip">Evidence-based design decisions, scalable patterns.</span></span>
-        <span class="pkit-ad-chip">@deployment-engineer<span class="pkit-ad-tooltip">Base agent (docs-only). 5 cloud variants extend it.</span></span>
-        <span class="pkit-ad-chip">@{azure,vercel,railway,render,digitalocean}-deployment-engineer<span class="pkit-ad-tooltip">5 cloud-provider variants sharing the deployment-engineer base.</span></span>
-        <span class="pkit-ad-chip">@incident-responder<span class="pkit-ad-tooltip">SRE incident response. Used by /incident.</span></span>
-        <span class="pkit-ad-chip">@claude-md-guardian<span class="pkit-ad-tooltip">CLAUDE.md drift detection + scoring.</span></span>
-        <span class="pkit-ad-chip">@mobile-dev<span class="pkit-ad-tooltip">iOS/Android/RN/Expo/Flutter cross-platform.</span></span>
-        <span class="pkit-ad-chip more">+ 19 more</span>
-      </div>
-    </div>
-
-    <div class="pkit-ad-flow">▼</div>
-
-    <div class="pkit-ad-layer pkit-ad-layer-4" data-layer="4">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L4</span>Infrastructure: hooks · sandbox · MCP · memory</div>
-        <div class="pkit-ad-count">24 hooks + 4+ MCPs + sandbox + memory</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">validate-commit-msg<span class="pkit-ad-tooltip">Pre-commit: enforce conventional-commit format.</span></span>
-        <span class="pkit-ad-chip">strip-ai-attribution<span class="pkit-ad-tooltip">Pre-commit: remove Co-Authored-By / Generated-with / 🤖 leaks.</span></span>
-        <span class="pkit-ad-chip">block-push-main<span class="pkit-ad-tooltip">Pre-push: refuse direct push to main.</span></span>
-        <span class="pkit-ad-chip">block-stage-sensitive<span class="pkit-ad-tooltip">Pre-add: refuse staging files matching never-stage.txt patterns.</span></span>
-        <span class="pkit-ad-chip">tdd-red-phase-gate<span class="pkit-ad-tooltip">Pre-commit: refuse commits that mix test + impl changes during a TDD phase.</span></span>
-        <span class="pkit-ad-chip">env-scrub<span class="pkit-ad-tooltip">Sandbox pre-exec: scrub env vars before subprocess invocation.</span></span>
-        <span class="pkit-ad-chip">notify-emit<span class="pkit-ad-tooltip">Pipeline state-change notifications via OSC 777 + PushNotification.</span></span>
-        <span class="pkit-ad-chip">sandbox: worktree|podman|docker<span class="pkit-ad-tooltip">Pluggable sandbox provider chain. worktree-only default; podman/docker for container isolation.</span></span>
-        <span class="pkit-ad-chip">MCP: context7<span class="pkit-ad-tooltip">Library docs and reference lookup.</span></span>
-        <span class="pkit-ad-chip">MCP: serena<span class="pkit-ad-tooltip">Semantic code navigation.</span></span>
-        <span class="pkit-ad-chip">memory: flat-file<span class="pkit-ad-tooltip">~/.claude/memory/ with recency-weighted decay. Canonical write path.</span></span>
-        <span class="pkit-ad-chip more">+ 17 more hooks</span>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-(function() {
-  'use strict';
-  const diagrams = document.querySelectorAll('.pkit-arch-diagram[data-snippet-mount="architecture-diagram"]');
-  const diagram = diagrams[diagrams.length - 1];
-  if (!diagram || diagram.dataset.pkitInit) return;
-  diagram.dataset.pkitInit = '1';
-
-  const btns = diagram.querySelectorAll('.pkit-ad-layer-btn');
-  const layers = diagram.querySelectorAll('.pkit-ad-layer');
-
-  btns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      btns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const want = btn.dataset.layer;
-      layers.forEach(l => {
-        if (want === 'all' || l.dataset.layer === want) {
-          l.classList.remove('dimmed');
-        } else {
-          l.classList.add('dimmed');
-        }
-      });
-    });
-  });
-})();
-</script>
-
-
+<p>The quadrant map below renders the rubric's own four categories spatially — Spatial, Live-rendered, Interactive, and Visual-token — each cell glossing the lever that category pulls.</p>
+<p><svg viewBox="0 0 660 420" role="img" aria-label="Two-by-two quadrant map of the four HTML-effectiveness categories" style="width:100%;height:auto;font-family:var(--sans);">
+  <title>The four HTML-effectiveness rubric categories as a 2x2 quadrant map</title>
+  <!-- outer frame --></p>
+<p><rect x="20" y="20" width="620" height="380" fill="none" stroke="var(--border-strong)" stroke-width="1.5" rx="6"></rect>
+  <!-- dividers --></p>
+<p><line x1="330" y1="20" x2="330" y2="400" stroke="var(--border)" stroke-width="1.5"></line>
+  <line x1="20" y1="210" x2="640" y2="210" stroke="var(--border)" stroke-width="1.5"></line>
+  <!-- top-left: Spatial (accent highlight) --></p>
+<p><rect x="26" y="26" width="298" height="178" fill="var(--accent-soft)" rx="4"></rect>
+  <text x="48" y="70" fill="var(--fg)" font-size="20" font-weight="600">Spatial</text>
+  <text x="48" y="100" fill="var(--fg-muted)" font-size="13">2D layout communicates structure</text>
+  <text x="48" y="120" fill="var(--fg-muted)" font-size="13">prose cannot — grids, tables, diagrams.</text>
+  <text x="48" y="150" fill="var(--fg-subtle)" font-size="12" font-style="italic">card grids · RACI matrices · stack diagrams</text>
+  <!-- top-right: Live-rendered --></p>
+<p><text x="356" y="70" fill="var(--fg)" font-size="20" font-weight="600">Live-rendered</text>
+  <text x="356" y="100" fill="var(--fg-muted)" font-size="13">Computes responsive output from</text>
+  <text x="356" y="120" fill="var(--fg-muted)" font-size="13">user input — state is not static.</text>
+  <text x="356" y="150" fill="var(--fg-subtle)" font-size="12" font-style="italic">cost calculators · live linters · playgrounds</text>
+  <!-- bottom-left: Interactive --></p>
+<p><text x="48" y="262" fill="var(--fg)" font-size="20" font-weight="600">Interactive</text>
+  <text x="48" y="292" fill="var(--fg-muted)" font-size="13">Click / toggle / scrub progressively</text>
+  <text x="48" y="312" fill="var(--fg-muted)" font-size="13">reveals which subset is visible.</text>
+  <text x="48" y="342" fill="var(--fg-subtle)" font-size="12" font-style="italic">comparison tabs · sliders · decision quizzes</text>
+  <!-- bottom-right: Visual-token --></p>
+<p><text x="356" y="262" fill="var(--fg)" font-size="20" font-weight="600">Visual-token</text>
+  <text x="356" y="292" fill="var(--fg-muted)" font-size="13">The visual element IS the content —</text>
+  <text x="356" y="312" fill="var(--fg-muted)" font-size="13">reading it as prose would be lossy.</text>
+  <text x="356" y="342" fill="var(--fg-subtle)" font-size="12" font-style="italic">dial gauges · swatch tables · type specimens</text>
+</svg></p>
 <p>"HTML effectiveness" is a rubric for distinguishing HTML pages whose layout and interactivity <em>carry information</em> from HTML pages that are merely "rendered markdown with a sidebar." The rubric is taken from <a href="https://thariqs.github.io/html-effectiveness/">https://thariqs.github.io/html-effectiveness/</a> and adopted as pipelinekit's canonical lens for evaluating any page rendered to <code>documentation/</code>.</p>
-<p>pipelinekit ships 18 ready-to-embed snippets in <code>claude/skills/docs-writer/snippets/</code>. Each snippet implements one of the four rubric categories below. The richness gate (<code>claude/skills/docs-writer/richness_check.py</code>) refuses to stage a <code>documentation/*.html</code> page that scores below the threshold — <code>≥1</code> distinct pattern for body ≤ 1500 words, <code>≥2</code> distinct patterns for body &gt; 1500 words. A page authored without a single rich-interactive primitive defeats the purpose of HTML-over-markdown and fails the gate.</p>
+<p>pipelinekit ships 18 ready-to-embed snippets in <code>claude/skills/docs-writer/snippets/</code>. Each snippet implements one of the four rubric categories below. The richness gate (<code>claude/skills/docs-writer/richness_check.py</code>) refuses to stage a <code>documentation/*.html</code> page that scores below the threshold — <code>≥1</code> distinct pattern for body ≤ 1500 words, <code>≥2</code> distinct patterns for body &gt; 1500 words. A page authored without a single rich-interactive primitive defeats the purpose of HTML-over-markdown and fails the gate. A companion topic-affinity check additionally rejects any page that mounts a baked-content snippet whose subject the page's prose never discusses — so a budget meter cannot sit on a coverage score-card, nor a system-architecture diagram on this rubric page.</p>
 <p>The rubric is descriptive, not prescriptive. Designers can compose multiple categories on one page; the only contract is that <em>some</em> category must be present.</p>
 <h2 id="rubric">RUBRIC</h2>
 <p>The four categories are non-overlapping. A snippet belongs to exactly one category — pick whichever lever dominates its content carrier.</p>
@@ -1052,7 +806,7 @@ footer {
 <li><strong>Walls of prose without visual aids.</strong> A 4000-word essay with no diagrams, tables, or scrubable elements is markdown with extra steps. Either add a category-matching snippet, restructure with tables / lists, or render to markdown and link from the docs index instead.</li>
 <li><strong>Decorative non-functional images.</strong> PNG screenshots that exist to look professional but do not convey information the prose does not already cover. The HTML-effectiveness rubric values <em>load-bearing</em> visuals — if the image vanished, the page should lose meaning.</li>
 <li><strong>Prose-only landing pages.</strong> An <code>index.html</code> that is one big paragraph followed by a list of links. Use <code>architecture-diagram</code> or <code>tutorial-cards</code> to surface the structure visually.</li>
-<li><strong>Snippets that fight the page.</strong> Over-decorated SVGs that animate while the reader is trying to read prose, a <code>cost-calculator</code> placed on a quickstart page where the reader has no decision to make, two interactive snippets stacked without coordinating their state. Pick the <em>minimum</em> snippet that carries the page intent; remove anything decorative.</li>
+<li><strong>Snippets that fight the page.</strong> Over-decorated SVGs that animate while the reader is trying to read prose, a <code>cost-calculator</code> placed on a quickstart page where the reader has no decision to make, two interactive snippets stacked without coordinating their state. Pick the <em>minimum</em> snippet that carries the page intent; remove anything decorative. A baked-content snippet whose subject the page never discusses (a budget dial on a score-card, a whole-system architecture diagram on an unrelated rubric page) is now caught automatically by the topic-affinity layer in <code>richness_check.py</code> — author page-specific inline content instead.</li>
 <li><strong>Mixing Live-rendered + Interactive without state coordination.</strong> A textarea-driven <code>live-linter</code> next to a tab-based <code>comparison-tabs</code> produces a confusing reading order — the reader doesn't know whether to type or click. Use one primary interaction surface per page.</li>
 <li><strong>Missing dark-mode theming.</strong> Snippets that hard-code <code>#fff</code> / <code>#000</code> instead of consuming the template's CSS custom properties break in dark mode. The shipped snippets all use <code>var(--bg)</code>, <code>var(--fg)</code>, etc., so they auto-theme — new snippets must follow the same contract.</li>
 </ul>
