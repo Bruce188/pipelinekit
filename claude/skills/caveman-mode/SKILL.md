@@ -34,6 +34,8 @@ Beyond the level system, subagent responses partition into three content zones b
 
 Zone 2 example (canonical): `文档新增, 验证通过. 下一步: 推送 PR.` Zone 3 example: `Build pass. Tests pass. Ready merge.` Zone 1 example: `feat: add three-zone caveman split` — preserved verbatim.
 
+**Presentation invariant:** the zone labels (`Zone 1` / `Zone 2` / `Zone 3`) are internal scaffolding and MUST NOT appear in rendered output. Do not split responses into three labeled sections, do not prefix paragraphs with `(Zone N)` markers, do not write headers named after the zones. A correct caveman response mixes 文言 narrative, verbatim English paths/code, and terse fragments inline — naturally, without a legend. See `claude/snippets/caveman-subagent.md` § Presentation invariant for the contract that propagates to subagents.
+
 Smoke test for the snippet shape: `bash claude/skills/caveman-mode/tests/test_three_zone_split.sh`.
 
 ## Persistence
