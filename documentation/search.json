@@ -170,7 +170,7 @@
   {
     "title": "MCP LSP Setup",
     "slug": "mcp-lsp-setup",
-    "excerpt": "Symbol-level Go-to-Definition and Find-References across your pipelinekit checkout, served by an LSP-backed MCP. Ships as .mcp.json at the repo root with a serena entry (pinned placeholder) and a…",
+    "excerpt": "Symbol-level Go-to-Definition and Find-References across your pipelinekit checkout, served by an LSP-backed MCP. Ships as .mcp.json at the repo root with a serena entry (pinned to a known-good commit…",
     "quadrant": "how-to"
   },
   {
@@ -194,7 +194,7 @@
   {
     "title": "/pipeline",
     "slug": "pipeline",
-    "excerpt": "The /pipeline autonomous orchestrator. Charter discovery → analyze → plan → implement → review → merge, all driven by multi-agent dispatch with no human in the loop unless you opt in. Per-phase…",
+    "excerpt": "The /pipeline autonomous orchestrator. Charter discovery → analyze → plan → implement → review → merge → post-merge gate → UAT → docs, all driven by multi-agent dispatch with no human in the loop…",
     "quadrant": "reference"
   },
   {
