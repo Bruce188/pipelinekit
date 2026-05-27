@@ -1,7 +1,7 @@
 ---
 name: pipeline
 description: Autonomous pipeline orchestrator. Processes a feature list through the full workflow (analyze → plan → implement → review → merge) with zero human intervention. Supports --dry-run and --restart-from.
-argument-hint: ([feature-file]|[--renew [--no-prompts]]|[--adopt]|[--from "<text>"]|[--plan [<path>]]|[--issues <selector>]) [--restart-from analyze|plan|implement|review] [--dry-run] [--no-charter|--charter <path>|--max-questions <N>] [--no-prompts] [--no-teams] [--no-review] [--no-ppr] [--no-docs] [--no-tdd] [--no-test-loop] [--no-notifications] [--no-loop] [--max-loops <N>]
+argument-hint: ([feature-file]|[--renew [--no-prompts]]|[--adopt]|[--from "<text>"]|[--plan [<path>]]|[--issues <selector>]) [--restart-from analyze|plan|implement|review] [--dry-run] [--no-charter|--charter <path>|--max-questions <N>] [--no-prompts] [--no-teams] [--no-review] [--no-ppr] [--no-docs] [--no-uat] [--uat-full-every-feature] [--no-tdd] [--no-test-loop] [--no-notifications] [--no-loop] [--max-loops <N>]
 allowed-tools:
   - Read
   - Write
@@ -115,6 +115,8 @@ Parse `$ARGUMENTS`:
 - `--no-review` = skip the review phase for every feature in this run. Step 5.6 synthesises a Path A (passed) outcome — writes a one-line skip notice review file, updates the `**Review:**` pointer in `docs/progress.md`, emits `phase-done`, and advances to Step 5.7 which routes to Path A. Use when you want implement → push → PR without multi-agent review.
 - `--no-ppr` = skip `/ppr` for every feature. Halts each feature after review with `Status: COMPLETED (--no-ppr halt; no push/PR/merge)`. Skips docs and post-merge entirely. Useful for dry-running implement+review without touching origin.
 - `--no-docs` = skip the Documentation Update Phase. Aliases `PIPELINE_SKIP_DOCS=1` at parse time (both honoured; either is sufficient).
+- `--no-uat` = skip the UAT Phase for every feature in this run. Aliases `PIPELINE_SKIP_UAT=1` at parse time (both honoured; either is sufficient).
+- `--uat-full-every-feature` = force the full role/button sweep on every feature instead of the diff-scoped default. Recorded as a local var (`UAT_FULL_EVERY_FEATURE`), not an env var — see the recording paragraph below.
 - `--no-tdd` = force `FEATURE_CLASS = non-dev` for every feature in this run. Bypasses the Step 5.5.0 prefix-derived classification — every feature dispatches via the standard `implement-plan` path with no TDD pairing.
 - `--no-test-loop` = disable the implement-plan test-run inner loop (Step 2e.5). Records `NO_TEST_LOOP=true` for the implement-plan dispatch. Does NOT affect TDD red/green phases — only suppresses the post-task project test command + fix-retry loop. Use when the project test command is slow or noisy in CI.
 - `--no-notifications` = disable notification emission for the run. Aliases `PIPELINE_NO_NOTIFICATIONS=1` at parse time (both honoured; either is sufficient). The orchestrator exports `PIPELINE_NO_NOTIFICATIONS=1` for the rest of the session.
@@ -162,7 +164,9 @@ Record the teams override in a local variable for use by Step 5.1:
 
 **`--no-docs` / `PIPELINE_SKIP_DOCS=1` export:** If `--no-docs` is present at parse, export `PIPELINE_SKIP_DOCS=1` so the existing Documentation Update Phase escape hatch fires.
 
-**`--no-review` / `--no-ppr` / `--no-tdd` / `--no-test-loop` recording:** These flags are not env vars — record them as local variables (`NO_REVIEW`, `NO_PPR`, `NO_TDD`, `NO_TEST_LOOP`) for the orchestrator to check at Step 5.5.0 (no-tdd), Step 5.6 (no-review), Step 5.8 Path A entry (no-ppr), and the implement-plan Step 2e.5 inner loop short-circuit (no-test-loop). `NO_TEST_LOOP` is forwarded into the implement-plan subagent dispatch context so the per-task inner loop honours it.
+**`--no-uat` / `PIPELINE_SKIP_UAT=1` export:** If `--no-uat` is present at parse, export `PIPELINE_SKIP_UAT=1` so the UAT Phase escape hatch fires (mirrors the `--no-docs` / `PIPELINE_SKIP_DOCS=1` pattern). The env var continues to work standalone; either is sufficient.
+
+**`--no-review` / `--no-ppr` / `--no-tdd` / `--no-test-loop` / `--uat-full-every-feature` recording:** These flags are not env vars — record them as local variables (`NO_REVIEW`, `NO_PPR`, `NO_TDD`, `NO_TEST_LOOP`, `UAT_FULL_EVERY_FEATURE`) for the orchestrator to check at Step 5.5.0 (no-tdd), Step 5.6 (no-review), Step 5.8 Path A entry (no-ppr), the implement-plan Step 2e.5 inner loop short-circuit (no-test-loop), and the UAT Phase mode selection (`UAT_FULL_EVERY_FEATURE` forces full sweep per feature). `NO_TEST_LOOP` is forwarded into the implement-plan subagent dispatch context so the per-task inner loop honours it.
 
 **`--no-loop` / `--max-loops` recording:** Record the loop control flags in `docs/pipeline-state.md` at Step 5.1 so Step 5.11 can read them on every iteration:
 - `**Loop:**` — write `on` (default, when `--no-loop` is absent) or `off` (when `--no-loop` is present).
@@ -1187,6 +1191,109 @@ bash claude/lib/learn-append.sh --severity info --category post-merge \
   --lesson "Post-merge gate passed; squash SHA $(git rev-parse HEAD)."
 ```
 Best-effort — failure NEVER downgrades the feature's terminal status (mirrors the docs-phase best-effort semantics). This is the second of two `/learn` trigger points (the first is Path A step 0 post-review).
+
+---
+
+### UAT Phase
+
+After the Post-Merge Verification Gate appends `POSTMERGE_OK: <cmd>` (success path) and
+BEFORE the Documentation Update Phase, the pipeline runs a best-effort, NON-BLOCKING UAT
+phase. It drives a real headless browser via the `uat` skill and the `uat-runner` subagent
+(in-process module-reuse of `claude/skills/playwright/scripts/playwright_controller.py`) to
+RENDER and CLICK RBAC role flows and every button. A UAT regression is RECORDED, never
+reverted — the merged tree stays merged and is documented as-is by the next phase.
+
+#### Web-surface detect
+
+At phase entry, probe whether the repo has a browser surface: a `playwright.config.*` file,
+or `package.json` containing `@playwright/test`, or an `e2e/` directory. If NONE is present,
+append `UAT: SKIPPED (no web surface)` to the feature's Run Log and continue to the
+Documentation Update Phase. This mirrors the landing-report silent-skip idiom — it is prose
+probe-logic, NOT a copied shell snippet. pipelinekit itself has none of these signals, so the
+phase skips here.
+
+#### Escape Hatch
+
+Set `PIPELINE_SKIP_UAT=1` (or pass the `--no-uat` flag, which exports the env var at parse)
+to bypass the UAT phase entirely. Default behavior is "UAT phase runs" — opt-out, not opt-in
+(mirrors the docs-phase `PIPELINE_SKIP_DOCS=1` semantics above). When skipped, append
+`UAT: SKIPPED (PIPELINE_SKIP_UAT=1)` to the Run Log and proceed to the Documentation Update
+Phase. No beacon is emitted for the skipped phase.
+
+#### Phase Mode + Beacon
+
+This phase ALWAYS dispatches as `subagent` mode via the `Agent` tool (per the default policy
+`PHASE_MODE = subagent` at Step 5.0 — "Always. Unconditional."). Emit the standard transition beacon with tag `uat-pre`
+immediately before dispatch and `uat-done` on successful completion. The TodoWrite update
+appends a `Feature <IDX>/<TOTAL>: <NAME> — uat` row between the `merge` row and the `docs`
+row.
+
+#### Subagent Dispatch
+
+Use the `Agent` tool with `subagent_type: uat-runner`. The prompt template is defined in
+`reference.md` § "Step 5.x: Phase Subagent Dispatch — Prompt Templates" under
+`<!-- PHASE: uat -->`. Pass `model: sonnet`.
+
+#### Modes
+
+Diff-scoped by default — the runner exercises only routes/flows whose source files appear in
+the feature diff (uncertain file→route mapping falls back to full sweep for that feature).
+When `UAT_FULL_EVERY_FEATURE` is set (via `--uat-full-every-feature`), force the full
+role/button sweep on every feature instead.
+
+#### On FAIL
+
+When the subagent's `<task-notification>` reports per-flow failures, the ORCHESTRATOR (Edit
+tool) appends rows to a `## UAT Findings` table in the FEATURE FILE (`docs/features-*.md`),
+transcribing the agent's per-flow failures — columns `| Flow | Role | Button/Step | Failure |
+Source feature |`. Write `UAT: FAILED` to the Run Log. NEVER revert or block a merged feature
+— UAT does NOT inherit the gate's `git reset --hard HEAD~1`. The recorded findings are picked
+up by the outer loop's renew collection (the existing consumer at `reference.md` step 3.5);
+with `--no-loop`, the findings log and await a manual `--renew`.
+
+#### Failure Semantics (Non-Fatal)
+
+If the `uat-runner` subagent returns `status: failed` or `status: blocked` (or the Agent
+dispatch fails with any error), append `UAT: SKIPPED (subagent error)` to the feature's Run
+Log line and proceed to the Documentation Update Phase. This phase is best-effort — a UAT
+failure MUST NOT downgrade the feature's terminal status from `SUCCESS` to `FAILED`. The
+feature has already merged and survived the post-merge gate; UAT is a tail step.
+
+Emit a single warning line on stderr: `WARNING: UAT Phase failed for <feature>; continuing.`
+
+#### Position Invariants
+
+- The UAT phase MUST NOT run on Path A failure paths (push/PR/CI/CD halt) — those skip to the
+  next feature before reaching the gate.
+- The UAT phase MUST NOT run on gate failure — the gate's `git reset --hard HEAD~1` revert
+  leaves no merged code to exercise.
+- The UAT phase MUST NOT modify any `docs/*.md` workflow file. The `## UAT Findings` target is
+  the feature file under `docs/features-*.md`, written by the orchestrator's Edit, consistent
+  with how the existing renew flow reads it at `reference.md` step 3.5.
+- The UAT phase MUST NOT use `git commit --amend`.
+- The UAT phase MUST NOT revert the merge.
+
+#### Run/loop-end full sweep
+
+In addition to the per-feature diff-scoped run, the full role/button sweep runs ONCE at run /
+loop end. It hooks into the EXISTING Step 5.11 (Outer Loop Control) at the terminal-write
+boundary: it fires when a CLEAN / STALLED / MAX_LOOPS exit would fire (the FINAL loop exit),
+BEFORE Step 5.10's terminal write — NOT per inner feature sweep. With `--no-loop`, "run end"
+is the single-trip Step 5.10 terminal boundary, so the full sweep fires there instead. This
+does NOT re-author Step 5.11 — it reuses that step's existing terminal-write boundary. The
+full-sweep run obeys the same web-surface detect and escape-hatch skips as the per-feature
+run.
+
+#### No-overlap boundary (HARD requirement)
+
+> UAT RENDERS and CLICKS real user journeys (RBAC role flows + all buttons) in a headless browser via `claude/skills/playwright/scripts/playwright_controller.py` (reused in-process). It does NOT: re-run unit/integration suites (the implement-plan test-run inner loop, Step 2e.5, does that); statically analyse coverage (the review `test-engineer` agent does that, without executing); critique UI from diff text (the review web/UI design agent does that); or curl/health-probe endpoints (the production-probe + Post-Merge Verification Gate do that). UAT is the ONLY layer that renders + clicks a real browser journey.
+
+| Existing layer | Home | UAT does NOT duplicate because |
+|----------------|------|-------------------------------|
+| implement-plan test-run inner loop (Step 2e.5) | `implement-plan/SKILL.md`; gated by `--no-test-loop` | UAT does not re-run unit/integration suites — it drives the rendered UI |
+| review `test-engineer` agent | `claude/agents/test-engineer.md` | UAT executes journeys; test-engineer statically analyses coverage |
+| review web/UI design-pass agent | `claude/skills/review/SKILL.md` (charter-gated) | UAT verifies behaviour by clicking; the web/UI agent critiques from diff text |
+| production-probe + Post-Merge Verification Gate | `reference.md` probe spec; Post-Merge Verification Gate (H3 above) | UAT drives full journeys; the probe/gate health-probe endpoints |
 
 ---
 

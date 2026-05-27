@@ -38,6 +38,8 @@ paths:
 | `--no-notifications` | `/pipeline` | Disable notification emission. Aliases `PIPELINE_NO_NOTIFICATIONS=1`. |
 | `--no-loop` | `/pipeline` | Disable the default-on outer feature-sweep loop; restore legacy single-trip Step 5.10 termination. |
 | `--max-loops` | `/pipeline` | OPTIONAL hard ceiling on outer-loop iterations (default unlimited). Termination guaranteed without it via the STALLED no-progress guard. |
+| `--no-uat` | `/pipeline` | Skip the UAT Phase. Aliases `PIPELINE_SKIP_UAT=1`. |
+| `--uat-full-every-feature` | `/pipeline` | Force full role/button sweep on every feature (default: diff-scoped). |
 
 **Note:** `/code-health` has its own arguments (`--scope`, `--quick`, `--threshold`) — sits outside main pipeline. Its `--scope` scopes quality dimensions, not file paths.
 
@@ -144,6 +146,20 @@ git add <files> && git commit -m "fix: <description>"
 - Items remaining deferred preserved
 - New deferrals from current plan appended
 
+## UAT Findings
+
+Alongside `## Deferred`, the feature file (`docs/features-*.md`) may carry a `## UAT Findings` section — renewable rows recorded by the NON-BLOCKING UAT Phase when a browser-driven flow fails:
+
+```
+## UAT Findings
+| Flow | Role | Button/Step | Failure | Source feature |
+|------|------|-------------|---------|----------------|
+| checkout | admin | "Place order" | 500 on submit | feat/checkout |
+```
+
+- The UAT Phase appends rows; it never reverts a merged feature.
+- The `--renew` flow consumes these rows as feature sources on the next outer-loop trip (same renewal path as failed features and deferred items).
+
 ## Review Files
 
 Review findings follow **Versioning Convention** above.
@@ -195,6 +211,7 @@ If this snippet needs updating, change here — all skills reference this sectio
 - `**Loop count:**` — integer, +1 per outer-loop re-entry (Step 5.11 path (e)). Starts `0`.
 - `**Prev renew set:**` — last loop's renew-set size (or `(none)` on first trip). Updated by Step 5.11 before re-entry.
 - `**Loop no-progress count:**` — integer; +1 when renew-set did not strictly decrease, reset to 0 otherwise; at 2 → STALLED (guaranteed terminator).
+- **UAT:** `PASSED | FAILED | SKIPPED | n/a` — per-feature UAT phase outcome. Written by the UAT Phase; `SKIPPED` on no-web-surface / `--no-uat`; `n/a` before the phase runs.
 
 ## Phase Mode Precedence
 
