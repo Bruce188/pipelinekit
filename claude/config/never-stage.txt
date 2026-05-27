@@ -71,6 +71,7 @@ obj/
 .understand-anything/
 .codegraph/
 .graphify/
+.serena/
 *.user
 *.suo
 
