@@ -569,6 +569,98 @@ _selftest_understand_anything_provisioned() {
   return 0
 }
 
+_selftest_understand_anything_reconcile() {
+  # Hermetic: NO live `claude` CLI, NO network. Directly exercises
+  # _reconcile_understand_anything_enable() against a sandboxed CLAUDE_HOME.
+  #
+  # Case 1 (dangling, no cache): settings.json has enabledPlugins entry,
+  #   cache dir absent → entry must be stripped; extraKnownMarketplaces + hooks intact.
+  # Case 2 (cached): same settings.json but cache dir exists → entry preserved.
+  # Case 3 (no settings.json): no file, no cache → reconcile exits 0, no error.
+
+  local saved_ch="${CLAUDE_HOME:-}"
+
+  # ----- Case 1 -----
+  local sb1
+  sb1=$(mktemp -d "${TMPDIR:-/tmp}/pipelinekit-selftest-ua-reconcile-XXXX") || return 1
+  export CLAUDE_HOME="$sb1"
+  mkdir -p "$CLAUDE_HOME"
+  printf '{"enabledPlugins":{"understand-anything@understand-anything":true},"extraKnownMarketplaces":["understand-anything"],"hooks":{}}\n' \
+    > "$CLAUDE_HOME/settings.json"
+  # No cache dir — reconcile should strip the enabledPlugins key.
+  _reconcile_understand_anything_enable 2>/dev/null
+  # Assert: understand-anything@understand-anything key gone.
+  python3 - "$CLAUDE_HOME/settings.json" <<'PYCHECK1' || {
+import json, sys
+p = sys.argv[1]
+d = json.load(open(p))
+ep = d.get("enabledPlugins", {})
+assert "understand-anything@understand-anything" not in ep, \
+  f"Case 1: dangling key still present in enabledPlugins: {ep}"
+# extraKnownMarketplaces must be intact.
+mkts = d.get("extraKnownMarketplaces", [])
+assert "understand-anything" in mkts, \
+  f"Case 1: extraKnownMarketplaces lost understand-anything: {mkts}"
+# hooks must be intact.
+assert "hooks" in d, "Case 1: hooks key lost"
+# Must still be valid JSON (implicitly proved by load above).
+PYCHECK1
+    [[ -n "$saved_ch" ]] && export CLAUDE_HOME="$saved_ch" || unset CLAUDE_HOME
+    rm -rf "$sb1"
+    echo "FAIL: _selftest_understand_anything_reconcile — Case 1 assertion"
+    return 1
+  }
+  rm -rf "$sb1"
+
+  # ----- Case 2 -----
+  local sb2
+  sb2=$(mktemp -d "${TMPDIR:-/tmp}/pipelinekit-selftest-ua-reconcile-XXXX") || return 1
+  export CLAUDE_HOME="$sb2"
+  mkdir -p "$CLAUDE_HOME"
+  printf '{"enabledPlugins":{"understand-anything@understand-anything":true},"extraKnownMarketplaces":["understand-anything"],"hooks":{}}\n' \
+    > "$CLAUDE_HOME/settings.json"
+  # Create cache dir — reconcile should preserve the enabledPlugins key.
+  mkdir -p "$CLAUDE_HOME/plugins/cache/understand-anything/understand-anything/2.7.5"
+  _reconcile_understand_anything_enable 2>/dev/null
+  # Assert: understand-anything@understand-anything key preserved.
+  python3 - "$CLAUDE_HOME/settings.json" <<'PYCHECK2' || {
+import json, sys
+p = sys.argv[1]
+d = json.load(open(p))
+ep = d.get("enabledPlugins", {})
+assert "understand-anything@understand-anything" in ep, \
+  f"Case 2: enabledPlugins key was stripped even though cache dir exists: {ep}"
+PYCHECK2
+    [[ -n "$saved_ch" ]] && export CLAUDE_HOME="$saved_ch" || unset CLAUDE_HOME
+    rm -rf "$sb2"
+    echo "FAIL: _selftest_understand_anything_reconcile — Case 2 assertion"
+    return 1
+  }
+  rm -rf "$sb2"
+
+  # ----- Case 3 -----
+  local sb3
+  sb3=$(mktemp -d "${TMPDIR:-/tmp}/pipelinekit-selftest-ua-reconcile-XXXX") || return 1
+  export CLAUDE_HOME="$sb3"
+  mkdir -p "$CLAUDE_HOME"
+  # No settings.json, no cache dir — reconcile must exit 0 without errors.
+  _reconcile_understand_anything_enable 2>/dev/null
+  local rc3=$?
+  [[ $rc3 -eq 0 ]] || {
+    [[ -n "$saved_ch" ]] && export CLAUDE_HOME="$saved_ch" || unset CLAUDE_HOME
+    rm -rf "$sb3"
+    echo "FAIL: _selftest_understand_anything_reconcile — Case 3 non-zero exit ($rc3)"
+    return 1
+  }
+  rm -rf "$sb3"
+
+  # Restore CLAUDE_HOME.
+  [[ -n "$saved_ch" ]] && export CLAUDE_HOME="$saved_ch" || unset CLAUDE_HOME
+
+  echo "PASS: _selftest_understand_anything_reconcile"
+  return 0
+}
+
 _selftest_settings_env_block() {
   # Per docs/analysis-v101.md § R1. 5 cases (A, B, C, D, E) — assert additive-merge invariants (env + top-level keys).
   local tmp; tmp=$(mktemp -d)
@@ -1434,6 +1526,50 @@ PYEOF
 }
 
 # ---------- Understand-Anything plugin (Claude Code plugin, NOT MCP) ----------
+
+# _reconcile_understand_anything_enable — strip dangling enabledPlugins entry.
+# `claude plugin install` writes enabledPlugins into settings.json, but if the
+# plugin cache dir is absent (network failure / partial install / later removed),
+# the dangling flag causes Claude Code's plugin loader to fail EVERY session.
+# This helper checks the cache dir and, when absent, removes only the
+# `understand-anything@*` key(s) from enabledPlugins (non-fatal either way).
+# extraKnownMarketplaces is intentionally left intact — a registered marketplace
+# with no enabled plugin does NOT break the loader.
+# Reads $CLAUDE_HOME (expected to be set by caller).
+_reconcile_understand_anything_enable() {
+  local ua_cache="${CLAUDE_HOME:-$HOME/.claude}/plugins/cache/understand-anything"
+  local ua_settings="${CLAUDE_HOME:-$HOME/.claude}/settings.json"
+  if [[ ! -d "$ua_cache" ]]; then
+    warn "Understand-Anything enabled but not cached at $ua_cache — removing the dangling enabledPlugins entry so plugin loading does not fail every session. Re-enable later with: claude plugin install understand-anything"
+    if [[ -f "$ua_settings" ]]; then
+      python3 - "$ua_settings" <<'PYRECONCILE'
+import json, os, sys
+p = sys.argv[1]
+try:
+    with open(p, encoding="utf-8") as f:
+        d = json.load(f)
+except (json.JSONDecodeError, OSError):
+    sys.exit(0)
+if not isinstance(d, dict):
+    sys.exit(0)
+ep = d.get("enabledPlugins")
+if not isinstance(ep, dict):
+    sys.exit(0)
+removed = [k for k in ep if k.startswith("understand-anything@")]
+for k in removed:
+    del ep[k]
+if removed:
+    tmp = p + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(d, f, indent=2)
+        f.write("\n")
+    os.replace(tmp, p)
+    print(f"reconciled: removed dangling enabledPlugins {removed} from {p}")
+PYRECONCILE
+    fi
+  fi
+}
+
 # Probes for the `claude plugin marketplace add` CLI subcommand; falls back to
 # git-clone + pinned-SHA when absent. Network failure is non-fatal (warn + return 0).
 # AC #1/#2/#3/#5 binding — see docs/features-mem-graph-stack.md § feat/understand-anything-plugin.
@@ -1501,6 +1637,11 @@ provision_understand_anything() {
   else
     warn "claude CLI not on PATH; Understand-Anything plugin files staged but not registered."
   fi
+
+  # Reconcile dangling enabledPlugins entry: if `claude plugin install` wrote
+  # the flag but the cache dir is absent, strip the flag so the plugin loader
+  # stays healthy on every subsequent session.
+  _reconcile_understand_anything_enable
 }
 
 # ---------- modes overlay (per-provider deploy-mode mini-CLAUDE.md) ----------
