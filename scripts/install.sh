@@ -830,6 +830,84 @@ ALIEN
   return 0
 }
 
+_selftest_caveman_active_marker() {
+  # Verify that maybe_install_settings (CLAUDE_INSTALL_SETTINGS=1) touches
+  # $CLAUDE_HOME/.caveman-active, and that .caveman-off suppresses it.
+  # 3 cases: no-opt-out, opt-out, idempotency.
+
+  # --- Case 1: no .caveman-off → .caveman-active must be created ---
+  local sb1
+  sb1=$(mktemp -d "${TMPDIR:-/tmp}/pipelinekit-selftest-caveman-XXXX") || return 1
+  local saved_ch="${CLAUDE_HOME:-}"
+  export CLAUDE_HOME="$sb1"
+  mkdir -p "$CLAUDE_HOME"
+  CLAUDE_INSTALL_SETTINGS=1 maybe_install_settings "" >/dev/null 2>&1
+  local exit1=$?
+  if [[ $exit1 -ne 0 ]]; then
+    [[ -n "$saved_ch" ]] && export CLAUDE_HOME="$saved_ch" || unset CLAUDE_HOME
+    rm -rf "$sb1"
+    echo "FAIL: _selftest_caveman_active_marker — Case 1 maybe_install_settings exit non-zero ($exit1)"
+    return 1
+  fi
+  if [[ ! -e "$sb1/.caveman-active" ]]; then
+    [[ -n "$saved_ch" ]] && export CLAUDE_HOME="$saved_ch" || unset CLAUDE_HOME
+    rm -rf "$sb1"
+    echo "FAIL: _selftest_caveman_active_marker — Case 1 .caveman-active not created"
+    return 1
+  fi
+  rm -rf "$sb1"
+
+  # --- Case 2: .caveman-off present → .caveman-active must NOT be created ---
+  local sb2
+  sb2=$(mktemp -d "${TMPDIR:-/tmp}/pipelinekit-selftest-caveman-XXXX") || return 1
+  export CLAUDE_HOME="$sb2"
+  mkdir -p "$CLAUDE_HOME"
+  touch "$CLAUDE_HOME/.caveman-off"
+  CLAUDE_INSTALL_SETTINGS=1 maybe_install_settings "" >/dev/null 2>&1
+  local exit2=$?
+  if [[ $exit2 -ne 0 ]]; then
+    [[ -n "$saved_ch" ]] && export CLAUDE_HOME="$saved_ch" || unset CLAUDE_HOME
+    rm -rf "$sb2"
+    echo "FAIL: _selftest_caveman_active_marker — Case 2 maybe_install_settings exit non-zero ($exit2)"
+    return 1
+  fi
+  if [[ -e "$sb2/.caveman-active" ]]; then
+    [[ -n "$saved_ch" ]] && export CLAUDE_HOME="$saved_ch" || unset CLAUDE_HOME
+    rm -rf "$sb2"
+    echo "FAIL: _selftest_caveman_active_marker — Case 2 .caveman-active created despite .caveman-off"
+    return 1
+  fi
+  rm -rf "$sb2"
+
+  # --- Case 3: idempotency — re-run with marker already present, exits 0, marker still exists ---
+  local sb3
+  sb3=$(mktemp -d "${TMPDIR:-/tmp}/pipelinekit-selftest-caveman-XXXX") || return 1
+  export CLAUDE_HOME="$sb3"
+  mkdir -p "$CLAUDE_HOME"
+  touch "$CLAUDE_HOME/.caveman-active"   # pre-create the marker
+  CLAUDE_INSTALL_SETTINGS=1 maybe_install_settings "" >/dev/null 2>&1
+  local exit3=$?
+  if [[ $exit3 -ne 0 ]]; then
+    [[ -n "$saved_ch" ]] && export CLAUDE_HOME="$saved_ch" || unset CLAUDE_HOME
+    rm -rf "$sb3"
+    echo "FAIL: _selftest_caveman_active_marker — Case 3 maybe_install_settings exit non-zero ($exit3)"
+    return 1
+  fi
+  if [[ ! -e "$sb3/.caveman-active" ]]; then
+    [[ -n "$saved_ch" ]] && export CLAUDE_HOME="$saved_ch" || unset CLAUDE_HOME
+    rm -rf "$sb3"
+    echo "FAIL: _selftest_caveman_active_marker — Case 3 .caveman-active missing after re-run"
+    return 1
+  fi
+  rm -rf "$sb3"
+
+  # Restore CLAUDE_HOME
+  [[ -n "$saved_ch" ]] && export CLAUDE_HOME="$saved_ch" || unset CLAUDE_HOME
+
+  echo "PASS: _selftest_caveman_active_marker"
+  return 0
+}
+
 _wsl2_ram_gate() {
   # TEST HOOK: __pkit_mock_wsl_2gb=1 forces "WSL2 + 2 GB" path. Do not set in production.
   if [[ "${__pkit_mock_wsl_2gb:-0}" == "1" ]]; then
@@ -1753,6 +1831,18 @@ with open(dst, "w", encoding="utf-8") as f:
     f.write("\n")
 print(f"installed: {dst} (28 hooks wired, {len(merged_env)} env vars)")
 PYEOF
+
+    # Activate caveman mode immediately. session-start-caveman.sh touches this
+    # marker on the NEXT session, but the agent-caveman-gate.sh PreToolUse hook
+    # (wired just above) needs it present NOW for the rest of THIS session.
+    # Respect the .caveman-off opt-out, mirroring session-start-caveman.sh.
+    if [[ -e "$CLAUDE_HOME/.caveman-off" ]]; then
+      log "Skipped caveman activation (.caveman-off present)"
+    else
+      mkdir -p "$CLAUDE_HOME"
+      touch "$CLAUDE_HOME/.caveman-active"
+      log "Activated caveman mode (touched $CLAUDE_HOME/.caveman-active)"
+    fi
   else
     # Flag not set: restore user's previous settings.json from backup if present.
     if [[ -n "$backup_dir" && -f "$backup_dir/settings.json" ]]; then
