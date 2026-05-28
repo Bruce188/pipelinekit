@@ -922,6 +922,74 @@ ALIEN
   return 0
 }
 
+_selftest_install_hygiene() {
+  # Case 1 (Prune): _prune_timestamped_backups keeps only the newest N backups.
+  local sb
+  sb=$(mktemp -d "${TMPDIR:-/tmp}/pipelinekit-selftest-hygiene-XXXX") || return 1
+  # shellcheck disable=SC2064
+  trap "rm -rf '$sb'" RETURN
+
+  local f="$sb/claude.json"
+  touch "$f"
+  # Create 8 fake .bak-<epoch> files with ascending mtimes so ls -t orders them correctly.
+  local i
+  for i in 100 101 102 103 104 105 106 107; do
+    touch -d "2000-01-01 00:00:0${i#10} +0000" "${f}.bak-${i}" 2>/dev/null || touch "${f}.bak-${i}"
+  done
+  # Confirm 8 exist before pruning (use glob array, not ls, to avoid SC2012).
+  local baks_before=("${f}.bak-"*)
+  local before="${#baks_before[@]}"
+  if [[ "$before" -ne 8 ]]; then
+    echo "FAIL: _selftest_install_hygiene — Case 1 setup: expected 8 bak files, got $before"
+    return 1
+  fi
+  _prune_timestamped_backups "$f" 5
+  local baks_after=("${f}.bak-"*)
+  local after="${#baks_after[@]}"
+  if [[ "$after" -ne 5 ]]; then
+    echo "FAIL: _selftest_install_hygiene — Case 1: expected 5 bak files after prune, got $after"
+    return 1
+  fi
+
+  # Case 2 (Gate): provision_serena_mcp gate uses serena/uv, NOT uvx.
+  # Extract the real function body by finding the line where the function is defined
+  # (matches '^provision_serena_mcp()') then reading to the closing '^}'.
+  local script
+  script="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/install.sh"
+  [[ -f "$script" ]] || script="/home/bruce/pipelinekit/scripts/install.sh"
+  local fn_start fn_end fn_body
+  fn_start=$(grep -n '^provision_serena_mcp()' "$script" | head -1 | cut -d: -f1)
+  if [[ -z "$fn_start" ]]; then
+    echo "FAIL: _selftest_install_hygiene — Case 2: provision_serena_mcp() not found"
+    return 1
+  fi
+  # Find closing '^}' after fn_start.
+  fn_end=$(awk "NR>$fn_start && /^\}/ {print NR; exit}" "$script")
+  if [[ -z "$fn_end" ]]; then
+    echo "FAIL: _selftest_install_hygiene — Case 2: could not find closing } of provision_serena_mcp"
+    return 1
+  fi
+  fn_body=$(sed -n "${fn_start},${fn_end}p" "$script")
+  # command -v uvx must be absent from the gate block.
+  if echo "$fn_body" | grep -q 'command -v uvx'; then
+    echo "FAIL: _selftest_install_hygiene — Case 2: 'command -v uvx' still present in provision_serena_mcp gate"
+    return 1
+  fi
+  # command -v serena must be present.
+  if ! echo "$fn_body" | grep -q 'command -v serena'; then
+    echo "FAIL: _selftest_install_hygiene — Case 2: 'command -v serena' not found in provision_serena_mcp"
+    return 1
+  fi
+  # command -v uv must be present.
+  if ! echo "$fn_body" | grep -q 'command -v uv'; then
+    echo "FAIL: _selftest_install_hygiene — Case 2: 'command -v uv' not found in provision_serena_mcp"
+    return 1
+  fi
+
+  echo "PASS: _selftest_install_hygiene"
+  return 0
+}
+
 _selftest_caveman_active_marker() {
   # Verify that maybe_install_settings (CLAUDE_INSTALL_SETTINGS=1) touches
   # $CLAUDE_HOME/.caveman-active, and that .caveman-off suppresses it.
@@ -1022,6 +1090,19 @@ _wsl2_ram_gate() {
     printf '[install][error] Override via PIPELINE_FORCE_INSTALL=1 (caveat: install may OOM on heavy MCP load).\n' >&2
     return 1
   fi
+  return 0
+}
+
+# Keep only the newest N timestamped backups of a given file, deleting older ones.
+# Bounded-cost hygiene for the repeated ${HOME}/.claude.json.bak-<epoch> writes.
+_prune_timestamped_backups() {
+  local base="$1" keep="${2:-5}"
+  # List matching backups newest-first by mtime; delete everything past `keep`.
+  local b
+  # shellcheck disable=SC2012  # ls -t needed for mtime ordering; find has no portable -sort-by-mtime
+  ls -1dt "${base}.bak-"* 2>/dev/null | tail -n +"$((keep + 1))" | while IFS= read -r b; do
+    rm -rf -- "$b"
+  done
   return 0
 }
 
@@ -1127,6 +1208,7 @@ PYEOF
     if [[ -f "$user_scope_target" ]]; then
       local user_scope_bak="${user_scope_target}.bak-$(date +%s)"
       cp -a "$user_scope_target" "$user_scope_bak"
+      _prune_timestamped_backups "$user_scope_target" 5
       log "Backed up existing ~/.claude.json → $user_scope_bak"
     fi
     python3 - "$user_scope_target" "$EMBED_PROVIDER" "$_have_voyage" "$_have_openai" <<'PYEOF'
@@ -1261,6 +1343,7 @@ PYEOF
     if [[ -f "$user_scope_target" ]]; then
       local user_scope_bak="${user_scope_target}.bak-$(date +%s)"
       cp -a "$user_scope_target" "$user_scope_bak"
+      _prune_timestamped_backups "$user_scope_target" 5
       log "Backed up existing ~/.claude.json → $user_scope_bak"
     fi
     python3 - "$user_scope_target" <<'PYEOF'
@@ -1397,6 +1480,7 @@ PYEOF
     if [[ -f "$user_scope_target" ]]; then
       local user_scope_bak="${user_scope_target}.bak-$(date +%s)"
       cp -a "$user_scope_target" "$user_scope_bak"
+      _prune_timestamped_backups "$user_scope_target" 5
       log "Backed up existing ~/.claude.json → $user_scope_bak"
     fi
     python3 - "$user_scope_target" <<'PYEOF'
@@ -1450,15 +1534,16 @@ PYEOF
 # ---------- Serena MCP (semantic code navigation; user-scope registration only) ----------
 # Writes the serena entry into ${HOME}/.claude.json `mcpServers`. Does NOT perform
 # any package install — the package is installed earlier in the script via uv/pip.
-# Pre-flight gate: if `uvx` is not on PATH, log SKIP + return 0 (warn-and-continue).
-# Hermeticity: honour __pkit_mock_serena_gate_skip=1 to bypass the uvx gate for selftests.
+# Pre-flight gate: skip only when neither the `serena` binary nor `uv` is on PATH.
+# Hermeticity: honour __pkit_mock_serena_gate_skip=1 to bypass the gate for selftests.
 provision_serena_mcp() {
-  # Pre-flight gate: uvx required (mirrors graphify's uv gate shape).
+  # Pre-flight gate: serena binary (installed via uv tool install) is the real dep;
+  # uv on PATH is sufficient to proceed even before tool install completes.
   # Use __pkit_mock_serena_gate_skip=1 to bypass for hermetic selftest (preferred over
   # conditional assertion, so the test always exercises the write path).
   if [[ "${__pkit_mock_serena_gate_skip:-0}" != "1" ]]; then
-    if ! command -v uvx >/dev/null 2>&1; then
-      log "SKIP provision_serena_mcp: uvx not found. Install via: curl -LsSf https://astral.sh/uv/install.sh | sh"
+    if ! command -v serena >/dev/null 2>&1 && ! command -v uv >/dev/null 2>&1; then
+      log "SKIP provision_serena_mcp: neither 'serena' binary nor 'uv' found on PATH. Install uv via: curl -LsSf https://astral.sh/uv/install.sh | sh"
       return 0
     fi
   fi
@@ -1475,6 +1560,7 @@ provision_serena_mcp() {
   if [[ -f "$user_scope_target" ]]; then
     local user_scope_bak="${user_scope_target}.bak-$(date +%s)"
     cp -a "$user_scope_target" "$user_scope_bak"
+    _prune_timestamped_backups "$user_scope_target" 5
     log "Backed up existing ~/.claude.json → $user_scope_bak"
   fi
 
