@@ -5,10 +5,11 @@ Contract:
                          docs_dir="docs", max_chars=1500) -> str
 
 Branches covered:
-    1.  ``connected_mcps`` empty / None                          -> ""
-    2.  ``charter_field is None`` / "(none)" / "" / whitespace   -> ""
-    3.  Nonexistent path                                         -> ""
-    4.  Charter missing ``## MCP Routing`` H2                     -> ""
+    1.  ``connected_mcps`` empty / None                          -> "(no MCP routing)"
+    2.  ``charter_field is None`` / "(none)" / "" / whitespace   -> "(no MCP routing)"
+    3.  Nonexistent path                                         -> "(no MCP routing)"
+    4.  Charter missing ``## MCP Routing`` H2 + non-empty        -> default map intersected
+        connected                                                   with connected, phase-filtered
     5.  Entry connected, no phases clause                        -> included (any phase)
     6.  Entry connected, phases clause includes phase            -> included
     7.  Entry connected, phases clause excludes phase            -> excluded
@@ -20,6 +21,10 @@ Branches covered:
     13. Block preamble present when any entry survives           -> preamble line
     14. > max_chars body                                         -> ``len <= max_chars``
     15. docs_dir-relative path resolution                        -> resolved
+    16. Explicit ``## MCP Routing`` with only none/skip entries  -> "(no MCP routing)"
+        (opt-out preserved; default map NOT consulted)
+    17. No-section charter, connected intersected with default   -> only connected entries
+        map                                                         from default map
 """
 
 from __future__ import annotations
@@ -104,12 +109,19 @@ def test_nonexistent_path_returns_empty(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Branch 4: missing section
+# Branch 4: missing section -> default map intersected with connected
 # ---------------------------------------------------------------------------
 
-def test_missing_section_returns_empty(tmp_path):
+def test_missing_section_uses_default_map(tmp_path):
     p = _write(tmp_path, "## Goal\nNo routing here.\n")
-    assert extract_mcp_guidance(p, "analyze", ["context7"]) == "(no MCP routing)"
+    # context7 is in default map for analyze -> should surface
+    out = extract_mcp_guidance(p, "analyze", ["context7"])
+    assert out.startswith("MCP tools wired for this phase")
+    assert "context7:" in out
+    # serena not applicable to plan in default map -> (no MCP routing)
+    assert extract_mcp_guidance(p, "plan", ["serena"]) == "(no MCP routing)"
+    # serena IS applicable to implement -> should surface
+    assert "serena:" in extract_mcp_guidance(p, "implement", ["serena"])
 
 
 # ---------------------------------------------------------------------------
@@ -234,3 +246,38 @@ def test_docs_dir_relative_resolution(tmp_path):
         "charter.md", "analyze", ["context7"], docs_dir=str(docs)
     )
     assert "context7: resolve-library-id" in out
+
+
+# ---------------------------------------------------------------------------
+# Branch 16: explicit ## MCP Routing with only none/skip entries -> opt-out
+# ---------------------------------------------------------------------------
+
+def test_explicit_none_section_opt_out(tmp_path):
+    # Charter WITH ## MCP Routing containing only "- none"
+    none_body = "## Goal\nA thing.\n\n## MCP Routing\n- none\n"
+    p = _write(tmp_path, none_body)
+    # Even with real connected servers, the explicit opt-out wins
+    result = extract_mcp_guidance(p, "analyze", ["context7", "serena", "agentmemory"])
+    assert result == "(no MCP routing)"
+
+    # Variant: "- skip: operator opts out" also suppresses default
+    skip_body = "## Goal\nA thing.\n\n## MCP Routing\n- skip: operator opts out\n"
+    p2 = _write(tmp_path, skip_body)
+    result2 = extract_mcp_guidance(p2, "analyze", ["context7", "serena", "agentmemory"])
+    assert result2 == "(no MCP routing)"
+
+
+# ---------------------------------------------------------------------------
+# Branch 17: no-section charter, default map intersected with connected
+# ---------------------------------------------------------------------------
+
+def test_default_map_intersects_connected(tmp_path):
+    # No ## MCP Routing section; only agentmemory connected
+    p = _write(tmp_path, "## Goal\nA thing.\n")
+    out = extract_mcp_guidance(p, "docs", ["agentmemory"])
+    # agentmemory has phases: all -> should be present
+    assert "agentmemory:" in out
+    # Other default-map servers not connected -> absent
+    assert "context7" not in out
+    assert "serena" not in out
+    assert "sequential-thinking" not in out
