@@ -27,7 +27,8 @@ into phase subagents even without hand-editing the charter. The explicit
 charter section wins ENTIRELY when present — the default map is never merged
 in with an explicit section.
 
-Built-in default routing map (mirrors Feature 3's phase-applicability):
+Built-in default routing map (per-phase split is this module's own design;
+the server roster aligns with detect_applicable_mcps.sh):
 
     context7        analyze, plan, implement, review
                     resolve-library-id then query-docs for framework/library
@@ -96,13 +97,14 @@ _HEADER = "MCP Routing"
 _PHASES_MARKER = re.compile(r"\|\s*phases\s*:", re.IGNORECASE)
 _BULLET_RE = re.compile(r"^[ \t]*[-*][ \t]+(.*)$")
 _BLOCK_PREAMBLE = (
-    "MCP tools wired for this phase (per charter ## MCP Routing; use when "
-    "relevant, skip silently if a call errors or the server is unavailable):"
+    "MCP tools wired for this phase (use when relevant, skip silently if a "
+    "call errors or the server is unavailable):"
 )
 
 # Built-in default routing map. Each value is (purpose_text, phase_set).
 # phase_set {"all"} means every phase (mirrors the "all" literal in charter bullets).
-# Phase applicability mirrors Feature 3's detect_applicable_mcps.sh built-in map.
+# Phase applicability is this module's own design; the server roster aligns with
+# the applicability set in detect_applicable_mcps.sh (which has no per-phase split).
 _DEFAULT_ROUTING: dict[str, tuple[str, frozenset[str]]] = {
     "context7": (
         "resolve-library-id then query-docs for framework/library API verification",
