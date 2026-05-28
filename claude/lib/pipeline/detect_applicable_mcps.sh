@@ -221,9 +221,8 @@ cmd_selftest() {
   _assert_contains "suggestions contains local-rag" "$sugg" "local-rag"
 
   # --- Test 8: serena applicable in python sandbox
-  local sandbox1
+  local sandbox1 sandbox2 sandbox3
   sandbox1=$(mktemp -d)
-  trap "rm -rf '$sandbox1'" EXIT
   touch "$sandbox1/app.py"
   if (cd "$sandbox1" && _serena_applicable); then
     pass=$((pass + 1))
@@ -234,9 +233,7 @@ cmd_selftest() {
   total=$((total + 1))
 
   # --- Test 9: serena NOT applicable in docs-only sandbox
-  local sandbox2
   sandbox2=$(mktemp -d)
-  trap "rm -rf '$sandbox2'" EXIT
   touch "$sandbox2/README.md" "$sandbox2/notes.txt"
   if ! (cd "$sandbox2" && _serena_applicable); then
     pass=$((pass + 1))
@@ -247,9 +244,7 @@ cmd_selftest() {
   total=$((total + 1))
 
   # --- Test 10: serena applicable in bash sandbox (.sh file)
-  local sandbox3
   sandbox3=$(mktemp -d)
-  trap "rm -rf '$sandbox3'" EXIT
   touch "$sandbox3/run.sh"
   if (cd "$sandbox3" && _serena_applicable); then
     pass=$((pass + 1))
@@ -266,6 +261,10 @@ cmd_selftest() {
   _assert_contains "applicable includes agentmemory" "$app_out" "agentmemory"
   _assert_contains "applicable includes sequential-thinking" "$app_out" "sequential-thinking"
   _assert_contains "applicable includes serena (pipelinekit has .sh sources)" "$app_out" "serena"
+
+  # Explicit cleanup: a `trap … EXIT` would fire only at script exit, after these
+  # function-local sandbox vars leave scope — cleaning nothing. Remove directly.
+  rm -rf "$sandbox1" "$sandbox2" "$sandbox3"
 
   if [[ $failed -eq 0 ]]; then
     printf 'selftest: %d/%d PASS\n' "$pass" "$total"
