@@ -41,7 +41,7 @@ Charter Discovery is the default-on front-loaded alignment phase. It produces `d
 1. `--no-charter` is present → skip entirely (legacy autonomous flow).
 2. `--charter <path>` is present → adopt existing charter at `<path>`, set `**Charter:**` pointer in `progress.md`, skip discovery loop. Error cleanly on missing path.
 3. `--max-questions 0` is present → treat as `--no-charter` (alias).
-4. `docs/analysis*.md` (or `docs/analysis-v*.md`) OR `docs/plan*.md` exist AND `docs/charter.md` does NOT exist → **auto-extract draft charter from prior artifacts**, write `docs/charter.md` (status: `draft`), then surface a single `AskUserQuestion` (`accept` / `edit` / `start fresh discovery`). Detailed algorithm in `reference.md` § "Step 0: Charter Auto-Extract (when prior artifacts exist)". Skips silently in subprocess mode with `CHARTER_AUTO_EXTRACT_SKIPPED: subprocess mode`. Implemented by `charter_extractor` (`claude/lib/pipeline/charter_extractor.py`).
+4. `docs/analysis*.md` (or `docs/analysis-v*.md`) OR `docs/plan*.md` exist AND `docs/charter.md` does NOT exist → **auto-extract draft charter from prior artifacts**, write `docs/charter.md` (status: `draft`), then surface a single `AskUserQuestion` (`accept` / `edit` / `start fresh discovery`). Detailed algorithm in `reference.md` § "Step 0: Charter Auto-Extract (when prior artifacts exist)". Auto-extract is interactive-only — skipped when `AskUserQuestion` is unavailable (non-interactive session). Implemented by `charter_extractor` (`claude/lib/pipeline/charter_extractor.py`).
 5. `docs/charter.md` exists AND `progress.md` `**Charter:**` pointer is valid → skip (charter already produced for this run).
 
 > **Note:** Auto-extract (condition 4) fires only when `docs/charter.md` is absent. If a versioned `docs/charter-v*.md` exists but `docs/charter.md` is absent, auto-extract still fires — auto-extract is for fresh-charter situations, not amendment.
@@ -92,8 +92,6 @@ Charter Discovery is the default-on front-loaded alignment phase. It produces `d
 **Charter file versioning:** follow the Versioning Convention from `claude/rules/workflow.md` — if `docs/charter.md` already exists, archive it to `docs/charter-v[N+1].md` before writing the new one.
 
 **progress.md `**Charter:**` pointer:** written as `**Charter:** docs/charter.md` (or the versioned path) immediately after the charter file is written.
-
-**Subprocess mode:** Step 0 relies on `AskUserQuestion`, which is interactive-session-only. If invoked via a subprocess driver (e.g., `orchestrate.sh` or `claude -p`), Step 0 cannot run. The subprocess driver is responsible for detecting this condition and exiting with an error before reaching Step 0. (See `docs/pipeline.md` § Charter Mode for the subprocess constraint.)
 
 **`--max-questions <N>` behavior:** When `N > 0`, cap the total number of `AskUserQuestion` invocations at `N`. After the cap is reached, write the draft charter and continue. `N = 0` is the `--no-charter` alias (no discovery at all).
 
@@ -307,7 +305,7 @@ If `estimated_next_phase_cost` is unknown, use a conservative estimate from the 
 
 Halts are **phase-boundary only**, never mid-phase — a halted mid-phase leaves inconsistent state.
 
-On budget breach, the orchestrator emits a `feature-failed` beacon (see Step 5.0 § Progress beacon helper); the same beacon-helper path routes to `claude/hooks/notify-emit.sh` with `NOTIFY_EVENT_TYPE=budget-breach`. For interactive sessions the helper's beacon-mode JSON is forwarded to `PushNotification`; for subprocess-driver runs the `Notification`-hook `terminalSequence` (OSC 777) is the fallback, itself a no-op when the host terminal does not support OSC 777. See § Notifications below for the full event mapping and opt-out semantics.
+On budget breach, the orchestrator emits a `feature-failed` beacon (see Step 5.0 § Progress beacon helper); the same beacon-helper path routes to `claude/hooks/notify-emit.sh` with `NOTIFY_EVENT_TYPE=budget-breach`. For interactive sessions the helper's beacon-mode JSON is forwarded to `PushNotification`; for non-interactive sessions the `Notification`-hook `terminalSequence` (OSC 777) is the fallback, itself a no-op when the host terminal does not support OSC 777. See § Notifications below for the full event mapping and opt-out semantics.
 
 ---
 
@@ -454,7 +452,7 @@ Record `**Phase Mode:** subagent` in `docs/pipeline-state.md` (Step 5.1 writes t
 `Bash(command='printf "[PIPELINE] feat=%s/%s step=%s cycle=%s :: %s (%s) worker=%s\n" "$IDX" "$TOTAL" "$STEP" "$CYC" "$NAME" "$TAG" "$WORKER" >&2', description='Progress beacon')`
 where `$IDX/$TOTAL/$STEP/$CYC/$NAME/$TAG/$WORKER` are the current values from `docs/pipeline-state.md`. Tags: `phase-pre`, `phase-done`, `path-b-pre`, `path-c-pre`, `path-d-pre`, `path-d-post`, `feature-start`, `feature-done`, `feature-failed`, `docs-pre`, `docs-done`.
 
-For notify-class tags (`feature-failed`, `path-b-pre`, `path-c-pre`, `feature-done`), the beacon helper ALSO invokes `claude/hooks/notify-emit.sh --mode beacon` with `NOTIFY_*` env vars derived from `docs/pipeline-state.md` (`NOTIFY_FEATURE_INDEX` from `**Feature:**`, `NOTIFY_STEP` from `**Step:**`, `NOTIFY_FEATURE_NAME` from `**Name:**`, `NOTIFY_EVENT_TYPE` per the canonical hook event mapping in § Notifications below, `NOTIFY_TEXT` from the in-memory `<task-notification>` `<summary>` or the beacon's tag context, capped at 200 chars by the helper). For `feature-failed` specifically, the helper invocation also sets `NOTIFY_PATH_D_ATTEMPTED` to the current `**Path D attempted:**` boolean from `docs/pipeline-state.md` so the beacon-mode payload surfaces `path_d_attempted` — letting the user tell at a glance whether the salvage path ran before the feature died. For interactive sessions with Remote Control + "Push when Claude decides" enabled, the orchestrator captures the helper's JSON-line stdout and forwards it to the `PushNotification` tool (Claude Code 2.1.110+). For non-interactive subprocess-driver runs (`orchestrate.sh`, `claude -p`), `PushNotification` is interactive-session-only and the helper falls through to the `Notification`-hook OSC 777 `terminalSequence` path. The non-notify tags (`phase-pre`, `phase-done`, `feature-start`, `docs-pre`, `docs-done`) emit only the printf beacon — no notify-emit invocation. The helper short-circuits to a no-op when `PIPELINE_NO_NOTIFICATIONS=1` is set in the environment.
+For notify-class tags (`feature-failed`, `path-b-pre`, `path-c-pre`, `feature-done`), the beacon helper ALSO invokes `claude/hooks/notify-emit.sh --mode beacon` with `NOTIFY_*` env vars derived from `docs/pipeline-state.md` (`NOTIFY_FEATURE_INDEX` from `**Feature:**`, `NOTIFY_STEP` from `**Step:**`, `NOTIFY_FEATURE_NAME` from `**Name:**`, `NOTIFY_EVENT_TYPE` per the canonical hook event mapping in § Notifications below, `NOTIFY_TEXT` from the in-memory `<task-notification>` `<summary>` or the beacon's tag context, capped at 200 chars by the helper). For `feature-failed` specifically, the helper invocation also sets `NOTIFY_PATH_D_ATTEMPTED` to the current `**Path D attempted:**` boolean from `docs/pipeline-state.md` so the beacon-mode payload surfaces `path_d_attempted` — letting the user tell at a glance whether the salvage path ran before the feature died. For interactive sessions with Remote Control + "Push when Claude decides" enabled, the orchestrator captures the helper's JSON-line stdout and forwards it to the `PushNotification` tool (Claude Code 2.1.110+). For non-interactive sessions, `PushNotification` is unavailable and the helper falls through to the `Notification`-hook OSC 777 `terminalSequence` path. The non-notify tags (`phase-pre`, `phase-done`, `feature-start`, `docs-pre`, `docs-done`) emit only the printf beacon — no notify-emit invocation. The helper short-circuits to a no-op when `PIPELINE_NO_NOTIFICATIONS=1` is set in the environment.
 
 `$WORKER` defaults to `claude` when no routing override is in effect. When `/implement-plan` Step 1.5 resolves a per-task `worker:` header to an alternate class, `$WORKER` is set to that class name before the beacon fires. The resolution order for `$WORKER` is defined in `claude/lib/worker-provider/interface.md` § Env-var resolution.
 
@@ -590,7 +588,7 @@ Write/update `docs/pipeline-state.md`:
 **Replan count:** 0
 **Path D attempted:** false
 **Started:** [YYYY-MM-DD HH:MM]
-**Phase Mode:** <subagent|subprocess|inline>
+**Phase Mode:** <subagent|inline>
 **Last phase agent:** [subagent ID, only when Phase Mode = subagent]
 **Charter:** [path to docs/charter.md, or (none) when --no-charter is set]
 **Review style:** [always teams | never teams | orchestrator decides]
@@ -1535,9 +1533,7 @@ The Step 5.0 beacon helper's notify-class tags (`feature-failed`, `path-b-pre`, 
 
 **PushNotification gating:** the `PushNotification` tool (Claude Code 2.1.110+) requires an interactive session with Remote Control + "Push when Claude decides" enabled in the Claude Code mobile app preferences. When unavailable (settings disabled, or non-interactive session), the fallback chain takes over.
 
-**Fallback chain:** `PushNotification` (interactive + Remote Control) → `Notification`-hook `terminalSequence` (terminal-attached, OSC 777 supported) → no-op (headless subprocess or terminal without OSC 777 support).
-
-**Subprocess-driver constraint:** the `PushNotification` tool is interactive-session-only. The subprocess driver `orchestrate.sh` / `claude -p` cannot emit `PushNotification` — when the orchestrator runs in subprocess form, every notify-class tag falls through to the `Notification`-hook `terminalSequence` path, which is itself a no-op when the host terminal doesn't support OSC 777. This is by design: subprocess-driver runs are intentionally unattended and the user is expected to monitor via the feature file's Run Log.
+**Fallback chain:** `PushNotification` (interactive + Remote Control) → `Notification`-hook `terminalSequence` (terminal-attached, OSC 777 supported) → no-op (headless session or terminal without OSC 777 support).
 
 **Opt-out:**
 - Set `channelsEnabled: false` in `~/.claude/settings.json` to disable inbound Channels delivery (Claude Code 2.1.121+).
