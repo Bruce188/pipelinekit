@@ -1,5 +1,5 @@
 {
-  "_comment": "Live .mcp.json shipping the LSP-backed serena recommendation per charter MVP item 6. Serena requires uvx; install via 'pip install uv' or 'brew install uv'. The git+https ref is pinned to a known-good commit SHA (9b292a6c8b03c8306f117efeabb0ea7afdb0b3c0); refresh it per the _serena_pin_note in .mcp.json.template and docs-source/supply-chain.md. The MCP entrypoint is 'serena start-mcp-server'.",
+  "_comment": "Live .mcp.json shipping the LSP-backed serena recommendation per charter MVP item 6. Serena requires uvx; install via 'pip install uv' or 'brew install uv'. The git+https ref is pinned to a known-good commit SHA (9b292a6c8b03c8306f117efeabb0ea7afdb0b3c0); refresh it per the _serena_pin_note in .mcp.json.template and docs-source/supply-chain.md. The MCP entrypoint is 'serena start-mcp-server --context claude-code'. This project-scope .mcp.json takes precedence over the global user-scope serena registration written by scripts/install.sh (provision_serena_mcp), so contributors get the pinned uvx form with the Claude Code tool subset automatically; the global form (bare 'serena' binary via --project-from-cwd) applies in repos without this file.",
   "_security_note": "This serena ref is pinned to a specific commit SHA; an unpinned git+https ref (or rolling 'main') would allow upstream takeover to execute arbitrary code via uvx. See documentation/mcp-lsp-setup.html for the pin-and-verify workflow.",
   "mcpServers": {
     "serena": {
@@ -10,6 +10,8 @@
         "git+https://github.com/oraios/serena@9b292a6c8b03c8306f117efeabb0ea7afdb0b3c0",
         "serena",
         "start-mcp-server",
+        "--context",
+        "claude-code",
         "--project",
         "."
       ]

@@ -12,7 +12,7 @@
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
     },
-    "_serena_pin_note": "Pinned to oraios/serena @ 9b292a6c8b03c8306f117efeabb0ea7afdb0b3c0 — captured via `git ls-remote https://github.com/oraios/serena.git main` on 2026-05-26. Refresh this pin (and re-run install.sh with SERENA_REF=<new sha>) when upgrading; see docs-source/supply-chain.md.",
+    "_serena_pin_note": "Pinned to oraios/serena @ 9b292a6c8b03c8306f117efeabb0ea7afdb0b3c0 — captured via `git ls-remote https://github.com/oraios/serena.git main` on 2026-05-26. Refresh this pin (and re-run install.sh with SERENA_REF=<new sha>) when upgrading; see docs-source/supply-chain.md. The '--context claude-code' flag selects serena's Claude Code tool subset; this project-scope entry takes precedence over the global user-scope registration written by scripts/install.sh (provision_serena_mcp).",
     "serena": {
       "type": "stdio",
       "command": "uvx",
@@ -21,6 +21,8 @@
         "git+https://github.com/oraios/serena@9b292a6c8b03c8306f117efeabb0ea7afdb0b3c0",
         "serena",
         "start-mcp-server",
+        "--context",
+        "claude-code",
         "--project",
         "."
       ]
