@@ -131,6 +131,7 @@ _selftest_codegraph_mcp_provisioned() {
   # AC #2: codegraph-init SKILL.md exists with correct frontmatter.
   # AC #6: CLAUDE.md.template contains codegraph bullet + /codegraph-init reference.
   # Cross-MCP no-collision canary: agentmemory + understand-anything keys still present after codegraph write.
+  # NEW: user-scope ~/.claude.json (${HOME}/.claude.json) contains codegraph entry with correct shape.
   local sandbox
   sandbox=$(mktemp -d)
   # shellcheck disable=SC2064
@@ -138,6 +139,9 @@ _selftest_codegraph_mcp_provisioned() {
   local saved_home="${CLAUDE_HOME:-}"
   export CLAUDE_HOME="$sandbox/.claude"
   mkdir -p "$CLAUDE_HOME"
+  # HOME sandbox: saves operator's real $HOME; user-scope write lands in sandbox.
+  local saved_real_home="${HOME}"
+  export HOME="$sandbox"
 
   # Synthesize known settings.json to detect any mutation.
   printf '{"hooks":{}}\n' > "$CLAUDE_HOME/settings.json"
@@ -169,6 +173,12 @@ with open('$CLAUDE_HOME/.mcp.json', 'w') as f:
   local pgrep_after
   pgrep_after=$(pgrep -f "codegraph serve" 2>/dev/null | wc -l)
 
+  # Helper: restore both HOME and CLAUDE_HOME on every early-return path.
+  _cg_restore() {
+    export HOME="$saved_real_home"
+    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+  }
+
   # Assertion 1: .mcp.json exists and has correct codegraph entry shape.
   if ! python3 -c "
 import json, sys
@@ -182,8 +192,7 @@ except Exception as e:
     sys.exit(f'AC#1 JSON shape FAIL: {e}')
 " 2>&1; then
     echo "FAIL: _selftest_codegraph_mcp_provisioned — AC#1 JSON shape"
-    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
-    return 1
+    _cg_restore; return 1
   fi
 
   # Assertion 2: caret-pin regex matches literal @^0.9.x.
@@ -196,8 +205,7 @@ if not pin_args:
     sys.exit('AC#1 pin regex FAIL: no arg matches @^0.9.x')
 " 2>&1; then
     echo "FAIL: _selftest_codegraph_mcp_provisioned — AC#1 pin regex"
-    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
-    return 1
+    _cg_restore; return 1
   fi
 
   # Assertion 3: settings.json sha256 unchanged (provision_codegraph_mcp must not touch it).
@@ -205,15 +213,13 @@ if not pin_args:
   sha_after=$(sha256sum "$CLAUDE_HOME/settings.json" | awk '{print $1}')
   if [[ "$sha_before" != "$sha_after" ]]; then
     echo "FAIL: _selftest_codegraph_mcp_provisioned — AC#4 settings.json sha256 changed"
-    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
-    return 1
+    _cg_restore; return 1
   fi
 
   # Assertion 4: pgrep snapshot unchanged (no daemon spawned).
   if [[ "$pgrep_after" -ne "$pgrep_before" ]]; then
     echo "FAIL: _selftest_codegraph_mcp_provisioned — AC#4 codegraph serve daemon count changed"
-    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
-    return 1
+    _cg_restore; return 1
   fi
 
   # Assertion 5: never-stage.txt contains .codegraph/.
@@ -221,8 +227,7 @@ if not pin_args:
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   if ! grep -q '^\.codegraph/$' "$script_dir/../claude/config/never-stage.txt" 2>/dev/null; then
     echo "FAIL: _selftest_codegraph_mcp_provisioned — AC#3 .codegraph/ missing from never-stage.txt"
-    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
-    return 1
+    _cg_restore; return 1
   fi
 
   # Assertion 6: codegraph-init SKILL.md exists with correct frontmatter.
@@ -231,8 +236,7 @@ if not pin_args:
       || ! grep -qE "^name: codegraph-init$" "$skill_path" \
       || ! grep -qE "^[[:space:]]+-[[:space:]]Bash$" "$skill_path"; then
     echo "FAIL: _selftest_codegraph_mcp_provisioned — AC#2 SKILL.md missing or frontmatter incomplete"
-    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
-    return 1
+    _cg_restore; return 1
   fi
 
   # Assertion 7: CLAUDE.md.template has codegraph bullet + /codegraph-init reference.
@@ -240,8 +244,7 @@ if not pin_args:
   if ! grep -q "codegraph" "$template_path" 2>/dev/null \
       || ! grep -q "/codegraph-init" "$template_path" 2>/dev/null; then
     echo "FAIL: _selftest_codegraph_mcp_provisioned — AC#6 CLAUDE.md.template missing codegraph/codegraph-init"
-    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
-    return 1
+    _cg_restore; return 1
   fi
 
   # Assertion 8: Cross-MCP no-collision canary — agentmemory + understand-anything keys still present.
@@ -253,11 +256,30 @@ if missing:
     sys.exit(f'AC canary FAIL: sibling keys removed: {missing}')
 " 2>&1; then
     echo "FAIL: _selftest_codegraph_mcp_provisioned — cross-MCP no-collision canary"
-    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
-    return 1
+    _cg_restore; return 1
   fi
 
-  [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+  # Assertion 9 (NEW): user-scope ${HOME}/.claude.json has codegraph entry with correct shape.
+  # HOME was redirected to $sandbox, so this reads $sandbox/.claude.json.
+  local user_scope_json="${HOME}/.claude.json"
+  if ! python3 -c "
+import json, sys
+try:
+    d = json.load(open('$user_scope_json'))
+    entry = d['mcpServers']['codegraph']
+    assert entry['command'] == 'npx', f'user-scope command mismatch: {entry[\"command\"]!r}'
+    args = entry['args']
+    assert '@colbymchenry/codegraph@^0.9.4' in args, 'user-scope pin missing'
+    assert 'serve' in args, 'user-scope serve missing'
+    assert '--mcp' in args, 'user-scope --mcp missing'
+except Exception as e:
+    sys.exit(f'user-scope AC#9 FAIL: {e}')
+" 2>&1; then
+    echo "FAIL: _selftest_codegraph_mcp_provisioned — user-scope ~/.claude.json shape"
+    _cg_restore; return 1
+  fi
+
+  _cg_restore
   echo "PASS: _selftest_codegraph_mcp_provisioned"
   return 0
 }
@@ -271,6 +293,7 @@ _selftest_graphify_mcp_provisioned() {
   # AC #6: no daemon process spawned (pgrep snapshot equality).
   # AC #7: CLAUDE.md.template has graphify bullet + /graphify-init reference.
   # Cross-MCP no-collision canary: agentmemory + codegraph keys still present after graphify write.
+  # NEW: user-scope ${HOME}/.claude.json contains graphify entry with correct shape.
   local sandbox
   sandbox=$(mktemp -d)
   # shellcheck disable=SC2064
@@ -278,6 +301,9 @@ _selftest_graphify_mcp_provisioned() {
   local saved_home="${CLAUDE_HOME:-}"
   export CLAUDE_HOME="$sandbox/.claude"
   mkdir -p "$CLAUDE_HOME"
+  # HOME sandbox: saves operator's real $HOME; user-scope write lands in sandbox.
+  local saved_real_home="${HOME}"
+  export HOME="$sandbox"
 
   # Synthesize known settings.json to detect any mutation.
   printf '{"hooks":{}}\n' > "$CLAUDE_HOME/settings.json"
@@ -297,6 +323,12 @@ with open('$CLAUDE_HOME/.mcp.json', 'w') as f:
     json.dump(d, f, indent=2)
     f.write('\n')
 "
+
+  # Helper: restore both HOME and CLAUDE_HOME on every early-return path.
+  _gy_restore() {
+    export HOME="$saved_real_home"
+    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+  }
 
   # Pgrep snapshot before invocation.
   local pgrep_before
@@ -330,8 +362,7 @@ except Exception as e:
     sys.exit(f'AC#1 JSON shape FAIL: {e}')
 " 2>&1; then
     echo "FAIL: _selftest_graphify_mcp_provisioned — AC#1 JSON shape"
-    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
-    return 1
+    _gy_restore; return 1
   fi
 
   # Assertion 2: pin regex — install.sh body contains graphifyy==0.8.18.
@@ -345,8 +376,7 @@ if not re.search(r'graphifyy==0\\.8\\.18', body):
     sys.exit('AC#1 pin regex FAIL: graphifyy==0.8.18 not found in install.sh')
 " 2>&1; then
     echo "FAIL: _selftest_graphify_mcp_provisioned — AC#1 pin regex"
-    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
-    return 1
+    _gy_restore; return 1
   fi
 
   # Assertion 3: settings.json sha256 unchanged (provision_graphify_mcp must not touch it).
@@ -354,29 +384,25 @@ if not re.search(r'graphifyy==0\\.8\\.18', body):
   sha_after=$(sha256sum "$CLAUDE_HOME/settings.json" | awk '{print $1}')
   if [[ "$sha_before" != "$sha_after" ]]; then
     echo "FAIL: _selftest_graphify_mcp_provisioned — AC#2 settings.json sha256 changed"
-    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
-    return 1
+    _gy_restore; return 1
   fi
 
   # Assertion 4: no bracket-syntax extras in install.sh source (AC #3).
   if grep -qE 'graphifyy\[' "$install_sh" 2>/dev/null; then
     echo "FAIL: _selftest_graphify_mcp_provisioned — AC#3 bracket-syntax leak in install.sh"
-    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
-    return 1
+    _gy_restore; return 1
   fi
 
   # Assertion 5: pgrep snapshot unchanged — no daemon spawned (AC #6).
   if [[ "$pgrep_after" -ne "$pgrep_before" ]]; then
     echo "FAIL: _selftest_graphify_mcp_provisioned — AC#6 graphify daemon count changed"
-    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
-    return 1
+    _gy_restore; return 1
   fi
 
   # Assertion 6: never-stage.txt contains .graphify/ (AC #4).
   if ! grep -q '^\.graphify/$' "$script_dir/../claude/config/never-stage.txt" 2>/dev/null; then
     echo "FAIL: _selftest_graphify_mcp_provisioned — AC#4 .graphify/ missing from never-stage.txt"
-    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
-    return 1
+    _gy_restore; return 1
   fi
 
   # Assertion 7: graphify-init SKILL.md exists with correct frontmatter (AC #5).
@@ -387,8 +413,7 @@ if not re.search(r'graphifyy==0\\.8\\.18', body):
       || ! grep -qE "^## Step 1: Pre-flight" "$skill_path" \
       || ! grep -qE "^[[:space:]]+-[[:space:]]Bash$" "$skill_path"; then
     echo "FAIL: _selftest_graphify_mcp_provisioned — AC#5 SKILL.md missing or frontmatter incomplete"
-    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
-    return 1
+    _gy_restore; return 1
   fi
 
   # Assertion 8: CLAUDE.md.template has graphify bullet + /graphify-init reference (AC #7).
@@ -396,8 +421,7 @@ if not re.search(r'graphifyy==0\\.8\\.18', body):
   if ! grep -q "graphify" "$template_path" 2>/dev/null \
       || ! grep -q "/graphify-init" "$template_path" 2>/dev/null; then
     echo "FAIL: _selftest_graphify_mcp_provisioned — AC#7 CLAUDE.md.template missing graphify/graphify-init"
-    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
-    return 1
+    _gy_restore; return 1
   fi
 
   # Assertion 9: Cross-MCP no-collision canary — agentmemory + codegraph keys still present.
@@ -409,12 +433,99 @@ if missing:
     sys.exit(f'AC canary FAIL: sibling keys removed: {missing}')
 " 2>&1; then
     echo "FAIL: _selftest_graphify_mcp_provisioned — cross-MCP no-collision canary"
-    [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
-    return 1
+    _gy_restore; return 1
   fi
 
-  [[ -n "$saved_home" ]] && export CLAUDE_HOME="$saved_home" || unset CLAUDE_HOME
+  # Assertion 10 (NEW): user-scope ${HOME}/.claude.json has graphify entry with correct shape.
+  # HOME was redirected to $sandbox, so this reads $sandbox/.claude.json.
+  local user_scope_json="${HOME}/.claude.json"
+  if ! python3 -c "
+import json, sys
+try:
+    d = json.load(open('$user_scope_json'))
+    entry = d['mcpServers']['graphify']
+    assert entry['command'] == 'uv', f'user-scope command mismatch: {entry[\"command\"]!r}'
+    args = entry['args']
+    assert 'tool' in args, 'user-scope tool missing'
+    assert 'run' in args, 'user-scope run missing'
+    assert '--from' in args, 'user-scope --from missing'
+    assert 'graphifyy' in args, 'user-scope graphifyy missing'
+    assert 'graphify' in args, 'user-scope graphify missing'
+    assert '.' in args, 'user-scope . missing'
+    assert '--mcp' in args, 'user-scope --mcp missing'
+    assert 'serve' not in args, 'user-scope serve present (SB-2 violation)'
+    assert not any('[' in a for a in args), 'user-scope bracket-syntax leak'
+except Exception as e:
+    sys.exit(f'user-scope AC#10 FAIL: {e}')
+" 2>&1; then
+    echo "FAIL: _selftest_graphify_mcp_provisioned — user-scope ~/.claude.json shape"
+    _gy_restore; return 1
+  fi
+
+  _gy_restore
   echo "PASS: _selftest_graphify_mcp_provisioned"
+  return 0
+}
+
+_selftest_serena_mcp_provisioned() {
+  # Asserts the new provision_serena_mcp user-scope write.
+  # Gate hermeticity: uses __pkit_mock_serena_gate_skip=1 to bypass the uvx
+  # availability check (approach (b) from plan Task 1.3 — preferred for determinism).
+  # Sandboxes both HOME and CLAUDE_HOME so the operator's real ~/.claude.json is never touched.
+  local sandbox
+  sandbox=$(mktemp -d)
+  # shellcheck disable=SC2064
+  trap "rm -rf '$sandbox'" RETURN
+
+  # Sandbox both CLAUDE_HOME and HOME.
+  local saved_ch="${CLAUDE_HOME:-}"
+  export CLAUDE_HOME="$sandbox/.claude"
+  mkdir -p "$CLAUDE_HOME"
+  local saved_real_home="${HOME}"
+  export HOME="$sandbox"
+
+  # Helper: restore both env vars on every early-return path.
+  _se_restore() {
+    export HOME="$saved_real_home"
+    [[ -n "$saved_ch" ]] && export CLAUDE_HOME="$saved_ch" || unset CLAUDE_HOME
+  }
+
+  # settings.json canary: create known contents and sha before invocation.
+  printf '{"hooks":{}}\n' > "$CLAUDE_HOME/settings.json"
+  local sha_before
+  sha_before=$(sha256sum "$CLAUDE_HOME/settings.json" | awk '{print $1}')
+
+  # Invoke the function under test (mock mode — bypass uvx gate for determinism).
+  __pkit_mock_serena_gate_skip=1 provision_serena_mcp >/dev/null 2>&1
+
+  # Assertion 1: user-scope ${HOME}/.claude.json has correct serena entry shape.
+  local user_scope_json="${HOME}/.claude.json"
+  if ! python3 -c "
+import json, sys
+try:
+    d = json.load(open('$user_scope_json'))
+    entry = d['mcpServers']['serena']
+    assert entry['command'] == 'serena', f'command mismatch: {entry[\"command\"]!r}'
+    args = entry['args']
+    assert args == ['start-mcp-server', '--context', 'claude-code', '--project-from-cwd'], \
+        f'args mismatch: {args!r}'
+except Exception as e:
+    sys.exit(f'AC#1 serena user-scope FAIL: {e}')
+" 2>&1; then
+    echo "FAIL: _selftest_serena_mcp_provisioned — user-scope ~/.claude.json shape"
+    _se_restore; return 1
+  fi
+
+  # Assertion 2: settings.json sha256 byte-identity (provision_serena_mcp must NOT touch settings.json).
+  local sha_after
+  sha_after=$(sha256sum "$CLAUDE_HOME/settings.json" | awk '{print $1}')
+  if [[ "$sha_before" != "$sha_after" ]]; then
+    echo "FAIL: _selftest_serena_mcp_provisioned — settings.json sha256 changed"
+    _se_restore; return 1
+  fi
+
+  _se_restore
+  echo "PASS: _selftest_serena_mcp_provisioned"
   return 0
 }
 
@@ -969,6 +1080,64 @@ PYEOF
   # NO doctor smoke — codegraph has no documented doctor subcommand.
   # NO daemon spawn — npx -y lazily fetches + spawns at first MCP-client tool call.
   # NO codegraph init / index — deferred to user invocation of /codegraph-init per project.
+
+  # Step 2b — user-scope ${HOME}/.claude.json write (the actual location Claude CLI reads).
+  # Mirrors agentmemory 3b: backup, JSONDecodeError guard, isinstance guards,
+  # setdefault idempotent merge, atomic tmp+os.replace. HOME-unset → skip.
+  local user_scope_target="${HOME}/.claude.json"
+  if [[ -z "${HOME:-}" ]]; then
+    warn "codegraph: HOME unset — skipping user-scope ~/.claude.json registration; only legacy $mcp_target written"
+  else
+    if [[ -f "$user_scope_target" ]]; then
+      local user_scope_bak="${user_scope_target}.bak-$(date +%s)"
+      cp -a "$user_scope_target" "$user_scope_bak"
+      log "Backed up existing ~/.claude.json → $user_scope_bak"
+    fi
+    python3 - "$user_scope_target" <<'PYEOF'
+import json, os, sys
+
+dst = sys.argv[1]
+
+if os.path.isfile(dst):
+    with open(dst, 'r', encoding='utf-8') as f:
+        try:
+            data = json.load(f)
+        except json.JSONDecodeError as exc:
+            sys.stderr.write(
+                f"[install][warn] {dst} is not valid JSON ({exc}); refusing to overwrite — codegraph user-scope registration SKIPPED\n"
+            )
+            sys.exit(0)
+else:
+    data = {}
+
+if not isinstance(data, dict):
+    sys.stderr.write(
+        f"[install][warn] {dst} top-level is not a JSON object; refusing to overwrite — codegraph user-scope registration SKIPPED\n"
+    )
+    sys.exit(0)
+
+mcp_servers = data.setdefault("mcpServers", {})
+if not isinstance(mcp_servers, dict):
+    sys.stderr.write(
+        f"[install][warn] {dst} `mcpServers` is not a JSON object; refusing to overwrite — codegraph user-scope registration SKIPPED\n"
+    )
+    sys.exit(0)
+
+mcp_servers["codegraph"] = {
+    "type": "stdio",
+    "command": "npx",
+    "args": ["-y", "@colbymchenry/codegraph@^0.9.4", "serve", "--mcp"]
+}
+
+tmp = dst + ".tmp"
+with open(tmp, 'w', encoding='utf-8') as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+os.replace(tmp, dst)
+print(f"codegraph MCP entry merged into user-scope {dst}")
+PYEOF
+    log "codegraph MCP entry merged into user-scope $user_scope_target"
+  fi
   return 0
 }
 
@@ -1047,6 +1216,142 @@ PYEOF
   # NO daemon spawn — uv tool run lazily invokes at first MCP-client tool call.
   # NO graph build / eager index — deferred to user invocation of /graphify-init per project.
   # NO mutation of settings.json.
+
+  # Step 4b — user-scope ${HOME}/.claude.json write (the actual location Claude CLI reads).
+  # Mirrors agentmemory 3b: backup, JSONDecodeError guard, isinstance guards,
+  # setdefault idempotent merge, atomic tmp+os.replace. HOME-unset → skip.
+  local user_scope_target="${HOME}/.claude.json"
+  if [[ -z "${HOME:-}" ]]; then
+    warn "graphify: HOME unset — skipping user-scope ~/.claude.json registration; only legacy $mcp_target written"
+  else
+    if [[ -f "$user_scope_target" ]]; then
+      local user_scope_bak="${user_scope_target}.bak-$(date +%s)"
+      cp -a "$user_scope_target" "$user_scope_bak"
+      log "Backed up existing ~/.claude.json → $user_scope_bak"
+    fi
+    python3 - "$user_scope_target" <<'PYEOF'
+import json, os, sys
+
+dst = sys.argv[1]
+
+if os.path.isfile(dst):
+    with open(dst, 'r', encoding='utf-8') as f:
+        try:
+            data = json.load(f)
+        except json.JSONDecodeError as exc:
+            sys.stderr.write(
+                f"[install][warn] {dst} is not valid JSON ({exc}); refusing to overwrite — graphify user-scope registration SKIPPED\n"
+            )
+            sys.exit(0)
+else:
+    data = {}
+
+if not isinstance(data, dict):
+    sys.stderr.write(
+        f"[install][warn] {dst} top-level is not a JSON object; refusing to overwrite — graphify user-scope registration SKIPPED\n"
+    )
+    sys.exit(0)
+
+mcp_servers = data.setdefault("mcpServers", {})
+if not isinstance(mcp_servers, dict):
+    sys.stderr.write(
+        f"[install][warn] {dst} `mcpServers` is not a JSON object; refusing to overwrite — graphify user-scope registration SKIPPED\n"
+    )
+    sys.exit(0)
+
+mcp_servers["graphify"] = {
+    "type": "stdio",
+    "command": "uv",
+    "args": ["tool", "run", "--from", "graphifyy", "graphify", ".", "--mcp"]
+}
+
+tmp = dst + ".tmp"
+with open(tmp, 'w', encoding='utf-8') as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+os.replace(tmp, dst)
+print(f"graphify MCP entry merged into user-scope {dst}")
+PYEOF
+    log "graphify MCP entry merged into user-scope $user_scope_target"
+  fi
+  return 0
+}
+
+# ---------- Serena MCP (semantic code navigation; user-scope registration only) ----------
+# Writes the serena entry into ${HOME}/.claude.json `mcpServers`. Does NOT perform
+# any package install — the package is installed earlier in the script via uv/pip.
+# Pre-flight gate: if `uvx` is not on PATH, log SKIP + return 0 (warn-and-continue).
+# Hermeticity: honour __pkit_mock_serena_gate_skip=1 to bypass the uvx gate for selftests.
+provision_serena_mcp() {
+  # Pre-flight gate: uvx required (mirrors graphify's uv gate shape).
+  # Use __pkit_mock_serena_gate_skip=1 to bypass for hermetic selftest (preferred over
+  # conditional assertion, so the test always exercises the write path).
+  if [[ "${__pkit_mock_serena_gate_skip:-0}" != "1" ]]; then
+    if ! command -v uvx >/dev/null 2>&1; then
+      log "SKIP provision_serena_mcp: uvx not found. Install via: curl -LsSf https://astral.sh/uv/install.sh | sh"
+      return 0
+    fi
+  fi
+
+  # User-scope ${HOME}/.claude.json write (the actual location Claude CLI reads).
+  # Mirrors agentmemory 3b: backup, JSONDecodeError guard, isinstance guards,
+  # setdefault idempotent merge, atomic tmp+os.replace. HOME-unset → skip.
+  local user_scope_target="${HOME}/.claude.json"
+  if [[ -z "${HOME:-}" ]]; then
+    warn "serena: HOME unset — skipping user-scope ~/.claude.json registration"
+    return 0
+  fi
+
+  if [[ -f "$user_scope_target" ]]; then
+    local user_scope_bak="${user_scope_target}.bak-$(date +%s)"
+    cp -a "$user_scope_target" "$user_scope_bak"
+    log "Backed up existing ~/.claude.json → $user_scope_bak"
+  fi
+
+  python3 - "$user_scope_target" <<'PYEOF'
+import json, os, sys
+
+dst = sys.argv[1]
+
+if os.path.isfile(dst):
+    with open(dst, 'r', encoding='utf-8') as f:
+        try:
+            data = json.load(f)
+        except json.JSONDecodeError as exc:
+            sys.stderr.write(
+                f"[install][warn] {dst} is not valid JSON ({exc}); refusing to overwrite — serena user-scope registration SKIPPED\n"
+            )
+            sys.exit(0)
+else:
+    data = {}
+
+if not isinstance(data, dict):
+    sys.stderr.write(
+        f"[install][warn] {dst} top-level is not a JSON object; refusing to overwrite — serena user-scope registration SKIPPED\n"
+    )
+    sys.exit(0)
+
+mcp_servers = data.setdefault("mcpServers", {})
+if not isinstance(mcp_servers, dict):
+    sys.stderr.write(
+        f"[install][warn] {dst} `mcpServers` is not a JSON object; refusing to overwrite — serena user-scope registration SKIPPED\n"
+    )
+    sys.exit(0)
+
+mcp_servers["serena"] = {
+    "type": "stdio",
+    "command": "serena",
+    "args": ["start-mcp-server", "--context", "claude-code", "--project-from-cwd"]
+}
+
+tmp = dst + ".tmp"
+with open(tmp, 'w', encoding='utf-8') as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+os.replace(tmp, dst)
+print(f"serena MCP entry merged into user-scope {dst}")
+PYEOF
+  log "serena MCP entry merged into user-scope $user_scope_target"
   return 0
 }
 
@@ -1709,6 +2014,7 @@ provision_agentmemory_mcp
 provision_understand_anything
 provision_codegraph_mcp
 provision_graphify_mcp
+provision_serena_mcp
 
 # gstack is a third-party overlay project (alirezarezvani/gstack); install instructions live in its own README.
 log "gstack is a third-party overlay; for install instructions see https://github.com/alirezarezvani/gstack"
