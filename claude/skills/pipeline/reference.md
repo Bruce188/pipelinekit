@@ -68,6 +68,124 @@ h. **AskUserQuestion-cap exemption.** When `--max-questions <N>` is in effect, t
 
 ---
 
+## Step 0.5: MCP Preflight — Full Details
+
+Detailed reference for the MCP Preflight step executed by `SKILL.md` § Step 0.5. Load this section when executing or troubleshooting Step 0.5.
+
+### Built-in applicable-MCP map
+
+| MCP | Applicability | Wire command | Auto-wire? |
+|-----|---------------|--------------|------------|
+| `context7` | always | `claude mcp add --scope user context7 -- npx -y @upstash/context7-mcp@latest` | yes |
+| `agentmemory` | always (install-provisioned) | `VERIFY_ONLY` sentinel — do NOT run `mcp add` | yes (verify-only) |
+| `sequential-thinking` | always-optional | `claude mcp add --scope user sequential-thinking -- npx -y @modelcontextprotocol/server-sequential-thinking` | yes |
+| `serena` | repo has source in a serena-supported language (extension probe) | `claude mcp add --scope user serena -- serena start-mcp-server --context claude-code --project-from-cwd` | yes |
+| `codegraph` | SUGGESTION only (gated `/codegraph-init`, 50k-file gate) | — | NEVER |
+| `graphify` | SUGGESTION only (gated `/graphify-init`, 50k-file gate) | — | NEVER |
+| `local-rag` | SUGGESTION only (opt-in niche docs corpora) | — | NEVER |
+
+Auto-wire set = `{context7, agentmemory, serena, sequential-thinking}`. Suggestions = `{codegraph, graphify, local-rag}` — advisory text only, never wired by Step 0.5.
+
+### Serena-applicability language probe
+
+Implemented by `detect_applicable_mcps.sh --applicable`. The helper walks the repo from `.` at bounded depth (`-maxdepth 6`), pruning `.git`, `node_modules`, `__pycache__`, and `.serena/cache`. It returns "applicable" on the FIRST file whose extension maps to a serena-supported language.
+
+Extension → language map (derived from `.serena/project.yml` language enumeration):
+
+| Extension(s) | Language |
+|---|---|
+| `.py` | python |
+| `.ts`, `.tsx`, `.js`, `.jsx` | typescript |
+| `.go` | go |
+| `.rs` | rust |
+| `.java` | java |
+| `.cs` | csharp |
+| `.rb` | ruby |
+| `.php` | php |
+| `.c`, `.h`, `.cpp`, `.cc`, `.hpp`, `.hh`, `.cxx` | cpp |
+| `.kt`, `.kts` | kotlin |
+| `.scala` | scala |
+| `.swift` | swift |
+| `.zig` | zig |
+| `.sh`, `.bash` | bash |
+| `.lua` | lua |
+| `.dart` | dart |
+| `.ex`, `.exs` | elixir |
+| `.clj`, `.cljs` | clojure |
+| `.hs` | haskell |
+
+Note: `.sh`/`.bash` → bash is included — pipelinekit's own root passes the serena-applicable probe (it contains bash hook and helper scripts).
+
+### Single-probe reuse (OQ-2)
+
+Step 0.5 ESTABLISHES the `CONNECTED_MCPS` cache via the ONE `claude mcp list` probe at pipeline startup. The `{{MCP_GUIDANCE}}` resolution at Step 5.x (`SKILL.md` line ~586, **MCP guidance resolution** paragraph) REUSES this cached set — no second probe. If the CLI is unavailable or Step 0.5 was skipped, the cached set is empty and every phase resolves to `(no MCP routing)`.
+
+### Interactive vs. --no-prompts wiring
+
+- **Interactive (AskUserQuestion available):** For each unwired-applicable MCP in the 4-item auto-wire set (excluding `agentmemory`), ask `"Wire <mcp> now? (yes / skip)"`. The user answers per-MCP; `yes` runs the wire command; `skip` skips for this run.
+- **`--no-prompts` / `NO_PROMPTS=true`:** Auto-wire ALL unwired-applicable MCPs in the 4-item set without prompting (mirror the `--no-prompts` wrapper idiom).
+- **`agentmemory`:** Always verify-only. The `--wire-cmd agentmemory` sentinel is `VERIFY_ONLY` — the orchestrator logs an advisory and never calls `claude mcp add` for it.
+
+### Serena onboarding sub-step (OQ-1)
+
+Serena requires a one-time onboarding to load project context into `.serena/memories/`. Step 0.5 handles this as follows:
+
+1. **Serena connected at probe time** (`serena ∈ CONNECTED_MCPS`) AND `.serena/memories/` is empty or absent:
+   The LEAD/orchestrator context calls `mcp__serena__initial_instructions` then `mcp__serena__onboarding`. Both calls are idempotent — safe to call even when partially initialized. Onboarding is skipped when `.serena/memories/` is non-empty; log `MCP_PREFLIGHT_SERENA_ONBOARD_SKIPPED: memories present`.
+
+2. **Serena freshly wired this run** (wired by Step 0.5, was NOT in original `CONNECTED_MCPS`):
+   Do NOT onboard — the MCP runtime is not yet available in the current session until a restart. Log:
+   `MCP_PREFLIGHT: serena newly wired — onboarding deferred to next session (MCP re-read at session start)`
+
+3. **Serena absent entirely:**
+   Log `MCP_PREFLIGHT_SERENA_ONBOARD_SKIPPED: serena not connected`.
+
+**Critical:** the `mcp__serena__initial_instructions` and `mcp__serena__onboarding` tool-calls run in the LEAD/orchestrator context ONLY — never dispatched to a subagent (serena tools are not available in subagent context).
+
+### --dry-run behavior (OQ-4)
+
+Under `--dry-run`, Step 0.5 operates in preview-only mode:
+- Run the `claude mcp list` probe (read-only — always safe).
+- Compute and print the applicable/unwired set and the wire commands that WOULD be run.
+- Do NOT execute `claude mcp add`.
+- Do NOT run serena onboarding.
+
+The preview output prints before the Step 4 `--dry-run` STOP, so users can see what would be wired before committing to a live run.
+
+### OQ-7: serena wire-form coexistence
+
+The GLOBAL wire command for serena uses the binary form:
+```
+claude mcp add --scope user serena -- serena start-mcp-server --context claude-code --project-from-cwd
+```
+This matches `install.sh`'s `provision_serena_mcp` function (F2, already merged).
+
+The repo's project-scope `.mcp.json` keeps its pinned `uvx --from git+<sha>` form and TAKES PRECEDENCE locally when both are present (project-scope `.mcp.json` overrides user-scope `~/.claude.json` for the current project). Both forms coexist; this feature does NOT reconcile them. A consumer repo lacking `uv` or the `serena` binary may see the global registration fail to launch — this is non-fatal by the wire-failure rule below.
+
+### Failure modes
+
+| Condition | Log message | Behavior |
+|---|---|---|
+| `claude` CLI not found | `MCP_PREFLIGHT_SKIPPED: claude CLI not found` (stderr) | Skip all of Step 0.5 — non-fatal |
+| `claude mcp add` exits non-zero | `MCP_PREFLIGHT_WIRE_FAILED: <mcp> (exit N)` (stderr) | Log and continue — non-fatal |
+| `agentmemory` not connected | Advisory: re-run `bash scripts/install.sh` | No `mcp add` attempted |
+| serena memories present | `MCP_PREFLIGHT_SERENA_ONBOARD_SKIPPED: memories present` (stderr) | Skip onboarding — non-fatal |
+| serena not connected | `MCP_PREFLIGHT_SERENA_ONBOARD_SKIPPED: serena not connected` (stderr) | Skip onboarding — non-fatal |
+| serena freshly wired | `MCP_PREFLIGHT: serena newly wired — onboarding deferred to next session (MCP re-read at session start)` (stderr) | Defer onboarding — non-fatal |
+
+### Beacon format
+
+After Step 0.5 completes, emit a single beacon line to stderr:
+```
+MCP_PREFLIGHT: connected=[<comma-list>] wired=[<comma-list>] skipped=[<comma-list>]
+```
+Empty lists render as `[]`. Example:
+```
+MCP_PREFLIGHT: connected=[context7,agentmemory,serena] wired=[sequential-thinking] skipped=[]
+```
+
+---
+
 ## Step 1.6: Renew Feature File (--renew)
 
 Triggered when `--renew` is present.
