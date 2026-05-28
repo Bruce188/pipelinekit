@@ -363,6 +363,78 @@ Triggered when `--adopt` is present. Full flow defined in `reference.md` § "Ste
 
 ---
 
+### Step 0.5: MCP Preflight (once per run, after arg-parse, before Step 2)
+
+Runs exactly ONCE at pipeline startup, after argument parsing (Step 1) completes and before the feature file is read (Step 2). Establishes the `CONNECTED_MCPS` cache used throughout the run.
+
+**1. Establish connected set (single probe)**
+
+Run the SINGLE `claude mcp list` probe HERE and cache the result as `CONNECTED_MCPS` for the whole run. Parse the server name (the token before the first `:`) from every line whose status reads `Connected`.
+
+Missing `claude` CLI → log `MCP_PREFLIGHT_SKIPPED: claude CLI not found` to stderr and skip the rest of Step 0.5 (non-fatal). `CONNECTED_MCPS` stays empty.
+
+```bash
+CONNECTED_MCPS=$(claude mcp list 2>/dev/null | awk '/Connected/{match($0,/^([^:]+):/,a); if(a[1]) print a[1]}' || true)
+```
+
+**2. Detect applicable MCPs**
+
+```bash
+APPLICABLE=$(bash claude/lib/pipeline/detect_applicable_mcps.sh --applicable)
+AUTO_WIRE_SET=$(bash claude/lib/pipeline/detect_applicable_mcps.sh --auto-wire-set)
+```
+
+Compute `UNWIRED_APPLICABLE = APPLICABLE \ CONNECTED_MCPS`, intersected against the 4-item auto-wire set.
+
+Suggestion-only MCPs (`codegraph`, `graphify`, `local-rag`) are surfaced as advisory text only — never auto-wired.
+
+**3. Wire unwired applicable MCPs**
+
+For each MCP in `UNWIRED_APPLICABLE` ∩ `AUTO_WIRE_SET`:
+
+- `agentmemory`: `--wire-cmd agentmemory` emits `VERIFY_ONLY` sentinel — do NOT attempt `claude mcp add`. If agentmemory is absent from `CONNECTED_MCPS`, log an advisory: `MCP_PREFLIGHT: agentmemory not connected — re-run 'bash scripts/install.sh' to re-provision.` and continue.
+
+- All other applicable MCPs:
+  - **Interactive (AskUserQuestion available):** Ask `"Wire <mcp> now? (yes / skip)"` — mirror the Topic-10 confirm shape (SKILL.md line 88). `yes` → execute the wire command; `skip` → continue without wiring.
+  - **`--no-prompts` / `NO_PROMPTS=true`:** Auto-wire all unwired applicable MCPs in the 4-item set (skip `AskUserQuestion`). Mirror the `--no-prompts` wrapper idiom at line 159.
+
+  ```bash
+  WIRE_CMD=$(bash claude/lib/pipeline/detect_applicable_mcps.sh --wire-cmd "$mcp")
+  eval "$WIRE_CMD" || { printf 'MCP_PREFLIGHT_WIRE_FAILED: %s (exit %d)\n' "$mcp" $? >&2; }
+  ```
+
+  On non-zero wire exit: log `MCP_PREFLIGHT_WIRE_FAILED: <mcp> (exit N)` to stderr and continue (non-fatal).
+
+  Track newly wired MCPs in `WIRED_MCPS` (space-separated list for the beacon and state file).
+
+**4. Serena onboarding sub-step (OQ-1)**
+
+- If `serena ∈ CONNECTED_MCPS` (connected at probe time) AND `.serena/memories/` is empty or absent:
+  Call `mcp__serena__initial_instructions` then `mcp__serena__onboarding` in the LEAD/orchestrator context (idempotent — safe to call even when partially initialized). Log `MCP_PREFLIGHT_SERENA_ONBOARD_SKIPPED: memories present` and skip when `.serena/memories/` is non-empty.
+  **IMPORTANT:** these tool-calls run in the LEAD context ONLY — never dispatch to a subagent.
+
+- If serena was freshly wired this run (not in original `CONNECTED_MCPS`):
+  Do NOT onboard. Log `MCP_PREFLIGHT: serena newly wired — onboarding deferred to next session (MCP re-read at session start)` and continue.
+
+- If serena absent entirely: log `MCP_PREFLIGHT_SERENA_ONBOARD_SKIPPED: serena not connected`.
+
+**5. `--dry-run` interaction (OQ-4)**
+
+Under `--dry-run`, Step 0.5 PREVIEWS the applicable/unwired set and the wire commands it WOULD run, then continues — it does NOT execute `claude mcp add` and does NOT run serena onboarding. The preview prints before the Step 4 `--dry-run` STOP.
+
+**6. Record state and emit beacon**
+
+Write `**MCP connected:**` and `**MCP wired:**` to `docs/pipeline-state.md` (run-scoped; written once by Step 0.5 in the LEAD context, BEFORE the per-feature Step 5.1 template write). Step 5.1 re-emits the cached `CONNECTED_MCPS`/`WIRED_MCPS` lead vars into these fields each feature — consistent with how `**Charter:**` is re-emitted per feature (OQ-3).
+
+Emit beacon to stderr:
+```
+MCP_PREFLIGHT: connected=[<names>] wired=[<names>] skipped=[<names>]
+```
+
+Full map, wire commands, failure modes, and the serena onboarding contract: `reference.md` § Step 0.5: MCP Preflight — Full Details.
+
+---
+
 ### Step 2: Read Feature File
 
 Read the feature file (from Step 1, 1.5, 1.6, or 1.7). Parse features by H2 headers (`## <type>/<name>`).
@@ -511,7 +583,7 @@ When no overlay file resolves: `MODEL_OVERLAY_NOTE=""` (empty, no-op). A missing
 
 **Charter summary resolution:** Before each phase dispatch, resolve the `{{CHARTER_SUMMARY}}` placeholder in the phase prompt template by invoking `claude.lib.pipeline.charter_summary.extract_charter_summary(charter_field)` where `charter_field` is the value of the `**Charter:**` line in `docs/pipeline-state.md`. The helper returns either the first 800 characters of the charter's `## Goal` body (hard-truncated via `text[:800]` — NOT word-bounded) or the literal string `(no charter)` when the charter is `(none)`, absent, unreadable, or lacks a `## Goal` section. Substitute the returned string literally for `{{CHARTER_SUMMARY}}` in every phase template (analyze, plan, implement, review, docs) at dispatch time — NOT at template-load time, so charter edits mid-run propagate to later phases. The helper is pure stdlib Python (no subprocess, no LLM); contract bound by `claude/lib/pipeline/tests/test_charter_summary.py`. This placeholder is the operator-trust bucket — the 800-char cap IS the length bound; the helper applies no further sanitisation because the charter is committed source. Treat as additive to the existing `**Placeholder Substitution Safety**` contract in `reference.md` (the 7 rules there continue to apply to every other `{{...}}` placeholder).
 
-**MCP guidance resolution:** Before each phase dispatch, resolve the `{{MCP_GUIDANCE}}` placeholder in the phase prompt template by invoking `claude.lib.pipeline.mcp_guidance.extract_mcp_guidance(charter_field, phase, connected_mcps)` where `charter_field` is the same `**Charter:**` value used for `{{CHARTER_SUMMARY}}` and `phase` is the dispatching phase slug (`analyze` | `plan` | `implement` | `review` | `docs` | `uat`). Derive `connected_mcps` ONCE per pipeline run via a single `claude mcp list` probe — parse the server name (the token before the first `:`) from every line whose status reads `Connected`, and cache the resulting set for the whole run. If the `claude` CLI is unavailable or the probe errors, treat the connected set as empty (every phase then resolves to the no-op sentinel `(no MCP routing)`). The helper reads the charter's `## MCP Routing` section, keeps only entries whose server is BOTH declared in the charter AND in the connected set AND applies to the current `phase` (no `| phases:` clause or the literal `all` = every phase), and returns a guidance block (a preamble plus one `- <server>: <purpose>` bullet per surviving entry, hard-capped at 1500 chars) or `(no MCP routing)` when nothing applies. This is **pure charter-driven**: a project with no `## MCP Routing` section in its charter behaves exactly as if there were no MCP wiring — the empty default is intentional, not a gap. Substitute the returned string literally for `{{MCP_GUIDANCE}}` in every phase template at dispatch time (NOT at template-load time, so charter edits mid-run propagate). The helper is pure stdlib Python (no subprocess, no LLM) — the orchestrator owns the one `claude mcp list` probe; contract bound by `claude/lib/pipeline/tests/test_mcp_guidance.py`. This is a second operator-trust placeholder governed by Rule 8 of the `**Placeholder Substitution Safety**` contract in `reference.md`.
+**MCP guidance resolution:** Before each phase dispatch, resolve the `{{MCP_GUIDANCE}}` placeholder in the phase prompt template by invoking `claude.lib.pipeline.mcp_guidance.extract_mcp_guidance(charter_field, phase, connected_mcps)` where `charter_field` is the same `**Charter:**` value used for `{{CHARTER_SUMMARY}}` and `phase` is the dispatching phase slug (`analyze` | `plan` | `implement` | `review` | `docs` | `uat`). The `connected_mcps` set is ESTABLISHED at Step 0.5 via the single `claude mcp list` probe and cached as `CONNECTED_MCPS` for the whole run — REUSE that cached set here (no second probe). If Step 0.5 was skipped (CLI unavailable) or `CONNECTED_MCPS` is empty, treat the connected set as empty (every phase then resolves to the no-op sentinel `(no MCP routing)`). The helper reads the charter's `## MCP Routing` section, keeps only entries whose server is BOTH declared in the charter AND in the connected set AND applies to the current `phase` (no `| phases:` clause or the literal `all` = every phase), and returns a guidance block (a preamble plus one `- <server>: <purpose>` bullet per surviving entry, hard-capped at 1500 chars) or `(no MCP routing)` when nothing applies. This is **pure charter-driven**: a project with no `## MCP Routing` section in its charter behaves exactly as if there were no MCP wiring — the empty default is intentional, not a gap. Substitute the returned string literally for `{{MCP_GUIDANCE}}` in every phase template at dispatch time (NOT at template-load time, so charter edits mid-run propagate). The helper is pure stdlib Python (no subprocess, no LLM) — the orchestrator owns the one `claude mcp list` probe; contract bound by `claude/lib/pipeline/tests/test_mcp_guidance.py`. This is a second operator-trust placeholder governed by Rule 8 of the `**Placeholder Substitution Safety**` contract in `reference.md`.
 
 ---
 
@@ -594,6 +666,8 @@ Write/update `docs/pipeline-state.md`:
 **Review style:** [always teams | never teams | orchestrator decides]
 **Probe depth:** $(bash claude/lib/pipeline/detect_repo_class.sh --probe-depth)
 **Repo class:** $(bash claude/lib/pipeline/detect_repo_class.sh --repo-class)
+**MCP connected:** [comma-list of connected server names from Step 0.5, or (none)]
+**MCP wired:** [comma-list of MCPs wired this run by Step 0.5, or (none)]
 **Loop:** on
 **Max loops:** unlimited
 **Loop count:** 0
@@ -601,6 +675,7 @@ Write/update `docs/pipeline-state.md`:
 **Loop no-progress count:** 0
 ```
 <!-- DEFERRED: ~/.claude/rules/workflow.md § Pipeline State Schema gains two new bullets (`**Probe depth:**`, `**Repo class:**`) — out-of-repo edit (user's global rules). Advisory schema doc, not load-bearing for runtime. Tracked as follow-up in docs/progress.md ## Deferred section. -->
+<!-- DEFERRED: ~/.claude/rules/workflow.md § Pipeline State Schema should also gain two new bullets (`**MCP connected:**`, `**MCP wired:**`) added by Step 0.5 (OQ-5 follow-up). Advisory schema doc; not load-bearing for runtime. Same out-of-repo advisory pattern as Probe-depth/Repo-class above. -->
 
 Default value for new features: `subagent`. `inline` appears only in legacy state files written under the prior heuristic policy or in Path N nit-attack sub-paths.
 
