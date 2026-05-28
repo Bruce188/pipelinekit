@@ -37,7 +37,7 @@ Required sections (19 topics in order):
 
 Optional section (additive — charters without this section continue to validate):
 - `## Stakeholders` (optional, populated only when multi-party scope is signaled during Step 0; captures decision-makers, blockers, reviewers; backward-compat: charters without this section continue to validate)
-- `## MCP Routing` (optional, per-project; declares which MCP servers the pipeline should surface into phase subagents and what to use each for. Pure charter-driven — absent section means NO MCP guidance is injected. Resolved at dispatch time by `claude/lib/pipeline/mcp_guidance.py`, intersected with the live `claude mcp list` connected set. One MCP per bullet: `- <server>: <purpose text> | phases: <comma-list>`. The `| phases:` clause is optional; absent (or literal `all`) applies the entry to every phase. Valid phase tokens: `analyze`, `plan`, `implement`, `review`, `docs`, `uat`. Backward-compat: charters without this section continue to validate.)
+- `## MCP Routing` (optional, per-project; declares which MCP servers the pipeline should surface into phase subagents and what to use each for. Resolved at dispatch time by `claude/lib/pipeline/mcp_guidance.py`, intersected with the live `claude mcp list` connected set. One MCP per bullet: `- <server>: <purpose text> | phases: <comma-list>`. The `| phases:` clause is optional; absent (or literal `all`) applies the entry to every phase. Valid phase tokens: `analyze`, `plan`, `implement`, `review`, `docs`, `uat`. When this section is ABSENT the resolver falls back to a built-in default map (context7 / serena / agentmemory / sequential-thinking, intersected with connected servers) — so connected MCPs surface automatically even without an explicit section. An explicit section overrides the default wholesale; `- none` or `- skip` opts out entirely. Backward-compat: charters without this section continue to validate; they receive default-map guidance when MCPs are connected.)
 
 Required table (appended after the 9 sections):
 ```markdown
@@ -322,7 +322,17 @@ Options:
 
 **Invocation:** Pipeline issues an `AskUserQuestion` with the five options above; the answer is recorded under `## AI Layer` in the charter.
 
-**MCP Routing seed:** When the answer names a real server (`serena` or `claude-context`, not `none`/`not sure`), ALSO append a corresponding bullet to the optional `## MCP Routing` section so the pipeline surfaces it into phase subagents — e.g. `- serena: symbol navigation and cross-file refs | phases: analyze, implement`. This is the only topic that auto-seeds `## MCP Routing`; the user adds further servers (`context7`, `agentmemory`, `local-rag`, project-specific MCPs) by editing the section directly (or via the "edit manually" escape). `## MCP Routing` stays absent — and no MCP guidance is injected — until at least one server is declared.
+**MCP Routing seed:** When the answer names a real server (`serena` or `claude-context`, not `none`/`not sure`), ALSO append a populated `## MCP Routing` section so the pipeline surfaces connected MCPs into phase subagents out of the box. Seed ALL four default-map entries alongside the chosen symbol-search server:
+
+```
+## MCP Routing
+- context7: resolve-library-id then query-docs for framework/library API verification | phases: analyze, plan, implement, review
+- serena: symbol navigation and cross-file refs | phases: analyze, implement, review
+- agentmemory: memory_recall for prior context at phase start; memory_save for durable findings | phases: all
+- sequential-thinking: structured multi-step reasoning for complex decisions | phases: plan, review
+```
+
+(Replace `serena` with `claude-context` if that was chosen; omit either if the user answered `none`/`not sure`.) The user can edit or remove entries directly. Note: the resolver (`claude/lib/pipeline/mcp_guidance.py`) now also ships a built-in default map for these four servers — omitting the `## MCP Routing` section entirely no longer means "zero MCP guidance" at runtime (connected servers from the default map surface automatically). Declaring an explicit section overrides the default wholesale; declaring `- none` or `- skip` explicitly opts out.
 
 Options:
 - A) `serena (recommended)`
@@ -530,12 +540,12 @@ status: draft
 - **Self-reflection (Stop hook):** [`enabled` | `disabled` | `not sure`]
 - **Codebase Map (root CLAUDE.md):** [`confirmed` | `needs update` | `n/a`]
 
-<!-- OPTIONAL additive section — omit entirely when no MCP is wired. Resolved into {{MCP_GUIDANCE}} per phase. Format: `- <server>: <purpose> | phases: <comma-list>`; omit the `| phases:` clause (or use `all`) to apply to every phase.
+<!-- OPTIONAL additive section — omit entirely to use the resolver's built-in default map (context7/serena/agentmemory/sequential-thinking intersected with connected servers). Declare explicitly to override the default wholesale. Use `- none` or `- skip` to opt out entirely. Resolved into {{MCP_GUIDANCE}} per phase. Format: `- <server>: <purpose> | phases: <comma-list>`; omit the `| phases:` clause (or use `all`) to apply to every phase.
 ## MCP Routing
 - context7: resolve-library-id then query-docs for framework/library API verification | phases: analyze, plan, implement, review
-- serena: symbol navigation and cross-file refs | phases: analyze, implement
+- serena: symbol navigation and cross-file refs | phases: analyze, implement, review
 - agentmemory: memory_recall for prior context at phase start; memory_save for durable findings | phases: all
-- local-rag: query_documents for niche/ingested docs | phases: analyze, implement
+- sequential-thinking: structured multi-step reasoning for complex decisions | phases: plan, review
 -->
 
 ## Decision Log
