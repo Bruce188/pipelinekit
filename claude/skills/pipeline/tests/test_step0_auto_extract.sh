@@ -6,8 +6,8 @@ SKILL=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/SKILL.md
 # Assertion 1: charter_extractor module name appears in new Step 0 sub-step or pointer
 grep -q 'charter_extractor' "$SKILL" || { echo "FAIL: 'charter_extractor' not found in SKILL.md"; exit 1; }
 
-# Assertion 2: canonical skip-log token appears
-grep -q 'CHARTER_AUTO_EXTRACT_SKIPPED' "$SKILL" || { echo "FAIL: 'CHARTER_AUTO_EXTRACT_SKIPPED' token not found in SKILL.md"; exit 1; }
+# Assertion 2: interactive-only behavior is documented
+grep -q 'interactive-only' "$SKILL" || { echo "FAIL: 'interactive-only' auto-extract language not found in SKILL.md"; exit 1; }
 
 # Assertion 3: descriptive word 'auto-extract' appears
 grep -q 'auto-extract' "$SKILL" || { echo "FAIL: 'auto-extract' not found in SKILL.md"; exit 1; }
@@ -30,8 +30,8 @@ for token in '--no-charter' '--charter <path>' '--max-questions 0'; do
   grep -q -- "$token" "$SKILL" || { echo "FAIL: existing skip-condition token missing: $token"; exit 1; }
 done
 
-# Assertion 7: subprocess-mode language preserved
-grep -q 'subprocess mode' "$SKILL" || grep -q 'Subprocess mode' "$SKILL" || { echo "FAIL: subprocess mode paragraph removed from SKILL.md"; exit 1; }
+# Assertion 7: non-interactive skip language documented
+grep -q 'non-interactive session' "$SKILL" || { echo "FAIL: non-interactive skip language removed from SKILL.md"; exit 1; }
 
 # Assertion 8: reference.md pointer adjacent to the new entry
 grep -B 5 -A 5 'charter_extractor' "$SKILL" | grep -q 'reference.md' || { echo "FAIL: reference.md pointer not adjacent to charter_extractor mention in SKILL.md"; exit 1; }

@@ -483,7 +483,7 @@ def is_fresh(
 # Per-section probes (F12)
 # ---------------------------------------------------------------------------
 
-# Filename-like token regex. Captures e.g. ``orchestrate.sh``,
+# Filename-like token regex. Captures e.g. ``some-script.sh``,
 # ``claude/lib/pipeline/foo.py``, ``pyproject.toml``. Used by the Success +
 # Constraints + Prior Art probes to find filesystem references inside bullets.
 _FILENAME_TOKEN_RE = re.compile(

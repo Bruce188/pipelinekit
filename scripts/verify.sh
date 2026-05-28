@@ -47,8 +47,10 @@ if [[ -d "$REPO_ROOT/claude" ]]; then
   ORCH=$(grep -rIn "orchestrate\.sh" "$REPO_ROOT/claude" 2>/dev/null | wc -l)
   [[ "$ORCH" -eq 0 ]] && pass "no orchestrate.sh references" || fail "$ORCH orchestrate.sh references remain"
 
-  CLAUDE_P=$(grep -rIn -E "\bclaude -p\b" "$REPO_ROOT/claude" 2>/dev/null | wc -l)
-  [[ "$CLAUDE_P" -eq 0 ]] && pass "no 'claude -p' subprocess calls" || fail "$CLAUDE_P 'claude -p' references remain"
+  # 'claude -p' is legitimate in research/sandbox/hooks/worker-provider; the pipeline orchestrator
+  # must stay subprocess-free (runs phases via Agent-tool subagents only), so scope this guard to it.
+  CLAUDE_P=$(grep -rIn -E "\bclaude -p\b" "$REPO_ROOT/claude/skills/pipeline" 2>/dev/null | wc -l)
+  [[ "$CLAUDE_P" -eq 0 ]] && pass "no 'claude -p' in pipeline skill" || fail "$CLAUDE_P 'claude -p' references in claude/skills/pipeline (pipeline must stay subprocess-free)"
 fi
 
 # Optional Claude CLI — PATH presence + version-floor check for EnterWorktree / ExitWorktree (v2.1.72+).

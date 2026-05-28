@@ -27,8 +27,8 @@ grep -q 'accept' "$REFERENCE" && grep -q 'edit' "$REFERENCE" && grep -q 'start f
 # Assertion 8: canonical skip-log token
 grep -q 'CHARTER_AUTO_EXTRACT_SKIPPED' "$REFERENCE" || { echo "FAIL: 'CHARTER_AUTO_EXTRACT_SKIPPED' token not found in reference.md"; exit 1; }
 
-# Assertion 9: subprocess-mode skip path is documented
-grep -q 'subprocess mode' "$REFERENCE" || { echo "FAIL: 'subprocess mode' not found in reference.md"; exit 1; }
+# Assertion 9: non-interactive skip path documented
+grep -q 'non-interactive' "$REFERENCE" || { echo "FAIL: 'non-interactive' skip path not found in reference.md"; exit 1; }
 
 # Assertion 10: field-mapping table present (Goal, Users, Non-Goals rows)
 grep -qE '\|[[:space:]]*Goal[[:space:]]*\|' "$REFERENCE" || { echo "FAIL: Goal row missing from field-mapping table in reference.md"; exit 1; }
@@ -38,11 +38,11 @@ grep -qE '\|[[:space:]]*Non-Goals[[:space:]]*\|' "$REFERENCE" || { echo "FAIL: N
 # Assertion 11: existing reference.md content intact (Step 1.6 header still present)
 grep -q '^## Step 1.6: Renew Feature File' "$REFERENCE" || { echo "FAIL: existing '## Step 1.6: Renew Feature File' header was removed from reference.md"; exit 1; }
 
-# Assertion 12 (NB2): subprocess_mode_skip_check is explicitly named in the algorithm
-grep -q 'subprocess_mode_skip_check' "$REFERENCE" || { echo "FAIL: 'subprocess_mode_skip_check' not named in reference.md algorithm"; exit 1; }
+# Assertion 12: Interactive-only guard named in the algorithm
+grep -q 'Interactive-only guard' "$REFERENCE" || { echo "FAIL: 'Interactive-only guard' not named in reference.md algorithm"; exit 1; }
 
-# Assertion 13 (NB2): subprocess_mode_skip_check appears before should_auto_extract (step a0 before step a)
-awk '/subprocess_mode_skip_check/{a=NR}/should_auto_extract/{b=NR}END{exit !(a && b && a<b)}' "$REFERENCE" || { echo "FAIL: subprocess_mode_skip_check does not precede should_auto_extract in reference.md (expected step a0 before step a)"; exit 1; }
+# Assertion 13: Interactive-only guard (step a0) precedes should_auto_extract (step a)
+awk '/Interactive-only guard/{a=NR}/should_auto_extract/{b=NR}END{exit !(a && b && a<b)}' "$REFERENCE" || { echo "FAIL: 'Interactive-only guard' does not precede should_auto_extract in reference.md (expected step a0 before step a)"; exit 1; }
 
 echo "OK: test_reference_auto_extract.sh"
 exit 0
