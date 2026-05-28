@@ -635,7 +635,6 @@ footer {
       <li class="lvl-2"><a href="#charter-mode">Charter Mode</a></li>
       <li class="lvl-3"><a href="#when-it-runs">When it runs</a></li>
       <li class="lvl-3"><a href="#opt-out-flags">Opt-out flags</a></li>
-      <li class="lvl-3"><a href="#subprocess-mode-constraint">Subprocess-mode constraint</a></li>
       <li class="lvl-3"><a href="#charter-file-shape">Charter file shape</a></li>
       <li class="lvl-3"><a href="#how-downstream-phases-consume-the-charter">How downstream phases consume the charter</a></li>
       <li class="lvl-2"><a href="#relationship-to-native-goal">Relationship to native /goal</a></li>
@@ -647,7 +646,6 @@ footer {
       <li class="lvl-2"><a href="#sandbox-provider">Sandbox Provider</a></li>
       <li class="lvl-3"><a href="#shell-injection-hardening-exec-style-argv">Shell-injection hardening (exec-style argv)</a></li>
       <li class="lvl-3"><a href="#build-pull">Build &amp; Pull</a></li>
-      <li class="lvl-2"><a href="#optional-subprocess-driver">Optional subprocess driver</a></li>
       <li class="lvl-2"><a href="#what-was-removed-in-the-portable-build">What was removed in the portable build</a></li>
     </ul>
   </aside>
@@ -1478,13 +1476,7 @@ footer {
 </table>
 <p><code>--no-charter</code> and <code>--charter</code> are mutually exclusive. Using both together stops the pipeline with: <code>ERROR: --no-charter and --charter are mutually exclusive.</code></p>
 <p>Providing <code>--charter &lt;path&gt;</code> with a missing file stops the pipeline with: <code>ERROR: --charter path not found: &lt;path&gt;</code></p>
-<h3 id="subprocess-mode-constraint">Subprocess-mode constraint</h3>
-<p><strong><code>AskUserQuestion</code> is interactive-session-only.</strong> Charter Discovery cannot run inside a subprocess driver (<code>claude -p</code> or equivalent). If you re-introduce a subprocess driver in a fork:</p>
-<ul>
-<li>The driver MUST check for an existing charter before launching any phase.</li>
-<li>If <code>docs/charter.md</code> is absent AND neither <code>--no-charter</code> nor <code>--charter &lt;path&gt;</code> is set, the driver MUST exit non-zero with:</li>
-</ul>
-<p><code>ERROR: subprocess mode cannot run Charter Discovery (AskUserQuestion is interactive-only). Run /pipeline interactively first, or pass --no-charter.</code></p>
+<p><strong><code>AskUserQuestion</code> is interactive-session-only.</strong> Charter Discovery requires an interactive Claude Code session.</p>
 <h3 id="charter-file-shape">Charter file shape</h3>
 <p><code>docs/charter.md</code> contains 9 required sections (in order):</p>
 <ol>
@@ -1615,10 +1607,6 @@ Run Log gets <code>Docs: SKIPPED (PIPELINE_SKIP_DOCS=1)</code> and neither <code
 <code>feature-done</code> to <code>feature-failed</code>. The Run Log gets <code>Docs: SKIPPED (subagent error)</code>
 and the feature still completes with terminal status <code>SUCCESS</code>. Docs are a tail step,
 not load-bearing.</p>
-<p><strong>Subprocess-mode constraint:</strong> The out-of-process <code>orchestrate.sh</code> is not shipped in
-pipelinekit (see § What was removed in the portable build). If <code>orchestrate.sh</code> is
-ever introduced, it would need its own docs-phase parallel — record as a deferred
-dependency.</p>
 <h2 id="worker-delegation">Worker Delegation</h2>
 <p>The implement phase of <code>/pipeline</code> dispatches each plan task to a worker. The default
 worker is <strong>ClaudeWorker</strong> — the in-session Agent-tool worktree fan-out documented
@@ -1711,40 +1699,12 @@ size) is a follow-up; today it is a soft target verified by inspection.</p>
 <p>WSL2 storage hygiene: layered worktrees and npm caches can balloon on
 Windows-hosted Linux. Reclaim space with <code>podman system prune</code> or
 <code>docker system prune</code> after pipeline runs accumulate unused layers.</p>
-<h2 id="optional-subprocess-driver">Optional subprocess driver</h2>
-<p><code>claude/skills/pipeline/orchestrate.sh</code> ships as an <strong>OPTIONAL</strong> out-of-process
-driver stub. The in-process <code>/pipeline</code> Skill remains the canonical entry
-point for interactive sessions. The stub exists for unattended runs (CI cron,
-scheduled batch processing) where maximum context isolation between phases
-matters more than the convenience of the in-process Skill.</p>
-<p>The stub exposes a single library function:</p>
-<div class="codehilite"><pre><span></span><code>.<span class="w"> </span>claude/skills/pipeline/orchestrate.sh
-run_phase<span class="w"> </span>analyze<span class="w"> </span>prompt.txt<span class="w"> </span>/path/to/worktree
-</code></pre></div>
-
-<p><code>run_phase</code> reads the phase prompt from a file, then dispatches <code>claude -p</code>
-<strong>inside</strong> the sandbox provider chosen by <code>claude/lib/sandbox/SandboxProvider.sh</code>
-— i.e., the subprocess invocation participates in the same <code>sandbox_enter</code> /
-<code>sandbox_exit</code> isolation boundary used by the in-process Skill.</p>
-<p><strong>Charter Discovery constraint.</strong> A subprocess driver cannot run Step 0
-Charter Discovery because <code>AskUserQuestion</code> is interactive-session-only. When
-generating phase prompts for unattended runs, pass <code>--no-charter</code> to the
-<code>/pipeline</code> invocation that produced the prompt files (or adopt a pre-built
-charter with <code>--charter &lt;path&gt;</code>).</p>
-<p><strong>Stub scope.</strong> <code>orchestrate.sh</code> demonstrates the per-phase wrapping contract.
-A full driver must iterate over phases and features, persist
-<code>docs/pipeline-state.md</code> between phases, and handle Path A/B/C transitions
-per the contract in <code>~/.claude/skills/pipeline/reference.md</code>. Forks are
-expected to extend the stub; the upstream stub deliberately does not
-re-implement the full pipeline loop.</p>
-<p><strong>Wrap surface (multi-callsite).</strong> <code>orchestrate.sh</code> exposes three wrap helpers: <code>run_phase</code> (wraps <code>claude -p</code>), <code>run_host_adapter</code> (wraps <code>host-adapters/&lt;host&gt;.sh</code>), and <code>run_mcp</code> (wraps an MCP-server launch — interface-first scaffolding, no consumer ships using it today). All three dispatch via the public <code>sandbox_wrap &lt;task-id&gt; &lt;worktree&gt; &lt;command...&gt;</code> helper, which emits <code>SANDBOX_ENTER: provider=&lt;X&gt;, task=&lt;task-id&gt;, image=&lt;image&gt;</code> to stderr at wrap time. Forks adding new external-subprocess entry points should reuse <code>sandbox_wrap</code>.</p>
-<p><strong>Worktree-only delegation (in-process Skill).</strong> When <code>provider_detect</code> resolves to <code>worktree-only</code>, the in-process Skill should prefer the native <code>EnterWorktree</code> tool (Claude Code <code>&gt;= 2.1.143</code>) with <code>worktree.bgIsolation</code> and <code>worktree.baseRef</code> settings, instead of bash worktree plumbing. The subprocess driver itself remains bash-only (the legacy <code>(cd "$wt" &amp;&amp; exec "$@")</code> body in <code>providers/worktree-only.sh</code>) — this delegation note is for the in-process Skill path. See the <a href="https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md">Claude Code changelog</a> for the <code>worktree.bgIsolation</code> (2.1.143) and <code>worktree.baseRef</code> (2.1.133) entries. Actual delegation in the in-process Skill is deferred to a follow-up feature.</p>
 <h2 id="what-was-removed-in-the-portable-build">What was removed in the portable build</h2>
 <ul>
-<li><code>claude -p</code> subprocess invocations as the <strong>primary</strong> phase-dispatch mechanism.
-  Phase dispatch in the in-process Skill is always via the <code>Agent</code> tool with
-  subagent isolation. The optional <code>orchestrate.sh</code> stub (see above) is the
-  only place <code>claude -p</code> still appears in shipped code.</li>
+<li>Out-of-process subprocess invocations as the <strong>primary</strong> phase-dispatch mechanism.
+  Phase dispatch is always via the <code>Agent</code> tool with subagent isolation. No
+  out-of-process driver ships in the pipeline scope — the dead driver stub has been
+  removed entirely.</li>
 </ul>
     </div>
 

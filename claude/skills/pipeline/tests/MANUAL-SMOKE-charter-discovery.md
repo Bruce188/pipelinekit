@@ -10,13 +10,13 @@ Document the smoke procedure for `/pipeline` Step 0 in enough detail that any op
 
 Post-merge of any change touching `claude/skills/pipeline/SKILL.md` Step 0 or `claude/skills/pipeline/charter.md`. Run against a fresh `docs/` directory in a staging area (NOT the active project's `docs/charter.md` — see Smoke Procedure step 1 below).
 
-## Subprocess-Mode Caveat
+## Interactive-Session Requirement
 
 From `claude/skills/pipeline/SKILL.md § "Step 0: Charter Discovery"`:
 
-> Step 0 relies on `AskUserQuestion`, which is interactive-session-only. If invoked via a subprocess driver (e.g., `orchestrate.sh` or `claude -p`), Step 0 cannot run.
+> Step 0 relies on `AskUserQuestion`, which is interactive-session-only.
 
-The smoke MUST run in an interactive Claude Code session (`claude`), NOT via `orchestrate.sh` and NOT via `claude -p`.
+The smoke MUST run in an interactive Claude Code session (`claude`).
 
 ## Smoke Procedure
 
@@ -32,7 +32,7 @@ The smoke MUST run in an interactive Claude Code session (`claude`), NOT via `or
    ```bash
    claude
    ```
-   (NOT `claude -p`, NOT `orchestrate.sh`.)
+   (interactive session only)
 
 3. **Invoke `/pipeline` interactively** with NO positional feature file, NO `--no-charter`, and NO `--charter <path>`:
    ```

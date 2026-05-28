@@ -11,9 +11,9 @@ Load the relevant section when executing that step.
 
 Auto-extract fires only when `claude/skills/pipeline/SKILL.md` Step 0 skip-condition 4 matches: `docs/analysis*.md` (or `docs/analysis-v*.md`) AND `docs/plan*.md` exist in the docs directory, AND `docs/charter.md` is absent. See `claude/skills/pipeline/SKILL.md` § Step 0 skip-condition 4 for the exact guard.
 
-### Subprocess-mode skip
+### Interactive-only skip
 
-When `AskUserQuestion` is unavailable (subprocess driver such as `orchestrate.sh` or `claude -p`), the auto-extract logs `CHARTER_AUTO_EXTRACT_SKIPPED: subprocess mode` to stderr and falls through to the existing Step 0 subprocess error path. This is the same gate Step 0 uses today (SKILL.md line 65 Subprocess mode paragraph).
+When `AskUserQuestion` is unavailable (non-interactive session), auto-extract is skipped: logs `CHARTER_AUTO_EXTRACT_SKIPPED: non-interactive` to stderr and falls through to the existing Step 0 skip-condition 5 check. Auto-extract is interactive-only.
 
 ### Field-mapping table
 
@@ -31,7 +31,7 @@ When `AskUserQuestion` is unavailable (subprocess driver such as `orchestrate.sh
 
 ### Algorithm steps
 
-a0. Call `charter_extractor.subprocess_mode_skip_check()`. If returns `(True, log_line)`: log `log_line` (`CHARTER_AUTO_EXTRACT_SKIPPED: subprocess mode`) to stderr and fall through to the existing Step 0 subprocess error path. This ensures the auto-extract question is never attempted in a non-interactive subprocess driver context.
+a0. **Interactive-only guard.** Auto-extract is interactive-only: if `AskUserQuestion` is unavailable (non-interactive session), skip auto-extract entirely — log `CHARTER_AUTO_EXTRACT_SKIPPED: non-interactive` to stderr and fall through to the existing Step 0 skip-condition 5 check.
 
 a. Call `charter_extractor.should_auto_extract()`. If returns `(False, reason)`: log `reason` (which is already a `CHARTER_AUTO_EXTRACT_SKIPPED: ...` string) to stderr and fall through to the existing Step 0 skip-condition 5 check.
 
@@ -61,7 +61,7 @@ h. **AskUserQuestion-cap exemption.** When `--max-questions <N>` is in effect, t
 - AC3: The `accept` option sets `**Charter:**` pointer in `progress.md` and continues the pipeline.
 - AC4: The `edit` option writes the draft to `docs/charter.md`, prints the path, and stops the pipeline.
 - AC5: The `start fresh discovery` option renames the draft file and falls through to the 19-topic loop.
-- AC6: In subprocess mode (`CLAUDE_INTERACTIVE` unset or `"0"`), `CHARTER_AUTO_EXTRACT_SKIPPED: subprocess mode` is logged and auto-extract is skipped.
+- AC6: When `AskUserQuestion` is unavailable (non-interactive session), `CHARTER_AUTO_EXTRACT_SKIPPED: non-interactive` is logged and auto-extract is skipped.
 - AC7: The auto-extract question is exempt from the `--max-questions <N>` cap.
 - AC8: Extraction is deterministic stdlib-only — no LLM calls.
 - AC9: Unmapped sections render as empty bodies (never raises on missing source sections).
@@ -134,7 +134,7 @@ Triggered when `--renew` is present.
 
    d. **Status enum (F12).** Every emitted drift entry carries one of three status values:
       - **`current`** — fact still holds in the repo (file exists, claim string present, library still pinned). Default state.
-      - **`drifted`** — fact partially holds: file exists but the claim is no longer accurate (e.g., `orchestrate.sh` exists but is a stub).
+      - **`drifted`** — fact partially holds: file exists but the claim is no longer accurate (e.g., a documented path exists but its described behavior has changed).
       - **`obsolete`** — the entity the charter line references no longer exists at all (file gone, library uninstalled). Dangling reference.
 
    e. **Parse features.** Read `docs/features-renewed.md` and parse each feature block: the H2 header `## <type>/<name>`, the `**Description:**` body lines, and the optional `**Constraints:**` body lines. Robust to absent constraints (treat as empty string).
@@ -638,7 +638,6 @@ On Path C entry, the orchestrator emits a `path-c-pre` beacon. The notification 
 4. **Re-generate plan (Step 5.3).** Step 5.3's own `If Phase Mode = subagent` branch handles dispatch — the plan regeneration honors the recorded mode automatically via Agent dispatch using `<!-- PHASE: plan -->`. (Read-fresh consistency: Step 5.3 reads `**Phase Mode:**` per its own contract; the read-fresh requirement Path B step 5 establishes is satisfied there, not here.) Pass `model: opus`. Capture `<task-notification>`; on `status: failed`, log `Path: C | Replans: [N] | Status: FAILED (plan subagent error)` and skip.
 5. **Re-invoke implement.** Read `**Phase Mode:**` fresh. Branch identically to Path B step 5:
    - `subagent` → `Agent` tool with `<!-- PHASE: implement -->` template, `model: sonnet`.
-   - `subprocess` → unreachable in /pipeline; re-route as subagent with warning.
    - `inline` (legacy) → `Skill: implement-plan`.
 6. **Re-invoke review.** Read `**Phase Mode:**` fresh. Before dispatching the Agent for this re-review, apply SKILL.md Step 5.6.0's env-var wrap:
    - Read `**Review style:**` fresh from `docs/pipeline-state.md`. The persisted `Review style` is sticky for the feature — do NOT recompute the heuristic in Path C.
@@ -649,7 +648,6 @@ On Path C entry, the orchestrator emits a `path-c-pre` beacon. The notification 
 
    Branch identically to Path B step 6:
    - `subagent` → `Agent` tool with `<!-- PHASE: review -->` template, `model: opus`.
-   - `subprocess` → unreachable; re-route as subagent with warning.
    - `inline` (legacy) → `Skill: pipeline-review` (teams default-on if env var set; `Skill: pipeline-review --no-teams` otherwise).
 7. Emit phase transition signal (progress beacon **and** TodoWrite update, tag=`path-c-post`) per the helpers in SKILL.md Step 5.0. Return to Step 5.7 (path determination)
 
@@ -700,7 +698,6 @@ Triggered from Path C step 2 — when the replan-count check would have skipped 
 
    Branch identically to Path B step 6:
    - `subagent` → `Agent` tool with `<!-- PHASE: review -->` template, `model: opus`.
-   - `subprocess` → unreachable in /pipeline; re-route as subagent with warning.
    - `inline` (legacy) → `Skill: pipeline-review` (teams default-on if env var set; `Skill: pipeline-review --no-teams` otherwise).
 5. Return to Step 5.7
 
@@ -867,6 +864,7 @@ The orchestrator MUST apply the following validation steps before substituting a
 5. **Path placeholder allowlist.** `{{ANALYSIS_PATH}}`, `{{PLAN_PATH}}`, `{{PROMPTS_PATH}}`, `{{REVIEW_PATH}}`: resolve via `os.path.realpath()` and require the resolved path to live under the repo-relative `docs/` directory (i.e., `os.path.realpath(path).startswith(os.path.realpath("docs") + os.sep)`). Reject any path that escapes via `..`, symlinks, or absolute paths outside `docs/`.
 6. **Numeric placeholders.** `{{FEATURE_INDEX}}`, `{{FEATURE_TOTAL}}`, `{{BUDGET_REMAINING}}`, `{{MAX_USD}}`: validate as integers or decimals, not arbitrary text.
 7. **Merge SHA shape.** Regex-validate `{{MERGE_SHA}}` against `^[0-9a-f]{40}$`. Reject anything else — branch names, abbreviated SHAs, dirty trees, and shell metacharacters are all forbidden. The orchestrator captures this value via `MERGE_SHA=$(git rev-parse HEAD)` immediately after Path A step 7's `git pull origin "$BASE"` (HEAD = squash-merge commit at that point).
+8. **Operator-trust placeholders (`{{CHARTER_SUMMARY}}`, `{{MCP_GUIDANCE}}`).** Both are resolved from committed charter source (`docs/charter.md`) by pure stdlib helpers (`charter_summary.py`, `mcp_guidance.py`) and carry no user-supplied prose from the feature file. The only bound applied is each resolver's hard `max_chars` cap (800 for charter summary, 1500 for MCP guidance) plus, for `{{MCP_GUIDANCE}}`, the connected-server intersection against `claude mcp list` — a server the user did not declare AND the harness has not connected can never appear. No further backtick/fence sanitisation is applied because the charter is operator-authored committed source, not feature-file input. Both substitute to a no-op sentinel (`(no charter)` / `(no MCP routing)`) when nothing applies, so the template line always renders cleanly.
 
 The orchestrator's substitution code does not yet exist at the time this section is written — this section is a normative contract for the code that will land with Step 5.0 wiring. Until substitution code exists, treat every dispatch as a manual validation step.
 
@@ -881,6 +879,7 @@ You are dispatched by the pipeline orchestrator as the ANALYZE phase subagent fo
 
 Inputs:
 - Charter summary: {{CHARTER_SUMMARY}}
+- MCP guidance: {{MCP_GUIDANCE}}
 - Feature description: {{FEATURE_DESCRIPTION}}
 - Feature constraints: {{FEATURE_CONSTRAINTS}}
 - Target analysis path: {{ANALYSIS_PATH}}
@@ -946,6 +945,7 @@ You are dispatched by the pipeline orchestrator as the PLAN phase subagent for f
 
 Inputs:
 - Charter summary: {{CHARTER_SUMMARY}}
+- MCP guidance: {{MCP_GUIDANCE}}
 - Feature description: {{FEATURE_DESCRIPTION}}
 - Feature constraints: {{FEATURE_CONSTRAINTS}}
 - Analysis file: {{ANALYSIS_PATH}}
@@ -1010,6 +1010,7 @@ You are dispatched by the pipeline orchestrator as the IMPLEMENT phase subagent 
 
 Inputs:
 - Charter summary: {{CHARTER_SUMMARY}}
+- MCP guidance: {{MCP_GUIDANCE}}
 - Plan file: {{PLAN_PATH}}
 - Prompts file: {{PROMPTS_PATH}}
 - Branch name: {{BRANCH_NAME}}
@@ -1065,6 +1066,7 @@ You are dispatched by the pipeline orchestrator as the REVIEW phase subagent for
 
 Inputs:
 - Charter summary: {{CHARTER_SUMMARY}}
+- MCP guidance: {{MCP_GUIDANCE}}
 - Branch name: {{BRANCH_NAME}}
 - Review file path (after review writes it): {{REVIEW_PATH}}
 
@@ -1120,6 +1122,7 @@ You are dispatched by the pipeline orchestrator as the DOCS phase subagent (suba
 
 Inputs:
 - Charter summary: {{CHARTER_SUMMARY}}
+- MCP guidance: {{MCP_GUIDANCE}}
 - Feature description: {{FEATURE_DESCRIPTION}}
 - Branch name (already merged; reference only): {{BRANCH_NAME}}
 - Squash-merge SHA on base branch: {{MERGE_SHA}}
@@ -1185,6 +1188,7 @@ You are dispatched by the pipeline orchestrator as the UAT phase subagent (subag
 
 Inputs:
 - Charter summary: {{CHARTER_SUMMARY}}
+- MCP guidance: {{MCP_GUIDANCE}}
 - Feature description: {{FEATURE_DESCRIPTION}}
 - Branch name (already merged; reference only): {{BRANCH_NAME}}
 - Squash-merge SHA on base branch: {{MERGE_SHA}}
@@ -1638,7 +1642,7 @@ The orchestrator surfaces halt-class state transitions to the user via native Cl
 
 **OSC 777 `terminalSequence` shape:** the hook-mode helper emits the JSON shape `{"terminalSequence":"]777;notify;Claude Code;<text>"}` (one line on stdout). The literal escape bytes are `\x1b` (ESC) at the start and `\x07` (BEL) at the end of the OSC 777 sequence. The `terminalSequence` JSON field is returned to the Claude Code harness; the harness writes it to the host terminal verbatim.
 
-**Fallback chain:** `PushNotification` (interactive session + Remote Control enabled in the Claude Code mobile app) → `Notification`-hook `terminalSequence` (terminal attached, OSC 777 supported by host terminal emulator) → no-op (headless subprocess driver, or terminal without OSC 777 support). The subprocess driver `orchestrate.sh` / `claude -p` cannot emit `PushNotification` (interactive-session-only) and always falls through to the `Notification`-hook path.
+**Fallback chain:** `PushNotification` (interactive session + Remote Control enabled in the Claude Code mobile app) → `Notification`-hook `terminalSequence` (terminal attached, OSC 777 supported by host terminal emulator) → no-op (headless session or terminal without OSC 777 support).
 
 **Opt-out:** `PIPELINE_NO_NOTIFICATIONS=1` env var short-circuits the helper at script start (no emit, exit 0). `channelsEnabled: false` in `~/.claude/settings.json` disables inbound Channels delivery (Claude Code 2.1.121+).
 

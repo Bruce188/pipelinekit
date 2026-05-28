@@ -9,22 +9,21 @@
 #    exist. The source line `. "$REPO_ROOT/claude/lib/sandbox/sandbox_wrap.sh"`
 #    would fail with "No such file or directory".
 #
-# 2. Global variable collision: Both `orchestrate.sh` and `research-loop.sh`
-#    declare `LIB_DIR` at file scope when sourced. Sourcing both into the same
-#    shell causes the second source to overwrite `LIB_DIR` with stale paths
-#    from the first caller's resolution directory, corrupting subsequent
-#    provider sourcing.
+# 2. Global variable collision: `research-loop.sh` declares `LIB_DIR` at file
+#    scope when sourced. The test asserts that no file-scope `LIB_DIR=`
+#    assignment survives sourcing the shared lib (post-refactor the lib uses a
+#    transient `_SW_DIR`). Today this assertion fails.
 #
-# 3. Duplicated (diverged) function bodies: `sandbox_wrap` is defined in
-#    `orchestrate.sh` and `_sandbox_wrap` is defined in `research-loop.sh` as
-#    separate functions — they are not aliases of each other. The test assertion
-#    that both names resolve to the same function body fails today.
+# 3. Duplicated (diverged) function bodies: `sandbox_wrap` and `_sandbox_wrap`
+#    are separate functions defined in different callers — not aliases of each
+#    other. The test assertion that both names resolve to the same function body
+#    fails today.
 #
-# 4. File-scope `LIB_DIR` leak: After sourcing orchestrate.sh or research-loop.sh
-#    the `LIB_DIR` variable is visible in the shell's global scope. The test
-#    asserts that no file-scope `LIB_DIR=` assignment survives sourcing the
-#    callers (post-refactor both callers delegate to sandbox_wrap.sh which uses
-#    a transient `_SW_DIR`). Today this assertion fails.
+# 4. File-scope `LIB_DIR` leak: After sourcing research-loop.sh the `LIB_DIR`
+#    variable is visible in the shell's global scope. The test asserts that no
+#    file-scope `LIB_DIR=` assignment survives sourcing the callers (post-refactor
+#    both callers delegate to sandbox_wrap.sh which uses a transient `_SW_DIR`).
+#    Today this assertion fails.
 #
 # After Task 1.2 (shared lib extraction), all four failure modes are resolved
 # and this test should pass.
@@ -33,7 +32,6 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"
-ORCHESTRATE="$REPO_ROOT/claude/skills/pipeline/orchestrate.sh"
 RESEARCH_LOOP="$REPO_ROOT/claude/skills/research/research-loop.sh"
 SANDBOX_WRAP_LIB="$REPO_ROOT/claude/lib/sandbox/sandbox_wrap.sh"
 
@@ -64,11 +62,6 @@ fi
   # Source shared lib
   # shellcheck disable=SC1090
   . "$SANDBOX_WRAP_LIB"
-
-  # Source orchestrate.sh — it should no longer define sandbox_wrap inline;
-  # it should source the shared lib (idempotent) and define run_phase etc.
-  # shellcheck disable=SC1090
-  . "$ORCHESTRATE"
 
   # Source research-loop.sh in no-run mode — it should no longer define
   # _sandbox_wrap inline; it should source the shared lib (idempotent).

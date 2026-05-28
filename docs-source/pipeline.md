@@ -193,16 +193,7 @@ Step 0 runs by default on every interactive `/pipeline` invocation, unless one o
 
 Providing `--charter <path>` with a missing file stops the pipeline with: `ERROR: --charter path not found: <path>`
 
-### Subprocess-mode constraint
-
-**`AskUserQuestion` is interactive-session-only.** Charter Discovery cannot run inside a subprocess driver (`claude -p` or equivalent). If you re-introduce a subprocess driver in a fork:
-
-- The driver MUST check for an existing charter before launching any phase.
-- If `docs/charter.md` is absent AND neither `--no-charter` nor `--charter <path>` is set, the driver MUST exit non-zero with:
-
-  ```
-  ERROR: subprocess mode cannot run Charter Discovery (AskUserQuestion is interactive-only). Run /pipeline interactively first, or pass --no-charter.
-  ```
+**`AskUserQuestion` is interactive-session-only.** Charter Discovery requires an interactive Claude Code session.
 
 ### Charter file shape
 
@@ -316,11 +307,6 @@ Run Log gets `Docs: SKIPPED (PIPELINE_SKIP_DOCS=1)` and neither `docs-pre` nor
 and the feature still completes with terminal status `SUCCESS`. Docs are a tail step,
 not load-bearing.
 
-**Subprocess-mode constraint:** The out-of-process `orchestrate.sh` is not shipped in
-pipelinekit (see § What was removed in the portable build). If `orchestrate.sh` is
-ever introduced, it would need its own docs-phase parallel — record as a deferred
-dependency.
-
 ## Worker Delegation
 
 The implement phase of `/pipeline` dispatches each plan task to a worker. The default
@@ -423,46 +409,9 @@ WSL2 storage hygiene: layered worktrees and npm caches can balloon on
 Windows-hosted Linux. Reclaim space with `podman system prune` or
 `docker system prune` after pipeline runs accumulate unused layers.
 
-## Optional subprocess driver
-
-`claude/skills/pipeline/orchestrate.sh` ships as an **OPTIONAL** out-of-process
-driver stub. The in-process `/pipeline` Skill remains the canonical entry
-point for interactive sessions. The stub exists for unattended runs (CI cron,
-scheduled batch processing) where maximum context isolation between phases
-matters more than the convenience of the in-process Skill.
-
-The stub exposes a single library function:
-
-```bash
-. claude/skills/pipeline/orchestrate.sh
-run_phase analyze prompt.txt /path/to/worktree
-```
-
-`run_phase` reads the phase prompt from a file, then dispatches `claude -p`
-**inside** the sandbox provider chosen by `claude/lib/sandbox/SandboxProvider.sh`
-— i.e., the subprocess invocation participates in the same `sandbox_enter` /
-`sandbox_exit` isolation boundary used by the in-process Skill.
-
-**Charter Discovery constraint.** A subprocess driver cannot run Step 0
-Charter Discovery because `AskUserQuestion` is interactive-session-only. When
-generating phase prompts for unattended runs, pass `--no-charter` to the
-`/pipeline` invocation that produced the prompt files (or adopt a pre-built
-charter with `--charter <path>`).
-
-**Stub scope.** `orchestrate.sh` demonstrates the per-phase wrapping contract.
-A full driver must iterate over phases and features, persist
-`docs/pipeline-state.md` between phases, and handle Path A/B/C transitions
-per the contract in `~/.claude/skills/pipeline/reference.md`. Forks are
-expected to extend the stub; the upstream stub deliberately does not
-re-implement the full pipeline loop.
-
-**Wrap surface (multi-callsite).** `orchestrate.sh` exposes three wrap helpers: `run_phase` (wraps `claude -p`), `run_host_adapter` (wraps `host-adapters/<host>.sh`), and `run_mcp` (wraps an MCP-server launch — interface-first scaffolding, no consumer ships using it today). All three dispatch via the public `sandbox_wrap <task-id> <worktree> <command...>` helper, which emits `SANDBOX_ENTER: provider=<X>, task=<task-id>, image=<image>` to stderr at wrap time. Forks adding new external-subprocess entry points should reuse `sandbox_wrap`.
-
-**Worktree-only delegation (in-process Skill).** When `provider_detect` resolves to `worktree-only`, the in-process Skill should prefer the native `EnterWorktree` tool (Claude Code `>= 2.1.143`) with `worktree.bgIsolation` and `worktree.baseRef` settings, instead of bash worktree plumbing. The subprocess driver itself remains bash-only (the legacy `(cd "$wt" && exec "$@")` body in `providers/worktree-only.sh`) — this delegation note is for the in-process Skill path. See the [Claude Code changelog](https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md) for the `worktree.bgIsolation` (2.1.143) and `worktree.baseRef` (2.1.133) entries. Actual delegation in the in-process Skill is deferred to a follow-up feature.
-
 ## What was removed in the portable build
 
-- `claude -p` subprocess invocations as the **primary** phase-dispatch mechanism.
-  Phase dispatch in the in-process Skill is always via the `Agent` tool with
-  subagent isolation. The optional `orchestrate.sh` stub (see above) is the
-  only place `claude -p` still appears in shipped code.
+- Out-of-process subprocess invocations as the **primary** phase-dispatch mechanism.
+  Phase dispatch is always via the `Agent` tool with subagent isolation. No
+  out-of-process driver ships in the pipeline scope — the dead driver stub has been
+  removed entirely.

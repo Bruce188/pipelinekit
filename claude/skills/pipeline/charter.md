@@ -37,6 +37,7 @@ Required sections (19 topics in order):
 
 Optional section (additive — charters without this section continue to validate):
 - `## Stakeholders` (optional, populated only when multi-party scope is signaled during Step 0; captures decision-makers, blockers, reviewers; backward-compat: charters without this section continue to validate)
+- `## MCP Routing` (optional, per-project; declares which MCP servers the pipeline should surface into phase subagents and what to use each for. Pure charter-driven — absent section means NO MCP guidance is injected. Resolved at dispatch time by `claude/lib/pipeline/mcp_guidance.py`, intersected with the live `claude mcp list` connected set. One MCP per bullet: `- <server>: <purpose text> | phases: <comma-list>`. The `| phases:` clause is optional; absent (or literal `all`) applies the entry to every phase. Valid phase tokens: `analyze`, `plan`, `implement`, `review`, `docs`, `uat`. Backward-compat: charters without this section continue to validate.)
 
 Required table (appended after the 9 sections):
 ```markdown
@@ -321,6 +322,8 @@ Options:
 
 **Invocation:** Pipeline issues an `AskUserQuestion` with the five options above; the answer is recorded under `## AI Layer` in the charter.
 
+**MCP Routing seed:** When the answer names a real server (`serena` or `claude-context`, not `none`/`not sure`), ALSO append a corresponding bullet to the optional `## MCP Routing` section so the pipeline surfaces it into phase subagents — e.g. `- serena: symbol navigation and cross-file refs | phases: analyze, implement`. This is the only topic that auto-seeds `## MCP Routing`; the user adds further servers (`context7`, `agentmemory`, `local-rag`, project-specific MCPs) by editing the section directly (or via the "edit manually" escape). `## MCP Routing` stays absent — and no MCP guidance is injected — until at least one server is declared.
+
 Options:
 - A) `serena (recommended)`
 - B) `claude-context (semantic RAG)`
@@ -526,6 +529,14 @@ status: draft
 - **LSP / symbol-search MCP:** [`serena` | `claude-context` | `none` | `not sure`]
 - **Self-reflection (Stop hook):** [`enabled` | `disabled` | `not sure`]
 - **Codebase Map (root CLAUDE.md):** [`confirmed` | `needs update` | `n/a`]
+
+<!-- OPTIONAL additive section — omit entirely when no MCP is wired. Resolved into {{MCP_GUIDANCE}} per phase. Format: `- <server>: <purpose> | phases: <comma-list>`; omit the `| phases:` clause (or use `all`) to apply to every phase.
+## MCP Routing
+- context7: resolve-library-id then query-docs for framework/library API verification | phases: analyze, plan, implement, review
+- serena: symbol navigation and cross-file refs | phases: analyze, implement
+- agentmemory: memory_recall for prior context at phase start; memory_save for durable findings | phases: all
+- local-rag: query_documents for niche/ingested docs | phases: analyze, implement
+-->
 
 ## Decision Log
 | Date | Question | Decision | Reason |

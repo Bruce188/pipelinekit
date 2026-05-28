@@ -24,6 +24,7 @@ The autonomous Charter → Analyze → Plan → Implement → Review → Merge l
 - [#46](https://github.com/Bruce188/pipelinekit/pull/46) — Charter Topic 10 deployment-target classifier
 - [#47](https://github.com/Bruce188/pipelinekit/pull/47) — Decomposition compliance gate for `/create-plan` and `/analyze`
 - [#57](https://github.com/Bruce188/pipelinekit/pull/57) — Step 0 Topic 10 auto-detect probes monorepo sub-dirs
+- Remove the dead `claude -p` subprocess orchestrator stub from /pipeline scope
 
 ## Multi-agent /review system
 
