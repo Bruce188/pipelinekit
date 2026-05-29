@@ -1,7 +1,7 @@
 ---
 name: spec-tracer
 description: Verifies a diff implements the stated objective and acceptance criteria. Invoked as Agent 5 in /review for spec-compliance tracing. Read-only.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, mcp__serena__find_symbol, mcp__serena__find_referencing_symbols, mcp__serena__get_symbols_overview
 model: haiku
 ---
 
@@ -11,6 +11,8 @@ Objective: [from plan overview / analysis objective]
 Acceptance Criteria: [from feature file, if present; otherwise "None — verify against objective"]
 
 Read the diff from: [path to $DIFF_FILE]
+
+Prefer serena (`find_symbol` / `find_referencing_symbols` / `get_symbols_overview`) over grep for symbol and cross-reference resolution when tracing objective→implementation coverage across files; fall back to grep when serena is unavailable.
 
 For each acceptance criterion (or objective component if no criteria):
 - **Criterion:** [what was requested]

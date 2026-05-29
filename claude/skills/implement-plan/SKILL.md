@@ -12,6 +12,7 @@ allowed-tools:
   - Agent
   - mcp__local-rag
   - mcp__agentmemory
+  - mcp__serena
 context: fork
 effort: high
 paths:
@@ -339,6 +340,7 @@ Agent tool parameters:
 
     Rules:
     1. Read the failing test files to understand expected behavior
+    1.5. Prefer `mcp__serena__find_symbol` / `mcp__serena__find_referencing_symbols` for locating symbols and their callers before editing; fall back to Grep when serena is unavailable.
     2. Implement production code to make all failing tests pass
     3. Do NOT modify any test files — if a test seems wrong, report it as a finding
     4. Run the full test suite to confirm ALL tests pass (green phase)

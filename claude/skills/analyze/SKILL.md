@@ -14,6 +14,7 @@ allowed-tools:
   - mcp__local-rag
   - mcp__context7
   - mcp__agentmemory
+  - mcp__serena
 paths:
   - claude/skills/analyze/**
   - docs/analysis*.md
@@ -115,6 +116,8 @@ Check MCP tool availability in order. Use each if available, skip if not.
    - If available + results: include under "## Library Documentation"
    - If resolution fails for a library: log and continue with remaining
    - If unavailable: log "Context7 not configured — skipping" and continue
+
+2.5. **serena (symbol-aware codebase map):** When serena is connected, use `mcp__serena__get_symbols_overview` / `mcp__serena__find_symbol` to map the modules under analysis before falling back to broad Grep. This yields a structural view (top-level symbols, signatures) that narrows the Step 4 Key Files pass. Degrade to Grep when serena is absent — log "serena not connected — using Grep for codebase scan" and continue.
 
 3. **Ingestion:** Only if local-rag is available AND sub-step 1 returned no results AND the objective references a library/API with external dependencies (not refactoring, configuration, or internal restructuring tasks).
    - Fetch from official sources (up to 3) via WebFetch, ingest via `mcp__local-rag__ingest_data`, list under "## Ingested References"

@@ -290,11 +290,11 @@ Example `.mcp.json` for project needing RepoMapper:
 
 | Phase | MCPs | Agent Types | Sub-Skills | Memory Reads | Hooks | WorkerProvider |
 |-------|------|-------------|------------|--------------|-------|----------------|
-| `/analyze` | context7 (resolve + query), local-rag (query + ingest) | — | — | `user_profile.md`, `feedback_plan_trust.md`, `reference_claude_skills.md`, `reference_tresor.md` | block-stage-sensitive, block-dangerous-commands | — |
-| `/create-plan` | context7 (resolve + query), local-rag (query) | — | — | `feedback_workflow.md`, `feedback_plan_trust.md`, `project_env_cleanup.md` | block-stage-sensitive | — |
-| `/implement-plan` | context7 (API), local-rag (query) | tdd-test-writer, tdd-implementer, worktree agents, docs-writer, trading-bot-developer, data-pipeline-engineer | `/simplify` | `feedback_worktree_commit.md`, `feedback_parallel_sessions.md`, `feedback_hooks_jq.md` | pre-edit-protect, tdd-order-check, post-edit-format, test-logger, block-stage-sensitive, block-dangerous-commands, stop-completion-gate | WorkerProvider (claude default) |
-| `/pipeline-review` | — | code-reviewer, security-auditor, test-engineer, performance-tuner, spec-tracer | `/code-health` (sibling skill — run directly) | `feedback_review_verification.md`, `feedback_docs_gitignore.md` | strip-ai-attribution, block-stage-sensitive | — |
-| `/ppr` | — | — | — | `feedback_docs_gitignore.md` | strip-ai-attribution, block-push-main | — |
+| `/analyze` | context7 (resolve + query), local-rag (query + ingest) | — | — | `memory_recall(category:user)` + `memory_recall(tags:[feedback])` + `memory_recall(tags:[reference])` + `memory_recall(tags:[project,<slug>])` | block-stage-sensitive, block-dangerous-commands | — |
+| `/create-plan` | context7 (resolve + query), local-rag (query) | — | — | `memory_recall(tags:[feedback])` + `memory_recall(tags:[project,<slug>])` | block-stage-sensitive | — |
+| `/implement-plan` | context7 (API), local-rag (query) | tdd-test-writer, tdd-implementer, worktree agents, docs-writer, trading-bot-developer, data-pipeline-engineer | `/simplify` | `memory_recall(tags:[feedback])` + `memory_recall(tags:[project,<slug>])` | pre-edit-protect, tdd-order-check, post-edit-format, test-logger, block-stage-sensitive, block-dangerous-commands, stop-completion-gate | WorkerProvider (claude default) |
+| `/pipeline-review` | — | code-reviewer, security-auditor, test-engineer, performance-tuner, spec-tracer | `/code-health` (sibling skill — run directly) | `memory_recall(tags:[feedback])` + `memory_recall(tags:[project,<slug>])` | strip-ai-attribution, block-stage-sensitive | — |
+| `/ppr` | — | — | — | `memory_recall(tags:[feedback])` | strip-ai-attribution, block-push-main | — |
 | `/post-merge` | — | — | — | — | block-dangerous-commands | — |
 | `/pipeline` | (delegates to phase skills) | phase subagents (--phase-mode subagent) | `/implement-plan`, `/pipeline-review` (inline) | (delegates to phase skills) | (delegates to phase skills) | (delegates to /implement-plan) |
 
@@ -302,32 +302,29 @@ Example `.mcp.json` for project needing RepoMapper:
 
 ### Memory Feed
 
-已獲記憶（`~/.claude/projects/<project-slug>/memory/`）如何指導各階段。讀取為建議性。
+`agentmemory` MCP 如何指導各階段——讀取為建議性。Phase skills call `mcp__agentmemory__memory_recall` (or `memory_smart_search`) with the tags/category shown below; graceful degradation when agentmemory is offline.
 
-| Memory File | Phases | How It's Used |
-|-------------|--------|---------------|
-| `user_profile.md` | analyze | Tailors question depth/phrasing to role and expertise. |
-| `feedback_plan_trust.md` | analyze, create-plan | Avoids over-exploration; sets plan detail |
-| `feedback_workflow.md` | create-plan | Respects explicit agent control vs auto-spawning |
-| `feedback_worktree_commit.md` | implement-plan | Worktree agents commit before done |
-| `feedback_parallel_sessions.md` | implement-plan | Checks git log before assuming tree state |
-| `feedback_review_verification.md` | review | Findings registry over bulk-verification agents |
-| `feedback_hooks_jq.md` | implement-plan | Hooks use python3 for JSON parsing |
-| `feedback_docs_gitignore.md` | review, ppr | Claude exclusions → .git/info/exclude, not .gitignore |
-| `reference_claude_skills.md` | analyze | Check skills before recommending tools |
-| `reference_tresor.md` | analyze | Check prompt templates and standards |
-| `project_env_cleanup.md` | create-plan | Tracks project state across iterations |
+| agentmemory Recall | Phases | How It's Used |
+|--------------------|--------|---------------|
+| `category:user` | analyze | Tailors question depth/phrasing to role and expertise. |
+| `tags:[feedback], tags:[reference]` | analyze | Check skills before recommending tools; check prompt templates and standards. |
+| `tags:[feedback]` + derived slugs | analyze, create-plan | Avoids over-exploration; sets plan detail; respects explicit agent control vs auto-spawning. |
+| `tags:[project, <slug>]` | create-plan | Tracks project state across iterations. |
+| `tags:[feedback]` + derived slugs | implement-plan | Worktree agents commit before done; check git log before assuming tree state; hooks use python3 for JSON parsing. |
+| `tags:[feedback]` + derived slugs | pipeline-review, ppr | Findings registry over bulk-verification agents; Claude exclusions → .git/info/exclude, not .gitignore. |
 
 ### Memory Integration
 
-記憶檔於 `~/.claude/projects/<project-slug>/memory/`，由 `MEMORY.md` 索引，於 session 啟動載入系統上下文。
+Active read/write surface is the `agentmemory` MCP (`mcp__agentmemory__memory_save` / `memory_recall` / `memory_smart_search`). See `~/.claude/CLAUDE.md § Memory System` for the full taxonomy and tool surface.
 
 **Memory writes:** 任何階段在以下情形可寫入新記憶：
-- User corrects Claude's approach → write feedback memory
-- New project context surfaces → write project memory
-- New external resources discovered → write reference memory
+- User corrects Claude's approach → `mcp__agentmemory__memory_save(tags:[feedback, <slug>], category:feedback, ...)`
+- New project context surfaces → `mcp__agentmemory__memory_save(tags:[project, <slug>], category:project, ...)`
+- New external resources discovered → `mcp__agentmemory__memory_save(tags:[reference], category:reference, ...)`
 
-Writes follow auto-memory save protocol in system instructions.
+Flat-file sidecar (`~/.claude/projects/<slug>/memory/<type>_<slug>.md`) is written ONLY when `PIPELINE_KEEP_FLAT_FILE_MEMORY=1` is set — explicit dual-write opt-in. Do NOT write flat-file memory outside that gate.
+
+**30-day rollback window (read-only):** The flat-file store `~/.claude/projects/<project-slug>/memory/*.md` is preserved as a read-only rollback reference for 30 days from the agentmemory migration. It is NOT an active write surface. After the window it will be hard-deleted. For current memory reads and writes, always use the `agentmemory` MCP.
 
 ## Tools
 

@@ -1,6 +1,6 @@
 ---
 name: digest-memories
-description: Synthesize per-project memory proposals from the session journal written by memory-journal.sh. User-invoked via /digest-memories slash command. Reads recent sessions, proposes additions to ~/.claude/projects/<slug>/memory/, requires user confirmation before writing.
+description: Synthesize per-project memory proposals from the session journal written by memory-journal.sh. User-invoked via /digest-memories slash command. Reads recent sessions, proposes additions to agentmemory MCP (primary) and optionally the flat-file sidecar (PIPELINE_KEEP_FLAT_FILE_MEMORY=1), requires user confirmation before writing.
 argument-hint: ([--since <date>] [--limit <N>] [--dry-run])
 allowed-tools:
   - Read
@@ -10,6 +10,7 @@ allowed-tools:
   - Glob
   - Grep
   - AskUserQuestion
+  - mcp__agentmemory
 model: inherit
 paths:
   - claude/skills/digest-memories/**
@@ -98,7 +99,7 @@ For each selected entry with a populated `transcript_path` that still exists, re
 
 ### Step 5: Synthesize proposals
 
-In-session synthesis — you (the LEAD) read the sampled transcripts and propose memory additions. Use the four memory types defined in `~/.claude/CLAUDE.md § Memory System`:
+In-session synthesis — you (the LEAD) read the sampled transcripts and propose memory additions. Use the four memory types defined in `~/.claude/CLAUDE.md § Memory System` (taxonomy + agentmemory tool surface):
 
 - **user** — about the user's role, preferences, expertise
 - **feedback** — corrections or validated approaches the user gave you
@@ -130,11 +131,28 @@ Use `AskUserQuestion` with options:
 
 In `--dry-run` mode: skip the `AskUserQuestion` and print all proposals to stdout instead.
 
-### Step 7: Write memory files
+### Step 7: Write memory entries
 
 For each approved proposal:
 
-1. Compose the memory file with frontmatter per `~/.claude/CLAUDE.md § How to save memories`:
+1. **PRIMARY — write via agentmemory MCP** per `~/.claude/CLAUDE.md § Memory System` taxonomy:
+   - Map the memory type to tags + category:
+     - `user` → `tags: [profile]`, `category: user`
+     - `feedback` → `tags: [feedback, <derived-slug>]`, `category: feedback`
+     - `project` → `tags: [project, <slug>]`, `category: project`
+     - `reference` → `tags: [reference]`, `category: reference`
+   - Call `mcp__agentmemory__memory_save(tags=[...], category="...", content="<body>")`.
+   - If agentmemory is offline (tool call errors), log `agentmemory not configured — skipping memory save` and continue to the sidecar step.
+
+2. **SIDECAR (dual-write, opt-in only)** — write a flat-file copy ONLY when `PIPELINE_KEEP_FLAT_FILE_MEMORY=1` is set:
+   ```bash
+   if [ "${PIPELINE_KEEP_FLAT_FILE_MEMORY:-0}" = "1" ]; then
+     mkdir -p "$MEM_DIR"
+     # write $MEM_DIR/<type>_<slug>.md with frontmatter below
+     # append index entry to $MEM_DIR/MEMORY.md
+   fi
+   ```
+   Flat-file frontmatter format (sidecar only):
    ```markdown
    ---
    name: <kebab-case-slug>
@@ -147,9 +165,7 @@ For each approved proposal:
 
    <body>
    ```
-2. Write to `$MEM_DIR/<type>_<slug>.md` (create `$MEM_DIR` if absent).
-3. Append a one-line index entry to `$MEM_DIR/MEMORY.md` under the matching `## <Type>` section: `- [Title](file.md) — one-line hook`.
-4. If `MEMORY.md` does not exist, create it with section headers (`## User`, `## Feedback`, `## Project`, `## Reference`).
+   Index entry: append `- [Title](file.md) — one-line hook` to `$MEM_DIR/MEMORY.md` under `## <Type>`. Create `MEMORY.md` with section headers (`## User`, `## Feedback`, `## Project`, `## Reference`) if absent.
 
 ### Step 8: Update the marker
 
@@ -177,7 +193,7 @@ After Step 7 / 8:
 - **No writes without confirmation.** Unless `--dry-run`, every memory file write must be user-approved via `AskUserQuestion` (per-proposal or batch).
 - **Bounded transcript reads.** Cap at 2 KB tail per transcript to keep context cost predictable.
 - **Idempotent.** Running `/digest-memories` twice with no new journal entries between runs should propose zero new memories (the marker prevents re-scanning the same range).
-- **Per-project scope.** Only writes under `~/.claude/projects/$SLUG/memory/` — never touches another project's memory store.
+- **Per-project scope.** agentmemory writes are tagged with `[project, <slug>]`; flat-file sidecar (when enabled via `PIPELINE_KEEP_FLAT_FILE_MEMORY=1`) writes only under `~/.claude/projects/$SLUG/memory/` — never touches another project's memory store.
 
 ## See Also
 

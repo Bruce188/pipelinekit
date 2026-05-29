@@ -6,7 +6,7 @@
 
 ### Symptom
 
-After running `bash scripts/install.sh` on a fresh checkout, the agentmemory MCP did not appear in `claude mcp list`. Skills that gated on `mcp__agentmemory__memory_recall` silently degraded to "agentmemory not configured" on every dispatch. Memory writes routed to flat-file at `~/.claude/projects/<slug>/memory/*.md` continued to work, but agentmemory was the intended canonical surface and never came online.
+After running `bash scripts/install.sh` on a fresh checkout, the agentmemory MCP did not appear in `claude mcp list`. Skills that gated on `mcp__agentmemory__memory_recall` silently degraded to "agentmemory not configured" on every dispatch. At the time, memory writes fell back to flat-file at `~/.claude/projects/<slug>/memory/*.md` (which continued to work), but agentmemory was the intended canonical surface and never came online. *(Note: flat-file is now a read-only 30-day rollback window, not an active write surface — see `claude/CLAUDE.md.template § Memory System` for current routing.)*
 
 ### Root cause
 

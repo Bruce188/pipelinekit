@@ -12,6 +12,8 @@ allowed-tools:
   - Agent
   - Skill
   - mcp__agentmemory
+  - mcp__serena
+  - mcp__sequential-thinking
 effort: high
 paths:
   - claude/skills/review/**
@@ -445,6 +447,8 @@ Otherwise (default behaviour — teams ON):
 
 All selected agents receive the path to $DIFF_FILE (from Step 4) and objective. Launch all selected agents in a single message using the Agent tool (parallel tool calls — up to 6 in medium / large tier). Each agent reads the diff via the Read tool. This avoids duplicating the full diff across agent prompts (~75% token savings).
 
+Reviewers may use serena (`mcp__serena__find_symbol` / `mcp__serena__find_referencing_symbols`) for cross-file symbol resolution when tracing a finding beyond the diff hunk; fall back to Grep when serena is unavailable.
+
 Note: `teams_mode` is default-on (Step 5.5) and can also be activated by large diff escalation (Step 4.5). Either source — the default OR the escalation — leads to the same team-based review below. `--no-teams` opts out of the default; the 5000-line escalation still overrides the opt-out as a last-resort safety net.
 
 If an agent fails to return structured output or times out, note that agent as "incomplete" and continue collecting results from the remaining agents. Do not block on a single agent failure.
@@ -572,6 +576,7 @@ This runs the richness check across the entire `documentation/*.html` corpus pic
 4.5. **Hallucination prose-guard:** for each finding with `category: hallucination` AND `severity: blocking`, Read the cited file at the cited line. If the line is inside a comment (`#`, `//`, `/* */`), docstring (`"""`, `'''`), or markdown prose block, downgrade severity to `non-blocking` and append the note "downgraded by category-hallucination prose guard (cited line is comment/docstring/prose)". One Read per blocking-hallucination finding — cheap, protects against future prompt drift.
 5. Sort: blocking first, then non-blocking, then nit
 6. Count totals by severity
+6.4. For findings requiring multi-step severity/correctness reasoning (e.g. a borderline blocking-vs-non-blocking call, or a correctness claim that hinges on a chain of preconditions), call `mcp__sequential-thinking__sequentialthinking` to structure the reasoning before finalizing the severity. Skip silently when sequential-thinking is unavailable.
 6.5. **Cross-feature intel collection:**
    a. Scan each agent's output for "**Cross-Feature Intel:**" sections.
    b. For each intel note found, construct a JSON entry:

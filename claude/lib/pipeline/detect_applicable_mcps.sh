@@ -10,7 +10,7 @@ export LC_ALL=C
 #   --applicable       Emit applicable MCP names, one per line (always-on 3 first, then serena if applicable)
 #   --wire-cmd <mcp>   Emit the exact `claude mcp add ...` command string (or VERIFY_ONLY for agentmemory)
 #   --auto-wire-set    Emit the 4 auto-wireable MCP names, one per line
-#   --suggestions      Emit the 3 suggestion-only MCP names, one per line
+#   --suggestions      Emit the 4 suggestion-only MCP names, one per line
 #   --selftest         Run built-in hermetic assertions; prints "selftest: N/N PASS"; exits 0 on success
 #
 # Built-in applicable-MCP map:
@@ -23,6 +23,7 @@ export LC_ALL=C
 #   codegraph            SUGGESTION only                   NEVER
 #   graphify             SUGGESTION only                   NEVER
 #   local-rag            SUGGESTION only                   NEVER
+#   RepoMapper           SUGGESTION only                   NEVER
 #
 # Serena applicability: repo contains a source file in a serena-supported language.
 # Extension map (derived from .serena/project.yml enumeration):
@@ -107,7 +108,7 @@ cmd_wire_cmd() {
       # install-provisioned: verify-only sentinel — orchestrator interprets as "do NOT mcp add"
       printf 'VERIFY_ONLY\n'
       ;;
-    codegraph|graphify|local-rag)
+    codegraph|graphify|local-rag|RepoMapper)
       printf 'error: %s is suggestion-only — no auto-wire command exists\n' "$mcp" >&2
       return 2
       ;;
@@ -135,6 +136,7 @@ cmd_suggestions() {
   printf 'codegraph\n'
   printf 'graphify\n'
   printf 'local-rag\n'
+  printf 'RepoMapper\n'
 }
 
 cmd_selftest() {
@@ -212,6 +214,7 @@ cmd_selftest() {
   _assert_not_contains "auto-wire-set excludes codegraph" "$aws" "codegraph"
   _assert_not_contains "auto-wire-set excludes graphify" "$aws" "graphify"
   _assert_not_contains "auto-wire-set excludes local-rag" "$aws" "local-rag"
+  _assert_not_contains "auto-wire-set excludes RepoMapper" "$aws" "RepoMapper"
 
   # --- Test 7: suggestions
   local sugg
@@ -219,6 +222,7 @@ cmd_selftest() {
   _assert_contains "suggestions contains codegraph" "$sugg" "codegraph"
   _assert_contains "suggestions contains graphify" "$sugg" "graphify"
   _assert_contains "suggestions contains local-rag" "$sugg" "local-rag"
+  _assert_contains "suggestions contains RepoMapper" "$sugg" "RepoMapper"
 
   # --- Test 8: serena applicable in python sandbox
   local sandbox1 sandbox2 sandbox3

@@ -29,8 +29,6 @@ Branches covered:
 
 from __future__ import annotations
 
-import pytest
-
 from claude.lib.pipeline.mcp_guidance import extract_mcp_guidance
 
 
@@ -118,10 +116,15 @@ def test_missing_section_uses_default_map(tmp_path):
     out = extract_mcp_guidance(p, "analyze", ["context7"])
     assert out.startswith("MCP tools wired for this phase")
     assert "context7:" in out
-    # serena not applicable to plan in default map -> (no MCP routing)
-    assert extract_mcp_guidance(p, "plan", ["serena"]) == "(no MCP routing)"
+    # serena IS applicable to plan in default map (symbol-map context aids planning).
+    assert "serena:" in extract_mcp_guidance(p, "plan", ["serena"])
     # serena IS applicable to implement -> should surface
     assert "serena:" in extract_mcp_guidance(p, "implement", ["serena"])
+    # serena IS applicable to review (subagent-callable) -> should surface
+    assert "serena:" in extract_mcp_guidance(p, "review", ["serena"])
+    # context7 is NOT in the default map for review (review-phase context7 lives in
+    # the symbol-verifier agent, not the review orchestrator) -> (no MCP routing)
+    assert extract_mcp_guidance(p, "review", ["context7"]) == "(no MCP routing)"
 
 
 # ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 ---
 name: refactor-expert
 description: Code refactoring specialist focused on clean architecture, SOLID principles, and technical debt reduction. Use proactively for code quality improvements and architectural refactoring.
-tools: Read, Edit, Grep, Glob, Bash, Agent, Skill
+tools: Read, Edit, Grep, Glob, Bash, Agent, Skill, mcp__serena__find_symbol, mcp__serena__find_referencing_symbols, mcp__serena__get_symbols_overview, mcp__serena__rename_symbol
 model: inherit
 maxTurns: 30
 ---
@@ -137,6 +137,8 @@ When invoked, systematically approach refactoring by:
 4. **Pattern Application**: Apply appropriate design patterns and principles
 5. **Test Coverage**: Ensure comprehensive testing before and after changes
 6. **Validation**: Verify functionality preservation and quality improvement
+
+Prefer serena (`find_symbol` / `find_referencing_symbols` / `get_symbols_overview` / `rename_symbol`) over grep for symbol and cross-reference resolution during rename and ref-walk operations; fall back to grep when serena is unavailable.
 
 ## SOLID Principles Implementation
 

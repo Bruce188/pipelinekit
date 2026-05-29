@@ -20,10 +20,10 @@
 ## Tool Usage Rules
 
 - **Code search**: Grep/Glob (native)
-- **Semantic code navigation** (cross-file refs, symbol graph): `serena` MCP if configured
+- **Semantic code navigation** (cross-file refs, symbol graph): **PREFER serena for any cross-file / symbol work when connected** (`find_symbol`, `find_referencing_symbols`, `get_symbols_overview`, `rename_symbol`); fall back to Grep/Glob when absent.
 - **Library/framework docs**: `context7` MCP resolve-library-id → query-docs
 - **Structural patterns** (hierarchies, call graphs): `RepoMapper` MCP if configured (not pipeline-wired by default)
-- **Deep reasoning chains** (multi-step logic): `sequential-thinking` MCP if configured (not pipeline-wired by default)
+- **Deep reasoning chains** (multi-step logic): `sequential-thinking` MCP — in the auto-wire set (see § Phase Tool Routing) and invoked in the plan and review phases for multi-step trade-offs and severity/correctness reasoning. Fall back silently when unavailable.
 - **Docs/specs/PDFs**: `local-rag` MCP query_documents if configured
 - **Web research**: WebSearch → WebFetch
 - **Symbolic code graph** (function-call traversal): `codegraph` MCP if configured (50k-file gate via `/codegraph-init`)
