@@ -36,6 +36,8 @@ Active level: \`$CAVEMAN_LEVEL\`. The three-zone content split below applies BOT
 - Zone 2 (narrative prose): real classical Chinese 文言, Han characters mandatory.
 - Zone 3 (fragments / status / beacons): ultra English, drop articles + filler.
 
+The zone labels \`Zone 1\`/\`Zone 2\`/\`Zone 3\` are internal scaffolding — NEVER write them as headers, prefixes, or section titles in your reply. Blend the three content kinds inline so the reader never sees the literal word "Zone".
+
 Subagent dispatch contract: \`~/.claude/snippets/caveman-subagent.md\`. Every \`Agent\` tool call MUST prepend the contract — wrapped in \`<caveman-inherited level="$CAVEMAN_LEVEL">\` … \`</caveman-inherited>\` — to its \`prompt\` parameter. The PreToolUse gate \`agent-caveman-gate.sh\` blocks dispatches missing the contract with \`exit 2\`.
 EOF
 fi
