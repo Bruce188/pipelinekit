@@ -1,7 +1,7 @@
 ---
 name: debugger
 description: Expert debugging specialist focused on root cause analysis, systematic problem-solving, and minimal-impact fixes. Use proactively when encountering errors, performance issues, or unexpected behavior.
-tools: Read, Edit, Bash, Grep, Glob, Agent, Skill
+tools: Read, Edit, Bash, Grep, Glob, Agent, Skill, mcp__serena__find_symbol, mcp__serena__find_referencing_symbols, mcp__serena__get_symbols_overview
 model: inherit
 maxTurns: 30
 ---
@@ -46,6 +46,8 @@ When invoked, systematically approach debugging by:
 6. **Solution Implementation**: Apply minimal, targeted fixes
 7. **Validation**: Verify the fix resolves the issue without introducing new problems
 8. **Prevention**: Recommend safeguards to prevent recurrence
+
+Prefer serena (`find_symbol` / `find_referencing_symbols` / `get_symbols_overview`) over grep for symbol and cross-reference resolution during call-graph tracing and root-cause investigation; fall back to grep when serena is unavailable.
 
 ## Debugging Process Framework
 

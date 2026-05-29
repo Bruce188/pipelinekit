@@ -83,8 +83,22 @@ Detailed reference for the MCP Preflight step executed by `SKILL.md` § Step 0.5
 | `codegraph` | SUGGESTION only (gated `/codegraph-init`, 50k-file gate) | — | NEVER |
 | `graphify` | SUGGESTION only (gated `/graphify-init`, 50k-file gate) | — | NEVER |
 | `local-rag` | SUGGESTION only (opt-in niche docs corpora) | — | NEVER |
+| `RepoMapper` | SUGGESTION only (structural patterns / call-graph, per-project `.mcp.json`) | — | NEVER |
 
-Auto-wire set = `{context7, agentmemory, serena, sequential-thinking}`. Suggestions = `{codegraph, graphify, local-rag}` — advisory text only, never wired by Step 0.5.
+Auto-wire set = `{context7, agentmemory, serena, sequential-thinking}`. Suggestions = `{codegraph, graphify, local-rag, RepoMapper}` — advisory text only, never wired by Step 0.5.
+
+### Suggestion advisory emission (Step 0.5 detail)
+
+Step 0.5 calls `detect_applicable_mcps.sh --suggestions` and, for each suggestion-set server NOT present in the cached `CONNECTED_MCPS`, prints ONE line to stderr of the form `MCP_PREFLIGHT_SUGGESTION: <server> available for <purpose> — <enable hint>`. Connected suggestion servers emit no advisory. This is what makes the suggestion set fire — without the emit loop the `--suggestions` subcommand is dead code. Purpose + enable-hint per server:
+
+| Server | Advisory line |
+|---|---|
+| `codegraph` | `codegraph available for symbolic code-graph traversal — run /codegraph-init (50k-file gate) to enable` |
+| `graphify` | `graphify available for knowledge-graph over project artifacts — run /graphify-init (50k-file gate) to enable` |
+| `local-rag` | `local-rag available for niche API/docs corpora retrieval — configure in .mcp.json to enable` |
+| `RepoMapper` | `RepoMapper available for structural patterns / call-graph mapping — add to .mcp.json to enable` |
+
+Out-of-scope MCPs — `voicemode`, `Gmail`, `Google Calendar`, `Google Drive` — are intentionally never engineering-routed: they appear in neither the auto-wire set nor the suggestion set. The `detect_applicable_mcps.sh` allow-list model enforces this by construction (only enumerated names are ever emitted), so no explicit exclusion logic is needed — the absence of these names IS the policy.
 
 ### Serena-applicability language probe
 
@@ -140,7 +154,9 @@ Serena requires a one-time onboarding to load project context into `.serena/memo
 3. **Serena absent entirely:**
    Log `MCP_PREFLIGHT_SERENA_ONBOARD_SKIPPED: serena not connected`.
 
-**Critical:** the `mcp__serena__initial_instructions` and `mcp__serena__onboarding` tool-calls run in the LEAD/orchestrator context ONLY — never dispatched to a subagent (serena tools are not available in subagent context).
+**Critical:** the `mcp__serena__initial_instructions` and `mcp__serena__onboarding` tool-calls run in the LEAD/orchestrator context ONLY — not because subagents cannot call serena, but because onboarding is a one-time, session-level initialization (idempotent) that belongs in the lead, not duplicated across phase subagents.
+
+> serena tools ARE callable from subagent context (empirically confirmed on this host). The prior caveat here — that "serena tools are not available in subagent context" — was incorrect and has been removed. Phase subagents (analyze / implement / review) may use serena symbol tools directly; only the one-time onboarding handshake is kept in the lead.
 
 ### --dry-run behavior (OQ-4)
 
@@ -484,6 +500,8 @@ See SKILL.md § Step 5.5.7 for the orchestrator-facing short summary.
 ## Step 5.8: Execute Path — Full Details
 
 ### Path A — Review Passed
+
+**Entry precondition (Pre-Path-A fixable-findings sweep — see SKILL.md Step 5.7):** Path A is reachable only when 0 in-scope fixable non-blocking findings remain. A non-blocking finding that concerns this feature's own `git diff $BASE...HEAD` and has a concrete bounded fix is NOT a defer candidate — fix it first via Path M (small/mechanical) or Path B (Row 1.8: reopen the relevant task → re-implement subagent). `## Deferred` is reserved for genuine future-iteration work (cross-feature deps, separate migration/ticket, findings outside this diff, no in-scope fix). If the review subagent prematurely deferred an in-scope fixable finding, the orchestrator removes that `## Deferred` row, routes the finding to Path M/B, and re-reviews — only entering Path A once clean. The orchestrator **pushes for Path A**; it never merges with avoidable in-scope debt.
 
 0. **Persist lesson (advisory)** — best-effort dispatch capturing the clean-review outcome:
    ```bash

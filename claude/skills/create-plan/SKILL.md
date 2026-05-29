@@ -10,6 +10,7 @@ allowed-tools:
   - mcp__local-rag
   - mcp__context7
   - mcp__agentmemory
+  - mcp__sequential-thinking
 effort: high
 paths:
   - claude/skills/create-plan/**
@@ -154,6 +155,8 @@ Model selection guide for prompts:
 - Parallel research/exploration → `sonnet` (as subagent)
 
 Effort levels: `low` (< 1h), `medium` (1–3h), `high` (3h+)
+
+For multi-step architectural trade-offs (competing decompositions, sequencing choices with downstream coupling, build-vs-reuse calls), call `mcp__sequential-thinking__sequentialthinking` to structure the reasoning before finalizing the plan. Skip silently when sequential-thinking is unavailable.
 
 ---
 

@@ -386,7 +386,18 @@ AUTO_WIRE_SET=$(bash claude/lib/pipeline/detect_applicable_mcps.sh --auto-wire-s
 
 Compute `UNWIRED_APPLICABLE = APPLICABLE \ CONNECTED_MCPS`, intersected against the 4-item auto-wire set.
 
-Suggestion-only MCPs (`codegraph`, `graphify`, `local-rag`) are surfaced as advisory text only — never auto-wired.
+Suggestion-only MCPs (`codegraph`, `graphify`, `local-rag`, `RepoMapper`) are surfaced as advisory text only — never auto-wired. Emit the advisory here so the suggestion set actually fires (without this, the `--suggestions` subcommand is dead code and these MCPs are never mentioned during a run):
+
+```bash
+SUGGESTIONS=$(bash claude/lib/pipeline/detect_applicable_mcps.sh --suggestions)
+```
+
+For each server in `SUGGESTIONS` NOT present in the cached `CONNECTED_MCPS`, print ONE advisory line to stderr of the form `MCP_PREFLIGHT_SUGGESTION: <server> available for <purpose> — <enable hint>`. Skip servers already connected (no advisory for a server in `CONNECTED_MCPS`). Purpose + enable-hint per server:
+
+- `codegraph` → "symbolic code-graph traversal — run /codegraph-init (50k-file gate) to enable"
+- `graphify` → "knowledge-graph over project artifacts — run /graphify-init (50k-file gate) to enable"
+- `local-rag` → "niche API/docs corpora retrieval — configure in .mcp.json to enable"
+- `RepoMapper` → "structural patterns / call-graph mapping for large codebases — add to .mcp.json to enable"
 
 **3. Wire unwired applicable MCPs**
 
@@ -1131,6 +1142,7 @@ Check conditions in order — first match wins.
 | 1 | No review file exists, OR review file has 0 blocking + 0 non-blocking + 0 nit findings | **A** (passed) |
 | 1.5 | Review file has 0 blocking + 0 non-blocking + N nit findings (N>0) — nits survived `/pipeline-review` Step 7.5 auto-fix | **N** (inline nit-attack, then re-route via Step 5.7) |
 | 1.7 | Review file has 0 blocking + N>0 non-blocking findings AND Path M gate predicate holds (severity ∈ {non-blocking, nit} ∧ lines_changed ≤ 5 ∧ files_changed ≤ 1 per finding ∧ total_finding_count ≤ 3 ∧ total_lines_across_findings ≤ 8 ∧ every finding has mechanical Suggestion:) | **M** (inline mini-fix, then re-route via Step 5.7) |
+| 1.8 | Review file has 0 blocking + N>0 non-blocking findings that are **in-scope fixable** (concern this feature's `git diff $BASE...HEAD`; concrete bounded fix) AND the Path M gate does NOT hold (fix exceeds the mechanical/size bounds) | **B** (orchestrator reopens the relevant plan task(s) with a `reopened: review-vN` note → re-implement). See the Pre-Path-A fixable-findings sweep below. |
 | 2 | Review file has blocking or non-blocking findings AND progress.md has tasks with `reopened:` notes | **B** (fixable) |
 | 3 | Review file contains "beyond current scope" or all findings require re-planning | **C** (scope change) |
 | 4 | Review output was "BLOCKED" (sanity gate, secrets, all agents failed) | **Retry** |
@@ -1140,6 +1152,16 @@ Check conditions in order — first match wins.
 **Row 1.5 rationale (nit-only inline carve-out):** `/pipeline-review` Step 7.5 already auto-fixes nits inline before writing the review file — so most of the time, surviving nits = 0 and Row 1 fires. When `/pipeline-review`'s auto-fix path failed (sanity-gate revert, file outside scope, etc.), nits remain in the review file. These nits should be addressed before merging (the user explicitly does NOT want to ship surviving cosmetic issues), but they don't justify a full subagent re-implement. Path N runs an inline nit-fix pass (the only legitimate inline path in the pipeline) and re-routes through Step 5.7 — typically falling into Path A if nits clear successfully.
 
 **Row 1.7 rationale (mini-fix inline carve-out — strict superset of Path N):** Path N (Row 1.5) handles pure-nit-only review files. Path M extends Path N to small non-blocking findings — same Edit-tool-mechanical contract, conservative gate predicate (encoded in Row 1.7 above), capped at 2 inline cycles via a separate `**Inline cycles:**` counter (Path N's `**Nit cycles:**` is preserved as an independent 2-cycle budget). Path M fires only when at least one finding is `severity: non-blocking`; pure-nit-only review files continue to route to Path N first. On gate-fail or cycle overflow (`Inline cycles > 2`), escalates to Path B step 6 (re-review only). On sanity-gate failure post-Edit, snapshot-revert and escalate to Path B step 5. See `reference.md` § "Path M — Inline Mini-Fix (max 2 inline cycles)" for full step body.
+
+**Row 1.8 rationale (in-scope non-blocker → Path B, NOT defer):** A non-blocking finding that is too large for the Path M mechanical gate but still concerns this feature's own diff is a fixable finding, not future-iteration debt. Before this row existed, such findings fell through the table (Row 1.7 gate fails, Row 2 needs pre-existing reopened tasks, Row 3 is scope-change) and were silently carried to Path A via the reviewer's `## Deferred` disposition — shipping avoidable debt (e.g. a production resource leak whose fix is ~10 diff lines). Row 1.8 routes them to Path B: the orchestrator itself reopens the relevant plan task(s) (`reopened: review-vN`) so the standard subagent re-implement loop fixes them, then re-review drives the feature to a clean Path A.
+
+**Pre-Path-A fixable-findings sweep (REQUIRED — defer is the exception, not the default):** Before the orchestrator may route a feature to Path A, every non-blocking finding in the review file MUST be dispositioned as either *fixed* or *legitimately deferred*. A finding is **in-scope fixable** when it concerns code or tests introduced/modified by THIS feature's `git diff $BASE...HEAD` AND has a concrete, bounded fix. In-scope fixable findings MUST be fixed before merge — never carried as deferred debt:
+- meets the Path M gate predicate (small/mechanical) → **Path M** (Row 1.7);
+- exceeds the Path M gate but is in-scope and bounded → **Path B** (Row 1.8): the orchestrator reopens the relevant plan task(s) in `docs/progress.md` with a `reopened: review-vN` note and re-implements via subagent.
+
+**Defer (`## Deferred`) is reserved for findings that genuinely belong to a future iteration:** cross-feature dependencies, work requiring a separate migration/ticket, findings on code OUTSIDE this feature's diff, or items with no in-scope fix. A non-blocking finding on this feature's own diff with a known fix is NOT a defer candidate — fix it.
+
+**Orchestrator overrides a premature defer:** if the review subagent routed an in-scope fixable finding to `## Deferred`, the orchestrator removes that premature `## Deferred` row, routes the finding to Path M or Path B per the sweep, and only proceeds to Path A once the finding is fixed (or genuinely re-classified as future-iteration work). The orchestrator's objective is a clean Path A (0 outstanding in-scope fixable findings); it **pushes toward Path A** rather than merging with avoidable debt. This sweep is a hard precondition of Path A entry (Step 5.8).
 
 **Row 2 nit-preamble option (`PIPELINE_NIT_FIRST=1`):** When blocking/non-blocking findings exist AND nit findings also exist, the orchestrator MAY attack nits inline first as a preamble to Path B. This is opt-in via the `PIPELINE_NIT_FIRST=1` environment variable. Default off (deterministic). When enabled: run an inline nit-fix pass (same logic as Path N), commit `fix: minor code quality improvements`, then continue into Path B subagent dispatch for the blocking/non-blocking work. Rationale: nits are cheap to fix inline and reduce noise in the next review cycle's diff — but the heavy work (blockers/non-blockers) ALWAYS goes through subagent dispatch.
 
@@ -1159,7 +1181,7 @@ For mixed findings (some fixable, some scope-change): treat as **Path B** first 
 
 Full per-path flows are defined in `reference.md` § "Step 5.8: Execute Path — Full Details":
 
-- **Path A — Review Passed:** push → create PR → CI monitor (max 3 fix attempts) → auto-merge → post-merge cleanup → CD health check → log SUCCESS
+- **Path A — Review Passed:** **Precondition:** the Step 5.7 Pre-Path-A fixable-findings sweep is satisfied — 0 outstanding in-scope fixable non-blocking findings (any such finding must already be fixed via Path M/B, not deferred). Then: push → create PR → CI monitor (max 3 fix attempts) → auto-merge → post-merge cleanup → CD health check → log SUCCESS. The orchestrator drives toward this state (push for Path A); it does not enter Path A while avoidable in-scope debt remains.
 - **Path B — Fixable Findings:** re-implement → re-review, capped at 5 review cycles. **Always honors `**Phase Mode:**` from `docs/pipeline-state.md`** — re-implement and re-review dispatch via `Agent` tool when `Phase Mode = subagent` (the default). Optional `PIPELINE_NIT_FIRST=1` runs a Path-N-style inline nit preamble first.
 - **Path C — Scope Change:** re-plan (capped at 1) → re-implement → re-review. Same `Phase Mode` honoring as Path B.
 - **Path D — Fresh-context Salvage:** one-shot `general-purpose` subagent dispatch armed with the full Run Log + review history + plan/prompts + current diff. Fires only after Path C exhausts AND `**Path D attempted:**` is `false`. On any failure (subagent error, lingering findings, blocked status, budget breach mid-dispatch), proceeds directly to the feature-failed terminal — never loops back to Path B / C / N / M / Retry. See `reference.md` § "Path D — Fresh-context Salvage" for the full body and the no-infinite-loop backstop.

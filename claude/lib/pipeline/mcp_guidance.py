@@ -30,12 +30,16 @@ in with an explicit section.
 Built-in default routing map (per-phase split is this module's own design;
 the server roster aligns with detect_applicable_mcps.sh):
 
-    context7        analyze, plan, implement, review
+    context7        analyze, plan, implement
                     resolve-library-id then query-docs for framework/library
                     API verification
+                    (review-phase context7 lives in the symbol-verifier agent,
+                    not the review orchestrator — so review is excluded here)
 
-    serena          analyze, implement, review
+    serena          analyze, plan, implement, review
                     symbol navigation and cross-file refs
+                    (serena is subagent-callable, so review-phase agents use it;
+                    plan benefits from symbol-map context)
 
     agentmemory     all phases
                     memory_recall for prior context at phase start;
@@ -108,11 +112,11 @@ _BLOCK_PREAMBLE = (
 _DEFAULT_ROUTING: dict[str, tuple[str, frozenset[str]]] = {
     "context7": (
         "resolve-library-id then query-docs for framework/library API verification",
-        frozenset({"analyze", "plan", "implement", "review"}),
+        frozenset({"analyze", "plan", "implement"}),
     ),
     "serena": (
         "symbol navigation and cross-file refs",
-        frozenset({"analyze", "implement", "review"}),
+        frozenset({"analyze", "plan", "implement", "review"}),
     ),
     "agentmemory": (
         "memory_recall for prior context at phase start; memory_save for durable findings",
