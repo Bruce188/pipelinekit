@@ -21,8 +21,13 @@ LOG="${CLAUDE_INSTALL_LOG:-$HOME/.cache/pipelinekit-install.log}"
 mkdir -p "$(dirname "$LOG")"
 
 # Supply-chain refs. Override via env vars before running install.
-# Default = `main` (rolling); CI/prod use should pin to a commit SHA.
-SERENA_REF="${SERENA_REF:-main}"
+# Default = the pinned commit SHA mirrored from .mcp.json / .mcp.json.template's
+# `_serena_pin_note` (drift-guarded by tests/test_install_fail_closed.sh AC-7).
+# Defaulting to a PINNED ref (not rolling `main`) keeps the fail-closed gate
+# below from aborting a normal `bash scripts/install.sh` on hosts that have uv;
+# explicitly exporting SERENA_REF=main still trips the gate (override with
+# SERENA_ALLOW_ROLLING=1). Refresh in lockstep with the two .mcp.json files.
+SERENA_REF="${SERENA_REF:-9b292a6c8b03c8306f117efeabb0ea7afdb0b3c0}"
 # Override UNDERSTAND_ANYTHING_SHA=<commit-sha> to pin to a specific commit.
 UNDERSTAND_ANYTHING_SHA="${UNDERSTAND_ANYTHING_SHA:-470cc01dc5f9236a93eb704afdd479cd5db79710}"
 # CLAUDE_CLI_SHA256 — sha256 of the Claude CLI installer at https://claude.ai/install.sh.
@@ -2095,7 +2100,7 @@ Environment variables (selected):
   CLAUDE_HOME                       Target overlay dir (default: $HOME/.claude)
   CLAUDE_INSTALL_NONINTERACTIVE=1   Skip all prompts; assume sane defaults.
   CLAUDE_INSTALL_SETTINGS=1         Wire optional hooks into ~/.claude/settings.json.
-  SERENA_REF                        serena MCP commit ref (default: main).
+  SERENA_REF                        serena MCP commit ref (default: pinned SHA from .mcp.json.template).
   CLAUDE_CLI_SHA256                 Optional sha256 of https://claude.ai/install.sh.
 
 Source: https://github.com/Bruce188/pipelinekit

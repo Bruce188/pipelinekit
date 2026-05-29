@@ -163,6 +163,19 @@ else
   echo "    serena.args: $serena_entry"
 fi
 
+# ── AC-7: install.sh default SERENA_REF is a pinned SHA (NOT rolling 'main')
+#    and matches the .mcp.json.template serena pin. This is the drift guard that
+#    keeps `bash scripts/install.sh` from tripping its own fail-closed serena
+#    gate (AC-1) on hosts that have uv installed — the default install must
+#    complete, not die. See scripts/install.sh top-of-file SERENA_REF default.
+install_default_ref=$(grep -oE 'SERENA_REF="\$\{SERENA_REF:-[0-9a-f]{40}\}"' "$INSTALL_SH" | grep -oE '[0-9a-f]{40}' | head -1)
+template_ref=$(echo "$serena_entry" | grep -oE '[0-9a-f]{40}' | head -1)
+if [[ -n "$install_default_ref" ]] && [[ "$install_default_ref" == "$template_ref" ]]; then
+  ok "AC-7 install.sh default SERENA_REF pinned + matches .mcp.json.template ($install_default_ref)"
+else
+  fail "AC-7 install.sh default SERENA_REF drift (install='$install_default_ref' template='$template_ref')"
+fi
+
 # ── Summary ──────────────────────────────────────────────────────────────
 
 echo
