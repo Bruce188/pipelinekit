@@ -45,8 +45,8 @@ For hooks that return JSON (Notification, Stop), emit a single-line JSON object 
 ## Exit-Code Semantics
 
 - **exit 0** — Continue normally. Tool call dispatches. No message to the user.
-- **exit 1** — Blocking error. The tool call is BLOCKED and stderr is surfaced as the block reason. Use for validator hooks (`validate-commit-msg.sh`) that catch contract violations.
-- **exit 2** — Informational block. Tool call is BLOCKED and stderr is surfaced as a user advisory, but the session continues. The agent can adjust and retry. Use for staging gates (`block-stage-sensitive.sh`) where the agent should self-correct.
+- **exit 2** — Blocking error. The tool call is BLOCKED and stderr is fed back to Claude as the block reason, so the agent can adjust and retry. Use for validator AND staging gates (`validate-commit-msg.sh`, `block-stage-sensitive.sh`, `block-dangerous-commands.sh`, `block-push-main.sh`).
+- **exit 1** (and other non-zero) — Non-blocking error. stderr is shown to the user, but the tool call still proceeds. Do NOT use for gates that must block.
 
 Stop hooks are the exception: by contract, ANY exit code from a `Stop` hook is non-blocking. Stop hooks never veto session termination — they exist to emit notifications and final logs, not to gate.
 
@@ -63,7 +63,7 @@ Stop hooks are the exception: by contract, ANY exit code from a `Stop` hook is n
 - **Always quote shell variables.** `[ -z "$VAR" ]`, `grep -F "$line"`, `echo "$COMMAND"`. Unquoted vars splatter on whitespace and break the gate.
 - **Bound the input.** Hooks run on every matching tool call; a hot loop in a hook compounds session cost. Pre-filter stdin with bash builtins (`[[ "$INPUT" == *git* ]] || exit 0`) before invoking python3 — see `validate-commit-msg.sh` for the canonical pre-filter pattern.
 - **Stdlib only for python hooks.** No `requests`, no `yaml`, no `click`. Use `json`, `os`, `sys`, `re`, `subprocess`, `pathlib`, `argparse`, `fnmatch`.
-- **Stderr is the user surface on exit 1 / exit 2.** Write actionable messages: `error: <category>: <what failed> -- <how to fix>`. Avoid stack traces; catch and reformat exceptions.
+- **Stderr is the surface on any non-zero exit.** On exit 2 it is fed back to Claude as the block reason; on exit 1 it is shown to the user. Write actionable messages: `error: <category>: <what failed> -- <how to fix>`. Avoid stack traces; catch and reformat exceptions.
 - **Self-test mode.** Bash hooks SHOULD support `bash hook.sh --selftest` that runs inline test cases without harness involvement. See `validate-commit-msg.sh` for the canonical `--selftest` shape (case table + PASS/FAIL counter).
 
 ## When to Extend vs Add New
