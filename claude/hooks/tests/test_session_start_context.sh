@@ -126,6 +126,37 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# test_06: caveman state block carries the label-invisibility invariant.
+#   Regression guard for the "Zone N leaked as a visible header" bug — the
+#   injected priming must tell the agent the zone labels stay out of output.
+#   HOME is sandboxed so the assertion is deterministic regardless of whether
+#   the live session has ~/.claude/.caveman-active.
+# ---------------------------------------------------------------------------
+T6_DIR="$SANDBOX/t06"
+T6_HOME="$SANDBOX/t06home"
+mkdir -p "$T6_DIR" "$T6_HOME/.claude"
+printf 'wenyan-ultra\n' > "$T6_HOME/.claude/.caveman-active"
+(
+  cd "$T6_DIR"
+  git init -q -b main
+  git config user.email "test@example.com"
+  git config user.name "Test"
+  echo "hello" > a.txt
+  git add a.txt
+  git commit -q -m "chore: initial commit"
+)
+T6_OUT=$(cd "$T6_DIR" && HOME="$T6_HOME" bash "$HOOK" </dev/null 2>/dev/null)
+T6_EXIT=$?
+if [ "$T6_EXIT" = "0" ] \
+   && echo "$T6_OUT" | grep -qF '## Caveman state' \
+   && echo "$T6_OUT" | grep -qF 'internal scaffolding' \
+   && echo "$T6_OUT" | grep -qF 'never sees the literal word'; then
+  record "test_06_caveman_label_invisibility_invariant" PASS
+else
+  record "test_06_caveman_label_invisibility_invariant" FAIL "exit=$T6_EXIT, caveman block or invariant phrase missing"
+fi
+
+# ---------------------------------------------------------------------------
 echo "Results: $PASS PASS / $FAIL FAIL"
 if [ "$FAIL" -ne 0 ]; then
   echo "Failed: ${FAILED_NAMES[*]}"

@@ -48,6 +48,7 @@ Default MCP stack: [documentation/memory-graph-stack.html](documentation/memory-
 
 **Operational contracts:**
 
+- **Labels invisible** — the strings `Zone 1` / `Zone 2` / `Zone 3` are internal scaffolding; NEVER emit them as headers, prefixes, or section titles. The table classifies content by *kind* — a reply blends all three inline and the reader never sees the literal word "Zone". (Section headers themselves are fine, written in Zone-3 ultra-English; they just must not be *named* after a zone.)
 - **Subagent propagation** — `Agent` dispatch prompts MUST prepend `<caveman-inherited level="wenyan-ultra">…</caveman-inherited>` per `~/.claude/snippets/caveman-subagent.md`. Bundled and worktree agents both inherit. Missing inheritance tag → drift cascade.
 - **SessionStart marker** — `claude/hooks/session-start-caveman.sh` touches `~/.claude/.caveman-active` on every session boot + PostCompact. Marker absence (and `CAVEMAN_OFF=1` env) silently disables enforcement.
 - **PreToolUse gate** — `claude/hooks/agent-caveman-gate.sh` rewrites onward `Agent` prompts at dispatch time when `caveman-active` marker present.
