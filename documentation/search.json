@@ -244,5 +244,11 @@
     "slug": "workflow-hygiene",
     "excerpt": "Three documented drift modes accumulated in docs/ over the pipelinekit lifetime: rotation drift, orphan snapshots, and features.md bloat. As of 2026-05-23 the docs/ tree had grown to ~7 MB across 424…",
     "quadrant": "explanation"
+  },
+  {
+    "title": "WSL2 performance: VmmemWSL RAM & the per-session MCP footprint",
+    "slug": "wsl2-performance",
+    "excerpt": "If VmmemWSL (the Windows-side process that mirrors your whole WSL2 VM) is eating RAM and making Windows lag, two levers fix almost all of it: a tuned .wslconfig, and keeping heavy MCP servers out of…",
+    "quadrant": "how-to"
   }
 ]

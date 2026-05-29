@@ -113,6 +113,7 @@ PreToolUse / PostToolUse / SessionStart / etc. hooks that enforce contracts at t
 - [#119](https://github.com/Bruce188/pipelinekit/pull/119) — `subagent-first-nudge.sh` UserPromptSubmit hook makes Subagent-First the **default** mode (no trigger keyword required); per-prompt opt-out via literal phrases (`no subagents`, `do it inline`, `do it yourself`, etc.); kill switch `PIPELINE_NO_SUBAGENT_NUDGE=1`
 - [#120](https://github.com/Bruce188/pipelinekit/pull/120) — Reimplement removed agentmemory feature as `memory-journal.sh` (Stop hook, append-only JSONL, no LLM call) + user-invoked `/digest-memories` skill (in-session synthesis, no `claude -p` spawn). Replaces #117's stop-self-reflect; cost is bounded and user-controlled
 - [#133](https://github.com/Bruce188/pipelinekit/pull/133) — `/caveman-compress <file>` sub-command — Tier 1 in-place compression (`CLAUDE.md*`, `rules/*.md`) via deterministic shell allowlist gate + three-zone byte-preserving rewrite. Applied to 4 Tier 1 source files: total -3084 bytes (64205 → 61121).
+- [#189](https://github.com/Bruce188/pipelinekit/pull/189) — WSL2 `.wslconfig` advisory in `install.sh` (`_wslconfig_advisor`: warns when `autoMemoryReclaim` is absent, prints a tuned block; opt-out `PIPELINE_NO_WSLCONFIG_ADVICE=1`) + session-aware `mcp-rss-cap.sh` (counts serena + language servers, scales the cap by live session count so concurrent sessions don't false-alarm)
 
 ## MCP integrations
 
