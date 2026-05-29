@@ -49,16 +49,16 @@ if [ "${1:-}" = "--selftest" ]; then
     "valid type + subject -> exit 0"
 
   # Case 2: invalid type "feature:" -> reject, cite invalid type
-  run_case 2 1 \
+  run_case 2 2 \
     'git commit -m "feature: bump deps"' \
     "" \
-    "invalid type 'feature' -> exit 1"
+    "invalid type 'feature' -> exit 2"
 
   # Case 3: forbidden token 'wip' in message body outside worktree -> reject
-  run_case 3 1 \
+  run_case 3 2 \
     'git commit -m "chore: wip thing"' \
     "VALIDATE_COMMIT_MSG_TOPLEVEL_OVERRIDE=/tmp/wt-test" \
-    "forbidden token 'wip' in body outside worktree -> exit 1"
+    "forbidden token 'wip' in body outside worktree -> exit 2"
 
   # Case 4: 'wip: bits' inside worktree path -> allow
   run_case 4 0 \
@@ -67,10 +67,10 @@ if [ "${1:-}" = "--selftest" ]; then
     "wip: inside worktree path -> exit 0"
 
   # Case 5: emoji codepoint in message -> reject
-  run_case 5 1 \
+  run_case 5 2 \
     'git commit -m "chore: ship 🚀 feature"' \
     "" \
-    "emoji codepoint -> exit 1"
+    "emoji codepoint -> exit 2"
 
   # Case 6: git commit --amend (no -m/-F) -> pass through
   run_case 6 0 \
@@ -85,10 +85,10 @@ if [ "${1:-}" = "--selftest" ]; then
     "git log --oneline -> exit 0 (not a commit)"
 
   # Case 8: 'parallel streams' forbidden token -> reject
-  run_case 8 1 \
+  run_case 8 2 \
     'git commit -m "chore: merge parallel streams into one"' \
     "" \
-    "forbidden token 'parallel streams' -> exit 1"
+    "forbidden token 'parallel streams' -> exit 2"
 
   # Case 9: git commit-tree plumbing -> pass through (not porcelain commit)
   run_case 9 0 \
@@ -113,20 +113,20 @@ if [ "${1:-}" = "--selftest" ]; then
     "-F readable in-repo file with valid message -> exit 0"
   rm -f "$_tmp11"
 
-  # Case 12: readable -F inside repo with emoji -> exit 1 (NB5)
+  # Case 12: readable -F inside repo with emoji -> exit 2 (NB5)
   _tmp12=$(mktemp "$_toplevel_for_selftest/.validate-selftest-12.XXXXXX")
   printf 'chore: ship \xf0\x9f\x9a\x80 feature\n' > "$_tmp12"
-  run_case 12 1 \
+  run_case 12 2 \
     "git commit -F $_tmp12" \
     "" \
-    "-F readable in-repo file with emoji -> exit 1"
+    "-F readable in-repo file with emoji -> exit 2"
   rm -f "$_tmp12"
 
-  # Case 13: multi-m with forbidden token in second -m -> exit 1 (N4)
-  run_case 13 1 \
+  # Case 13: multi-m with forbidden token in second -m -> exit 2 (N4)
+  run_case 13 2 \
     'git commit -m "feat: ok" -m "wip parallel streams"' \
     "VALIDATE_COMMIT_MSG_TOPLEVEL_OVERRIDE=/tmp/wt-test" \
-    "multi-m: forbidden token in second -m outside worktree -> exit 1"
+    "multi-m: forbidden token in second -m outside worktree -> exit 2"
 
   # Case 14: valid type with incidental 'wip' body word inside worktree -> exit 0 (N5)
   run_case 14 0 \
@@ -135,46 +135,46 @@ if [ "${1:-}" = "--selftest" ]; then
     "valid type with incidental wip word inside worktree -> exit 0"
 
   # Case 15 (B1): uppercase WIP outside worktree -> reject (case-insensitive scan)
-  run_case 15 1 \
+  run_case 15 2 \
     'git commit -m "chore: ship WIP feature"' \
     "VALIDATE_COMMIT_MSG_TOPLEVEL_OVERRIDE=/tmp/wt-test" \
-    "uppercase WIP outside worktree -> exit 1"
+    "uppercase WIP outside worktree -> exit 2"
 
   # Case 16 (B1): 'Parallel Streams' mixed case -> reject
-  run_case 16 1 \
+  run_case 16 2 \
     'git commit -m "chore: merge Parallel Streams rollout"' \
     "" \
-    "mixed-case Parallel Streams -> exit 1"
+    "mixed-case Parallel Streams -> exit 2"
 
   # Case 17 (B1): 'Stream A' mixed case -> reject
-  run_case 17 1 \
+  run_case 17 2 \
     'git commit -m "fix: resolve Stream A conflicts"' \
     "" \
-    "mixed-case Stream A -> exit 1"
+    "mixed-case Stream A -> exit 2"
 
   # Case 18 (B3): override without SELFTEST flag -> rejected (override not honoured)
   _case18_payload=$(python3 -c "import json,sys; print(json.dumps({'tool_input':{'command':sys.argv[1]}}))" 'git commit -m "wip: bypass"')
   _case18_exit=0
   VALIDATE_COMMIT_MSG_TOPLEVEL_OVERRIDE=/tmp/wt-test/.claude/worktrees/fake bash "$SCRIPT" <<< "$_case18_payload" >/dev/null 2>&1 || _case18_exit=$?
-  if [ "$_case18_exit" = "1" ]; then
-    echo "PASS  case 18: B3 override without SELFTEST flag -> exit 1"
+  if [ "$_case18_exit" = "2" ]; then
+    echo "PASS  case 18: B3 override without SELFTEST flag -> exit 2"
     PASS_COUNT=$((PASS_COUNT + 1))
   else
-    echo "FAIL  case 18: B3 override without SELFTEST flag -> exit 1 (got $_case18_exit)"
+    echo "FAIL  case 18: B3 override without SELFTEST flag -> exit 2 (got $_case18_exit)"
     FAIL_COUNT=$((FAIL_COUNT + 1))
   fi
 
   # Case 19 (B4): --message=value form with forbidden token -> reject
-  run_case 19 1 \
+  run_case 19 2 \
     'git commit --message=wip-stuff' \
     "VALIDATE_COMMIT_MSG_TOPLEVEL_OVERRIDE=/tmp/wt-test" \
-    "--message=value form with wip -> exit 1"
+    "--message=value form with wip -> exit 2"
 
   # Case 20 (B4): escaped inner quotes with forbidden second -m -> reject
-  run_case 20 1 \
+  run_case 20 2 \
     'git commit -m "feat: \"q\"" -m "wip parallel streams"' \
     "VALIDATE_COMMIT_MSG_TOPLEVEL_OVERRIDE=/tmp/wt-test" \
-    "escaped quotes + multi-m wip -> exit 1"
+    "escaped quotes + multi-m wip -> exit 2"
 
   # Case 21 (B2): -F path outside repo toplevel -> exit 0 with diagnostic, no file contents
   _case21_out=$(python3 -c "import json,sys; print(json.dumps({'tool_input':{'command':'git commit -F /etc/passwd'}}))" | bash "$SCRIPT" 2>&1)
@@ -314,7 +314,7 @@ if [ "$WIP_IN_MSG" -eq 1 ]; then
   else
     # Outside worktree: wip is forbidden
     echo "error: forbidden-token: 'wip:' is only allowed inside /.claude/worktrees/ paths; current toplevel: $TOPLEVEL" >&2
-    exit 1
+    exit 2
   fi
 else
   SKIP_CONVENTIONAL=0
@@ -325,7 +325,7 @@ if [ "$SKIP_CONVENTIONAL" -eq 0 ]; then
   CONVENTIONAL_REGEX='^(feat|fix|refactor|docs|test|chore|perf|style|build|ci)(\([^)]+\))?: [a-z].{1,99}$'
   if ! echo "$SUBJECT" | grep -qE "$CONVENTIONAL_REGEX"; then
     echo "error: conventional-commit: subject '$SUBJECT_SAFE' does not match required format (feat|fix|refactor|docs|test|chore|perf|style|build|ci)[optional scope]: <lowercase message>" >&2
-    exit 1
+    exit 2
   fi
 fi
 
@@ -334,7 +334,7 @@ FORBIDDEN_PATTERN='(\bstream [A-E]\b|review-v[0-9]+|apply review|[0-9]+ findings
 if echo "$MSG" | grep -iqE "$FORBIDDEN_PATTERN"; then
   OTHER_FORBIDDEN=$(echo "$MSG" | grep -ioE "$FORBIDDEN_PATTERN" | head -1)
   echo "error: forbidden-token: message contains AI workflow token '$OTHER_FORBIDDEN' -- see ~/.claude/rules/agents-worktrees.md § Commit Message Hygiene" >&2
-  exit 1
+  exit 2
 fi
 
 # 3. Emoji ban (unicode codepoint ranges)
@@ -366,7 +366,7 @@ print('OK')
 if [ "${EMOJI_RESULT:0:5}" = "EMOJI" ]; then
   EMOJI_INFO="${EMOJI_RESULT#EMOJI:}"
   echo "error: emoji-ban: message contains emoji/pictographic character ($EMOJI_INFO) -- use plain ASCII text" >&2
-  exit 1
+  exit 2
 fi
 
 exit 0
