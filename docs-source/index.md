@@ -26,6 +26,7 @@ The complete user-facing documentation for pipelinekit \(autonomous `/pipeline` 
 - [Codebase map](codebase-map.html) — top-level repo layout with one-line purpose per directory + root file.
 - [MCP LSP Setup](mcp-lsp-setup.html) — symbol-level Go-to-Definition via the serena MCP.
 - [Memory + graph stack](memory-graph-stack.html) — agentmemory + Understand-Anything + codegraph + graphify; first-run setup, WSL2 RAM budget, kill-switch env vars.
+- [WSL2 performance](wsl2-performance.html) — tune `.wslconfig` so VmmemWSL returns RAM to Windows; why MCP servers multiply per session and how to scope them.
 - [Design tokens](design-tokens.html) — swatch + type scale + radii visualizing the template CSS custom properties (22 light + 19 dark + 7 syntax + motion).
 
 ## Deployment + CI providers

@@ -1073,6 +1073,40 @@ _selftest_caveman_active_marker() {
   return 0
 }
 
+_selftest_wslconfig_advisor() {
+  # Asserts _wslconfig_advisor: opt-out silence, already-tuned silence, missing-key advice.
+  local sb out
+  sb="$(mktemp -d)"
+  # Case 1: opt-out emits nothing.
+  out=$(PIPELINE_NO_WSLCONFIG_ADVICE=1 __pkit_mock_wsl=1 __pkit_mock_wslconfig="${sb}/none" _wslconfig_advisor 2>&1) || true
+  if [[ -n "${out}" ]]; then
+    rm -rf "${sb}"; echo "FAIL: _selftest_wslconfig_advisor — Case 1 opt-out emitted output"; return 1
+  fi
+  # Case 2: .wslconfig WITH autoMemoryReclaim → no recommendation block.
+  printf '[wsl2]\nautoMemoryReclaim=gradual\n' >"${sb}/tuned"
+  out=$(__pkit_mock_wsl=1 __pkit_mock_wslconfig="${sb}/tuned" _wslconfig_advisor 2>&1) || true
+  if printf '%s' "${out}" | grep -q 'Recommended'; then
+    rm -rf "${sb}"; echo "FAIL: _selftest_wslconfig_advisor — Case 2 advised despite autoMemoryReclaim present"; return 1
+  fi
+  # Case 3: .wslconfig WITHOUT the key → recommends the block + apply step.
+  printf '[wsl2]\nmemory=8GB\n' >"${sb}/stale"
+  out=$(__pkit_mock_wsl=1 __pkit_mock_wslconfig="${sb}/stale" _wslconfig_advisor 2>&1) || true
+  if ! printf '%s' "${out}" | grep -q 'autoMemoryReclaim=gradual'; then
+    rm -rf "${sb}"; echo "FAIL: _selftest_wslconfig_advisor — Case 3 missing autoMemoryReclaim recommendation"; return 1
+  fi
+  if ! printf '%s' "${out}" | grep -q 'wsl --shutdown'; then
+    rm -rf "${sb}"; echo "FAIL: _selftest_wslconfig_advisor — Case 3 missing apply step"; return 1
+  fi
+  # Case 4: no .wslconfig at all → still advises.
+  out=$(__pkit_mock_wsl=1 __pkit_mock_wslconfig="${sb}/absent" _wslconfig_advisor 2>&1) || true
+  if ! printf '%s' "${out}" | grep -q 'autoMemoryReclaim=gradual'; then
+    rm -rf "${sb}"; echo "FAIL: _selftest_wslconfig_advisor — Case 4 missing recommendation for absent file"; return 1
+  fi
+  rm -rf "${sb}"
+  echo "PASS: _selftest_wslconfig_advisor"
+  return 0
+}
+
 _wsl2_ram_gate() {
   # TEST HOOK: __pkit_mock_wsl_2gb=1 forces "WSL2 + 2 GB" path. Do not set in production.
   if [[ "${__pkit_mock_wsl_2gb:-0}" == "1" ]]; then
@@ -1095,6 +1129,50 @@ _wsl2_ram_gate() {
     printf '[install][error] Override via PIPELINE_FORCE_INSTALL=1 (caveat: install may OOM on heavy MCP load).\n' >&2
     return 1
   fi
+  return 0
+}
+
+# WSL2 advisory: VmmemWSL holds peak RAM unless .wslconfig sets autoMemoryReclaim.
+# Non-fatal — prints a tuning recommendation, never blocks install. WSL-only (no-op
+# elsewhere). Opt out with PIPELINE_NO_WSLCONFIG_ADVICE=1.
+# TEST HOOKS: __pkit_mock_wsl=1 forces WSL2 detection; __pkit_mock_wslconfig=<path>
+# overrides the .wslconfig probe. Do not set in production.
+_wslconfig_advisor() {
+  [[ "${PIPELINE_NO_WSLCONFIG_ADVICE:-0}" == "1" ]] && return 0
+  # Detect WSL2 (real /proc/version marker or test mock); no-op on non-WSL hosts.
+  if [[ "${__pkit_mock_wsl:-0}" != "1" ]]; then
+    [[ -r /proc/version ]] || return 0
+    grep -qi microsoft /proc/version || return 0
+  fi
+  # Locate the Windows-side .wslconfig (first match under /mnt/c/Users/*, or mock).
+  local cfg="" c
+  if [[ -n "${__pkit_mock_wslconfig:-}" ]]; then
+    cfg="${__pkit_mock_wslconfig}"
+  else
+    for c in /mnt/c/Users/*/.wslconfig; do
+      [[ -f "${c}" ]] && { cfg="${c}"; break; }
+    done
+  fi
+  # Already tuned → silent pass.
+  if [[ -n "${cfg}" && -f "${cfg}" ]] && grep -q 'autoMemoryReclaim' "${cfg}" 2>/dev/null; then
+    log "WSL2: .wslconfig already sets autoMemoryReclaim — VmmemWSL reclaim active."
+    return 0
+  fi
+  # Missing key (or no file) → advise (warn-and-continue).
+  if [[ -n "${cfg}" && -f "${cfg}" ]]; then
+    warn "WSL2: ${cfg} lacks 'autoMemoryReclaim' — VmmemWSL will hold peak RAM and never return it to Windows."
+  else
+    warn "WSL2 detected with no .wslconfig — VmmemWSL takes ~50% of host RAM and never reclaims it to Windows."
+  fi
+  log "Recommended C:\\Users\\<you>\\.wslconfig:"
+  log "    [wsl2]"
+  log "    autoMemoryReclaim=gradual   # KEY: return idle RAM to Windows (shrinks VmmemWSL)"
+  log "    memory=16GB                 # ceiling, not a reservation — ~50-60% of physical RAM"
+  log "    processors=4                # example — set to (host logical CPUs minus a few)"
+  log "    swap=8GB                    # absorbs build/test spikes instead of OOM"
+  log "Apply: save the file, then run 'wsl --shutdown' from PowerShell (restarts WSL)."
+  log "Heavy MCPs (serena+LSP, local-rag, voice) spawn per session — keep them in per-project .mcp.json, not global. See documentation/wsl2-performance.html."
+  log "Opt out: PIPELINE_NO_WSLCONFIG_ADVICE=1"
   return 0
 }
 
@@ -2337,6 +2415,9 @@ provision_understand_anything
 provision_codegraph_mcp
 provision_graphify_mcp
 provision_serena_mcp
+
+# WSL2: advise tuning .wslconfig so VmmemWSL returns RAM to Windows (non-fatal; WSL-only no-op elsewhere).
+_wslconfig_advisor
 
 # gstack is a third-party overlay project (alirezarezvani/gstack); install instructions live in its own README.
 log "gstack is a third-party overlay; for install instructions see https://github.com/alirezarezvani/gstack"

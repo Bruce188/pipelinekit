@@ -223,7 +223,7 @@ STOP_ACTIVE=$(printf '%s' "$PARSED" | cut -f4)
 # Fallback for cwd
 [ -z "$CWD" ] && CWD="$PWD"
 
-# Derive slug — same convention as ~/.claude/projects/-home-bruce-pipelinekit/
+# Derive slug — same convention as ~/.claude/projects/<cwd-with-slashes-as-dashes>/
 SLUG=$(printf '%s' "$CWD" | sed 's|/|-|g')
 
 # Resolve branch if in a git repo

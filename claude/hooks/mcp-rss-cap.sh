@@ -1,10 +1,14 @@
 #!/bin/bash
 # SessionStart hook: sum RSS of known MCP daemons. Warn (NOT kill) if over cap.
 #
-# Motivation: WSL2 RAM ceiling. The four-tool default stack (agentmemory +
-# codegraph + graphify + understand-anything) lives at ~150-200 MB sustained per
-# daemon. Cumulative > ~800 MB indicates leakage or runaway state — emit a
-# warning so the user can disable a tool via PIPELINE_DISABLE_<TOOL>=1.
+# Motivation: WSL2 RAM ceiling. The default MCP stack (agentmemory + codegraph +
+# graphify + understand-anything) lives at ~150-200 MB sustained per daemon, and
+# serena drags heavy language servers (EclipseJDTLS alone is Xmx3G). Each Claude
+# session spawns its OWN copy of every stdio MCP, so N concurrent sessions multiply
+# the footprint N-fold. The cap therefore scales by detected session count; a sum
+# over the effective cap indicates leakage or runaway state — emit a warning so the
+# user can disable a tool via PIPELINE_DISABLE_<TOOL>=1, scope serena to a
+# per-project .mcp.json, or close idle sessions.
 #
 # Contract:
 #   - Reads JSON envelope from stdin (consumed and discarded).
@@ -14,7 +18,7 @@
 #   - DOES NOT KILL processes — only warns. Killing live daemons would interrupt
 #     active sessions.
 #   - Honours PIPELINE_NO_RSS_CAP=1 as opt-out (no work, exit 0).
-#   - Honours PIPELINE_MAX_MCP_RSS_MB (default 800).
+#   - Honours PIPELINE_MAX_MCP_RSS_MB (default 800, per-session; scaled by session count).
 #
 # Selftest: bash mcp-rss-cap.sh --selftest
 
@@ -34,6 +38,8 @@ DAEMON_PATTERNS=(
   "codegraph serve --mcp"
   "graphify.*--mcp"
   "agentmemory.*mcp"
+  "serena start-mcp-server"
+  "serena/language_servers"
 )
 
 # ─── Selftest mode ────────────────────────────────────────────────────────────
@@ -85,14 +91,24 @@ if [ "${1:-}" = "--selftest" ]; then
     PASS_COUNT=$((PASS_COUNT+1))
   fi
 
-  # Case 5: synthesized over-cap mock via env var emits warning text mentioning PIPELINE_DISABLE_.
-  out=$(echo '{}' | __pkit_mock_rss_total_mb=1200 bash "$SCRIPT" 2>&1)
-  if echo "$out" | grep -q "PIPELINE_DISABLE_"; then
+  # Case 5: synthesized over-cap mock (pinned to 1 session) emits PIPELINE_DISABLE_ guidance.
+  out=$(echo '{}' | __pkit_mock_rss_total_mb=1200 __pkit_mock_session_count=1 bash "${SCRIPT}" 2>&1)
+  if echo "${out}" | grep -q "PIPELINE_DISABLE_"; then
     echo "  [PASS] over-cap mock emits PIPELINE_DISABLE_ guidance"
     PASS_COUNT=$((PASS_COUNT+1))
   else
     echo "  [FAIL] over-cap mock: no PIPELINE_DISABLE_ in output"
     FAIL_COUNT=$((FAIL_COUNT+1))
+  fi
+
+  # Case 6: multi-session scaling — 1200 MB across 3 sessions (effective cap 2400) → no warn.
+  out=$(echo '{}' | __pkit_mock_rss_total_mb=1200 __pkit_mock_session_count=3 bash "${SCRIPT}" 2>&1)
+  if echo "${out}" | grep -q "PIPELINE_DISABLE_"; then
+    echo "  [FAIL] multi-session scaling warned under effective cap"
+    FAIL_COUNT=$((FAIL_COUNT+1))
+  else
+    echo "  [PASS] multi-session scaling suppresses false alarm"
+    PASS_COUNT=$((PASS_COUNT+1))
   fi
 
   echo "Results: $PASS_COUNT PASS / $FAIL_COUNT FAIL"
@@ -121,9 +137,20 @@ else
   TOTAL_MB=$((TOTAL_KB / 1024))
 fi
 
-if [ "$TOTAL_MB" -gt "$CAP_MB" ]; then
+# Each Claude session spawns its own MCP stack — scale the cap by live session
+# count so N sessions don't false-alarm. __pkit_mock_session_count overrides for selftest.
+if [ -n "${__pkit_mock_session_count:-}" ]; then
+  SESSIONS="${__pkit_mock_session_count}"
+else
+  SESSIONS=$(pgrep -fc 'claude --' 2>/dev/null)
+fi
+case "${SESSIONS}" in *[!0-9]*|"") SESSIONS=1 ;; esac
+[ "${SESSIONS}" -lt 1 ] && SESSIONS=1
+EFFECTIVE_CAP=$((CAP_MB * SESSIONS))
+
+if [ "${TOTAL_MB}" -gt "${EFFECTIVE_CAP}" ]; then
   NOTIFY_HOOK="$(dirname "$0")/notify-emit.sh"
-  MSG="mcp-rss-cap: cumulative MCP RSS = ${TOTAL_MB} MB (cap=${CAP_MB} MB). To disable a tool: set PIPELINE_DISABLE_AGENTMEMORY=1, PIPELINE_DISABLE_CODEGRAPH=1, or PIPELINE_DISABLE_GRAPHIFY=1."
+  MSG="mcp-rss-cap: cumulative MCP RSS = ${TOTAL_MB} MB over ${SESSIONS} session(s) (cap=${EFFECTIVE_CAP} MB = ${CAP_MB}/session). Reduce: set PIPELINE_DISABLE_AGENTMEMORY=1 / PIPELINE_DISABLE_CODEGRAPH=1 / PIPELINE_DISABLE_GRAPHIFY=1, scope serena to a per-project .mcp.json, or close idle sessions."
   printf '%s\n' "$MSG" >&2
   if [ -x "$NOTIFY_HOOK" ]; then
     NOTIFY_EVENT_TYPE=error NOTIFY_TEXT="$MSG" \
