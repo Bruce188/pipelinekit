@@ -16,6 +16,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 REFERENCE="$REPO_ROOT/claude/skills/pipeline/reference.md"
 SKILL="$REPO_ROOT/claude/skills/pipeline/SKILL.md"
+SKILLD="$REPO_ROOT/claude/skills/pipeline"
 WORKFLOW="$REPO_ROOT/claude/rules/workflow.md"
 NOTIFY="$REPO_ROOT/claude/hooks/notify-emit.sh"
 
@@ -47,14 +48,14 @@ else
 fi
 
 echo "Test 3: SKILL.md Step 5.8 summary lists Path D"
-if grep -F '**Path D — Fresh-context Salvage:**' "$SKILL" >/dev/null; then
+if grep -F '**Path D — Fresh-context Salvage:**' "$SKILLD"/*.md >/dev/null; then
   ok "SKILL.md Step 5.8 summary contains Path D row"
 else
   fail "SKILL.md Step 5.8 summary missing Path D row"
 fi
 
 echo "Test 4: SKILL.md state-file template contains **Path D attempted:**"
-if grep -F '**Path D attempted:**' "$SKILL" >/dev/null; then
+if grep -F '**Path D attempted:**' "$SKILLD"/*.md >/dev/null; then
   ok "SKILL.md state template lists **Path D attempted:**"
 else
   fail "SKILL.md state template missing **Path D attempted:**"
@@ -111,7 +112,7 @@ else
 fi
 
 echo "Test 10: SKILL.md cycle accounting mentions Path D"
-if grep -E 'Path D adds 1 more salvage attempt|Path D.{0,30}salvage' "$SKILL" >/dev/null; then
+if grep -E 'Path D adds 1 more salvage attempt|Path D.{0,30}salvage' "$SKILLD"/*.md >/dev/null; then
   ok "SKILL.md cycle-accounting note mentions Path D"
 else
   fail "SKILL.md cycle-accounting note missing Path D mention"

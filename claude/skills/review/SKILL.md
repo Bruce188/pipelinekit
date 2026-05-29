@@ -36,39 +36,9 @@ These constants control automatic agent selection based on diff size (measured i
 
 ## Issue Taxonomy
 
-Every finding is classified by **severity** and **category**. Agents emit findings using these labels so the dedupe/triage step can compare apples to apples.
+Every finding is classified by **severity** (universal `critical | high | medium | low`) and **category** (code-review default set, plus a web/UI set used when charter `project_type = web`). Agents emit findings using these labels so the dedupe/triage step can compare apples to apples.
 
-### Severity (universal — code, web, infra, docs)
-
-| Severity | Definition | Examples |
-|----------|------------|----------|
-| **critical** | Blocks a core workflow, causes data loss, security breach, or crashes the system | Auth bypass, SQL injection, unbounded resource use, secret committed, irreversible destructive op without confirmation |
-| **high** | Major functionality broken or unsafe under realistic load — no workaround | Race condition under concurrent writes, missing rollback, leak in long-running daemon, regression in shipped feature |
-| **medium** | Works but degrades quality, performance, or maintainability — workaround exists | Missing test for new branch, inefficient O(n²) where O(n) is reachable, error path silently swallowed, public API without docs |
-| **low** | Polish, style, micro-optimization, or documentation gap that doesn't block | Inconsistent naming, missing JSDoc on internal helper, log noise, unused import |
-
-### Categories (code review default)
-
-1. **Correctness** — logic errors, off-by-one, wrong operator, missed null/empty case, broken invariants
-2. **Security** — auth/authz gaps, injection, secret handling, CSRF/SSRF, dependency CVEs, unsafe deserialisation
-3. **Concurrency** — races, deadlocks, missing locks, reordered writes, leaked tasks/promises
-4. **Performance** — algorithmic complexity, N+1 queries, blocking I/O on hot paths, memory bloat
-5. **Tests** — missing coverage on new logic, brittle assertions, fixtures coupled to impl details, flaky tests
-6. **Maintainability** — overgeneralisation, dead code, hidden coupling, magic numbers, missing types
-7. **Observability** — silent error paths, missing logs at boundaries, no metrics on new code paths
-8. **Documentation** — public API not documented, README out of date, ADRs missing for non-obvious choices
-
-### Categories (web/UI review — used when charter project_type = web)
-
-1. **Visual/UI** — layout breaks, broken images, alignment, dark mode issues
-2. **Functional** — broken links, dead buttons, validation bypass, state-not-persisting
-3. **UX** — confusing nav, missing loading indicators, unclear errors, dead ends
-4. **Content** — typos, lorem ipsum, truncated text, wrong labels
-5. **Performance** — slow loads (>3s), jank, layout shift, oversized assets
-6. **Console/Errors** — JS exceptions, 4xx/5xx, CORS, mixed content
-7. **Accessibility** — missing alt, unlabeled inputs, keyboard nav, focus traps, contrast
-
-> Source: adapted from gstack `qa/references/issue-taxonomy.md`. Severity ladder is universal; category lists are split so backend reviews aren't graded on visual polish and web reviews aren't missed for accessibility.
+Full severity definitions, both category lists, and the rationale: see `reference.md` § "Issue Taxonomy".
 
 ---
 
@@ -115,142 +85,24 @@ Use `$BASE` in place of hardcoded `main` in all `git diff` commands throughout t
 
 ### Step 1.5: Review Cycle Cap (per-branch/per-feature)
 
-Count review cycles scoped to the **current feature** only, not the whole docs/ directory.
-A raw `ls docs/review-v*.md | wc -l` is wrong: historical review files from other features
-accumulate and force every subsequent /review to trip the cap.
+Count review cycles scoped to the **current feature** only (never a global `ls docs/review-v*.md | wc -l`). Prefer `pipeline-state.md`'s `**Review cycles:**` field when the pipeline drives; fall back to counting `docs/review-v*.md` files whose `**Branch:**` header matches the current branch and whose `**HEAD:**` SHA is reachable from HEAD.
 
-```bash
-BRANCH=$(git branch --show-current)
+If `$REVIEW_COUNT` >= 5 AND `--force` is absent: **STOP** with the cycle-limit message (re-plan / `--force` / pipeline auto-replan options). If `--force` is present: log the override and proceed. The `--force` flag must never be passed by the pipeline.
 
-# Option A: Pipeline-state-scoped count (preferred when pipeline is driving)
-if [ -f docs/pipeline-state.md ] && grep -q "^\*\*Review cycles:\*\*" docs/pipeline-state.md; then
-  REVIEW_COUNT=$(grep "^\*\*Review cycles:\*\*" docs/pipeline-state.md | sed 's|.*:\*\*[[:space:]]*||' | awk '{print $1}')
-else
-  # Option B: Branch-scoped count for manual invocations.
-  # Parse **Branch:** header in each docs/review-v*.md and count matches.
-  # Files missing the Branch: header are NOT counted (fallback: ignore).
-  REVIEW_COUNT=0
-  for f in docs/review-v*.md; do
-    [ -f "$f" ] || continue
-    FB=$(grep "^\*\*Branch:\*\*" "$f" | head -1 | sed 's|.*:\*\*[[:space:]]*||')
-    if [ "$FB" = "$BRANCH" ]; then
-      # Verify HEAD SHA is reachable from current branch (catches stale files
-      # from abandoned branches recreated with the same name)
-      FH=$(grep "^\*\*HEAD:\*\*" "$f" | head -1 | sed 's|.*:\*\*[[:space:]]*||')
-      if [ -n "$FH" ] && ! git merge-base --is-ancestor "$FH" HEAD 2>/dev/null; then
-        continue
-      fi
-      REVIEW_COUNT=$((REVIEW_COUNT + 1))
-    fi
-  done
-fi
-```
-
-If `$REVIEW_COUNT` >= 5 AND `--force` is NOT present:
-**STOP** with:
-> "Review cycle limit reached (5 iterations for this feature). This suggests a scope or design issue rather than incremental fixes.
-> Options:
-> - Re-plan: /create-plan to restructure the approach
-> - Override: /review --force to continue (not recommended — diminishing returns past 5 cycles)
-> - Pipeline: /pipeline handles this automatically with re-plan after 5 cycles"
-
-If `--force` IS present:
-Log warning: "Review cycle cap overridden with --force. Cycle $REVIEW_COUNT."
-Proceed normally.
-
-Notes:
-- The count is scoped per-branch/per-feature, never global across the docs/ directory.
-- Pipeline invocations use `pipeline-state.md`'s `**Review cycles:**` field as the authoritative count.
-- Manual invocations fall back to parsing the `**Branch:**` header in each `docs/review-v*.md`.
-- Files missing the `Branch:` header are not counted (legacy files from before Step 8 wrote this header).
-- The pipeline's own cap (Step 5.8) still applies and is redundant with this per-feature cap.
-- The `--force` flag must never be passed by the pipeline.
+Full counting bash (both options), the verbatim STOP message, and the notes: see `reference.md` § "Step 1.5 — Review Cycle Cap (per-branch/per-feature)".
 
 ---
 
 ### Step 2: Sanity Gate
 
-**Verification marker check:** Before running tests, check if `/implement-plan` left a fresh verification marker:
+Quick smoke test to catch obvious breakage before spawning agents — NOT a full suite.
 
-```bash
-MARKER="docs/.last-verify.json"
-SKIP_SANITY=false
+1. **Verification-marker fast path:** if `/implement-plan` left a fresh `docs/.last-verify.json` (matching HEAD SHA, `tests_passed` + `build_passed` true, age ≤ 600s, no uncommitted tracked changes), set `SKIP_SANITY=true`, log the inherited verification, and skip the test run. The marker is then deleted.
+2. **Otherwise run the per-language sanity command** (`pytest --tb=line -q --no-header -x` / `npm test` / `dotnet test --no-build`) and check `$TEST_EXIT`.
 
-if [ -f "$MARKER" ]; then
-  # Parse marker first (cheap file read) before running git status (expensive tree scan)
-  HEAD_SHA=$(git rev-parse HEAD)
-  MARKER_DATA=$(python3 -c "
-import json, datetime, sys
-try:
-    with open(sys.argv[1]) as f:
-        m = json.load(f)
-    sha = m.get('commit_sha', '')
-    ran_at = m.get('ran_at', '')
-    tests = m.get('tests_passed', False)
-    build = m.get('build_passed', False)
-    if not (isinstance(tests, bool) and tests and isinstance(build, bool) and build):
-        print('STALE'); sys.exit(0)
-    if sha != sys.argv[2]:
-        print('STALE'); sys.exit(0)
-    marker_time = datetime.datetime.fromisoformat(ran_at)
-    now = datetime.datetime.now(datetime.timezone.utc)
-    # Writer always produces UTC; handle naive as UTC defensively
-    if marker_time.tzinfo is None:
-        marker_time = marker_time.replace(tzinfo=datetime.timezone.utc)
-    age_seconds = (now - marker_time).total_seconds()
-    if age_seconds > 600:
-        print('STALE'); sys.exit(0)
-    print(f'VALID {sha[:7]} {ran_at[:19]}')
-except Exception:
-    print('STALE')
-" "$MARKER" "$HEAD_SHA" 2>/dev/null)
+If `$TEST_EXIT` is non-zero: **STOP** — do NOT spawn agents. Output the "Sanity gate FAILED" block (see Step 10). If no test framework is detected: warn, proceed, and report "Sanity gate: skipped (no test framework detected)".
 
-  if [[ "$MARKER_DATA" == VALID* ]]; then
-    # Only trust the marker if there are no uncommitted tracked changes
-    if [ -z "$(git status --porcelain -uno)" ]; then
-      SKIP_SANITY=true
-      read -r _ SANITY_SHA SANITY_TIME <<< "$MARKER_DATA"
-    fi
-  fi
-  rm -f "$MARKER"
-fi
-```
-
-**Trust assumption:** both writer and reader run in the same local Claude session. The marker is a plain JSON file with no integrity protection (no HMAC/signature). It provides no defense against external file tampering — only against redundant test runs within a single pipeline invocation.
-
-If `$SKIP_SANITY` is true: log `"Verification inherited from implement: $SANITY_SHA at $SANITY_TIME. Sanity gate skipped."` and skip the rest of Step 2. In the final report (Step 10), replace "Sanity gate: passed" with "Sanity gate: inherited from implement ($SANITY_SHA at $SANITY_TIME)".
-
-If `$SKIP_SANITY` is false: proceed with the existing sanity gate logic below.
-
-Quick test run to catch obvious breakage. This is NOT a full test suite — just a fast smoke test. Prefer a dedicated smoke test script if available (e.g., `npm run test:smoke`, `pytest -m smoke`). Project-specific REVIEW.md can specify the test command.
-
-**Python:**
-```bash
-pytest --tb=line -q --no-header -x 2>&1; TEST_EXIT=$?
-# Show last 5 lines of output for context, then check exit code
-if [ $TEST_EXIT -ne 0 ]; then echo "SANITY_GATE_FAILED"; fi
-```
-
-**Node.js:**
-```bash
-# Check if a test script exists before running
-if node -e "const p=require('./package.json'); if(!p.scripts||!p.scripts.test||p.scripts.test.includes('no test specified')) process.exit(1)" 2>/dev/null; then
-  npm test 2>&1; TEST_EXIT=$?
-else
-  echo "No test script configured — skipping sanity gate"; TEST_EXIT=0
-fi
-if [ $TEST_EXIT -ne 0 ]; then echo "SANITY_GATE_FAILED"; fi
-```
-
-**C# / .NET:**
-```bash
-dotnet test --no-build -v q --nologo 2>&1; TEST_EXIT=$?
-if [ $TEST_EXIT -ne 0 ]; then echo "SANITY_GATE_FAILED"; fi
-```
-
-Check `$TEST_EXIT` (not the pipe exit code). If non-zero: stop immediately. Do NOT spawn agents. Output the "Sanity gate FAILED" block (see Step 10).
-
-If no test framework is detected: warn and proceed. Output "Sanity gate: skipped (no test framework detected)" in the final report instead of "passed."
+Full marker-parse Python, the trust assumption, and the verbatim per-language commands: see `reference.md` § "Step 2 — Sanity Gate (verification-marker + per-language test run)".
 
 ---
 
@@ -453,58 +305,7 @@ Note: `teams_mode` is default-on (Step 5.5) and can also be activated by large d
 
 If an agent fails to return structured output or times out, note that agent as "incomplete" and continue collecting results from the remaining agents. Do not block on a single agent failure.
 
-**If teams_mode=true:**
-
-Instead of 5 independent Agent calls, spawn all 5 as named teammates that communicate via SendMessage:
-1. Spawn each agent using the Agent tool with a descriptive name ('code-reviewer', 'security-auditor', 'test-engineer', 'performance-tuner', 'spec-tracer', 'symbol-verifier') so they can communicate via SendMessage during execution
-2. Each agent receives the same prompt as the independent path (below), PLUS this additional instruction at the top:
-
-   > You are part of a review team. As you find issues, share them with your teammates using SendMessage. When you see a teammate's finding that relates to your domain, note the correlation. If a teammate's finding changes your assessment of something, update your analysis.
-   >
-   > Your teammates: code-reviewer, security-auditor, test-engineer, performance-tuner, spec-tracer, symbol-verifier.
-   > Communicate findings as you go — don't wait until you're done.
-   >
-   > For each finding, include an additional field:
-   > - **Correlated by:** [agent names] (if another teammate flagged a related issue)
-
-3. Each agent prompt still includes: objective, REVIEW.md rules (if loaded), prior findings (if re-review), path to $DIFF_FILE
-4. Agents self-coordinate: if security-auditor finds an auth issue, test-engineer can check coverage for that path
-
-#### Teams dispatch shape — MANDATORY
-
-When `teams_mode=true`, the lead MUST dispatch the base reviewer set as **exactly N `Agent` tool calls in a single assistant turn**, where N is the count of selected reviewer agents (5 for the base panel, +1 if `symbol-verifier` is included). The base agent types are, verbatim:
-
-- `code-reviewer`
-- `security-auditor`
-- `test-engineer`
-- `performance-tuner`
-- `spec-tracer`
-
-Optional additions per Step 6 tier rules: `symbol-verifier` (medium / large tier). When included, it counts toward the bundle and the single-turn rule applies to it too.
-
-**Correct shape (worked example, 5-agent base panel):**
-
-```
-<one assistant turn>
-  Agent(name='code-reviewer',     prompt=…, model=opus)
-  Agent(name='security-auditor',  prompt=…, model=opus)
-  Agent(name='test-engineer',     prompt=…, model=sonnet)
-  Agent(name='performance-tuner', prompt=…, model=sonnet)
-  Agent(name='spec-tracer',       prompt=…, model=haiku)
-</one assistant turn>
-```
-
-All five `Agent` invocations live inside a single assistant message — the harness fans them out concurrently, each in its own context window, each with its own specialist prompt from `agent-prompts.md`. Serial turns or wrapping-as-one are contract violations.
-
-**Contract violations (do NOT do any of these):**
-
-1. **Wrap-as-one-Agent.** Dispatch a SINGLE generic `Agent` (e.g. `Agent(name='F<N> review', prompt='do a 5-perspective review')`) that runs all five perspectives inside one subagent's context. This forfeits parallelism, forfeits per-role specialist prompts, and forfeits inter-agent context isolation. The single subagent runs ~5× the tool calls and produces a flat single-voice review. **This is a contract violation.**
-2. **One-per-turn serial dispatch.** Dispatch `code-reviewer` alone in one assistant turn, then `security-auditor` alone in the next turn, then `test-engineer` alone in the next, and so on. Each individual call IS a real specialist dispatch — but the assistant turns are serial, so the harness runs them sequentially instead of concurrently. Total wall time is ~5× the bundled shape. **This is a contract violation.**
-3. **Fall-back-to-inline.** When dispatch feels expensive, "just run /pipeline-review quickly to wrap up" by invoking the `Skill: pipeline-review` tool inline OR by reading the diff and emitting findings directly. This skips the entire teams-mode contract: no specialist roles, no parallel execution, no Step 6 dispatch shape at all. **This is a contract violation** (see also `claude/skills/pipeline/SKILL.md` § Phase Mode Precedence — direct `Skill: pipeline-review` invocations are forbidden when Phase Mode is `subagent`).
-
-**Background:** F6 of castellum branch `test/taxii-misp-self-hosted-smoke` (2026-05-26, 560-line diff, teams-on per heuristic) exhibited all three violations sequentially in the same lead session: wrap-as-one → one-per-turn → recovery only on second user nudge. This subsection exists to give the lead a pattern-match surface against those specific failures.
-
-**Cross-reference:** the generic parallelism reminder lives in `~/.claude/rules/agents-worktrees.md` § Subagent Defaults. This subsection is the teams-on review-specific instantiation of that rule.
+**If teams_mode=true:** spawn all selected reviewers as named teammates that communicate via SendMessage (each gets a `Correlated by:` field instruction). The lead MUST dispatch the base reviewer set as **exactly N `Agent` tool calls in a single assistant turn** — serial turns or wrapping-as-one are contract violations. The full teams-mode dispatch detail, the MANDATORY single-turn contract, the verbatim agent-type list, the three anti-patterns (**wrap-as-one-Agent**, **one-per-turn serial dispatch**, **fall-back-to-inline**), the correct-shape worked example, and the F6 background: see `agent-prompts.md` § "Teams dispatch shape — worked example and anti-patterns".
 
 **If teams_mode=false (default):**
 
@@ -520,282 +321,78 @@ Load the relevant block when spawning each agent.
 - **Agent 5 -- spec-tracer:** prompt defined in `~/.claude/agents/spec-tracer.md`
 - **Agent 6 -- symbol-verifier:** prompt defined in `~/.claude/agents/symbol-verifier.md` (self-contained, like spec-tracer)
 
-**Default model mapping:** Absent a `REVIEW.md` `review-model:` override (see Step 3a), each reviewer runs on the model declared in its agent-file frontmatter. Deep-reasoning reviewers run on opus; pattern-based reviewers drop to sonnet; spec comparison runs on haiku for cost.
-
-| Agent | Default model | Rationale |
-|-------|--------------|-----------|
-| code-reviewer | opus | Deep reasoning; a single missed issue is expensive |
-| security-auditor | opus | Deep reasoning; security misses have high blast radius |
-| test-engineer | sonnet | Pattern-based gap-finding that sonnet handles well |
-| performance-tuner | sonnet | Pattern-based bottleneck analysis |
-| spec-tracer | haiku | Structured diff-vs-objective comparison; ~20× cheaper |
-| symbol-verifier | opus | Symbol/API resolution requires deep reasoning; false positives are expensive to triage |
-
-When `review-model:` is set in REVIEW.md it applies uniformly to all six agents and bypasses these per-agent defaults (see Step 3a for override semantics).
+**Default model mapping:** absent a `REVIEW.md` `review-model:` override (Step 3a), each reviewer runs on its agent-file default — opus for deep-reasoning roles (code-reviewer, security-auditor, symbol-verifier), sonnet for pattern-based roles (test-engineer, performance-tuner), haiku for spec-tracer. A `review-model:` override applies uniformly to all six. Full per-agent table and rationale: see `agent-prompts.md` § "Default model mapping".
 
 ---
 
 ### Step 6.5: Skill-Compliance Gates
 
-Three pipelinekit-canonical gates that catch skill-overreach, hook-observability holes, and documentation-richness regressions before they merge. Gates fire only when the diff touches the matching file types — no repo-wide scans — and produce findings inside the existing review output schema (Step 7 dedup applies uniformly). Gates are not user-configurable; their thresholds live in `claude/skills/review/check-skill-compliance.sh`.
+Three pipelinekit-canonical gates catch skill-overreach, hook-observability holes, and documentation-richness regressions before they merge. Gates fire only when the diff touches the matching file types — no repo-wide scans — and produce findings inside the existing review output schema (Step 7 dedup applies uniformly). Thresholds are not user-configurable; they live in `claude/skills/review/check-skill-compliance.sh`.
 
-**Gate (a) — Skill-paths-or-allowlist (blocking).** Every `claude/skills/<name>/SKILL.md` in the diff must either declare `paths:` in its YAML frontmatter (scoping the directories where the skill applies) or appear in the 4-entry allowlist at `docs-source/skills-scope-policy.md § Global-by-design allowlist`. Catches skills that silently apply globally.
+| Gate | Severity | Fires on | Pass condition |
+|------|----------|----------|----------------|
+| (a) Skill-paths-or-allowlist | blocking | `claude/skills/<name>/SKILL.md` | declares `paths:` OR in `docs-source/skills-scope-policy.md § Global-by-design allowlist` |
+| (b) Hook denial-tracker | non-blocking | `claude/hooks/*.{sh,py}` (excl `tests/`, `_`-prefixed) | calls `denial_tracker` OR carries `# denial_tracker:no <reason>` |
+| (c) Docs richness | blocking | changed `docs-source/<name>.md` | matching `documentation/<name>.html` passes richness check OR source carries `<!-- richness-exempt: <reason> -->` |
 
-**Gate (b) — Hook denial-tracker (non-blocking).** Every `claude/hooks/*.{sh,py}` in the diff (excluding `tests/` and helper files prefixed with `_`) must either call `denial_tracker` (via `python3 claude/hooks/denial_tracker.py`, matching the pattern in `claude/hooks/block-stage-sensitive.sh`) or carry an opt-out comment `# denial_tracker:no <reason>` near the top of the file. Catches hooks that deny silently without telemetry.
+Per-gate catch-rationale, the `gate-c-missing-render` sub-case, and the finding-block parse shape: see `reference.md` § "Step 6.5 — Skill-Compliance Gates (gate detail)".
 
-**Gate (c) — Docs richness (blocking).** Every changed `docs-source/<name>.md` must have a corresponding rendered `documentation/<name>.html` that passes `python3 claude/skills/docs-writer/richness_check.py <html-path>` (positional invocation). The source may carry `<!-- richness-exempt: <reason> -->` to skip. Missing HTML → blocking "render via docs-writer" finding (`gate-c-missing-render` sub-case). Failing richness → blocking finding with suggested remediation.
-
-**Invocation:** the review subagent runs `bash claude/skills/review/check-skill-compliance.sh` and captures stdout. Each block of `**File:** … **Severity:** … **Issue:** … **Suggestion:** … **Scope:** … **Intent:**` is treated as one finding and merged into the review output schema unchanged.
+**Invocation:** the review subagent runs `bash claude/skills/review/check-skill-compliance.sh` and captures stdout. Each `**File:** … **Severity:** … **Issue:** … **Suggestion:** … **Scope:** … **Intent:**` block is one finding, merged into the review output schema unchanged.
 
 **Exit codes:** 0 = zero findings, 1 = at least one blocking, 2 = non-blocking only. Non-blocking findings flow through Path M when small + mechanical; blocking findings route through Path B.
-
-**Full script:** `claude/skills/review/check-skill-compliance.sh`.
 
 **Smoke test:** `bash claude/skills/review/tests/test_skill_compliance_gates.sh`.
 
 #### Step 6.5.5: Docs Richness Verification (corpus-level)
 
-When `git diff $BASE...HEAD --name-only | grep -qE '^docs-source/.*\.md$|^documentation/.*\.html$'` returns non-empty, additionally invoke:
-
-```bash
-python3 claude/skills/docs-writer/richness_check.py --staged
-```
-
-This runs the richness check across the entire `documentation/*.html` corpus picked up by `--staged` (which reads `git diff --cached --name-only --diff-filter=ACMR` filtered to `documentation/*.html`). Distinct from Gate (c) per-file invocation — `--staged` produces one verdict per touched HTML file in a single subprocess call.
-
-**Exit code semantics:** 0 → all pass, 1 → at least one failure. Non-zero exit produces a blocking review finding.
+When the diff touches `docs-source/*.md` or `documentation/*.html`, additionally run `python3 claude/skills/docs-writer/richness_check.py --staged` (corpus-level — one verdict per touched HTML file, distinct from Gate (c)'s per-file invocation). Non-zero exit produces a blocking review finding. Full invocation guard and exit-code semantics: see `reference.md` § "Step 6.5.5 — Docs Richness Verification (corpus-level)".
 
 ---
 
 ### Step 7: Collect and Deduplicate Results
 
-1. Wait for all spawned agents to complete (2 for small tier, 5 for medium/large tier). Note any that failed/timed out as "incomplete".
-2. **Check agent completion:** If ALL spawned agents failed or timed out: **STOP** with "Review BLOCKED — all agents failed. Re-run /review." If some but not all agents failed: proceed with remaining results but include a warning: "WARNING: [N] agent(s) incomplete ([names]). Results may be partial."
-3. Merge all findings into a single list
-4. Deduplicate: if two agents flag the same file:line, keep the higher severity and combine descriptions
-4.5. **Hallucination prose-guard:** for each finding with `category: hallucination` AND `severity: blocking`, Read the cited file at the cited line. If the line is inside a comment (`#`, `//`, `/* */`), docstring (`"""`, `'''`), or markdown prose block, downgrade severity to `non-blocking` and append the note "downgraded by category-hallucination prose guard (cited line is comment/docstring/prose)". One Read per blocking-hallucination finding — cheap, protects against future prompt drift.
-5. Sort: blocking first, then non-blocking, then nit
-6. Count totals by severity
-6.4. For findings requiring multi-step severity/correctness reasoning (e.g. a borderline blocking-vs-non-blocking call, or a correctness claim that hinges on a chain of preconditions), call `mcp__sequential-thinking__sequentialthinking` to structure the reasoning before finalizing the severity. Skip silently when sequential-thinking is unavailable.
-6.5. **Cross-feature intel collection:**
-   a. Scan each agent's output for "**Cross-Feature Intel:**" sections.
-   b. For each intel note found, construct a JSON entry:
-      ```json
-      {
-        "from_feature": "[current feature name — read from docs/pipeline-state.md **Name:** field, or from plan objective if not in pipeline mode]",
-        "target_feature": "[from agent's Target: field]",
-        "target_keywords": ["from agent's Keywords: field, split by comma and trimmed"],
-        "severity": "[from agent's Severity: field]",
-        "note": "[from agent's Note: field]",
-        "discovered_at": "[current ISO 8601 timestamp]",
-        "discovered_by": "[agent name, e.g., security-auditor]",
-        "consumed_by": null,
-        "consumed_at": null
-      }
-      ```
-   c. Read `docs/pipeline-intel.json` (create as empty array `[]` if file does not exist).
-   d. Append new entries to the array and write back to `docs/pipeline-intel.json`.
-   e. Log: "Cross-feature intel: [N] notes captured for [comma-separated target features/keywords]"
-   f. If no intel notes found in any agent output: skip silently (no log, no file write).
-7. If teams_mode was true:
-   - Agents may have already self-deduplicated via communication. Still run dedup (step 4 above) as a safety net.
-   - Preserve "Correlated by:" fields — these show cross-agent insights that independent review would miss.
-   - In the summary, note: "Review mode: Agent Teams (collaborative)"
-8. Clean up the temp diff file: `rm -f "$DIFF_FILE"`
-9. If `teams_auto_set` is true and `teams_was_set` was not '1': unset `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`.
+Merge, dedupe, and finalize findings from all spawned agents:
+
+1. **Completion check** — if ALL agents failed/timed out: **STOP** with "Review BLOCKED — all agents failed." If some failed: warn and proceed with partial results.
+2. **Merge + dedupe** same file:line (keep higher severity, combine descriptions); apply the hallucination prose-guard (downgrade blocking `category: hallucination` findings whose cited line is comment/docstring/prose); sort blocking → non-blocking → nit and count by severity. Use `mcp__sequential-thinking` for borderline severity/correctness calls (skip silently if unavailable).
+3. **Cross-feature intel** — scan agent output for `**Cross-Feature Intel:**` notes and append JSON entries to `docs/pipeline-intel.json` (skip silently if none).
+4. **Cleanup** — `rm -f "$DIFF_FILE"`; if `teams_auto_set` and `teams_was_set` was not `1`, unset `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`. Teams mode preserves `Correlated by:` fields and notes "Review mode: Agent Teams (collaborative)".
+
+Full ordered procedure including the intel JSON shape: see `reference.md` § "Step 7 — Collect and Deduplicate Results (full procedure)".
 
 ---
 
 ### Step 7.5: Auto-Fix Detection
 
-After collecting and deduplicating findings (Step 7):
+Nit auto-fix always runs when `severity: nit` findings are present (no flag). If none exist, skip to Step 8.
 
-1. Separate findings by severity: blocking, non-blocking, nit
-2. If no nit findings exist: skip this step entirely, proceed to Step 8.
-3. If nit findings exist (regardless of other severities):
-   a. Only apply fixes to files referenced by nit findings. If `--scope` is set or `auto_scope_files` is active, additionally verify each nit's file falls within that scope before applying.
-   b. Before applying fixes, record the existing tracked files:
-      ```bash
-      EXISTING_FILES=$(git ls-files)
-      ```
-   c. Apply nit fixes inline using the Edit tool. Only apply to findings explicitly tagged `severity: nit` — never auto-fix non-blocking or blocking.
-   d. Re-run the sanity gate (Step 2) after all nit fixes
-   e. If sanity gate passes:
-      1. Stage the fixed files by name (not `git add -A`). **Never stage** protected files — see canonical list in `~/.claude/rules/workflow.md` § "Never stage". The `block-stage-sensitive.sh` hook enforces this automatically.
-      2. Commit: `git commit -m "fix: minor code quality improvements"`
-      3. If pre-commit hook fails: fix the issue and retry (max 2 retries). If still failing: revert nit fixes (step 3.f below) and keep nits in findings.
-      4. Remove auto-fixed nit findings from the findings list
-   f. If sanity gate fails: revert nit fixes:
-      1. `git checkout HEAD -- <files>` for each modified file
-      2. Remove any files that were created during the fix but not in $EXISTING_FILES:
-         ```bash
-         for f in $(git ls-files --others --exclude-standard); do
-           echo "$EXISTING_FILES" | grep -qxF "$f" || git clean -f -- "$f"
-         done
-         ```
-      3. Keep nit findings in the findings list
-4. If zero findings remain after auto-fix (all were nits, all fixed): continue to Step 8 which handles the auto-fix-only path.
-5. Otherwise: continue to Step 8 (save review findings) with remaining findings.
+When nits exist: record `EXISTING_FILES=$(git ls-files)`, apply nit fixes inline (Edit tool, nit-tagged only, scope-checked), then re-run the Step 2 sanity gate. If it passes — stage by name (never `git add -A`, never protected files), commit `fix: minor code quality improvements`, drop the fixed nits from the findings list. If it fails — `git checkout HEAD -- <files>`, `git clean` any new untracked files, and keep the nits in findings. Proceed to Step 8 with whatever findings remain.
 
-No flag needed — nit auto-fix always runs when nits are present.
+Full procedure with the revert/clean bash and pre-commit retry logic: see `reference.md` § "Step 7.5 — Auto-Fix Detection (full procedure)".
 
 ---
 
 ### Step 7.6: Path M / Defer Enforcement Contract
 
-Before Step 8 writes the review file, the reviewer MUST honor three contracts that close the F21 root-cause failure mode: Path M cherry-pick + prose `Defer.` remainder + silent non-blocking acceptance leaking findings between phases.
+Before Step 8 writes the review file, the reviewer MUST honor three contracts (F21 root cause: Path M cherry-pick + prose `Defer.` remainder + silent non-blocking acceptance leaking findings between phases):
 
-**Contract 1 — Path M is ALL findings or NONE.**
+- **Contract 1 — Path M is ALL findings or NONE.** Path M is a batch gate over all non-blocking + nit findings. Partial application (fix N, defer M-N in prose) is FORBIDDEN. If `>= 1` finding disqualifies any per-finding gate (`lines_changed > 5`, `files_changed > 1`, `total_finding_count > 3`, `total_lines_across_findings > 8`, non-mechanical `Suggestion:`, or any blocker present), the ENTIRE batch routes to **Path B**.
+- **Contract 2 — Defer requires a state transition.** A legitimately Defer-class finding MUST get exactly ONE of: (1) `docs/progress.md` `## Deferred` table row (default when unsure), (2) new H2 feature block in the active feature file, (3) task reopen in `progress.md`. Prose `Defer.` with no state transition is a violation.
+- **Contract 3 — Silent non-blocking acceptance is FORBIDDEN.** Every non-blocking finding exits review via Path M inline (Contract 1), Path B reopened-task (Step 9), or a Contract-2 Defer transition — never left only in the review-file body.
 
-Path M (per `~/.claude/rules/workflow.md` § "Path M gate examples") is a batch gate. When Path M qualifies, it applies to ALL non-blocking + nit findings in the batch — or to NONE. Partial Path M (apply the N qualifying findings inline + defer the M-N remainder in prose) is FORBIDDEN. When `>= 1` finding disqualifies any Path M per-finding gate (`lines_changed > 5`, `files_changed > 1`, `total_finding_count > 3`, `total_lines_across_findings > 8`, non-mechanical `Suggestion:`, or any blocker present), the ENTIRE batch routes to Path B for re-implement subagent dispatch.
+The contract applies uniformly to Path N, Path M, the F19 teams-on dispatch shape, and the F20 `pipeline-review` slug. Every reviewer subagent reads this before Step 8.
 
-Symptom of violation: review file shows N findings, commit applies fixes to a subset K < N, remaining N-K findings carry `Defer.` / `Out of scope.` / `bundle with ...` prose annotations with no state transition out of the review file. This is the failure pattern documented in castellum F6 review-v40.md (2026-05-26, F21 root cause). The pipeline accepted the Path M outcome, advanced to `/ppr`, and merged a PR while 16 findings (10 non-blocking + 6 nits) lived only in the review file body — invisible to `/pipeline --renew`, `/create-plan` Deferred consumption, and `progress.md` readers.
-
-**Contract 2 — Defer requires a state transition.**
-
-When a finding is legitimately Defer-class (truly out-of-scope, future iteration, multi-line documentation polish bundling with a follow-up PR), the reviewer MUST perform exactly ONE of the following three state transitions per deferred finding. Prose `Defer.` without a state transition is a contract violation.
-
-The three legitimate Defer destinations:
-
-1. **`docs/progress.md` `## Deferred` table row** — append a row of the shape `| <finding-id-or-short-name> | review-vN.md | <reason> | <target-iteration> |` to the active `progress.md`'s `## Deferred` table. Create the table if absent. This is the cheapest and most visible destination — default to it when unsure.
-2. **New feature block in the active feature file** — append a new H2 feature block (matching the existing feature-file schema) to the in-flight feature file (the one driving the current pipeline run; see `~/.claude/memory/feedback-pipeline-feature-add-to-running-file.md` when present). Suitable when the deferred work is non-trivial and merits its own future feature.
-3. **Task reopen in `progress.md`** — set the closest matching task back to `todo` with note `reopened: review-vN` and add the finding's remediation guidance to the task's prompt body in the prompts file (the standard Step 9 task-reopen flow). Suitable when the deferred work belongs to an existing task that simply needs a follow-up touch.
-
-**Contract 3 — Silent non-blocking acceptance is FORBIDDEN.**
-
-A non-blocking finding that exits review without ONE of: (a) Path M inline-applied (under Contract 1's all-or-none rule), (b) Path B reopened-task (Step 9 standard flow), (c) Defer state transition per Contract 2 above, is dropped silently between phases. This is a contract violation. The reviewer MUST route every non-blocking finding through one of the three actionable surfaces before exiting Step 8. If unsure, default to Defer destination 1 (`progress.md` `## Deferred` row) — the table is cheap and visible to `/pipeline --renew` / `/create-plan` consumption.
-
-The same contract applies uniformly to inline Path N (Edit-tool nit), Path M (Edit-tool mini-fix), the F19 teams-on dispatch shape, and the F20 `pipeline-review` slug. Every reviewer subagent reads this section before Step 8.
+Full contract bodies, the F21 violation symptom, and the three Defer destinations in detail: see `reference.md` § "Step 7.6 — Path M / Defer Enforcement Contract (full body)".
 
 ---
 
 ### Step 7.8: Charter Scope Classification (if charter present)
 
-This classifier runs after Step 7.5 (Auto-Fix Detection) and before Step 8 (Save Review Findings). The call is strictly post-aggregation: it consumes the merged, deduped, auto-fix-finalized findings list and decorates each entry with a `scope_tag`. The 5-agent panel composition (Step 6) is untouched — no agent prompts, agent count, or agent communication semantics change.
+Runs after Step 7.5 (Auto-Fix Detection), before Step 8 (Save Review Findings). Strictly post-aggregation: consumes the merged, deduped, auto-fix-finalized findings list and decorates each entry with a `scope_tag` (advisory — `severity` stays the blocking/non-blocking gate). The 5-agent panel composition (Step 6) is untouched. `out_of_scope` findings are auto-appended to `docs/progress.md` § Deferred and dropped before Step 9; `adjacent` findings surface as advisory only; a scope conflict (`CHARTER_SCOPE_CONFLICT`) routes to Path B.
 
-**Pre-heredoc shim — initialize shell variables:**
+The pre-heredoc shim (`FINDINGS_JSON=`, `REVIEW_FILE_NAME=`), the `charter_classifier` Python heredoc (`classifier_should_skip`, `classify_findings(..., two_axis=True)`, `CHARTER_ABSENT_CLASSIFIER_SKIPPED` skip-log, the `Charter scope adjacent` Summary line), and the full constraint surface: see `reference.md` § "Step 7.8 — Charter Scope Classification (full body)".
 
-Before running the Python classifier, create a temp file for the findings JSON and pre-compute the next review filename using the Versioning Convention from `~/.claude/rules/workflow.md`. Both variables must be set before the heredoc fires; without them `sys.argv[1]`/`sys.argv[2]` are empty strings and the `open()` calls inside the script crash.
-
-```bash
-# Create a temp file for the findings JSON.
-FINDINGS_JSON=$(mktemp --suffix=.json)
-# Write the in-memory findings list (built in Step 7) directly to $FINDINGS_JSON
-# as a JSON array. No shell-variable indirection is required — the executor
-# writes the file directly from the in-memory list.
-
-# Pre-compute the next review filename per the Versioning Convention.
-# Find the highest existing review-vN.md in docs/ and increment by 1.
-_REVIEW_N=$(ls docs/review-v*.md 2>/dev/null | grep -oE '[0-9]+' | sort -n | tail -1 || echo 0)
-REVIEW_FILE_NAME="review-v$((_REVIEW_N + 1)).md"
-```
-
-Then invoke the classifier:
-
-```bash
-python3 - "$FINDINGS_JSON" "$REVIEW_FILE_NAME" <<'PYEOF'
-import json, sys
-from claude.lib.pipeline import charter_classifier
-
-skip, log = charter_classifier.classifier_should_skip()
-if skip:
-    print(log, file=sys.stderr)
-    sys.exit(0)
-
-with open(sys.argv[1]) as f:
-    findings = json.load(f)
-with open("docs/charter.md") as f:
-    charter_text = f.read()
-
-try:
-    decorated = charter_classifier.classify_findings(findings, charter_text, two_axis=True)
-except charter_classifier.CharterScopeConflictError as exc:
-    print(str(exc), file=sys.stderr)
-    sys.exit(2)  # orchestrator routes exit code 2 → Path B re-spawn
-
-charter_classifier.append_out_of_scope_to_deferred(
-    "docs/progress.md", decorated, sys.argv[2]
-)
-
-# Drop out-of-scope findings from the in-memory list so Step 9 does
-# not reopen tasks for them (analysis-v25 § 8). They remain in
-# review-vN.md for the audit trail.
-surviving = [f for f in decorated if f.get("scope") != "out"]
-
-# Surface adjacent count in the Summary block of the review file.
-adjacent_count = sum(1 for f in decorated if f.get("scope") == "adjacent")
-if adjacent_count:
-    print(f"ADJACENT_COUNT={adjacent_count}", file=sys.stderr)
-
-with open(sys.argv[1], "w") as f:
-    json.dump(surviving, f)
-PYEOF
-
-# Read the surviving findings list back from the file (Step 8 uses it).
-# The executor reads $FINDINGS_JSON to get the decorated, filtered findings.
-rm -f "$FINDINGS_JSON"
-```
-
-**Constraint surface:**
-
-- The classifier is **advisory** — the existing `severity` column on review-vN.md remains the gate for blocking/non-blocking. `scope` and `intent` are decoration alongside severity, not a replacement for it.
-- `scope_creep` raises a flag, never blocks. The review file's `## Summary` section gains a line: `Charter scope-creep flag: <N> finding(s) — consider /pipeline --renew or charter amendment`. The orchestrator (`/pipeline`) is the consumer; this step does not auto-edit the charter or auto-replan.
-- `out_of_scope` (new: `scope == "out"`) findings are auto-appended to `docs/progress.md` § Deferred via `append_out_of_scope_to_deferred` and dropped from the in-memory findings list before Step 9 runs, so Step 9 never reopens tasks for them. They are still written to `review-vN.md` for the audit trail.
-- `adjacent` findings (`scope == "adjacent"`) surface as advisory only. When `adjacent_count > 0`, the review file `## Summary` gains: `Charter scope adjacent: <N> finding(s) — advisory only`. Adjacent findings are NEITHER deferred NOR routed through Path B.
-- When `classifier_should_skip` trips (no progress.md, no `**Charter:**` line, pointer literal `(none)`, or pointer references a missing file), the canonical log line `CHARTER_ABSENT_CLASSIFIER_SKIPPED: <reason>` is printed to stderr, the review file is written with its current charter-unaware schema, and `progress.md` § Deferred is not touched.
-- When reviewer-emitted `scope=in` contradicts the token-overlap classifier (`out_of_scope` or `scope_creep`), `CharterScopeConflictError` is raised and the canonical token `CHARTER_SCOPE_CONFLICT: finding "<snippet>" tagged scope=in by reviewer but classifier returns <tag>` is printed to stderr. Review-file write is skipped; orchestrator routes exit code 2 to Path B re-spawn.
-
-#### Two-axis classification heuristic
-
-Each finding carries TWO independent tags:
-
-- **scope** ∈ `{in, out, adjacent}` — relationship to charter Goal / MVP Boundary / Non-Goals.
-- **intent** ∈ `{correctness, polish, design, unrelated}` — the *kind* of issue (independent of severity).
-
-Severity (blocking / non-blocking / nit) remains the routing gate. `scope` + `intent` are decoration; they do NOT determine Path A/B/M/N selection.
-
-Worked examples:
-
-1. **correctness in-scope** — `{scope: in, intent: correctness}`: off-by-one in the async runtime hardening logic the feature ships. Severity `blocking`. Auto-reopens task via Step 9.
-2. **polish adjacent** — `{scope: adjacent, intent: polish}`: a naming consistency tweak near the new module but in a sibling file. Surfaced as Run Log advisory; not deferred, not routed through Path B.
-3. **design out** — `{scope: out, intent: design}`: a suggestion to introduce a new DB adapter (charter Non-Goal). Auto-deferred with Reason `out-of-scope of charter (review-vN) (intent: design)`.
-4. **unrelated out** — `{scope: out, intent: unrelated}`: a typo fix in an untouched documentation file. Auto-deferred with Reason `out-of-scope of charter (review-vN)` (no intent suffix when intent=unrelated).
-
-If reviewer emits `scope=in` but the token-overlap classifier returns `out_of_scope` or `scope_creep`, `CHARTER_SCOPE_CONFLICT` is raised and the review-file write is skipped — the orchestrator routes to Path B for re-review.
-
-#### Deployment-target mismatch (Topic 10)
-
-When charter Topic 10 declares a concrete deployment target (one of
-`vercel`, `railway`, `render`, `digitalocean`, `azure`, `aws`, `gcp`),
-the classifier additionally demotes findings that name a *different*
-provider to `scope: "out"`. A `deployment_target` value of `none` (or
-a missing section) skips this dimension — generic findings are NOT
-demoted.
-
-Provider-token lookup table (matches `DEPLOYMENT_PROVIDER_TOKENS` in
-`claude/lib/pipeline/charter_classifier.py`):
-
-| Provider | Token phrases | Example mismatch finding |
-|----------|---------------|--------------------------|
-| `vercel` | `vercel`, `vercel.json`, `edge function(s)`, `vercel deploy`, `vercel cli` | "Vercel cold-start latency exceeds 800ms" |
-| `railway` | `railway`, `railway.toml`, `railway up`, `railway cli` | "Railway healthcheck flaps under load" |
-| `render` | `render`, `render.yaml`, `render service` | "Render service restart loop on OOM" |
-| `digitalocean` | `digitalocean`, `digital ocean`, `doctl`, `.do/app.yaml`, `do droplet` | "DigitalOcean droplet provisioning timeout" |
-| `azure` | `azure`, `azure functions`, `azure app service`, `az cli`, `bicep`, `arm template` | "Azure functions cold-start latency spike" |
-| `aws` | `aws lambda`, `aws s3`, `aws cloudformation`, `aws sam`, `aws iam`, `aws cdk`, `amazon s3`, `amazon ec2` | "AWS Lambda timeout exceeds 15 min cap" |
-| `gcp` | `gcp`, `google cloud`, `cloud run`, `cloud functions`, `gcloud`, `firebase hosting` | "Cloud Run revision rollback fails" |
-
-Worked example: charter Topic 10 = `vercel`. Reviewer emits a finding
-`"Azure functions cold-start latency spike"`. The classifier checks
-the token set against `DEPLOYMENT_PROVIDER_TOKENS["azure"]`, matches
-on `azure functions`, observes the charter provider is `vercel`
-(different), and tags the finding `scope: "out"`. The Deferred append
-then records it with Reason `out-of-scope of charter (review-vN)`.
-
-Conflict path: if the reviewer pre-emits `scope: "in"` on the same
-Azure-named finding under a Vercel charter, the classifier raises
-`CharterScopeConflictError` and the orchestrator routes to Path B
-re-review (identical to the existing scope-conflict path).
+The two-axis classification heuristic (scope × intent) and the deployment-target mismatch dimension (Topic 10): see `reference.md` § "Step 7.8 — Two-axis classification worked examples" and § "Step 7.8 — Deployment-target mismatch (Topic 10)".
 
 ---
 
@@ -835,17 +432,7 @@ For findings that do NOT require scope changes (can be fixed within existing tas
 
 1. Identify which task each finding belongs to by matching the files touched to the plan's task `Files:` lists
 2. Set that task back to `todo` in `docs/progress.md` with note `reopened: review-vN`
-3. **Generate a Review Tests section** for each reopened task and append it to the task's prompt in the prompts file (from the `**Prompts:**` pointer in progress.md):
-   - test-engineer findings: use the finding's **Suggestion:** directly as the test spec (it already describes what test to write)
-   - code-reviewer findings (logic errors, correctness): derive a test that would catch the reported issue — specify test name, file, and key assertion
-   - security-auditor findings: derive a test that exercises the vulnerable path and asserts secure behavior (e.g., `test_rejects_sql_injection_in_username`)
-   - performance-tuner findings: derive a benchmark or assertion if measurable (e.g., `test_batch_query_executes_single_db_call`), otherwise note "N/A — not unit-testable"
-   - Nit-level findings (style, naming, formatting): note "N/A — no testable behavior"
-
-   Format appended to the existing task prompt:
-   ```
-   **Review Tests:** [test file]: [test_name_1] — [assertion], [test_name_2] — [assertion]
-   ```
+3. **Generate a Review Tests section** for each reopened task and append it to the task's prompt in the prompts file (from the `**Prompts:**` pointer in progress.md). The per-agent derivation rules (test-engineer / code-reviewer / security-auditor / performance-tuner / nit) and the `**Review Tests:**` append format: see `reference.md` § "Step 9 — Review-Tests derivation (per-agent rules)".
 
 4. If a finding doesn't map to any existing task, create a new micro-task entry:
    - Task ID: next available ID in the current phase
@@ -895,35 +482,4 @@ When the project's `docs/charter.md` declares `project_type: web` (Charter Topic
 
 **Categorisation:** findings from this agent use the web/UI categories from the Issue Taxonomy section above (Visual/UI, Functional, UX, Content, Performance, Console/Errors, Accessibility).
 
-### The seven dimensions (rate 0–10 each)
-
-| # | Dimension | What "10" looks like |
-|---|-----------|---------------------|
-| 1 | **Information architecture** | Page/screen defines what user sees first / second / third. Navigation flow is explicit. "If you can only show 3 things, which 3?" answered. |
-| 2 | **Interaction state coverage** | Every UI feature specifies loading, empty, error, success, partial. Empty states have warmth, primary action, context — they're features, not blanks. |
-| 3 | **User journey & emotional arc** | Storyboard exists: STEP / USER DOES / USER FEELS / SUPPORTED-BY columns. 5-sec visceral, 5-min behavioral, 5-year reflective horizons addressed. |
-| 4 | **Visual specificity** | UI descriptions are specific to *this* product, not generic "cards with icons" or "clean modern UI". No AI-slop patterns: no purple-blue gradients, no symmetric 3-column icon-circle grids, no centered-everything, no decorative blobs, no icons-in-colored-circles, no system-ui as primary display font. |
-| 5 | **Accessibility** | Keyboard nav patterns explicit, ARIA landmarks named, touch targets ≥ 44px, body text ≥ 16px with contrast ≥ 4.5:1, visited/unvisited link distinction preserved. |
-| 6 | **Design-system alignment** | If a `DESIGN.md` exists, every new component cites tokens/components from it. New components flagged when they expand the vocabulary. If no DESIGN.md, the gap is flagged as a separate finding. |
-| 7 | **Spacing & rhythm** | Section-to-section rhythm intentional, not the cookie-cutter hero → 3 features → testimonials → pricing → CTA at uniform heights. Heading proximity correct (heading visually closer to its section than to the preceding one). |
-
-### Output format (per dimension)
-
-```
-**Dimension N — [name]: <score>/10**
-- What's missing: [concrete gap]
-- What 10 would look like: [specific change]
-- Severity if shipped as-is: [critical|high|medium|low]
-- Category: [from web/UI taxonomy above]
-```
-
-### Hard rejection patterns (instant-fail — flag any of these as `critical`)
-
-1. Generic SaaS card grid as the first impression
-2. Strong headline with no clear action / CTA
-3. Beautiful image with weak brand presence
-4. Carousel with no narrative purpose
-5. App UI built from stacked decorative cards instead of a layout
-6. Placeholder-as-label form pattern (label disappears once user types)
-
-> Source: adapted from gstack `plan-design-review/SKILL.md` Pass 1–7 + design hard rules. Distilled to seven dimensions per the "More to Steal" framework.
+The seven scored dimensions (rate 0–10 each), the per-dimension output format, and the six instant-fail hard-rejection patterns: see `reference.md` § "Web/UI review (charter-gated)".

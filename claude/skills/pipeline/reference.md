@@ -1782,4 +1782,951 @@ The orchestrator surfaces halt-class state transitions to the user via native Cl
 
 **Opt-out:** `PIPELINE_NO_NOTIFICATIONS=1` env var short-circuits the helper at script start (no emit, exit 0). `channelsEnabled: false` in `~/.claude/settings.json` disables inbound Channels delivery (Claude Code 2.1.121+).
 
+---
 
+### UAT No-overlap boundary (HARD requirement)
+
+> UAT RENDERS and CLICKS real user journeys (RBAC role flows + all buttons) in a headless browser via `claude/skills/playwright/scripts/playwright_controller.py` (reused in-process). It does NOT: re-run unit/integration suites (the implement-plan test-run inner loop, Step 2e.5, does that); statically analyse coverage (the review `test-engineer` agent does that, without executing); critique UI from diff text (the review web/UI design agent does that); or curl/health-probe endpoints (the production-probe + Post-Merge Verification Gate do that). UAT is the ONLY layer that renders + clicks a real browser journey.
+
+| Existing layer | Home | UAT does NOT duplicate because |
+|----------------|------|-------------------------------|
+| implement-plan test-run inner loop (Step 2e.5) | `implement-plan/SKILL.md`; gated by `--no-test-loop` | UAT does not re-run unit/integration suites — it drives the rendered UI |
+| review `test-engineer` agent | `claude/agents/test-engineer.md` | UAT executes journeys; test-engineer statically analyses coverage |
+| review web/UI design-pass agent | `claude/skills/review/SKILL.md` (charter-gated) | UAT verifies behaviour by clicking; the web/UI agent critiques from diff text |
+| production-probe + Post-Merge Verification Gate | `reference.md` probe spec; Post-Merge Verification Gate (H3 above) | UAT drives full journeys; the probe/gate health-probe endpoints |
+
+---
+
+### Path B Convergence: WTF-Likelihood Self-Regulation
+
+The 5-cycle hard cap is the outer bound. A softer **WTF-likelihood** heuristic fires earlier when the fix loop shows symptoms of running off the rails. Compute it after every Path B re-implement (i.e., before each re-review):
+
+```
+WTF-LIKELIHOOD:
+  Start at 0%
+  Each git revert during this feature:        +15%
+  Each fix-commit touching > 3 files:          +5%
+  Each fix-commit touching files outside the
+    review-finding's stated paths:            +20%
+  After cycle 3:                               +10% per additional cycle
+  All remaining findings classified as `low`
+    severity per the Issue Taxonomy:          +10%
+```
+
+**If WTF > 20%:** halt Path B immediately, regardless of remaining cycles. Promote the feature to **Path C** (re-plan) — the symptom set says the plan, not the implementation, is wrong. Append to the feature's `### Run Log` section:
+
+```
+**WTF-Halt [YYYY-MM-DD HH:MM]:** Cycle [N] | WTF=[X]% | Reverts=[R] | Multi-file fixes=[M] | Out-of-scope touches=[O] | Promoting to Path C
+```
+
+**Carve-outs:**
+- Cycles 1 and 2 always run regardless of WTF (insufficient signal).
+- Pure test-only commits (touching only `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`) don't count toward the multi-file or out-of-scope tallies — adding test coverage often touches many files legitimately.
+- The 5-cycle hard cap still applies as an absolute upper bound.
+
+> Source: adapted from gstack `qa/SKILL.md.tmpl` § 8f Self-Regulation. The original applies to per-bug fix loops; we apply it to per-feature review-cycle loops because Path B is structurally the same self-correcting fix loop.
+
+---
+
+## Project Startup — commit-msg hook template
+
+When scaffolding a new project, add a `.githooks/commit-msg` template as a second line of defence for editor-driven commits -- cases the user-global `~/.claude/hooks/validate-commit-msg.sh` PreToolUse hook cannot intercept (IDE commits, CLI git outside Claude). Activate it immediately after scaffold:
+
+```bash
+mkdir -p .githooks
+# write the template below to .githooks/commit-msg
+chmod +x .githooks/commit-msg
+git config core.hooksPath .githooks
+```
+
+The template script re-implements the same rule set as `~/.claude/hooks/validate-commit-msg.sh`. Both must stay in sync -- if you update one, update the other.
+
+```bash
+#!/bin/bash
+# .githooks/commit-msg -- conventional-commit + AI-token validator for editor-path commits.
+# Mirrors the rule set in ~/.claude/hooks/validate-commit-msg.sh.
+# Activated via: git config core.hooksPath .githooks
+
+MSG_FILE="$1"
+MSG=$(cat "$MSG_FILE")
+SUBJECT=$(printf '%s' "$MSG" | head -1)
+
+# Worktree carve-out: allow wip commits inside /.claude/worktrees/ paths
+TOPLEVEL=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
+if echo "$MSG" | grep -qE '\bwip\b'; then
+  if echo "$TOPLEVEL" | grep -q '/.claude/worktrees/'; then
+    # Inside worktree: wip allowed; skip conventional check but still ban other tokens + emoji
+    SKIP_CONVENTIONAL=1
+  else
+    echo "error: forbidden-token: 'wip:' is only allowed inside /.claude/worktrees/ paths" >&2
+    exit 1
+  fi
+else
+  SKIP_CONVENTIONAL=0
+fi
+
+# 1. Conventional commit regex
+if [ "$SKIP_CONVENTIONAL" -eq 0 ]; then
+  CONVENTIONAL_REGEX='^(feat|fix|refactor|docs|test|chore|perf|style|build|ci)(\([^)]+\))?: [a-z].{1,99}$'
+  if ! echo "$SUBJECT" | grep -qE "$CONVENTIONAL_REGEX"; then
+    echo "error: conventional-commit: subject '$SUBJECT' does not match required format" >&2
+    exit 1
+  fi
+fi
+
+# 2. Forbidden tokens (excluding wip, handled above)
+FORBIDDEN_PATTERN='(\bstream [A-E]\b|review-v[0-9]+|apply review|[0-9]+ findings|\bparallel\s+streams\b|merge: stream|across [0-9]+ streams)'
+if echo "$MSG" | grep -qE "$FORBIDDEN_PATTERN"; then
+  TOKEN=$(echo "$MSG" | grep -oE "$FORBIDDEN_PATTERN" | head -1)
+  echo "error: forbidden-token: '$TOKEN' -- see ~/.claude/rules/agents-worktrees.md" >&2
+  exit 1
+fi
+
+# 3. Emoji ban (unicode codepoint ranges)
+EMOJI_RESULT=$(python3 -c "
+import sys
+msg = sys.stdin.read()
+RANGES = [
+    (0x1F300, 0x1FAFF), (0x2600, 0x27BF), (0x1F000, 0x1F02F),
+    (0x1F0A0, 0x1F0FF), (0x1F100, 0x1F1FF), (0xFE0F, 0xFE0F),
+]
+for ch in msg:
+    cp = ord(ch)
+    for lo, hi in RANGES:
+        if lo <= cp <= hi:
+            print(f'EMOJI:{hex(cp)}:{ch}')
+            sys.exit(0)
+print('OK')
+" <<< "$MSG" 2>/dev/null)
+
+if [ "${EMOJI_RESULT:0:5}" = "EMOJI" ]; then
+  echo "error: emoji-ban: message contains emoji/pictographic character -- use plain ASCII text" >&2
+  exit 1
+fi
+
+exit 0
+```
+
+This template mirrors `~/.claude/hooks/validate-commit-msg.sh` and both rule sets must be kept in sync.
+
+---
+
+## Run-End Summary
+
+At pipeline exit, append a `=== PIPELINE SUMMARY ===` block to stderr after Step 6's final summary. Tallies are in-memory; do not parse log files.
+
+```
+=== PIPELINE SUMMARY ===
+Total:           <N>
+Succeeded:       <N>
+Failed:          <N>
+Already-shipped: <N>
+Succeeded features:
+  - <name> ...
+Failed features:
+  - <name> ...
+Elapsed: <N>s
+Total USD: $<N>
+Phase-mode: inline=<N> subagent=<N>
+=== END PIPELINE SUMMARY ===
+```
+
+- **Tallies** — from in-memory `succeeded_list`, `failed_list`, `already_shipped_list`.
+- **Elapsed** — from the `**Started:**` field in `docs/pipeline-state.md` (ISO timestamp).
+- **Total USD** — via `cost_log.py report` (all features, cross-run total).
+- **Phase-mode** — from in-memory counters per phase.
+
+---
+
+### Step 5.7 Path-detection row rationale
+
+The path-detection table (SKILL.md Step 5.7) checks conditions in order, first match wins. The rationale for the non-obvious rows:
+
+**Row 0 rationale (critical):** without this guard the pipeline silently skips features that produced no code. The old table matched row 1 first — "0 blocking + 0 non-blocking findings" is trivially true for an empty-diff review because there's no code to find issues in, so the feature routed to Path A (pass) even though nothing was implemented. Symptom: Run Log shows "Completed SUCCESS (NO_CHANGES)" or similar and the feature branch has zero commits ahead of `$BASE`. Every green-phase-no-commit / template-parser-drift upstream ends up here, so this row is the load-bearing catch-all.
+
+**Row 1.5 rationale (nit-only inline carve-out):** `/pipeline-review` Step 7.5 already auto-fixes nits inline before writing the review file — so most of the time, surviving nits = 0 and Row 1 fires. When `/pipeline-review`'s auto-fix path failed (sanity-gate revert, file outside scope, etc.), nits remain in the review file. These nits should be addressed before merging (the user explicitly does NOT want to ship surviving cosmetic issues), but they don't justify a full subagent re-implement. Path N runs an inline nit-fix pass (the only legitimate inline path in the pipeline) and re-routes through Step 5.7 — typically falling into Path A if nits clear successfully.
+
+**Row 1.7 rationale (mini-fix inline carve-out — strict superset of Path N):** Path N (Row 1.5) handles pure-nit-only review files. Path M extends Path N to small non-blocking findings — same Edit-tool-mechanical contract, conservative gate predicate (encoded in Row 1.7), capped at 2 inline cycles via a separate `**Inline cycles:**` counter (Path N's `**Nit cycles:**` is preserved as an independent 2-cycle budget). Path M fires only when at least one finding is `severity: non-blocking`; pure-nit-only review files continue to route to Path N first. On gate-fail or cycle overflow (`Inline cycles > 2`), escalates to Path B step 6 (re-review only). On sanity-gate failure post-Edit, snapshot-revert and escalate to Path B step 5. See § "Path M — Inline Mini-Fix (max 2 inline cycles)" for full step body.
+
+**Row 1.8 rationale (in-scope non-blocker → Path B, NOT defer):** A non-blocking finding that is too large for the Path M mechanical gate but still concerns this feature's own diff is a fixable finding, not future-iteration debt. Before this row existed, such findings fell through the table (Row 1.7 gate fails, Row 2 needs pre-existing reopened tasks, Row 3 is scope-change) and were silently carried to Path A via the reviewer's `## Deferred` disposition — shipping avoidable debt (e.g. a production resource leak whose fix is ~10 diff lines). Row 1.8 routes them to Path B: the orchestrator itself reopens the relevant plan task(s) (`reopened: review-vN`) so the standard subagent re-implement loop fixes them, then re-review drives the feature to a clean Path A.
+
+---
+
+## Step 5.1: Cost-Tracking Event Calls — Full Details
+
+> Relocated from SKILL.md Step 5.1. The orchestrator emits cost-tracking phase-boundary events so observability tooling can accumulate per-phase cost for each feature (F23 `cost_log.py`).
+
+**Agent-ID convention (applies to every `cost_log.py` call in this pipeline):**
+- **Subagent dispatch** (`$PHASE_MODE = subagent`): use the subagent ID returned by the Agent tool. This ID is also recorded in `docs/pipeline-state.md` as `**Last phase agent:**` (see `~/.claude/rules/workflow.md` § Pipeline State Schema).
+- **Inline dispatch** (`$PHASE_MODE = inline`, Path N nit-attack only): generate a transient ID as `pipeline-$$-${RANDOM}-${phase}`.
+
+```bash
+# Start the analyze phase (the first phase after feature-loop entry)
+# For inline dispatch:
+AGENT_ID="pipeline-$$-${RANDOM}-analyze"
+# For subagent dispatch: AGENT_ID comes from the Agent tool return value
+python3 ~/.claude/hooks/cost_log.py start "<feature-name>" analyze \
+  --dispatch-mode $PHASE_MODE --agent-id "$AGENT_ID"
+```
+
+At every major phase transition (analyze → plan → implement → review →
+merge), call `cost_log.py end` for the departing phase and
+`cost_log.py start` for the arriving phase. Both calls must include
+`--dispatch-mode` and `--agent-id`. Token/cost numbers can be zero if
+the SDK doesn't expose them — the event log preserves phase boundaries
+even without dollar figures, so `/cost-report` can still show the
+feature's execution trail. Example transitions:
+
+```bash
+# analyze → plan transition
+python3 ~/.claude/hooks/cost_log.py end "<feature-name>" analyze \
+  --dispatch-mode $PHASE_MODE --agent-id "$AGENT_ID_ANALYZE"
+AGENT_ID_PLAN="pipeline-$$-${RANDOM}-plan"   # inline; subagent: use Agent tool return
+python3 ~/.claude/hooks/cost_log.py start "<feature-name>" plan \
+  --dispatch-mode $PHASE_MODE --agent-id "$AGENT_ID_PLAN"
+
+# plan → implement transition
+python3 ~/.claude/hooks/cost_log.py end "<feature-name>" plan \
+  --dispatch-mode $PHASE_MODE --agent-id "$AGENT_ID_PLAN"
+AGENT_ID_IMPL="pipeline-$$-${RANDOM}-implement"
+python3 ~/.claude/hooks/cost_log.py start "<feature-name>" implement \
+  --dispatch-mode $PHASE_MODE --agent-id "$AGENT_ID_IMPL"
+
+# implement → review transition
+python3 ~/.claude/hooks/cost_log.py end "<feature-name>" implement \
+  --dispatch-mode $PHASE_MODE --agent-id "$AGENT_ID_IMPL"
+AGENT_ID_REVIEW="pipeline-$$-${RANDOM}-review"
+python3 ~/.claude/hooks/cost_log.py start "<feature-name>" review \
+  --dispatch-mode $PHASE_MODE --agent-id "$AGENT_ID_REVIEW"
+
+# review → merge (Path A)
+python3 ~/.claude/hooks/cost_log.py end "<feature-name>" review \
+  --dispatch-mode $PHASE_MODE --agent-id "$AGENT_ID_REVIEW"
+```
+
+---
+
+## Step 5.2: Write Analysis File — Inline Body (legacy inline-mode reference)
+
+> Relocated from SKILL.md Step 5.2. This is the canonical spec of what the analyze phase must do — the reference body the `<!-- PHASE: analyze -->` subagent prompt template points at. NOT the execution path under `subagent` mode (the default).
+
+Skip if `--restart-from` is `plan`, `implement`, or `review`.
+
+Follow the **Versioning Convention** from `~/.claude/rules/workflow.md` for analysis files:
+1. Check for existing files: `ls docs/analysis*.md 2>/dev/null`
+2. Find highest version N among `docs/analysis-v*.md` files (if none, N = 0)
+3. If unversioned `docs/analysis.md` exists: archive it as `docs/analysis-v[N+1].md`
+4. Write new file as `docs/analysis-v[N+2].md` (or `docs/analysis-v[N+1].md` if no unversioned file was archived)
+5. First-time files: write as `docs/analysis.md` (no version suffix)
+
+Auto-detect project type:
+```bash
+ls package.json pyproject.toml requirements.txt setup.py *.sln *.csproj 2>/dev/null
+```
+
+Quick codebase scan: Glob top-level directories, read key config files, identify entry points relevant to the feature objective.
+
+**Cross-feature intel injection:**
+1. Check if `docs/pipeline-intel.json` exists and contains entries
+2. Read the file, filter entries where `consumed_by` is null AND either:
+   - `target_feature` matches the current feature name (case-insensitive partial match), OR
+   - any entry in `target_keywords` appears in the feature's Description or Name (case-insensitive)
+3. If matching entries found:
+   - Include them as an additional "## Cross-Feature Intel" section in the analysis file, formatted as:
+     ```markdown
+     ## Cross-Feature Intel
+     
+     The following insights from prior feature reviews are relevant to this feature:
+     
+     - **[severity]** (from [from_feature], discovered by [discovered_by]): [note]
+     ```
+   - Mark each matched entry as consumed in `docs/pipeline-intel.json`: set `consumed_by` to the current feature name, `consumed_at` to current ISO 8601 timestamp
+   - Write the updated intel file back to disk
+   - Log: "Injected [N] cross-feature intel notes into analysis"
+4. If no matches or file does not exist: skip silently
+
+Write the analysis file:
+```markdown
+# Analysis: [Feature Name]
+
+**Date:** [today]
+**Project type:** [detected type]
+
+## Objective
+[Description from feature file]
+
+## Constraints
+- PRESERVE: [from feature Constraints, or "None stated"]
+- AVOID: [from feature Constraints, or "None stated"]
+
+## Project Structure
+[top-level directories with one-line purpose]
+
+## Tech Stack
+[language, framework, key dependencies]
+
+## Entry Points
+[relevant main files / CLI entrypoints]
+
+## Key Files (task-relevant)
+- path/to/file — [why it's relevant to this feature]
+[3-8 files identified by reading the codebase]
+```
+
+Update `docs/progress.md` `**Analysis:**` pointer to the new analysis file.
+
+**Validate analysis against feature file:**
+1. Does the analysis objective match the feature file Description? Extract key terms from both, compare for semantic alignment.
+2. Are the identified key files actually relevant to the feature? Cross-reference against the feature's expected scope.
+3. Verify each key file exists: `ls [file] 2>/dev/null`. Remove any that don't exist.
+4. If validation fails (objective mismatch or no relevant key files): log warning, re-read codebase with corrected focus, rewrite the analysis file.
+
+Update pipeline state: step = "plan"
+
+---
+
+## Step 5.3: Generate Plan + Prompts + Progress — Inline Body (legacy inline-mode reference)
+
+> Relocated from SKILL.md Step 5.3. Canonical spec of what the plan phase must do — the reference body the `<!-- PHASE: plan -->` subagent prompt template points at. NOT the execution path under `subagent` mode.
+
+Skip if `--restart-from` is `implement` or `review`.
+
+Read the analysis file from Step 5.2 (or from the `**Analysis:**` pointer in progress.md if resuming). Design a plan following these conventions:
+
+1. Break work into phases and tasks. Each task scoped to 1-4 hours of real work.
+2. Zero file overlap between tasks in the same phase = parallelizable (note this).
+3. Sequential dependencies must be ordered and explicitly noted.
+4. Task prompts must stand alone — a fresh Claude session should be able to execute a task without other context.
+
+Follow the **Versioning Convention** for plan and prompts files.
+
+**Write plan file** (`docs/plan-vN.md`):
+```markdown
+# Plan: [Feature Name]
+
+**Created:** [today]
+**Source:** [analysis filename]
+**Status:** Active
+
+## Overview
+[2-3 sentences]
+
+## Phase 1: [Name]
+
+### Task 1.1: [Name]
+**Objective:** [measurable outcome]
+**Files:** [exact file paths]
+**Tests:** [test file paths and key assertions, or "N/A — no testable behavior"]
+**Context:** [decisions, constraints, dependencies]
+**Verification:** [exact command]
+```
+
+**Write prompts file** (`docs/prompts-vN.md`):
+```markdown
+# Prompts: [Feature Name]
+
+**Plan:** [plan filename]
+
+---
+
+### Task 1.1: [Name]
+> Model: sonnet | Effort: medium | Agent: none | /clear before starting
+
+[Full self-contained task description with files, tests, constraints, verification]
+
+---
+```
+
+**Update `docs/progress.md`:**
+- Update `**Plan:**`, `**Prompts:**` pointers to new files
+- Preserve all `done` tasks from prior iterations
+- Add new tasks with status `todo`
+- Update `**Last updated:**`
+- If deferred items exist in progress.md: auto-include relevant ones as tasks, preserve the rest
+
+**Self-review plan** (pipeline-only optimization):
+After writing the plan and prompts files, validate:
+1. Do all tasks have non-empty `Tests:` fields (or explicit "N/A")?
+2. Are file lists specific (exact paths, not directories)?
+3. Do sequential dependencies form a valid DAG (no circular deps)?
+4. Is every analysis Key File covered by at least one task?
+5. Are there file overlaps between tasks in the same phase?
+If issues found: fix them in the plan and prompts before proceeding.
+Log: "Plan validated: [N] tasks, [M] phases, [P] issues auto-fixed"
+
+Update pipeline state: step = "implement"
+
+---
+
+## Step 5.5: Implement — Full Details (classification, routing, TDD pairing)
+
+> Relocated from SKILL.md Step 5.5 (sub-steps 5.5.0 / 5.5.1 / 5.5.2 / 5.5.3). The SKILL.md stub keeps the `Step 5.5.3a` parallel-grouping contract inline (it bears the `one Agent-batch message` dispatch-shape anchor); everything else lives here.
+
+Skip the whole implement phase if `--restart-from` is `review`.
+
+**Worker delegation (Phase 1 — documentation only):** Plan task prompts MAY include an optional `worker:` header in the prompt frontmatter (e.g. `worker: claude`). When absent, the implement-phase dispatches via ClaudeWorker (in-session Agent-tool worktree fan-out — the current behavior; see `claude/lib/worker-provider/claude.md`). When present, future routing (Phase 3 of the worker-delegation initiative; not wired in this iteration) will dispatch to the named worker class per `claude/lib/worker-provider/<class>.md`. Until Phase 3 ships, the header is acknowledged but ignored — behavior is identical to `worker: claude` regardless of header presence. See `claude/lib/worker-provider/interface.md` for the full contract.
+
+**Step 5.5.0: Classify feature (dev vs non-dev) — determines TDD routing.**
+
+**`--no-tdd` short-circuit:** If `NO_TDD=true` (set by `--no-tdd` at Step 1), set `FEATURE_CLASS=non-dev` unconditionally, skip both the prefix-derived classification and the `**Type:**` override, log `INFO: --no-tdd forced FEATURE_CLASS=non-dev`, append `**Feature class:** non-dev` to `docs/pipeline-state.md`, then continue to Step 5.5.1.
+
+Otherwise, derive `FEATURE_CLASS` from the feature H2 prefix and the optional `**Type:**` override line:
+
+1. Parse the H2 type prefix from the feature name (e.g., `feat`, `fix`, `refactor`, `docs`, `chore`, `test`, `perf`, `style`, `build`, `ci`, `content`, `ops`, `research`).
+2. Re-read the feature block. If it contains a line `**Type:** dev` or `**Type:** non-dev`, that value overrides the prefix-derived class.
+3. Otherwise, derive from the prefix:
+
+   | Prefix | Class |
+   |--------|-------|
+   | `feat`, `fix`, `refactor`, `perf`, `test`, `hotfix` | `dev` |
+   | `docs`, `chore`, `style`, `build`, `ci`, `content`, `ops`, `research`, `merge`, `revert`, `wip` | `non-dev` |
+   | (any other) | `dev` (conservative default) |
+
+4. Log: `INFO: Feature class: $FEATURE_CLASS (prefix=<prefix>, override=<yes|no>)`.
+5. Append to `docs/pipeline-state.md` as `**Feature class:** <dev|non-dev>`.
+
+**Step 5.5.1: Route by class.**
+
+- If `FEATURE_CLASS = non-dev`: skip TDD entirely. Continue to Step 5.5.2 (non-dev path).
+- If `FEATURE_CLASS = dev` and `**Phase Mode:** = subagent`: continue to Step 5.5.3 (dev TDD path).
+- If `FEATURE_CLASS = dev` and `**Phase Mode:** = inline` (legacy state-file resume only — never produced by new feature starts in the portable build): continue to Step 5.5.2 (non-dev path) — TDD pairing requires subagent isolation. Log: `WARN: dev feature under legacy inline mode — TDD pairing skipped, falling back to standard implement`.
+
+**Step 5.5.2: Non-dev path (standard implement-plan dispatch).**
+
+Emit phase transition signal (progress beacon **and** TodoWrite update, tag=`phase-pre`) per Step 5.0. When `**Phase Mode:** = subagent`, dispatch via the Agent tool using the template from `reference.md` § "Step 5.x: Phase Subagent Dispatch — Prompt Templates" matching `<!-- PHASE: implement -->`. Substitute placeholders with current feature values. Pass `model: sonnet`. Capture the returned `<task-notification>` XML; on `status: completed`, read `docs/progress.md`, emit `phase-done`, continue. Update `**Last phase agent:**`. On `status: failed`, log to Run Log, advance state, skip to next feature.
+
+When `**Phase Mode:** = inline` (legacy resume only), invoke `/implement-plan` via the Skill tool directly:
+```
+Skill: implement-plan
+```
+
+After completion: read `docs/progress.md`. If any task has status `doing` (failed): append to Run Log `Status: FAILED (implementation error)` and **skip to the next feature**. Do not enter the review loop for a partially-implemented feature.
+
+**Step 5.5.3: Dev TDD path (paired subagent dispatch per task).**
+
+Read the plan file (from the `**Plan:**` pointer in `docs/progress.md`) and enumerate tasks with status `todo` in phase order. Group tasks by phase and assess parallelisability per **Step 5.5.3a** (kept inline in SKILL.md). If `--no-parallel` was passed OR tasks share files OR the phase has only 1 task: fall back to the per-task sequential loop below.
+
+For each task with a non-empty `Tests:` field:
+
+1. **RED phase — dispatch `tdd-test-writer` subagent.**
+
+   Agent tool call:
+   ```
+   Agent(
+     description="TDD red: <task-id>",
+     subagent_type="tdd-test-writer",
+     prompt="""<task-spec-block>
+
+   Task ID: <task-id>
+   Objective: <task objective>
+   Files (production): <files>
+   Tests (new/updated): <test files>
+   Constraints: <constraints>
+   Verification: <command>
+
+   Write failing tests that capture the objective. Confirm they fail. Commit with `test: red phase for <task-id>`.
+   """,
+     model="sonnet"
+   )
+   ```
+   Capture the `<task-notification>`. On `status: failed`, log the failure to the feature Run Log, advance to the next task (do not invoke the implementer for that task).
+
+2. **GREEN phase — dispatch `tdd-implementer` subagent.**
+
+   ```
+   Agent(
+     description="TDD green: <task-id>",
+     subagent_type="tdd-implementer",
+     prompt="""<task-spec-block, same as above>
+
+   Failing tests already exist (committed by the test-writer in the previous step). Implement production code to make them pass. Do not modify tests. Commit with `<feature-prefix>: <task name>`.
+   """,
+     model="sonnet"
+   )
+   ```
+   Capture the `<task-notification>`. On `status: failed`, log to Run Log and continue with the next task (the next task's tests will still run).
+
+3. After both subagents return, mark the task `done` in `docs/progress.md`.
+
+If a task has no `Tests:` field or it is "N/A": skip the TDD pair and dispatch a single standard `tdd-implementer`-equivalent step (or fall back to a one-shot Agent dispatch with the implement template).
+
+If `docs/progress.md` has any task still `doing` after the loop: append to Run Log `Status: FAILED (TDD pairing error)` and skip to the next feature.
+
+Update pipeline state: step = "review"
+
+---
+
+## UAT Phase — Full Details
+
+> Relocated from SKILL.md § UAT Phase. Best-effort, NON-BLOCKING UAT phase: drives a real headless browser via the `uat` skill + `uat-runner` subagent (in-process module-reuse of `claude/skills/playwright/scripts/playwright_controller.py`) to RENDER and CLICK RBAC role flows and every button. Runs AFTER the Post-Merge Verification Gate appends `POSTMERGE_OK: <cmd>` and BEFORE the Documentation Update Phase. A UAT regression is RECORDED, never reverted.
+
+### Web-surface detect
+
+At phase entry, probe whether the repo has a browser surface: a `playwright.config.*` file,
+or `package.json` containing `@playwright/test`, or an `e2e/` directory. If NONE is present,
+append `UAT: SKIPPED (no web surface)` to the feature's Run Log and continue to the
+Documentation Update Phase. This mirrors the landing-report silent-skip idiom — it is prose
+probe-logic, NOT a copied shell snippet. pipelinekit itself has none of these signals, so the
+phase skips here.
+
+### Escape Hatch
+
+Set `PIPELINE_SKIP_UAT=1` (or pass the `--no-uat` flag, which exports the env var at parse)
+to bypass the UAT phase entirely. Default behavior is "UAT phase runs" — opt-out, not opt-in
+(mirrors the docs-phase `PIPELINE_SKIP_DOCS=1` semantics). When skipped, append
+`UAT: SKIPPED (PIPELINE_SKIP_UAT=1)` to the Run Log and proceed to the Documentation Update
+Phase. No beacon is emitted for the skipped phase.
+
+### Phase Mode + Beacon
+
+This phase ALWAYS dispatches as `subagent` mode via the `Agent` tool (per the default policy
+`PHASE_MODE = subagent` at Step 5.0 — "Always. Unconditional."). Emit the standard transition beacon with tag `uat-pre`
+immediately before dispatch and `uat-done` on successful completion. The TodoWrite update
+appends a `Feature <IDX>/<TOTAL>: <NAME> — uat` row between the `merge` row and the `docs`
+row.
+
+### Subagent Dispatch
+
+Use the `Agent` tool with `subagent_type: uat-runner`. The prompt template is defined in
+`reference.md` § "Step 5.x: Phase Subagent Dispatch — Prompt Templates" under
+`<!-- PHASE: uat -->`. Pass `model: sonnet`.
+
+### Modes
+
+Diff-scoped by default — the runner exercises only routes/flows whose source files appear in
+the feature diff (uncertain file→route mapping falls back to full sweep for that feature).
+When `UAT_FULL_EVERY_FEATURE` is set (via `--uat-full-every-feature`), force the full
+role/button sweep on every feature instead.
+
+### On FAIL
+
+When the subagent's `<task-notification>` reports per-flow failures, the ORCHESTRATOR (Edit
+tool) appends rows to a `## UAT Findings` table in the FEATURE FILE (`docs/features-*.md`),
+transcribing the agent's per-flow failures — columns `| Flow | Role | Button/Step | Failure |
+Source feature |`. Write `UAT: FAILED` to the Run Log. NEVER revert or block a merged feature
+— UAT does NOT inherit the gate's `git reset --hard HEAD~1`. The recorded findings are picked
+up by the outer loop's renew collection (the existing consumer at `reference.md` step 3.5);
+with `--no-loop`, the findings log and await a manual `--renew`.
+
+### Failure Semantics (Non-Fatal)
+
+If the `uat-runner` subagent returns `status: failed` or `status: blocked` (or the Agent
+dispatch fails with any error), append `UAT: SKIPPED (subagent error)` to the feature's Run
+Log line and proceed to the Documentation Update Phase. This phase is best-effort — a UAT
+failure MUST NOT downgrade the feature's terminal status from `SUCCESS` to `FAILED`. The
+feature has already merged and survived the post-merge gate; UAT is a tail step.
+
+Emit a single warning line on stderr: `WARNING: UAT Phase failed for <feature>; continuing.`
+
+### Position Invariants
+
+- The UAT phase MUST NOT run on Path A failure paths (push/PR/CI/CD halt) — those skip to the
+  next feature before reaching the gate.
+- The UAT phase MUST NOT run on gate failure — the gate's `git reset --hard HEAD~1` revert
+  leaves no merged code to exercise.
+- The UAT phase MUST NOT modify any `docs/*.md` workflow file. The `## UAT Findings` target is
+  the feature file under `docs/features-*.md`, written by the orchestrator's Edit, consistent
+  with how the existing renew flow reads it at `reference.md` step 3.5.
+- The UAT phase MUST NOT use `git commit --amend`.
+- The UAT phase MUST NOT revert the merge.
+
+### Run/loop-end full sweep
+
+In addition to the per-feature diff-scoped run, the full role/button sweep runs ONCE at run /
+loop end. It hooks into the EXISTING Step 5.11 (Outer Loop Control) at the terminal-write
+boundary: it fires when a CLEAN / STALLED / MAX_LOOPS exit would fire (the FINAL loop exit),
+BEFORE Step 5.10's terminal write — NOT per inner feature sweep. With `--no-loop`, "run end"
+is the single-trip Step 5.10 terminal boundary, so the full sweep fires there instead. This
+does NOT re-author Step 5.11 — it reuses that step's existing terminal-write boundary. The
+full-sweep run obeys the same web-surface detect and escape-hatch skips as the per-feature
+run.
+
+### No-overlap boundary (HARD requirement)
+
+See reference.md § UAT No-overlap boundary (HARD requirement)
+
+---
+
+## Documentation Update Phase — Full Details
+
+> Relocated from SKILL.md § Documentation Update Phase. Best-effort docs phase via the `docs-writer` subagent: reads the just-merged squash commit's diff and `docs/progress.md`, writes/updates application docs in `documentation/`, lands a separate `docs: <feature description>` commit on the base branch. Runs after the Post-Merge Verification Gate appends `POSTMERGE_OK: <cmd>`.
+
+**Execution order (Path A success):**
+1. Squash-merge lands (Path A step 5, `reference.md` lines 187-197)
+2. Post-merge cleanup checks out `$BASE` and pulls (Path A step 7, `reference.md` lines 209-218)
+3. **Post-Merge Verification Gate** (SKILL.md H3) runs — on failure, revert + skip docs entirely; on success, append `POSTMERGE_OK: <cmd>` and continue.
+4. **Documentation Update Phase** (this section) — dispatches `docs-writer` to update `documentation/` and commit `docs: ...` to `$BASE`.
+5. **Step 5.9** emits `feature-done` (source order earlier; execution last).
+
+Source order in SKILL.md places Step 5.9 above the gate and this section, but the
+pipeline executes the gate first, then this section, then Step 5.9 — the gate is the
+failure-revert checkpoint, and `feature-done` is the terminal signal.
+
+### Escape Hatch
+
+Set `PIPELINE_SKIP_DOCS=1` (or pass the `--no-docs` flag, which exports the env var at parse) to bypass the docs phase entirely. Default behavior is
+"docs phase runs" — opt-out, not opt-in (mirrors the `SKIP_POSTMERGE_VERIFY=1`
+semantics). When skipped, append `Docs: SKIPPED (PIPELINE_SKIP_DOCS=1)`
+to the Run Log and proceed to `feature-done`. No beacon is emitted for the skipped
+phase.
+
+### Phase Mode + Beacon
+
+This phase ALWAYS dispatches as `subagent` mode via the `Agent` tool (per the
+Phase Mode Precedence). It is NOT a feature-loop entry phase; it is
+a Path-A-only tail phase. The Phase Mode Precedence table treats it as a `subagent`
+dispatch, consistent with all other initial-phase dispatches.
+
+Emit the standard transition beacon (per the beacon helper above) with tag `docs-pre`
+immediately before dispatch and `docs-done` on successful completion. The TodoWrite
+update appends a `Feature <IDX>/<TOTAL>: <NAME> — docs` row between the `merge` row
+and the `feature-done` terminal row.
+
+### Subagent Dispatch
+
+Use the `Agent` tool with `subagent_type: docs-writer`. The prompt template is
+defined in `reference.md` § "Step 5.x: Phase Subagent Dispatch — Prompt Templates"
+under `<!-- PHASE: docs -->`. Substitute placeholders before dispatch:
+- `{{FEATURE_NAME}}` — feature H2 name
+- `{{FEATURE_DESCRIPTION}}` — feature `**Description:**` content
+- `{{BRANCH_NAME}}` — feature branch (already merged; passed for reference only)
+- `{{MERGE_SHA}}` — capture immediately before dispatch via `MERGE_SHA=$(git rev-parse HEAD)`; HEAD = squash-merge commit at this point per Path A step 7
+- `{{BUDGET_REMAINING}}`, `{{MAX_USD}}` — standard
+- `{{CHARTER_SUMMARY}}` — resolved via `claude.lib.pipeline.charter_summary.extract_charter_summary` per § "Charter summary resolution"
+- `{{MCP_GUIDANCE}}` — resolved via `claude.lib.pipeline.mcp_guidance.extract_mcp_guidance` per § "MCP guidance resolution"
+
+Pass `model: sonnet` (the docs-writer agent has `model: inherit`, but the pipeline
+sets sonnet as the operational default — see model defaults table above).
+
+### Subagent Contract — Output Boundary
+
+The docs-writer subagent prompt MUST instruct the agent:
+
+1. Read `git show {{MERGE_SHA}} --stat` to see files changed by the merge.
+2. Read `git show {{MERGE_SHA}}` (full diff) to understand the substantive change.
+3. Read `docs/progress.md` for feature context (Plan + Prompts pointers).
+4. Write/update files ONLY in `documentation/` (per `claude/agents/docs-writer.md`
+   lines 11-16). NEVER write to `docs/` — that directory is reserved for AI workflow
+   files (progress.md, plan.md, prompts.md), and writes there are forbidden by the
+   agent's own contract. All application documentation goes to `documentation/`.
+5. After writing, commit as a separate base-branch commit:
+   ```bash
+   git add documentation/
+   git commit -m "docs: <feature description from feature file>"
+   ```
+   NEVER `git commit --amend` on the squash SHA — amending rewrites a public commit
+   and breaks downstream consumers.
+6. Emit the standard `<task-notification>` XML block.
+
+The `strip-ai-attribution.sh` PreToolUse hook scrubs AI attribution from the commit
+message — the prompt MUST NOT instruct the agent to add attribution (don't fight
+the hook).
+
+### Failure Semantics (Non-Fatal)
+
+If the docs-writer subagent returns `status: failed` or `status: blocked` (or fails
+the Agent dispatch with any error), append `Docs: SKIPPED (subagent error)` to the
+feature's Run Log line and proceed to `feature-done`. This phase is best-effort —
+a docs failure MUST NOT downgrade the feature's terminal status from `SUCCESS` to
+`FAILED`. The feature has already merged and survived the post-merge gate; docs are
+a tail step.
+
+Emit a single warning line on stderr: `WARNING: Documentation Update Phase failed
+for <feature>; continuing.`
+
+### Position Invariants
+
+- The docs phase MUST NOT run on Path A failure paths (push/PR/CI/CD halt) — those
+  skip to the next feature before reaching the gate.
+- The docs phase MUST NOT run on gate failure — the gate's `git reset --hard HEAD~1`
+  revert leaves no merged code to document.
+- The docs phase MUST NOT modify any `docs/*.md` workflow file. All writes go to
+  `documentation/`.
+- The docs phase MUST NOT use `git commit --amend`. Commits land as a separate
+  `docs: ...` commit on `$BASE`.
+
+---
+
+## Step 5.6.0: Compute Teams Decision — Full Details
+
+> Relocated from SKILL.md Step 5.6.0. Before the Step 5.6 review dispatch (initial cycle and every Path B / Path C / Retry re-review), the orchestrator decides whether to set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` so the `<!-- PHASE: review -->` template invokes `/pipeline-review` (teams default-on) versus `/pipeline-review --no-teams` (opt-out). The orchestrator opts a feature OUT via `--no-teams` when the heuristic / persisted `**Review style:**` resolves to "never teams".
+
+**Read state (fresh — never trust local cache):**
+1. Read `**Review style:**` from `docs/pipeline-state.md`. Treat missing field as `orchestrator decides` (backward-compatible default for state files written under prior versions).
+2. Read `**Feature class:**` from `docs/pipeline-state.md` (already written at Step 5.5.0).
+
+**Resolve `dispatch_with_teams`:**
+- `Review style = always teams` → `dispatch_with_teams = true`. Skip heuristic.
+- `Review style = never teams` → `dispatch_with_teams = false`. Skip heuristic. Even on very large diffs, the user's explicit `never teams` choice overrides the heuristic at the orchestrator layer. (Note: `/pipeline-review`'s own Step 4.5 large-diff escalation at >5,000 lines may still auto-enable teams inside the subagent — that is the inner skill's last-resort safety net and is out of scope here.)
+- `Review style = orchestrator decides` → compute the heuristic:
+
+```bash
+# Tunable constants — env-var overrides deferred to a follow-up iteration.
+TEAMS_LINE_THRESHOLD=500   # mirrors review/SKILL.md SMALL_DIFF_THRESHOLD
+TEAMS_FILE_THRESHOLD=8
+BASE=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+[ -z "$BASE" ] && BASE=$(git branch -l main master 2>/dev/null | head -1 | awk '{print $NF}')
+[ -z "$BASE" ] && BASE="main"
+DIFF_LINES=$(git diff "$BASE"...HEAD | wc -l)
+DIFF_FILES=$(git diff --name-only "$BASE"...HEAD | wc -l)
+FEATURE_CLASS=$(grep -E '^\*\*Feature class:\*\*' docs/pipeline-state.md | sed 's|.*:\*\*[[:space:]]*||')
+if [ "$DIFF_LINES" -gt "$TEAMS_LINE_THRESHOLD" ] || \
+   [ "$DIFF_FILES" -gt "$TEAMS_FILE_THRESHOLD" ] || \
+   [ "$FEATURE_CLASS" = "dev" ]; then
+  dispatch_with_teams=true
+else
+  dispatch_with_teams=false
+fi
+```
+
+**Env var lifecycle (symmetric):**
+1. `teams_was_set=$CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` — snapshot.
+2. If `dispatch_with_teams = true` AND `teams_was_set != '1'`: `export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`; set `teams_orchestrator_set=true`.
+3. Perform the existing Step 5.6 Agent dispatch (the `<!-- PHASE: review -->` template reads the env var and decides whether to pass `--no-teams` — env-var-set means default teams-on, env-var-unset means pass `--no-teams`).
+4. After capturing `<task-notification>`: if `teams_orchestrator_set = true`: `unset CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`.
+
+The host-shell-preserves invariant: if the user had `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` set before launching `/pipeline`, `teams_was_set` was `1`, `teams_orchestrator_set` stays unset, and the unset step does NOT fire — the host environment is preserved.
+
+**Run Log entry:** Append a single line to the feature's `### Run Log` documenting the decision and rationale:
+```
+**TeamsDecision [YYYY-MM-DD HH:MM]:** Review style=[…] | dispatch_with_teams=[true|false] | DIFF_LINES=[…] | DIFF_FILES=[…] | FEATURE_CLASS=[dev|non-dev] | teams_orchestrator_set=[true|false]
+```
+
+**Stickiness contract:** Once `**Review style:**` is written at Step 5.1, Step 5.6.0 re-reads it on every Path B / Path C / Retry re-review but does NOT recompute the heuristic per cycle — the persisted style is sticky. The heuristic constants (500 / 8 / dev) are tunable inline; env-var overrides (`PIPELINE_TEAMS_LINE_THRESHOLD`, `PIPELINE_TEAMS_FILE_THRESHOLD`) are deferred to a follow-up iteration.
+
+**Path N exemption:** Path N nit-attack runs Edit-tool only and does not invoke `/pipeline-review` — Step 5.6.0 does NOT apply to Path N. The env var is neither set nor unset for the nit pass.
+
+---
+
+## Post-Merge Verification Gate — Full Details
+
+> Relocated from SKILL.md § Post-Merge Verification Gate. After a feature's squash-merge lands on `main` (Path A), the pipeline runs a verification command to guard against regressions.
+
+### Command Resolution Precedence
+
+The gate resolves the verification command in this order, stopping at the first match:
+
+1. `PIPELINE_POSTMERGE_CMD` environment variable
+2. Executable `docs/.pipeline-postmerge.sh`
+3. Auto-detect by project type:
+   - `*.sln` present → `dotnet test --nologo --verbosity quiet --no-restore`
+   - `package.json` present → `npm test --silent`
+   - `pyproject.toml` or `setup.py` present → `pytest -q`
+4. No match → silent skip (return success)
+5. **Probe-block precondition (F4 gate).** BEFORE evaluating the verification command, gate inspects the feature's `### Run Log` section in the feature file at `docs/features-*.md`. If `Production-Probe: BEGIN` is absent for the current feature's most-recent Run Log entry, append `PostMerge: FAILED (probe missing)` to the Run Log line and route to the existing failure handler. NO probe block → `POSTMERGE_OK` is NEVER appended. **Idempotency:** if `Production-Probe: BEGIN` is already present (e.g. `--restart-from review` resume), proceed to the verification command unchanged — do NOT append a duplicate block.
+
+### Timeout
+
+Commands run with a 10-minute (`timeout 600`) cap. Output goes to stderr only.
+
+### Escape Hatch
+
+Set `SKIP_POSTMERGE_VERIFY=1` to bypass the gate entirely.
+
+### Failure Semantics
+
+On non-zero exit:
+
+1. Record squash SHA: `squash_sha=$(git rev-parse HEAD)`
+2. Preserve work: `git branch "${feature}-postmerge-failed" "$squash_sha"`
+3. Revert merge: `git reset --hard HEAD~1`
+4. Append `PostMerge: FAILED (<cmd> exit <rc>)` to the completion Run Log line
+   - On probe-block-missing: `PostMerge: FAILED (probe missing)`. Same revert + skip-to-next semantics.
+   - On probe-validate-fail: `PostMerge: FAILED (probe-block invalid: <RUNLOG_PROBE_BLOCK_INVALID reason>)`. Same revert + skip-to-next semantics.
+5. Call `log_feature_failed` then `cleanup_failed_feature "${feature}-postmerge-failed"`
+6. Continue to the next feature — the pipeline does not halt
+
+On success, append `POSTMERGE_OK: <cmd>` to the completion Run Log line.
+
+**Backward-compat for pre-gate features.** Features whose Run Log entry pre-dates the gate-merge SHA (parse `YYYY-MM-DD` from the canonical Run Log line; if before the gate-merge commit date) SKIP the probe-block precondition silently. F1-F3 entries are NOT retroactively blocked. See `claude/skills/pipeline/reference.md § Production-Probe block specification`.
+
+After `POSTMERGE_OK` is appended, dispatch `Skill: learn` (via `claude/lib/learn-append.sh`) with a one-line lesson capturing post-merge outcome:
+```bash
+bash claude/lib/learn-append.sh --severity info --category post-merge \
+  --source post-merge --feature "<feature-name>" \
+  --lesson "Post-merge gate passed; squash SHA $(git rev-parse HEAD)."
+```
+Best-effort — failure NEVER downgrades the feature's terminal status (mirrors the docs-phase best-effort semantics). This is the second of two `/learn` trigger points (the first is Path A step 0 post-review).
+
+---
+
+## Step 5.6: Review — Full Details
+
+> Relocated from SKILL.md Step 5.6. The SKILL.md stub keeps the `--no-review` token and the subagent-dispatch one-liner inline; this section carries the `--no-review` short-circuit body, the teams-dispatch-shape preflight beacon, and the legacy inline `Skill: pipeline-review` invocation forms.
+
+**`--no-review` short-circuit:** If `NO_REVIEW=true` (set by `--no-review` at Step 1), skip the review dispatch entirely. Synthesise a Path A (passed) outcome:
+1. Write an empty review file at the Versioning-Convention next-version path (e.g., `docs/review-v<N+1>.md`) containing the single line `## Review skipped via --no-review (Step 5.6)`. Use Bash heredoc per § Subagent Write-Surface Convention.
+2. Update the `**Review:**` pointer in `docs/progress.md` to the new path (Edit tool).
+3. Emit the `phase-done` beacon as if review completed normally.
+4. Proceed to Step 5.7 — path detection Row 1 (0 findings) will route to Path A.
+
+**If Phase Mode is `subagent` (the default):** Emit phase transition signal (progress beacon **and** TodoWrite update, tag=`phase-pre`) per the helpers in Step 5.0. Dispatch this phase via the Agent tool using the prompt template from `reference.md` § "Step 5.x: Phase Subagent Dispatch — Prompt Templates" matching `<!-- PHASE: review -->`. Substitute placeholders with current feature values. Pass `model: opus` (the phase default; the `/pipeline-review` skill applies REVIEW.md `review-model:` override internally if present) in the Agent tool parameters. Capture the returned `<task-notification>` XML; on `status: completed`, read the resulting on-disk artifact (review file via `docs/progress.md` `**Review:**` pointer), emit phase transition signal (progress beacon **and** TodoWrite update, tag=`phase-done`), and continue. Update `docs/pipeline-state.md` `**Last phase agent:**` with the subagent ID. On `status: failed`, follow the same failure handling as the inline path (log to feature run log, advance state, skip to next feature).
+
+**Teams-mode dispatch-shape preflight beacon:** Immediately before the `Agent` dispatch above, the orchestrator MUST emit the following beacon to its own assistant turn (one line, verbatim):
+
+```
+TEAMS_DISPATCH_SHAPE_REMINDER: bundle all N reviewer Agent calls in this single turn
+```
+
+This beacon is a no-op for the harness — it is a self-reminder to the lead that the review subagent (which itself dispatches the 5-agent base panel when `teams_mode=true`) MUST emit those N `Agent` calls in a single assistant turn. See `claude/skills/review/SKILL.md` § Teams dispatch shape — MANDATORY for the worked example and the three F6 anti-patterns (wrap-as-one, one-per-turn, fall-back-to-inline).
+
+**Otherwise (Phase Mode is `inline`, legacy state files only — see Step 5.0):** Invoke `/pipeline-review` via the Skill tool. Teams mode in `/pipeline-review` is default-on as of the flag-cleanup refactor; the orchestrator's Step 5.6.0 decides whether to opt out via `--no-teams`. If `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set in the environment (orchestrator decided `dispatch_with_teams=true`), invoke with `/pipeline-review`'s teams default (no extra flag):
+
+```
+Skill: pipeline-review
+```
+
+If the env var is NOT set (orchestrator decided `dispatch_with_teams=false`), pass `--no-teams` to opt out of the new default:
+
+```
+Skill: pipeline-review --no-teams
+```
+
+Note: `/pipeline-review` is default-on for teams as of this refactor. The orchestrator decides per-feature via Step 5.6.0 whether to pass `--no-teams`. The skill was renamed from `/review` per F20 to avoid collision with the harness's built-in GitHub PR-review template; see `claude/CLAUDE.md.template` Lean Conventions for the regression target.
+
+After completion: proceed to Step 5.7.
+
+---
+
+## Step 1.46: Budget Preflight — Full Details
+
+> Relocated from SKILL.md § Step 1.46. The SKILL.md stub keeps a one-line summary + the `BUDGET_EXCEEDED` token; this section carries the full per-phase-boundary budget-check body.
+
+Before entering any phase (Step 5.2 analyze, 5.3 plan, 5.5 implement, 5.6 review, 5.8 Path A/B/C), run a budget check:
+
+```bash
+# Sum all cost-log entries for the current feature only
+CUMULATIVE=$(python3 -c "
+import json, os, sys
+log = os.path.expanduser('~/.claude/logs/cost-events.jsonl')
+if not os.path.isfile(log):
+    print(0.0); sys.exit(0)
+feat = sys.argv[1]
+total = 0.0
+with open(log) as f:
+    for line in f:
+        try:
+            e = json.loads(line)
+            if e.get('feature') == feat:
+                total += float(e.get('estimated_usd') or 0)
+        except Exception:
+            pass
+print(f'{total:.4f}')
+" "$FEATURE_NAME")
+
+MAX_USD=$(grep -E "^\*\*Max USD:\*\*" docs/pipeline-state.md | sed 's|.*:\*\*[[:space:]]*||')
+```
+
+If `MAX_USD` is `unlimited` or empty, skip the rest of this step — no budget enforcement. Otherwise, if `CUMULATIVE + estimated_next_phase_cost > MAX_USD`, halt the pipeline:
+1. Write `BUDGET_EXCEEDED: phase=<next-phase>, cumulative=$CUMULATIVE, cap=$MAX_USD` to `docs/pipeline-state.md` (append at end).
+2. Append the same line to the feature's Run Log in the feature file (prepend a blank line before non-first entries; the first entry immediately after `### Run Log` has no leading blank line; ensure the section ends in a single `\n`).
+3. **STOP** with a human-readable message naming the feature, cumulative cost, budget, and the phase that would have pushed over.
+4. Instruct the user how to resume: `/pipeline --restart-from <phase> --max-usd <higher-cap>`.
+
+If `estimated_next_phase_cost` is unknown, use a conservative estimate from the trailing 3 phases of the same type, or 0 if no history exists. A zero estimate means the budget check only halts when cumulative has already crossed the cap — acceptable for a fallback.
+
+Halts are **phase-boundary only**, never mid-phase — a halted mid-phase leaves inconsistent state.
+
+On budget breach, the orchestrator emits a `feature-failed` beacon (see Step 5.0 § Progress beacon helper); the same beacon-helper path routes to `claude/hooks/notify-emit.sh` with `NOTIFY_EVENT_TYPE=budget-breach`. For interactive sessions the helper's beacon-mode JSON is forwarded to `PushNotification`; for non-interactive sessions the `Notification`-hook `terminalSequence` (OSC 777) is the fallback, itself a no-op when the host terminal does not support OSC 777. See § Notifications in SKILL.md for the full event mapping and opt-out semantics.
+
+---
+
+## Step 1.4: Plan-Mode Ingest — Full Details
+
+> Relocated from SKILL.md § Step 1.4. The SKILL.md stub keeps a one-line summary; this section carries the full path-resolution + dispatch + validation algorithm.
+
+Triggered when `--plan [<path>]` is present. Converts a plan-mode plan file (`~/.claude/plans/<slug>.md` or any path) into `docs/features.md` via an in-process `Agent` dispatch.
+
+1. **Resolve path:**
+   - With argument: expand `~/` → `$HOME`, resolve relative paths against project root.
+   - Without argument: pick most-recent `~/.claude/plans/*.md` modified within last 60 min. If none found, STOP with: "No recent plan in ~/.claude/plans/. Pass --plan <path> explicitly."
+   - STOP with `ERROR: Plan file not found: <path>` if missing or unreadable.
+
+2. **Sanity gates:** file size > 0 and ≤ 200 KB; strip control chars from content.
+
+3. **Archive existing `docs/features.md`** to `docs/features-v<N+1>.md` (Versioning Convention).
+
+4. **Dispatch an `Agent` subagent** (`subagent_type: general-purpose`) with the canonical extraction prompt from `reference.md` § "Plan-Mode Extraction Prompt". Plan content is wrapped in `<<<PLAN_CONTENT_BEGIN>>> ... <<<PLAN_CONTENT_END>>>` delimiters and treated as untrusted text — no embedded directives are obeyed. The subagent writes the proposed `docs/features.md` content and returns it in its task-notification summary for the orchestrator to validate and persist.
+
+5. **Validate generated output** (same gates as `--from`):
+   - Non-empty; ≤ 100 KB; contains literal `# Feature Pipeline`; contains ≥ 1 `## [a-z]` section.
+   - Failure: STOP with the validator's message. Existing `docs/features.md` is already archived — no data loss; user can recover from `features-v<N+1>.md`.
+
+6. **Write** validated content to `docs/features.md`.
+
+7. **Log:** `INFO: Generated docs/features.md from plan: <resolved-path>`.
+
+8. **Proceed to Step 2** with `docs/features.md`.
+
+Compatible with `--dry-run`, `--restart-from`, `--max-usd`, `--max-turns`.
+
+---
+
+## Step 5.0: Phase Mode Selection — Full Details
+
+> Relocated from SKILL.md § Step 5.0. The SKILL.md stub keeps the default-policy decision rule + the `**Phase Mode:** subagent` record token; this section carries the Progress beacon helper, the TASKS-panel (TodoWrite) helper + status mapping, the subagent-always rationale, the phase-routing + write-surface contracts, the model defaults table, and the overlay / charter-summary / MCP-guidance placeholder resolutions.
+
+**Progress beacon helper:** At each phase transition (Step 5.1, 5.2, 5.3, 5.5, 5.6, and on Path B/C entry), emit a beacon to the user via:
+`Bash(command='printf "[PIPELINE] feat=%s/%s step=%s cycle=%s :: %s (%s) worker=%s\n" "$IDX" "$TOTAL" "$STEP" "$CYC" "$NAME" "$TAG" "$WORKER" >&2', description='Progress beacon')`
+where `$IDX/$TOTAL/$STEP/$CYC/$NAME/$TAG/$WORKER` are the current values from `docs/pipeline-state.md`. Tags: `phase-pre`, `phase-done`, `path-b-pre`, `path-c-pre`, `path-d-pre`, `path-d-post`, `feature-start`, `feature-done`, `feature-failed`, `docs-pre`, `docs-done`.
+
+For notify-class tags (`feature-failed`, `path-b-pre`, `path-c-pre`, `feature-done`), the beacon helper ALSO invokes `claude/hooks/notify-emit.sh --mode beacon` with `NOTIFY_*` env vars derived from `docs/pipeline-state.md` (`NOTIFY_FEATURE_INDEX` from `**Feature:**`, `NOTIFY_STEP` from `**Step:**`, `NOTIFY_FEATURE_NAME` from `**Name:**`, `NOTIFY_EVENT_TYPE` per the canonical hook event mapping in § Notifications, `NOTIFY_TEXT` from the in-memory `<task-notification>` `<summary>` or the beacon's tag context, capped at 200 chars by the helper). For `feature-failed` specifically, the helper invocation also sets `NOTIFY_PATH_D_ATTEMPTED` to the current `**Path D attempted:**` boolean from `docs/pipeline-state.md` so the beacon-mode payload surfaces `path_d_attempted` — letting the user tell at a glance whether the salvage path ran before the feature died. For interactive sessions with Remote Control + "Push when Claude decides" enabled, the orchestrator captures the helper's JSON-line stdout and forwards it to the `PushNotification` tool (Claude Code 2.1.110+). For non-interactive sessions, `PushNotification` is unavailable and the helper falls through to the `Notification`-hook OSC 777 `terminalSequence` path. The non-notify tags (`phase-pre`, `phase-done`, `feature-start`, `docs-pre`, `docs-done`) emit only the printf beacon — no notify-emit invocation. The helper short-circuits to a no-op when `PIPELINE_NO_NOTIFICATIONS=1` is set in the environment.
+
+`$WORKER` defaults to `claude` when no routing override is in effect. When `/implement-plan` Step 1.5 resolves a per-task `worker:` header to an alternate class, `$WORKER` is set to that class name before the beacon fires. The resolution order for `$WORKER` is defined in `claude/lib/worker-provider/interface.md` § Env-var resolution.
+
+**TASKS panel helper (TodoWrite):** Side-by-side with each beacon, the orchestrator MUST call the `TodoWrite` tool so the host UI's TASKS panel (e.g. T3 Code's right-hand pane) reflects what the pipeline is currently working on. This is non-optional — the TodoWrite state IS the user-facing visibility into pipeline progress. The orchestrator is expected to keep a single live todo list across the run; each transition rewrites the whole list with updated statuses.
+
+Required structure (one item per upcoming/active/completed pipeline action for the **current feature**, in order):
+1. `Feature <IDX>/<TOTAL>: <NAME> — analyze`
+2. `Feature <IDX>/<TOTAL>: <NAME> — plan`
+3. `Feature <IDX>/<TOTAL>: <NAME> — branch`
+4. `Feature <IDX>/<TOTAL>: <NAME> — implement` (append `(cycle <CYC>)` when Path B/C is active and `<CYC> >= 2`)
+5. `Feature <IDX>/<TOTAL>: <NAME> — review` (append `(cycle <CYC>)` when Path B is active)
+6. `Feature <IDX>/<TOTAL>: <NAME> — path <A|B|C|N>` (only present after Step 5.7 selects a path; replaced on each re-route)
+7. `Feature <IDX>/<TOTAL>: <NAME> — merge` (Path A only — present once Path A is selected)
+
+Status mapping per tag:
+- `feature-start` (Step 5.1): rewrite the list with items 1–5 (and 7 if known) all `pending`. If multiple features remain in the run, append a tail item per remaining feature: `Feature <j>/<TOTAL>: <name> — pending` (single line, status `pending`) so the user sees the full queue.
+- `phase-pre` for `<phase>`: mark every prior phase row as `completed`, mark `<phase>` as `in_progress`. Leave later phases `pending`.
+- `phase-done` for `<phase>`: mark `<phase>` as `completed`. Do NOT also flip the next phase to `in_progress` here — that happens on the next `phase-pre`.
+- `path-b-pre` / `path-c-pre`: append/replace items 4 and 5 with `(cycle <CYC>)` suffix and set their status to `pending`; reset row 6 to `Path B` or `Path C` `in_progress`. Prior cycles stay as `completed` rows above.
+- `feature-done` (Step 5.9 success): mark every row for this feature `completed`. If a queue tail exists, leave following features as `pending`.
+- `feature-failed` (Step 5.9 fail / budget halt / CD halt): mark the in-progress row as `cancelled` with the failure reason in the row text (e.g. `— review (cycle 5) [HALTED: convergence cap]`). Tail features stay `pending`.
+
+Implementation note: build the new list in memory, then call `TodoWrite` with the full array — TodoWrite replaces the whole list on every call, so partial updates are fine. Do not gate the TodoWrite call on `$PHASE_MODE` — it fires identically for `subagent` and `inline`.
+
+**Why subagent always (rationale):** Anthropic's multi-agent guidance: isolated context per phase reduces token usage by ~67% on average and prevents cross-phase contamination — the reviewer's findings should not bias the re-implementer's reasoning. The cost of subagent dispatch on truly trivial features is negligible compared to the bug surface of mode drift on resume (incident: a `subagent`-mode feature dropped to inline post-review because Path B did not honor the recorded mode, and the assistant on resume invoked `Skill: pipeline-review` directly without consulting `**Phase Mode:**`). `inline` is the exception, not the default — reserved exclusively for the Path N nit-attack sub-path.
+
+**Phase routing contract:** Each phase (Step 5.2 analyze, 5.3 plan, 5.5 implement, 5.6 review) is dispatched via the `Agent` tool using the corresponding template from `reference.md` § "Step 5.x: Phase Subagent Dispatch — Prompt Templates". The orchestrator reads the on-disk artifact (analysis/plan/prompts/review file) for state instead of phase output. Path B and Path C re-invocations also dispatch via Agent — they MUST read `**Phase Mode:**` fresh from `docs/pipeline-state.md` before each re-invoke, never trust a stale local variable. See `reference.md` § "Step 5.8: Execute Path — Full Details".
+
+**Subagent write-surface convention:** Each phase dispatch substitutes placeholders into the corresponding `<!-- PHASE: ... -->` template in `reference.md`. Any step inside a dispatched subagent that writes a `docs/*.md` artefact (analysis, plan, prompts, review file) MUST use the Bash heredoc surface (`cat > docs/<file>.md <<'EOF' … EOF`) — the Claude Code agent harness heuristically rejects the `Write` tool on `docs/*.md` from subagent contexts. For in-place updates (e.g. `docs/progress.md`), the `Edit` tool is permitted. The full convention is documented at `claude/skills/pipeline/reference.md` § Subagent Write-Surface Convention (normative). This is a harness-level constraint, NOT a hook — the `block-stage-sensitive.sh` and `pre-edit-protect.sh` PreToolUse hooks are correctly scoped to `git add` and `.env`/credentials respectively, and do not intercept Write tool calls on `docs/*.md`.
+
+The "inline instructions" preserved in Steps 5.2/5.3/5.5/5.6 are kept as the canonical spec of what each phase must do — they are the reference body the subagent prompt template points at. They are NOT the execution path for the orchestrator under normal operation.
+
+**Legacy state files:** If a resumed `docs/pipeline-state.md` records `**Phase Mode:** inline` (written under the previous heuristic-based policy), preserve that mode for the in-flight feature to avoid breaking running work, but log once: `LEGACY_PHASE_MODE: inline mode preserved for in-flight feature; new features dispatch via subagent`. New features added to the run after the legacy resume use `subagent`.
+
+**Model defaults per phase:**
+
+| Phase     | Default Model | Override                           |
+|-----------|---------------|------------------------------------|
+| analyze   | opus          | —                                  |
+| plan      | opus          | —                                  |
+| implement | sonnet        | Task prompt `Model:` header        |
+| review    | opus          | REVIEW.md `review-model:` field    |
+
+Look up the phase model from this table. Store as `PHASE_MODEL`. Override precedence per phase: for implement, task prompt `Model:` header > phase default; for review, REVIEW.md `review-model:` > phase default; for analyze/plan, phase default only (no override mechanism).
+
+Pass `model: $PHASE_MODEL` in the `Agent` tool parameters for every phase dispatch (initial Step 5.x AND Path B/C re-invocations). Inline nit-attack sub-paths (Step 5.7) do not invoke models — they apply Edit-tool changes directly, no model selection involved.
+
+**Model overlay resolution:** Before each phase dispatch, resolve the overlay file using `claude/model-overlays/<MODEL_SLUG>.md` where `MODEL_SLUG` is the versioned slug for `$PHASE_MODEL` (e.g., `opus-4-7` for the opus family at the current Anthropic version). Fallback chain: versioned slug (`opus-4-7.md`) → family name (`opus.md`) → generic (`claude.md`) → no overlay (no-op). When an overlay file resolves and is non-empty (≤ 2KB), read its content and substitute the `{{MODEL_OVERLAY_NOTE}}` placeholder in the phase prompt template with:
+
+```
+Model overlay (claude/model-overlays/<resolved-file>):
+[contents of the overlay file]
+```
+
+When no overlay file resolves: `MODEL_OVERLAY_NOTE=""` (empty, no-op). A missing overlay is silent — backward compatible, defaults inherited from current behavior. The fallback chain ensures `claude.md` (generic) carries universal hints when no model-specific file exists; if `claude.md` itself is missing, no overlay note is emitted and behavior is identical to today.
+
+**Charter summary resolution:** Before each phase dispatch, resolve the `{{CHARTER_SUMMARY}}` placeholder in the phase prompt template by invoking `claude.lib.pipeline.charter_summary.extract_charter_summary(charter_field)` where `charter_field` is the value of the `**Charter:**` line in `docs/pipeline-state.md`. The helper returns either the first 800 characters of the charter's `## Goal` body (hard-truncated via `text[:800]` — NOT word-bounded) or the literal string `(no charter)` when the charter is `(none)`, absent, unreadable, or lacks a `## Goal` section. Substitute the returned string literally for `{{CHARTER_SUMMARY}}` in every phase template (analyze, plan, implement, review, docs) at dispatch time — NOT at template-load time, so charter edits mid-run propagate to later phases. The helper is pure stdlib Python (no subprocess, no LLM); contract bound by `claude/lib/pipeline/tests/test_charter_summary.py`. This placeholder is the operator-trust bucket — the 800-char cap IS the length bound; the helper applies no further sanitisation because the charter is committed source. Treat as additive to the existing `**Placeholder Substitution Safety**` contract in `reference.md` (the 7 rules there continue to apply to every other `{{...}}` placeholder).
+
+**MCP guidance resolution:** Before each phase dispatch, resolve the `{{MCP_GUIDANCE}}` placeholder in the phase prompt template by invoking `claude.lib.pipeline.mcp_guidance.extract_mcp_guidance(charter_field, phase, connected_mcps)` where `charter_field` is the same `**Charter:**` value used for `{{CHARTER_SUMMARY}}` and `phase` is the dispatching phase slug (`analyze` | `plan` | `implement` | `review` | `docs` | `uat`). The `connected_mcps` set is ESTABLISHED at Step 0.5 via the single `claude mcp list` probe and cached as `CONNECTED_MCPS` for the whole run — REUSE that cached set here (no second probe). If Step 0.5 was skipped (CLI unavailable) or `CONNECTED_MCPS` is empty, treat the connected set as empty (every phase then resolves to the no-op sentinel `(no MCP routing)`). The helper reads the charter's `## MCP Routing` section, keeps only entries whose server is BOTH declared in the charter AND in the connected set AND applies to the current `phase` (no `| phases:` clause or the literal `all` = every phase), and returns a guidance block (a preamble plus one `- <server>: <purpose>` bullet per surviving entry, hard-capped at 1500 chars) or `(no MCP routing)` when nothing applies. **Charter-first with a connected-set default fallback:** an explicit `## MCP Routing` section wins entirely (the default map is never merged); a section containing only `none`/`skip` preserves the operator opt-out (`(no MCP routing)`); when the section is ABSENT, the helper falls back to a built-in default routing map intersected with the connected set, so connected MCPs are surfaced into phases without requiring charter editing. The fallback yields `(no MCP routing)` only when the connected set is empty or the charter is `(none)`/missing. Substitute the returned string literally for `{{MCP_GUIDANCE}}` in every phase template at dispatch time (NOT at template-load time, so charter edits mid-run propagate). The helper is pure stdlib Python (no subprocess, no LLM) — the orchestrator owns the one `claude mcp list` probe; contract bound by `claude/lib/pipeline/tests/test_mcp_guidance.py`. This is a second operator-trust placeholder governed by Rule 8 of the `**Placeholder Substitution Safety**` contract in `reference.md`.

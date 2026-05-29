@@ -45,7 +45,7 @@ fi
 echo "OK: 4 new convergence-check bullets present"
 
 # Assertion 6 (reconciled AC-3, Risk-C): SKILL.md explainer bumped to "19 topics"
-if ! grep -qF "I'll ask about 19 topics" "$SKILL"; then
+if ! grep -qF "I'll ask about 19 topics" "$SKILL_DIR"/*.md; then
   echo "FAIL: \"I'll ask about 19 topics\" not found in SKILL.md"
   exit 1
 fi
