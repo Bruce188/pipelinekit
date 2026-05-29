@@ -2,9 +2,10 @@
 set -euo pipefail
 
 SKILL=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/SKILL.md
+SKILLD=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
 # Assertion 1: frontmatter name matches
-grep -q '^name: review' "$SKILL" || { echo "FAIL: frontmatter 'name: review' not found"; exit 1; }
+grep -q '^name: pipeline-review' "$SKILL" || { echo "FAIL: frontmatter 'name: pipeline-review' not found"; exit 1; }
 
 # Assertion 2: frontmatter description present
 grep -q '^description:' "$SKILL" || { echo "FAIL: frontmatter 'description:' not found"; exit 1; }
@@ -19,15 +20,15 @@ grep -q '### Step 1: Detect Project Type and Base Branch' "$SKILL" || { echo "FA
 grep -q '### Step 6: Spawn Review Agents' "$SKILL" || { echo "FAIL: 'Step 6: Spawn Review Agents' header not found"; exit 1; }
 
 # Assertion 6: 5-agent panel names present
-grep -q 'code-reviewer' "$SKILL" || { echo "FAIL: 'code-reviewer' agent name not found"; exit 1; }
-grep -q 'security-auditor' "$SKILL" || { echo "FAIL: 'security-auditor' agent name not found"; exit 1; }
-grep -q 'spec-tracer' "$SKILL" || { echo "FAIL: 'spec-tracer' agent name not found"; exit 1; }
+grep -q 'code-reviewer' "$SKILLD"/*.md || { echo "FAIL: 'code-reviewer' agent name not found"; exit 1; }
+grep -q 'security-auditor' "$SKILLD"/*.md || { echo "FAIL: 'security-auditor' agent name not found"; exit 1; }
+grep -q 'spec-tracer' "$SKILLD"/*.md || { echo "FAIL: 'spec-tracer' agent name not found"; exit 1; }
 
 # Assertion 7: Review pointer field wording present
-grep -q '\*\*Review:\*\*' "$SKILL" || { echo "FAIL: '**Review:**' pointer field not found"; exit 1; }
+grep -q '\*\*Review:\*\*' "$SKILLD"/*.md || { echo "FAIL: '**Review:**' pointer field not found"; exit 1; }
 
 # Assertion 8: Plan pointer wording present (review reads progress.md Plan field)
-grep -q '\*\*Plan:\*\*' "$SKILL" || { echo "FAIL: '**Plan:**' pointer field not found"; exit 1; }
+grep -q '\*\*Plan:\*\*' "$SKILLD"/*.md || { echo "FAIL: '**Plan:**' pointer field not found"; exit 1; }
 
 # Assertion 9: positional — Step 1 line precedes Step 6 line
 STEP1_LINE=$(grep -n '### Step 1: Detect Project Type and Base Branch' "$SKILL" | head -1 | cut -d: -f1)

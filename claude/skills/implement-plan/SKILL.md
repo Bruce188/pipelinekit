@@ -94,22 +94,7 @@ Before executing any task, verify the plan shape supports TDD. For each task wit
 
 Parallel execution is the default for phases with multiple parallelizable tasks. Skip this step only if `--no-parallel` was passed as an argument.
 
-**WorkerProvider contract (operational):** The worktree fan-out described in items 1–5 below IS the reference implementation of the `ClaudeWorker` class documented in `claude/lib/worker-provider/claude.md`. The five worktree-agent lifecycle steps (prepare worktree → dispatch → collect artifacts → verify completion → cleanup) map directly to the five `WorkerProvider` methods in `claude/lib/worker-provider/interface.md`. Per-task `worker:` header routing is now active — see step `5.a.routing` below. ClaudeWorker remains the default when no routing override is in effect.
-
-**Mixed-worker batches:** A single phase's parallel tasks may dispatch to heterogeneous worker classes. The lifecycle (5.a prepare → 5.f.5 squash-merge) is provider-agnostic by design — the lead does not need to know which class each worktree agent used. Contract:
-
-- A single phase may contain tasks with different `worker:` classes (e.g., `worker: claude` or any registered class in `claude/lib/worker-provider/`). Each task resolves its class independently via `5.a.routing`.
-- Cross-worker scratchpad notes (`*-to-*.md`) route across worker classes because they are plain markdown files on disk at `$SCRATCHPAD`. Any task, regardless of class, can read and write notes there.
-- The lead **squash-merges all worktree branches** — regardless of their origin class — into ONE conventional commit on the working branch. Worker-class names MUST NOT appear in the merge commit message.
-- The beacon line at dispatch emits `worker=<class>` per task so the run log captures which class handled each task. This is the only place where the class is surfaced.
-- If a non-default class's host-adapter is unavailable (exit 2), `WORKER_UNAVAILABLE: <class>` is logged and ClaudeWorker handles that task. If the adapter exits other non-zero, `WORKER_FALLBACK: <task-id> <class> -> claude (<reason>)` is logged and ClaudeWorker retries once — see `claude/lib/worker-provider/interface.md` § Fallback semantics.
-
-**Acceptance criteria for mixed-class batches:**
-1. One squash commit on the working branch after all workers complete.
-2. Per-task beacon lines with `worker=<class>` in the run log.
-3. Scratchpad cross-class routing works (any task can read any note regardless of its class).
-
-See `claude/skills/research/tests/test_mixed_worker_fanout.sh` for the smoke fixture.
+**WorkerProvider contract & mixed-worker batches:** The worktree fan-out below IS the reference `ClaudeWorker` implementation; per-task `worker:` headers route to heterogeneous classes, and the lead squash-merges all branches into ONE commit regardless of class. ClaudeWorker is the default when no override is in effect. Full contract, acceptance criteria, and the `test_mixed_worker_fanout.sh` smoke fixture: see reference.md § WorkerProvider & Mixed-Worker Batches.
 
 1. Identify all `todo` tasks in the **current phase** (same phase number prefix)
 2. If only 1 task in the phase: log "Single task in phase — skipping parallel, proceeding sequentially" and fall back to Step 2
@@ -272,41 +257,7 @@ Skip this step if:
 - The task is non-testable (config, docs, CI) — note "TDD skipped: no testable behavior"
 - The task prompt explicitly says "Skip TDD"
 
-Spawn the `tdd-test-writer` agent as a context-isolated subagent (NOT Agent Teams):
-
-```
-Agent tool parameters:
-  model: sonnet
-  prompt: |
-    [CHARTER_CONTEXT — insert verbatim if non-empty, omit if empty]
-
-    Task: [task name]
-    Objective: [from task prompt]
-    Tests: [from plan's Tests: section]
-    Files: [file list from plan]
-    Project test command: [detected test command]
-
-    You are a test writer. Write failing tests that define the expected behavior
-    based on the spec above. Do NOT implement any production code.
-
-    Rules:
-    1. Write test files that capture the expected behavior
-    2. If the test runner cannot import modules that don't exist yet, create a
-       minimal empty module (just `pass` or `export {}`) so assertions can run
-    3. Run the test suite to confirm your new tests FAIL (red phase)
-    4. If tests already pass, they are not asserting new behavior — revise them
-    5. Commit your test files: git add <test-files> && git commit -m "test: red phase for [task name]"
-    6. Report: which tests were written, which assertions they make, confirmation they fail
-```
-
-If the current task prompt specifies a `Model:` header (e.g., `Model: opus`), use that model instead of `sonnet` for the tdd-test-writer subagent.
-
-**For reopened/new tasks from review** (tasks with `reopened: review-vN` or `new: review-vN` notes):
-
-Replace the Tests section with the **Review Tests:** section from the task prompt:
-- test-engineer findings: the finding IS the test spec — pass it directly
-- security-auditor findings: instruct the test-writer to exercise the vulnerable path
-- Non-unit-testable findings (nit-level style, naming): skip TDD, note "TDD skipped: finding not unit-testable"
+Spawn the `tdd-test-writer` agent as a context-isolated subagent (NOT Agent Teams). The full Agent-tool prompt block (model, CHARTER_CONTEXT insertion, the 6 test-writer rules, the `Model:` header override, and the reopened/new-task **Review Tests:** substitution) lives in **reference.md § tdd-test-writer Subagent Prompt** — construct the dispatch from that template verbatim.
 
 Wait for the agent to complete. Do NOT pass the agent's reasoning to subsequent steps — only the files on disk matter.
 
@@ -324,40 +275,7 @@ Wait for the agent to complete. Do NOT pass the agent's reasoning to subsequent 
 
 If RAG context was retrieved in Step 1.2 for this phase: include relevant results in the implementer's context.
 
-Spawn the `tdd-implementer` agent as a context-isolated subagent:
-
-```
-Agent tool parameters:
-  model: sonnet
-  prompt: |
-    Task: [task name]
-    Objective: [from task prompt]
-    Test files: [TEST_FILES from Step 2c.5]
-    Source files: [file list from plan]
-    Constraints: [from task prompt]
-
-    Failing tests exist. Write the minimum production code to make them pass.
-
-    Rules:
-    1. Read the failing test files to understand expected behavior
-    1.5. Prefer `mcp__serena__find_symbol` / `mcp__serena__find_referencing_symbols` for locating symbols and their callers before editing; fall back to Grep when serena is unavailable.
-    2. Implement production code to make all failing tests pass
-    3. Do NOT modify any test files — if a test seems wrong, report it as a finding
-    4. Run the full test suite to confirm ALL tests pass (green phase)
-    5. Commit: git add <source-files> && git commit -m "<type>: [task name]"
-       Use feat: for new features, fix: for bug fixes, refactor: for restructuring
-```
-
-If the current task prompt specifies a `Model:` header (e.g., `Model: opus`), use that model instead of `sonnet` for the tdd-implementer subagent.
-
-The implementer does NOT receive the test-writer's reasoning — only the test files on disk and the task spec.
-
-If the task prompt specifies `Agent: [other-agent-name]` instead of using TDD subagents:
-- Spawn the named agent with the task description as the prompt
-- Wait for the agent's result before verifying
-
-If the task prompt specifies `Agent: none` AND TDD was skipped:
-- Execute directly in the current session
+Spawn the `tdd-implementer` agent as a context-isolated subagent. The full Agent-tool prompt block (model, the implementer rules including the serena-first symbol-lookup rule, the `Model:` header override, the no-test-writer-reasoning constraint, and the `Agent: [other-agent-name]` / `Agent: none` routing branches) lives in **reference.md § tdd-implementer Subagent Prompt** — construct the dispatch from that template verbatim.
 
 Wait for the agent to complete.
 
@@ -442,7 +360,7 @@ OpenHands-style fix-retry loop on the project's full test command. Runs after St
 2. `NO_TDD=true` (set by `/pipeline --no-tdd`) → log `NO_TEST_LOOP: skipped per --no-tdd` and proceed to Step 2f.
 3. `detect_test_runner(project_root)` returns `None` → log `NO_TEST_RUNNER_DETECTED` and proceed to Step 2f.
 
-The detect helper lives at `claude/lib/pipeline/test_runner_detect.py`. It is pure stdlib, never `eval`/`exec`s, and returns one of `"pytest"`, `"npm test"`, `"go test ./..."`, `"make test"`, or `None`. First-match-wins probe order: pytest (pyproject.toml | setup.py) → npm test (package.json with non-empty scripts.test) → go test (go.mod) → make test (Makefile with `^test:` target). Auto-detection is best-effort — projects using `tox`, `nox`, `cargo test`, `dotnet test`, `mix test`, etc. fall through to `NO_TEST_RUNNER_DETECTED` and the loop is skipped.
+The detect helper lives at `claude/lib/pipeline/test_runner_detect.py` and returns one of `"pytest"`, `"npm test"`, `"go test ./..."`, `"make test"`, or `None`; on `None` the loop is skipped via the `NO_TEST_RUNNER_DETECTED` short-circuit above. Probe order, stdlib-purity, and the best-effort fall-through list: see reference.md § Test-Run Inner Loop — Detail.
 
 **Loop pseudocode (executes only when none of the short-circuits fired):**
 
@@ -468,13 +386,7 @@ LOOP:
         STOP with the same TDD-integrity violation message as Step 2e step 3.
 ```
 
-**Output capping.** Combined stdout+stderr is truncated to the last 4 KB before being passed to the fix subagent. Larger outputs would overrun the subagent context budget; the tail almost always contains the actionable failure.
-
-**Budget accounting.** Each `run(CMD)` is a subprocess invocation, not an LLM call — it does NOT consume `--max-usd` tokens directly. The fix-retry subagent dispatches ARE counted by the existing `--max-usd` / `--max-turns` accounting. The orchestrator's existing phase-boundary budget check (`/pipeline` Step 1.46) suffices; no new budget plumbing.
-
-**Path B escalation contract.** A 4th-retry failure (i.e. `RETRY > 3`) returns failure to the orchestrator using the same exit semantics as any other implement-phase failure. `/pipeline` Step 5.7 routes implement-phase failures to Path B (re-implement under review feedback) by default. The TEST_LOOP_EXHAUSTED log line + the captured 4 KB tail surface in the orchestrator's run log so Path B receives the failing-test context.
-
-**Parallel path inheritance.** When `/implement-plan` runs in parallel mode (Step 1.5 worktree fan-out), each worktree agent inherits this Step 2e.5 contract by reference — the per-task loop runs inside the worktree before the agent reports done. The lead does NOT re-run Step 2e.5 after squash-merge; it only re-runs the plan's verification step (Step 1.5 sub-step 5.e). Per-worktree TEST_LOOP_EXHAUSTED escalations surface via the worktree agent's `<task-notification>` `<status>failed</status>`.
+**Operational detail — see reference.md § Test-Run Inner Loop — Detail:** output capping (last 4 KB before the fix subagent), budget accounting (`run(CMD)` is a subprocess, not an LLM call; fix-retry dispatches ARE counted), the Path B escalation contract (`RETRY > 3` returns failure → `/pipeline` Step 5.7 Path B; `TEST_LOOP_EXHAUSTED` + 4 KB tail surface in the run log), and parallel-path inheritance (each Step 1.5 worktree agent inherits this Step 2e.5 contract; the lead does not re-run it after squash-merge).
 
 #### 2f. Handle verification result
 

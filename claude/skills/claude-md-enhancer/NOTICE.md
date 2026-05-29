@@ -54,6 +54,17 @@ vendored from this upstream (`agent/claude-md-guardian.md`) — see
    file's docstring. The upstream's `validator.py` is a thorough audit;
    the hook is a fast gate. The two rule-sets may legitimately diverge.
 
+5. **Progressive-disclosure split (`REFERENCE.md`).** Three consulted-but-not-
+   executed sections — `## Template Categories`, `## Quality Metrics`,
+   `## Advanced Features` — were relocated verbatim out of `SKILL.md` into a
+   pipelinekit-native `REFERENCE.md`, leaving one-line `See REFERENCE.md §
+   <heading>` pointers in their place. This keeps `SKILL.md` under Anthropic's
+   ~500-line guidance. Consequence: the upstream body is NO LONGER byte-
+   identical (delta #2's "body byte-identical" caveat now means "byte-identical
+   except for these three relocated sections + the overlay appends"). The
+   relocated text is unmodified upstream content; `REFERENCE.md` carries the
+   same HTML-comment attribution header as the other `.md` files.
+
 ## Re-vendor procedure
 
 To re-vendor (e.g., when upstream ships a quality improvement):
@@ -74,8 +85,14 @@ To re-vendor (e.g., when upstream ships a quality improvement):
 4. Re-apply the SKILL.md frontmatter swap (`permissions:` → `allowed-tools:`).
 5. Re-append the three pipelinekit overlay sections to SKILL.md
    (look for the `## Pipelinekit Overlay — ` sentinel — they sit at the end).
-6. Update this NOTICE.md's `**Pinned SHA:**` line.
-7. Commit with `chore: re-vendor alirezarezvani/ClaudeForge @ <short-sha>`.
+6. Re-apply the progressive-disclosure split (delta #5): move the bodies of
+   `## Template Categories`, `## Quality Metrics`, and `## Advanced Features`
+   out of the freshly-fetched SKILL.md into `REFERENCE.md` (verbatim, under the
+   attribution header), replacing each in SKILL.md with a `See REFERENCE.md §
+   <heading>` pointer. `REFERENCE.md` is pipelinekit-native — it has no upstream
+   counterpart to fetch.
+7. Update this NOTICE.md's `**Pinned SHA:**` line.
+8. Commit with `chore: re-vendor alirezarezvani/ClaudeForge @ <short-sha>`.
 
 ---
 
