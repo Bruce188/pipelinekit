@@ -23,7 +23,7 @@
 - **Semantic code navigation** (cross-file refs, symbol graph): **PREFER serena for any cross-file / symbol work when connected** (`find_symbol`, `find_referencing_symbols`, `get_symbols_overview`, `rename_symbol`); fall back to Grep/Glob when absent.
 - **Library/framework docs**: `context7` MCP resolve-library-id → query-docs
 - **Structural patterns** (hierarchies, call graphs): `RepoMapper` MCP if configured (not pipeline-wired by default)
-- **Deep reasoning chains** (multi-step logic): `sequential-thinking` MCP — in the auto-wire set (see § Phase Tool Routing) and invoked in the plan and review phases for multi-step trade-offs and severity/correctness reasoning. Fall back silently when unavailable.
+- **Deep reasoning chains** (multi-step logic): `sequential-thinking` MCP — auto-wired; invoked in plan/review phases for trade-offs and severity/correctness reasoning. Fall back silently when unavailable.
 - **Docs/specs/PDFs**: `local-rag` MCP query_documents if configured
 - **Web research**: WebSearch → WebFetch
 - **Symbolic code graph** (function-call traversal): `codegraph` MCP if configured (50k-file gate via `/codegraph-init`)
@@ -47,83 +47,40 @@
 
 ## Memory System
 
-### Primary surface — agentmemory MCP
+正典讀寫面為 `agentmemory` MCP（`bash scripts/install.sh` 已於 `~/.claude.json` 之 `mcpServers.agentmemory` 註冊，為**唯一活躍寫入面**）。`/analyze`, `/create-plan`, `/implement-plan`, `/review` 皆先呼 `mcp__agentmemory__memory_recall` 取語境，並依保存協議（user/feedback/project/reference）寫新條目。MCP 離線時優雅降級——記 "agentmemory not configured — skipping memory recall" 後繼續，不自動回退寫平檔；判別活躍面：`claude mcp list | grep agentmemory` 見 `✓ Connected`，連線失敗須 `bash scripts/install.sh` 重註冊。舊式平檔 `~/.claude/projects/<project-slug>/memory/*.md` 為 **30 日唯讀回滾窗口**（非寫入面，後續功能硬刪，本版不移除）；除非設 `PIPELINE_KEEP_FLAT_FILE_MEMORY=1` 啟用 dual-write，否則勿再寫記憶 markdown，副本命名見 `documentation/memory-migration-notes.html`。
 
-正典讀寫面為 `agentmemory` MCP。安裝後（`bash scripts/install.sh` 已於 `~/.claude.json` 之 `mcpServers.agentmemory` 註冊），所有 `/analyze`, `/create-plan`, `/implement-plan`, `/review` 等技能皆優先呼叫 `mcp__agentmemory__memory_recall` 取得語境，並由保存協議（user/feedback/project/reference 分類）寫入新條目。**這是唯一活躍寫入面。** Skills degrade gracefully when the MCP is offline — they log "agentmemory not configured — skipping memory recall" and proceed.
+四工具，頻降序：`memory_save`（寫一條，欄位 `tags`/`category`=`user|feedback|project|reference|other`/`content`）、`memory_recall`（依 tags 及/或 category 讀，Ebbinghaus recency 排序）、`memory_smart_search`（tags 未知時跨全庫語義搜尋）、`memory_consolidate`（關係圖週期重建，operator 觸發）。
 
-### Secondary surface — flat-file rollback window
+Taxonomy mapping（legacy type → agentmemory `tags` / `category`）：
 
-舊式平檔於 `~/.claude/projects/<project-slug>/memory/*.md` 為 **30 日唯讀回滾窗口**，非活躍寫入面。除非設 `PIPELINE_KEEP_FLAT_FILE_MEMORY=1` 啟用 dual-write 開關（詳見下方 § Dual-write opt-in），否則勿再寫入新記憶 markdown 檔。30 日後平檔將由後續功能硬刪；本版保留以利異常情況下手動比對。
-
-判別當前活躍面：執行 `claude mcp list | grep agentmemory` — 若見 `agentmemory: ✓ Connected`，agentmemory 即活躍主面，平檔僅供回滾。若連線失敗或缺失，技能自動降級無記憶上下文（不自動回退寫入平檔）；用戶須執行 `bash scripts/install.sh` 重新註冊。
-
-### Tool surface
-
-四工具，頻降序：
-- `memory_save` — write one entry. Fields: `tags` (strings), `category` (`user|feedback|project|reference|other`), `content` (free-form text).
-- `memory_recall` — read by tags AND/OR category. Returns entries ranked by Ebbinghaus recency.
-- `memory_smart_search` — semantic search across all memories regardless of tags. Use when tags unknown.
-- `memory_consolidate` — periodic relation-graph rebuild. Operator-invoked.
-
-### Taxonomy mapping
-
-| Pipelinekit type (legacy) | agentmemory `tags`                                            | agentmemory `category` |
-|---------------------------|---------------------------------------------------------------|------------------------|
-| `user`                    | `[profile]`                                                   | `user`                 |
-| `feedback`                | `[feedback]` + derived from `name` (e.g. `subagent-first`)    | `feedback`             |
-| `project`                 | `[project, <slug>]`                                           | `project`              |
-| `reference`               | `[reference]`                                                 | `reference`            |
+| Pipelinekit type (legacy) | agentmemory `tags` | agentmemory `category` |
+|---------------------------|--------------------|------------------------|
+| `user` | `[profile]` | `user` |
+| `feedback` | `[feedback]` + 由 `name` 派生（如 `subagent-first`） | `feedback` |
+| `project` | `[project, <slug>]` | `project` |
+| `reference` | `[reference]` | `reference` |
 
 ### When NOT to save
 
-勿存：瞬態會話狀態、暫存輸出、專案檔案內容、未經指示之個人資料、同標籤條目已涵蓋之資訊。存疑則棄存——污染難除甚於漏存。
+勿存：瞬態會話狀態、暫存輸出、專案檔案內容、未經指示之個人資料、同標籤已涵蓋之資訊。存疑則棄——污染難除甚於漏存。
 
-### Ebbinghaus curve
-
-agentmemory computes recency-weighted relevance via Ebbinghaus forgetting curve over `last_accessed` (not stored confidence). Recall decays auto; do NOT track `last_seen`/`confidence` manually. See upstream agentmemory README for coefficients.
-
-### Rollback window
-
-三十日內，`~/.claude/projects/<project-slug>/memory/*.md` 可讀作比對基準（**唯讀，非活躍寫入面**）。平檔硬刪為後續功能，本版不移除任何 markdown 檔。新記憶寫入應走 `mcp__agentmemory__memory_save` — 詳見上方 § Primary surface。
-
-### Dual-write opt-in
-
-設 `PIPELINE_KEEP_FLAT_FILE_MEMORY=1` 以同步輸出平檔副本至 `~/.claude/projects/<project-slug>/memory/<filename>.md`。系統提示層開關，非鉤子層。副本命名規則見 `documentation/memory-migration-notes.html`。
+Ebbinghaus：agentmemory 依遺忘曲線就 `last_accessed`（非 stored confidence）算 recency-weighted relevance，recall 自動衰減；勿手動追 `last_seen`/`confidence`。係數見 upstream README。
 
 ## Notifications
 
-`/pipeline` 達需注意狀態時——超預算、錯誤、功能完成、權限請求——發推播。無自訂設定檔，無獨立限速——以 Channels 内建為準。
+`/pipeline` 達需注意狀態時——超預算、錯誤、功能完成、權限請求——發推播。無自訂設定檔，限速以 Channels 内建為準。Hook → event_type → surface 對映：`Stop`→`feature-done`→`PushNotification`(互動) 或 `terminalSequence`(回退)；`PermissionRequest`→`question`→`terminalSequence`(OSC 777)；`Notification`→`error`/`budget-breach`/`dropped`→`terminalSequence`；`PreCompact`(= `PostCompact` matcher in `~/.claude/settings.json`)→`compact`→`terminalSequence`。
 
-### Hook event mapping
+Surfaces：`PushNotification`(2.1.110+，互動 session + Remote Control + 行動 app "Push when Claude decides")；`Notification`-hook `terminalSequence`(handler 回 JSON，發 OSC 777 桌面通知，契約非阻塞)；`Channels`(2.1.121+，managed-org，inbound 需 `channelsEnabled: true` in `~/.claude/settings.json`，opt-in，pipelinekit 不自動啟用)。
 
-| Hook event | Notify event_type | Surface |
-|------------|-------------------|---------|
-| `Stop` | `feature-done` | `PushNotification` (interactive) OR `terminalSequence` (fallback) |
-| `PermissionRequest` | `question` | `terminalSequence` (OSC 777) |
-| `Notification` | `error` / `budget-breach` / `dropped` | `terminalSequence` (OSC 777) |
-| `PreCompact` (= `PostCompact` matcher in `~/.claude/settings.json`) | `compact` | `terminalSequence` |
+通知攜六欄位：`feature_index`, `step`, `event_type`, `text` (≤ 200 chars，超則截斷加省略號), `action_link` (deep link 或 signal-file 路徑), `feature_name`。Charter/analysis/plan/review 檔內容不洩露（200 字符硬限）；完整 schema 見 `~/.claude/skills/pipeline/reference.md § Notification payload schema`。
 
-### Surfaces
-
-- `PushNotification` (Claude Code 2.1.110+) — interactive session + Remote Control + "Push when Claude decides" in mobile app.
-- `Notification`-hook `terminalSequence` — JSON returned by handler; emits OSC 777 desktop notification. Non-blocking by contract.
-- `Channels` (Claude Code 2.1.121+) — managed-org sessions; inbound needs `channelsEnabled: true` in `~/.claude/settings.json`. Users opt in; pipelinekit does NOT auto-enable.
-
-### Payload (6 fields)
-
-通知攜六欄位：`feature_index`, `step`, `event_type`, `text` (≤ 200 chars, truncated with ellipsis), `action_link` (deep link OR signal-file path), `feature_name`. Charter / analysis / plan / review 檔內容不洩露——200 字符硬限。完整 schema 見 `~/.claude/skills/pipeline/reference.md § Notification payload schema`。
-
-### Opt-out
-
-- Set `channelsEnabled: false` in `~/.claude/settings.json` to disable inbound Channels.
-- Set `PIPELINE_NO_NOTIFICATIONS=1` per-run to short-circuit helper (no emit).
+Opt-out：`channelsEnabled: false` in `~/.claude/settings.json` 停 inbound Channels；`PIPELINE_NO_NOTIFICATIONS=1` per-run 短路 helper（不發）。
 
 ## Context Management
 
 - Context-aware clearing between phases (see `rules/workflow.md`). `/compact` proactively near 50%.
 - After 2 failed corrections, `/clear` and rewrite prompt.
-- Subagents for investigation/exploration — main context stays clean.
-- Direct work for coding; subagents for reading/exploring.
+- Subagents for investigation/reading/exploring — main context stays clean; direct work for coding.
 
 ### Session naming
 
@@ -170,37 +127,24 @@ Autonomous: `/pipeline [feature-file]` — full workflow per feature. Supports *
 
 **Charter Mode (default-on):** `/pipeline` opens with Charter Discovery (Step 0) — 9 questions → `docs/charter.md`. Downstream phases read it. Skip with `--no-charter`, adopt with `--charter <path>`. See `docs/pipeline.md` § Charter Mode.
 
-**Pipeline review slug (F20):** the pipeline phase review skill registers under `/pipeline-review`, NOT `/review`. The bare `/review` slug is reserved for the harness's built-in GitHub PR-review template (direct user invocation `/review <PR#>` against an open PR). Pipeline-internal dispatch — `Agent(... <!-- PHASE: review --> template ...)` body and Path B / Path C / Retry inline fallbacks — calls `Skill: pipeline-review` (or `Skill: pipeline-review --no-teams` when teams-off). Do NOT re-introduce `name: review` for the pipeline phase; the collision treats `--no-teams` as a PR number under the built-in template. Regression target documented in F20 (`fix/review-skill-namespace-collision`).
+**Pipeline review slug (F20):** pipeline-phase review skill registers under `/pipeline-review`, NOT `/review`. Bare `/review` reserved for the harness's built-in GitHub PR-review template (`/review <PR#>`). Pipeline-internal dispatch — review-phase `Agent` body and Path B/C/Retry fallbacks — calls `Skill: pipeline-review` (`--no-teams` when teams-off). Do NOT re-introduce `name: review` for the pipeline phase; collision treats `--no-teams` as a PR number. Regression target: F20 (`fix/review-skill-namespace-collision`).
 
 See `~/.claude/rules/workflow.md` for arguments, base-branch detection, context-aware clearing.
 
-## Consumer Web App Workflows
+## Platform & Deploy Workflows
 
-原生 pipelinekit 預設涵蓋後端、函式庫、資料管道、CLI。消費者 Web 應用超出預設範疇。`gstack` 為第三方 (`alirezarezvani/gstack`)，另行安裝。
+工具鏈預設隨附。下表列平台 → 綁定 agent + ops skill + CLI 提供方。**自動裝**者安裝時備齊；**用戶裝**者缺失時 ops 技能停止並提示。
 
-## Mobile App Workflows
+| Platform | Bundled agent | Ops skill | CLI |
+|----------|---------------|-----------|-----|
+| Azure | `@azure-deployment-engineer` | `azure-ops` | auto on Debian/Ubuntu; else prints Homebrew / Microsoft-docs links + continues |
+| Vercel | `@vercel-deployment-engineer` | `vercel-ops` | user installs `npm i -g vercel` |
+| Railway | `@railway-deployment-engineer` | `railway-ops` | user installs `npm i -g @railway/cli` |
+| Render | `@render-deployment-engineer` | `render-ops` | user installs |
+| DigitalOcean | `@digitalocean-deployment-engineer` | `digitalocean-ops` | user installs `doctl` |
+| Mobile (iOS/Expo) | `mobile-dev` | `ios` / `expo` skills | runtime-detects Xcode (`xcrun --find`); non-macOS silently skips |
 
-行動工具鏈預設隨附。`claude/agents/mobile-dev.md`, `claude/skills/ios/SKILL.md`, `claude/skills/expo/SKILL.md` 常備。iOS 建置執行期偵測 Xcode (`xcrun --find`)，非 macOS 主機靜默跳過。
-
-## Azure Workflows
-
-Azure 工具鏈預設隨附。`@azure-deployment-engineer` 與 `azure-ops` 常備。Debian / Ubuntu 主機安裝時自動裝 Azure CLI；其他主機印 Homebrew / Microsoft-docs 連結後繼續。
-
-## Vercel Workflows
-
-Vercel 工具鏈預設隨附。`@vercel-deployment-engineer` 與 `vercel-ops` 常備。Vercel CLI 由用戶安裝 (`npm i -g vercel`)；缺失時技能停止並提示。
-
-## Railway Workflows
-
-Railway 工具鏈預設隨附。`@railway-deployment-engineer` 與 `railway-ops` 常備。Railway CLI 由用戶安裝 (`npm i -g @railway/cli`)；缺失時技能停止並提示。
-
-## Render Workflows
-
-Render 工具鏈預設隨附。`@render-deployment-engineer` 與 `render-ops` 常備。Render CLI 由用戶安裝；缺失時技能停止並提示。
-
-## DigitalOcean Workflows
-
-DigitalOcean 工具鏈預設隨附。`@digitalocean-deployment-engineer` 與 `digitalocean-ops` 常備。`doctl` 由用戶安裝；缺失時技能停止並提示。
+消費者 Web 應用超出預設範疇——`gstack` 為第三方 (`alirezarezvani/gstack`)，另行安裝。原生覆蓋後端、函式庫、資料管道、CLI。
 
 @~/.claude/modes/active.md
 
