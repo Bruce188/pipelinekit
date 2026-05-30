@@ -644,7 +644,7 @@ def render_one(
             md_text, input_stem.replace("-", " ").title()
         )
         description = description_arg or derive_description_from_html(
-            md_text, f"{title} — pipelinekit application documentation"
+            md_text, f"{title} — application documentation"
         )
         body_html = extract_html_body(md_text)
         body_html = ensure_heading_ids(body_html)
@@ -661,7 +661,7 @@ def render_one(
         title = title_arg or derive_title(md_text, input_stem.replace("-", " ").title())
         description_was_derived = description_arg is None
         description = description_arg or derive_description(
-            md_text, f"{title} — pipelinekit application documentation"
+            md_text, f"{title} — application documentation"
         )
         slug_sequence = build_slug_sequence(md_text)
         body_html = render_markdown(md_text)
