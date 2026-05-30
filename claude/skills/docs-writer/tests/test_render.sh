@@ -71,7 +71,15 @@ EOF
 python3 claude/skills/docs-writer/render.py "$TMP/sample.md" "$TMP/sample.html" > /dev/null
 
 # Verify the rendered HTML has the right shape
-assert_contains "$TMP/sample.html" 'docs-writer/2 — rich-template' 'generator meta tag present'
+assert_contains "$TMP/sample.html" '<a href="credits.html">Credits</a>' 'footer credits link present'
+# Regression guard: the renderer must NOT inject tooling attribution into output
+if grep -qiE 'pipelinekit|name="generator"|pkit-docs-theme' "$TMP/sample.html"; then
+  FAIL=$((FAIL + 1))
+  RESULTS+=("  FAIL  output carries tooling attribution (pipelinekit / generator meta / pkit key)")
+else
+  PASS=$((PASS + 1))
+  RESULTS+=("  PASS  no tooling attribution in rendered output")
+fi
 assert_contains "$TMP/sample.html" '<title>Sample page' 'title in <title>'
 assert_contains "$TMP/sample.html" '<h1>Sample page</h1>' 'h1 in page-header'
 assert_contains "$TMP/sample.html" 'class="description">A description' 'description in header'
@@ -127,7 +135,7 @@ EOF
 
 python3 claude/skills/docs-writer/render.py --from-html "$TMP/source.html" "$TMP/rewrapped.html" > /dev/null
 
-assert_contains "$TMP/rewrapped.html" 'docs-writer/2 — rich-template' 'rewrap output has generator tag'
+assert_contains "$TMP/rewrapped.html" '<a href="credits.html">Credits</a>' 'rewrap footer credits link present'
 assert_contains "$TMP/rewrapped.html" '<title>Existing page' 'rewrap preserves title'
 assert_contains "$TMP/rewrapped.html" 'id="section-x"' 'rewrap auto-generates h2 ids'
 assert_contains "$TMP/rewrapped.html" 'id="subsection-x-1"' 'rewrap auto-generates h3 ids'
