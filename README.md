@@ -10,7 +10,7 @@
 
 ### Troubleshooting
 
-Stuck on install or a first run? See [documentation/installation.html#troubleshooting](documentation/installation.html#troubleshooting) for the most common failure modes (missing `python3`, MCP server not registered, `claude` command absent, sandbox provider chain, hook-permission errors).
+Stuck on install or a first run? See [documentation/getting-started.html#troubleshooting](documentation/getting-started.html#troubleshooting) for the most common failure modes (`/pipeline` not found after install, cloud-provider CLI auth halts, review cycles not converging, a skill not firing).
 
 ---
 
@@ -32,13 +32,13 @@ Or download just the `documentation/` folder as a zip and open `index.html` — 
 
 ## What pipelinekit gives you
 
-- **42 skills + 31 agents + 24 hooks** wired together so `/pipeline` can take a feature from charter to merged PR without intervention.
+- **45 skills + 22 agents + 33 hooks** wired together so `/pipeline` can take a feature from charter to merged PR without intervention.
 - **5 cloud deployment providers** (Azure, Vercel, Railway, Render, DigitalOcean) on a shared `deployment-engineer.md` base. Your charter selects one; /pipeline routes deployment automatically.
 - **Sandbox-isolated execution (default-on)** — every subprocess in a podman/docker/worktree sandbox with auto-detected provider chain. Engine-when-present: prefer `podman`, else `docker`, else graceful fallback to worktree-only with a one-line stderr log. Opt out per run via `SANDBOX_PROVIDER=worktree-only` or `PIPELINE_NO_SANDBOX=1`.
 - **TDD doctrine baked in** — `dev`-class features auto-route through `tdd-test-writer` → `tdd-implementer` for red/green pairing, enforced by `tdd-red-phase-gate.sh` hook.
-- **Multi-agent /review** — 2–6 specialized review agents (test-engineer, security-auditor, symbol-verifier, spec-tracer, code-reviewer) with charter-aware finding classification + Path A/B/M/N routing.
+- **Multi-agent /pipeline-review** — 2–6 specialized review agents (code-reviewer, security-auditor, test-engineer, performance-tuner, spec-tracer, symbol-verifier) with charter-aware finding classification + Path A/B/M/N routing.
 - **Research loop** — Karpathy-style autoresearch via `/research`: hypothesize → mutate → benchmark → keep-or-reset, with optional auto-publish to a branch via `/ppr --research`.
-- **GitHub-native** — `--issues` mode pulls features from open issues; PR bodies auto-include `Closes #N`; squash-merge via `gh pr merge --auto --delete-branch`.
+- **GitHub-native** — `--issues` mode pulls features from open issues; PR bodies auto-include `Closes #N`; squash-merge via `gh pr merge --squash --auto`.
 
 ---
 
@@ -77,7 +77,7 @@ Open the repo in Codespaces — the devcontainer post-create runs `install.sh` a
  cd into it, and run ./scripts/install.sh non-interactively."
 ```
 
-Full install variants (devcontainer, mobile, headless, etc.): [documentation/installation.html](documentation/installation.html).
+Full install variants (local, cloud cold-start, Codespaces / devcontainer, non-interactive): [documentation/installation.html](documentation/installation.html).
 
 ---
 
@@ -130,14 +130,14 @@ Override with `**Type:** dev|non-dev` per-feature.
 | Layer | Contents |
 |-------|----------|
 | **Rules** | `claude/CLAUDE.md.template`, `claude/rules/workflow.md`, `claude/rules/agents-worktrees.md` |
-| **Skills** (42) | `pipeline`, `analyze`, `create-plan`, `implement-plan`, `review`, `ppr`, `research`, `tdd`, `incident`, `landing-report`, `learn`, `azure-ops`, `vercel-ops`, `railway-ops`, `render-ops`, `digitalocean-ops`, `expo`, `ios`, `docs-writer`, `document-release`, `claude-md-enhancer`, `write-a-skill`, `zoom-out`, `simplify`, `caveman-mode`, ... |
-| **Agents** (23) | `architect`, `code-reviewer`, `security-auditor`, `symbol-verifier`, `spec-tracer`, `tdd-test-writer`, `tdd-implementer`, `mobile-dev`, `deployment-engineer` (base), `azure-deployment-engineer`, `vercel-deployment-engineer`, `railway-deployment-engineer`, `render-deployment-engineer`, `digitalocean-deployment-engineer`, `incident-responder`, `claude-md-guardian`, ... |
-| **Hooks** (24) | `validate-commit-msg`, `strip-ai-attribution`, `block-push-main`, `block-stage-sensitive`, `block-dangerous-commands`, `tdd-order-check`, `tdd-red-phase-gate`, `claude-md-guard`, `env-scrub`, `notify-emit`, `context-warning`, `context-budget-advisor`, `verify-worktree-commit`, ... |
-| **MCP** | `context7`, `serena`, `sequential-thinking`, optional `local-rag` + `claude-context` |
+| **Skills** (45) | `pipeline`, `analyze`, `create-plan`, `implement-plan`, `pipeline-review`, `ppr`, `research`, `tdd`, `incident`, `landing-report`, `learn`, `azure-ops`, `vercel-ops`, `railway-ops`, `render-ops`, `digitalocean-ops`, `expo`, `ios`, `docs-writer`, `document-release`, `claude-md-enhancer`, `write-a-skill`, `zoom-out`, `simplify`, `caveman-mode`, ... |
+| **Agents** (22) | `code-reviewer`, `security-auditor`, `symbol-verifier`, `spec-tracer`, `tdd-test-writer`, `tdd-implementer`, `mobile-dev`, `deployment-engineer` (base), `azure-deployment-engineer`, `vercel-deployment-engineer`, `railway-deployment-engineer`, `render-deployment-engineer`, `digitalocean-deployment-engineer`, `incident-responder`, `claude-md-guardian`, ... |
+| **Hooks** (33) | `validate-commit-msg`, `strip-ai-attribution`, `block-push-main`, `block-stage-sensitive`, `block-dangerous-commands`, `tdd-order-check`, `tdd-red-phase-gate`, `claude-md-guard`, `env-scrub`, `notify-emit`, `context-warning`, `context-budget-advisor`, `verify-worktree-commit`, ... |
+| **MCP** | `context7`, `serena`, `sequential-thinking`, `agentmemory`, `codegraph`, `graphify`, optional `local-rag` + `claude-context` |
 | **LSP** | pyright, typescript, csharp, gopls, rust-analyzer |
 | **Model overlays** | Per-model tuning for opus-4-7, sonnet-4-6, haiku-4-5 (consumed by phase skills) |
-| **Host adapters** | claude (concrete), codex/cursor/gemini (stubs) — interface scaffold for multi-host dispatch |
-| **Sandbox** | Pluggable `SandboxProvider.sh` (worktree-only default, podman, docker) with `sandbox_wrap` shared helper |
+| **Host adapters** | claude + codex (concrete), cursor/gemini (stubs) — interface scaffold for multi-host dispatch |
+| **Sandbox** | Pluggable `SandboxProvider.sh` (`auto` default: podman → docker → worktree-only) with `sandbox_wrap` shared helper |
 
 ---
 
@@ -153,7 +153,7 @@ Five providers, all driven from Charter Topic 10:
 | `@render-deployment-engineer` | `render-ops` | Render (managed container PaaS) | [docs](documentation/deployment-render.html) |
 | `@digitalocean-deployment-engineer` | `digitalocean-ops` | DigitalOcean App Platform | [docs](documentation/deployment-digitalocean.html) |
 
-`claude/agents/deployment-engineer.md` is a documentation-only base describing the shared contract (auth posture, secret hygiene, health-check polling, no-direct-REST). Each named agent extends it for its provider.
+`claude/agents/deployment-engineer.md` is the shared base agent (dispatch with `provider: <name>`) describing the shared contract (auth posture, secret hygiene, health-check polling, no-direct-REST). Each named agent extends it for its provider.
 
 ---
 
@@ -178,24 +178,24 @@ pipelinekit/
 ├── claude/                # Overlay installed to ~/.claude/
 │   ├── CLAUDE.md.template
 │   ├── rules/
-│   ├── skills/            # 42 native skills
+│   ├── skills/            # 45 native skills
 │   │   ├── pipeline/      # The autonomous orchestrator
 │   │   ├── docs-writer/   # template.html + render.py (rich-template HTML)
 │   │   ├── research/      # Karpathy autoresearch loop + tsv-viewer.sh
 │   │   ├── {railway,render,digitalocean}-ops/  # Cloud provider ops skills
 │   │   └── ...
-│   ├── agents/            # 31 specialized agents (incl. deployment-engineer base)
-│   ├── hooks/             # 24 production hooks
+│   ├── agents/            # 22 specialized agents (incl. deployment-engineer base)
+│   ├── hooks/             # 33 production hooks
 │   ├── lib/
 │   │   ├── pipeline/      # ac_lint, charter_revalidate, decomposition_check, ...
 │   │   └── sandbox/       # SandboxProvider.sh + providers/ + sandbox_wrap.sh
 │   ├── model-overlays/    # opus-4-7.md, sonnet-4-6.md, haiku-4-5.md, claude.md
-│   ├── host-adapters/     # claude.sh (concrete), codex.sh / cursor.sh / gemini.sh (stubs)
+│   ├── host-adapters/     # claude.sh + codex.sh (concrete), cursor.sh / gemini.sh (stubs)
 │   ├── memory/            # MEMORY.md scaffold (empty by design; populated per project)
 │   └── config/            # never-stage.txt, etc.
 ├── scripts/
 │   ├── install.sh         # Idempotent installer
-│   ├── sandbox/           # Container base image (Containerfile + Dockerfile + build.sh)
+│   ├── sandbox/           # Container base image (Containerfile + build.sh)
 │   └── cloud/             # Oracle + Hetzner bootstrap scripts
 ├── documentation/         # User-facing docs — all self-contained HTML
 │   ├── index.html         # Landing page
@@ -203,11 +203,7 @@ pipelinekit/
 │   ├── changelog.html     # v0.0.1 dev log
 │   ├── installation.html, pipeline.html, cloud-setup.html
 │   ├── deployment-{azure,vercel,railway,render,digitalocean}.html
-│   ├── docs/              # Vendored reference standards (converted to HTML in v0.0.1)
-│   │   ├── SKILL-AUTHORING-STANDARD.html
-│   │   ├── SKILL_PIPELINE.html
-│   │   └── NOTICE.html    # Attribution + license for vendored content
-│   └── audits/            # Compliance audit reports
+│   └── SKILL-AUTHORING-STANDARD.html, SKILL_PIPELINE.html, NOTICE.html  # Vendored reference standards + attribution
 ├── .mcp.json.template     # MCP server config (copy to project root on install)
 ├── LICENSE                # MIT
 └── README.md
@@ -230,7 +226,7 @@ stop caveman     # revert to normal
 
 ## Memory
 
-Memory ships as an empty scaffold. After install, Claude builds memory in `~/.claude/projects/<project-slug>/memory/`. See [`claude/memory/MEMORY.md`](claude/memory/MEMORY.md) for the schema reference (recency-weighted confidence decay, four memory types: user / feedback / project / reference).
+Memory ships as an empty scaffold. After install, the `agentmemory` MCP (registered by `install.sh`) is the canonical memory store; legacy flat files under `~/.claude/projects/<project-slug>/memory/` stay read-only as a rollback window (dual-write via `PIPELINE_KEEP_FLAT_FILE_MEMORY=1`). See [`claude/memory/MEMORY.md`](claude/memory/MEMORY.md) for the flat-file schema reference (recency-weighted confidence decay, four memory types: user / feedback / project / reference).
 
 ---
 
@@ -251,12 +247,12 @@ Pipelinekit stands on the shoulders of several upstream projects, plus inspirati
 
 **Inspirational-but-not-vendored:**
 
-- **[Andrej Karpathy](https://karpathy.ai/)** — the autoresearch-loop pattern (hypothesize → mutate one file → benchmark → keep-or-reset → append row → repeat) is the design behind `/research`. The `symbol-verifier` anti-hallucination agent (Agent 6 of `/review` on medium+ diffs) is inspired by the same first-principles verification ethos.
+- **[Andrej Karpathy](https://karpathy.ai/)** — the autoresearch-loop pattern (hypothesize → mutate one file → benchmark → keep-or-reset → append row → repeat) is the design behind `/research`. The `symbol-verifier` anti-hallucination agent (Agent 6 of `/pipeline-review` on medium+ diffs) is inspired by the same first-principles verification ethos.
 - **[Anthropic](https://www.anthropic.com/)** — the entire runtime: Claude Code, the Agent SDK, multi-agent dispatch, Skills, Hooks, MCP, `PushNotification`, and the underlying Claude models that every pipelinekit phase calls. Pipelinekit is a workflow overlay on Claude Code — without Anthropic's platform, there's no pipelinekit.
 
 **Vendored upstreams** (full table with pinned SHAs + licenses + scope + re-vendor procedures at [documentation/credits.html](documentation/credits.html)):
 
-- [wshobson/agents](https://github.com/wshobson/agents) — 10 specialist agents (MIT, © 2024 Seth Hobson)
+- [wshobson/agents](https://github.com/wshobson/agents) — 2 specialist agents: deployment-engineer, incident-responder (MIT, © 2024 Seth Hobson)
 - [alirezarezvani/claude-skills](https://github.com/alirezarezvani/claude-skills) — skill-authoring DNA + lifecycle reference + personas (MIT, © 2025 Alireza Rezvani)
 - [alirezarezvani/ClaudeForge](https://github.com/alirezarezvani/ClaudeForge) — claude-md-guardian + claude-md-enhancer (MIT, © 2025 Alireza Rezvani)
 - [mattpocock/skills](https://github.com/mattpocock/skills) — TDD doctrine pack + write-a-skill + zoom-out (MIT, © Matt Pocock)
