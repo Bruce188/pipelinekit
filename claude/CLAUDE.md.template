@@ -1,154 +1,42 @@
 # User-Level Instructions
 
-> **Platform:** any POSIX (Linux/macOS/WSL2) | **Shell:** bash | **Node:** 20+ recommended
-> Generated from `pipelinekit` install. Edit freely after install.
-
-# Detailed rules
-@~/.claude/rules/workflow.md
-@~/.claude/rules/agents-worktrees.md
-
-## Core Principles
-
-1. **Verification First**: Run tests/build after EVERY change. Restart app if applicable. Do not mark done without passing.
-2. **No AI Attribution**: Zero Claude/LLM refs in commits, PRs, code, docs. No `Co-Authored-By`, no `Generated with`, no AI comments.
-3. **Commit Only When Asked**: Await explicit confirmation. Exception: worktree agents auto-commit `wip:`.
-4. **Plan Trust**: Plan with exact files/lines/code → skip exploration, implement directly.
-5. **Caveman Default**: Responses terse (`wenyan-ultra`), three-zone split — Zone 1 code/paths/commits English, Zone 2 narrative 文言, Zone 3 fragments/status ultra English. The labels `Zone 1`/`Zone 2`/`Zone 3` are internal scaffolding — NEVER write them as headers or prefixes in a reply; blend the three kinds inline so the reader never sees the word "Zone". Contract: `~/.claude/snippets/caveman-subagent.md`. See `~/.claude/skills/caveman-mode/SKILL.md`, `/caveman lite|full|ultra|wenyan|off`.
-   Caveman is `wenyan-ultra` default-on ONLY when `~/.claude/.caveman-active` exists. The SessionStart hook `session-start-caveman.sh` touches this marker on every new session by default, and the `agent-caveman-gate.sh` PreToolUse hook (matcher: `Agent`) then enforces the snippet contract on every onward subagent dispatch — without the marker, the gate short-circuits and subagents inherit no contract. Operator opt-out: `touch ~/.claude/.caveman-off` — presence of the off marker suppresses the SessionStart hook for all future sessions, leaving `.caveman-active` untouched. In-session toggles: `/caveman lite|full|ultra|wenyan|off`.
-6. **Subagent-First (default)**: Dispatch non-trivial work via `Agent`. `subagent-first-nudge.sh` injects reminder ONCE per session (SessionStart and PostCompact clear marker at `~/.claude/.subagent-nudge-fired`; banner re-emits after fresh boot or compaction). Main orchestrates; subagents execute. Bundle independent streams in a SINGLE turn (multiple `Agent` calls one message). Dispatch MUST set `subagent_type` to the most specific matching agent (e.g. `code-reviewer`, `debugger`, `docs-writer`). `general-purpose` is a fallback only when no specialist matches OR when a specialist explicitly fails (e.g. F20 namespace collision); the fallback reason MUST be named in the dispatch prompt or surrounding narrative. Inline EXCEPTION: trivial one-shots (≤ ~3 tool calls), interactive Q&A, opt-out: `no subagents`, `no agents`, `do it inline`, `do it yourself`, `skip agents`, `no dispatch`, `don't dispatch`. Kill switch: `PIPELINE_NO_SUBAGENT_NUDGE=1`. Full: `~/.claude/rules/agents-worktrees.md § Subagent Defaults` + `§ Typed-subagent selection rule`.
-
-## Tool Usage Rules
-
-- **Code search**: Grep/Glob (native)
-- **Semantic code navigation** (cross-file refs, symbol graph): **PREFER serena for any cross-file / symbol work when connected** (`find_symbol`, `find_referencing_symbols`, `get_symbols_overview`, `rename_symbol`); fall back to Grep/Glob when absent.
-- **Library/framework docs**: `context7` MCP resolve-library-id → query-docs
-- **Structural patterns** (hierarchies, call graphs): `RepoMapper` MCP if configured (not pipeline-wired by default)
-- **Deep reasoning chains** (multi-step logic): `sequential-thinking` MCP — auto-wired; invoked in plan/review phases for trade-offs and severity/correctness reasoning. Fall back silently when unavailable.
-- **Docs/specs/PDFs**: `local-rag` MCP query_documents if configured
-- **Web research**: WebSearch → WebFetch
-- **Symbolic code graph** (function-call traversal): `codegraph` MCP if configured (50k-file gate via `/codegraph-init`)
-- **Knowledge graph** (entity/relationship from project artifacts): `graphify` MCP if configured (50k-file gate via `/graphify-init`)
-- **Canonical memory store**: `agentmemory` MCP — see § Memory System.
-- **Interactive UI / annotation surface**: `Understand-Anything` plugin (NOT an MCP server — installed via harness plugin marketplace at `scripts/install.sh`; see [memory-graph-stack.html](memory-graph-stack.html)).
-
-## Claude Code Environment Defaults
-
-安裝時固定一環境變數於 `~/.claude/settings.json`，疊加而非覆蓋，用戶先設值者優先。
-
-**Pinned default:** `CLAUDE_CODE_DISABLE_1M_CONTEXT=1` — disables 1M context so prompt caching aligns to 200K boundary (Anthropic's 5-minute cache TTL most efficient). Doc: <https://docs.claude.com/en/docs/claude-code/model-config>.
-
-**Where:** `~/.claude/settings.json` `env` block, written by `bash scripts/install.sh` invoked with `CLAUDE_INSTALL_SETTINGS=1`.
-
-**Opt-out:** set `CLAUDE_CODE_DISABLE_1M_CONTEXT=0` (or other) in `~/.claude/settings.json` BEFORE re-running install. pipelinekit only fills absent keys; your value survives.
-
-**Apply on existing install:** re-run `CLAUDE_INSTALL_SETTINGS=1 bash scripts/install.sh`. Top-level keys (`model`, `enabledPlugins`, `extraKnownMarketplaces`, etc.) preserved.
-
-**Withdrawn:** `CLAUDE_CODE_AUTO_COMPACT_WINDOW=100000` previously considered, NOT a real env var — third-party post, not in Anthropic catalog (<https://docs.claude.com/en/docs/claude-code/settings>) or model-config. Unknown env vars silently ignored. Auto-compact threshold not user-configurable; invoke `/compact` manually.
-
-## Memory System
-
-正典讀寫面為 `agentmemory` MCP（`bash scripts/install.sh` 已於 `~/.claude.json` 之 `mcpServers.agentmemory` 註冊，為**唯一活躍寫入面**）。`/analyze`, `/create-plan`, `/implement-plan`, `/review` 皆先呼 `mcp__agentmemory__memory_recall` 取語境，並依保存協議（user/feedback/project/reference）寫新條目。MCP 離線時優雅降級——記 "agentmemory not configured — skipping memory recall" 後繼續，不自動回退寫平檔；判別活躍面：`claude mcp list | grep agentmemory` 見 `✓ Connected`，連線失敗須 `bash scripts/install.sh` 重註冊。舊式平檔 `~/.claude/projects/<project-slug>/memory/*.md` 為 **30 日唯讀回滾窗口**（非寫入面，後續功能硬刪，本版不移除）；除非設 `PIPELINE_KEEP_FLAT_FILE_MEMORY=1` 啟用 dual-write，否則勿再寫記憶 markdown，副本命名見 `documentation/memory-migration-notes.html`。
-
-四工具，頻降序：`memory_save`（寫一條，欄位 `tags`/`category`=`user|feedback|project|reference|other`/`content`）、`memory_recall`（依 tags 及/或 category 讀，Ebbinghaus recency 排序）、`memory_smart_search`（tags 未知時跨全庫語義搜尋）、`memory_consolidate`（關係圖週期重建，operator 觸發）。
-
-Taxonomy mapping（legacy type → agentmemory `tags` / `category`）：
-
-| Pipelinekit type (legacy) | agentmemory `tags` | agentmemory `category` |
-|---------------------------|--------------------|------------------------|
-| `user` | `[profile]` | `user` |
-| `feedback` | `[feedback]` + 由 `name` 派生（如 `subagent-first`） | `feedback` |
-| `project` | `[project, <slug>]` | `project` |
-| `reference` | `[reference]` | `reference` |
-
-### When NOT to save
-
-勿存：瞬態會話狀態、暫存輸出、專案檔案內容、未經指示之個人資料、同標籤已涵蓋之資訊。存疑則棄——污染難除甚於漏存。
-
-Ebbinghaus：agentmemory 依遺忘曲線就 `last_accessed`（非 stored confidence）算 recency-weighted relevance，recall 自動衰減；勿手動追 `last_seen`/`confidence`。係數見 upstream README。
-
-## Notifications
-
-`/pipeline` 達需注意狀態時——超預算、錯誤、功能完成、權限請求——發推播。無自訂設定檔，限速以 Channels 内建為準。Hook → event_type → surface 對映：`Stop`→`feature-done`→`PushNotification`(互動) 或 `terminalSequence`(回退)；`PermissionRequest`→`question`→`terminalSequence`(OSC 777)；`Notification`→`error`/`budget-breach`/`dropped`→`terminalSequence`；`PreCompact`(= `PostCompact` matcher in `~/.claude/settings.json`)→`compact`→`terminalSequence`。
-
-Surfaces：`PushNotification`(2.1.110+，互動 session + Remote Control + 行動 app "Push when Claude decides")；`Notification`-hook `terminalSequence`(handler 回 JSON，發 OSC 777 桌面通知，契約非阻塞)；`Channels`(2.1.121+，managed-org，inbound 需 `channelsEnabled: true` in `~/.claude/settings.json`，opt-in，pipelinekit 不自動啟用)。
-
-通知攜六欄位：`feature_index`, `step`, `event_type`, `text` (≤ 200 chars，超則截斷加省略號), `action_link` (deep link 或 signal-file 路徑), `feature_name`。Charter/analysis/plan/review 檔內容不洩露（200 字符硬限）；完整 schema 見 `~/.claude/skills/pipeline/reference.md § Notification payload schema`。
-
-Opt-out：`channelsEnabled: false` in `~/.claude/settings.json` 停 inbound Channels；`PIPELINE_NO_NOTIFICATIONS=1` per-run 短路 helper（不發）。
-
-## Context Management
-
-- Context-aware clearing between phases (see `rules/workflow.md`). `/compact` proactively near 50%.
-- After 2 failed corrections, `/clear` and rewrite prompt.
-- Subagents for investigation/reading/exploring — main context stays clean; direct work for coding.
-
-### Session naming
-
-以 `<project-slug>/<feature-or-task-slug>` 命名 session，區分同時 `/resume` 條目。建議性。
-
-```bash
-claude -n "myproject/feature-x"
-claude -n "myproject/refactor-auth"
-```
+Identity: ${USER_NAME} <${USER_EMAIL}>.
 
 ## Git
 
-- Conventional commits: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`, `perf:`, `style:`, `build:`, `ci:` (enforced by `~/.claude/hooks/validate-commit-msg.sh`). No emojis.
-- No `Co-authored-by` in commits or PR bodies.
-- Claude exclusions → `.git/info/exclude` (NOT `.gitignore`).
-- Never stage files in `rules/workflow.md` § Plan & Progress → "Never stage". Key items: `.env`, `.claude/`, `docs/` workflow files, `credentials*`.
+- Commit, push, or open PRs only when asked.
+- Conventional commits (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`, `perf:`, `style:`, `build:`, `ci:`); enforced by `hooks/validate-commit-msg.sh`. No emojis.
+- No AI attribution anywhere: no `Co-Authored-By`, no "Generated with", no AI comments. `settings.json` sets `attribution` to empty strings.
+- Never stage paths in `${CLAUDE_HOME}/config/never-stage.txt` (`.env*`, `credentials*`, keys, `docs/` workflow files); `hooks/block-stage-sensitive.sh` enforces it.
+- Claude-specific ignores go in `.git/info/exclude`, never `.gitignore`.
+- No direct pushes to `main`/`master` (`hooks/block-push-main.sh`); branch first.
 
-## Agents & Worktrees
+## Directories
 
-- Named agents only when task prompt explicitly instructs.
-- Worktree agents: `wip: [description]` commit before done (hook-enforced).
-- Squash-merge worktree branches. Clean conventional message — no `wip:`, stream names, finding counts.
-- Interactive single-stream worktrees: native `EnterWorktree` / `ExitWorktree` (Claude CLI `>= v2.1.72`); older builds → manual `git worktree add`. The `isolation: "worktree"` Agent pattern handles parallel-stream dispatch.
-- See `rules/agents-worktrees.md` for protocol.
+- `docs/` — local AI workflow notes (plans, progress, reviews). Never committed.
+- `documentation/` — real project docs. Committed. Render with the `docs-writer` skill.
 
-## Task Prompt Format
+## Base branch detection
 
+```bash
+BASE=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+[ -z "$BASE" ] && BASE=$(git branch -l main master 2>/dev/null | head -1 | awk '{print $NF}')
+[ -z "$BASE" ] && BASE="main"
+git rev-parse --verify "$BASE" 2>/dev/null || echo "ERROR: Base branch '$BASE' not found locally."
 ```
-### Task X.Y: [Name]
-> Model: [model] | Effort: [level] | Agent: [name or none] | /clear before starting
-```
-When task prompt specifies a model, pass via Agent tool's `model` parameter.
 
-## Verification vs. Quality Gate
+## Working style
 
-- **Verification** (auto): Run build/tests after every task.
-- **Quality Gate** (opt-in): Verification + code-reviewer. Only when task prompt specifies.
+- Verify before claiming done: run the build/tests after each change.
+- Prefer serena (symbol navigation) when connected; otherwise Grep/Glob.
 
-## Workflow Pipelines
+## Deploy platforms
 
-技能定義流程。每技能末附「下一步」區塊——遵之。人為推進，Claude 不自動前進。
+Use the `deploy` skill. If a CLI is missing, stop and ask the user to install it.
 
-Autonomous: `/pipeline [feature-file]` — full workflow per feature. Supports **dev** (TDD: `tdd-test-writer` → `tdd-implementer`) and **non-dev** (docs, ops, chores — skip TDD). Routing from commit-type prefix; override `**Type:** dev|non-dev` in block. See `~/.claude/skills/pipeline/SKILL.md` § Step 5.5.
-
-**Charter Mode (default-on):** `/pipeline` opens with Charter Discovery (Step 0) — 9 questions → `docs/charter.md`. Downstream phases read it. Skip with `--no-charter`, adopt with `--charter <path>`. See `docs/pipeline.md` § Charter Mode.
-
-**Pipeline review slug (F20):** pipeline-phase review skill registers under `/pipeline-review`, NOT `/review`. Bare `/review` reserved for the harness's built-in GitHub PR-review template (`/review <PR#>`). Pipeline-internal dispatch — review-phase `Agent` body and Path B/C/Retry fallbacks — calls `Skill: pipeline-review` (`--no-teams` when teams-off). Do NOT re-introduce `name: review` for the pipeline phase; collision treats `--no-teams` as a PR number. Regression target: F20 (`fix/review-skill-namespace-collision`).
-
-See `~/.claude/rules/workflow.md` for arguments, base-branch detection, context-aware clearing.
-
-## Platform & Deploy Workflows
-
-工具鏈預設隨附。下表列平台 → 綁定 agent + ops skill + CLI 提供方。**自動裝**者安裝時備齊；**用戶裝**者缺失時 ops 技能停止並提示。
-
-| Platform | Bundled agent | Ops skill | CLI |
-|----------|---------------|-----------|-----|
-| Azure | `@azure-deployment-engineer` | `azure-ops` | auto on Debian/Ubuntu; else prints Homebrew / Microsoft-docs links + continues |
-| Vercel | `@vercel-deployment-engineer` | `vercel-ops` | user installs `npm i -g vercel` |
-| Railway | `@railway-deployment-engineer` | `railway-ops` | user installs `npm i -g @railway/cli` |
-| Render | `@render-deployment-engineer` | `render-ops` | user installs |
-| DigitalOcean | `@digitalocean-deployment-engineer` | `digitalocean-ops` | user installs `doctl` |
-| Mobile (iOS/Expo) | `mobile-dev` | `ios` / `expo` skills | runtime-detects Xcode (`xcrun --find`); non-macOS silently skips |
-
-消費者 Web 應用超出預設範疇——`gstack` 為第三方 (`alirezarezvani/gstack`)，另行安裝。原生覆蓋後端、函式庫、資料管道、CLI。
-
-@~/.claude/modes/active.md
-
-## User Identity
-
-- Name: ${USER_NAME}
-- Email: ${USER_EMAIL}
+| Platform | CLI | Install |
+|----------|-----|---------|
+| Vercel | `vercel` | `npm i -g vercel` |
+| Railway | `railway` | `npm i -g @railway/cli` |
+| Render | `render` | user installs |
+| DigitalOcean | `doctl` | user installs |

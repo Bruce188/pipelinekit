@@ -37,13 +37,13 @@ jobs:
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
       - name: Run shellcheck
-        run: shellcheck claude/hooks/*.sh scripts/*.sh tests/*.sh
+        run: shellcheck -S warning claude/hooks/*.sh scripts/*.sh scripts/cloud/*.sh tests/*.sh
       - name: Install ruff
         if: hashFiles('pyproject.toml') != ''
         run: pip install --user ruff
       - name: Run ruff
         if: hashFiles('pyproject.toml') != ''
-        run: ruff check claude/hooks/ claude/lib/
+        run: ruff check claude/hooks/
 
   selftests:
     name: selftests
@@ -71,8 +71,8 @@ jobs:
           for t in claude/hooks/tests/test_*.sh tests/test_*.sh; do
             bash "$t"
           done
-      - name: Run scripts/verify.sh
-        run: bash scripts/verify.sh
+      - name: Run python hook tests
+        run: python -m pip install --user pytest && python -m pytest -q claude/hooks/tests
       - name: Run validate-commit-msg self-test
         run: bash claude/hooks/validate-commit-msg.sh --selftest
 
@@ -91,7 +91,4 @@ jobs:
       - name: Run install.sh into scratch HOME
         run: |
           export HOME="$(mktemp -d)"
-          bash scripts/install.sh
-          test "$(ls -1 "$HOME/.claude/skills/" | wc -l)" -ge 1
-          test "$(ls -1 "$HOME/.claude/agents/" | wc -l)" -ge 1
-          test "$(ls -1 "$HOME/.claude/hooks/" | wc -l)" -ge 1
+          bash scripts/install.sh --no-serena

@@ -333,7 +333,7 @@ fi
 FORBIDDEN_PATTERN='(\bstream [A-E]\b|review-v[0-9]+|apply review|[0-9]+ findings|\bparallel\s+streams\b|merge: stream|across [0-9]+ streams)'
 if echo "$MSG" | grep -iqE "$FORBIDDEN_PATTERN"; then
   OTHER_FORBIDDEN=$(echo "$MSG" | grep -ioE "$FORBIDDEN_PATTERN" | head -1)
-  echo "error: forbidden-token: message contains AI workflow token '$OTHER_FORBIDDEN' -- see ~/.claude/rules/agents-worktrees.md § Commit Message Hygiene" >&2
+  echo "error: forbidden-token: message contains AI workflow token '$OTHER_FORBIDDEN' -- describe the change, not the workflow" >&2
   exit 2
 fi
 

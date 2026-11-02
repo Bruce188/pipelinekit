@@ -38,7 +38,7 @@ INPUT=$(cat)
 # emit warnings to stderr. Always exit 0 -- advisory only. Stdout is
 # discarded (the hook produces no JSON payload); stderr passes through
 # to the harness for surfacing to the operator.
-PYTHONPATH="$PKG_ROOT" TOOL_ENVELOPE="$INPUT" python3 - >/dev/null <<'PY'
+PYTHONPATH="$HOOK_DIR:$PKG_ROOT" TOOL_ENVELOPE="$INPUT" python3 - >/dev/null <<'PY'
 import json
 import os
 import sys
@@ -103,7 +103,11 @@ source = (source or "<unknown>").replace("\n", " ").replace("\r", " ")[:200]
 
 # Import the scanner -- PYTHONPATH was set by the wrapping shell script.
 try:
-    from claude.hooks._promptguard import scan
+    try:
+        from claude.hooks._promptguard import scan
+    except ImportError:
+        # installed layout: hook dir is ~/.claude/hooks, no claude/ package
+        from _promptguard import scan
 except ImportError as e:
     sys.stderr.write(f"scan-tool-output: cannot import _promptguard ({e}) -- skipping\n")
     sys.exit(0)
