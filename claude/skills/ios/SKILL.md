@@ -162,13 +162,12 @@ APIs documented here reflect the Feb-2026 baseline; see `docs/xcode-sdk-verifica
 
 ## When NOT to Use
 
-- Cross-platform mobile development targeting Android in addition to iOS — use `claude/agents/mobile-dev.md` with the appropriate platform stack (Kotlin, React Native, Expo, Flutter)
-- Web development — use the native pipelinekit skills for backend and consumer web work
+- Cross-platform mobile development targeting Android in addition to iOS — use the `expo` skill for React Native / Expo, or the platform's own toolchain (Kotlin, Flutter)
+- Web development — out of scope for this skill
 - Android-only development — use Kotlin + Android Studio; this skill is Xcode-specific
 
 ## Cross-references
 
-- `claude/agents/mobile-dev.md` — the `@mobile-dev` agent that orchestrates iOS (and multi-platform) mobile work. Invoke explicitly when implementing iOS features.
 - `claude/skills/expo/SKILL.md` — the JS-side mobile workflow for Expo and React Native projects, including EAS Build, EAS Update, and Expo Router.
 - Optional MCPs (advisory entries in `.mcp.json.template` under `_mobile_mcpServers`):
   - **XcodeBuildMCP** — remote iOS build automation for Linux/WSL2 hosts

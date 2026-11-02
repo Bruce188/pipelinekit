@@ -168,7 +168,7 @@ fi
 cat > "$TMP/snippet-test.md" <<'EOF'
 # Snippet substitution test
 
-Body paragraph.
+Body paragraph describing each phase of the lifecycle.
 
 <div data-snippet="pipeline-phase-diagram"></div>
 

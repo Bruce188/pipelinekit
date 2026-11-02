@@ -179,9 +179,7 @@ Every emitted page automatically has:
 ## When this skill fires
 
 1. **Slash-invocation** — `/docs-writer <markdown-path> <html-path>` (user-initiated).
-2. **`/pipeline` Documentation Update Phase** — after a feature merges, `/pipeline` dispatches the skill to update any documentation/ pages affected by the change.
-3. **`/document-release` post-merge** — release-documentation calls into `docs-writer` to emit per-release HTML pages.
-4. **Author-triggered** — when committing a new feature, the implementer or follow-up author runs `render.py` directly to produce the user-facing page.
+2. **Author-triggered** — when committing a new feature, the implementer or follow-up author runs `render.py` directly to produce the user-facing page.
 
 ## Enforcement
 

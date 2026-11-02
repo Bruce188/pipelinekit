@@ -287,7 +287,7 @@ Natural-language invocations for this skill:
 
 ## When NOT to Use
 
-- Pure native iOS or Android single-platform app where SwiftUI/UIKit or Jetpack Compose performance and platform fidelity are paramount — use `claude/agents/mobile-dev.md` with the native stack directly
+- Pure native iOS or Android single-platform app where SwiftUI/UIKit or Jetpack Compose performance and platform fidelity are paramount — use the `ios` skill or the native toolchain directly
 - Complex bare-metal performance requirements (audio DSP, real-time video processing, custom GPU shaders) — React Native's JS bridge introduces latency that native code eliminates
 - Offline-first apps with heavy local SQLite or realm-based sync that benefit from direct ORM control — React Native with Turbo Modules may be more appropriate than the Expo managed SDK
 
@@ -304,7 +304,7 @@ Natural-language invocations for this skill:
 
 ## Installation Requirements
 
-Expo CLI requires Node 18+ (LTS recommended). pipelinekit's installer (`scripts/install.sh`) does NOT install Node — install via your system's package manager or nvm. The `claude/CLAUDE.md.template` already notes Node 20+ recommended.
+Expo CLI requires Node 18+ (LTS recommended). pipelinekit's installer (`scripts/install.sh`) does NOT install Node — install via your system's package manager or nvm.
 
 ```bash
 # Install Expo CLI globally (optional; npx works without a global install)
