@@ -1,10 +1,10 @@
 # Contributing to pipelinekit
 
-Thanks for your interest in pipelinekit. For the full workflow doctrine, please read the rendered governance doc: [`documentation/governance.html`](documentation/governance.html).
+Thanks for your interest in pipelinekit.
 
 ## Workflow
 
-pipelinekit ships an autonomous workflow orchestrator behind `Skill: pipeline`. The full pipeline — Charter Discovery, analyze, plan, implement, review, push-and-PR, post-merge — is documented end-to-end in [`documentation/governance.html`](documentation/governance.html). In short: features land one at a time on dedicated branches via the orchestrator, with each phase dispatched as a fresh-context subagent.
+Branch from `main`, keep changes small, open a PR. Run `bash tests/test_install.sh` and the hook tests in `claude/hooks/tests/` before pushing.
 
 ## Commit messages
 
@@ -24,7 +24,7 @@ Local-only ignores (editor cruft, scratch files, anything Claude-specific to you
 
 ## No AI attribution
 
-Pull requests, commits, and source files MUST NOT carry AI-tool attribution metadata — the model name, the SDK vendor, the acronym for large language models, the `Co_Authored_By` trailer (written here with underscores so this very sentence does not trip the policy grep), the phrase produced-with-AI, or robot emoji. The commit-message hook rejects these strings outright. The canonical block-list lives in `claude/hooks/strip-ai-attribution.sh`.
+Pull requests, commits, and source files MUST NOT carry AI-tool attribution metadata — the model name, the SDK vendor, the acronym for large language models, the `Co_Authored_By` trailer (written here with underscores so this very sentence does not trip the policy grep), the phrase produced-with-AI, or robot emoji. `scripts/install.sh` turns attribution off in `settings.json`.
 
 ## License
 
