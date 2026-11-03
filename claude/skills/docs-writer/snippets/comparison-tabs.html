@@ -60,17 +60,36 @@
   const others = Object.keys(items).filter(k => k !== home);
   if (!home || !others.length) return;
   let compareKey = others[0];
+  tabsEl.setAttribute('role', 'tablist');
+  gridEl.setAttribute('role', 'tabpanel');
+  // Arrow keys / Home / End move between tabs (WAI-ARIA tabs pattern).
+  tabsEl.addEventListener('keydown', e => {
+    const i = others.indexOf(compareKey);
+    const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: others.length - 1 }[e.key];
+    if (next === undefined) return;
+    e.preventDefault();
+    compareKey = others[(next + others.length) % others.length];
+    render();
+  });
 
   function render() {
+    // The tabs are rebuilt below; keep keyboard focus on the selected one.
+    const hadFocus = tabsEl.contains(document.activeElement);
     tabsEl.innerHTML = '';
-    Object.entries(items).forEach(([key, prov]) => {
-      if (key === home) return;
+    others.forEach(key => {
+      const prov = items[key];
+      const on = key === compareKey;
       const b = document.createElement('button');
-      b.className = 'pkit-cmp-tab' + (key === compareKey ? ' active' : '');
+      b.type = 'button';
+      b.className = 'pkit-cmp-tab' + (on ? ' active' : '');
       b.dataset.key = key;
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-selected', String(on));
+      b.tabIndex = on ? 0 : -1;
       b.innerHTML = (prov.icon ? `<span class="icon">${prov.icon}</span>` : '') + prov.name;
       b.addEventListener('click', () => { compareKey = key; render(); });
       tabsEl.appendChild(b);
+      if (on && hadFocus) b.focus();
     });
 
     const homeProv = items[home];

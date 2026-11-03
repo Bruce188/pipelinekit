@@ -16,6 +16,8 @@
       background: var(--bg-elev);
       min-height: 120px;
       user-select: none;
+      cursor: ew-resize;
+      touch-action: pan-y;
     }
     .pkit-bas .pkit-bas__layer {
       position: absolute;
@@ -121,6 +123,22 @@
 
     rangeInput && rangeInput.addEventListener('input', function() {
       applyValue(rangeInput.value);
+    });
+    // Dragging anywhere on the picture moves the handle too (the range input
+    // stays the keyboard / screen-reader control).
+    var viewport = root.querySelector('.pkit-bas__viewport');
+    function dragTo(e) {
+      var r = viewport.getBoundingClientRect();
+      var pct = Math.round((e.clientX - r.left) / r.width * 100);
+      if (rangeInput) rangeInput.value = pct;
+      applyValue(rangeInput ? rangeInput.value : pct);
+    }
+    viewport && viewport.addEventListener('pointerdown', function(e) {
+      viewport.setPointerCapture(e.pointerId);
+      dragTo(e);
+    });
+    viewport && viewport.addEventListener('pointermove', function(e) {
+      if (viewport.hasPointerCapture(e.pointerId)) dragTo(e);
     });
 
     applyValue(rangeInput ? rangeInput.value : 50);

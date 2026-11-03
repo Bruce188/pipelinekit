@@ -581,6 +581,20 @@ def substitute_snippets(html_body: str, *, missing_ok: bool = False) -> tuple[st
     return unstash("".join(out)), used
 
 
+_SEARCH_MOUNT_RE = re.compile(r'<[^>]*data-snippet-mount="search-widget"[^>]*>')
+
+
+def inline_search_index(html_text: str, records: list[dict]) -> str:
+    """Embed the search index in a page's search-widget, so it works under
+    file:// (where browsers refuse to fetch() a sibling search.json)."""
+    data = json.dumps(records, ensure_ascii=False).replace("<", "\\u003c")
+    return _SEARCH_MOUNT_RE.sub(
+        lambda m: m.group(0) + f'\n<script type="application/json" data-search-index>{data}</script>',
+        html_text,
+        count=1,
+    )
+
+
 def strip_first_paragraph(html_body: str) -> str:
     """Remove the first <p>...</p> from the rendered body (used when description was auto-derived from it)."""
     return re.sub(r"<p[^>]*>.*?</p>\s*", "", html_body, count=1, flags=re.DOTALL)
@@ -707,6 +721,7 @@ def batch_render(root: Path) -> int:
     template = TEMPLATE_PATH.read_text(encoding="utf-8")
 
     records: list[dict] = []
+    pages: list[tuple[Path, str]] = []
     sources = sorted(src_dir.glob("*.md"))
     if not sources:
         print(f"warning: no markdown sources in {src_dir}", file=sys.stderr)
@@ -726,7 +741,7 @@ def batch_render(root: Path) -> int:
             # search record emitted) so the existing rendered copy survives.
             print(f"  skip {src.name}: {exc}", file=sys.stderr)
             continue
-        out_path.write_text(html_output, encoding="utf-8")
+        pages.append((out_path, html_output))
         print(
             f"Rendered {src.relative_to(root)} → {out_path.relative_to(root)} "
             f"({len(html_output)} bytes, diataxis={record['quadrant']})",
@@ -734,6 +749,8 @@ def batch_render(root: Path) -> int:
         )
         records.append(record)
 
+    for out_path, html_output in pages:
+        out_path.write_text(inline_search_index(html_output, records), encoding="utf-8")
     search_path = out_dir / "search.json"
     search_path.write_text(
         json.dumps(records, indent=2, ensure_ascii=False) + "\n",
@@ -814,6 +831,11 @@ def main() -> int:
     if args.output == "-":
         sys.stdout.write(html_output)
     else:
+        # A search-widget page rendered next to batch mode's search.json gets it inlined.
+        index_path = Path(args.output).parent / "search.json"
+        if index_path.is_file():
+            html_output = inline_search_index(
+                html_output, json.loads(index_path.read_text(encoding="utf-8")))
         Path(args.output).write_text(html_output, encoding="utf-8")
         print(f"Rendered {args.input} → {args.output} ({len(html_output)} bytes)", file=sys.stderr)
 
