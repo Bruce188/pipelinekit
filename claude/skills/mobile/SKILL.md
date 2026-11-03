@@ -11,21 +11,6 @@ description: >-
   phone, a PWA on iPhone or iOS Safari, Expo, EAS, OTA updates, or
   shipping to Google Play or the App Store. Not for desktop web layout,
   backend/server Kotlin, or APIs a mobile app merely calls.
-paths:
-  - "**/build.gradle"
-  - "**/build.gradle.kts"
-  - "**/settings.gradle"
-  - "**/settings.gradle.kts"
-  - "**/gradle/libs.versions.toml"
-  - "**/AndroidManifest.xml"
-  - "**/app.json"
-  - "**/app.config.js"
-  - "**/app.config.ts"
-  - "**/eas.json"
-  - "**/manifest.webmanifest"
-  - "**/*.webmanifest"
-  - "**/sw.js"
-  - "**/service-worker.js"
 ---
 
 # Mobile from WSL2
