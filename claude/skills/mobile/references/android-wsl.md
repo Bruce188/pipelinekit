@@ -9,7 +9,7 @@ Reference projects: `~/hsnotes` and `~/projects/cashregister` (same template). R
 | Piece | Where / how to check |
 |---|---|
 | SDK | `~/Android/Sdk` (`build-tools/`, `platforms/`, `platform-tools/`, `cmdline-tools/latest/`). No `emulator/`, no `system-images/`. |
-| SDK path for Gradle | `local.properties` → `sdk.dir=/home/bruce/Android/Sdk`. Git-ignored; create it in a fresh clone or export `ANDROID_HOME`. |
+| SDK path for Gradle | `local.properties` → `sdk.dir=/home/<you>/Android/Sdk`. Git-ignored; create it in a fresh clone or export `ANDROID_HOME`. |
 | `ANDROID_HOME` | Unset by default. `export ANDROID_HOME=~/Android/Sdk` and put `$ANDROID_HOME/platform-tools` first on `PATH`. |
 | Install SDK parts | `$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-NN" "build-tools;NN.0.0"` (match `compileSdk`). |
 | Gradle | Always `./gradlew` (wrapper pins the version in `gradle/wrapper/gradle-wrapper.properties`). `~/android-tools/gradle-*` is only a bootstrap copy. |
