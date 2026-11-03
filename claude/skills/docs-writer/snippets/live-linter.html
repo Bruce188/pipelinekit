@@ -1,12 +1,22 @@
 <!-- snippet:live-linter
-     Paste-your-SKILL.md textarea + live scoring against the 10-pattern
-     skill authoring standard. Per-pattern green/amber/red badges with
-     specific suggestions. Pure client-side; no network call.
+     Paste-and-check textarea: scores the text live against rules the page
+     supplies, with pass / warn / fail badges and a hint per rule. Pure
+     client-side; no network call.
 
-     Used on documentation/SKILL-AUTHORING-STANDARD.html.
-
-     Placeholder usage:
-       <div data-snippet="live-linter"></div>
+     The page supplies the rules as a JSON child of the placeholder. Each rule
+     is a JavaScript regex "pattern" (+ optional "flags"). mode "require"
+     (default) passes when the pattern matches; "forbid" passes when it does
+     not. A failing rule shows as "fail" or, with "level": "warn", as a warning.
+     "example" (optional) is loaded by the Load example button.
+       <div data-snippet="live-linter">
+       <script type="application/json">
+       {"label": "Paste your commit message",
+        "rules": [
+          {"name": "Conventional type", "pattern": "^(feat|fix|docs|chore)(\\(.+\\))?: ", "hint": "Start with feat:, fix:, ..."},
+          {"name": "No trailing period", "pattern": "^.*\\.$", "flags": "m", "mode": "forbid", "level": "warn", "hint": "Drop the final period."}],
+        "example": "feat: add login"}
+       </script>
+       </div>
 -->
 <div class="pkit-linter" data-snippet-mount="live-linter">
   <style>
@@ -36,207 +46,70 @@
 
   <div class="pkit-ll-input">
     <div class="pkit-ll-label">
-      <span>Paste your SKILL.md content</span>
+      <span data-ll-label>Paste your text</span>
       <div class="pkit-ll-actions">
-        <button class="pkit-ll-btn" data-act="example">Load example</button>
+        <button class="pkit-ll-btn" data-act="example" hidden>Load example</button>
         <button class="pkit-ll-btn" data-act="clear">Clear</button>
       </div>
     </div>
-    <textarea id="pkit-ll-input" placeholder="---
-name: my-skill
-description: What this skill does and when to use it. ...
----
-
-# my-skill — short title
-
-## When this skill fires
-...
-
-## What it does
-...
-
-## Output
-...
-
-## Example
-...
-" spellcheck="false"></textarea>
+    <textarea data-ll-input spellcheck="false" aria-label="Text to check"></textarea>
   </div>
 
   <div class="pkit-ll-output">
     <div class="pkit-ll-score">
-      <span class="num" id="pkit-ll-num">0<span class="of">/10</span></span>
-      <span class="grade" id="pkit-ll-grade">no input</span>
+      <span class="num" data-ll-num>0</span>
+      <span class="grade" data-ll-grade>no input</span>
     </div>
-    <div class="pkit-ll-rows" id="pkit-ll-rows"></div>
+    <div class="pkit-ll-rows" data-ll-rows aria-live="polite"></div>
   </div>
 </div>
 
 <script>
 (function() {
   'use strict';
-  const lts = document.querySelectorAll('.pkit-linter[data-snippet-mount="live-linter"]');
-  const lt = lts[lts.length - 1];
-  if (!lt || lt.dataset.pkitInit) return;
-  lt.dataset.pkitInit = '1';
+  const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  document.querySelectorAll('.pkit-linter[data-snippet-mount="live-linter"]').forEach(lt => {
+    if (lt.dataset.pkitInit) return;
+    lt.dataset.pkitInit = '1';
+    const dataEl = lt.querySelector('script[type="application/json"]');
+    if (!dataEl) return;
+    const data = JSON.parse(dataEl.textContent);
+    const rules = (data.rules || []).map(r => Object.assign({}, r, { re: new RegExp(r.pattern, r.flags || '') }));
+    const input = lt.querySelector('[data-ll-input]');
+    const num = lt.querySelector('[data-ll-num]');
+    const grade = lt.querySelector('[data-ll-grade]');
+    const rows = lt.querySelector('[data-ll-rows]');
+    if (data.label) lt.querySelector('[data-ll-label]').textContent = data.label;
 
-  const input = lt.querySelector('#pkit-ll-input');
-  const num = lt.querySelector('#pkit-ll-num');
-  const grade = lt.querySelector('#pkit-ll-grade');
-  const rows = lt.querySelector('#pkit-ll-rows');
-
-  // 10-pattern skill DNA checklist. Each pattern has:
-  //   name, regex (or function), hint.
-  // Returns 'pass' / 'warn' / 'fail' per pattern.
-  const PATTERNS = [
-    {
-      name: "YAML frontmatter (---)",
-      test: (s) => /^---\s*\n[\s\S]*?\n---\s*\n/.test(s) ? 'pass' : 'fail',
-      hint: "Skill files start with a `---` fenced YAML block. Required for Claude Code to discover the skill."
-    },
-    {
-      name: "Frontmatter has `name:`",
-      test: (s) => /^---[\s\S]*?\nname:\s*\S/.test(s) ? 'pass' : 'fail',
-      hint: "Lowercase letters, digits, hyphens only. Max 64 chars. If omitted, falls back to directory name."
-    },
-    {
-      name: "Frontmatter has `description:`",
-      test: (s) => /^---[\s\S]*?\ndescription:\s*\S/.test(s) ? 'pass' : 'fail',
-      hint: "Recommended. Claude reads this to decide when to load the skill. Combined cap of 1,536 chars with `when_to_use`."
-    },
-    {
-      name: "Description ≤ 1,536 chars",
-      test: (s) => {
-        const m = s.match(/^---[\s\S]*?\ndescription:\s*(.+)/);
-        if (!m) return 'fail';
-        const len = m[1].length;
-        return len <= 1536 ? 'pass' : 'warn';
-      },
-      hint: "If over the cap, Claude Code truncates in the skill listing, stripping keywords."
-    },
-    {
-      name: "Title (H1) below frontmatter",
-      test: (s) => {
-        const body = s.replace(/^---[\s\S]*?\n---\s*\n/, '');
-        return /^#\s+\S/.test(body) ? 'pass' : 'warn';
-      },
-      hint: "Conventional H1 below the frontmatter as the skill's narrative title."
-    },
-    {
-      name: "Has a `## When` (or trigger) section",
-      test: (s) => /^##\s+When|^##\s+Triggers?|^##\s+Trigger/.test(s.split('\n').join('\n')) ? 'pass' : 'warn',
-      hint: "Document when the skill fires (manual `/name` invocation, auto-discovery by Claude, hook event)."
-    },
-    {
-      name: "Has a `## Constraints` or AVOID list",
-      test: (s) => /^##\s+(Constraints?|Rules?|AVOID|Don[’']?t)|^##\s+The\s+\w+\s+rules?/im.test(s) ? 'pass' : 'warn',
-      hint: "Explicit constraints prevent mis-application by Claude. Capture the don't-do-this surface."
-    },
-    {
-      name: "Has an `## Example` or worked example",
-      test: (s) => /^##\s+Example|^###?\s+Example/im.test(s) ? 'pass' : 'warn',
-      hint: "Concrete example anchors abstract instructions."
-    },
-    {
-      name: "References supporting files (reference.md, scripts, etc.)",
-      test: (s) => /reference\.md|scripts\/|\bsupporting files\b|\bsnippets?\b/i.test(s) ? 'pass' : 'warn',
-      hint: "Large reference material moves out to supporting files (loaded only when needed)."
-    },
-    {
-      name: "No `Co-Authored-By` or AI attribution leak",
-      test: (s) => /Co-Authored-By|Generated with|Claude AI|🤖/i.test(s) ? 'fail' : 'pass',
-      hint: "Skill content must not include AI attribution lines (they'd propagate into commits)."
+    function render(text) {
+      const results = rules.map(r => {
+        const ok = r.re.test(text) !== (r.mode === 'forbid');
+        return { name: r.name, hint: r.hint, result: ok ? 'pass' : (r.level === 'warn' ? 'warn' : 'fail') };
+      });
+      const passCount = results.filter(r => r.result === 'pass').length;
+      const failCount = results.filter(r => r.result === 'fail').length;
+      num.innerHTML = `${passCount}<span class="of">/${results.length}</span>`;
+      grade.textContent = !text.trim() ? 'no input'
+        : passCount === results.length ? 'all clear'
+        : failCount === 0 ? 'warnings only' : `${failCount} failing`;
+      rows.innerHTML = results.map(r => `<div class="pkit-ll-row">
+          <span class="badge ${r.result}">${r.result === 'pass' ? '&#10003;' : r.result === 'warn' ? '!' : '&#10005;'}</span>
+          <div><span class="pattern">${esc(r.name)}</span>${r.hint && r.result !== 'pass' ? `<span class="hint">${esc(r.hint)}</span>` : ''}</div>
+        </div>`).join('');
     }
-  ];
 
-  function evaluate(text) {
-    return PATTERNS.map(p => ({
-      name: p.name,
-      result: p.test(text),
-      hint: p.hint,
-    }));
-  }
-
-  function render(text) {
-    const results = evaluate(text);
-    const passCount = results.filter(r => r.result === 'pass').length;
-    const warnCount = results.filter(r => r.result === 'warn').length;
-    num.innerHTML = `${passCount}<span class="of">/${results.length}</span>`;
-    let g;
-    if (text.trim().length === 0) g = 'no input';
-    else if (passCount === results.length) g = 'all clear';
-    else if (passCount >= 8) g = 'solid';
-    else if (passCount >= 5) g = `${warnCount} warning${warnCount === 1 ? '' : 's'}`;
-    else g = 'needs work';
-    grade.textContent = g;
-
-    rows.innerHTML = '';
-    results.forEach(r => {
-      const div = document.createElement('div');
-      div.className = 'pkit-ll-row';
-      const symbol = r.result === 'pass' ? '✓' : r.result === 'warn' ? '!' : '✕';
-      div.innerHTML = `
-        <span class="badge ${r.result}">${symbol}</span>
-        <div>
-          <span class="pattern">${r.name}</span>
-          <span class="hint">${r.hint}</span>
-        </div>
-      `;
-      rows.appendChild(div);
+    let debounce;
+    input.addEventListener('input', () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => render(input.value), 120);
     });
-  }
-
-  let debounce;
-  input.addEventListener('input', (e) => {
-    clearTimeout(debounce);
-    debounce = setTimeout(() => render(e.target.value), 120);
-  });
-
-  lt.querySelector('[data-act="clear"]').addEventListener('click', () => {
-    input.value = '';
+    lt.querySelector('[data-act="clear"]').addEventListener('click', () => { input.value = ''; render(''); input.focus(); });
+    const exBtn = lt.querySelector('[data-act="example"]');
+    if (data.example) {
+      exBtn.hidden = false;
+      exBtn.addEventListener('click', () => { input.value = data.example; render(input.value); });
+    }
     render('');
-    input.focus();
   });
-
-  lt.querySelector('[data-act="example"]').addEventListener('click', () => {
-    input.value = `---
-name: deploy-helper
-description: Deploy the current branch via the project's standard CI flow. Use when the user says "ship it", "deploy to staging", or asks to "push live".
-allowed-tools: Bash, Read, Edit
-disable-model-invocation: true
----
-
-# deploy-helper
-
-A purpose-built deploy command for this project.
-
-## When this skill fires
-
-User explicitly types \`/deploy-helper\`. The \`disable-model-invocation: true\` frontmatter prevents Claude from auto-firing it (deploys are user-initiated).
-
-## Constraints
-
-- Refuse to deploy if working tree is dirty.
-- Refuse to deploy from \`main\` directly — the user must be on a feature branch.
-- Do NOT skip CI hooks (no \`--no-verify\`).
-- Do NOT force-push.
-
-## Example
-
-\`\`\`
-/deploy-helper staging
-\`\`\`
-
-Triggers \`scripts/deploy.sh staging\` after the working-tree-clean and not-on-main checks pass.
-
-## See also
-
-- \`scripts/deploy.sh\` — the underlying shell script
-- \`docs/deploy-runbook.md\` — operational reference
-`;
-    render(input.value);
-  });
-
-  render('');
 })();
 </script>

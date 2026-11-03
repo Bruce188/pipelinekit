@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-docs-writer/2 renderer — markdown to rich-template HTML.
+docs-writer renderer — markdown to self-contained HTML.
 
 Usage:
     render.py <input.md> <output.html> [--title TITLE] [--description DESC] [--source-link URL]
-    render.py                  # batch mode: render every docs-source/*.md → documentation/*.html
-                               # and emit documentation/search.json
+    render.py [--root DIR]     # batch mode: render every DIR/docs-source/*.md → DIR/documentation/*.html
+                               # and emit DIR/documentation/search.json (DIR defaults to the cwd)
 
 Reads markdown from <input.md>, renders to semantic HTML via the python-markdown
 library with codehilite (Pygments) syntax highlighting, generates an in-page
-table of contents from H2/H3 headings, and wraps the output in
-claude/skills/docs-writer/template.html.
+table of contents from H2/H3 headings, and wraps the output in template.html
+(found next to this script, so the skill works from any install location).
 
 The template ships its own CSS + JS (inline, self-contained, no CDN). The
 output is a single .html file that renders identically when served from any
@@ -24,11 +24,10 @@ Diataxis frontmatter (optional, supported in either YAML or HTML-comment form):
 
     <!-- diataxis: reference -->
 
-When absent, the renderer classifies the page via the slug-based heuristic
-in `classify_diataxis()`. The resolved quadrant is rendered as a `.diataxis-chip`
+When absent, the renderer guesses from the file name in `classify_diataxis()`. The resolved quadrant is rendered as a `.diataxis-chip`
 above the page H1.
 
-Required deps (install via: pip install --user --break-system-packages markdown pygments):
+Required deps (install via: pip install markdown pygments):
     - markdown (>= 3.10)
     - pygments (>= 2.17)
 """
@@ -45,28 +44,20 @@ try:
     import markdown
 except ImportError:
     print("error: python markdown library not installed", file=sys.stderr)
-    print("  install: pip install --user --break-system-packages markdown pygments", file=sys.stderr)
+    print("  install: pip install markdown pygments", file=sys.stderr)
     sys.exit(2)
 
 SKILL_DIR = Path(__file__).resolve().parent
 TEMPLATE_PATH = SKILL_DIR / "template.html"
 SNIPPETS_DIR = SKILL_DIR / "snippets"
 
-# Repo root resolved from the skill dir: pipelinekit/claude/skills/docs-writer → pipelinekit/
-REPO_ROOT = SKILL_DIR.parents[2]
-DOCS_SOURCE_DIR = REPO_ROOT / "docs-source"
-DOCS_OUTPUT_DIR = REPO_ROOT / "documentation"
-
 VALID_DIATAXIS = {"tutorial", "how-to", "reference", "explanation"}
 
-# Heuristic: slug-stem → diataxis quadrant when frontmatter is absent.
-# Order matters: more-specific patterns first. Tested against every current
-# docs-source/*.md filename at module import time? No — just dispatched
-# per-file by classify_diataxis().
+# File-name guess → diataxis quadrant when frontmatter is absent. First match wins.
 _DIATAXIS_PATTERNS: list[tuple[re.Pattern, str]] = [
-    (re.compile(r"^(getting-started|tutorial-)"), "tutorial"),
-    (re.compile(r"(installation|cloud-setup|mcp-lsp-setup|deployment-|ci-blacksmith|memory-graph-stack)"), "how-to"),
-    (re.compile(r"^(governance|workflow-hygiene|pipeline|html-effectiveness-principles|skills-scope-policy|design-tokens|review-cost|decisions|harness-paths-investigation|memory-migration-notes|pipeline-charter-revalidation|supply-chain|ppr-research-flag)$"), "explanation"),
+    (re.compile(r"^(getting-started|quickstart|tutorial)"), "tutorial"),
+    (re.compile(r"(install|setup|deploy|upgrad|how-to|guide)"), "how-to"),
+    (re.compile(r"(architecture|concepts|overview|design|decisions)"), "explanation"),
 ]
 
 
@@ -120,9 +111,7 @@ def _parse_kv_block(block: str) -> dict:
 def classify_diataxis(stem: str) -> str:
     """Map a source-file stem to its Diataxis quadrant via the slug heuristic.
 
-    Default: 'reference'. The default reflects that most pages in pipelinekit
-    documentation describe a stable surface (schemas, field tables, glossary
-    entries) rather than a step-by-step or conceptual narrative.
+    Default: 'reference'. Set `diataxis:` in frontmatter to override.
     """
     for pattern, quadrant in _DIATAXIS_PATTERNS:
         if pattern.search(stem):
@@ -293,32 +282,6 @@ def build_slug_sequence(md_text: str) -> list[str]:
     return sequence
 
 
-# Backwards-compat alias for the dict-based slug_map (no longer used by fix_heading_ids
-# but kept available in case any caller imports it).
-def build_slug_map(md_text: str) -> dict[str, str]:
-    """Deprecated: prefer build_slug_sequence (sequence preserves dedup correctly)."""
-    src = strip_code_fences(md_text)
-    seen: set[str] = set()
-    mapping: dict[str, str] = {}
-    for match in HEADING_RE.finditer(src):
-        title = match.group(2)
-        clean = re.sub(r"`([^`]+)`", r"\1", title)
-        clean = re.sub(r"\*\*([^*]+)\*\*", r"\1", clean)
-        clean = re.sub(r"\*([^*]+)\*", r"\1", clean)
-        clean = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", clean)
-        slug = slugify(clean)
-        base = slug
-        n = 2
-        while slug in seen:
-            slug = f"{base}-{n}"
-            n += 1
-        seen.add(slug)
-        # Note: this overwrites earlier identical text — known-bad,
-        # use build_slug_sequence instead.
-        mapping[clean] = slug
-    return mapping
-
-
 def render_markdown(md_text: str) -> str:
     """Render markdown to HTML with syntax highlighting and standard extensions."""
     md = markdown.Markdown(
@@ -382,8 +345,6 @@ def derive_title_from_html(html_text: str, fallback: str) -> str:
     m = re.search(r"<title[^>]*>(.*?)</title>", html_text, re.DOTALL | re.IGNORECASE)
     if m:
         t = re.sub(r"<[^>]+>", "", m.group(1)).strip()
-        # Strip trailing " — pipelinekit" suffix
-        t = re.sub(r"\s*[—|-]\s*pipelinekit.*$", "", t)
         if t:
             return t
     m = re.search(r"<h1[^>]*>(.*?)</h1>", html_text, re.DOTALL | re.IGNORECASE)
@@ -534,78 +495,90 @@ def strip_first_h1(html_body: str) -> str:
 
 
 # Snippet substitution
-# Replaces `<div data-snippet="<name>" ...></div>` (in markdown or HTML source)
-# with the inlined content of `snippets/<name>.html`. Data attributes other
-# than `data-snippet` are forwarded to the snippet's mount root, so a source
-# can pass per-instance config:
-#   <div data-snippet="chooser-quiz" data-question-set="cloud"></div>
+# Replaces `<div data-snippet="<name>" ...>...</div>` (in markdown or HTML source)
+# with the inlined content of `snippets/<name>.html`. Other attributes on the
+# placeholder are forwarded to the snippet's mount root, and anything inside the
+# placeholder (child markup, a JSON data island) is inserted as the mount root's
+# first children, so a page supplies per-instance content:
+#   <div data-snippet="comparison-tabs">
+#   <script type="application/json">{...}</script>
+#   </div>
 
-_SNIPPET_PLACEHOLDER_RE = re.compile(
-    r'<div\s+data-snippet="([^"]+)"([^>]*)></div>',
-    re.IGNORECASE,
-)
+_SNIPPET_OPEN_RE = re.compile(r'<div\s+data-snippet="([^"]+)"([^>]*)>', re.IGNORECASE)
+_DIV_TAG_RE = re.compile(r'<(/?)div\b[^>]*>', re.IGNORECASE)
+# Stashed before scanning: comments (snippet usage examples must not be
+# re-substituted on a rewrap) and <script>/<style> bodies (JS strings may hold
+# "<div" or "</div>", which would break the balanced-div scan).
+_STASH_RE = re.compile(r"<!--.*?-->|<script\b.*?</script>|<style\b.*?</style>", re.DOTALL | re.IGNORECASE)
+
+
+def _matching_div_close(html: str, pos: int) -> re.Match | None:
+    """Return the `</div>` that closes a div opened just before `pos`."""
+    depth = 1
+    for m in _DIV_TAG_RE.finditer(html, pos):
+        depth += -1 if m.group(1) else 1
+        if depth == 0:
+            return m
+    return None
 
 
 def substitute_snippets(html_body: str, *, missing_ok: bool = False) -> tuple[str, list[str]]:
-    """Replace <div data-snippet="..."> placeholders with the corresponding
-    snippet content from claude/skills/docs-writer/snippets/<name>.html.
+    """Replace <div data-snippet="..."> placeholders with snippets/<name>.html.
 
-    HTML comments are stashed before substitution so that placeholder examples
-    inside snippet documentation comments (e.g., `<!-- usage: <div data-snippet=...> -->`)
-    don't get re-substituted on subsequent renders — that would compound
-    exponentially across re-renders.
-
-    Returns (new_html, snippet_names_used). Raises FileNotFoundError on
-    missing snippet unless missing_ok=True (in which case the placeholder
-    is left in place and the missing name is still recorded).
+    Returns (new_html, snippet_names_used). Raises FileNotFoundError on a
+    missing snippet unless missing_ok=True (the placeholder is then left in
+    place and the name is recorded with a "(MISSING)" suffix). Raises
+    ValueError on a placeholder with no closing </div>.
     """
     used: list[str] = []
+    stash: list[str] = []
 
-    # Stash HTML comments to keep substitution from matching placeholder examples
-    # inside `<!-- ... -->`. Replace each with a sentinel; restore after substitution.
-    comments: list[str] = []
+    def stash_one(m: re.Match) -> str:
+        stash.append(m.group(0))
+        return f"\x00STASH_{len(stash) - 1}\x00"
 
-    def stash(m: re.Match) -> str:
-        comments.append(m.group(0))
-        return f"\x00CMT_{len(comments) - 1}\x00"
+    def unstash(text: str) -> str:
+        return re.sub(r"\x00STASH_(\d+)\x00", lambda m: stash[int(m.group(1))], text)
 
-    stripped = re.sub(r"<!--.*?-->", stash, html_body, flags=re.DOTALL)
-
-    def replace(match: re.Match) -> str:
-        name = match.group(1).strip()
-        extra_attrs = match.group(2).strip()
+    src = _STASH_RE.sub(stash_one, html_body)
+    out: list[str] = []
+    i = 0
+    while True:
+        m = _SNIPPET_OPEN_RE.search(src, i)
+        if not m:
+            out.append(src[i:])
+            break
+        name = m.group(1).strip()
+        close = _matching_div_close(src, m.end())
+        if close is None:
+            raise ValueError(f"data-snippet={name!r} placeholder has no closing </div>")
+        out.append(src[i:m.start()])
+        i = close.end()
         snippet_path = SNIPPETS_DIR / f"{name}.html"
         if not snippet_path.exists():
             if missing_ok:
                 used.append(name + " (MISSING)")
-                return match.group(0)
+                out.append(src[m.start():i])
+                continue
             raise FileNotFoundError(
                 f"snippet not found: {snippet_path} (referenced from data-snippet={name!r})"
             )
         used.append(name)
+        extra_attrs = m.group(2).strip()
+        children = unstash(src[m.end():close.start()]).strip()
         content = snippet_path.read_text(encoding="utf-8")
-        # The snippet content itself may have HTML comments containing
-        # placeholder examples; stash those too so the same substitution pass
-        # (over the assembled output) doesn't re-trigger on them.
-        content = re.sub(r"<!--.*?-->", stash, content, flags=re.DOTALL)
-        # Forward extra data-attrs to the snippet's mount root by injecting
-        # them into the first element with `data-snippet-mount`.
-        if extra_attrs:
-            content = re.sub(
-                r'(data-snippet-mount="[^"]+")',
-                lambda m: m.group(1) + " " + extra_attrs,
-                content,
-                count=1,
-            )
-        return content
+        content = re.sub(
+            r'(<[^>]*?data-snippet-mount="[^"]+")([^>]*>)',
+            lambda mm: mm.group(1) + (" " + extra_attrs if extra_attrs else "")
+            + mm.group(2) + ("\n" + children if children else ""),
+            content,
+            count=1,
+        )
+        # Stash the snippet so its own comments/scripts are restored verbatim.
+        stash.append(content)
+        out.append(f"\x00STASH_{len(stash) - 1}\x00")
 
-    new_html = _SNIPPET_PLACEHOLDER_RE.sub(replace, stripped)
-
-    # Restore stashed comments.
-    for i, c in enumerate(comments):
-        new_html = new_html.replace(f"\x00CMT_{i}\x00", c)
-
-    return new_html, used
+    return unstash("".join(out)), used
 
 
 def strip_first_paragraph(html_body: str) -> str:
@@ -714,8 +687,8 @@ def render_one(
     return html_output, record
 
 
-def batch_render() -> int:
-    """Render every docs-source/*.md → documentation/*.html and emit search.json.
+def batch_render(root: Path) -> int:
+    """Render every <root>/docs-source/*.md → documentation/*.html and emit search.json.
 
     Pages that produce non-trivial sub-paths (e.g. `documentation/docs/<x>.html`)
     are NOT auto-rendered by batch mode — those have explicit invocations in
@@ -725,20 +698,22 @@ def batch_render() -> int:
     if not TEMPLATE_PATH.exists():
         print(f"error: template not found at {TEMPLATE_PATH}", file=sys.stderr)
         return 2
-    if not DOCS_SOURCE_DIR.is_dir():
-        print(f"error: docs-source/ not found at {DOCS_SOURCE_DIR}", file=sys.stderr)
+    src_dir = root / "docs-source"
+    out_dir = root / "documentation"
+    if not src_dir.is_dir():
+        print(f"error: docs-source/ not found at {src_dir}", file=sys.stderr)
         return 2
-    DOCS_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
     template = TEMPLATE_PATH.read_text(encoding="utf-8")
 
     records: list[dict] = []
-    sources = sorted(DOCS_SOURCE_DIR.glob("*.md"))
+    sources = sorted(src_dir.glob("*.md"))
     if not sources:
-        print(f"warning: no markdown sources in {DOCS_SOURCE_DIR}", file=sys.stderr)
+        print(f"warning: no markdown sources in {src_dir}", file=sys.stderr)
 
     for src in sources:
         md_text = src.read_text(encoding="utf-8")
-        out_path = DOCS_OUTPUT_DIR / (src.stem + ".html")
+        out_path = out_dir / (src.stem + ".html")
         try:
             html_output, record = render_one(
                 md_text,
@@ -753,19 +728,19 @@ def batch_render() -> int:
             continue
         out_path.write_text(html_output, encoding="utf-8")
         print(
-            f"Rendered {src.relative_to(REPO_ROOT)} → {out_path.relative_to(REPO_ROOT)} "
+            f"Rendered {src.relative_to(root)} → {out_path.relative_to(root)} "
             f"({len(html_output)} bytes, diataxis={record['quadrant']})",
             file=sys.stderr,
         )
         records.append(record)
 
-    search_path = DOCS_OUTPUT_DIR / "search.json"
+    search_path = out_dir / "search.json"
     search_path.write_text(
         json.dumps(records, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
     print(
-        f"Wrote search index {search_path.relative_to(REPO_ROOT)} "
+        f"Wrote search index {search_path.relative_to(root)} "
         f"({len(records)} entries)",
         file=sys.stderr,
     )
@@ -773,14 +748,15 @@ def batch_render() -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="pipelinekit docs-writer/2 renderer")
+    parser = argparse.ArgumentParser(description="docs-writer renderer: markdown -> self-contained HTML page")
     parser.add_argument(
         "input",
         nargs="?",
         help=(
             "Input .md (or .html with --from-html) file (or '-' for stdin). "
             "Omit BOTH input and output to trigger batch mode: every docs-source/*.md "
-            "renders to documentation/*.html and documentation/search.json is emitted."
+            "renders to documentation/*.html and documentation/search.json is emitted "
+            "(paths relative to --root, default: current directory)."
         ),
     )
     parser.add_argument("output", nargs="?", help="Output .html file (or '-' for stdout)")
@@ -798,11 +774,12 @@ def main() -> int:
         action="store_true",
         help="Treat input as HTML (not markdown) and rewrap in the template. Body content is extracted from <body>...</body>; ToC is built from existing h2/h3 ids.",
     )
+    parser.add_argument("--root", type=Path, default=None, help="Project root for batch mode (default: cwd)")
     args = parser.parse_args()
 
     # Batch mode: no positional args → render every docs-source/*.md and emit search.json.
     if args.input is None and args.output is None:
-        return batch_render()
+        return batch_render((args.root or Path.cwd()).resolve())
 
     if args.input is None or args.output is None:
         parser.error("both input and output are required (or omit both for batch mode)")
@@ -812,6 +789,9 @@ def main() -> int:
         input_stem = "stdin"
     else:
         input_path = Path(args.input)
+        if not input_path.is_file():
+            print(f"error: input file not found: {input_path}", file=sys.stderr)
+            return 2
         md_text = input_path.read_text(encoding="utf-8")
         input_stem = input_path.stem
 

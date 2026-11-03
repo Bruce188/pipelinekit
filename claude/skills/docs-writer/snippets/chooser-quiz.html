@@ -1,14 +1,22 @@
 <!-- snippet:chooser-quiz
-     Multi-step decision tree. Default question set: "Which deployment
-     provider fits my workload?". Pass data-question-set="install" to
-     switch to the per-platform install chooser.
+     Multi-step decision quiz: answer each question, get a recommendation.
 
-     Placeholder usage (use &lt;&gt; escapes in this comment so the renderer
-     doesn't re-substitute):
-       &lt;div data-snippet="chooser-quiz"&gt;&lt;/div&gt;
-       &lt;div data-snippet="chooser-quiz" data-question-set="install"&gt;&lt;/div&gt;
+     The page supplies one data set as a JSON child of the placeholder.
+     Each recommend entry's "match" lists answers that must all equal; the
+     first matching entry wins, and the last entry is the fallback (give it
+     an empty match). icon, runners and link are optional.
+       <div data-snippet="chooser-quiz">
+       <script type="application/json">
+       {"title": "Which database fits?",
+        "questions": [{"key": "scale", "prompt": "Expected data size?",
+          "options": [{"value": "small", "label": "Under 1 GB", "hint": "side project"},
+                      {"value": "large", "label": "Over 1 GB"}]}],
+        "recommend": [{"match": {"scale": "small"}, "pick": "SQLite", "why": "...", "runners": ["embedded"]},
+                      {"match": {}, "pick": "Postgres", "why": "...", "link": "postgres.html"}]}
+       </script>
+       </div>
 -->
-<div class="pkit-chooser" data-snippet-mount="chooser-quiz" data-question-set="deploy">
+<div class="pkit-chooser" data-snippet-mount="chooser-quiz">
   <style>
     .pkit-chooser { margin: 1.5rem 0; padding: 1.5rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); }
     .pkit-chooser .pkit-cq-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1rem; }
@@ -42,13 +50,6 @@
   <div class="pkit-cq-bar"><div class="pkit-cq-bar-fill" data-cq-bar-fill style="width: 0"></div></div>
   <div data-cq-body></div>
 
-  <script type="application/json" data-cq-set="deploy">
-{"title":"Which deployment provider fits my project?","questions":[{"key":"type","prompt":"What are you deploying?","options":[{"value":"frontend","label":"Frontend / static site / SSR app","hint":"Next.js, SvelteKit, Astro, plain static"},{"value":"fullstack","label":"Full-stack web app","hint":"API + DB + frontend together"},{"value":"worker","label":"Background worker / cron","hint":"Long-running jobs, queue consumer"},{"value":"containerized","label":"Already-containerized service","hint":"I have a Dockerfile, want it deployed"}]},{"key":"budget","prompt":"Budget tier?","options":[{"value":"free","label":"Free tier only","hint":"Just experimenting"},{"value":"low","label":"$5-50 / month","hint":"Small side project"},{"value":"scale","label":"$50+ / month","hint":"Production with real traffic"}]},{"key":"complexity","prompt":"How much infra control do you want?","options":[{"value":"minimal","label":"Minimal — just deploy","hint":"Push code, get URL"},{"value":"moderate","label":"Moderate — config files OK","hint":"vercel.json / railway.toml"},{"value":"full","label":"Full IaC","hint":"Bicep / Terraform / ARM"}]}],"recommend":[{"match":{"type":"frontend"},"pick":"Vercel","icon":"▲","why":"Vercel is purpose-built for Next.js/SvelteKit/Astro. Zero config for those frameworks; edge-deployed by default; preview URLs per branch.","runners":["Edge","Serverless","ISR"],"link":"deployment-vercel.html"},{"match":{"type":"fullstack","budget":"free"},"pick":"Railway","icon":"⚡","why":"Railway has the smoothest free tier for full-stack apps — provisions Postgres / Redis / workers from a single dashboard with zero Dockerfile needed.","runners":["Nixpacks","Postgres","Redis"],"link":"deployment-railway.html"},{"match":{"type":"fullstack","budget":"low"},"pick":"Render","icon":"🎨","why":"Render handles full-stack on a small budget cleanly. Managed Postgres + Redis + workers in one platform with predictable per-service pricing.","runners":["Native runtime","Docker","Managed DBs"],"link":"deployment-render.html"},{"match":{"type":"fullstack","budget":"scale"},"pick":"Azure","icon":"☁","why":"At scale, Azure offers App Service, Container Apps, Function Apps, plus AKS for full Kubernetes. Best for teams already on the Microsoft stack.","runners":["App Service","Container Apps","Function Apps","AKS"],"link":"deployment-azure.html"},{"match":{"type":"containerized","complexity":"moderate"},"pick":"DigitalOcean App Platform","icon":"🌊","why":"DO App Platform is the cleanest container-deploy story when you already have a Dockerfile. Predictable pricing, good defaults, doctl CLI.","runners":["Docker","Buildpacks","Managed DBs"],"link":"deployment-digitalocean.html"},{"match":{"type":"containerized","complexity":"full"},"pick":"Azure","icon":"☁","why":"For full IaC (Bicep / ARM / Terraform) over containers, Azure Container Apps + AKS give the most control.","runners":["Container Apps","AKS","Bicep IaC"],"link":"deployment-azure.html"},{"match":{"type":"worker"},"pick":"Railway","icon":"⚡","why":"Railway has first-class support for cron + workers next to your web service in the same project.","runners":["Workers","Cron triggers"],"link":"deployment-railway.html"},{"match":{},"pick":"Vercel","icon":"▲","why":"Fallback recommendation. Vercel works well for most web workloads.","runners":["Edge","Serverless"],"link":"deployment-vercel.html"}]}
-  </script>
-
-  <script type="application/json" data-cq-set="install">
-{"title":"How should I install pipelinekit?","questions":[{"key":"where","prompt":"Where will you run it?","options":[{"value":"local-linux","label":"Local Linux","hint":"Ubuntu / Debian / Arch"},{"value":"local-mac","label":"Local macOS","hint":"Apple Silicon or Intel"},{"value":"local-windows","label":"Local Windows + WSL2","hint":"Recommended for Windows"},{"value":"cloud","label":"Cloud VPS","hint":"Oracle, Hetzner, fresh VM"},{"value":"codespaces","label":"GitHub Codespaces","hint":"Cloud devcontainer"}]},{"key":"purpose","prompt":"Primary use?","options":[{"value":"evaluate","label":"Evaluate quickly","hint":"Just want to try /pipeline"},{"value":"daily","label":"Daily driver","hint":"Use on real projects"},{"value":"fleet","label":"Team / fleet of VMs","hint":"Reproducible install across machines"}]}],"recommend":[{"match":{"where":"cloud"},"pick":"Cloud bootstrap script","icon":"☁","why":"Run the Oracle Cloud or Hetzner one-liner. Both are idempotent; secrets read from env, never baked in.","runners":["Oracle ARM A1","Hetzner CX22","cloud-init"],"link":"cloud-setup.html"},{"match":{"where":"codespaces"},"pick":"Codespaces (zero setup)","icon":"▣","why":"Open the repo in Codespaces. The devcontainer post-create runs install.sh automatically. Best for evaluation with zero local install.","runners":["Devcontainer","post-create"],"link":"installation.html"},{"match":{"where":"local-windows"},"pick":"WSL2 + scripts/install.sh","icon":"🪟","why":"Pipelinekit assumes POSIX. Run install.sh inside WSL2 (Ubuntu), not Git Bash. Claude Code itself can run from either side.","runners":["WSL2 Ubuntu","install.sh"],"link":"installation.html"},{"match":{"where":"local-mac"},"pick":"scripts/install.sh","icon":"🍎","why":"Standard local install: clone, cd, run scripts/install.sh. Idempotent; re-run to update.","runners":["bash","homebrew (optional)"],"link":"installation.html"},{"match":{"where":"local-linux"},"pick":"scripts/install.sh","icon":"🐧","why":"Standard local install. Apt-based systems auto-install Azure CLI; other distros print install hints.","runners":["bash","apt (auto-detect)"],"link":"installation.html"},{"match":{"purpose":"fleet"},"pick":"Cloud-init via cloud bootstrap","icon":"⚙","why":"For fleet provisioning, use the cloud-init YAMLs that the Oracle / Hetzner bootstrap scripts wrap.","runners":["cloud-init YAML","Terraform-friendly"],"link":"cloud-setup.html"},{"match":{},"pick":"scripts/install.sh","icon":"📦","why":"Default recommendation: clone the repo and run scripts/install.sh.","runners":["bash"],"link":"installation.html"}]}
-  </script>
 
 </div>
 
@@ -59,14 +60,13 @@
     if (q.dataset.pkitInit) return;
     q.dataset.pkitInit = '1';
 
-    const set = q.dataset.questionSet || 'deploy';
-    const dataEl = q.querySelector(`script[data-cq-set="${set}"]`);
+    const dataEl = q.querySelector('script[type="application/json"]');
     const body = q.querySelector('[data-cq-body]');
     const progress = q.querySelector('[data-cq-progress]');
     const bar = q.querySelector('[data-cq-bar-fill]');
     const titleEl = q.querySelector('.pkit-cq-title');
     if (!dataEl || !body) {
-      if (body) body.innerHTML = `<p>(unknown question set: ${set})</p>`;
+      if (body) body.innerHTML = '<p>(chooser-quiz: no JSON data supplied)</p>';
       return;
     }
     const data = JSON.parse(dataEl.textContent);
@@ -99,7 +99,7 @@
         progress.textContent = `Result`;
         bar.style.width = '100%';
         const match = data.recommend.find(r => Object.entries(r.match).every(([k, v]) => answers[k] === v)) || data.recommend[data.recommend.length - 1];
-        const runnersHtml = match.runners.map(r => `<span class="pkit-cq-r-runner">${r}</span>`).join('');
+        const runnersHtml = (match.runners || []).map(r => `<span class="pkit-cq-r-runner">${r}</span>`).join('');
         const trail = Object.entries(answers).map(([k, v]) => `${k}=${v}`).join(' · ');
         body.innerHTML = `
           <div class="pkit-cq-result">
