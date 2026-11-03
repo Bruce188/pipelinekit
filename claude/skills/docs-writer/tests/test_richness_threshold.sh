@@ -6,11 +6,12 @@
 #   2) 2000 words + 2 distinct rich primitives -> OK (exit 0)
 #   3) 1000 words + 1 snippet               -> OK (exit 0)    [legacy behavior preserved]
 #   4) 2000 words + 0 snippets + exempt     -> OK (exit 0)    [exempt honored]
+#   5) 1000 words + 1 snippet + 3000 words of inline <script>/<style>
+#                                           -> OK (exit 0)    [JS/CSS not counted as prose]
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
-CHECK="python3 $REPO_ROOT/claude/skills/docs-writer/richness_check.py"
+SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CHECK="python3 $SKILL_DIR/richness_check.py"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -39,6 +40,11 @@ make_html() {
                 #   - custom-svg-diagram (viewBox >= 200x100)
                 echo '<div data-snippet-mount="comparison-tabs"></div>'
                 echo '<svg viewBox="0 0 600 400"><rect width="600" height="400"/></svg>'
+                ;;
+            code)
+                echo '<div data-snippet-mount="comparison-tabs"></div>'
+                echo '<style>'; python3 -c "print('.a{x:y} ' * 1500)"; echo '</style>'
+                echo '<script>'; python3 -c "print('var a = 1; ' * 400)"; echo '</script>'
                 ;;
             none)
                 : # no rich primitives
@@ -85,6 +91,11 @@ assert_exit "scenario 3: 1000 words + 1 snippet preserves old threshold-1 behavi
 make_html "$TMP/s4.html" 2000 none yes
 $CHECK "$TMP/s4.html" > "$TMP/s4.out" 2>&1 && rc=$? || rc=$?
 assert_exit "scenario 4: 2000 words + 0 snippets + exempt honored" 0 "$rc" "$TMP/s4.out"
+
+# Scenario 5: inline <script>/<style> text must not count as prose words
+make_html "$TMP/s5.html" 1000 code no
+$CHECK "$TMP/s5.html" > "$TMP/s5.out" 2>&1 && rc=$? || rc=$?
+assert_exit "scenario 5: inline script/style excluded from word count" 0 "$rc" "$TMP/s5.out"
 
 echo
 echo "Total: $PASS pass, $FAIL fail"
