@@ -5,12 +5,12 @@ Identity: ${USER_NAME} <${USER_EMAIL}>.
 ## Git
 
 - Commit, push, or open PRs only when asked.
-- Conventional commits (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`, `perf:`, `style:`, `build:`, `ci:`); enforced by `hooks/validate-commit-msg.sh`. No emojis.
+- Conventional commits (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`, `perf:`, `style:`, `build:`, `ci:`, `revert:`); enforced by the global git commit-msg hook (`git-hooks/commit-msg`). No emojis.
 - No AI attribution anywhere: no `Co-Authored-By`, no "Generated with", no AI comments. `settings.json` sets `attribution` to empty strings.
 - No workflow jargon in commit or PR text (`wip:`, `stream A`, `review-vN`, finding counts); write what a human developer would.
-- Never stage paths in `${CLAUDE_HOME}/config/never-stage.txt` (`.env*`, `credentials*`, keys, `docs/` workflow files); `hooks/block-stage-sensitive.sh` enforces it.
+- Never stage paths in `${CLAUDE_HOME}/config/never-stage.txt` (`.env*`, `credentials*`, keys, `docs/` workflow files); `hooks/bash-guard.py` enforces it.
 - Claude-specific ignores go in `.git/info/exclude`, never `.gitignore`.
-- No direct pushes to `main`/`master` (`hooks/block-push-main.sh`); branch first.
+- No direct pushes to `main`/`master` (`git-hooks/pre-push` and `hooks/bash-guard.py`); branch first.
 
 ## Directories
 
@@ -29,7 +29,18 @@ git rev-parse --verify "$BASE" 2>/dev/null || echo "ERROR: Base branch '$BASE' n
 ## Working style
 
 - Verify before claiming done: run the build/tests after each change.
-- Prefer serena (symbol navigation) when connected; otherwise Grep/Glob.
+- Prefer serena (symbol navigation) for finding definitions/references and symbol edits in code repos; Grep/Glob for text, config and docs.
+
+## GitHub (when the repo has a GitHub remote)
+
+Use `gh` and keep work traceable on GitHub:
+- Non-trivial task: find a matching issue (`gh issue list --search`) or create one with labels before starting. Split multi-part work into sub-issues (`gh api repos/{owner}/{repo}/issues/{n}/sub_issues -F sub_issue_id=<id>`, where `<id>` is the child's database id from `gh api repos/{owner}/{repo}/issues/<num> -q .id`, not its number).
+- Branch `<type>/<issue#>-<slug>`. PR via `gh pr create` with `Closes #N`, matching labels and milestone; open as draft until checks pass (`gh pr checks --watch`).
+- CI failure: read it with `gh run view <id> --log-failed` before guessing.
+- Bugs or follow-ups found outside the task's scope: open an issue instead of fixing silently or dropping them.
+- Workflows and parallel agents: one issue or sub-issue per stream; post one short progress comment per milestone and link each PR to its issue.
+- Releases: tag, then `gh release create` with notes from the merged PRs.
+- Ask first before closing, transferring or deleting issues, changing repo settings, or commenting on other people's issues/PRs.
 
 ## Deploy platforms
 
