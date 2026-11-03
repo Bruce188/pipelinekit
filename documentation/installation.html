@@ -199,12 +199,6 @@ body {
   gap: 2rem;
   padding: 2rem 1.5rem;
 }
-@media (max-width: 900px) {
-  .layout { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; }
-  .toc { display: none; }
-  .toc.open { display: block; position: fixed; top: 60px; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 99; padding: 1.5rem; overflow-y: auto; }
-  .toc-mobile-btn { display: inline-flex; }
-}
 .toc-mobile-btn {
   display: none;
   border: 1px solid var(--border);
@@ -216,6 +210,13 @@ body {
   font-size: 0.85rem;
   align-items: center;
   gap: 0.4rem;
+}
+/* After the base rules above, or their display wins over the breakpoint. */
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; }
+  .toc { display: none; }
+  .toc.open { display: block; position: fixed; top: 60px; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 99; padding: 1.5rem; overflow-y: auto; }
+  .toc-mobile-btn { display: inline-flex; }
 }
 
 /* === ToC sidebar === */
@@ -638,6 +639,7 @@ footer {
 <h2 id="requirements">Requirements</h2>
 <ul>
 <li><code>bash</code>, <code>git</code> and <code>python3</code></li>
+<li><code>gitleaks</code>, optional, for the pre-commit secret scan</li>
 <li><code>uv</code>, only if you want serena (<code>curl -LsSf https://astral.sh/uv/install.sh | sh</code>)</li>
 </ul>
 <h2 id="install">Install</h2>
@@ -649,13 +651,27 @@ bash<span class="w"> </span>scripts/install.sh<span class="w">            </span
 <p>You can safely run the installer again. To update, run <code>git pull</code> and then run the installer again.</p>
 <h2 id="what-the-installer-does">What the installer does</h2>
 <ol>
-<li>Copies the hooks, the seven skills, the <code>docs-writer</code> agent and <code>config/never-stage.txt</code> into <code>~/.claude</code>. It overwrites those files in place and never moves or deletes the directory. It leaves <code>projects/</code>, <code>sessions/</code>, <code>plugins/</code> and your credentials alone.</li>
+<li>Copies the hooks, the global git hooks, the five skills and <code>config/never-stage.txt</code> into <code>~/.claude</code>. It overwrites those files in place and never moves or deletes the directory. It leaves <code>projects/</code>, <code>sessions/</code>, <code>plugins/</code> and your credentials alone.</li>
+<li>Removes skills, hooks and the <code>docs-writer</code> agent that earlier 0.1.0 builds installed (<code>commit-conventions</code>, <code>security-conventions</code>, <code>expo</code>, <code>ios</code>, the old guard hooks), but only if each is still byte-identical to a committed kit version. Edited copies are kept, with a warning.</li>
 <li>Renders <code>~/.claude/CLAUDE.md</code> from <code>claude/CLAUDE.md.template</code>. If the result differs from your existing file, the old one is saved as <code>CLAUDE.md.bak-&lt;timestamp&gt;</code>.</li>
-<li>Backs up <code>settings.json</code>, then merges in the kit's hook wiring. It removes hook entries whose script is no longer in <code>~/.claude/hooks/</code>. It also sets <code>attribution</code> to empty strings, so commits and PRs get no co-author trailer or footer. Other settings stay as they are.</li>
+<li>Backs up <code>settings.json</code> to <code>settings.json.bak-&lt;timestamp&gt;</code>, then merges in <code>claude/config/settings.template.json</code>:
+   - the kit's hook entries replace its older ones, and hook entries whose script is no longer in <code>~/.claude/hooks/</code> are removed; your own hooks stay;
+   - the kit's <code>permissions.deny</code> and <code>permissions.ask</code> rules are added after yours; <code>allow</code> and other permission keys are untouched;
+   - <code>env.CLAUDE_CODE_SUBPROCESS_ENV_SCRUB</code> is set to <code>"1"</code>;
+   - <code>attribution</code> is set to empty strings, so commits and PRs get no co-author trailer or footer.</li>
+<li>Asks whether to set the global git <code>core.hooksPath</code> to <code>~/.claude/git-hooks</code>. It never overwrites an existing value; it prints the command instead. Without a terminal, and without <code>--git-hooks</code>, it skips this step.</li>
 <li>Installs serena with <code>uv</code> at a pinned commit and registers it at user scope in <code>~/.claude.json</code>. It backs that file up first.</li>
-<li>Installs <code>commit-msg</code> and <code>pre-commit</code> git hooks in the pipelinekit repo itself. Any existing hooks are renamed to <code>*.pre-pipelinekit.&lt;timestamp&gt;</code>.</li>
 <li>Runs <code>scripts/verify.sh</code>.</li>
 </ol>
+<details>
+<summary>Repos that set their own core.hooksPath</summary>
+<p>A local <code>core.hooksPath</code> overrides the global one, so the kit's git hooks never run in that repo. If its hooks directory holds only <code>*.sample</code> files, unset it in your own shell (Claude's <code>bash-guard.py</code> refuses to change <code>core.hooksPath</code>):</p>
+<div class="codehilite"><pre><span></span><code>git<span class="w"> </span>-C<span class="w"> </span>~/path/to/repo<span class="w"> </span>config<span class="w"> </span>--local<span class="w"> </span>--unset<span class="w"> </span>core.hooksPath
+git<span class="w"> </span>-C<span class="w"> </span>~/path/to/repo<span class="w"> </span>config<span class="w"> </span>--show-origin<span class="w"> </span>core.hooksPath<span class="w">   </span><span class="c1"># expect ~/.gitconfig and ~/.claude/git-hooks</span>
+</code></pre></div>
+
+<p>Repo-specific hooks go in <code>&lt;repo&gt;/.git/hooks/&lt;name&gt;</code> (local) or <code>&lt;repo&gt;/.githooks/&lt;name&gt;</code> (committed). The global hooks run them after their own checks.</p>
+</details>
 <h2 id="options">Options</h2>
 <table>
 <thead>
@@ -670,6 +686,11 @@ bash<span class="w"> </span>scripts/install.sh<span class="w">            </span
 <td><code>--no-serena</code> / <code>CLAUDE_INSTALL_SKIP_SERENA=1</code></td>
 <td>off</td>
 <td>Skip installing and registering serena</td>
+</tr>
+<tr>
+<td><code>--git-hooks</code> / <code>--no-git-hooks</code> / <code>PIPELINEKIT_GIT_HOOKS=1\|0</code></td>
+<td>ask</td>
+<td>Set, or skip setting, the global <code>core.hooksPath</code> without a prompt</td>
 </tr>
 <tr>
 <td><code>CLAUDE_HOME</code></td>
@@ -704,7 +725,7 @@ bash<span class="w"> </span>scripts/install.sh<span class="w">            </span
 <div class="codehilite"><pre><span></span><code>bash<span class="w"> </span>scripts/verify.sh
 </code></pre></div>
 
-<p>The script checks that the kit's hooks and skills are present, that every hook command in <code>settings.json</code> points to a file that exists, and that attribution is off.</p>
+<p>The script checks that the kit's hooks, git hooks and skills are present, that every hook command in <code>settings.json</code> points to a file that exists, that attribution is off, and that the env scrub and secret deny rules are in place. It reports whether the global <code>core.hooksPath</code> points at the kit and whether <code>gitleaks</code> is installed.</p>
     </div>
 
     <div class="no-results" id="no-results">
@@ -876,7 +897,7 @@ bash<span class="w"> </span>scripts/install.sh<span class="w">            </span
       if (!m) return false;
       const frag = document.createDocumentFragment();
       let last = 0;
-      txt.replace(regex, (match, _g, off) => {
+      txt.replace(regex, (match, off) => {  // no capture groups: (match, offset, string)
         if (off > last) frag.appendChild(document.createTextNode(txt.slice(last, off)));
         const span = document.createElement('span');
         span.className = 'search-hit';
@@ -952,7 +973,11 @@ bash<span class="w"> </span>scripts/install.sh<span class="w">            </span
                  : ['DANGER'].includes(kind) ? 'danger'
                  : ['SUCCESS','OK'].includes(kind) ? 'success' : 'info';
     const icon = klass === 'warn' ? '⚠' : klass === 'danger' ? '✕' : klass === 'success' ? '✓' : 'ℹ';
-    first.textContent = first.textContent.slice(m[0].length);
+    // Strip the [TIP] marker from the leading text node only, so links and
+    // inline code in the first paragraph survive.
+    const lead = first.firstChild;
+    if (lead && lead.nodeType === 3 && lead.nodeValue.length >= m[0].length) lead.nodeValue = lead.nodeValue.slice(m[0].length);
+    else first.textContent = first.textContent.slice(m[0].length);
     const wrap = document.createElement('div');
     wrap.className = 'callout ' + klass;
     wrap.innerHTML = '<span class="callout-icon">' + icon + '</span><div class="callout-body"></div>';

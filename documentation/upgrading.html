@@ -199,12 +199,6 @@ body {
   gap: 2rem;
   padding: 2rem 1.5rem;
 }
-@media (max-width: 900px) {
-  .layout { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; }
-  .toc { display: none; }
-  .toc.open { display: block; position: fixed; top: 60px; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 99; padding: 1.5rem; overflow-y: auto; }
-  .toc-mobile-btn { display: inline-flex; }
-}
 .toc-mobile-btn {
   display: none;
   border: 1px solid var(--border);
@@ -216,6 +210,13 @@ body {
   font-size: 0.85rem;
   align-items: center;
   gap: 0.4rem;
+}
+/* After the base rules above, or their display wins over the breakpoint. */
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; }
+  .toc { display: none; }
+  .toc.open { display: block; position: fixed; top: 60px; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 99; padding: 1.5rem; overflow-y: auto; }
+  .toc-mobile-btn { display: inline-flex; }
 }
 
 /* === ToC sidebar === */
@@ -703,6 +704,8 @@ cp<span class="w"> </span>-p<span class="w"> </span>~/.claude.json<span class="w
 
 <p><strong>2. Remove the old kit files.</strong> If you edited <code>rules/</code> or <code>modes/</code>, or stored
 anything in <code>memory/</code>, check those directories first and keep what you need.</p>
+<details>
+<summary>Commands that delete the 0.0.1 directories, agents, skills and hooks</summary>
 <div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>~/.claude
 rm<span class="w"> </span>-rf<span class="w"> </span>commands<span class="w"> </span>host-adapters<span class="w"> </span>lib<span class="w"> </span>memory<span class="w"> </span>model-overlays<span class="w"> </span>modes<span class="w"> </span>rules<span class="w"> </span>snippets<span class="w"> </span>tresor-resources
 rm<span class="w"> </span>-rf<span class="w"> </span>agents/personas<span class="w"> </span>agents/tests
@@ -726,16 +729,18 @@ rm<span class="w"> </span>-f<span class="w"> </span>hooks/<span class="o">{</spa
 <span class="w">  </span>hooks/verify-worktree-commit.sh
 </code></pre></div>
 
+</details>
 <p>Old <code>skills/simplify</code> and <code>skills/review</code> folders can shadow the built-in
 <code>/simplify</code> and <code>/review</code>, so make sure they are gone.</p>
 <p><strong>3. Re-run the installer.</strong> It rewrites <code>CLAUDE.md</code>, which no longer imports
 <code>rules/</code> or <code>modes/</code>. It also prunes <code>settings.json</code> hook entries whose script
-you just deleted.</p>
+you just deleted, removes the old guard hooks and skills it replaced (only
+unmodified copies), and asks whether to enable the global git hooks.</p>
 <div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>pipelinekit<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>pull<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>bash<span class="w"> </span>scripts/install.sh
 </code></pre></div>
 
-<p><strong>4. Clean up <code>settings.json</code>.</strong> The installer only prunes hook entries that
-point to scripts that are missing from <code>~/.claude/hooks/</code>. Open
+<p><strong>4. Clean up <code>settings.json</code>.</strong> The installer replaces its own hook entries
+and prunes the ones that point to scripts missing from <code>~/.claude/hooks/</code>. Open
 <code>~/.claude/settings.json</code> and remove anything else you no longer want from the
 old kit. For example, 0.0.1 set <code>env.CLAUDE_CODE_DISABLE_1M_CONTEXT</code> to <code>"1"</code>
 by default. A backup from step 3 is at <code>settings.json.bak-&lt;timestamp&gt;</code>.</p>
@@ -929,7 +934,7 @@ cp<span class="w"> </span>-p<span class="w"> </span>~/.claude.json.bak-0.0.1<spa
       if (!m) return false;
       const frag = document.createDocumentFragment();
       let last = 0;
-      txt.replace(regex, (match, _g, off) => {
+      txt.replace(regex, (match, off) => {  // no capture groups: (match, offset, string)
         if (off > last) frag.appendChild(document.createTextNode(txt.slice(last, off)));
         const span = document.createElement('span');
         span.className = 'search-hit';
@@ -1005,7 +1010,11 @@ cp<span class="w"> </span>-p<span class="w"> </span>~/.claude.json.bak-0.0.1<spa
                  : ['DANGER'].includes(kind) ? 'danger'
                  : ['SUCCESS','OK'].includes(kind) ? 'success' : 'info';
     const icon = klass === 'warn' ? '⚠' : klass === 'danger' ? '✕' : klass === 'success' ? '✓' : 'ℹ';
-    first.textContent = first.textContent.slice(m[0].length);
+    // Strip the [TIP] marker from the leading text node only, so links and
+    // inline code in the first paragraph survive.
+    const lead = first.firstChild;
+    if (lead && lead.nodeType === 3 && lead.nodeValue.length >= m[0].length) lead.nodeValue = lead.nodeValue.slice(m[0].length);
+    else first.textContent = first.textContent.slice(m[0].length);
     const wrap = document.createElement('div');
     wrap.className = 'callout ' + klass;
     wrap.innerHTML = '<span class="callout-icon">' + icon + '</span><div class="callout-body"></div>';

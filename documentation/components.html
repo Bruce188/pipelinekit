@@ -199,12 +199,6 @@ body {
   gap: 2rem;
   padding: 2rem 1.5rem;
 }
-@media (max-width: 900px) {
-  .layout { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; }
-  .toc { display: none; }
-  .toc.open { display: block; position: fixed; top: 60px; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 99; padding: 1.5rem; overflow-y: auto; }
-  .toc-mobile-btn { display: inline-flex; }
-}
 .toc-mobile-btn {
   display: none;
   border: 1px solid var(--border);
@@ -216,6 +210,13 @@ body {
   font-size: 0.85rem;
   align-items: center;
   gap: 0.4rem;
+}
+/* After the base rules above, or their display wins over the breakpoint. */
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; }
+  .toc { display: none; }
+  .toc.open { display: block; position: fixed; top: 60px; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 99; padding: 1.5rem; overflow-y: auto; }
+  .toc-mobile-btn { display: inline-flex; }
 }
 
 /* === ToC sidebar === */
@@ -616,12 +617,11 @@ footer {
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
     <ul>
-      <li class="lvl-2"><a href="#guard-hooks">Guard hooks</a></li>
-      <li class="lvl-3"><a href="#helper-modules">Helper modules</a></li>
+      <li class="lvl-2"><a href="#overview">Overview</a></li>
+      <li class="lvl-2"><a href="#guard-hooks-and-permissions">Guard hooks and permissions</a></li>
       <li class="lvl-3"><a href="#the-never-stage-list">The never-stage list</a></li>
-      <li class="lvl-3"><a href="#repo-git-hooks">Repo git hooks</a></li>
+      <li class="lvl-2"><a href="#git-hooks">Git hooks</a></li>
       <li class="lvl-2"><a href="#skills">Skills</a></li>
-      <li class="lvl-2"><a href="#agent">Agent</a></li>
       <li class="lvl-2"><a href="#claude-md-template">CLAUDE.md template</a></li>
       <li class="lvl-2"><a href="#mcp-servers">MCP servers</a></li>
       <li class="lvl-2"><a href="#what-is-not-included">What is not included</a></li>
@@ -640,344 +640,312 @@ footer {
 <blockquote>
 <p>The hooks and skills are still being reviewed, so details may change in later releases. The hooks are guardrails that catch common mistakes. They are not a security boundary, and they do not replace review.</p>
 </blockquote>
-<h2 id="guard-hooks">Guard hooks</h2>
-<p>The installer adds these to the <code>hooks</code> section of <code>~/.claude/settings.json</code>. The scripts live in <code>~/.claude/hooks/</code>.</p>
-<table>
-<thead>
-<tr>
-<th>Hook</th>
-<th>Event / matcher</th>
-<th>What it does</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>block-dangerous-commands.sh</code></td>
-<td>PreToolUse <code>Bash</code></td>
-<td>Blocks risky git, docker and destructive SQL commands, or asks before running them</td>
-</tr>
-<tr>
-<td><code>block-push-main.sh</code></td>
-<td>PreToolUse <code>Bash</code></td>
-<td>Blocks direct pushes to <code>main</code>/<code>master</code></td>
-</tr>
-<tr>
-<td><code>block-stage-sensitive.sh</code></td>
-<td>PreToolUse <code>Bash</code></td>
-<td>Refuses to stage paths that match <code>config/never-stage.txt</code></td>
-</tr>
-<tr>
-<td><code>env-scrub.py</code></td>
-<td>PreToolUse <code>Bash</code></td>
-<td>In CI, or with <code>CLAUDE_CODE_SCRUB_SUBPROCESS=1</code>, blocks commands that reference secret env vars</td>
-</tr>
-<tr>
-<td><code>validate-commit-msg.sh</code></td>
-<td>PreToolUse <code>Bash</code></td>
-<td>Checks commit messages against the conventional-commit format</td>
-</tr>
-<tr>
-<td><code>pre-edit-protect.sh</code></td>
-<td>PreToolUse <code>Edit\|Write</code></td>
-<td>Blocks edits to <code>.env</code>, credential and key files, and Claude settings files</td>
-</tr>
-<tr>
-<td><code>block-bare-repo-markers.py</code></td>
-<td>PreToolUse <code>Write</code></td>
-<td>Blocks writing bare-repo markers (<code>HEAD</code>, <code>config</code>, ...) at a repo root</td>
-</tr>
-<tr>
-<td><code>post-edit-format.sh</code></td>
-<td>PostToolUse <code>Edit\|Write</code></td>
-<td>Runs the project's formatter on the edited file</td>
-</tr>
-<tr>
-<td><code>scan-tool-output.sh</code></td>
-<td>PostToolUse <code>WebFetch\|Read</code></td>
-<td>Warns when fetched or read content looks like a prompt injection</td>
-</tr>
-</tbody>
-</table>
-<h3 id="helper-modules">Helper modules</h3>
-<p>The hooks import these modules. They are not wired into <code>settings.json</code>:</p>
-<ul>
-<li><code>_never_stage_match.py</code> matches paths against <code>config/never-stage.txt</code>.</li>
-<li><code>_pathguard.py</code> holds the shared path checks.</li>
-<li><code>_promptguard.py</code> is the prompt-injection scanner used by <code>scan-tool-output.sh</code>.</li>
-<li><code>denial_tracker.py</code> records hook denials and prints an advisory when the same denial keeps repeating.</li>
-</ul>
-<h3 id="the-never-stage-list">The never-stage list</h3>
-<p><code>config/never-stage.txt</code> is the single list of paths that must not be committed. It covers env files, credentials, keys, and the local <code>docs/</code> workflow notes. Edit the copy in <code>~/.claude/config/</code> to change it for your machine. The installer overwrites that copy on the next run, so put changes you want to keep in the repo's <code>claude/config/never-stage.txt</code>.</p>
-<h3 id="repo-git-hooks">Repo git hooks</h3>
-<p>In the pipelinekit repo only, the installer adds:</p>
-<ul>
-<li><code>commit-msg</code>, which runs <code>commit-msg-wrapper.sh</code> and the same conventional-commit check;</li>
-<li><code>pre-commit</code>, which runs <code>scan-secrets-staged.sh</code>. That script runs <code>gitleaks</code> over staged changes. If <code>gitleaks</code> is not installed, it prints a notice and lets the commit through.</li>
-</ul>
-<h2 id="skills">Skills</h2>
-<!-- snippet:skill-catalog-grid
-     Skills catalog grid — auto-generated by build_catalog_data.py.
-     Re-run that script to refresh this file after adding/removing skills.
+<h2 id="overview">Overview</h2>
+<p>The kit has five layers. Hover a chip for a one-line summary, or use the buttons to focus on one layer.</p>
+<!-- snippet:architecture-diagram
+     Layered architecture stack: one coloured band per layer, each holding
+     chips with hover tooltips. Filter buttons dim every other layer.
 
-     Placeholder usage in markdown source:
-       <div data-snippet="skill-catalog-grid"></div>
+     The page supplies the layers (top to bottom) as a JSON child of the
+     placeholder. "count" and "tip" are optional; "color" is any CSS colour.
+       <div data-snippet="architecture-diagram">
+       <script type="application/json">
+       {"layers": [
+         {"name": "Clients", "color": "#10b981", "count": "2 apps",
+          "chips": [{"label": "web", "tip": "React SPA"}, {"label": "cli"}]},
+         {"name": "API", "color": "#3b82f6",
+          "chips": [{"label": "gateway", "tip": "Auth and routing"}]}]}
+       </script>
+       </div>
 -->
-<div class="pkit-skg" data-snippet-mount="skill-catalog-grid">
+<div class="pkit-arch-diagram" data-snippet-mount="architecture-diagram">
+<script type="application/json">
+{"layers": [
+  {"name": "Settings rules", "color": "#ef4444", "count": "settings.json",
+   "chips": [{"label": "permissions.deny", "tip": "No reading or editing secrets, keys or credentials"},
+             {"label": "permissions.ask", "tip": "Prompt before editing Claude config or destructive git"},
+             {"label": "env scrub", "tip": "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1"},
+             {"label": "attribution off", "tip": "No co-author trailer or PR footer"}]},
+  {"name": "Claude Code hooks", "color": "#f59e0b", "count": "3 scripts",
+   "chips": [{"label": "bash-guard.py", "tip": "PreToolUse Bash: git, docker, fetch and SQL rules"},
+             {"label": "block-bare-repo-markers.py", "tip": "PreToolUse Edit/Write"},
+             {"label": "post-edit-format.sh", "tip": "PostToolUse Edit/Write: prettier"}]},
+  {"name": "Git hooks", "color": "#3b82f6", "count": "global core.hooksPath",
+   "chips": [{"label": "commit-msg", "tip": "Conventional commits, no attribution or emoji"},
+             {"label": "pre-commit", "tip": "gitleaks on staged changes"},
+             {"label": "pre-push", "tip": "No pushes to main or master"}]},
+  {"name": "Skills", "color": "#10b981", "count": "5 skills",
+   "chips": [{"label": "dotnet-conventions"}, {"label": "deploy"}, {"label": "exchange-api-keys"},
+             {"label": "docs-writer"}, {"label": "mobile"}]},
+  {"name": "MCP", "color": "#8b5cf6",
+   "chips": [{"label": "serena", "tip": "Installed by default at a pinned commit"},
+             {"label": "context7", "tip": "Optional, per project"}]}]}
+</script>
   <style>
-    .pkit-skg {
+    .pkit-arch-diagram {
       margin: 1.5rem 0;
+      padding: 1.5rem;
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
     }
-    .pkit-skg .pkit-skg-toolbar {
+    .pkit-arch-diagram .pkit-ad-controls {
       display: flex;
       flex-wrap: wrap;
       gap: 0.5rem;
-      margin-bottom: 1rem;
+      margin-bottom: 1.2rem;
       align-items: center;
     }
-    .pkit-skg .pkit-skg-search {
-      flex: 1;
-      min-width: 180px;
-      padding: 0.4rem 0.7rem;
-      background: var(--bg-elev);
+    .pkit-arch-diagram .pkit-ad-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--fg-subtle);
+      font-weight: 600;
+    }
+    .pkit-arch-diagram .pkit-ad-layer-btn {
+      padding: 0.3rem 0.65rem;
+      background: var(--bg);
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
+      color: var(--fg-muted);
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: all var(--transition);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .pkit-arch-diagram .pkit-ad-layer-btn .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .pkit-arch-diagram .pkit-ad-layer-btn:hover { color: var(--fg); border-color: var(--border-strong); }
+    .pkit-arch-diagram .pkit-ad-layer-btn.active { color: var(--fg); border-color: var(--accent); background: var(--accent-soft); }
+
+    .pkit-arch-diagram .pkit-ad-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .pkit-arch-diagram .pkit-ad-layer {
+      border-radius: var(--radius);
+      padding: 0.9rem 1.1rem;
+      transition: opacity var(--transition), transform var(--transition);
+      border: 1px solid var(--border);
+      position: relative;
+    }
+    .pkit-arch-diagram .pkit-ad-layer.dimmed {
+      opacity: 0.25;
+      filter: grayscale(40%);
+    }
+    .pkit-arch-diagram .pkit-ad-layer { background: linear-gradient(135deg, color-mix(in srgb, var(--layer-color, var(--accent)) 12%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, var(--layer-color, var(--accent)) 35%, var(--border)); }
+
+    .pkit-arch-diagram .pkit-ad-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.5rem;
+    }
+    .pkit-arch-diagram .pkit-ad-name {
+      font-size: 0.92rem;
+      font-weight: 700;
       color: var(--fg);
-      font-family: var(--sans);
-      font-size: 0.88rem;
     }
-    .pkit-skg .pkit-skg-search:focus {
-      outline: none;
-      border-color: var(--accent);
+    .pkit-arch-diagram .pkit-ad-name .lvl {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--fg-subtle);
+      margin-right: 0.5rem;
     }
-    .pkit-skg .pkit-skg-chips {
+    .pkit-arch-diagram .pkit-ad-count {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--fg-muted);
+      background: var(--bg);
+      padding: 0.1rem 0.5rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+    .pkit-arch-diagram .pkit-ad-chips {
       display: flex;
       flex-wrap: wrap;
       gap: 0.3rem;
     }
-    .pkit-skg .pkit-skg-chip {
-      padding: 0.25rem 0.6rem;
-      border-radius: 999px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      cursor: pointer;
-      border: 1px solid var(--border);
+    .pkit-arch-diagram .pkit-ad-chip {
+      padding: 0.18rem 0.55rem;
       background: var(--bg);
-      color: var(--fg-muted);
-      transition: all 150ms ease;
-      white-space: nowrap;
-    }
-    .pkit-skg .pkit-skg-chip:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-    .pkit-skg .pkit-skg-chip.active {
-      background: var(--accent-soft);
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-    .pkit-skg .pkit-skg-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 1rem;
-    }
-    .pkit-skg .pkit-skg-card {
-      background: var(--bg-elev);
       border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-      transition: border-color 150ms ease, transform 150ms ease;
-    }
-    .pkit-skg .pkit-skg-card:hover {
-      border-color: var(--accent);
-      transform: translateY(-1px);
-    }
-    .pkit-skg .pkit-skg-card[hidden] {
-      display: none;
-    }
-    .pkit-skg .pkit-skg-name {
-      font-size: 0.95rem;
-      font-weight: 700;
-      color: var(--fg);
+      border-radius: var(--radius-sm);
       font-family: var(--mono);
-    }
-    .pkit-skg .pkit-skg-desc {
-      font-size: 0.82rem;
+      font-size: 0.75rem;
       color: var(--fg-muted);
-      line-height: 1.45;
-      flex: 1;
+      cursor: help;
+      transition: all 100ms ease;
+      position: relative;
     }
-    .pkit-skg .pkit-skg-section-badge {
-      font-size: 0.7rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+    .pkit-arch-diagram .pkit-ad-chip:hover {
+      color: var(--fg);
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .pkit-arch-diagram .pkit-ad-chip.more { font-style: italic; color: var(--fg-subtle); }
+
+    .pkit-arch-diagram .pkit-ad-flow {
+      display: flex;
+      justify-content: center;
+      padding: 0.1rem 0;
       color: var(--fg-subtle);
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 0.1rem 0.45rem;
-      align-self: flex-start;
+      font-size: 0.85rem;
     }
-    .pkit-skg .pkit-skg-empty-msg {
-      grid-column: 1 / -1;
-      text-align: center;
-      color: var(--fg-subtle);
-      font-size: 0.88rem;
-      padding: 2rem 0;
-      display: none;
-    }
-    .pkit-skg .pkit-skg-count {
+    .pkit-arch-diagram .pkit-ad-tooltip {
+      position: absolute;
+      background: var(--fg);
+      color: var(--bg);
+      padding: 0.45rem 0.7rem;
+      border-radius: var(--radius-sm);
       font-size: 0.78rem;
-      color: var(--fg-subtle);
-      margin-top: 0.5rem;
+      max-width: 280px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 120ms ease;
+      z-index: 20;
+      box-shadow: var(--shadow-md);
+      line-height: 1.4;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: normal;
     }
+    .pkit-arch-diagram .pkit-ad-chip:hover .pkit-ad-tooltip, .pkit-arch-diagram .pkit-ad-chip:focus .pkit-ad-tooltip { opacity: 1; }
   </style>
-  <div class="pkit-skg-toolbar">
-    <input class="pkit-skg-search" type="search" placeholder="Search skills…" aria-label="Search skills…">
-    <div class="pkit-skg-chips">
-      <button class="pkit-skg-chip active" data-section="all">All</button>
-      <button class="pkit-skg-chip" data-section="authoring">authoring</button>
-      <button class="pkit-skg-chip" data-section="misc">misc</button>
-      <button class="pkit-skg-chip" data-section="mobile">mobile</button>
-    </div>
-  </div>
-  <div class="pkit-skg-grid" role="list" aria-label="Skills catalog">
-    <div class="pkit-skg-card" data-skill-card data-section="authoring" data-name="commit-conventions">
-      <span class="pkit-skg-name">commit-conventions</span>
-      <p class="pkit-skg-desc">Conventional commit format, message rules, and attribution policy. Loaded when writing commit messages, creating PRs, or merging branches.</p>
-      <span class="pkit-skg-section-badge">authoring</span>
-    </div>
-    <div class="pkit-skg-card" data-skill-card data-section="misc" data-name="deploy">
-      <span class="pkit-skg-name">deploy</span>
-      <p class="pkit-skg-desc">Deploy and operate apps on Vercel, Railway, Render, DigitalOcean App Platform, or Azure via each provider's CLI — auth preflight, deploy (preview/production), verify, logs, redeploy/rollback. Stops and asks the user when the CLI is missing or not authenticated; never logs in on the user's behalf. Use for day-to-day deploy work against an already-authenticated context.</p>
-      <span class="pkit-skg-section-badge">misc</span>
-    </div>
-    <div class="pkit-skg-card" data-skill-card data-section="authoring" data-name="docs-writer">
-      <span class="pkit-skg-name">docs-writer</span>
-      <p class="pkit-skg-desc">Documentation skill — renders markdown to rich, interactive, self-contained HTML for documentation/. Uses the shipped template + render.py. Refuses to write markdown to documentation/.</p>
-      <span class="pkit-skg-section-badge">authoring</span>
-    </div>
-    <div class="pkit-skg-card" data-skill-card data-section="authoring" data-name="dotnet-conventions">
-      <span class="pkit-skg-name">dotnet-conventions</span>
-      <p class="pkit-skg-desc">.NET architecture, DI, data access, and testing conventions. Loaded when working with C#, .NET, controllers, services, entities, repositories, or solution files.</p>
-      <span class="pkit-skg-section-badge">authoring</span>
-    </div>
-    <div class="pkit-skg-card" data-skill-card data-section="mobile" data-name="expo">
-      <span class="pkit-skg-name">expo</span>
-      <p class="pkit-skg-desc">Expo developer workflow — managed vs. bare workflow, EAS Build, EAS Update (OTA), dev-client, Expo Router, expo-modules-core, push notifications via Expo's APNs/FCM gateway</p>
-      <span class="pkit-skg-section-badge">mobile</span>
-    </div>
-    <div class="pkit-skg-card" data-skill-card data-section="mobile" data-name="ios">
-      <span class="pkit-skg-name">ios</span>
-      <p class="pkit-skg-desc">Xcode 26.3 + Anthropic Claude Agent SDK integration — project setup, in-editor usage, Agent SDK API surface, simulator integration, code signing &amp; TestFlight workflows</p>
-      <span class="pkit-skg-section-badge">mobile</span>
-    </div>
-    <div class="pkit-skg-card" data-skill-card data-section="authoring" data-name="security-conventions">
-      <span class="pkit-skg-name">security-conventions</span>
-      <p class="pkit-skg-desc">ASP.NET Core security conventions — anti-forgery, authorization, secret storage, parameterized queries, HTTPS. Loaded when working with controllers, API endpoints, authentication, authorization, or user input handling.</p>
-      <span class="pkit-skg-section-badge">authoring</span>
-    </div>
-    <div class="pkit-skg-empty-msg">No skills match your filter.</div>
-  </div>
-  <p class="pkit-skg-count">7 skills</p>
-  <script type="application/json" data-catalog-data>
-[
-  {
-    "name": "commit-conventions",
-    "description": "Conventional commit format, message rules, and attribution policy. Loaded when writing commit messages, creating PRs, or merging branches.",
-    "section": "authoring"
-  },
-  {
-    "name": "deploy",
-    "description": "Deploy and operate apps on Vercel, Railway, Render, DigitalOcean App Platform, or Azure via each provider's CLI — auth preflight, deploy (preview/production), verify, logs, redeploy/rollback. Stops and asks the user when the CLI is missing or not authenticated; never logs in on the user's behalf. Use for day-to-day deploy work against an already-authenticated context.",
-    "section": "misc"
-  },
-  {
-    "name": "docs-writer",
-    "description": "Documentation skill — renders markdown to rich, interactive, self-contained HTML for documentation/. Uses the shipped template + render.py. Refuses to write markdown to documentation/.",
-    "section": "authoring"
-  },
-  {
-    "name": "dotnet-conventions",
-    "description": ".NET architecture, DI, data access, and testing conventions. Loaded when working with C#, .NET, controllers, services, entities, repositories, or solution files.",
-    "section": "authoring"
-  },
-  {
-    "name": "expo",
-    "description": "Expo developer workflow — managed vs. bare workflow, EAS Build, EAS Update (OTA), dev-client, Expo Router, expo-modules-core, push notifications via Expo's APNs/FCM gateway",
-    "section": "mobile"
-  },
-  {
-    "name": "ios",
-    "description": "Xcode 26.3 + Anthropic Claude Agent SDK integration — project setup, in-editor usage, Agent SDK API surface, simulator integration, code signing & TestFlight workflows",
-    "section": "mobile"
-  },
-  {
-    "name": "security-conventions",
-    "description": "ASP.NET Core security conventions — anti-forgery, authorization, secret storage, parameterized queries, HTTPS. Loaded when working with controllers, API endpoints, authentication, authorization, or user input handling.",
-    "section": "authoring"
-  }
-]
-  </script>
+
+  <div class="pkit-ad-controls" data-ad-controls></div>
+  <div class="pkit-ad-stack" data-ad-stack></div>
 </div>
 
 <script>
 (function() {
   'use strict';
-  const roots = document.querySelectorAll('.pkit-skg[data-snippet-mount="skill-catalog-grid"]');
-  const root = roots[roots.length - 1];
-  if (!root || root.dataset.pkitInit) return;
-  root.dataset.pkitInit = '1';
+  const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  document.querySelectorAll('.pkit-arch-diagram[data-snippet-mount="architecture-diagram"]').forEach(diagram => {
+    if (diagram.dataset.pkitInit) return;
+    diagram.dataset.pkitInit = '1';
+    const dataEl = diagram.querySelector('script[type="application/json"]');
+    const controls = diagram.querySelector('[data-ad-controls]');
+    const stack = diagram.querySelector('[data-ad-stack]');
+    if (!dataEl || !controls || !stack) return;
+    const layers = JSON.parse(dataEl.textContent).layers || [];
 
-  const cards = Array.from(root.querySelectorAll('[data-skill-card]'));
-  const emptyMsg = root.querySelector('.pkit-skg-empty-msg');
-  const countEl = root.querySelector('.pkit-skg-count');
-  const searchEl = root.querySelector('.pkit-skg-search');
-  const chips = root.querySelectorAll('.pkit-skg-chip');
-  let activeSection = 'all';
-  let searchTerm = '';
-  let debounceTimer = null;
+    controls.innerHTML = '<span class="pkit-ad-label">Filter layer:</span>' +
+      '<button class="pkit-ad-layer-btn active" data-layer="all">All</button>' +
+      layers.map((l, i) => `<button class="pkit-ad-layer-btn" data-layer="${i}"><span class="dot" style="background:${esc(l.color || 'var(--accent)')}"></span>${esc(l.name)}</button>`).join('');
+    stack.innerHTML = layers.map((l, i) =>
+      (i ? '<div class="pkit-ad-flow" aria-hidden="true">&#9660;</div>' : '') +
+      `<div class="pkit-ad-layer" data-layer="${i}" style="--layer-color:${esc(l.color || 'var(--accent)')}">
+         <div class="pkit-ad-header">
+           <div class="pkit-ad-name"><span class="lvl">L${i + 1}</span>${esc(l.name)}</div>
+           ${l.count ? `<div class="pkit-ad-count">${esc(l.count)}</div>` : ''}
+         </div>
+         <div class="pkit-ad-chips">${(l.chips || []).map(c =>
+           `<span class="pkit-ad-chip" tabindex="0">${esc(c.label)}${c.tip ? `<span class="pkit-ad-tooltip">${esc(c.tip)}</span>` : ''}</span>`).join('')}</div>
+       </div>`).join('');
 
-  function applyFilters() {
-    const q = searchTerm.toLowerCase();
-    let visible = 0;
-    cards.forEach(card => {
-      const section = card.dataset.section || '';
-      const name = (card.dataset.name || '').toLowerCase();
-      const desc = (card.querySelector('p') || {}).textContent || '';
-      const matchSection = activeSection === 'all' || section === activeSection;
-      const matchSearch = !q || name.includes(q) || desc.toLowerCase().includes(q);
-      const show = matchSection && matchSearch;
-      card.hidden = !show;
-      if (show) visible++;
-    });
-    if (emptyMsg) emptyMsg.style.display = visible === 0 ? 'block' : 'none';
-    if (countEl) countEl.textContent = visible + ' of ' + cards.length + ' skills shown';
-  }
-
-  chips.forEach(chip => {
-    chip.addEventListener('click', () => {
-      activeSection = chip.dataset.section;
-      chips.forEach(c => c.classList.toggle('active', c.dataset.section === activeSection));
-      applyFilters();
-    });
+    const btns = controls.querySelectorAll('.pkit-ad-layer-btn');
+    btns.forEach(btn => btn.addEventListener('click', () => {
+      btns.forEach(b => b.classList.toggle('active', b === btn));
+      stack.querySelectorAll('.pkit-ad-layer').forEach(l =>
+        l.classList.toggle('dimmed', btn.dataset.layer !== 'all' && l.dataset.layer !== btn.dataset.layer));
+    }));
   });
-
-  searchEl && searchEl.addEventListener('input', () => {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      searchTerm = searchEl.value;
-      applyFilters();
-    }, 120);
-  });
-
-  applyFilters();
 })();
 </script>
 
 
+<h2 id="guard-hooks-and-permissions">Guard hooks and permissions</h2>
+<p>The installer merges <code>claude/config/settings.template.json</code> into <code>~/.claude/settings.json</code>. The hook scripts live in <code>~/.claude/hooks/</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>Where</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>permissions.deny</code></td>
+<td>settings</td>
+<td>Claude can't read or edit <code>.env*</code> (not <code>.env.example</code>), keys, <code>~/.ssh</code>, <code>~/.aws</code>, <code>~/.kube/config</code>, <code>~/.config/gh/hosts.yml</code>, credentials files. Holds in bypass mode</td>
+</tr>
+<tr>
+<td><code>permissions.ask</code></td>
+<td>settings</td>
+<td>Prompts before editing Claude settings/hooks or <code>~/.gitconfig</code>, and before <code>reset --hard</code>, <code>clean -f</code>, force push, <code>branch -D</code>, <code>checkout/restore .</code>. Prompts in bypass mode too</td>
+</tr>
+<tr>
+<td><code>CLAUDE_CODE_SUBPROCESS_ENV_SCRUB</code></td>
+<td>settings <code>env</code></td>
+<td>Strips credentials from subprocess environments</td>
+</tr>
+<tr>
+<td><code>bash-guard.py</code></td>
+<td>PreToolUse <code>Bash</code> (<code>if</code>: git, docker, podman, curl, wget, psql, mysql, mariadb, sqlite3)</td>
+<td>Blocks pushes to other remotes or main, remote changes, global git config writes, hook bypasses (<code>--no-verify</code>, <code>core.hooksPath</code>), staging <code>config/never-stage.txt</code> paths or bulk staging, sensitive docker mounts, and <code>curl \| sh</code>. Asks before <code>docker --privileged</code> and DROP/TRUNCATE</td>
+</tr>
+<tr>
+<td><code>block-bare-repo-markers.py</code></td>
+<td>PreToolUse <code>Edit\|Write</code></td>
+<td>Blocks assembling a bare git repo (HEAD + config/objects/refs) in the working directory or one level down</td>
+</tr>
+<tr>
+<td><code>post-edit-format.sh</code></td>
+<td>PostToolUse <code>Edit\|Write</code></td>
+<td>Runs the project's own prettier on ts/js/json/yaml</td>
+</tr>
+</tbody>
+</table>
+<details>
+<summary>How deny and ask behave in bypassPermissions mode</summary>
+<ul>
+<li><code>permissions.deny</code> blocks in every mode, bypass included. Rules are evaluated deny, then ask, then allow.</li>
+<li>Explicit <code>permissions.ask</code> rules still prompt in bypass mode. <code>allow</code> rules have no effect there.</li>
+<li>Bypass mode does not prompt for the built-in protected paths (<code>.git</code>, <code>.claude</code>, <code>.gitconfig</code>), so the template adds explicit <code>ask</code> rules for Claude's settings, hooks, git hooks and config, <code>~/.gitconfig</code> and <code>.git/hooks/**</code>.</li>
+<li>A hook that exits 2 blocks in every mode. Destructive git commands use native ask rules rather than hook asks.</li>
+<li>Read/Edit deny rules also stop <code>cat</code>, <code>head</code>, <code>sed</code>, <code>tee</code> and redirects in Bash, but not <code>python -c open(...)</code> or MCP tools. Only the sandbox closes that.</li>
+<li><code>.env.example</code>, <code>.env.sample</code> and <code>.env.template</code> are carved out with <code>!</code> rules. Outside the current directory only an exact <code>.env</code> is denied.</li>
+</ul>
+</details>
+<h3 id="the-never-stage-list">The never-stage list</h3>
+<p><code>config/never-stage.txt</code> is the single list of paths that must not be committed. It is gitignore-style, with <code>!</code> negation, and covers env files, credentials, keys, and the local <code>docs/</code> workflow notes. <code>bash-guard.py</code> reads it. Edit the copy in <code>~/.claude/config/</code> to change it for your machine. The installer overwrites that copy on the next run, so put changes you want to keep in the repo's <code>claude/config/never-stage.txt</code>.</p>
+<h2 id="git-hooks">Git hooks</h2>
+<p><code>claude/git-hooks/</code> is installed to <code>~/.claude/git-hooks</code> and, if you agree, set as the global <code>core.hooksPath</code>. Each hook runs the repository's own <code>.git/hooks/&lt;name&gt;</code> or <code>.githooks/&lt;name&gt;</code> afterwards.</p>
+<table>
+<thead>
+<tr>
+<th>Hook</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>commit-msg</code></td>
+<td>Conventional commits (<code>feat fix refactor docs test chore perf style build ci revert</code>, scopes, <code>!</code>). Rejects wip (outside <code>.claude/worktrees/</code>), AI attribution and emoji. Lets <code>Merge</code>, <code>Revert "</code>, <code>fixup!</code>/<code>squash!</code>/<code>amend!</code> through</td>
+</tr>
+<tr>
+<td><code>pre-commit</code></td>
+<td><code>gitleaks</code> scan of staged changes. Warns and allows if gitleaks is missing. <code>PIPELINEKIT_ALLOW_SECRET=1</code> skips one commit</td>
+</tr>
+<tr>
+<td><code>pre-push</code></td>
+<td>Refuses pushes to <code>main</code>/<code>master</code>. <code>ALLOW_MAIN_PUSH=1</code> overrides (humans only; bash-guard refuses it for Claude)</td>
+</tr>
+</tbody>
+</table>
+<p>A repo with its own local <code>core.hooksPath</code> (husky, the pre-commit framework, or a manual setting) bypasses these. Run <code>git config --show-origin core.hooksPath</code> inside it to check.</p>
+<h2 id="skills">Skills</h2>
 <table>
 <thead>
 <tr>
@@ -987,45 +955,37 @@ footer {
 </thead>
 <tbody>
 <tr>
-<td><code>commit-conventions</code></td>
-<td>Conventional commit format, message rules and the no-attribution policy</td>
-</tr>
-<tr>
-<td><code>security-conventions</code></td>
-<td>ASP.NET Core security conventions (anti-forgery, authorization, secret storage, parameterized queries, HTTPS)</td>
-</tr>
-<tr>
 <td><code>dotnet-conventions</code></td>
-<td>.NET architecture, DI, data access and testing conventions</td>
+<td>.NET layering, DI, EF Core migrations, testing (FluentAssertions 7.x pin), BackgroundService rules, target-framework support dates, plus ASP.NET Core security in <code>references/security.md</code></td>
 </tr>
 <tr>
 <td><code>deploy</code></td>
-<td>Deploy and operate apps on Vercel, Railway, Render, DigitalOcean App Platform or Azure through each provider's CLI. If a CLI is missing or not logged in, it stops and asks you</td>
+<td>Router for Vercel, Railway, Render, DigitalOcean App Platform and Azure (Container Apps, App Service): auth check, deploy, secrets without argv, verify, logs, rollback, and trading-bot overlap. Per-provider detail in <code>references/</code>. If a CLI is missing or not logged in, it stops and asks you</td>
+</tr>
+<tr>
+<td><code>exchange-api-keys</code></td>
+<td>Exchange API keys for CryptoBargain and FundingRateArb: where they load from, never logging them, testnet vs mainnet, withdrawal-disabled and IP-restricted scopes, storage, rotation, leak runbook</td>
 </tr>
 <tr>
 <td><code>docs-writer</code></td>
-<td>Render markdown into self-contained HTML pages under <code>documentation/</code> with <code>render.py</code> and <code>template.html</code></td>
+<td>Render <code>docs-source/*.md</code> into self-contained HTML pages under <code>documentation/</code> with <code>render.py</code> and <code>template.html</code>, with optional data-driven interactive snippets</td>
 </tr>
 <tr>
-<td><code>expo</code></td>
-<td>Expo workflow: EAS Build and Update, dev client, Expo Router, push notifications</td>
-</tr>
-<tr>
-<td><code>ios</code></td>
-<td>Xcode with the Claude Agent SDK: project setup, simulator, code signing, TestFlight</td>
+<td><code>mobile</code></td>
+<td>Android (Kotlin/Compose) builds and device access from WSL2, iPhone home-screen web apps, Expo/EAS cloud builds for iOS, release and security checklist</td>
 </tr>
 </tbody>
 </table>
-<p>In 0.1.0, <code>deploy</code> replaces the five separate <code>*-ops</code> skills and the per-provider deployment agents.</p>
-<h2 id="agent">Agent</h2>
-<p><code>docs-writer</code> is a documentation subagent. It writes application docs to <code>documentation/</code>, never to <code>docs/</code>, and uses the <code>docs-writer</code> skill to render them.</p>
+<p>In 0.1.0, <code>deploy</code> replaces the five separate <code>*-ops</code> skills and the per-provider deployment agents, <code>mobile</code> replaces <code>expo</code> and <code>ios</code>, and the ASP.NET Core security rules moved into <code>dotnet-conventions</code>.</p>
 <h2 id="claude-md-template">CLAUDE.md template</h2>
-<p><code>claude/CLAUDE.md.template</code> is about 40 lines of English with no imported rule files. The installer fills in <code>${USER_NAME}</code>, <code>${USER_EMAIL}</code> and <code>${CLAUDE_HOME}</code> and writes the result to <code>~/.claude/CLAUDE.md</code>. It covers:</p>
+<p><code>claude/CLAUDE.md.template</code> is about 55 lines of English with no imported rule files. The installer fills in <code>${USER_NAME}</code>, <code>${USER_EMAIL}</code> and <code>${CLAUDE_HOME}</code> and writes the result to <code>~/.claude/CLAUDE.md</code>. It covers:</p>
 <ul>
 <li>your identity;</li>
-<li>git rules: commit only when asked, conventional commits, no AI attribution, the never-stage list, <code>.git/info/exclude</code> for Claude-specific ignores, and no direct pushes to <code>main</code>;</li>
+<li>git rules: commit only when asked, conventional commits, no AI attribution, no workflow jargon in commit text, the never-stage list, <code>.git/info/exclude</code> for Claude-specific ignores, and no direct pushes to <code>main</code>;</li>
 <li>the <code>docs/</code> (local, never committed) and <code>documentation/</code> (committed) split;</li>
 <li>a base-branch detection snippet;</li>
+<li>serena for symbol navigation, Grep/Glob for text;</li>
+<li>GitHub habits with <code>gh</code>: issues before work, <code>&lt;type&gt;/&lt;issue#&gt;-&lt;slug&gt;</code> branches, draft PRs until checks pass, reading CI logs, releases;</li>
 <li>the deploy CLIs.</li>
 </ul>
 <h2 id="mcp-servers">MCP servers</h2>
@@ -1223,7 +1183,7 @@ footer {
       if (!m) return false;
       const frag = document.createDocumentFragment();
       let last = 0;
-      txt.replace(regex, (match, _g, off) => {
+      txt.replace(regex, (match, off) => {  // no capture groups: (match, offset, string)
         if (off > last) frag.appendChild(document.createTextNode(txt.slice(last, off)));
         const span = document.createElement('span');
         span.className = 'search-hit';
@@ -1299,7 +1259,11 @@ footer {
                  : ['DANGER'].includes(kind) ? 'danger'
                  : ['SUCCESS','OK'].includes(kind) ? 'success' : 'info';
     const icon = klass === 'warn' ? '⚠' : klass === 'danger' ? '✕' : klass === 'success' ? '✓' : 'ℹ';
-    first.textContent = first.textContent.slice(m[0].length);
+    // Strip the [TIP] marker from the leading text node only, so links and
+    // inline code in the first paragraph survive.
+    const lead = first.firstChild;
+    if (lead && lead.nodeType === 3 && lead.nodeValue.length >= m[0].length) lead.nodeValue = lead.nodeValue.slice(m[0].length);
+    else first.textContent = first.textContent.slice(m[0].length);
     const wrap = document.createElement('div');
     wrap.className = 'callout ' + klass;
     wrap.innerHTML = '<span class="callout-icon">' + icon + '</span><div class="callout-body"></div>';

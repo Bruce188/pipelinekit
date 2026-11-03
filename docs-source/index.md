@@ -4,7 +4,7 @@ diataxis: explanation
 
 # pipelinekit documentation
 
-pipelinekit v0.1.0 is a small Claude Code config kit. It contains guard hooks, a few skills, one docs agent, a short `CLAUDE.md` template, and an installer that copies them into `~/.claude`.
+pipelinekit v0.1.0 is a small Claude Code config kit. It contains guard hooks, permission rules, global git hooks, five skills, a short `CLAUDE.md` template, and an installer that copies them into `~/.claude`.
 
 <div data-snippet="search-widget"></div>
 
@@ -19,7 +19,7 @@ Up to 0.0.1, pipelinekit was a multi-agent pipeline kit with its own orchestrato
 | Page | Read it when |
 |------|--------------|
 | [Installation](installation.html) | You are setting up the kit on a new machine, devcontainer or VM |
-| [Components](components.html) | You want to know what each hook, skill, agent and MCP server does |
+| [Components](components.html) | You want to know what each permission rule, hook, git hook, skill and MCP server does |
 | [Upgrading from 0.0.1](upgrading.html) | You installed the old pipeline kit and want to move to 0.1.0 |
 
 The full list of changes is in [CHANGELOG.md](https://github.com/Bruce188/pipelinekit/blob/main/CHANGELOG.md).

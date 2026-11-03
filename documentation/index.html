@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>pipelinekit documentation</title>
-<meta name="description" content="pipelinekit v0.1.0 is a small Claude Code config kit. It contains guard hooks, a few skills, one docs agent, a short CLAUDE.md template, and an installer that copies them into ~/.claude."><style>
+<meta name="description" content="pipelinekit v0.1.0 is a small Claude Code config kit. It contains guard hooks, permission rules, global git hooks, five skills, a short CLAUDE.md template, and an installer that copies them into ~/.claude."><style>
 /* === Reset + variables === */
 *, *::before, *::after { box-sizing: border-box; }
 :root {
@@ -199,12 +199,6 @@ body {
   gap: 2rem;
   padding: 2rem 1.5rem;
 }
-@media (max-width: 900px) {
-  .layout { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; }
-  .toc { display: none; }
-  .toc.open { display: block; position: fixed; top: 60px; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 99; padding: 1.5rem; overflow-y: auto; }
-  .toc-mobile-btn { display: inline-flex; }
-}
 .toc-mobile-btn {
   display: none;
   border: 1px solid var(--border);
@@ -216,6 +210,13 @@ body {
   font-size: 0.85rem;
   align-items: center;
   gap: 0.4rem;
+}
+/* After the base rules above, or their display wins over the breakpoint. */
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; }
+  .toc { display: none; }
+  .toc.open { display: block; position: fixed; top: 60px; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 99; padding: 1.5rem; overflow-y: auto; }
+  .toc-mobile-btn { display: inline-flex; }
 }
 
 /* === ToC sidebar === */
@@ -626,22 +627,24 @@ footer {
     <header class="page-header">
       <span class="diataxis-chip diataxis-explanation">explanation</span>
       <h1>pipelinekit documentation</h1>
-      <p class="description">pipelinekit v0.1.0 is a small Claude Code config kit. It contains guard hooks, a few skills, one docs agent, a short CLAUDE.md template, and an installer that copies them into ~/.claude.</p>
+      <p class="description">pipelinekit v0.1.0 is a small Claude Code config kit. It contains guard hooks, permission rules, global git hooks, five skills, a short CLAUDE.md template, and an installer that copies them into ~/.claude.</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
 <!-- snippet:search-widget
-     Self-contained docs-index search widget. Loads search.json from the
-     sibling documentation/ directory at runtime, builds a hand-rolled
-     prefix-trie over title + excerpt tokens, and displays the top 8 hits
-     as the user types. No CDN, no external deps. Works under file://
-     and any static HTTP origin.
+     Self-contained docs-index search widget. Builds a prefix index over
+     title + excerpt tokens of every page and shows the top 8 hits as the
+     user types. render.py inlines documentation/search.json into the widget
+     (batch mode, or a single render next to an existing search.json), so it
+     works under file://; without it the widget fetch()es search.json, which
+     needs an HTTP origin. No CDN, no external deps.
 
      Placeholder usage in markdown source:
        <div data-snippet="search-widget"></div>
 -->
 <div class="docs-search" data-snippet-mount="search-widget">
+<script type="application/json" data-search-index>[{"title": "Components", "slug": "components", "excerpt": "This page lists what pipelinekit v0.1.0 installs and what each part does.", "quadrant": "reference"}, {"title": "Credits", "slug": "credits", "excerpt": "These are pipelinekit's license and the projects it builds on.", "quadrant": "reference"}, {"title": "pipelinekit documentation", "slug": "index", "excerpt": "pipelinekit v0.1.0 is a small Claude Code config kit. It contains guard hooks, permission rules, global git hooks, five skills, a short CLAUDE.md template, and an installer that copies them into…", "quadrant": "explanation"}, {"title": "Installation", "slug": "installation", "excerpt": "Install pipelinekit into ~/.claude, or another CLAUDE_HOME, by running one script.", "quadrant": "how-to"}, {"title": "Upgrading from 0.0.1", "slug": "upgrading", "excerpt": "How to move from the 0.0.1 pipeline kit to the 0.1.0 config kit: what was removed, what replaces it, and how to clean up an existing ~/.claude.", "quadrant": "how-to"}]</script>
   <input type="search" id="docs-search" placeholder="Search docs (title + excerpt)..." aria-label="Search documentation">
   <ul id="docs-search-results" class="docs-search-results" aria-live="polite"></ul>
   <p class="docs-search-hint">Type to search across every page. Results update live (max 8 shown).</p>
@@ -701,7 +704,9 @@ footer {
       results.appendChild(li);
     });
   }
-  fetch('search.json').then(function(r){ return r.json(); }).then(buildIndex).catch(function(){
+  var inline = input.closest('[data-snippet-mount]').querySelector('script[data-search-index]');
+  if (inline) buildIndex(JSON.parse(inline.textContent));
+  else fetch('search.json').then(function(r){ return r.json(); }).then(buildIndex).catch(function(){
     clearResults();
     var li = document.createElement('li');
     li.textContent = 'Search index unavailable.';
@@ -736,7 +741,7 @@ footer {
 </tr>
 <tr>
 <td><a href="components.html">Components</a></td>
-<td>You want to know what each hook, skill, agent and MCP server does</td>
+<td>You want to know what each permission rule, hook, git hook, skill and MCP server does</td>
 </tr>
 <tr>
 <td><a href="upgrading.html">Upgrading from 0.0.1</a></td>
@@ -920,7 +925,7 @@ footer {
       if (!m) return false;
       const frag = document.createDocumentFragment();
       let last = 0;
-      txt.replace(regex, (match, _g, off) => {
+      txt.replace(regex, (match, off) => {  // no capture groups: (match, offset, string)
         if (off > last) frag.appendChild(document.createTextNode(txt.slice(last, off)));
         const span = document.createElement('span');
         span.className = 'search-hit';
@@ -996,7 +1001,11 @@ footer {
                  : ['DANGER'].includes(kind) ? 'danger'
                  : ['SUCCESS','OK'].includes(kind) ? 'success' : 'info';
     const icon = klass === 'warn' ? '⚠' : klass === 'danger' ? '✕' : klass === 'success' ? '✓' : 'ℹ';
-    first.textContent = first.textContent.slice(m[0].length);
+    // Strip the [TIP] marker from the leading text node only, so links and
+    // inline code in the first paragraph survive.
+    const lead = first.firstChild;
+    if (lead && lead.nodeType === 3 && lead.nodeValue.length >= m[0].length) lead.nodeValue = lead.nodeValue.slice(m[0].length);
+    else first.textContent = first.textContent.slice(m[0].length);
     const wrap = document.createElement('div');
     wrap.className = 'callout ' + klass;
     wrap.innerHTML = '<span class="callout-icon">' + icon + '</span><div class="callout-body"></div>';

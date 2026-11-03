@@ -180,14 +180,15 @@ Old `skills/simplify` and `skills/review` folders can shadow the built-in
 
 **3. Re-run the installer.** It rewrites `CLAUDE.md`, which no longer imports
 `rules/` or `modes/`. It also prunes `settings.json` hook entries whose script
-you just deleted.
+you just deleted, removes the old guard hooks and skills it replaced (only
+unmodified copies), and asks whether to enable the global git hooks.
 
 ```bash
 cd pipelinekit && git pull && bash scripts/install.sh
 ```
 
-**4. Clean up `settings.json`.** The installer only prunes hook entries that
-point to scripts that are missing from `~/.claude/hooks/`. Open
+**4. Clean up `settings.json`.** The installer replaces its own hook entries
+and prunes the ones that point to scripts missing from `~/.claude/hooks/`. Open
 `~/.claude/settings.json` and remove anything else you no longer want from the
 old kit. For example, 0.0.1 set `env.CLAUDE_CODE_DISABLE_1M_CONTEXT` to `"1"`
 by default. A backup from step 3 is at `settings.json.bak-<timestamp>`.

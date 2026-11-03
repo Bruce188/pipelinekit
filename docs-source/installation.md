@@ -9,6 +9,7 @@ Install pipelinekit into `~/.claude`, or another `CLAUDE_HOME`, by running one s
 ## Requirements
 
 - `bash`, `git` and `python3`
+- `gitleaks`, optional, for the pre-commit secret scan
 - `uv`, only if you want serena (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
 
 ## Install
@@ -23,18 +24,38 @@ You can safely run the installer again. To update, run `git pull` and then run t
 
 ## What the installer does
 
-1. Copies the hooks, the seven skills, the `docs-writer` agent and `config/never-stage.txt` into `~/.claude`. It overwrites those files in place and never moves or deletes the directory. It leaves `projects/`, `sessions/`, `plugins/` and your credentials alone.
-2. Renders `~/.claude/CLAUDE.md` from `claude/CLAUDE.md.template`. If the result differs from your existing file, the old one is saved as `CLAUDE.md.bak-<timestamp>`.
-3. Backs up `settings.json`, then merges in the kit's hook wiring. It removes hook entries whose script is no longer in `~/.claude/hooks/`. It also sets `attribution` to empty strings, so commits and PRs get no co-author trailer or footer. Other settings stay as they are.
-4. Installs serena with `uv` at a pinned commit and registers it at user scope in `~/.claude.json`. It backs that file up first.
-5. Installs `commit-msg` and `pre-commit` git hooks in the pipelinekit repo itself. Any existing hooks are renamed to `*.pre-pipelinekit.<timestamp>`.
-6. Runs `scripts/verify.sh`.
+1. Copies the hooks, the global git hooks, the five skills and `config/never-stage.txt` into `~/.claude`. It overwrites those files in place and never moves or deletes the directory. It leaves `projects/`, `sessions/`, `plugins/` and your credentials alone.
+2. Removes skills, hooks and the `docs-writer` agent that earlier 0.1.0 builds installed (`commit-conventions`, `security-conventions`, `expo`, `ios`, the old guard hooks), but only if each is still byte-identical to a committed kit version. Edited copies are kept, with a warning.
+3. Renders `~/.claude/CLAUDE.md` from `claude/CLAUDE.md.template`. If the result differs from your existing file, the old one is saved as `CLAUDE.md.bak-<timestamp>`.
+4. Backs up `settings.json` to `settings.json.bak-<timestamp>`, then merges in `claude/config/settings.template.json`:
+   - the kit's hook entries replace its older ones, and hook entries whose script is no longer in `~/.claude/hooks/` are removed; your own hooks stay;
+   - the kit's `permissions.deny` and `permissions.ask` rules are added after yours; `allow` and other permission keys are untouched;
+   - `env.CLAUDE_CODE_SUBPROCESS_ENV_SCRUB` is set to `"1"`;
+   - `attribution` is set to empty strings, so commits and PRs get no co-author trailer or footer.
+5. Asks whether to set the global git `core.hooksPath` to `~/.claude/git-hooks`. It never overwrites an existing value; it prints the command instead. Without a terminal, and without `--git-hooks`, it skips this step.
+6. Installs serena with `uv` at a pinned commit and registers it at user scope in `~/.claude.json`. It backs that file up first.
+7. Runs `scripts/verify.sh`.
+
+<details markdown="1">
+<summary>Repos that set their own core.hooksPath</summary>
+
+A local `core.hooksPath` overrides the global one, so the kit's git hooks never run in that repo. If its hooks directory holds only `*.sample` files, unset it in your own shell (Claude's `bash-guard.py` refuses to change `core.hooksPath`):
+
+```bash
+git -C ~/path/to/repo config --local --unset core.hooksPath
+git -C ~/path/to/repo config --show-origin core.hooksPath   # expect ~/.gitconfig and ~/.claude/git-hooks
+```
+
+Repo-specific hooks go in `<repo>/.git/hooks/<name>` (local) or `<repo>/.githooks/<name>` (committed). The global hooks run them after their own checks.
+
+</details>
 
 ## Options
 
 | Variable / flag | Default | Purpose |
 |-----------------|---------|---------|
 | `--no-serena` / `CLAUDE_INSTALL_SKIP_SERENA=1` | off | Skip installing and registering serena |
+| `--git-hooks` / `--no-git-hooks` / `PIPELINEKIT_GIT_HOOKS=1\|0` | ask | Set, or skip setting, the global `core.hooksPath` without a prompt |
 | `CLAUDE_HOME` | `~/.claude` | Install target |
 | `USER_NAME`, `USER_EMAIL` | your global git identity | Identity written into `CLAUDE.md` |
 | `SERENA_REF` | pinned SHA | serena commit to install |
@@ -55,4 +76,4 @@ context7 is not installed by default. To use it in a project, copy its entry fro
 bash scripts/verify.sh
 ```
 
-The script checks that the kit's hooks and skills are present, that every hook command in `settings.json` points to a file that exists, and that attribution is off.
+The script checks that the kit's hooks, git hooks and skills are present, that every hook command in `settings.json` points to a file that exists, that attribution is off, and that the env scrub and secret deny rules are in place. It reports whether the global `core.hooksPath` points at the kit and whether `gitleaks` is installed.

@@ -43,6 +43,9 @@ cp -p ~/.claude.json ~/.claude.json.bak-0.0.1
 **2. Remove the old kit files.** If you edited `rules/` or `modes/`, or stored
 anything in `memory/`, check those directories first and keep what you need.
 
+<details markdown="1">
+<summary>Commands that delete the 0.0.1 directories, agents, skills and hooks</summary>
+
 ```bash
 cd ~/.claude
 rm -rf commands host-adapters lib memory model-overlays modes rules snippets tresor-resources
@@ -67,19 +70,22 @@ rm -f hooks/{CLAUDE.md,agent-caveman-gate.sh,claude-md-guard.py,context-budget-a
   hooks/verify-worktree-commit.sh
 ```
 
+</details>
+
 Old `skills/simplify` and `skills/review` folders can shadow the built-in
 `/simplify` and `/review`, so make sure they are gone.
 
 **3. Re-run the installer.** It rewrites `CLAUDE.md`, which no longer imports
 `rules/` or `modes/`. It also prunes `settings.json` hook entries whose script
-you just deleted.
+you just deleted, removes the old guard hooks and skills it replaced (only
+unmodified copies), and asks whether to enable the global git hooks.
 
 ```bash
 cd pipelinekit && git pull && bash scripts/install.sh
 ```
 
-**4. Clean up `settings.json`.** The installer only prunes hook entries that
-point to scripts that are missing from `~/.claude/hooks/`. Open
+**4. Clean up `settings.json`.** The installer replaces its own hook entries
+and prunes the ones that point to scripts missing from `~/.claude/hooks/`. Open
 `~/.claude/settings.json` and remove anything else you no longer want from the
 old kit. For example, 0.0.1 set `env.CLAUDE_CODE_DISABLE_1M_CONTEXT` to `"1"`
 by default. A backup from step 3 is at `settings.json.bak-<timestamp>`.
