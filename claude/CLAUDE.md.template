@@ -7,6 +7,7 @@ Identity: ${USER_NAME} <${USER_EMAIL}>.
 - Commit, push, or open PRs only when asked.
 - Conventional commits (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`, `perf:`, `style:`, `build:`, `ci:`); enforced by `hooks/validate-commit-msg.sh`. No emojis.
 - No AI attribution anywhere: no `Co-Authored-By`, no "Generated with", no AI comments. `settings.json` sets `attribution` to empty strings.
+- No workflow jargon in commit or PR text (`wip:`, `stream A`, `review-vN`, finding counts); write what a human developer would.
 - Never stage paths in `${CLAUDE_HOME}/config/never-stage.txt` (`.env*`, `credentials*`, keys, `docs/` workflow files); `hooks/block-stage-sensitive.sh` enforces it.
 - Claude-specific ignores go in `.git/info/exclude`, never `.gitignore`.
 - No direct pushes to `main`/`master` (`hooks/block-push-main.sh`); branch first.
@@ -40,3 +41,4 @@ Use the `deploy` skill. If a CLI is missing, stop and ask the user to install it
 | Railway | `railway` | `npm i -g @railway/cli` |
 | Render | `render` | user installs |
 | DigitalOcean | `doctl` | user installs |
+| Azure | `az` | user installs (Microsoft docs) |
