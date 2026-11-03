@@ -83,7 +83,9 @@
 
   let idx = 0;
   let playing = false;
-  let abort = false;
+  // Every play / step / pause / restart bumps `run`; a playback whose token is
+  // stale stops, so two loops never write to the screen at once.
+  let run = 0;
   let speed = 1;
   const speeds = [1, 2, 4, 0.5];
   const cursor = '<span class="cursor"></span>';
@@ -94,34 +96,31 @@
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  function appendChunk(item) {
-    const html = `<span class="${item.type}">${escape(item.text)}</span>`;
-    if (screen.querySelector('.cursor')) {
-      screen.querySelector('.cursor').remove();
-    }
-    screen.insertAdjacentHTML('beforeend', html);
+  function moveCursorToEnd() {
+    const c = screen.querySelector('.cursor');
+    if (c) c.remove();
     screen.insertAdjacentHTML('beforeend', cursor);
     screen.scrollTop = screen.scrollHeight;
   }
 
-  async function typeChunk(item) {
+  async function typeChunk(item, token) {
     if (item.type === 'cmd') {
-      // Type char by char
-      if (screen.querySelector('.cursor')) screen.querySelector('.cursor').remove();
+      // Type char by char; if interrupted, finish the line at once so a
+      // pause or step never loses characters.
       const span = document.createElement('span');
       span.className = 'cmd';
-      screen.appendChild(span);
+      screen.insertBefore(span, screen.querySelector('.cursor'));
       for (const ch of item.text) {
-        if (abort) return;
+        if (token !== run) { span.textContent = item.text; return; }
         span.textContent += ch;
         screen.scrollTop = screen.scrollHeight;
         await sleep(40);
       }
-      screen.insertAdjacentHTML('beforeend', cursor);
     } else if (item.type === 'pause') {
       await sleep(item.ms || 200);
     } else {
-      appendChunk(item);
+      screen.insertAdjacentHTML('beforeend', `<span class="${item.type}">${escape(item.text)}</span>`);
+      moveCursorToEnd();
       await sleep(60);
     }
   }
@@ -133,30 +132,32 @@
     playBtn.disabled = p;
   }
 
+  function next(token) {
+    const item = script[idx];
+    idx++;
+    progressFill.style.width = (idx / script.length * 100) + '%';
+    return typeChunk(item, token);
+  }
+
   async function play() {
+    const token = ++run;
     setPlaying(true);
-    abort = false;
-    while (idx < script.length && playing && !abort) {
-      const item = script[idx];
-      idx++;
-      progressFill.style.width = (idx / script.length * 100) + '%';
-      await typeChunk(item);
-    }
-    if (idx >= script.length) setPlaying(false);
+    while (idx < script.length && token === run) await next(token);
+    if (token === run) setPlaying(false);
   }
 
   playBtn.addEventListener('click', () => { if (!playing) play(); });
-  pauseBtn.addEventListener('click', () => { setPlaying(false); abort = true; });
+  pauseBtn.addEventListener('click', () => { run++; setPlaying(false); });
   stepBtn.addEventListener('click', async () => {
     if (idx >= script.length) return;
-    const wasPlaying = playing; setPlaying(false); abort = true;
-    await new Promise(r => setTimeout(r, 50));
-    const item = script[idx]; idx++; progressFill.style.width = (idx / script.length * 100) + '%';
-    await typeChunk(item);
-    if (wasPlaying && idx < script.length) play();
+    const wasPlaying = playing;
+    const token = ++run;
+    setPlaying(false);
+    await next(token);
+    if (wasPlaying && token === run && idx < script.length) play();
   });
   restartBtn.addEventListener('click', () => {
-    abort = true; setPlaying(false);
+    run++; setPlaying(false);
     idx = 0; screen.innerHTML = cursor; progressFill.style.width = '0';
   });
   speedBtn.addEventListener('click', () => {

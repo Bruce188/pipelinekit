@@ -81,7 +81,7 @@ Embed a widget with a raw-HTML placeholder in the markdown (blank line before an
 | `comparison-tabs` | Compare one option against several others | JSON `items` |
 | `live-linter` | Paste-and-check against regex rules | JSON `rules` (+ `example`) |
 | `playground-2col` | Side-by-side input/output examples with presets | JSON `presets` |
-| `search-widget` | Cross-page search (for an index page) | none; reads `search.json` from batch mode |
+| `search-widget` | Cross-page search (for an index page) | none; batch mode inlines `search.json` (also a single render next to it) |
 | `terminal-simulator` | Replayed terminal session | JSON step list (+ `data-title`) |
 | `tutorial-cards` | Card grid linking to sections | JSON cards with `anchor` = a heading id |
 
@@ -101,3 +101,5 @@ Each snippet's header comment documents its full JSON schema. Read it before use
 bash "${CLAUDE_SKILL_DIR}/tests/test_render.sh"
 bash "${CLAUDE_SKILL_DIR}/tests/test_richness_threshold.sh"
 ```
+
+`test_render.sh` also runs `tests/test_interactive.py`, which clicks, drags and types through every snippet and template feature in headless Chromium over `file://` (needs `pip install playwright && playwright install chromium`; prints SKIP otherwise).

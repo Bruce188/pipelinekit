@@ -83,6 +83,7 @@
 
     function render(text) {
       const results = rules.map(r => {
+        r.re.lastIndex = 0;  // a "g"/"y" flag makes test() resume from the last match
         const ok = r.re.test(text) !== (r.mode === 'forbid');
         return { name: r.name, hint: r.hint, result: ok ? 'pass' : (r.level === 'warn' ? 'warn' : 'fail') };
       });

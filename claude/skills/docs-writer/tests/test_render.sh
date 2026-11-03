@@ -459,6 +459,19 @@ for slug_pair in "alpha:Alpha" "beta:Beta" "gamma:Gamma" "delta:Delta" "first-h2
   fi
 done
 
+# ============ Test 7: widgets really respond in a browser ============
+# Headless Chromium drives every snippet and template feature over file://.
+# Prints SKIP and exits 0 when playwright is not installed.
+if python3 "$SKILL_DIR/tests/test_interactive.py" > "$TMP/interactive.txt" 2>&1; then
+  if grep -q '^SKIP' "$TMP/interactive.txt"; then
+    RESULTS+=("  SKIP  $(head -1 "$TMP/interactive.txt" | sed 's/^SKIP  //')")
+  else
+    PASS=$((PASS + 1)); RESULTS+=("  PASS  $(tail -1 "$TMP/interactive.txt")")
+  fi
+else
+  FAIL=$((FAIL + 1)); RESULTS+=("  FAIL  test_interactive.py:" "$(grep FAIL "$TMP/interactive.txt")")
+fi
+
 # ============ Summary ============
 printf '%s\n' "${RESULTS[@]}"
 echo
