@@ -1,0 +1,22 @@
+[
+  {"query": "add an installation page to our documentation/ folder, same style as the other html pages there", "should_trigger": true},
+  {"query": "I updated docs-source/configuration.md, can you regenerate the html docs?", "should_trigger": true},
+  {"query": "set up offline html documentation for this repo that we commit under documentation/ and people can open straight from disk", "should_trigger": true},
+  {"query": "the sidebar table of contents in documentation/api.html has broken links, fix them", "should_trigger": true},
+  {"query": "turn the markdown files in docs-source into the rendered docs pages and rebuild the search index", "should_trigger": true},
+  {"query": "write a getting-started tutorial for the CLI and put it in the project's html docs", "should_trigger": true},
+  {"query": "our documentation/ pages are just walls of text, add an interactive comparison of the three storage backends to the storage page", "should_trigger": true},
+  {"query": "add a filterable table of all the cli subcommands to documentation/cli-reference.html", "should_trigger": true},
+  {"query": "rerender every page under documentation/ after I changed the template colours", "should_trigger": true},
+  {"query": "convert our old docs/*.md user guide into proper html docs under documentation/ and commit them", "should_trigger": true},
+  {"query": "update the README with the new install steps", "should_trigger": false},
+  {"query": "make me a shareable doc in claude.ai summarizing this quarter's roadmap", "should_trigger": false},
+  {"query": "build an interactive html explainer of how our auth flow works and publish it as an artifact", "should_trigger": false},
+  {"query": "write a .docx user manual for the app that I can email to the client", "should_trigger": false},
+  {"query": "add docstrings to every public function in src/api.py", "should_trigger": false},
+  {"query": "add a CHANGELOG entry for the 2.3.0 release", "should_trigger": false},
+  {"query": "write the implementation plan for this feature to docs/plan.md", "should_trigger": false},
+  {"query": "generate OpenAPI docs from the FastAPI app and serve them at /docs", "should_trigger": false},
+  {"query": "set up a mkdocs material site with versioned docs deployed to GitHub Pages", "should_trigger": false},
+  {"query": "export the architecture notes as a PDF", "should_trigger": false}
+]
