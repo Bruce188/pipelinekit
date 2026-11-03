@@ -1,64 +1,30 @@
 #!/bin/bash
-# Auto-formats files after Write/Edit using the project's formatter.
-# Called by PostToolUse hook on Write|Edit — receives tool input on stdin.
-# Always exits 0 — formatting failures must never block the agent.
+# PostToolUse hook for Edit|Write: run the project's own prettier on
+# ts/tsx/js/jsx/json/yaml files. Always exits 0; formatting never blocks.
+# Python and .NET are left to their own tooling (ruff/black and dotnet format
+# were slow here: a PATH scan per edit and up to 5 s per .cs edit).
 
 INPUT=$(cat)
 
-# Shell pre-filter: only process files with formattable extensions
-echo "$INPUT" | grep -qE '\.(cs|ts|tsx|js|jsx|py|json|yaml|yml)' || exit 0
+# Cheap pre-filter before spawning python.
+echo "$INPUT" | grep -qE '\.(tsx?|jsx?|json|ya?ml)"' || exit 0
 
-FILE_PATH=$(printf '%s' "$INPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('tool_input',{}).get('file_path','') or d.get('tool_input',{}).get('filePath',''))" 2>/dev/null)
+FILE_PATH=$(printf '%s' "$INPUT" | python3 -c "import sys,json; print((json.load(sys.stdin).get('tool_input') or {}).get('file_path',''))" 2>/dev/null)
+[ -n "$FILE_PATH" ] && [ -f "$FILE_PATH" ] || exit 0
 
-[ -z "$FILE_PATH" ] || [ ! -f "$FILE_PATH" ] && exit 0
-
-# Skip excluded directories
 case "$FILE_PATH" in
-  */node_modules/*|*/.git/*|*/bin/*|*/obj/*|*/dist/*|*/build/*|*/__pycache__/*) exit 0 ;;
+  */node_modules/*|*/.git/*|*/dist/*|*/build/*) exit 0 ;;
+  *.ts|*.tsx|*.js|*.jsx|*.json|*.yaml|*.yml) ;;
+  *) exit 0 ;;
 esac
 
-# Get file extension
-EXT="${FILE_PATH##*.}"
-
-# Get file directory
+# Nearest parent with a package.json owns the prettier install.
 DIR=$(dirname "$FILE_PATH")
-
-# Find nearest parent directory with package.json (used by ts/js/json/yaml formatters)
-PROJ_DIR="$DIR"
-while [ "$PROJ_DIR" != "/" ] && [ ! -f "$PROJ_DIR/package.json" ]; do
-  PROJ_DIR=$(dirname "$PROJ_DIR")
+while [ "$DIR" != "/" ] && [ ! -f "$DIR/package.json" ]; do
+  DIR=$(dirname "$DIR")
 done
 
-case "$EXT" in
-  cs)
-    # .NET: dotnet format if solution/project file exists
-    if compgen -G "$DIR/../*.sln" >/dev/null 2>&1 || \
-       compgen -G "$DIR/../*.csproj" >/dev/null 2>&1 || \
-       compgen -G "$DIR/*.sln" >/dev/null 2>&1 || \
-       compgen -G "$DIR/*.csproj" >/dev/null 2>&1; then
-      timeout 5 dotnet format --include "$FILE_PATH" --verbosity quiet 2>/dev/null || true
-    fi
-    ;;
-  ts|tsx|js|jsx)
-    # Node.js: prettier if available
-    if [ -f "$PROJ_DIR/node_modules/.bin/prettier" ]; then
-      timeout 5 "$PROJ_DIR/node_modules/.bin/prettier" --write -- "$FILE_PATH" 2>/dev/null || true
-    fi
-    ;;
-  py)
-    # Python: ruff (preferred) or black
-    if command -v ruff >/dev/null 2>&1; then
-      timeout 5 ruff format -- "$FILE_PATH" 2>/dev/null || true
-    elif command -v black >/dev/null 2>&1; then
-      timeout 5 black -q -- "$FILE_PATH" 2>/dev/null || true
-    fi
-    ;;
-  json|yaml|yml)
-    # Prettier for config files (if available in a parent project)
-    if [ -f "$PROJ_DIR/node_modules/.bin/prettier" ]; then
-      timeout 5 "$PROJ_DIR/node_modules/.bin/prettier" --write -- "$FILE_PATH" 2>/dev/null || true
-    fi
-    ;;
-esac
-
+if [ -x "$DIR/node_modules/.bin/prettier" ]; then
+  timeout 5 "$DIR/node_modules/.bin/prettier" --write -- "$FILE_PATH" >/dev/null 2>&1 || true
+fi
 exit 0
