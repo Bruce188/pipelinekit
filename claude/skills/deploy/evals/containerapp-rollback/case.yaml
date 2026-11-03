@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: containerapp-rollback
+expected_outcome: |
+  Checks `az account show`, lists revisions, rolls back with `az containerapp update --image <previous-sha>` (single-revision mode) or revision activate + traffic set (multiple mode), warns that a rollback does not undo migrations and that two bot revisions overlap during the switch, then verifies /healthz and logs.

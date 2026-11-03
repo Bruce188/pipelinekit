@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: leaked-key
+expected_outcome: |
+  Revokes/rotates the key on Aster first, stops or checks the bot and account activity, then stores the new key in user-secrets/Key Vault, and only afterwards cleans git history.

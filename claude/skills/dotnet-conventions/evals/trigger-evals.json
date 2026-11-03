@@ -1,0 +1,58 @@
+[
+  {
+    "query": "add a FundingSnapshot entity with an index on (Exchange, Symbol, Timestamp) and generate the migration",
+    "should_trigger": true
+  },
+  {
+    "query": "upgrade FundingRateArb from net8.0 to net10.0, including EF Core and the test packages",
+    "should_trigger": true
+  },
+  {
+    "query": "write tests for PositionSizer.Calculate when leverage is zero",
+    "should_trigger": true
+  },
+  {
+    "query": "the new BalanceRefreshService keeps throwing 'cannot consume scoped service IUnitOfWork from singleton', fix it",
+    "should_trigger": true
+  },
+  {
+    "query": "dotnet ef says command not found when i try to add the migration in eindproject",
+    "should_trigger": true
+  },
+  {
+    "query": "bump FluentAssertions to latest in the unit test project, the 7.x api is annoying",
+    "should_trigger": true
+  },
+  {
+    "query": "add an endpoint in FundingRateArb so a user can save their Hyperliquid API key and secret on their profile",
+    "should_trigger": true
+  },
+  {
+    "query": "the admin OrdersController lets any logged-in user GET /orders/{id}, fix it",
+    "should_trigger": true
+  },
+  {
+    "query": "deploy the FundingRateArb container to Azure Container Apps and tail the logs",
+    "should_trigger": false
+  },
+  {
+    "query": "write the castellum Spring Boot service layer with constructor injection and JUnit tests",
+    "should_trigger": false
+  },
+  {
+    "query": "explain the difference between Scoped and Transient lifetimes in general",
+    "should_trigger": false
+  },
+  {
+    "query": "run a security review of my current branch diff before I merge",
+    "should_trigger": false
+  },
+  {
+    "query": "rotate the Aster API key FundingRateArb uses, the old one may be in a log",
+    "should_trigger": false
+  },
+  {
+    "query": "add a pytest for CryptoBargain's sizing.py when equity is zero",
+    "should_trigger": false
+  }
+]
