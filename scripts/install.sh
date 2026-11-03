@@ -10,6 +10,7 @@
 #   SERENA_REF      serena commit to install (default: pinned SHA below)
 #   SERENA_ALLOW_ROLLING=1  allow SERENA_REF=main
 #   CLAUDE_INSTALL_SKIP_SERENA=1  skip serena install/registration
+#   PIPELINEKIT_GIT_HOOKS=1|0  set (or skip) the global core.hooksPath without asking
 
 set -euo pipefail
 
@@ -21,8 +22,13 @@ TS="$(date +%Y%m%d-%H%M%S)"
 # Keep in sync with .mcp.json / .mcp.json.template.
 SERENA_REF="${SERENA_REF:-9b292a6c8b03c8306f117efeabb0ea7afdb0b3c0}"
 
-KIT_SKILLS=(commit-conventions security-conventions dotnet-conventions deploy docs-writer expo ios)
-KIT_AGENTS=(docs-writer.md)
+KIT_SKILLS=(dotnet-conventions deploy exchange-api-keys docs-writer mobile)
+# Shipped by earlier versions. Removed on upgrade only if unmodified (see kit_file).
+RETIRED_SKILLS=(commit-conventions security-conventions expo ios)
+RETIRED_HOOKS=(block-dangerous-commands.sh block-push-main.sh block-stage-sensitive.sh env-scrub.py
+  validate-commit-msg.sh pre-edit-protect.sh scan-tool-output.sh commit-msg-wrapper.sh
+  scan-secrets-staged.sh _pathguard.py _promptguard.py _never_stage_match.py denial_tracker.py __init__.py)
+RETIRED_AGENTS=(docs-writer.md)
 
 log()  { printf '[install] %s\n' "$*"; }
 warn() { printf '[install][warn] %s\n' "$*" >&2; }
@@ -31,12 +37,13 @@ die()  { printf '[install][error] %s\n' "$*" >&2; exit 1; }
 usage() {
   cat <<EOF
 pipelinekit v$VERSION
-Usage: bash scripts/install.sh [--no-serena] [--help]
+Usage: bash scripts/install.sh [--no-serena] [--git-hooks|--no-git-hooks] [--help]
 
-Copies hooks, skills, agents and config into \$CLAUDE_HOME (default ~/.claude),
-renders CLAUDE.md, merges hook wiring + attribution-off into settings.json
-(dropping hook entries whose script no longer exists), installs and registers
-the serena MCP server, then runs scripts/verify.sh.
+Copies hooks, git hooks, skills and config into \$CLAUDE_HOME (default ~/.claude),
+removes unmodified files that older kit versions installed, renders CLAUDE.md,
+merges hook wiring, permissions (deny/ask), env scrub and attribution-off into
+settings.json (backing it up first), installs global git hooks (asks first),
+installs and registers the serena MCP server, then runs scripts/verify.sh.
 EOF
 }
 
@@ -44,27 +51,63 @@ for arg in "$@"; do
   case "$arg" in
     -h|--help) usage; exit 0 ;;
     --no-serena) CLAUDE_INSTALL_SKIP_SERENA=1 ;;
+    --git-hooks) PIPELINEKIT_GIT_HOOKS=1 ;;
+    --no-git-hooks) PIPELINEKIT_GIT_HOOKS=0 ;;
     *) usage >&2; die "unknown argument: $arg" ;;
   esac
 done
 
 command -v python3 >/dev/null || die "python3 is required"
 log "pipelinekit v$VERSION -> $CLAUDE_HOME"
-mkdir -p "$CLAUDE_HOME"/{hooks,skills,agents,config}
+mkdir -p "$CLAUDE_HOME"/{hooks,git-hooks,skills,config}
+
+# kit_file <installed file> <repo path>: true if the installed file is
+# byte-identical to a committed version of <repo path>, i.e. this kit put it
+# there and nobody edited it. Needs git history; without it nothing is removed.
+kit_file() {
+  local h
+  [[ -f "$1" ]] || return 1
+  h="$(git -C "$REPO_ROOT" hash-object "$1" 2>/dev/null)" || return 1
+  git -C "$REPO_ROOT" rev-list --all --objects -- "$2" 2>/dev/null | grep -qxF "$h $2"
+}
 
 # ---------- files ----------
 # Hooks: copy runtime files only (tests stay in the repo).
 find "$REPO_ROOT/claude/hooks" -maxdepth 1 -type f \( -name '*.sh' -o -name '*.py' \) \
   -exec cp -p {} "$CLAUDE_HOME/hooks/" \;
 chmod +x "$CLAUDE_HOME"/hooks/*.sh "$CLAUDE_HOME"/hooks/*.py
+cp -p "$REPO_ROOT"/claude/git-hooks/* "$CLAUDE_HOME/git-hooks/"
+chmod +x "$CLAUDE_HOME"/git-hooks/*
 for s in "${KIT_SKILLS[@]}"; do
   rm -rf "${CLAUDE_HOME:?}/skills/$s"
   cp -R "$REPO_ROOT/claude/skills/$s" "$CLAUDE_HOME/skills/$s"
 done
 find "$CLAUDE_HOME/skills" -name __pycache__ -type d -prune -exec rm -rf {} +
-for a in "${KIT_AGENTS[@]}"; do cp -p "$REPO_ROOT/claude/agents/$a" "$CLAUDE_HOME/agents/$a"; done
 cp -p "$REPO_ROOT/claude/config/never-stage.txt" "$CLAUDE_HOME/config/never-stage.txt"
-log "copied ${#KIT_SKILLS[@]} skills, ${#KIT_AGENTS[@]} agent(s), hooks, config"
+log "copied ${#KIT_SKILLS[@]} skills, hooks, git hooks, config"
+
+# Files from older kit versions: remove the ones we installed, keep edited ones.
+retire() { # retire <installed file> <repo path> <rm args...>
+  local dst=$1 src=$2; shift 2
+  if kit_file "$dst" "$src"; then
+    rm "$@" && log "removed retired $src"
+  else
+    warn "kept $dst: not an unmodified kit copy; delete it yourself if unused"
+  fi
+}
+for s in "${RETIRED_SKILLS[@]}"; do
+  [[ -e "$CLAUDE_HOME/skills/$s" ]] || continue
+  retire "$CLAUDE_HOME/skills/$s/SKILL.md" "claude/skills/$s/SKILL.md" -rf "${CLAUDE_HOME:?}/skills/$s"
+done
+for h in "${RETIRED_HOOKS[@]}"; do
+  [[ -e "$CLAUDE_HOME/hooks/$h" ]] || continue
+  retire "$CLAUDE_HOME/hooks/$h" "claude/hooks/$h" -f "$CLAUDE_HOME/hooks/$h"
+done
+rm -rf "${CLAUDE_HOME:?}/hooks/__pycache__"
+for a in "${RETIRED_AGENTS[@]}"; do
+  [[ -e "$CLAUDE_HOME/agents/$a" ]] || continue
+  retire "$CLAUDE_HOME/agents/$a" "claude/agents/$a" -f "$CLAUDE_HOME/agents/$a"
+done
 
 # ---------- CLAUDE.md ----------
 USER_NAME="${USER_NAME:-$(git config --global user.name 2>/dev/null || echo "$USER")}"
@@ -88,7 +131,7 @@ chmod 644 "$CLAUDE_HOME/CLAUDE.md"
 # ---------- settings.json ----------
 SETTINGS="$CLAUDE_HOME/settings.json"
 [[ -f "$SETTINGS" ]] && cp -p "$SETTINGS" "$SETTINGS.bak-$TS"
-CLAUDE_HOME="$CLAUDE_HOME" python3 - "$SETTINGS" <<'PY'
+CLAUDE_HOME="$CLAUDE_HOME" python3 - "$SETTINGS" "$REPO_ROOT/claude/config/settings.template.json" <<'PY'
 import json, os, sys
 
 path = sys.argv[1]
@@ -104,30 +147,20 @@ else:
 if not isinstance(data, dict):
     sys.exit(f"[install][error] {path} is not a JSON object")
 
-KIT = {
-    "PreToolUse": {
-        "Bash": ["block-dangerous-commands.sh", "block-push-main.sh",
-                 "block-stage-sensitive.sh", "env-scrub.py", "validate-commit-msg.sh"],
-        "Edit|Write": ["pre-edit-protect.sh"],
-        "Write": ["block-bare-repo-markers.py"],
-    },
-    "PostToolUse": {
-        "Edit|Write": ["post-edit-format.sh"],
-        "WebFetch|Read": ["scan-tool-output.sh"],
-    },
-}
-# Helpers that live in hooks/ but are not hooks themselves.
-NOT_HOOKS = {"denial_tracker.py", "_pathguard.py", "_promptguard.py", "_never_stage_match.py"}
+# Hook commands use ${CLAUDE_HOME}; permission rules keep a literal ~/.claude/...
+tmpl = json.loads(open(sys.argv[2], encoding="utf-8").read().replace("${CLAUDE_HOME}", home))
+KIT_SCRIPTS = {os.path.basename(h["command"]) for gs in tmpl["hooks"].values() for g in gs for h in g["hooks"]}
+# Hooks and helpers that earlier kit versions wired into settings.json.
+REMOVED = {"block-dangerous-commands.sh", "block-push-main.sh", "block-stage-sensitive.sh", "env-scrub.py",
+           "validate-commit-msg.sh", "pre-edit-protect.sh", "scan-tool-output.sh", "denial_tracker.py",
+           "_pathguard.py", "_promptguard.py", "_never_stage_match.py"}
 
 prefixes = (hooks_dir + "/", "~/.claude/hooks/", "$HOME/.claude/hooks/", "${HOME}/.claude/hooks/")
 
-def stale(cmd):
-    first = (cmd or "").split()[0] if (cmd or "").split() else ""
-    for p in prefixes:
-        if first.startswith(p):
-            name = first[len(p):]
-            return name in NOT_HOOKS or not os.path.isfile(os.path.join(hooks_dir, name))
-    return False
+def script(cmd):
+    words = (cmd or "").split()
+    first = words[0] if words else ""
+    return next((first[len(p):] for p in prefixes if first.startswith(p)), None)
 
 hooks = data.get("hooks") if isinstance(data.get("hooks"), dict) else {}
 removed = []
@@ -135,8 +168,13 @@ for event in list(hooks):
     groups = []
     for g in hooks[event] if isinstance(hooks[event], list) else []:
         kept = []
-        for h in g.get("hooks", []):
-            if stale(h.get("command")):
+        for h in g.get("hooks", []) if isinstance(g, dict) else []:
+            name = script(h.get("command"))
+            if name is None:
+                kept.append(h)
+            elif name in KIT_SCRIPTS:
+                pass  # re-added from the template below
+            elif name in REMOVED or not os.path.isfile(os.path.join(hooks_dir, name)):
                 removed.append(h.get("command"))
             else:
                 kept.append(h)
@@ -148,30 +186,34 @@ for event in list(hooks):
         del hooks[event]
 
 added = 0
-for event, by_matcher in KIT.items():
-    groups = hooks.setdefault(event, [])
-    present = {h.get("command") for g in groups for h in g.get("hooks", [])}
-    for matcher, scripts in by_matcher.items():
-        group = next((g for g in groups if g.get("matcher") == matcher), None)
-        if group is None:
-            group = {"matcher": matcher, "hooks": []}
-            groups.append(group)
-        for s in scripts:
-            cmd = os.path.join(hooks_dir, s)
-            if cmd not in present:
-                group["hooks"].append({"type": "command", "command": cmd})
-                added += 1
+for event, groups in tmpl["hooks"].items():
+    hooks.setdefault(event, []).extend(groups)
+    added += sum(len(g["hooks"]) for g in groups)
 data["hooks"] = hooks
+
+# Permissions: keep the user's rules and append the kit's in template order
+# ("!" carve-outs must follow the rule they carve from). allow etc. untouched.
+perms = data.get("permissions") if isinstance(data.get("permissions"), dict) else {}
+for kind in ("deny", "ask"):
+    mine = tmpl["permissions"][kind]
+    theirs = perms.get(kind) if isinstance(perms.get(kind), list) else []
+    perms[kind] = [r for r in theirs if r not in mine] + mine
+data["permissions"] = perms
+env = data.get("env") if isinstance(data.get("env"), dict) else {}
+env.update(tmpl["env"])
+data["env"] = env
 # No AI attribution in commits or PRs (empty strings work on all CLI versions).
-data["attribution"] = {"commit": "", "pr": "", "sessionUrl": False}
-data["includeCoAuthoredBy"] = False
+data["attribution"] = tmpl["attribution"]
+data.pop("includeCoAuthoredBy", None)  # deprecated; attribution covers it
 
 tmp = path + ".tmp"
 with open(tmp, "w", encoding="utf-8") as f:
     json.dump(data, f, indent=2)
     f.write("\n")
 os.replace(tmp, path)
-print(f"[install] settings.json: +{added} kit hooks, -{len(removed)} stale hook entries, attribution off")
+print(f"[install] settings.json: {added} kit hooks, -{len(removed)} stale hook entries, "
+      f"{len(tmpl['permissions']['deny'])} deny + {len(tmpl['permissions']['ask'])} ask rules, "
+      "env scrub on, attribution off")
 for c in removed:
     print(f"[install]   removed: {c}")
 PY
@@ -218,29 +260,35 @@ PY
   fi
 fi
 
-# ---------- git hooks for this repo ----------
+# ---------- global git hooks ----------
+GH="$CLAUDE_HOME/git-hooks"
+CUR="$(git config --global --get core.hooksPath || true)"
+if [[ "$CUR" == "$GH" ]]; then
+  log "git: core.hooksPath already $GH"
+elif [[ -n "$CUR" ]]; then
+  warn "git: global core.hooksPath is $CUR; left alone. To use the kit hooks: git config --global core.hooksPath $GH"
+else
+  ans="${PIPELINEKIT_GIT_HOOKS:-}"
+  if [[ -z "$ans" && -t 0 ]]; then
+    read -r -p "[install] Set global git core.hooksPath to $GH (commit-msg, pre-commit gitleaks, pre-push main guard)? [y/N] " ans
+  fi
+  if [[ "$ans" =~ ^(1|y|Y|yes)$ ]]; then
+    git config --global core.hooksPath "$GH" && log "git: core.hooksPath -> $GH"
+  else
+    log "git: global hooks not enabled (enable later: git config --global core.hooksPath $GH)"
+  fi
+fi
+# A repo with its own local core.hooksPath (husky, pre-commit, ...) overrides the global one.
+command -v gitleaks >/dev/null || warn "gitleaks not installed: pre-commit will warn and allow"
+# Old per-repo install of this kit: remove the dangling commit-msg symlink and the dispatcher.
 if GIT_COMMON="$(git -C "$REPO_ROOT" rev-parse --git-common-dir 2>/dev/null)"; then
   [[ "$GIT_COMMON" = /* ]] || GIT_COMMON="$REPO_ROOT/$GIT_COMMON"
-  GHOOKS="$GIT_COMMON/hooks"
-  mkdir -p "$GHOOKS"
-  WRAPPER="$REPO_ROOT/claude/hooks/commit-msg-wrapper.sh"
-  if [[ "$(readlink "$GHOOKS/commit-msg" 2>/dev/null)" != "$WRAPPER" ]]; then
-    [[ -e "$GHOOKS/commit-msg" || -L "$GHOOKS/commit-msg" ]] && mv "$GHOOKS/commit-msg" "$GHOOKS/commit-msg.pre-pipelinekit.$TS"
-    ln -sfn "$WRAPPER" "$GHOOKS/commit-msg"
+  if [[ "$(readlink "$GIT_COMMON/hooks/commit-msg" 2>/dev/null)" == *commit-msg-wrapper.sh ]]; then
+    rm -f "$GIT_COMMON/hooks/commit-msg"
   fi
-  SENTINEL='# pipelinekit pre-commit dispatcher'
-  if ! head -2 "$GHOOKS/pre-commit" 2>/dev/null | grep -qF "$SENTINEL"; then
-    [[ -e "$GHOOKS/pre-commit" || -L "$GHOOKS/pre-commit" ]] && mv "$GHOOKS/pre-commit" "$GHOOKS/pre-commit.pre-pipelinekit.$TS"
+  if head -2 "$GIT_COMMON/hooks/pre-commit" 2>/dev/null | grep -qF '# pipelinekit pre-commit dispatcher'; then
+    rm -f "$GIT_COMMON/hooks/pre-commit"
   fi
-  cat > "$GHOOKS/pre-commit" <<EOF
-#!/usr/bin/env bash
-$SENTINEL
-SCANNER="$REPO_ROOT/claude/hooks/scan-secrets-staged.sh"
-[[ -f "\$SCANNER" ]] && exec bash "\$SCANNER"
-exit 0
-EOF
-  chmod +x "$GHOOKS/pre-commit"
-  log "repo git hooks: commit-msg + pre-commit installed"
 fi
 
 # ---------- verify ----------
