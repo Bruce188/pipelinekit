@@ -1,79 +1,74 @@
-# Never-stage canonical list. Hook `block-stage-sensitive.sh` reads this at invocation.
-# Format: fnmatch-style globs, one per line. Blank lines and '#' comments allowed. No regex.
-# Missing/unreadable file = default-deny (hook exits 2).
+# Paths the bash-guard hook refuses to stage or commit (git add/stage, commit -a,
+# commit <paths>). Single source of truth; `git add -f` does not bypass it.
+#
+# Syntax (a subset of .gitignore), matched against repo-relative paths:
+#   name        no slash: matches that file or directory name at any depth
+#   name/       trailing slash: a directory of that name at any depth
+#   dir/name    a slash inside: anchored at the repo root (* also crosses /)
+#   **/a/b      leading **/: a/b at any depth
+#   !pattern    re-allows paths matched by an earlier pattern
+#   # comment
 
-# Secrets / credentials
+# Secrets
 .env
-credentials*
-
-# Env variants
 .env.*
-.env.local
-.env.production
-.env.development
-
-# Crypto material
+!.env.example
+!.env.sample
+!.env.template
+credentials
+credentials.json
+.credentials.json
+.git-credentials
+.npmrc
+.pypirc
+.netrc
 *.pem
 *.key
 *.p12
 *.pfx
-*.cer
-*.crt
 id_rsa*
 id_ed25519*
-id_dsa*
 id_ecdsa*
+id_dsa*
+!*.pub
 
 # Credential directories
 .aws/
 .ssh/
 .gnupg/
-.kube/config
+.azure/
+**/.kube/config
+**/.docker/config.json
 
-# Claude config (allowlist exceptions handled in the hook, not here)
+# Claude runtime state (committed config under .claude/ stays allowed)
 .claude/*
+!.claude/CLAUDE.md
+!.claude/settings.json
+!.claude/skills/
+!.claude/agents/
+!.claude/commands/
+!.claude/hooks/
+!.claude/rules/
 
-# docs/ workflow files
-docs/charter*.md
+# Local AI workflow notes (docs/ plans, progress, reviews)
+docs/plan.md
+docs/plan-*.md
+docs/plans/
 docs/progress.md
+docs/review.md
+docs/review-*.md
+docs/reviews/
 docs/prompts*.md
-docs/plan*.md
 docs/analysis*.md
-docs/prp*.md
-docs/review*
-docs/pipeline-state.md
-docs/.last-verify.json
-docs/pipeline-intel.json
 docs/context-dump.md
-docs/claude-md-proposal*.md
-docs/archive/*
-docs/active-persona
-docs/active-deployment
-
-# documentation/ contract (docs-writer/2 — v0.0.1+):
-# Every page in documentation/ is HTML. No markdown. Vendored standards
-# (NOTICE, SKILL-AUTHORING-STANDARD, SKILL_PIPELINE) live as HTML in
-# documentation/docs/. To bypass for a legitimate reason: git add -f.
-documentation/*.md
-documentation/**/*.md
-
-# Misc workflow artifacts
+docs/archive/
 whats-next.md
-.review-diff*
-.review-scoped-diff*
 
-# Build / runtime detritus
+# Tool caches
 __pycache__/
 *.pyc
-bin/
-obj/
 .agentmemory/
 .understand-anything/
 .codegraph/
 .graphify/
 .serena/
-*.user
-*.suo
-
-# Research artifacts
-docs/research-results.tsv

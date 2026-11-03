@@ -5,14 +5,12 @@
     "context7": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp"]
+      "args": [
+        "-y",
+        "@upstash/context7-mcp"
+      ]
     },
-    "sequential-thinking": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
-    },
-    "_serena_pin_note": "Pinned to oraios/serena @ 9b292a6c8b03c8306f117efeabb0ea7afdb0b3c0 — captured via `git ls-remote https://github.com/oraios/serena.git main` on 2026-05-26. Refresh this pin (and re-run install.sh with SERENA_REF=<new sha>) when upgrading; see docs-source/supply-chain.md. The '--context claude-code' flag selects serena's Claude Code tool subset; this project-scope entry takes precedence over the global user-scope registration written by scripts/install.sh (provision_serena_mcp).",
+    "_serena_pin_note": "Pinned to oraios/serena @ 9b292a6c8b03c8306f117efeabb0ea7afdb0b3c0. Refresh the pin (and re-run install.sh with SERENA_REF=<new sha>) when upgrading. This project-scope entry takes precedence over the user-scope registration written by scripts/install.sh.",
     "serena": {
       "type": "stdio",
       "command": "uvx",
@@ -26,36 +24,17 @@
         "--project",
         "."
       ]
-    },
-    "agentmemory": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@agentmemory/agentmemory@0.9.21", "mcp"],
-      "env": {
-        "AGENTMEMORY_EMBED_PROVIDER": "voyage",
-        "VOYAGE_API_KEY": "${VOYAGE_API_KEY}",
-        "OPENAI_API_KEY": "${OPENAI_API_KEY}",
-        "AGENTMEMORY_EMBED_FALLBACK": "local-onnx-quant",
-        "AGENTMEMORY_DB_PATH": ".agentmemory/agentmemory.db"
-      }
-    },
-    "codegraph": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@colbymchenry/codegraph@^0.9.4", "serve", "--mcp"]
-    },
-    "graphify": {
-      "type": "stdio",
-      "command": "uv",
-      "args": ["tool", "run", "--from", "graphifyy", "graphify", ".", "--mcp"]
     }
   },
-  "_mobile_instructions": "Optional iOS-development MCPs. Uncomment-and-move into 'mcpServers' to enable. Both require Xcode on host. ios-simulator-mcp uses git+https — PIN the ref (replace @main with a commit SHA) before sandbox use.",
+  "_mobile_instructions": "Optional iOS-development MCPs. Uncomment-and-move into 'mcpServers' to enable. Both require Xcode on host. ios-simulator-mcp uses git+https \u2014 PIN the ref (replace @main with a commit SHA) before sandbox use.",
   "_mobile_mcpServers": {
     "XcodeBuildMCP": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "xcodebuildmcp"]
+      "args": [
+        "-y",
+        "xcodebuildmcp"
+      ]
     },
     "ios-simulator-mcp": {
       "type": "stdio",
@@ -65,19 +44,6 @@
         "git+https://github.com/joshuayoes/ios-simulator-mcp@<PIN-TO-COMMIT-SHA>",
         "ios-simulator-mcp"
       ]
-    }
-  },
-  "_claude_context_instructions": "COMMUNITY MCP — @zilliztech/claude-context is maintained by Zilliz (Milvus commercial vendor), NOT Anthropic. Uncomment-and-move into 'mcpServers' to enable codebase semantic RAG (AST-aware chunking + Merkle-tree incremental indexing). LOCAL MODE: set EMBEDDING_PROVIDER=ollama (or transformers) and provide a local embedding model — no Milvus account needed. CLOUD MODE: set MILVUS_ADDRESS and MILVUS_TOKEN to Zilliz Cloud credentials. PIN guidance: replace '-y' with a fixed @version (e.g. @zilliztech/claude-context@0.1.0) for reproducibility. 50k LOC heuristic: /analyze skips semantic retrieval below 50000 LOC; opt-in indexing on smaller repos via direct MCP query.",
-  "_claude_context_mcpServers": {
-    "claude-context": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@zilliztech/claude-context"],
-      "env": {
-        "EMBEDDING_PROVIDER": "",
-        "MILVUS_ADDRESS": "",
-        "MILVUS_TOKEN": ""
-      }
     }
   }
 }

@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# Global git commit-msg hook (core.hooksPath = ~/.claude/git-hooks).
+# Enforces conventional commits on the final message, then runs the repo's own
+# commit-msg hook (.git/hooks/commit-msg or .githooks/commit-msg) if there is one.
+#
+# Accepts: <type>[(scope)][!]: <description>, header <= 100 chars, where type is
+#          feat fix refactor docs test chore perf style build ci revert.
+# Passes:  git-generated subjects (Merge ..., Revert "...", fixup!/squash!/amend!).
+# Rejects: wip subjects (allowed inside .claude/worktrees/ agent worktrees),
+#          AI attribution (Co-Authored-By an AI, "Generated with Claude"), emoji.
+set -u
+
+chain() {
+  local name=$1 self h; shift
+  self=$(realpath "$0")
+  for h in "$(git rev-parse --git-common-dir)/hooks/$name" "$(git rev-parse --show-toplevel 2>/dev/null)/.githooks/$name"; do
+    [ -x "$h" ] && [ "$(realpath "$h")" != "$self" ] || continue
+    printf '%s' "${HOOK_STDIN:-}" | "$h" "$@" || return $?
+  done
+}
+
+python3 - "$1" "$(git rev-parse --show-toplevel 2>/dev/null)" <<'PY' || exit 1
+import re, sys
+
+msg = open(sys.argv[1], encoding="utf-8", errors="replace").read()
+msg = msg.split("# ------------------------ >8 ------------------------")[0]
+lines = [ln for ln in msg.splitlines() if not ln.startswith("#")]
+body = "\n".join(lines)
+subject = next((ln.strip() for ln in lines if ln.strip()), "")
+in_worktree = "/.claude/worktrees/" in sys.argv[2] + "/"
+
+def fail(why):
+    print(f"commit-msg: {why}\n  subject: {subject}", file=sys.stderr)
+    sys.exit(1)
+
+if not subject or re.match(r'(Merge |Revert "|fixup! |squash! |amend! )', subject):
+    sys.exit(0)
+
+AI = r"(claude|anthropic|openai|chatgpt|gpt-?\d|copilot|gemini|cursor|codex)"
+if re.search(rf"(?im)^\s*co-authored-by:.*{AI}", body) or \
+   re.search(rf"(?i)generated (with|by)\W+.{{0,40}}{AI}", body) or \
+   re.search(r"(?i)noreply@anthropic\.com", body):
+    fail("AI attribution is not allowed in commit messages")
+
+EMOJI = re.compile("[\U0001F000-\U0001FAFF☀-⛿✅✊✋✨❌❎"
+                   "❓-❕❗➕-➗➰➿⭐⭕️]")
+if EMOJI.search(body):
+    fail(f"emoji are not allowed ({EMOJI.search(body).group()!r})")
+
+if re.match(r"(?i)wip\b", subject) or re.fullmatch(r"(?i)\w+(\([^)]*\))?!?:\s*wip\W*", subject):
+    if in_worktree:
+        sys.exit(0)
+    fail("wip commits are only allowed in .claude/worktrees/ agent worktrees")
+
+TYPES = "feat|fix|refactor|docs|test|chore|perf|style|build|ci|revert"
+if not re.match(rf"({TYPES})(\([\w./,\- ]+\))?!?: \S", subject):
+    fail(f"use conventional commits: <type>[(scope)][!]: <description>, type one of {TYPES.replace('|', ' ')}")
+if len(subject) > 100:
+    fail(f"subject is {len(subject)} chars; keep it to 100")
+PY
+
+chain commit-msg "$@" || exit $?
+exit 0

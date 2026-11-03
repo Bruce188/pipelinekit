@@ -3,10 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Installation — pipelinekit</title>
-<meta name="description" content="Interactive prompts ask which optional components to install.">
-<meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
-<style>
+<title>Installation</title>
+<meta name="description" content="Install pipelinekit into ~/.claude, or another CLAUDE_HOME, by running one script."><style>
 /* === Reset + variables === */
 *, *::before, *::after { box-sizing: border-box; }
 :root {
@@ -201,12 +199,6 @@ body {
   gap: 2rem;
   padding: 2rem 1.5rem;
 }
-@media (max-width: 900px) {
-  .layout { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; }
-  .toc { display: none; }
-  .toc.open { display: block; position: fixed; top: 60px; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 99; padding: 1.5rem; overflow-y: auto; }
-  .toc-mobile-btn { display: inline-flex; }
-}
 .toc-mobile-btn {
   display: none;
   border: 1px solid var(--border);
@@ -218,6 +210,13 @@ body {
   font-size: 0.85rem;
   align-items: center;
   gap: 0.4rem;
+}
+/* After the base rules above, or their display wins over the breakpoint. */
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; }
+  .toc { display: none; }
+  .toc.open { display: block; position: fixed; top: 60px; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 99; padding: 1.5rem; overflow-y: auto; }
+  .toc-mobile-btn { display: inline-flex; }
 }
 
 /* === ToC sidebar === */
@@ -593,8 +592,8 @@ footer {
 
 <header class="topbar">
   <a class="brand" href="index.html">
-    <span class="logo">P</span>
-    <span>pipelinekit docs</span>
+    <span class="logo">D</span>
+    <span>Documentation</span>
   </a>
   <div class="crumbs">
     <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Installation</span>
@@ -618,16 +617,13 @@ footer {
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
     <ul>
-      <li class="lvl-2"><a href="#stability">Stability</a></li>
-      <li class="lvl-2"><a href="#local-install-linux-wsl-macos-bash">Local install (Linux / WSL / macOS bash)</a></li>
-      <li class="lvl-2"><a href="#cloud-cold-start-oracle-hetzner">Cloud cold-start (Oracle / Hetzner)</a></li>
-      <li class="lvl-2"><a href="#codespaces-devcontainer">Codespaces / Devcontainer</a></li>
-      <li class="lvl-2"><a href="#environment-variables">Environment variables</a></li>
-      <li class="lvl-2"><a href="#optional-components">Optional components</a></li>
-      <li class="lvl-2"><a href="#git-hooks-native-enforcement">Git hooks (native enforcement)</a></li>
-      <li class="lvl-2"><a href="#verify">Verify</a></li>
-      <li class="lvl-2"><a href="#update">Update</a></li>
-      <li class="lvl-2"><a href="#install-command-playback">Install command playback</a></li>
+      <li class="lvl-2"><a href="#requirements">Requirements</a></li>
+      <li class="lvl-2"><a href="#install">Install</a></li>
+      <li class="lvl-2"><a href="#what-the-installer-does">What the installer does</a></li>
+      <li class="lvl-2"><a href="#options">Options</a></li>
+      <li class="lvl-2"><a href="#optional-context7">Optional: context7</a></li>
+      <li class="lvl-2"><a href="#devcontainer-and-cloud-vms">Devcontainer and cloud VMs</a></li>
+      <li class="lvl-2"><a href="#check-the-install">Check the install</a></li>
     </ul>
   </aside>
 
@@ -635,484 +631,100 @@ footer {
     <header class="page-header">
       <span class="diataxis-chip diataxis-how-to">how-to</span>
       <h1>Installation</h1>
-      <p class="description">Interactive prompts ask which optional components to install.</p>
+      <p class="description">Install pipelinekit into ~/.claude, or another CLAUDE_HOME, by running one script.</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
-<h2 id="stability">Stability</h2>
-<blockquote>
-</blockquote>
-<h2 id="local-install-linux-wsl-macos-bash">Local install (Linux / WSL / macOS bash)</h2>
-<!-- snippet:chooser-quiz
-     Multi-step decision tree. Default question set: "Which deployment
-     provider fits my workload?". Pass data-question-set="install" to
-     switch to the per-platform install chooser.
-
-     Placeholder usage (use &lt;&gt; escapes in this comment so the renderer
-     doesn't re-substitute):
-       &lt;div data-snippet="chooser-quiz"&gt;&lt;/div&gt;
-       &lt;div data-snippet="chooser-quiz" data-question-set="install"&gt;&lt;/div&gt;
--->
-<div class="pkit-chooser" data-snippet-mount="chooser-quiz" data-question-set="deploy" data-question-set="deploy">
-  <style>
-    .pkit-chooser { margin: 1.5rem 0; padding: 1.5rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); }
-    .pkit-chooser .pkit-cq-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1rem; }
-    .pkit-chooser .pkit-cq-title { font-size: 1.05rem; font-weight: 600; color: var(--fg); margin: 0; }
-    .pkit-chooser .pkit-cq-progress { font-family: var(--mono); font-size: 0.78rem; color: var(--fg-muted); }
-    .pkit-chooser .pkit-cq-bar { height: 4px; background: var(--border); border-radius: 2px; margin-bottom: 1.2rem; overflow: hidden; }
-    .pkit-chooser .pkit-cq-bar-fill { height: 100%; background: var(--accent); transition: width 200ms ease; border-radius: 2px; }
-    .pkit-chooser .pkit-cq-question { font-size: 1rem; font-weight: 600; margin: 0 0 0.9rem; color: var(--fg); }
-    .pkit-chooser .pkit-cq-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.6rem; }
-    .pkit-chooser .pkit-cq-option { padding: 0.8rem 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; text-align: left; transition: all var(--transition); font-family: var(--sans); font-size: 0.88rem; color: var(--fg); display: flex; flex-direction: column; gap: 0.25rem; }
-    .pkit-chooser .pkit-cq-option:hover { border-color: var(--accent); background: var(--accent-soft); transform: translateY(-1px); }
-    .pkit-chooser .pkit-cq-option .label { font-weight: 600; }
-    .pkit-chooser .pkit-cq-option .hint { font-size: 0.75rem; color: var(--fg-muted); }
-    .pkit-chooser .pkit-cq-actions { margin-top: 1rem; display: flex; gap: 0.5rem; }
-    .pkit-chooser .pkit-cq-btn { padding: 0.4rem 0.9rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--fg-muted); font-family: var(--sans); font-size: 0.82rem; cursor: pointer; transition: all var(--transition); }
-    .pkit-chooser .pkit-cq-btn:hover { color: var(--fg); border-color: var(--accent); }
-    .pkit-chooser .pkit-cq-result { padding: 1.2rem; background: var(--bg); border: 1px solid var(--accent); border-radius: var(--radius); }
-    .pkit-chooser .pkit-cq-result .pkit-cq-r-pick { font-size: 1.4rem; font-weight: 700; color: var(--accent); margin: 0 0 0.4rem; display: flex; align-items: center; gap: 0.5rem; }
-    .pkit-chooser .pkit-cq-result .pkit-cq-r-pick svg { width: 24px; height: 24px; }
-    .pkit-chooser .pkit-cq-result .pkit-cq-r-why { font-size: 0.92rem; color: var(--fg); line-height: 1.55; margin: 0.4rem 0; }
-    .pkit-chooser .pkit-cq-result .pkit-cq-r-runners { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0.6rem 0 0; }
-    .pkit-chooser .pkit-cq-result .pkit-cq-r-runner { font-size: 0.8rem; padding: 0.1rem 0.55rem; border-radius: 999px; background: var(--bg-elev); border: 1px solid var(--border); color: var(--fg-muted); }
-    .pkit-chooser .pkit-cq-result a.pkit-cq-r-link { display: inline-block; margin-top: 0.6rem; font-weight: 600; }
-    .pkit-chooser .pkit-cq-trail { font-family: var(--mono); font-size: 0.78rem; color: var(--fg-subtle); margin-top: 0.8rem; }
-  </style>
-
-  <div class="pkit-cq-header">
-    <h3 class="pkit-cq-title">Quiz</h3>
-    <span class="pkit-cq-progress" data-cq-progress>Question 1</span>
-  </div>
-  <div class="pkit-cq-bar"><div class="pkit-cq-bar-fill" data-cq-bar-fill style="width: 0"></div></div>
-  <div data-cq-body></div>
-
-  <script type="application/json" data-cq-set="deploy">
-{"title":"Which deployment provider fits my project?","questions":[{"key":"type","prompt":"What are you deploying?","options":[{"value":"frontend","label":"Frontend / static site / SSR app","hint":"Next.js, SvelteKit, Astro, plain static"},{"value":"fullstack","label":"Full-stack web app","hint":"API + DB + frontend together"},{"value":"worker","label":"Background worker / cron","hint":"Long-running jobs, queue consumer"},{"value":"containerized","label":"Already-containerized service","hint":"I have a Dockerfile, want it deployed"}]},{"key":"budget","prompt":"Budget tier?","options":[{"value":"free","label":"Free tier only","hint":"Just experimenting"},{"value":"low","label":"$5-50 / month","hint":"Small side project"},{"value":"scale","label":"$50+ / month","hint":"Production with real traffic"}]},{"key":"complexity","prompt":"How much infra control do you want?","options":[{"value":"minimal","label":"Minimal — just deploy","hint":"Push code, get URL"},{"value":"moderate","label":"Moderate — config files OK","hint":"vercel.json / railway.toml"},{"value":"full","label":"Full IaC","hint":"Bicep / Terraform / ARM"}]}],"recommend":[{"match":{"type":"frontend"},"pick":"Vercel","icon":"▲","why":"Vercel is purpose-built for Next.js/SvelteKit/Astro. Zero config for those frameworks; edge-deployed by default; preview URLs per branch.","runners":["Edge","Serverless","ISR"],"link":"deployment-vercel.html"},{"match":{"type":"fullstack","budget":"free"},"pick":"Railway","icon":"⚡","why":"Railway has the smoothest free tier for full-stack apps — provisions Postgres / Redis / workers from a single dashboard with zero Dockerfile needed.","runners":["Nixpacks","Postgres","Redis"],"link":"deployment-railway.html"},{"match":{"type":"fullstack","budget":"low"},"pick":"Render","icon":"🎨","why":"Render handles full-stack on a small budget cleanly. Managed Postgres + Redis + workers in one platform with predictable per-service pricing.","runners":["Native runtime","Docker","Managed DBs"],"link":"deployment-render.html"},{"match":{"type":"fullstack","budget":"scale"},"pick":"Azure","icon":"☁","why":"At scale, Azure offers App Service, Container Apps, Function Apps, plus AKS for full Kubernetes. Best for teams already on the Microsoft stack.","runners":["App Service","Container Apps","Function Apps","AKS"],"link":"deployment-azure.html"},{"match":{"type":"containerized","complexity":"moderate"},"pick":"DigitalOcean App Platform","icon":"🌊","why":"DO App Platform is the cleanest container-deploy story when you already have a Dockerfile. Predictable pricing, good defaults, doctl CLI.","runners":["Docker","Buildpacks","Managed DBs"],"link":"deployment-digitalocean.html"},{"match":{"type":"containerized","complexity":"full"},"pick":"Azure","icon":"☁","why":"For full IaC (Bicep / ARM / Terraform) over containers, Azure Container Apps + AKS give the most control.","runners":["Container Apps","AKS","Bicep IaC"],"link":"deployment-azure.html"},{"match":{"type":"worker"},"pick":"Railway","icon":"⚡","why":"Railway has first-class support for cron + workers next to your web service in the same project.","runners":["Workers","Cron triggers"],"link":"deployment-railway.html"},{"match":{},"pick":"Vercel","icon":"▲","why":"Fallback recommendation. Vercel works well for most web workloads.","runners":["Edge","Serverless"],"link":"deployment-vercel.html"}]}
-  </script>
-
-  <script type="application/json" data-cq-set="install">
-{"title":"How should I install pipelinekit?","questions":[{"key":"where","prompt":"Where will you run it?","options":[{"value":"local-linux","label":"Local Linux","hint":"Ubuntu / Debian / Arch"},{"value":"local-mac","label":"Local macOS","hint":"Apple Silicon or Intel"},{"value":"local-windows","label":"Local Windows + WSL2","hint":"Recommended for Windows"},{"value":"cloud","label":"Cloud VPS","hint":"Oracle, Hetzner, fresh VM"},{"value":"codespaces","label":"GitHub Codespaces","hint":"Cloud devcontainer"}]},{"key":"purpose","prompt":"Primary use?","options":[{"value":"evaluate","label":"Evaluate quickly","hint":"Just want to try /pipeline"},{"value":"daily","label":"Daily driver","hint":"Use on real projects"},{"value":"fleet","label":"Team / fleet of VMs","hint":"Reproducible install across machines"}]}],"recommend":[{"match":{"where":"cloud"},"pick":"Cloud bootstrap script","icon":"☁","why":"Run the Oracle Cloud or Hetzner one-liner. Both are idempotent; secrets read from env, never baked in.","runners":["Oracle ARM A1","Hetzner CX22","cloud-init"],"link":"cloud-setup.html"},{"match":{"where":"codespaces"},"pick":"Codespaces (zero setup)","icon":"▣","why":"Open the repo in Codespaces. The devcontainer post-create runs install.sh automatically. Best for evaluation with zero local install.","runners":["Devcontainer","post-create"],"link":"installation.html"},{"match":{"where":"local-windows"},"pick":"WSL2 + scripts/install.sh","icon":"🪟","why":"Pipelinekit assumes POSIX. Run install.sh inside WSL2 (Ubuntu), not Git Bash. Claude Code itself can run from either side.","runners":["WSL2 Ubuntu","install.sh"],"link":"installation.html"},{"match":{"where":"local-mac"},"pick":"scripts/install.sh","icon":"🍎","why":"Standard local install: clone, cd, run scripts/install.sh. Idempotent; re-run to update.","runners":["bash","homebrew (optional)"],"link":"installation.html"},{"match":{"where":"local-linux"},"pick":"scripts/install.sh","icon":"🐧","why":"Standard local install. Apt-based systems auto-install Azure CLI; other distros print install hints.","runners":["bash","apt (auto-detect)"],"link":"installation.html"},{"match":{"purpose":"fleet"},"pick":"Cloud-init via cloud bootstrap","icon":"⚙","why":"For fleet provisioning, use the cloud-init YAMLs that the Oracle / Hetzner bootstrap scripts wrap.","runners":["cloud-init YAML","Terraform-friendly"],"link":"cloud-setup.html"},{"match":{},"pick":"scripts/install.sh","icon":"📦","why":"Default recommendation: clone the repo and run scripts/install.sh.","runners":["bash"],"link":"installation.html"}]}
-  </script>
-
-</div>
-
-<script>
-(function() {
-  'use strict';
-  document.querySelectorAll('.pkit-chooser[data-snippet-mount="chooser-quiz"]').forEach(q => {
-    if (q.dataset.pkitInit) return;
-    q.dataset.pkitInit = '1';
-
-    const set = q.dataset.questionSet || 'deploy';
-    const dataEl = q.querySelector(`script[data-cq-set="${set}"]`);
-    const body = q.querySelector('[data-cq-body]');
-    const progress = q.querySelector('[data-cq-progress]');
-    const bar = q.querySelector('[data-cq-bar-fill]');
-    const titleEl = q.querySelector('.pkit-cq-title');
-    if (!dataEl || !body) {
-      if (body) body.innerHTML = `<p>(unknown question set: ${set})</p>`;
-      return;
-    }
-    const data = JSON.parse(dataEl.textContent);
-    titleEl.textContent = data.title;
-
-    let step = 0;
-    const answers = {};
-
-    function render() {
-      if (step < data.questions.length) {
-        const question = data.questions[step];
-        progress.textContent = `Question ${step + 1} of ${data.questions.length}`;
-        bar.style.width = (step / data.questions.length * 100) + '%';
-        let html = `<p class="pkit-cq-question">${question.prompt}</p><div class="pkit-cq-options">`;
-        question.options.forEach(opt => {
-          html += `<button class="pkit-cq-option" data-value="${opt.value}">
-                     <span class="label">${opt.label}</span>
-                     <span class="hint">${opt.hint || ''}</span>
-                   </button>`;
-        });
-        html += `</div>`;
-        if (step > 0) html += `<div class="pkit-cq-actions"><button class="pkit-cq-btn" data-act="back">← Back</button></div>`;
-        body.innerHTML = html;
-        body.querySelectorAll('.pkit-cq-option').forEach(b => {
-          b.addEventListener('click', () => { answers[question.key] = b.dataset.value; step++; render(); });
-        });
-        const back = body.querySelector('[data-act="back"]');
-        if (back) back.addEventListener('click', () => { step--; render(); });
-      } else {
-        progress.textContent = `Result`;
-        bar.style.width = '100%';
-        const match = data.recommend.find(r => Object.entries(r.match).every(([k, v]) => answers[k] === v)) || data.recommend[data.recommend.length - 1];
-        const runnersHtml = match.runners.map(r => `<span class="pkit-cq-r-runner">${r}</span>`).join('');
-        const trail = Object.entries(answers).map(([k, v]) => `${k}=${v}`).join(' · ');
-        body.innerHTML = `
-          <div class="pkit-cq-result">
-            <h3 class="pkit-cq-r-pick">${match.icon || '•'} ${match.pick}</h3>
-            <p class="pkit-cq-r-why">${match.why}</p>
-            <div class="pkit-cq-r-runners">${runnersHtml}</div>
-            ${match.link ? `<a class="pkit-cq-r-link" href="${match.link}">Read the full guide →</a>` : ''}
-            <p class="pkit-cq-trail">Your answers: ${trail}</p>
-          </div>
-          <div class="pkit-cq-actions"><button class="pkit-cq-btn" data-act="restart">↻ Start over</button></div>
-        `;
-        body.querySelector('[data-act="restart"]').addEventListener('click', () => {
-          step = 0;
-          Object.keys(answers).forEach(k => delete answers[k]);
-          render();
-        });
-      }
-    }
-    render();
-  });
-})();
-</script>
-
-
+<h2 id="requirements">Requirements</h2>
+<ul>
+<li><code>bash</code>, <code>git</code> and <code>python3</code></li>
+<li><code>gitleaks</code>, optional, for the pre-commit secret scan</li>
+<li><code>uv</code>, only if you want serena (<code>curl -LsSf https://astral.sh/uv/install.sh | sh</code>)</li>
+</ul>
+<h2 id="install">Install</h2>
 <div class="codehilite"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/Bruce188/pipelinekit.git
 <span class="nb">cd</span><span class="w"> </span>pipelinekit
-./scripts/install.sh
+bash<span class="w"> </span>scripts/install.sh<span class="w">            </span><span class="c1"># add --no-serena to skip serena</span>
 </code></pre></div>
 
-<p>Interactive prompts ask which optional components to install.</p>
-<p>Non-interactive:</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">CLAUDE_INSTALL_NONINTERACTIVE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
-<span class="nv">CLAUDE_INSTALL_OPTIONALS</span><span class="o">=</span>tresor,lsp,mcp,serena<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>./scripts/install.sh
-</code></pre></div>
-
-<h2 id="cloud-cold-start-oracle-hetzner">Cloud cold-start (Oracle / Hetzner)</h2>
-<p>Bootstrap a fresh cloud VM and install pipelinekit in one step. See <a href="cloud-setup.md">cloud-setup.md</a> for the full walkthrough including image selection, SSH, firewall, and troubleshooting.</p>
-<p><strong>Oracle Cloud Free Tier ARM A1 (aarch64):</strong></p>
-<div class="codehilite"><pre><span></span><code>curl<span class="w"> </span>-fsSL<span class="w"> </span>https://raw.githubusercontent.com/Bruce188/pipelinekit/main/scripts/cloud/oracle-bootstrap.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>bash
-</code></pre></div>
-
-<p><strong>Hetzner CX22 (x86_64, creates 2 GB swap automatically):</strong></p>
-<div class="codehilite"><pre><span></span><code>curl<span class="w"> </span>-fsSL<span class="w"> </span>https://raw.githubusercontent.com/Bruce188/pipelinekit/main/scripts/cloud/hetzner-bootstrap.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>bash
-</code></pre></div>
-
-<p>Both scripts are idempotent; re-run to update. Secrets read from env — never baked in.</p>
-<h2 id="codespaces-devcontainer">Codespaces / Devcontainer</h2>
+<p>You can safely run the installer again. To update, run <code>git pull</code> and then run the installer again.</p>
+<h2 id="what-the-installer-does">What the installer does</h2>
 <ol>
-<li>Open the repo in Codespaces (or VS Code "Reopen in Container").</li>
-<li>The devcontainer builds. <code>post-create.sh</code> runs <code>scripts/install.sh</code> non-interactively.</li>
-<li>Open a terminal: <code>claude</code></li>
-<li>The overlay is at <code>~/.claude/</code>. Project-level MCP: copy <code>.mcp.json.template</code> to a project root as <code>.mcp.json</code>.</li>
+<li>Copies the hooks, the global git hooks, the five skills and <code>config/never-stage.txt</code> into <code>~/.claude</code>. It overwrites those files in place and never moves or deletes the directory. It leaves <code>projects/</code>, <code>sessions/</code>, <code>plugins/</code> and your credentials alone.</li>
+<li>Removes skills, hooks and the <code>docs-writer</code> agent that earlier 0.1.0 builds installed (<code>commit-conventions</code>, <code>security-conventions</code>, <code>expo</code>, <code>ios</code>, the old guard hooks), but only if each is still byte-identical to a committed kit version. Edited copies are kept, with a warning.</li>
+<li>Renders <code>~/.claude/CLAUDE.md</code> from <code>claude/CLAUDE.md.template</code>. If the result differs from your existing file, the old one is saved as <code>CLAUDE.md.bak-&lt;timestamp&gt;</code>.</li>
+<li>Backs up <code>settings.json</code> to <code>settings.json.bak-&lt;timestamp&gt;</code>, then merges in <code>claude/config/settings.template.json</code>:
+   - the kit's hook entries replace its older ones, and hook entries whose script is no longer in <code>~/.claude/hooks/</code> are removed; your own hooks stay;
+   - the kit's <code>permissions.deny</code> and <code>permissions.ask</code> rules are added after yours; <code>allow</code> and other permission keys are untouched;
+   - <code>attribution</code> is set to empty strings, so commits and PRs get no co-author trailer or footer.</li>
+<li>Asks whether to set the global git <code>core.hooksPath</code> to <code>~/.claude/git-hooks</code>. It never overwrites an existing value; it prints the command instead. Without a terminal, and without <code>--git-hooks</code>, it skips this step.</li>
+<li>Installs serena with <code>uv</code> at a pinned commit and registers it at user scope in <code>~/.claude.json</code>. It backs that file up first.</li>
+<li>Runs <code>scripts/verify.sh</code>.</li>
 </ol>
-<h2 id="environment-variables">Environment variables</h2>
+<details>
+<summary>Repos that set their own core.hooksPath</summary>
+<p>A local <code>core.hooksPath</code> overrides the global one, so the kit's git hooks never run in that repo. If its hooks directory holds only <code>*.sample</code> files, unset it in your own shell (Claude's <code>bash-guard.py</code> refuses to change <code>core.hooksPath</code>):</p>
+<div class="codehilite"><pre><span></span><code>git<span class="w"> </span>-C<span class="w"> </span>~/path/to/repo<span class="w"> </span>config<span class="w"> </span>--local<span class="w"> </span>--unset<span class="w"> </span>core.hooksPath
+git<span class="w"> </span>-C<span class="w"> </span>~/path/to/repo<span class="w"> </span>config<span class="w"> </span>--show-origin<span class="w"> </span>core.hooksPath<span class="w">   </span><span class="c1"># expect ~/.gitconfig and ~/.claude/git-hooks</span>
+</code></pre></div>
+
+<p>Repo-specific hooks go in <code>&lt;repo&gt;/.git/hooks/&lt;name&gt;</code> (local) or <code>&lt;repo&gt;/.githooks/&lt;name&gt;</code> (committed). The global hooks run them after their own checks.</p>
+</details>
+<h2 id="options">Options</h2>
 <table>
 <thead>
 <tr>
-<th>Var</th>
+<th>Variable / flag</th>
 <th>Default</th>
 <th>Purpose</th>
 </tr>
 </thead>
 <tbody>
 <tr>
+<td><code>--no-serena</code> / <code>CLAUDE_INSTALL_SKIP_SERENA=1</code></td>
+<td>off</td>
+<td>Skip installing and registering serena</td>
+</tr>
+<tr>
+<td><code>--git-hooks</code> / <code>--no-git-hooks</code> / <code>PIPELINEKIT_GIT_HOOKS=1\|0</code></td>
+<td>ask</td>
+<td>Set, or skip setting, the global <code>core.hooksPath</code> without a prompt</td>
+</tr>
+<tr>
 <td><code>CLAUDE_HOME</code></td>
-<td><code>$HOME/.claude</code></td>
-<td>Target overlay dir</td>
+<td><code>~/.claude</code></td>
+<td>Install target</td>
 </tr>
 <tr>
-<td><code>CLAUDE_INSTALL_NONINTERACTIVE</code></td>
-<td><code>0</code></td>
-<td>Skip prompts</td>
+<td><code>USER_NAME</code>, <code>USER_EMAIL</code></td>
+<td>your global git identity</td>
+<td>Identity written into <code>CLAUDE.md</code></td>
 </tr>
 <tr>
-<td><code>CLAUDE_INSTALL_OPTIONALS</code></td>
-<td><code>tresor,lsp,mcp</code></td>
-<td>Comma list</td>
+<td><code>SERENA_REF</code></td>
+<td>pinned SHA</td>
+<td>serena commit to install</td>
 </tr>
 <tr>
-<td><code>USER_EMAIL</code></td>
-<td>git config or <code>you@example.com</code></td>
-<td>Substituted into <code>CLAUDE.md</code></td>
-</tr>
-<tr>
-<td><code>USER_NAME</code></td>
-<td>git config or <code>developer</code></td>
-<td>Substituted into <code>CLAUDE.md</code></td>
+<td><code>SERENA_ALLOW_ROLLING=1</code></td>
+<td>off</td>
+<td>Allow <code>SERENA_REF=main</code> (not recommended)</td>
 </tr>
 </tbody>
 </table>
-<h2 id="optional-components">Optional components</h2>
-<table>
-<thead>
-<tr>
-<th>Component</th>
-<th>What it installs</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>tresor</code></td>
-<td>Prompt templates + standards into <code>$CLAUDE_HOME/tresor-resources/</code> (bundled, idempotent)</td>
-</tr>
-<tr>
-<td><code>lsp</code></td>
-<td>pyright, typescript-language-server, csharp-ls, gopls, rust-analyzer</td>
-</tr>
-<tr>
-<td><code>mcp</code></td>
-<td>Prints MCP template path (npx-based servers, no install)</td>
-</tr>
-<tr>
-<td><code>serena</code></td>
-<td>github.com/oraios/serena semantic MCP via uv/pip</td>
-</tr>
-<tr>
-<td><code>gstack</code></td>
-<td>gstack overlay namespaced as <code>/gstack-*</code></td>
-</tr>
-<tr>
-<td><code>claude-skills</code></td>
-<td>github.com/alirezarezvani/claude-skills into <code>~/claude-skills/</code></td>
-</tr>
-</tbody>
-</table>
-<h2 id="git-hooks-native-enforcement">Git hooks (native enforcement)</h2>
-<p>The installer drops a thin symlink at <code>&lt;git_dir&gt;/hooks/commit-msg</code> pointing at <code>claude/hooks/commit-msg-wrapper.sh</code>. The wrapper invokes the same conventional-commit validator (<code>claude/hooks/validate-commit-msg.sh</code>) that the Claude harness fires on <code>PreToolUse:Bash</code>, so the gate runs for <strong>every</strong> commit path — bare-shell <code>git commit</code>, IDE commit dialogs, CI workflows, and Claude-mediated commits alike. Without the native hook, the validator only fires inside the harness, which means human-driven commits silently bypass the conventional-commit + emoji-ban + author-attribution checks.</p>
-<p><strong>Behaviour:</strong></p>
+<h2 id="optional-context7">Optional: context7</h2>
+<p>context7 is not installed by default. To use it in a project, copy its entry from <code>.mcp.json.template</code> into that project's <code>.mcp.json</code>. The template also shows how to pin serena for a single project, and it includes optional iOS MCP servers.</p>
+<h2 id="devcontainer-and-cloud-vms">Devcontainer and cloud VMs</h2>
 <ul>
-<li>Idempotent — re-running <code>scripts/install.sh</code> leaves the symlink in place when it already targets the wrapper.</li>
-<li>Worktree-compat — resolved via <code>git rev-parse --git-common-dir</code>; linked worktrees share the main repo's <code>commit-msg</code> hook.</li>
-<li>Silent allow on rebase reword / <code>--amend --no-edit</code> — empty or missing message-file path exits 0 without consulting the validator.</li>
-<li>Backup-on-collision — any pre-existing <code>commit-msg</code> hook (regular file or alien symlink) is preserved at <code>&lt;git_dir&gt;/hooks/commit-msg.pre-pipelinekit</code> (with a <code>.&lt;timestamp&gt;</code> suffix on second collision) before the symlink lands.</li>
+<li>The devcontainer in <code>.devcontainer/</code> runs the installer non-interactively when the container is created.</li>
+<li><code>scripts/cloud/</code> has bootstrap scripts and cloud-init files for Oracle Cloud and Hetzner VMs.</li>
 </ul>
-<p><strong>Remove:</strong> <code>rm "$(git rev-parse --git-common-dir)/hooks/commit-msg"</code> — restore your backup from <code>commit-msg.pre-pipelinekit</code> if needed.</p>
-<h2 id="verify">Verify</h2>
-<div class="codehilite"><pre><span></span><code>./scripts/verify.sh
+<h2 id="check-the-install">Check the install</h2>
+<div class="codehilite"><pre><span></span><code>bash<span class="w"> </span>scripts/verify.sh
 </code></pre></div>
 
-<p>Smoke-tests overlay presence, hook executability, sanitization invariants, and claude CLI availability.</p>
-<h2 id="update">Update</h2>
-<div class="codehilite"><pre><span></span><code>git<span class="w"> </span>pull
-./scripts/install.sh<span class="w">   </span><span class="c1"># Idempotent; backs up existing overlay before rewriting.</span>
-</code></pre></div>
-
-<p>Previous overlay is preserved at <code>$CLAUDE_HOME.bak-&lt;timestamp&gt;</code> per install.</p>
-<h2 id="install-command-playback">Install command playback</h2>
-<p>Replay a representative <code>scripts/install.sh</code> session in the terminal simulator below to see the expected output and timing.</p>
-<!-- snippet:terminal-simulator
-     Simulated terminal session. Plays back a scripted sequence of
-     commands + outputs at a configurable speed. Pause / play / step /
-     restart controls. Used on ppr-research-flag.html for a dry-run
-     preview without requiring the user to actually run /ppr --research.
-
-     The scripted session is JSON-embedded inline. Lines are typed
-     character-by-character for commands; output is dumped instantly.
-
-     Placeholder usage:
-       <div data-snippet="terminal-simulator"></div>
--->
-<div class="pkit-term" data-snippet-mount="terminal-simulator">
-  <style>
-    .pkit-term { margin: 1.5rem 0; padding: 0; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-    .pkit-term .pkit-tm-bar { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.8rem; background: var(--bg); border-bottom: 1px solid var(--border); }
-    .pkit-term .pkit-tm-dots { display: flex; gap: 0.4rem; }
-    .pkit-term .pkit-tm-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--fg-subtle); opacity: 0.7; }
-    .pkit-term .pkit-tm-dot:nth-child(1) { background: #ef4444; }
-    .pkit-term .pkit-tm-dot:nth-child(2) { background: #f59e0b; }
-    .pkit-term .pkit-tm-dot:nth-child(3) { background: #10b981; }
-    .pkit-term .pkit-tm-title { font-family: var(--mono); font-size: 0.78rem; color: var(--fg-muted); }
-    .pkit-term .pkit-tm-controls { display: flex; gap: 0.3rem; }
-    .pkit-term .pkit-tm-btn { padding: 0.2rem 0.6rem; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--fg-muted); font-family: var(--sans); font-size: 0.75rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.25rem; transition: all var(--transition); }
-    .pkit-term .pkit-tm-btn:hover { color: var(--fg); border-color: var(--accent); }
-    .pkit-term .pkit-tm-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .pkit-term .pkit-tm-btn.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
-    .pkit-term .pkit-tm-screen { background: #0a0e1a; color: #d4d7e0; font-family: var(--mono); font-size: 13px; line-height: 1.55; padding: 1rem 1.2rem; min-height: 280px; max-height: 480px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; }
-    .pkit-term .pkit-tm-screen .ps1 { color: #4ade80; }
-    .pkit-term .pkit-tm-screen .cmd { color: #fbbf24; }
-    .pkit-term .pkit-tm-screen .out-stdout { color: #cbd5e1; }
-    .pkit-term .pkit-tm-screen .out-stderr { color: #fb7185; }
-    .pkit-term .pkit-tm-screen .out-info { color: #60a5fa; }
-    .pkit-term .pkit-tm-screen .out-success { color: #34d399; font-weight: 600; }
-    .pkit-term .pkit-tm-screen .cursor { display: inline-block; width: 8px; height: 1em; background: #d4d7e0; vertical-align: text-bottom; animation: pkit-tm-blink 1s steps(2) infinite; }
-    @keyframes pkit-tm-blink { 50% { opacity: 0; } }
-    .pkit-term .pkit-tm-progress { height: 2px; background: var(--border); }
-    .pkit-term .pkit-tm-progress-fill { height: 100%; background: var(--accent); transition: width 100ms linear; width: 0; }
-  </style>
-
-  <div class="pkit-tm-bar">
-    <div class="pkit-tm-dots">
-      <span class="pkit-tm-dot"></span><span class="pkit-tm-dot"></span><span class="pkit-tm-dot"></span>
-    </div>
-    <div class="pkit-tm-title">/ppr --research — simulated</div>
-    <div class="pkit-tm-controls">
-      <button class="pkit-tm-btn" data-act="play">▶ Play</button>
-      <button class="pkit-tm-btn" data-act="pause" disabled>⏸ Pause</button>
-      <button class="pkit-tm-btn" data-act="step">⏭ Step</button>
-      <button class="pkit-tm-btn" data-act="restart">↻ Restart</button>
-      <button class="pkit-tm-btn" data-act="speed">1×</button>
-    </div>
-  </div>
-  <div class="pkit-tm-progress"><div class="pkit-tm-progress-fill" data-tm-progress></div></div>
-  <pre class="pkit-tm-screen" data-tm-screen></pre>
-
-  <script type="application/json" data-tm-script>
-[
-  {"type": "ps1", "text": "$ "},
-  {"type": "cmd", "text": "claude\n"},
-  {"type": "out-info", "text": "Claude Code 2.1.144  (interactive)\n"},
-  {"type": "pause", "ms": 400},
-  {"type": "ps1", "text": "> "},
-  {"type": "cmd", "text": "/ppr --research\n"},
-  {"type": "out-info", "text": "[ppr] --research mode active. Default: --dry-run.\n"},
-  {"type": "out-info", "text": "[ppr] Reading docs/research-results.tsv...\n"},
-  {"type": "pause", "ms": 400},
-  {"type": "out-stdout", "text": "[ppr] Found 12 keep-rows in TSV.\n"},
-  {"type": "out-stdout", "text": "[ppr] Branch name would be: research/temp-2026-05-19\n"},
-  {"type": "pause", "ms": 300},
-  {"type": "out-stdout", "text": "[ppr] Planned actions (dry-run):\n"},
-  {"type": "out-stdout", "text": "         git checkout -b research/temp-2026-05-19\n"},
-  {"type": "out-stdout", "text": "         (filter 12 keep-rows from research-results.tsv into research-keep.tsv)\n"},
-  {"type": "out-stdout", "text": "         git add research-keep.tsv\n"},
-  {"type": "out-stdout", "text": "         git commit -m 'chore: publish research keeps for temp (12 rows)'\n"},
-  {"type": "out-stdout", "text": "         git push -u origin research/temp-2026-05-19\n"},
-  {"type": "pause", "ms": 500},
-  {"type": "out-info", "text": "[ppr] No PR opened — research branches are user-reviewed before merge.\n"},
-  {"type": "out-success", "text": "[ppr] OK. Dry-run complete. Pass --no-dry-run --research-tag <slug> to publish.\n"},
-  {"type": "pause", "ms": 400},
-  {"type": "ps1", "text": "> "},
-  {"type": "cmd", "text": "/ppr --research --no-dry-run --research-tag temp\n"},
-  {"type": "out-info", "text": "[ppr] --no-dry-run + --research-tag=temp. Publishing.\n"},
-  {"type": "pause", "ms": 300},
-  {"type": "out-stdout", "text": "[ppr] Creating branch research/temp-2026-05-19...\n"},
-  {"type": "out-stdout", "text": "Switched to a new branch 'research/temp-2026-05-19'\n"},
-  {"type": "out-stdout", "text": "[ppr] Filtering 12 keep-rows...\n"},
-  {"type": "out-stdout", "text": "[ppr] Committing...\n"},
-  {"type": "out-stdout", "text": "[ppr] Pushing to origin...\n"},
-  {"type": "pause", "ms": 600},
-  {"type": "out-success", "text": "[ppr] OK. Branch research/temp-2026-05-19 published.\n"},
-  {"type": "out-success", "text": "[ppr] URL: https://github.com/Bruce188/pipelinekit/tree/research/temp-2026-05-19\n"},
-  {"type": "out-info", "text": "[ppr] Review the branch and decide whether to merge.\n"}
-]
-  </script>
-</div>
-
-<script>
-(function() {
-  'use strict';
-  document.querySelectorAll('.pkit-term[data-snippet-mount="terminal-simulator"]').forEach(term => {
-  if (term.dataset.pkitInit) return;
-  term.dataset.pkitInit = '1';
-
-  const dataEl = term.querySelector('script[data-tm-script]');
-  if (!dataEl) return;
-  const script = JSON.parse(dataEl.textContent);
-  const screen = term.querySelector('[data-tm-screen]');
-  const progressFill = term.querySelector('[data-tm-progress]');
-  const playBtn = term.querySelector('[data-act="play"]');
-  const pauseBtn = term.querySelector('[data-act="pause"]');
-  const stepBtn = term.querySelector('[data-act="step"]');
-  const restartBtn = term.querySelector('[data-act="restart"]');
-  const speedBtn = term.querySelector('[data-act="speed"]');
-  if (!screen || !progressFill || !playBtn) return;
-
-  let idx = 0;
-  let playing = false;
-  let abort = false;
-  let speed = 1;
-  const speeds = [1, 2, 4, 0.5];
-  const cursor = '<span class="cursor"></span>';
-
-  function sleep(ms) { return new Promise(r => setTimeout(r, ms / speed)); }
-
-  function escape(s) {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  }
-
-  function appendChunk(item) {
-    const html = `<span class="${item.type}">${escape(item.text)}</span>`;
-    if (screen.querySelector('.cursor')) {
-      screen.querySelector('.cursor').remove();
-    }
-    screen.insertAdjacentHTML('beforeend', html);
-    screen.insertAdjacentHTML('beforeend', cursor);
-    screen.scrollTop = screen.scrollHeight;
-  }
-
-  async function typeChunk(item) {
-    if (item.type === 'cmd') {
-      // Type char by char
-      if (screen.querySelector('.cursor')) screen.querySelector('.cursor').remove();
-      const span = document.createElement('span');
-      span.className = 'cmd';
-      screen.appendChild(span);
-      for (const ch of item.text) {
-        if (abort) return;
-        span.textContent += ch;
-        screen.scrollTop = screen.scrollHeight;
-        await sleep(40);
-      }
-      screen.insertAdjacentHTML('beforeend', cursor);
-    } else if (item.type === 'pause') {
-      await sleep(item.ms || 200);
-    } else {
-      appendChunk(item);
-      await sleep(60);
-    }
-  }
-
-  function setPlaying(p) {
-    playing = p;
-    playBtn.classList.toggle('active', p);
-    pauseBtn.disabled = !p;
-    playBtn.disabled = p;
-  }
-
-  async function play() {
-    setPlaying(true);
-    abort = false;
-    while (idx < script.length && playing && !abort) {
-      const item = script[idx];
-      idx++;
-      progressFill.style.width = (idx / script.length * 100) + '%';
-      await typeChunk(item);
-    }
-    if (idx >= script.length) setPlaying(false);
-  }
-
-  playBtn.addEventListener('click', () => { if (!playing) play(); });
-  pauseBtn.addEventListener('click', () => { setPlaying(false); abort = true; });
-  stepBtn.addEventListener('click', async () => {
-    if (idx >= script.length) return;
-    const wasPlaying = playing; setPlaying(false); abort = true;
-    await new Promise(r => setTimeout(r, 50));
-    const item = script[idx]; idx++; progressFill.style.width = (idx / script.length * 100) + '%';
-    await typeChunk(item);
-    if (wasPlaying && idx < script.length) play();
-  });
-  restartBtn.addEventListener('click', () => {
-    abort = true; setPlaying(false);
-    idx = 0; screen.innerHTML = cursor; progressFill.style.width = '0';
-  });
-  speedBtn.addEventListener('click', () => {
-    const i = (speeds.indexOf(speed) + 1) % speeds.length;
-    speed = speeds[i];
-    speedBtn.textContent = speed + '×';
-  });
-
-  screen.innerHTML = cursor;
-
-  // Auto-play on first scroll-into-view (if IntersectionObserver available)
-  if ('IntersectionObserver' in window) {
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach(e => {
-        if (e.isIntersecting && idx === 0 && !playing) {
-          play();
-          io.disconnect();
-        }
-      });
-    }, { threshold: 0.4 });
-    io.observe(term);
-  }
-  });
-})();
-</script>
-
+<p>The script checks that the kit's hooks, git hooks and skills are present, that every hook command in <code>settings.json</code> points to a file that exists, that attribution is off, and that the secret deny rules are in place. It reports whether the global <code>core.hooksPath</code> points at the kit and whether <code>gitleaks</code> is installed.</p>
     </div>
 
     <div class="no-results" id="no-results">
@@ -1122,7 +734,7 @@ footer {
 </div>
 
 <footer>
-  <div>Generated by <a href="https://github.com/Bruce188/pipelinekit">pipelinekit</a> · <code>docs-writer/2</code> · <a href="credits.html">Credits</a></div>
+  <div><a href="credits.html">Credits</a></div>
   <div>Self-contained HTML · no CDN · no remote assets</div>
 </footer>
 
@@ -1136,7 +748,7 @@ footer {
   const iconLight = document.getElementById('theme-icon-light');
   const iconDark = document.getElementById('theme-icon-dark');
   const root = document.documentElement;
-  const STORE_KEY = 'pkit-docs-theme';
+  const STORE_KEY = 'docs-theme';
 
   function applyTheme(mode) {
     if (mode === 'auto') {
@@ -1284,7 +896,7 @@ footer {
       if (!m) return false;
       const frag = document.createDocumentFragment();
       let last = 0;
-      txt.replace(regex, (match, _g, off) => {
+      txt.replace(regex, (match, off) => {  // no capture groups: (match, offset, string)
         if (off > last) frag.appendChild(document.createTextNode(txt.slice(last, off)));
         const span = document.createElement('span');
         span.className = 'search-hit';
@@ -1360,7 +972,11 @@ footer {
                  : ['DANGER'].includes(kind) ? 'danger'
                  : ['SUCCESS','OK'].includes(kind) ? 'success' : 'info';
     const icon = klass === 'warn' ? '⚠' : klass === 'danger' ? '✕' : klass === 'success' ? '✓' : 'ℹ';
-    first.textContent = first.textContent.slice(m[0].length);
+    // Strip the [TIP] marker from the leading text node only, so links and
+    // inline code in the first paragraph survive.
+    const lead = first.firstChild;
+    if (lead && lead.nodeType === 3 && lead.nodeValue.length >= m[0].length) lead.nodeValue = lead.nodeValue.slice(m[0].length);
+    else first.textContent = first.textContent.slice(m[0].length);
     const wrap = document.createElement('div');
     wrap.className = 'callout ' + klass;
     wrap.innerHTML = '<span class="callout-icon">' + icon + '</span><div class="callout-body"></div>';

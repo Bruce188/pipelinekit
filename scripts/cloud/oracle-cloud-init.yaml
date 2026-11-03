@@ -27,7 +27,6 @@ packages:
 #       export ANTHROPIC_API_KEY=""
 #       export GH_TOKEN=""
 #       export CLAUDE_CLI_SHA256=""
-#       export CLAUDE_INSTALL_OPTIONALS="tresor,lsp,mcp"
 #       export PIPELINEKIT_DIR="/root/pipelinekit"
 
 runcmd:
