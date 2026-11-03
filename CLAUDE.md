@@ -1,18 +1,19 @@
 # pipelinekit
 
-Small Claude Code config kit: guard hooks, a few skills, one agent, an installer.
+Small Claude Code config kit: guard hooks, permission rules, global git hooks, a few skills, an installer.
 Project-specific rules only; user-global rules live in `~/.claude/CLAUDE.md`.
 
 ## Map
 
 | Path | Purpose |
 |------|---------|
-| `claude/hooks/` | Guard hooks (bash + python) and their tests in `claude/hooks/tests/` |
-| `claude/skills/` | `commit-conventions`, `security-conventions`, `dotnet-conventions`, `deploy`, `docs-writer`, `expo`, `ios` |
-| `claude/agents/` | `docs-writer.md` |
-| `claude/config/never-stage.txt` | Paths `block-stage-sensitive.sh` refuses to stage |
+| `claude/hooks/` | Claude Code guard hooks (`bash-guard.py`, `block-bare-repo-markers.py`, `post-edit-format.sh`); tests for these and the git hooks in `claude/hooks/tests/` |
+| `claude/git-hooks/` | Global git hooks (`commit-msg`, `pre-commit`, `pre-push`) installed to `~/.claude/git-hooks` |
+| `claude/skills/` | `dotnet-conventions`, `deploy`, `exchange-api-keys`, `docs-writer`, `mobile` |
+| `claude/config/never-stage.txt` | Paths `bash-guard.py` refuses to stage |
+| `claude/config/settings.template.json` | Hooks, permissions, env and attribution merged into `~/.claude/settings.json` |
 | `claude/CLAUDE.md.template` | Rendered to `~/.claude/CLAUDE.md` by the installer |
-| `scripts/install.sh` | In-place overlay into `~/.claude`, settings merge, serena registration |
+| `scripts/install.sh` | In-place overlay into `~/.claude`, settings merge, global git hooks, serena registration |
 | `scripts/verify.sh` | Post-install checks |
 | `tests/test_install.sh` | Installer test in a throwaway HOME |
 | `docs-source/` | Markdown sources for the docs site |

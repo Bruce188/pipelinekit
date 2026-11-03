@@ -3,9 +3,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/Bruce188/pipelinekit/actions/workflows/ci.yml/badge.svg)](https://github.com/Bruce188/pipelinekit/actions/workflows/ci.yml)
 
-A small Claude Code config kit. It contains guard hooks, a few skills, one docs
-agent, a short `CLAUDE.md` template, and an installer that copies them into
-`~/.claude` while leaving everything else in that directory alone.
+A small Claude Code config kit. It contains guard hooks, permission rules,
+global git hooks, a few skills, a short `CLAUDE.md` template, and an installer
+that copies them into `~/.claude` while leaving everything else in that
+directory alone.
 
 Up to 0.0.1, pipelinekit was a full multi-agent pipeline kit with its own
 orchestrator, review panel, persona agents and memory stack. Current Claude
@@ -19,52 +20,48 @@ the [CHANGELOG](CHANGELOG.md).
 
 ## What you get
 
-### Guard hooks
+### Guard hooks and permissions
 
-The installer adds these to `~/.claude/settings.json`.
+The installer merges `claude/config/settings.template.json` into `~/.claude/settings.json`.
 
-| Hook | Event | What it does |
+| Piece | Where | What it does |
 |------|-------|--------------|
-| `block-dangerous-commands.sh` | PreToolUse `Bash` | Blocks risky git, docker and destructive SQL commands, or asks before running them |
-| `block-push-main.sh` | PreToolUse `Bash` | Blocks direct pushes to `main`/`master` |
-| `block-stage-sensitive.sh` | PreToolUse `Bash` | Refuses to stage paths listed in `config/never-stage.txt` (env files, credentials, keys, local `docs/` workflow notes) |
-| `env-scrub.py` | PreToolUse `Bash` | In CI, or with `CLAUDE_CODE_SCRUB_SUBPROCESS=1`, blocks commands that reference secret env vars |
-| `validate-commit-msg.sh` | PreToolUse `Bash` | Checks commit messages against the conventional-commit format |
-| `pre-edit-protect.sh` | PreToolUse `Edit`/`Write` | Blocks edits to `.env`, credential and key files, and Claude settings files |
-| `block-bare-repo-markers.py` | PreToolUse `Write` | Blocks writing bare-repo markers (`HEAD`, `config`, ...) at a repo root |
-| `post-edit-format.sh` | PostToolUse `Edit`/`Write` | Runs the project's formatter on the edited file |
-| `scan-tool-output.sh` | PostToolUse `WebFetch`/`Read` | Warns when fetched or read content looks like a prompt injection |
+| `permissions.deny` | settings | Claude can't read or edit `.env*` (not `.env.example`), keys, `~/.ssh`, `~/.aws`, `~/.kube/config`, `~/.config/gh/hosts.yml`, credentials files. Holds in bypass mode |
+| `permissions.ask` | settings | Prompts before editing Claude settings/hooks or `~/.gitconfig`, and before `reset --hard`, `clean -f`, force push, `branch -D`, `checkout/restore .`. Prompts in bypass mode too |
+| `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB` | settings `env` | Strips credentials from subprocess environments |
+| `bash-guard.py` | PreToolUse `Bash` (`if`: git, docker, podman, curl, wget, psql, mysql, mariadb, sqlite3) | Blocks pushes to other remotes or main, remote changes, global git config writes, hook bypasses (`--no-verify`, `core.hooksPath`), staging `config/never-stage.txt` paths or bulk staging, sensitive docker mounts, and `curl \| sh`. Asks before `docker --privileged` and DROP/TRUNCATE |
+| `block-bare-repo-markers.py` | PreToolUse `Edit`/`Write` | Blocks assembling a bare git repo (HEAD + config/objects/refs) in the working directory or one level down |
+| `post-edit-format.sh` | PostToolUse `Edit`/`Write` | Runs the project's own prettier on ts/js/json/yaml |
 
-`_pathguard.py`, `_promptguard.py`, `_never_stage_match.py` and
-`denial_tracker.py` are helper modules that the hooks import. They are not
-hooks themselves.
+### Git hooks
 
-`commit-msg-wrapper.sh` and `scan-secrets-staged.sh` are installed as git
-`commit-msg` and `pre-commit` hooks in this repository only.
+`claude/git-hooks/` is installed to `~/.claude/git-hooks` and, if you agree, set as the global `core.hooksPath`. Each hook runs the repository's own `.git/hooks/<name>` or `.githooks/<name>` afterwards.
+
+| Hook | What it does |
+|------|--------------|
+| `commit-msg` | Conventional commits (`feat fix refactor docs test chore perf style build ci revert`, scopes, `!`). Rejects wip (outside `.claude/worktrees/`), AI attribution and emoji. Lets `Merge`, `Revert "`, `fixup!`/`squash!`/`amend!` through |
+| `pre-commit` | `gitleaks` scan of staged changes. Warns and allows if gitleaks is missing. `PIPELINEKIT_ALLOW_SECRET=1` skips one commit |
+| `pre-push` | Refuses pushes to `main`/`master`. `ALLOW_MAIN_PUSH=1` overrides (humans only; bash-guard refuses it for Claude) |
+
+A repo with its own local `core.hooksPath` (husky, pre-commit framework, or a manual setting) bypasses these. Run `git config --show-origin core.hooksPath` inside it to check.
 
 ### Skills
 
 | Skill | Use it for |
 |-------|------------|
-| `commit-conventions` | Conventional commit format, message rules and the no-attribution policy |
-| `security-conventions` | ASP.NET Core security conventions (anti-forgery, authorization, secret storage, parameterized queries, HTTPS) |
-| `dotnet-conventions` | .NET architecture, DI, data access and testing conventions |
-| `deploy` | Deploy and operate apps on Vercel, Railway, Render, DigitalOcean App Platform or Azure through each provider's CLI (auth check, deploy, verify, logs, rollback) |
-| `docs-writer` | Render markdown into self-contained HTML pages under `documentation/` |
-| `expo` | Expo workflow: EAS Build and Update, dev client, Expo Router, push notifications |
-| `ios` | Xcode with the Claude Agent SDK: project setup, simulator, code signing, TestFlight |
-
-### Agent
-
-`docs-writer` is a documentation subagent that pairs with the `docs-writer`
-skill.
+| `dotnet-conventions` | .NET layering, DI, EF Core migrations, testing (FluentAssertions 7.x pin), BackgroundService rules, target-framework support dates, plus ASP.NET Core security in `references/security.md` |
+| `deploy` | Router for Vercel, Railway, Render, DigitalOcean App Platform and Azure (Container Apps, App Service): auth check, deploy, secrets without argv, verify, logs, rollback, and trading-bot overlap. Per-provider detail in `references/` |
+| `exchange-api-keys` | Exchange API keys for CryptoBargain and FundingRateArb: where they load from, never logging them, testnet vs mainnet, withdrawal-disabled and IP-restricted scopes, storage, rotation, leak runbook |
+| `docs-writer` | Render `docs-source/*.md` into self-contained HTML pages under `documentation/`, with optional data-driven interactive snippets |
+| `mobile` | Android (Kotlin/Compose) builds and device access from WSL2, iPhone home-screen web apps, Expo/EAS cloud builds for iOS, release and security checklist |
 
 ### CLAUDE.md template
 
-`claude/CLAUDE.md.template` is about 40 lines long. It covers your identity,
+`claude/CLAUDE.md.template` is about 50 lines long. It covers your identity,
 git rules (conventional commits, no AI attribution, never-stage list, no
 direct pushes to `main`), the `docs/` and `documentation/` split, base-branch
-detection and the deploy CLIs. The installer renders it to
+detection, serena vs Grep, GitHub issue/PR habits with `gh`, and the deploy
+CLIs. The installer renders it to
 `~/.claude/CLAUDE.md`.
 
 ### MCP servers
@@ -82,21 +79,29 @@ Requirements: `bash`, `git` and `python3`. `uv` is needed only for serena.
 ```bash
 git clone https://github.com/Bruce188/pipelinekit.git
 cd pipelinekit
-bash scripts/install.sh            # add --no-serena to skip serena
+bash scripts/install.sh            # add --no-serena to skip serena, --git-hooks / --no-git-hooks to answer the git prompt
 ```
 
 You can safely run the installer again to update. It:
 
-1. copies the hooks, skills, agent and `config/never-stage.txt` into
+1. copies the hooks, git hooks, skills and `config/never-stage.txt` into
    `~/.claude`, overwriting them in place without moving the directory;
-2. renders `~/.claude/CLAUDE.md` from the template, first backing up an existing
+2. removes skills, hooks and the agent that earlier 0.1.0 builds installed
+   (`commit-conventions`, `security-conventions`, `expo`, `ios`, the old guard
+   hooks, `agents/docs-writer.md`), but only if they are unmodified kit copies;
+   edited ones are kept with a warning;
+3. renders `~/.claude/CLAUDE.md` from the template, first backing up an existing
    one to `CLAUDE.md.bak-<timestamp>`;
-3. backs up `settings.json`, merges in the hook wiring, removes hook entries
-   whose script no longer exists, and turns commit/PR attribution off. Other
-   settings stay as they are;
-4. installs serena and registers it in `~/.claude.json`, backing that file up
+4. backs up `settings.json` to `settings.json.bak-<timestamp>`, then merges in
+   `claude/config/settings.template.json`: the kit's hook wiring replaces its
+   old entries, hook entries whose script no longer exists are removed, the
+   deny/ask rules are added after yours, `env` gets the scrub flag, and
+   commit/PR attribution is turned off. Other settings stay as they are;
+5. asks whether to set the global `core.hooksPath` to `~/.claude/git-hooks`
+   (never changes an existing value);
+6. installs serena and registers it in `~/.claude.json`, backing that file up
    first;
-5. runs `scripts/verify.sh`.
+7. runs `scripts/verify.sh`.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
@@ -104,6 +109,7 @@ You can safely run the installer again to update. It:
 | `USER_NAME` / `USER_EMAIL` | git config | Identity written into `CLAUDE.md` |
 | `SERENA_REF` | pinned SHA | serena commit to install |
 | `CLAUDE_INSTALL_SKIP_SERENA=1` | unset | Same as `--no-serena` |
+| `PIPELINEKIT_GIT_HOOKS=1` / `0` | ask (no if not a terminal) | Same as `--git-hooks` / `--no-git-hooks` |
 
 The devcontainer runs the installer when the container is created. Bootstrap
 scripts for Oracle and Hetzner VMs are in `scripts/cloud/`.
@@ -210,17 +216,17 @@ The HTML docs are in [`documentation/`](documentation/index.html) and are
 rendered from the markdown in `docs-source/`:
 
 ```bash
-python3 claude/skills/docs-writer/render.py   # renders every docs-source/*.md
+python3 claude/skills/docs-writer/render.py   # renders every docs-source/*.md; or: --root /path/to/repo
 ```
 
 ## Tests
 
 ```bash
-for t in claude/hooks/tests/test_*.sh; do bash "$t"; done
+for t in claude/hooks/tests/test_*.sh; do bash "$t"; done   # git hooks
 python3 -m pytest claude/hooks/tests
-bash claude/hooks/validate-commit-msg.sh --selftest
 bash tests/test_install.sh
 bash claude/skills/docs-writer/tests/test_render.sh
+bash claude/skills/docs-writer/tests/test_richness_threshold.sh
 ```
 
 ## License
