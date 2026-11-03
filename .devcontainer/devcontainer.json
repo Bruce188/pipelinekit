@@ -50,8 +50,7 @@
   },
   "containerEnv": {
     "CLAUDE_HOME": "/home/vscode/.claude",
-    "PIPELINEKIT_ROOT": "${containerWorkspaceFolder}",
-    "PIPELINE_NIT_FIRST": "0"
+    "PIPELINEKIT_ROOT": "${containerWorkspaceFolder}"
   },
   "mounts": [
     "source=pipelinekit-cache,target=/home/vscode/.cache,type=volume"

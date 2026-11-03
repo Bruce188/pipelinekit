@@ -15,6 +15,8 @@ Project-specific rules only; user-global rules live in `~/.claude/CLAUDE.md`.
 | `scripts/install.sh` | In-place overlay into `~/.claude`, settings merge, serena registration |
 | `scripts/verify.sh` | Post-install checks |
 | `tests/test_install.sh` | Installer test in a throwaway HOME |
+| `docs-source/` | Markdown sources for the docs site |
+| `documentation/` | Rendered HTML docs; regenerate with `python3 claude/skills/docs-writer/render.py` |
 
 ## Rules
 
