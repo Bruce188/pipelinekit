@@ -28,7 +28,6 @@ The installer merges `claude/config/settings.template.json` into `~/.claude/sett
 |------|-------|--------------|
 | `permissions.deny` | settings | Claude can't read or edit `.env*` (not `.env.example`), keys, `~/.ssh`, `~/.aws`, `~/.kube/config`, `~/.config/gh/hosts.yml`, credentials files. Holds in bypass mode |
 | `permissions.ask` | settings | Prompts before editing Claude settings/hooks or `~/.gitconfig`, and before `reset --hard`, `clean -f`, force push, `branch -D`, `checkout/restore .`. Prompts in bypass mode too |
-| `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB` | settings `env` | Strips credentials from subprocess environments |
 | `bash-guard.py` | PreToolUse `Bash` (`if`: git, docker, podman, curl, wget, psql, mysql, mariadb, sqlite3) | Blocks pushes to other remotes or main, remote changes, global git config writes, hook bypasses (`--no-verify`, `core.hooksPath`), staging `config/never-stage.txt` paths or bulk staging, sensitive docker mounts, and `curl \| sh`. Asks before `docker --privileged` and DROP/TRUNCATE |
 | `block-bare-repo-markers.py` | PreToolUse `Edit`/`Write` | Blocks assembling a bare git repo (HEAD + config/objects/refs) in the working directory or one level down |
 | `post-edit-format.sh` | PostToolUse `Edit`/`Write` | Runs the project's own prettier on ts/js/json/yaml |
@@ -95,7 +94,7 @@ You can safely run the installer again to update. It:
 4. backs up `settings.json` to `settings.json.bak-<timestamp>`, then merges in
    `claude/config/settings.template.json`: the kit's hook wiring replaces its
    old entries, hook entries whose script no longer exists are removed, the
-   deny/ask rules are added after yours, `env` gets the scrub flag, and
+   deny/ask rules are added after yours, and
    commit/PR attribution is turned off. Other settings stay as they are;
 5. asks whether to set the global `core.hooksPath` to `~/.claude/git-hooks`
    (never changes an existing value);

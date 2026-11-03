@@ -18,7 +18,6 @@ The kit has five layers. Hover a chip for a one-line summary, or use the buttons
   {"name": "Settings rules", "color": "#ef4444", "count": "settings.json",
    "chips": [{"label": "permissions.deny", "tip": "No reading or editing secrets, keys or credentials"},
              {"label": "permissions.ask", "tip": "Prompt before editing Claude config or destructive git"},
-             {"label": "env scrub", "tip": "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1"},
              {"label": "attribution off", "tip": "No co-author trailer or PR footer"}]},
   {"name": "Claude Code hooks", "color": "#f59e0b", "count": "3 scripts",
    "chips": [{"label": "bash-guard.py", "tip": "PreToolUse Bash: git, docker, fetch and SQL rules"},
@@ -45,7 +44,6 @@ The installer merges `claude/config/settings.template.json` into `~/.claude/sett
 |------|-------|--------------|
 | `permissions.deny` | settings | Claude can't read or edit `.env*` (not `.env.example`), keys, `~/.ssh`, `~/.aws`, `~/.kube/config`, `~/.config/gh/hosts.yml`, credentials files. Holds in bypass mode |
 | `permissions.ask` | settings | Prompts before editing Claude settings/hooks or `~/.gitconfig`, and before `reset --hard`, `clean -f`, force push, `branch -D`, `checkout/restore .`. Prompts in bypass mode too |
-| `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB` | settings `env` | Strips credentials from subprocess environments |
 | `bash-guard.py` | PreToolUse `Bash` (`if`: git, docker, podman, curl, wget, psql, mysql, mariadb, sqlite3) | Blocks pushes to other remotes or main, remote changes, global git config writes, hook bypasses (`--no-verify`, `core.hooksPath`), staging `config/never-stage.txt` paths or bulk staging, sensitive docker mounts, and `curl \| sh`. Asks before `docker --privileged` and DROP/TRUNCATE |
 | `block-bare-repo-markers.py` | PreToolUse `Edit\|Write` | Blocks assembling a bare git repo (HEAD + config/objects/refs) in the working directory or one level down |
 | `post-edit-format.sh` | PostToolUse `Edit\|Write` | Runs the project's own prettier on ts/js/json/yaml |

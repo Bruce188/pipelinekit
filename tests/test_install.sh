@@ -49,7 +49,7 @@ t = json.load(open(sys.argv[2]))
 assert d["model"] == "x", "unrelated key lost"
 assert d["attribution"] == {"commit": "", "pr": "", "sessionUrl": False}
 assert "includeCoAuthoredBy" not in d
-assert d["env"] == {"FOO": "1", "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB": "1"}
+assert d["env"] == {"FOO": "1"}
 p = d["permissions"]
 assert p["allow"] == ["Bash(ls *)"], "user allow rules changed"
 assert p["deny"] == ["Read(secret.txt)"] + t["permissions"]["deny"], "deny merge wrong"

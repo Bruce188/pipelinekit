@@ -33,7 +33,7 @@ for s in dotnet-conventions deploy exchange-api-keys docs-writer mobile; do
   [[ -f "$CLAUDE_HOME/skills/$s/SKILL.md" ]] && pass "skill: $s" || fail "skill missing: $s"
 done
 
-# Every hook command in settings.json must resolve; attribution off; env scrub
+# Every hook command in settings.json must resolve; attribution off
 # and secret deny rules present.
 if [[ -f "$CLAUDE_HOME/settings.json" ]]; then
   if OUT="$(python3 - "$CLAUDE_HOME/settings.json" <<'PY'
@@ -50,15 +50,13 @@ for groups in (d.get("hooks") or {}).values():
 a = d.get("attribution")
 if not (a is False or (isinstance(a, dict) and a.get("commit") == "" and a.get("pr") == "")):
     bad.append("attribution not disabled")
-if (d.get("env") or {}).get("CLAUDE_CODE_SUBPROCESS_ENV_SCRUB") != "1":
-    bad.append("env scrub off")
 if "Read(.env)" not in (d.get("permissions") or {}).get("deny", []):
     bad.append("secret deny rules missing")
 print("\n".join(bad))
 sys.exit(1 if bad else 0)
 PY
 )"; then
-    pass "settings.json: hook commands resolve, attribution off, env scrub on, deny rules present"
+    pass "settings.json: hook commands resolve, attribution off, deny rules present"
   else
     fail "settings.json: ${OUT//$'\n'/, }"
   fi

@@ -22,9 +22,9 @@ kit used to ship, so those parts are gone.
   editing Claude settings/hooks/`~/.gitconfig` and before `reset --hard`,
   `clean -f`, force push, `branch -D`, `checkout/restore .`. Deny and ask hold
   in bypassPermissions mode.
-- `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1` strips credentials from Bash, hook and
-  MCP subprocess environments (replaces `env-scrub.py`). On Linux it also runs
-  Bash in its own PID namespace, so `ps`/`kill` no longer see host processes.
+- `env-scrub.py` removed without replacement. `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1`
+  was tried, but it forces the default permission mode, which breaks
+  bypassPermissions workflows. Secrets stay out of reach through deny rules.
 - Fixed: `block-stage-sensitive` turned a block into an allow after three
   denials (`denial_tracker.py`, removed) and sent its reason to stdout.
 - Global git hooks in `~/.claude/git-hooks` (`core.hooksPath`): `commit-msg`
@@ -100,7 +100,7 @@ kit used to ship, so those parts are gone.
   and sets `attribution` to empty strings (no co-author trailer or PR footer).
 - `verify.sh` checks the kept hooks, git hooks and skills, that every
   `settings.json` hook command resolves, that attribution is off, and that the
-  env scrub and deny rules are present.
+  deny rules are present.
 - CI runs the git-hook, installer, pytest hook and docs-writer tests.
 
 ### Fixed

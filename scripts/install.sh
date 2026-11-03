@@ -41,7 +41,7 @@ Usage: bash scripts/install.sh [--no-serena] [--git-hooks|--no-git-hooks] [--hel
 
 Copies hooks, git hooks, skills and config into \$CLAUDE_HOME (default ~/.claude),
 removes unmodified files that older kit versions installed, renders CLAUDE.md,
-merges hook wiring, permissions (deny/ask), env scrub and attribution-off into
+merges hook wiring, permissions (deny/ask) and attribution-off into
 settings.json (backing it up first), installs global git hooks (asks first),
 installs and registers the serena MCP server, then runs scripts/verify.sh.
 EOF
@@ -200,7 +200,8 @@ for kind in ("deny", "ask"):
     perms[kind] = [r for r in theirs if r not in mine] + mine
 data["permissions"] = perms
 env = data.get("env") if isinstance(data.get("env"), dict) else {}
-env.update(tmpl["env"])
+env.update(tmpl.get("env", {}))
+env.pop("CLAUDE_CODE_SUBPROCESS_ENV_SCRUB", None)  # forces default permission mode
 data["env"] = env
 # No AI attribution in commits or PRs (empty strings work on all CLI versions).
 data["attribution"] = tmpl["attribution"]
@@ -213,7 +214,7 @@ with open(tmp, "w", encoding="utf-8") as f:
 os.replace(tmp, path)
 print(f"[install] settings.json: {added} kit hooks, -{len(removed)} stale hook entries, "
       f"{len(tmpl['permissions']['deny'])} deny + {len(tmpl['permissions']['ask'])} ask rules, "
-      "env scrub on, attribution off")
+      "attribution off")
 for c in removed:
     print(f"[install]   removed: {c}")
 PY

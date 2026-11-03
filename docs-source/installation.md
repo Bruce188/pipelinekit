@@ -30,7 +30,6 @@ You can safely run the installer again. To update, run `git pull` and then run t
 4. Backs up `settings.json` to `settings.json.bak-<timestamp>`, then merges in `claude/config/settings.template.json`:
    - the kit's hook entries replace its older ones, and hook entries whose script is no longer in `~/.claude/hooks/` are removed; your own hooks stay;
    - the kit's `permissions.deny` and `permissions.ask` rules are added after yours; `allow` and other permission keys are untouched;
-   - `env.CLAUDE_CODE_SUBPROCESS_ENV_SCRUB` is set to `"1"`;
    - `attribution` is set to empty strings, so commits and PRs get no co-author trailer or footer.
 5. Asks whether to set the global git `core.hooksPath` to `~/.claude/git-hooks`. It never overwrites an existing value; it prints the command instead. Without a terminal, and without `--git-hooks`, it skips this step.
 6. Installs serena with `uv` at a pinned commit and registers it at user scope in `~/.claude.json`. It backs that file up first.
@@ -76,4 +75,4 @@ context7 is not installed by default. To use it in a project, copy its entry fro
 bash scripts/verify.sh
 ```
 
-The script checks that the kit's hooks, git hooks and skills are present, that every hook command in `settings.json` points to a file that exists, that attribution is off, and that the env scrub and secret deny rules are in place. It reports whether the global `core.hooksPath` points at the kit and whether `gitleaks` is installed.
+The script checks that the kit's hooks, git hooks and skills are present, that every hook command in `settings.json` points to a file that exists, that attribution is off, and that the secret deny rules are in place. It reports whether the global `core.hooksPath` points at the kit and whether `gitleaks` is installed.

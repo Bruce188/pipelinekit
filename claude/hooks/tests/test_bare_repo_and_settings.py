@@ -55,7 +55,7 @@ def test_bare_repo_relative_path(tmp_path):
 
 def test_template_shape():
     d = json.loads(TEMPLATE.read_text())
-    assert d["env"]["CLAUDE_CODE_SUBPROCESS_ENV_SCRUB"] == "1"
+    assert "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB" not in d.get("env", {})  # forces default permission mode
     text = TEMPLATE.read_text()
     for leak in ("/home/", "/Users/"):
         assert leak not in text
