@@ -57,6 +57,11 @@ for arg in "$@"; do
   esac
 done
 
+# The hooks are POSIX scripts started through their shebang; Windows cannot run them.
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    die "native Windows shells are not supported. Install inside WSL and run Claude Code there (Claude Code Desktop: pick the WSL environment). See docs-source/installation.md" ;;
+esac
 command -v python3 >/dev/null || die "python3 is required"
 log "pipelinekit v$VERSION -> $CLAUDE_HOME"
 mkdir -p "$CLAUDE_HOME"/{hooks,git-hooks,skills,config}

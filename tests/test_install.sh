@@ -39,6 +39,15 @@ cat > "$CLAUDE_HOME/settings.json" <<JSON
               {"type": "command", "command": "echo my-hook"}]}]}}
 JSON
 
+# A native Windows shell (Git Bash, MSYS, Cygwin) is refused before anything is written.
+mkdir "$T/fakebin"
+printf '#!/bin/sh\necho MINGW64_NT-10.0-26200\n' > "$T/fakebin/uname"
+chmod +x "$T/fakebin/uname"
+if PATH="$T/fakebin:$PATH" CLAUDE_HOME="$T/win" bash "$REPO_ROOT/scripts/install.sh" --no-serena >/dev/null 2>&1; then
+  echo "test_install: installer ran under a Windows uname" >&2; exit 1
+fi
+test ! -e "$T/win"
+
 bash "$REPO_ROOT/scripts/install.sh" --no-serena >/dev/null 2>&1
 bash "$REPO_ROOT/scripts/install.sh" --no-serena >/dev/null 2>&1
 
@@ -82,4 +91,11 @@ test ! -e "$CLAUDE_HOME/hooks/tests"
 test -x "$CLAUDE_HOME/git-hooks/pre-push"
 [ "$(git config --global core.hooksPath)" = "$CLAUDE_HOME/git-hooks" ]
 CLAUDE_HOME="$CLAUDE_HOME" bash "$REPO_ROOT/scripts/verify.sh" >/dev/null
+
+# verify notices a hook that is present but cannot start (CRLF checkout).
+G="$CLAUDE_HOME/hooks/bash-guard.py"
+sed $'s/$/\r/' "$G" > "$T/crlf" && cat "$T/crlf" > "$G"
+if CLAUDE_HOME="$CLAUDE_HOME" bash "$REPO_ROOT/scripts/verify.sh" >/dev/null 2>&1; then
+  echo "test_install: verify passed with a CRLF hook" >&2; exit 1
+fi
 echo "test_install: PASS"

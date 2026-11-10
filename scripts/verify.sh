@@ -2,7 +2,7 @@
 # Verify a pipelinekit install in $CLAUDE_HOME. Exits non-zero on failure.
 set -uo pipefail
 
-CLAUDE_HOME="${CLAUDE_HOME:-$HOME/.claude}"
+export CLAUDE_HOME="${CLAUDE_HOME:-$HOME/.claude}"   # exported: bash-guard.py reads it
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FAIL=0
 pass() { printf '  [pass] %s\n' "$*"; }
@@ -10,15 +10,35 @@ fail() { printf '  [fail] %s\n' "$*"; FAIL=$((FAIL+1)); }
 
 echo "Verifying pipelinekit at $CLAUDE_HOME"
 
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) fail "native Windows shell: the hooks only run on Linux, macOS or WSL" ;;
+esac
+
 for f in CLAUDE.md config/never-stage.txt; do
   [[ -f "$CLAUDE_HOME/$f" ]] && pass "exists: $f" || fail "missing: $f"
 done
 grep -qE '\$\{(USER_NAME|USER_EMAIL|CLAUDE_HOME)\}' "$CLAUDE_HOME/CLAUDE.md" 2>/dev/null \
   && fail "CLAUDE.md has unrendered placeholders" || pass "CLAUDE.md rendered"
 
+# A hook that exists but cannot start (CRLF shebang, no python3) blocks every
+# matching tool call, so run each one once with a harmless payload.
+runs() { # runs <hook> <json> [args...]
+  local h="$1" json="$2"; shift 2
+  printf '%s' "$json" | "$CLAUDE_HOME/hooks/$h" "$@" >/dev/null 2>&1
+}
 for h in bash-guard.py block-bare-repo-markers.py post-edit-format.sh; do
-  [[ -x "$CLAUDE_HOME/hooks/$h" ]] && pass "hook: $h" || fail "hook missing or not executable: $h"
+  if [[ ! -x "$CLAUDE_HOME/hooks/$h" ]]; then
+    fail "hook missing or not executable: $h"; continue
+  fi
+  case "$h" in
+    bash-guard.py) runs "$h" '{"tool_name":"Bash","tool_input":{"command":"git status"},"cwd":"/"}' git git ;;
+    block-bare-repo-markers.py) runs "$h" '{"tool_name":"Write","tool_input":{"file_path":"/nonexistent/x.txt","content":"x"},"cwd":"/"}' ;;
+    *) runs "$h" '{}' ;;
+  esac && pass "hook runs: $h" || fail "hook does not start: $h (CRLF line endings, or python3 missing?)"
 done
+if grep -qi microsoft /proc/sys/kernel/osrelease 2>/dev/null; then
+  echo "  [info] WSL: in Claude Code Desktop pick the WSL environment; a Local (Windows) session cannot run these hooks"
+fi
 
 for g in commit-msg pre-commit pre-push; do
   [[ -x "$CLAUDE_HOME/git-hooks/$g" ]] && pass "git hook: $g" || fail "git hook missing or not executable: $g"
