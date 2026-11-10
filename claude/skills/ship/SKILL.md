@@ -17,10 +17,10 @@ Arguments given with the command: `$ARGUMENTS`. `status`: explain the report and
 
 Stop and ask, with an interactive question, when any of these is true. The helper exits 3 for the ones it can see.
 
-- The pull request is a release: a release, integration, staging or version branch into the default branch, the default branch into another branch, anything into a deploy branch such as `production`, or a title that names a release or a version. Also when the next step is a tag, a publish or a production deploy.
+- The pull request is a release: a release, stage or version branch (`release/1.0`, `develop`, `staging`, `v2`, `chore/release-0.2.0`) into the default branch, the default branch into another branch, anything into a deploy branch such as `production`, anything into `main` where another branch is the default, or a title that names a release or a version. Also when the next step is a tag, a publish or a production deploy.
 - Someone else opened the pull request, or it comes from a fork.
 - A review is required or requested, or branch protection blocks the merge. Never pass `--admin`, dismiss a review or change a repository setting to get past it.
-- The project opted out: a line `Merges: ask first` in its `CLAUDE.md`, or `PIPELINEKIT_MERGE=ask` in the environment.
+- The project opted out: a line `Merges: ask first` in its `CLAUDE.md` (in the checkout or on the base branch) or in the user-level one, or `PIPELINEKIT_MERGE` in the environment with any value but `auto`.
 - The test needs a product decision the criteria do not settle, or it cannot be run here.
 - The same finding is still open after two fix attempts, or five rounds in a row failed. `status` and `merge` then exit 3 as well.
 
@@ -33,7 +33,7 @@ Stop and ask, with an interactive question, when any of these is true. The helpe
 5. **Fix.** Fix every blocker and should-fix. A bug gets a regression test. Something outside the issue's scope becomes a new issue, not a fix here. Commit and push.
 6. **Test again.** Same brief, all criteria, plus the findings that were open. A fix can break something that passed before.
 7. **Record.** `record --result pass`, or `record --result fail --open F1 F3`. Exit 3 means stop and ask.
-8. **Merge.** `merge` waits for CI, marks the pull request ready, looks again for checks and reviews that only start then, merges the commit that was tested and switches to the updated base branch. The last line it prints is the outcome: `Merged ...`, `Not merged: ...` or `STOP: ...`.
+8. **Merge.** `merge` waits for CI, marks the pull request ready, watches it for the settle time (30 seconds, 90 where a check is still to come) so that checks and reviews that only start then are seen, merges the commit that was tested and switches to the updated base branch. This takes a minute or more: let it finish. The last line it prints is the outcome: `Merged ...`, `Not merged: ...` or `STOP: ...`.
 9. **After the merge.** Run the tests or start the app once on the base branch. Tell the user in one line what merged and how it was tested, then go on with the next piece of work.
 
 A commit pushed after a passed test needs a new test and a new record: the `tested` gate compares commits. When CI fails, read the log (`gh run view <id> --log-failed`) before changing anything.
@@ -76,7 +76,7 @@ Run it through Bash in these forms only. The only text you add is finding ids an
 | `python3 ${CLAUDE_SKILL_DIR}/ship.py wait` | wait until every CI check has a conclusion |
 | `python3 ${CLAUDE_SKILL_DIR}/ship.py merge` | check every gate, wait for CI, merge; `--dry-run` checks the same and shows the command instead of running it |
 
-A pull request with no check at all is not green where a workflow runs on pull requests: the helper waits for the first check (`--grace`, 90 seconds by default) and then fails. Add `--allow-no-checks` to `wait` or `merge` only after the Actions tab showed that no workflow runs for this change.
+A pull request with no check at all is not green where a workflow runs on pull requests: the helper waits for the first check (`--grace`, 90 seconds by default) and then fails. After a draft is marked ready a check must really have run: one that was skipped on the draft does not count. Add `--allow-no-checks` to `wait` or `merge` only after the Actions tab showed that no workflow runs for this change.
 
 Exit code: 0 done, 1 a gate or a check failed (fix it and run again), 2 the helper could not run (not a repository, `gh` missing or not logged in), 3 stop and ask the user.
 

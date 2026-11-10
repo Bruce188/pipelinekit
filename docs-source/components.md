@@ -135,7 +135,7 @@ With the kit installed, Claude finishes the pull requests it opens instead of ha
 | `pr` | The branch has an open pull request |
 | `own` | Your GitHub account opened it, and it is not from a fork |
 | `policy` | The project has not opted out |
-| `release` | It is not a release: no release, integration, staging or version branch into the default branch, not the default branch into another branch, nothing into a deploy branch such as `production`, no title that names a release or a version |
+| `release` | It is not a release. A release is: a release, stage or version branch (`release/1.0`, `develop`, `staging`, `v2`, `chore/release-0.2.0`) into the default branch; the default branch into another branch; anything into a deploy branch such as `production` or `gh-pages`; anything into `main` where another branch is the default; a title that names a release or a version |
 | `review` | No review is required, requested or asking for changes |
 | `current` | The local commit is the pull request's head and nothing tracked is uncommitted |
 | `up-to-date` | The branch contains its base branch and does not conflict with it |
@@ -144,9 +144,9 @@ With the kit installed, Claude finishes the pull requests it opens instead of ha
 
 The merge command names the tested commit (`--match-head-commit`), so a commit pushed in between is not merged. The helper has no `--admin` option, and `gh pr merge --admin` is on the `permissions.ask` list. The merge method follows the base branch: a merge commit where the branch already has them, squash otherwise.
 
-A draft has to be marked ready before GitHub merges it, and that can start checks, add reviewers or turn on branch protection. The helper therefore reads the pull request again several times after marking it ready, and merges only when nothing new showed up. If something did, the pull request stays ready and unmerged. The last line of output is always the outcome: `Merged #12 into main ...`, `Not merged: ...` or `STOP: ...`.
+A draft has to be marked ready before GitHub merges it, and that can start checks, add reviewers or turn on branch protection. The helper therefore watches the pull request after marking it ready and merges only when it stayed mergeable for the whole settle time: 30 seconds, or 90 (the `--grace` time) where a check is still to come, because none has run yet or a workflow starts on `ready_for_review`. `--settle S` sets the time. Where a workflow runs on pull requests, a check must really have run by then: one that was skipped on the draft does not count, and only `--allow-no-checks` lifts that. If something showed up, the pull request stays ready and unmerged. The last line of output is always the outcome: `Merged #12 into main ...`, `Not merged: ...` or `STOP: ...`.
 
-The release gate leans towards asking. A feature branch into a release branch such as `release/v1.0` is an ordinary change and merges; the release branch into `main` does not.
+The release gate leans towards asking. A feature branch into a release branch such as `release/v1.0` is an ordinary change and merges; the release branch into `main` does not. A title counts when it is made of release words (`chore: prepare 0.3.0`, `Bump version: 1.2.3 to 1.2.4`, `chore: release kit 1.2.0`), not when it is about a release (`fix: release 1.2.0 broke the installer`, `chore(deps): bump lodash to 4.17.21`); `docs`, `test`, `style`, `refactor` and `perf` titles never count.
 
 These stay yours: release pull requests, tags, publishing and production deploys; pull requests someone else opened; anything behind a required review or branch protection. Claude also stops and asks when the same finding is still open after two fix attempts, after five failed rounds in a row, and when a test needs a decision the criteria do not settle. A stuck loop shows in `ship.py status` and blocks `ship.py merge` until you decide.
 
@@ -156,7 +156,7 @@ To turn self-merging off for a project, put this line in its `CLAUDE.md`:
 Merges: ask first
 ```
 
-The same line in `~/.claude/CLAUDE.md` turns it off everywhere, and so does `PIPELINEKIT_MERGE=ask` in the environment. Claude then asks before it merges. The line counts on its own line, also as a list item, in bold, quoted, in backticks or inside an HTML comment. A sentence that only mentions it does not.
+The same line in `~/.claude/CLAUDE.md` turns it off everywhere, and so does `PIPELINEKIT_MERGE` in the environment with any value but `auto`. Claude then asks before it merges. The line counts on its own line, also as a list or task item, a heading, a table cell, in bold, quoted, in backticks or inside an HTML comment. A sentence that only mentions it does not. The `CLAUDE.md` on the base branch counts as well, so a branch cannot drop the line for its own pull request.
 
 Test reports and screenshots go to `docs/uat/` in the project. That directory is local: the helper adds it to `.git/info/exclude`, and it is on the never-stage list. The kit does not install Playwright; `/kit` reports whether `gh` and Playwright are available.
 

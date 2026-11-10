@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import shlex
@@ -44,52 +45,90 @@ METHODS = {
 PASSING = {"SUCCESS", "NEUTRAL", "SKIPPED"}
 FAILING = {"FAILURE", "ERROR"}
 
-# The line that opts a project out: plain, in a list, quoted, bold, inside an
-# HTML comment, or as code alone on its line. A sentence that only mentions
-# the line does not count.
-LEAD = r"[ \t]*(?:<!--[ \t]*)?(?:>[ \t]*)*(?:[-*+][ \t]+)?"
+
+def wordset(text):
+    """The words of `text` as a set."""
+    return frozenset(text.split())
+
+
+# The line that opts a project out: plain, as a list or task item, a heading,
+# a table cell, quoted, bold, inside an HTML comment, or as code alone on its
+# line. A sentence that only mentions the line does not count.
+LINE_LEAD = re.compile(
+    r"^(?:<!--\s*)?(?:>\s*)*(?:#{1,6}\s+)?(?:(?:[-*+]|\d{1,9}[.)])\s+)?"
+    r"(?:\[[ xX]\]\s+)?"
+)
 OPT_OUT = re.compile(
-    rf"^{LEAD}(?:[*_]{{0,3}}merges?[*_]{{0,3}}[ \t]*:[*_]{{0,3}}[ \t]*ask\b"
-    rf"|`merges?[ \t]*:[ \t]*ask(?:[ \t]+first)?`[ \t.]*(?:-->)?[ \t]*$)",
-    re.I | re.M,
+    r"^(?:merges?\s*:\s*ask\b|`merges?\s*:\s*ask(?:\s+first)?`[\s.]*(?:-->)?$)",
+    re.I,
 )
 
-# Releases stay with the user. A release is recognised by its branches or by
-# its title; a miss here merges something the user wanted to decide, so the
-# patterns lean towards asking.
+# Releases stay with the user. A release is recognised by its branches and by
+# its title, never by its diff. A miss here merges something the user wanted
+# to decide, so the rules lean towards asking.
 VERSION = r"v?\d+\.\d+(?:\.\d+)?(?:[-+.][0-9A-Za-z.-]+)?"
 RELEASE_HEAD = re.compile(
     r"^(?:"
     r"(?:pre-?)?releases?(?:/.*|[-_]v?\d.*)?"
     r"|release-please--.*|changeset-release/.*"
     r"|(?:rel|rc|hotfix)[/-]v?\d+\.\d.*"
-    r"|[a-z]+/(?:pre-?)?release[/_-]v?\d.*"
-    r"|integration(?:/.*)?"
-    r"|develop|development|dev|staging|stage|next"
     rf"|{VERSION}"
     r")$",
     re.I,
 )
-DEPLOY_BASE = re.compile(r"^(?:production|prod|live|stable|deploy|deployment)$", re.I)
+# A stage on the way to a release, as a whole branch name and as the first
+# part of one (`staging/eu`).
+STAGE_HEADS = wordset(
+    "develop development dev integration staging stage next beta alpha rc "
+    "canary preview nightly edge uat qa preprod test testing stable "
+    "main master trunk"
+)
+STAGE_PREFIXES = wordset("integration staging stage uat qa preprod env deploy")
+MAINLINES = ("main", "master")
+DEPLOY_BASES = wordset(
+    "production prod live stable deploy deployment deployments gh-pages pages"
+)
 TITLE_PREFIX = re.compile(r"^(?P<type>[a-z]+)(?:\((?P<scope>[^)]*)\))?!?:\s*", re.I)
-RELEASE_WORDS = re.compile(
-    r"^(?:(?:prepare|cut|publish|tag|ship)\s+(?:for\s+)?(?:the\s+)?)?"
-    r"releas(?:e|ing)\s+(?:candidate\s+|version\s+|of\s+)?(?:[\w@/.-]+\s+)?"
-    r"(?:v\d|\d+\.\d)"
-    r"|^(?:bump|cut|publish|tag)\s+(?:(?:the\s+)?version\s+)?(?:to\s+)?"
-    rf"{VERSION}(?!\S)"
-    r"|^version\s+packages$"
-    rf"|^{VERSION}$",
+MERGE_TITLE = re.compile(
+    r"^merge\s+(?:remote-tracking\s+)?(?:branch\s+)?'?([\w./-]+)'?\s+into\s+"
+    r"'?([\w./-]+)'?$",
     re.I,
 )
+RELEASE_MARK = re.compile(
+    r"[\[(]\s*(?:pre-?)?release(?:\s+v?\d[\w.+-]*)?\s*[\])]", re.I
+)
+TOKEN = re.compile(
+    r"(?P<version>(?<![\w.])v?\d+(?:\.(?:\d+|x))+(?:[-+][0-9a-z][0-9a-z.]*)*"
+    r"|(?<![\w.])v\d+(?![\w.]))"
+    r"|(?P<word>[a-z][a-z0-9]*)"
+    r"|(?P<number>\d+)"
+)
+# The words a release title is made of. A title with other words in it is
+# about something else: `fix: release the lock before retrying`.
+RELEASE_NAMES = wordset("release releases releasing released prerelease")
+STRONG = RELEASE_NAMES | wordset("version publish production prod")
+ACTIONS = wordset(
+    "bump cut tag ship deploy prepare prep finalize finalise increment set "
+    "update new publish"
+)
+FILLER = wordset("for to the of and a an from in on with into")
+VOCABULARY = (
+    STRONG
+    | ACTIONS
+    | FILLER
+    | wordset("candidate rc changelog notes package packages npm pypi pre beta alpha")
+)
+QUIET_TYPES = wordset("docs test style refactor perf")
+PLAIN_TYPES = wordset("feat feature fix bugfix revert")
 
 CONVENTIONAL = re.compile(r"^[a-z]+(?:\([^)]*\))?!?: ")
 MAX_FAILED_ROUNDS = 5
 MAX_ROUNDS_OPEN = 3
-# After a draft is marked ready the pull request is read this many times,
-# about three seconds apart, and has to look mergeable every time.
-READY_LOOKS = 4
-READY_LOOKS_WORKFLOW = 15  # a workflow here starts on ready_for_review
+# A draft that was marked ready has to stay mergeable this long, and on two
+# reads at least, before it is merged: checks, review requests and branch
+# protection that start with "ready for review" take a while to show up.
+SETTLE = 30
+FIRST_CHECK = 90  # how long a first check may take to show up
 UNKNOWN_LOOKS = 20  # how long GitHub may take to say whether it can be merged
 EXIT_FAIL, EXIT_TOOL, EXIT_STOP = 1, 2, 3
 WORD = {"pass": "ok", "fail": "FAIL", "pending": "wait", "skip": "-"}
@@ -107,7 +146,13 @@ def run(cmd, cwd=None, timeout=60):
     """Run a command; return (exit code, stdout, stderr) and never raise."""
     try:
         p = subprocess.run(
-            cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, check=False
+            cmd,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            errors="replace",
+            timeout=timeout,
+            check=False,
         )
     except FileNotFoundError:
         return 127, "", f"{cmd[0]} is not installed"
@@ -174,11 +219,14 @@ class Repo:
         rc, out, err = self.gh(*args)
         what = "gh " + " ".join(args[:2])
         if rc:
-            raise ToolError(f"{what}: {err or out or f'exit {rc}'}")
+            raise ToolError(f"{what}: {said(err or out, rc)}")
         try:
-            return json.loads(out)
+            data = json.loads(out)
         except ValueError as exc:
             raise ToolError(f"{what}: unreadable answer") from exc
+        if not isinstance(data, dict):
+            raise ToolError(f"{what}: unreadable answer")
+        return data
 
     def pr(self):
         """The pull request of the current branch, or None when there is none."""
@@ -186,11 +234,21 @@ class Repo:
         if rc and "no pull requests found" in err.lower():
             return None
         if rc:
-            raise ToolError(f"gh pr view: {err or out or f'exit {rc}'}")
+            raise ToolError(f"gh pr view: {said(err or out, rc)}")
         try:
-            return json.loads(out)
+            data = json.loads(out)
         except ValueError as exc:
             raise ToolError("gh pr view: unreadable answer") from exc
+        if not isinstance(data, dict):
+            raise ToolError("gh pr view: unreadable answer")
+        return data
+
+    def default_branch(self):
+        """The default branch as the remote names it; '' when git does not know."""
+        rc, out, _ = self.try_git(
+            "symbolic-ref", "-q", f"refs/remotes/{self.remote}/HEAD"
+        )
+        return "" if rc else out.removeprefix(f"refs/remotes/{self.remote}/")
 
     def info(self):
         if self._info is None:
@@ -279,12 +337,15 @@ def ensure_ignored(repo):
 
 
 def finding_ids(values):
-    """Finding ids without blanks, and without repeats that differ only in case."""
+    """Finding ids without blanks, and without repeats that differ only in case.
+
+    `F1,F2` and `F1 F2` name the same two findings.
+    """
     seen = {}
     for value in values:
-        name = value.strip()
-        if name:
-            seen.setdefault(name.casefold(), name)
+        for name in re.split(r"[,;\s]+", value):
+            if name:
+                seen.setdefault(name.casefold(), name)
     return sorted(seen.values())
 
 
@@ -320,6 +381,11 @@ def stop_reason(rounds):
 
 
 def cmd_record(args, repo):
+    if repo.branch in {repo.default_branch(), "main", "master"}:
+        raise ToolError(
+            f"{repo.branch} is not the branch of a pull request: record the test "
+            "on the branch that was tested"
+        )
     if args.result == "pass" and repo.dirty():
         print(
             "ship: tracked files have uncommitted changes; commit first, "
@@ -442,58 +508,160 @@ def own_gate(repo, pr):
     return gate("own", "pass", f"opened by {user}")
 
 
-def policy_gate(repo):
-    if os.environ.get("PIPELINEKIT_MERGE", "").strip().lower() == "ask":
-        return gate("policy", "fail", "PIPELINEKIT_MERGE=ask", stop=True)
+def opts_out(text):
+    """True when one line of `text` is the opt-out line itself."""
+    for line in text.lstrip("\ufeff").splitlines():
+        for cell in line.split("|"):
+            cell = LINE_LEAD.sub("", cell.strip(), count=1)
+            if OPT_OUT.match(re.sub(r"[*_]", "", cell).strip()):
+                return True
+    return False
+
+
+def policy_gate(repo, pr=None):
+    """The environment, the user or the project can ask for a question first.
+
+    The project's line counts in the checkout and on the base branch, so a
+    branch cannot drop it for its own pull request.
+    """
+    asked = os.environ.get("PIPELINEKIT_MERGE", "").strip()
+    if asked and asked.lower() != "auto":
+        return gate("policy", "fail", f"PIPELINEKIT_MERGE={asked[:20]}", stop=True)
     home = Path(os.environ.get("CLAUDE_HOME") or Path.home() / ".claude")
-    places = (
+    found = ""
+    for label, path in (
         ("CLAUDE.md", repo.root / "CLAUDE.md"),
         (".claude/CLAUDE.md", repo.root / ".claude" / "CLAUDE.md"),
         ("CLAUDE.local.md", repo.root / "CLAUDE.local.md"),
         ("your user-level CLAUDE.md", home / "CLAUDE.md"),
-    )
-    for label, path in places:
+    ):
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        if OPT_OUT.search(text):
-            return gate(
-                "policy", "fail", f"{label} says `Merges: ask first`", stop=True
-            )
+        if opts_out(text):
+            found = label
+            break
+    base = (pr or {}).get("baseRefName") or ""
+    names = ("CLAUDE.md", ".claude/CLAUDE.md") if base and not found else ()
+    for name in names:
+        rc, text, _ = repo.try_git("show", f"refs/remotes/{repo.remote}/{base}:{name}")
+        if not rc and opts_out(text):
+            found = f"{name} on {base}"
+            break
+    if found:
+        return gate("policy", "fail", f"{found} says `Merges: ask first`", stop=True)
     return gate("policy", "pass", "no `Merges: ask first` line")
 
 
-def release_title(title):
+def words_of(text):
+    """(versions, words) in a title or a branch name, in lower case."""
+    versions, words = [], []
+    for m in TOKEN.finditer(text.lower()):
+        if m.group("version"):
+            versions.append(m.group("version"))
+        elif m.group("word"):
+            words.append(m.group("word"))
+    return versions, words
+
+
+def own_words(info):
+    """The words of the repository's own name."""
+    name = (info.get("nameWithOwner") or "").rpartition("/")[2]
+    return frozenset(w for w in words_of(name)[1] if w not in VOCABULARY)
+
+
+def named_release(kind, scope, text, own=()):
+    """True when the words after a type name a release or a version.
+
+    A text made of release words alone names one: `chore: prepare 0.3.0`,
+    `chore: version bump`. With other words in it, it has to start like a
+    release and carry a version: `chore: release kit 1.2.0`, not
+    `chore(deps): bump lodash to 4.17.21`. After `feat` and `fix` any other
+    word makes it an ordinary change, and `docs`, `test`, `style`, `refactor`
+    and `perf` never name a release. `own` holds the words of the
+    repository's own name, which count as release words.
+    """
+    if kind in QUIET_TYPES:
+        return False
+    versions, words = words_of(text)
+    words = [w for w in words if w not in own]
+    unknown = [w for w in words if w not in VOCABULARY]
+    implied = "release" in (kind, scope)
+    strong = implied or any(w in STRONG for w in words)
+    if not unknown:
+        if kind in PLAIN_TYPES:
+            return bool(versions) and strong
+        return bool(versions) or strong
+    if kind in PLAIN_TYPES or not versions or len(unknown) > 2:
+        return False
+    lead = [w for w in words if w not in FILLER][:2]
+    starts = lead[0] in RELEASE_NAMES or (
+        lead[0] in ACTIONS and len(lead) > 1 and lead[1] in RELEASE_NAMES
+    )
+    return implied or starts
+
+
+def release_head(head, own=()):
+    """True when a branch name says release, version or stage."""
+    name = head.lower()
+    kind, slash, text = name.partition("/")
+    if RELEASE_HEAD.match(name) or name in STAGE_HEADS:
+        return True
+    if slash and kind in STAGE_PREFIXES:
+        return True
+    if not slash:
+        kind, text = "", name
+    text = re.sub(r"[-_/]+", " ", re.sub(r"^\d+[-_]", "", text))
+    return named_release(kind, "", text, own)
+
+
+def release_title(title, default="", own=()):
     """True when a pull request title names a release, not a change about one."""
     title = (title or "").strip()
+    m = MERGE_TITLE.match(title)
+    if m:
+        into = {default.lower(), *MAINLINES}
+        return m.group(2).lower() in into and release_head(m.group(1), own)
+    kind, scope, rest = "", "", title
     m = TITLE_PREFIX.match(title)
-    if not m:
-        return bool(RELEASE_WORDS.match(title))
-    kind, scope = m.group("type").lower(), (m.group("scope") or "").lower()
-    rest = title[m.end() :]
-    versioned = bool(re.search(rf"(?<![\w.]){VERSION}", f"{scope} {rest}"))
-    if scope == "release" and (versioned or kind in ("chore", "build", "ci")):
-        return True
-    if kind == "release" and versioned:
-        return True
-    return bool(RELEASE_WORDS.match(rest))
+    if m:
+        kind, scope = m.group("type").lower(), (m.group("scope") or "").lower()
+        rest = title[m.end() :]
+    return bool(RELEASE_MARK.search(rest)) or named_release(kind, scope, rest, own)
+
+
+def release_branches(head, base, default="", own=()):
+    """Why these two branches make a release, a deploy or a promotion; else ''."""
+    low, main_name = base.lower(), default.lower()
+    main = low == main_name if default else low in (*MAINLINES, "trunk")
+    if default and main_name not in MAINLINES and low in MAINLINES:
+        return (
+            f"{base} is not the default branch ({default}): what goes into it "
+            "is a release"
+        )
+    parts = low.split("/")
+    staged = parts[0] in ("env", "environment", "environments")
+    if not main and (staged or DEPLOY_BASES & set(parts)):
+        return f"{base} is a deploy branch"
+    if default and head == default and not main:
+        return f"{head} into {base} promotes the default branch"
+    if main and release_head(head, own):
+        return f"{head} into {base} is a release"
+    return ""
 
 
 def release_gate(repo, pr):
     """A release, a deploy or a promotion of the default branch stays the user's."""
     head, base = pr.get("headRefName") or "", pr.get("baseRefName") or ""
-    default = (repo.info().get("defaultBranchRef") or {}).get("name") or ""
-    main = base == default if default else base in ("main", "master", "trunk")
-    if release_title(pr.get("title")):
+    info = repo.info()
+    default = (info.get("defaultBranchRef") or {}).get("name") or ""
+    own = own_words(info)
+    if release_title(pr.get("title"), default, own):
         return gate("release", "fail", "the title reads like a release", stop=True)
-    if not main and DEPLOY_BASE.match(base):
-        return gate("release", "fail", f"{base} is a deploy branch", stop=True)
-    if default and head == default and not main:
-        why = f"{head} into {base} promotes the default branch"
+    why = release_branches(head, base, default, own)
+    if why:
         return gate("release", "fail", why, stop=True)
-    if main and RELEASE_HEAD.match(head):
-        return gate("release", "fail", f"{head} into {base} is a release", stop=True)
     return gate("release", "pass", "not a release")
 
 
@@ -539,12 +707,15 @@ def base_gate(repo, pr):
         why = (err.splitlines() or [f"exit {rc}"])[-1]
         return gate("up-to-date", "fail", f"could not fetch {base}: {why}")
     again = f"merge {repo.remote}/{base} into the branch, then test again"
-    if pr.get("mergeable") == "CONFLICTING":
+    state = pr.get("mergeStateStatus") or ""
+    if pr.get("mergeable") == "CONFLICTING" or state == "DIRTY":
         return gate("up-to-date", "fail", f"conflicts with {base}: {again}")
     if repo.try_git("merge-base", "--is-ancestor", ref, "HEAD")[0]:
         n = repo.try_git("rev-list", "--count", f"HEAD..{ref}")[1]
         behind = count(int(n), "commit") if n.isdigit() else "some commits"
         return gate("up-to-date", "fail", f"{behind} behind {base}: {again}")
+    if state == "BEHIND":
+        return gate("up-to-date", "fail", f"behind {base}, GitHub says: {again}")
     return gate("up-to-date", "pass", f"contains the tip of {base}")
 
 
@@ -623,14 +794,16 @@ def evaluate(repo, pr, no_checks_ok=False):
             tested_gate(repo, repo.head),
             skipped("ci"),
         ]
+    # First, because it fetches the base branch, which the policy gate reads.
+    up_to_date = base_gate(repo, pr)
     return [
         first,
         own_gate(repo, pr),
-        policy_gate(repo),
+        policy_gate(repo, pr),
         release_gate(repo, pr),
         review_gate(pr),
         current_gate(repo, pr),
-        base_gate(repo, pr),
+        up_to_date,
         tested_gate(repo, pr.get("headRefOid") or ""),
         ci_gate(pr, repo.expects_checks() and not no_checks_ok),
     ]
@@ -710,7 +883,37 @@ def cmd_status(args, repo):
 def grace_seconds(args, repo):
     if args.grace is not None:
         return args.grace
-    return 90 if repo.has_workflows() else 0
+    return FIRST_CHECK if repo.has_workflows() else 0
+
+
+def ran_checks(pr):
+    """The checks that ran on the pull request; a skipped one did not."""
+    return [
+        item
+        for item in pr.get("statusCheckRollup") or []
+        if (item.get("conclusion") or item.get("state") or "").upper() != "SKIPPED"
+    ]
+
+
+def settle_seconds(args, repo, pr):
+    """How long a draft has to stay mergeable after it is marked ready.
+
+    A workflow can skip a draft and start when it is marked ready. Where one
+    says so, or where no check has really run on the head yet, the first check
+    gets as long to show up as it gets in `wait`.
+    """
+    if args.settle is not None:
+        return args.settle
+    expected = repo.expects_checks() and not args.allow_no_checks
+    if repo.starts_on_ready() or (expected and not ran_checks(pr)):
+        return max(SETTLE, grace_seconds(args, repo))
+    return SETTLE
+
+
+def nap(step, waited, *limits):
+    """Sleep `step` seconds, or less when one of the limits comes first."""
+    left = [limit - waited for limit in limits if limit > waited]
+    time.sleep(max(0.01, min([step, *left])))
 
 
 def wait_for_ci(repo, timeout, grace, no_checks_ok=False):
@@ -754,11 +957,16 @@ def wait_for_ci(repo, timeout, grace, no_checks_ok=False):
             names = check_names(pending) or "no check has shown up"
             detail = f"still running after {int(waited)} s: {names}"
             return gate("ci", "pending", detail), pr
-        line = f"waiting for CI: {len(passed)} finished, {len(pending)} running"
+        if pending:
+            line = f"waiting for CI: {len(passed)} finished, {len(pending)} running"
+        elif seen:
+            line = "waiting for the first check to show up"
+        else:
+            line = "waiting for GitHub to show the pushed commit"
         if line != shown:
             print(line, file=sys.stderr, flush=True)
             shown = line
-        time.sleep(poll_seconds())
+        nap(poll_seconds(), waited, timeout, *(() if pending else (grace,)))
 
 
 def cmd_wait(args, repo):
@@ -806,21 +1014,29 @@ def merge_plan(repo, pr, args):
     return method, subject, ""
 
 
-def watch(repo, number, timeout, looks):
-    """Read the pull request again until GitHub's view of it holds still.
+def watch(repo, number, timeout, settle=0, marked=False, expected=False):
+    """Read the pull request again until GitHub's view of it has held still.
 
     Marking a draft ready can start checks, request a review from the code
     owners and bring branch protection in, and none of that shows at once. So
-    what depends on GitHub is read again and has to hold `looks` times in a
-    row. Returns None when the pull request can be merged, else the gate that
-    does not hold.
+    after `marked` the pull request has to look mergeable for `settle` seconds
+    and on two reads at least. With `expected`, a workflow here runs on pull
+    requests, so by then a check must have run: one that was skipped on the
+    draft does not count. Returns None when it can be merged, else the gate
+    that does not hold.
     """
+    looks = 2 if marked else 1
     start = time.monotonic()
+    calm_from = None
     calm = unknown = 0
+    shown = ""
     while True:
         pr = repo.pr()
-        if pr is None or pr.get("state") != "OPEN":
-            return gate("pr", "fail", f"#{number} is no longer open")
+        state = (pr or {}).get("state") or "CLOSED"
+        if state == "MERGED":
+            return gate("pr", "fail", f"#{number} is already merged, not by this run")
+        if state != "OPEN":
+            return gate("pr", "fail", f"#{number} was closed")
         head, base = pr.get("headRefOid") or "", pr.get("baseRefName")
         if head != repo.head:
             detail = (
@@ -835,39 +1051,68 @@ def watch(repo, number, timeout, looks):
         if failed:
             detail = f"checks failed: {check_names(failed)}"
             return gate("ci", "fail", detail, hints=log_hints(failed))
-        state = pr.get("mergeStateStatus") or "UNKNOWN"
-        if state in ("BEHIND", "DIRTY") or pr.get("mergeable") == "CONFLICTING":
-            word = "behind" if state == "BEHIND" else "in conflict with"
+        merge_state = pr.get("mergeStateStatus") or "UNKNOWN"
+        if merge_state in ("BEHIND", "DIRTY") or pr.get("mergeable") == "CONFLICTING":
+            word = "behind" if merge_state == "BEHIND" else "in conflict with"
             detail = (
                 f"#{number} is {word} {base}: merge {repo.remote}/{base} into "
                 "the branch and test again"
             )
             return gate("up-to-date", "fail", detail)
+        draft = bool(pr.get("isDraft")) or merge_state == "DRAFT"
+        if draft and not marked:
+            return gate("draft", "fail", f"#{number} was turned into a draft")
         waited = time.monotonic() - start
+        step, limit, line = min(poll_seconds(), 3), timeout, shown
         if pending:
-            calm = unknown = 0
+            # A check showed up: from here on the usual time to settle is enough.
+            calm, calm_from, settle = 0, None, min(settle, SETTLE)
             if waited >= timeout:
                 names = check_names(pending)
                 detail = f"checks still running after {int(waited)} s: {names}"
                 return gate("ci", "pending", detail)
-        elif state in ("UNKNOWN", "DRAFT") or pr.get("isDraft"):
-            calm = 0
-            unknown += 1
+            step = poll_seconds()
+            line = f"waiting for CI: {len(pending)} running"
+        elif draft or merge_state == "UNKNOWN":
+            calm, calm_from = 0, None
+            unknown += 1  # counted over the whole watch, so this always ends
+            if unknown >= UNKNOWN_LOOKS and draft:
+                detail = (
+                    f"GitHub still shows #{number} as a draft after it was "
+                    "marked ready: run ship.py merge again"
+                )
+                return gate("draft", "pending", detail)
             if unknown >= UNKNOWN_LOOKS:
                 detail = (
-                    f"GitHub has not said whether #{number} can be merged "
-                    f"(state {state.lower()}): run ship.py merge again"
+                    f"GitHub has not said whether #{number} can be merged: "
+                    "run ship.py merge again"
                 )
-                return gate("pr", "pending", detail)
+                return gate("mergeable", "pending", detail)
         else:
-            unknown = 0
             calm += 1
-            if calm >= looks:
+            if calm_from is None:
+                calm_from = waited
+            limit = calm_from + settle
+            if calm >= looks and waited >= limit:
+                if marked and expected and not ran_checks(pr):
+                    detail = (
+                        f"no check ran on #{number} in the {int(waited)} s after "
+                        "it was marked ready, and workflows here run on pull "
+                        "requests: look at the Actions tab; when none of them "
+                        "runs for this change, add --allow-no-checks"
+                    )
+                    return gate("ci", "fail", detail)
                 return None
-        time.sleep(poll_seconds() if pending else min(poll_seconds(), 3))
+            if settle >= 1:
+                line = f"watching #{number} for {settle:g} s before the merge"
+        if line != shown:
+            print(line, file=sys.stderr, flush=True)
+            shown = line
+        nap(step, waited, limit)
 
 
 def update_base(repo, base):
+    """Switch to the merged base; one sentence on where that left the checkout."""
     for step in (
         ("fetch", "-q", repo.remote),
         ("checkout", "-q", base),
@@ -875,16 +1120,23 @@ def update_base(repo, base):
     ):
         rc, out, err = repo.try_git(*step)
         if rc:
-            print(
-                f"Note: still on {repo.branch}; git {' '.join(step)} failed: "
-                f"{said(err or out, rc)}"
-            )
-            return
-    print(f"Now on {base} at {short(repo.try_git('rev-parse', 'HEAD')[1])}.")
+            why = said(err or out, rc).rstrip(".")
+            return f"Still on {repo.branch}: git {' '.join(step)} failed: {why}."
+    return f"Now on {base} at {short(repo.try_git('rev-parse', 'HEAD')[1])}."
+
+
+def refusal(gates):
+    """The last line when a gate does not hold and nothing was changed."""
+    bad = [g for g in gates if g["state"] in ("fail", "pending")] or gates
+    first = next((g for g in bad if g["stop"]), bad[0])
+    rest = ", ".join(g["gate"] for g in bad if g is not first)
+    also = f" Also not holding: {rest}." if rest else ""
+    line = f"{first['gate']}: {first['detail'].rstrip('.')}.{also}"
+    return f"STOP: {line} Ask the user." if first["stop"] else f"Not merged: {line}"
 
 
 def finish(args, repo, pr):
-    """Every gate holds: mark ready, look again, merge. The outcome is printed last."""
+    """Every gate holds: mark ready, watch, merge. The outcome is the last line."""
     number, base = str(pr.get("number")), pr.get("baseRefName")
     draft = bool(pr.get("isDraft"))
     method, subject, problem = merge_plan(repo, pr, args)
@@ -894,23 +1146,28 @@ def finish(args, repo, pr):
     cmd = ["pr", "merge", number, f"--{method}", "--match-head-commit", repo.head]
     if subject:
         cmd.append(f"--subject={subject}")
+    settle = settle_seconds(args, repo, pr) if draft else args.settle or 0
     if args.dry_run:
-        first = f"mark #{number} ready, then " if draft else ""
+        first = ""
+        if draft:
+            first = f"mark #{number} ready, watch it for {settle:g} s, then "
         print(f"Dry run. Would {first}run: gh {shlex.join(cmd)}")
         return 0
     undrafted = ""
-    looks = 1
     if draft:
         rc, out, err = repo.gh("pr", "ready", number)
         if rc:
-            print(f"Not merged: gh pr ready failed: {said(err or out, rc)}")
+            why = said(err or out, rc).rstrip(".")
+            print(f"Not merged: gh pr ready failed: {why}.")
             return EXIT_TOOL
         undrafted = f" #{number} is no longer a draft."
-        looks = READY_LOOKS_WORKFLOW if repo.starts_on_ready() else READY_LOOKS
-    problem = watch(repo, number, args.timeout, looks)
+    expected = repo.expects_checks() and not args.allow_no_checks
+    problem = watch(repo, number, args.timeout, settle, draft, expected)
     if problem:
         for hint in problem["hints"]:
             print(f"  {hint}")
+        if problem["gate"] in ("pr", "draft"):
+            undrafted = ""
         if problem["stop"]:
             print(f"STOP: {problem['detail']}.{undrafted} Ask the user.")
             return EXIT_STOP
@@ -918,11 +1175,13 @@ def finish(args, repo, pr):
         return EXIT_FAIL
     rc, out, err = repo.gh(*cmd, timeout=120)
     if rc:
-        print(f"Not merged: gh pr merge failed: {said(err or out, rc)}.{undrafted}")
+        why = said(err or out, rc).rstrip(".")
+        print(f"Not merged: gh pr merge failed: {why}.{undrafted}")
         return EXIT_FAIL
-    print(f"Merged #{number} into {base} ({method}) at {short(repo.head)}.")
+    done = f"Merged #{number} into {base} ({method}) at {short(repo.head)}."
     if not args.stay:
-        update_base(repo, base)
+        done = f"{done} {update_base(repo, base)}"
+    print(done)
     return 0
 
 
@@ -938,12 +1197,9 @@ def cmd_merge(args, repo):
     print(render(repo, pr, gates))
     code = verdict(gates)
     if code:
+        print(refusal(gates))
         return code
-    try:
-        return finish(args, repo, pr)
-    except ToolError as exc:
-        print(f"Not merged: {exc}")
-        return EXIT_TOOL
+    return finish(args, repo, pr)
 
 
 # ---------------------------------------------------------------- entry
@@ -951,9 +1207,11 @@ def cmd_merge(args, repo):
 
 def seconds(text):
     try:
-        value = int(text)
+        value = float(text)
     except ValueError:
-        raise argparse.ArgumentTypeError(f"{text!r} is not a number") from None
+        value = math.nan
+    if not math.isfinite(value):
+        raise argparse.ArgumentTypeError(f"{text!r} is not a number of seconds")
     if value < 0:
         raise argparse.ArgumentTypeError("seconds cannot be negative")
     return value
@@ -997,7 +1255,7 @@ def build_parser():
             default=None,
             metavar="S",
             help="how long to wait for the first check to show up "
-            "(default 90 with GitHub workflows in the repository, else 0)",
+            f"(default {FIRST_CHECK} with workflows in the repository, else 0)",
         )
     for cmd in (status, wait, merge):
         cmd.add_argument(
@@ -1011,6 +1269,14 @@ def build_parser():
     merge.add_argument("--dry-run", action="store_true", help="gates only, no merge")
     merge.add_argument(
         "--stay", action="store_true", help="do not switch to the base afterwards"
+    )
+    merge.add_argument(
+        "--settle",
+        type=seconds,
+        default=None,
+        metavar="S",
+        help="how long a draft has to stay mergeable after it is marked ready "
+        f"(default {SETTLE}; as --grace where a check is still to come)",
     )
     return parser
 
@@ -1036,6 +1302,9 @@ def main(argv=None):
     try:
         return COMMANDS[args.cmd](args, Repo())
     except ToolError as exc:
+        if args.cmd == "merge":
+            print(f"Not merged: {str(exc).rstrip('.')}.")
+            return EXIT_TOOL
         print(f"ship: {exc}", file=sys.stdout if quiet else sys.stderr)
         return 0 if quiet else EXIT_TOOL
 

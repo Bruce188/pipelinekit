@@ -1,15 +1,28 @@
 """ship.py against a fake gh and a throwaway repository with a bare origin."""
 
+import importlib.util
 import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 SHIP = Path(__file__).resolve().parents[1] / "ship.py"
 BRANCH = "feat/1-thing"
+
+
+def load_ship():
+    spec = importlib.util.spec_from_file_location("ship", SHIP)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+ship = load_ship()
 
 FAKE_GH = r"""#!/usr/bin/env python3
 import json
@@ -23,7 +36,9 @@ with open(os.path.join(d, "calls.jsonl"), "a") as f:
 with open(os.path.join(d, "state.json")) as f:
     state = json.load(f)
 kind = args[:2]
-if kind == ["pr", "view"]:
+if kind == ["pr", "view"] and "pr_raw" in state:
+    print(state["pr_raw"])
+elif kind == ["pr", "view"]:
     counter = os.path.join(d, "views")
     n = int(open(counter).read()) if os.path.exists(counter) else 0
     with open(counter, "w") as f:
@@ -145,22 +160,26 @@ class Sandbox:
         pr.update(over)
         return pr
 
-    def state(self, **over):
-        state = {
-            "user": "me",
-            "repo": {
-                "nameWithOwner": "o/r",
-                "defaultBranchRef": {"name": "main"},
-                "mergeCommitAllowed": True,
-                "squashMergeAllowed": True,
-                "rebaseMergeAllowed": False,
-            },
-            "pr": self.pr(),
+    def repo(self, **over):
+        repo = {
+            "nameWithOwner": "o/r",
+            "defaultBranchRef": {"name": "main"},
+            "mergeCommitAllowed": True,
+            "squashMergeAllowed": True,
+            "rebaseMergeAllowed": False,
         }
+        repo.update(over)
+        return repo
+
+    def state(self, **over):
+        state = {"user": "me", "repo": self.repo(), "pr": self.pr()}
         state.update(over)
         (self.fake / "state.json").write_text(json.dumps(state))
 
     def ship(self, *args, **env):
+        """Run ship.py; a merge settles in 0.2 s here unless the test says more."""
+        if args[:1] == ("merge",) and not {"--dry-run", "--settle"} & set(args):
+            args = (*args, "--settle", "0.2")
         return subprocess.run(
             [sys.executable, str(SHIP), *args],
             cwd=self.work,
@@ -280,6 +299,9 @@ def refused(sb, gate_name, code):
     assert done.returncode == code, done.stdout + done.stderr
     assert f"FAIL  {gate_name} " in done.stdout or f"wait  {gate_name} " in done.stdout
     assert sb.calls("pr merge") == [] and sb.calls("pr ready") == []
+    start = "STOP: " if code == 3 else "Not merged: "
+    assert last_line(done).startswith(f"{start}{gate_name}: "), last_line(done)
+    assert last_line(done).endswith("Ask the user.") == (code == 3)
     return done
 
 
@@ -403,8 +425,13 @@ def test_opt_out_in_other_places(sb):
     (home / "CLAUDE.md").write_text("Merges: ask first\n")
     assert "user-level" in refused(sb, "policy", 3).stdout
     (home / "CLAUDE.md").unlink()
-    done = sb.ship("merge", "--dry-run", PIPELINEKIT_MERGE="ask")
-    assert done.returncode == 3 and "PIPELINEKIT_MERGE=ask" in done.stdout
+    for word in ("ask", "off", "no", "0", "Ask First"):
+        done = sb.ship("merge", "--dry-run", PIPELINEKIT_MERGE=word)
+        assert done.returncode == 3, word
+        assert last_line(done).startswith(f"STOP: policy: PIPELINEKIT_MERGE={word}.")
+    for word in ("auto", " AUTO ", ""):
+        done = sb.ship("merge", "--dry-run", PIPELINEKIT_MERGE=word)
+        assert done.returncode == 0, word
 
 
 def test_a_sentence_about_the_opt_out_does_not_opt_out(sb):
@@ -425,7 +452,10 @@ def test_merge_marks_ready_and_merges_exactly_the_tested_commit(sb):
     assert sb.calls("pr merge") == [
         ["pr", "merge", "7", "--squash", "--match-head-commit", head]
     ]
-    assert "Merged #7 into main" in done.stdout
+    base = sb.git("rev-parse", "main")[:7]
+    assert last_line(done) == (
+        f"Merged #7 into main (squash) at {head[:7]}. Now on main at {base}."
+    )
     assert sb.git("branch", "--show-current") == "main"
 
 
@@ -450,6 +480,7 @@ def test_merge_follows_a_base_that_uses_merge_commits(sb):
         sb.head(),
         f"--subject=chore: merge {BRANCH}",
     ]
+    assert last_line(done) == f"Merged #7 into main (merge) at {sb.head()[:7]}."
     assert sb.git("branch", "--show-current") == BRANCH
 
 
@@ -468,7 +499,11 @@ def test_merge_dry_run_changes_nothing(sb):
     done = sb.ship("merge", "--dry-run")
     assert done.returncode == 0
     plan = "run: gh pr merge 7 --squash --match-head-commit"
-    assert last_line(done).startswith(f"Dry run. Would mark #7 ready, then {plan}")
+    ready = "Dry run. Would mark #7 ready, watch it for 30 s, then "
+    assert last_line(done).startswith(ready + plan)
+    assert "for 4.5 s, then" in last_line(
+        sb.ship("merge", "--dry-run", "--settle", "4.5")
+    )
     assert sb.calls("pr merge") == [] and sb.calls("pr ready") == []
     assert sb.git("branch", "--show-current") == BRANCH
     sb.state(pr=sb.pr(isDraft=False, mergeStateStatus="CLEAN"))
@@ -500,6 +535,7 @@ def test_merge_waits_for_checks_that_show_up_late(sb):
     done = sb.ship("merge", "--grace", "30")
     assert done.returncode == 0, done.stdout + done.stderr
     assert "1 check finished" in done.stdout
+    assert "waiting for the first check to show up" in done.stderr
 
 
 # ---------------------------------------------------------------- wait
@@ -632,29 +668,87 @@ def test_the_kit_template_names_the_opt_out_without_opting_out(sb):
 # ---------------------------------------------------------------- after marking ready
 
 
-def test_merge_looks_again_after_marking_ready(sb):
+def test_merge_reads_twice_after_marking_ready(sb):
     sb.passed()
-    assert sb.ship("merge").returncode == 0
-    assert sb.views_after_ready() == 4
+    assert sb.ship("merge", "--settle", "0").returncode == 0
+    assert sb.views_after_ready() == 2
 
 
-def test_merge_looks_longer_when_a_workflow_starts_on_ready(sb):
+def test_merge_watches_for_the_settle_time(sb):
+    sb.passed()
+    start = time.monotonic()
+    done = sb.ship("merge", "--settle", "1.5")
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert time.monotonic() - start >= 1.5
+    assert sb.views_after_ready() >= 3
+    assert "watching #7 for 1.5 s before the merge" in done.stderr
+
+
+def settle_of(sb, *args):
+    line = last_line(sb.ship("merge", "--dry-run", *args))
+    return line.partition("watch it for ")[2].partition(" s, then ")[0]
+
+
+def test_the_settle_time_follows_what_is_still_to_come(sb):
+    sb.passed()
+    assert settle_of(sb) == "30"
+    sb.workflow()
+    assert settle_of(sb) == "30"
+    sb.state(pr=sb.pr(statusCheckRollup=[check("lint", "SKIPPED")]))
+    assert settle_of(sb) == "90"
+    assert settle_of(sb, "--grace", "200") == "200"
+    assert settle_of(sb, "--allow-no-checks") == "30"
+    assert settle_of(sb, "--settle", "5") == "5"
+    sb.state()
     sb.workflow("on:\n  pull_request:\n    types: [opened, ready_for_review]\n")
-    sb.passed()
-    assert sb.ship("merge").returncode == 0
-    assert sb.views_after_ready() == 15
+    assert settle_of(sb) == "90"
 
 
 def test_merge_waits_for_a_check_that_starts_when_marked_ready(sb):
     sb.passed()
     running = {"statusCheckRollup": [check("lint"), check("owners", "", "QUEUED")]}
     finished = {"statusCheckRollup": [check("lint"), check("owners")]}
-    sb.state(after_ready_sequence=[{}, {}, running, running, finished])
-    done = sb.ship("merge")
+    sb.state(after_ready_sequence=[{}, {}, {}, {}, running, running, finished])
+    done = sb.ship("merge", "--settle", "3")
     assert done.returncode == 0, done.stdout + done.stderr
-    # two calm looks, two with the check running, then four calm ones in a row
-    assert sb.views_after_ready() == 8
+    assert "waiting for CI: 1 running" in done.stderr
+    assert sb.views_after_ready() >= 8
     assert len(sb.calls("pr merge")) == 1
+
+
+def test_merge_sees_a_check_that_was_skipped_on_the_draft_fail(sb):
+    sb.workflow()
+    sb.passed()
+    queued = {"statusCheckRollup": [check("lint", "", "QUEUED")]}
+    failed = {"statusCheckRollup": [check("lint", "FAILURE")]}
+    sb.state(
+        pr=sb.pr(statusCheckRollup=[check("lint", "SKIPPED")]),
+        after_ready_sequence=[{}, {}, {}, queued, failed],
+    )
+    done = sb.ship("merge", "--settle", "5")
+    assert done.returncode == 1 and sb.calls("pr merge") == []
+    assert "checks failed: lint" in last_line(done)
+
+
+def test_merge_does_not_take_a_skipped_check_for_a_run(sb):
+    sb.workflow()
+    sb.passed()
+    sb.state(pr=sb.pr(statusCheckRollup=[check("lint", "SKIPPED")]))
+    done = sb.ship("merge", "--settle", "0.5")
+    assert done.returncode == 1 and sb.calls("pr merge") == []
+    assert last_line(done).startswith("Not merged: no check ran on #7 in the ")
+    assert last_line(done).endswith("--allow-no-checks. #7 is no longer a draft.")
+    done = sb.ship("merge", "--allow-no-checks")
+    assert done.returncode == 0, done.stdout + done.stderr
+
+
+def test_merge_stops_when_the_pull_request_turns_into_a_draft(sb):
+    sb.passed()
+    ready = sb.pr(isDraft=False, mergeStateStatus="CLEAN")
+    sb.state(pr_sequence=[ready, ready, ready, sb.pr()])
+    done = sb.ship("merge", "--settle", "5")
+    assert done.returncode == 1 and sb.calls("pr merge") == []
+    assert last_line(done) == "Not merged: #7 was turned into a draft."
 
 
 def test_merge_gives_up_on_a_check_that_keeps_running(sb):
@@ -679,14 +773,19 @@ def test_merge_gives_up_on_a_check_that_keeps_running(sb):
         ({"reviewDecision": "REVIEW_REQUIRED"}, 3, "requires a review"),
         ({"headRefOid": "1" * 40}, 1, "pull and test again"),
         ({"mergeStateStatus": "BEHIND"}, 1, "behind main"),
+        ({"mergeStateStatus": "BLOCKED"}, 3, "branch protection blocks the merge"),
         ({"mergeStateStatus": "UNKNOWN"}, 1, "has not said"),
-        ({"state": "CLOSED"}, 1, "no longer open"),
+        ({"isDraft": True}, 1, "still shows #7 as a draft"),
+        ({"state": "CLOSED"}, 1, "#7 was closed"),
+        ({"state": "MERGED"}, 1, "#7 is already merged, not by this run"),
     ],
 )
 def test_merge_stops_on_what_shows_up_after_marking_ready(sb, later, code, words):
     sb.passed()
-    sb.state(after_ready_sequence=[{}, {}, later])
-    done = sb.ship("merge")
+    sb.state(after_ready_sequence=[{}, {}, {}, {}, later])
+    done = sb.ship("merge", "--settle", "20")
+    gone = "state" in later or "isDraft" in later
+    assert ("no longer a draft" in last_line(done)) != gone
     assert done.returncode == code, done.stdout + done.stderr
     assert sb.calls("pr merge") == []
     assert words in last_line(done)
@@ -755,20 +854,22 @@ NOT_RELEASES = [
 ]
 
 
-def release_gate(sb, over):
-    sb.state(pr=sb.pr(**over))
-    done = sb.ship("status", "--json")
-    return gates(done)["release"]["state"], json.loads(done.stdout)["stop"]
+def held(over, default="main", name="o/r"):
+    """The release gate itself, without a repository: (state, stop)."""
+    info = {"nameWithOwner": name, "defaultBranchRef": {"name": default}}
+    pr = {"title": "feat: thing", "headRefName": BRANCH, "baseRefName": "main"}
+    found = ship.release_gate(SimpleNamespace(info=lambda: info), {**pr, **over})
+    return found["state"], found["stop"]
 
 
-def test_releases_are_recognised(sb):
-    for over in RELEASES:
-        assert release_gate(sb, over) == ("fail", True), over
+@pytest.mark.parametrize("over", RELEASES, ids=str)
+def test_releases_are_recognised(over):
+    assert held(over) == ("fail", True)
 
 
-def test_changes_that_only_mention_a_release_are_not_releases(sb):
-    for over in NOT_RELEASES:
-        assert release_gate(sb, over) == ("pass", False), over
+@pytest.mark.parametrize("over", NOT_RELEASES, ids=str)
+def test_changes_that_only_mention_a_release_are_not_releases(over):
+    assert held(over) == ("pass", False)
 
 
 # ---------------------------------------------------------------- stuck loop, opt-out
@@ -782,25 +883,38 @@ OPT_OUTS = [
     "- `Merges: ask first`.",
     "<!-- Merges: ask first -->",
     "<!--\nMerges: ask first\n-->",
+    "1. Merges: ask first",
+    "2) Merges: ask first",
+    "- [x] Merges: ask first",
+    "- [ ] Merges: ask first",
+    "+ Merges: ask first",
+    "## Merges: ask first",
+    "| Merges: ask first |",
+    "| Rule | Merges: ask first |",
 ]
 NOT_OPT_OUTS = [
     "To turn this off, add `Merges: ask first` to this file.",
     "`Merges: ask first` turns the automatic merge off.",
     "Merges are asked for first in other projects.",
     "## Merges\n\nAsk the team in the channel.",
+    "We do not use Merges: ask first here.",
+    "To opt out, add the line `Merges: ask first`.",
 ]
 
 
-def policy(sb, line):
-    (sb.work / "CLAUDE.md").write_text(f"# Project\n\n{line}\n")
-    return gates(sb.ship("status", "--json"))["policy"]["state"]
+@pytest.mark.parametrize("line", OPT_OUTS)
+def test_the_opt_out_line_in_its_markdown_forms(line):
+    assert ship.opts_out(f"# Project\n\n{line}\n")
 
 
-def test_the_opt_out_line_in_its_markdown_forms(sb):
-    for line in OPT_OUTS:
-        assert policy(sb, line) == "fail", line
-    for line in NOT_OPT_OUTS:
-        assert policy(sb, line) == "pass", line
+@pytest.mark.parametrize("line", NOT_OPT_OUTS)
+def test_a_text_about_the_opt_out_line_does_not_opt_out(line):
+    assert not ship.opts_out(f"# Project\n\n{line}\n")
+
+
+def test_the_opt_out_is_read_from_a_file_with_a_byte_order_mark(sb):
+    (sb.work / "CLAUDE.md").write_text("\ufeffMerges: ask first\n", encoding="utf-8")
+    assert gates(sb.ship("status", "--json"))["policy"]["state"] == "fail"
 
 
 def test_a_stuck_loop_shows_in_status_and_merge(sb):
@@ -881,6 +995,9 @@ def test_no_check_is_fine_when_no_workflow_runs_on_pull_requests(sb):
         ("wait", "--timeout", "-1"),
         ("merge", "--grace", "-5"),
         ("wait", "--grace", "soon"),
+        ("wait", "--timeout", "nan"),
+        ("wait", "--timeout", "inf"),
+        ("merge", "--settle", "-1"),
     ],
 )
 def test_seconds_must_be_a_number_that_is_not_negative(sb, args):
@@ -914,3 +1031,254 @@ def test_status_names_a_pull_request_that_is_not_open(sb):
     first = done.stdout.splitlines()[0]
     assert first.endswith("(merged)") and "draft" not in first
     assert "Result: not ready (pr, tested)" in done.stdout
+
+
+# ---------------------------------------------------------------- release wording
+
+RELEASE_TITLES = [
+    "chore: version bump",
+    "chore: bump version",
+    "chore: bump package version",
+    "chore: increment version",
+    "Bump version: 1.2.3 to 1.2.4",
+    "Bump version: 1.2.3 \u2192 1.2.4",
+    "chore: bump version (1.2.4)",
+    "chore: bump version to v2",
+    "chore: set version to 0.2.0",
+    "chore: update version to 0.2.0",
+    "Version 1.2.3",
+    "chore: version 1.2.3",
+    "build: version 0.2.0",
+    "Prepare for 2.0 release",
+    "chore: release",
+    "Release",
+    "ci: release",
+    "chore: new release",
+    "chore: cut release",
+    "chore: prepare release",
+    "Prepare release",
+    "chore: release prep",
+    "chore: release candidate",
+    "chore: prepare 0.3.0",
+    "chore: prepare v0.2.0",
+    "Prepare 1.2.0",
+    "chore: prepare 0.2.0 release",
+    "chore: 1.2.4 release",
+    "[release] 1.2.0",
+    "[Release] v1.2.0",
+    "Release-1.2.0",
+    "chore: pre-release 1.0.0-beta.1",
+    "chore: prerelease 1.0.0-beta.1",
+    "chore: finalize v1.0",
+    "chore: publish to npm",
+    "chore: publish v2",
+    "chore: publish packages",
+    "chore: publish 1.2.0",
+    "chore: release notes and version bump for 0.2.0",
+    "chore: update changelog for 0.2.0",
+    "chore: ship 0.2.0",
+    "chore: deploy to production",
+    "Merge develop into main",
+    "feat: add thing (release 0.2.0)",
+    "Bump to 1.2.4",
+    "chore(release): prepare",
+    "chore: release pipelinekit 0.2.0",
+    "Cut 1.2.0",
+    "chore: version packages",
+    "chore: tag 1.0.0",
+    "chore: 0.2.0",
+]
+ORDINARY_TITLES = [
+    "fix: release 1.2.0 broke the installer",
+    "fix: publish 1.2.0 fails on Windows",
+    "fix: tag 1.0.0 not found by the resolver",
+    "docs: release 1.2.0 notes",
+    "chore(release): fix changelog script",
+    "ci(release): pin action versions",
+    "feat: cut 0.2 s from startup",
+    "feat: add release notes page",
+    "fix: version check in the installer",
+    "docs: explain the release process",
+    "chore: pipelinekit 0.2.0",
+    "chore: bump pipelinekit to 0.2.0",
+]
+RELEASE_HEADS = [
+    "chore/212-release-v0.2.0",
+    "chore/212-release-0.2.0",
+    "chore/212-release",
+    "chore/213-version-bump",
+    "build/214-release-0.2.0",
+    "chore/release",
+    "chore/prepare-release",
+    "chore/bump-version-1.2.3",
+    "chore/v0.2.0",
+    "build/99-version-0.2.0",
+    "version/2.0",
+    "bump/1.2.3",
+    "1.x",
+    "1.2.x",
+    "v2",
+    "v1.2",
+    "beta",
+    "uat",
+    "qa",
+    "preprod",
+    "release-candidate",
+    "staging/eu",
+    "staging",
+    "test",
+    "testing",
+    "canary",
+    "preview",
+    "trunk",
+    "master",
+    "release/212-v0.2.0",
+    "chore/release-0.2",
+    "development",
+    "develop",
+    "dev",
+    "next",
+]
+ORDINARY_HEADS = [
+    "fix/release-1.2-regression",
+    "feat/release-2.0-banner",
+    "docs/release-1.2-notes",
+    "feat/12-release-notes",
+]
+# (head, base, default branch)
+RELEASE_BRANCHES = [
+    (BRANCH, "gh-pages", "main"),
+    (BRANCH, "deploy/prod", "main"),
+    (BRANCH, "env/production", "main"),
+    (BRANCH, "prod", "main"),
+    (BRANCH, "live", "main"),
+    (BRANCH, "deploy", "main"),
+    (BRANCH, "stable", "main"),
+    ("main", "staging", "main"),
+    ("main", "develop", "main"),
+    ("main", "release/v1.0", "main"),
+    (BRANCH, "main", "develop"),
+    (BRANCH, "master", "develop"),
+    ("release/1.0", "master", "develop"),
+    ("release/1.0", "main", "develop"),
+    ("develop", "main", "develop"),
+]
+ORDINARY_BRANCHES = [
+    (BRANCH, "develop", "develop"),
+    (BRANCH, "release/v0.1.0", "main"),
+    ("fix/9-typo", "staging", "main"),
+]
+
+
+@pytest.mark.parametrize("title", RELEASE_TITLES)
+def test_a_title_that_names_a_release_is_held(title):
+    assert held({"title": title}) == ("fail", True)
+
+
+@pytest.mark.parametrize("title", ORDINARY_TITLES)
+def test_a_title_about_a_release_is_not_held(title):
+    assert held({"title": title}) == ("pass", False)
+
+
+def test_the_name_of_the_repository_counts_as_a_release_word():
+    for title in ("chore: pipelinekit 0.2.0", "chore: bump pipelinekit to 0.2.0"):
+        assert held({"title": title}, name="o/pipelinekit") == ("fail", True), title
+
+
+@pytest.mark.parametrize("head", RELEASE_HEADS)
+def test_a_branch_that_names_a_release_is_held(head):
+    assert held({"headRefName": head}) == ("fail", True)
+
+
+@pytest.mark.parametrize("head", ORDINARY_HEADS)
+def test_a_branch_about_a_release_is_not_held(head):
+    assert held({"headRefName": head}) == ("pass", False)
+
+
+@pytest.mark.parametrize(("head", "base", "default"), RELEASE_BRANCHES)
+def test_a_deploy_or_a_promotion_is_held(head, base, default):
+    over = {"headRefName": head, "baseRefName": base}
+    assert held(over, default) == ("fail", True)
+
+
+@pytest.mark.parametrize(("head", "base", "default"), ORDINARY_BRANCHES)
+def test_a_change_into_a_working_branch_is_not_held(head, base, default):
+    over = {"headRefName": head, "baseRefName": base}
+    assert held(over, default) == ("pass", False)
+
+
+def test_merge_refuses_what_goes_into_main_when_it_is_not_the_default(sb):
+    sb.passed()
+    sb.state(repo=sb.repo(defaultBranchRef={"name": "develop"}))
+    done = refused(sb, "release", 3)
+    assert "main is not the default branch (develop)" in last_line(done)
+
+
+# ---------------------------------------------------------------- answers, limits
+
+
+def test_a_branch_cannot_drop_the_opt_out_of_its_base(sb):
+    sb.git("checkout", "-q", "main")
+    (sb.work / "CLAUDE.md").write_text("Merges: ask first\n")
+    sb.git("add", "CLAUDE.md")
+    sb.git("commit", "-q", "-m", "docs: ask before merging")
+    sb.git("push", "-q", "origin", "main")
+    sb.git("checkout", "-q", BRANCH)
+    sb.git("merge", "-q", "-m", "chore: merge main", "main")
+    sb.git("rm", "-q", "CLAUDE.md")
+    sb.git("commit", "-q", "-m", "docs: drop the rules file")
+    sb.git("push", "-q")
+    sb.state()
+    sb.passed()
+    done = refused(sb, "policy", 3)
+    assert "CLAUDE.md on main says `Merges: ask first`" in last_line(done)
+
+
+@pytest.mark.parametrize(
+    ("state", "words"),
+    [("BEHIND", "behind main, GitHub says"), ("DIRTY", "conflicts with main")],
+)
+def test_merge_refuses_what_github_calls_behind_or_in_conflict(sb, state, words):
+    sb.passed()
+    sb.state(pr=sb.pr(isDraft=False, mergeStateStatus=state))
+    assert words in last_line(refused(sb, "up-to-date", 1))
+
+
+def test_finding_ids_split_on_commas_and_semicolons(sb):
+    done = sb.ship("record", "--result", "fail", "--open", "F1,F2", "F3; F4")
+    assert done.returncode == 0
+    data = json.loads((sb.work / "docs/uat/feat-1-thing.json").read_text())
+    assert data["rounds"][0]["open"] == ["F1", "F2", "F3", "F4"]
+
+
+def test_record_refuses_the_default_branch(sb):
+    sb.git("checkout", "-q", "main")
+    done = sb.ship("record", "--result", "pass")
+    assert done.returncode == 2
+    assert "main is not the branch of a pull request" in done.stderr
+    assert not (sb.work / "docs").exists()
+
+
+def test_seconds_may_be_decimals(sb):
+    assert sb.ship("wait", "--timeout", "0.5", "--grace", "0.25").returncode == 0
+
+
+@pytest.mark.parametrize("raw", ["<html>502 Bad Gateway</html>", "[]", "null", ""])
+def test_an_unreadable_answer_from_gh_is_a_tool_error(sb, raw):
+    sb.passed()
+    sb.state(pr_raw=raw)
+    done = sb.ship("status")
+    assert done.returncode == 2
+    assert "gh pr view: unreadable answer" in done.stderr
+    done = sb.ship("merge")
+    assert done.returncode == 2
+    assert last_line(done) == "Not merged: gh pr view: unreadable answer."
+    assert sb.calls("pr ready") == [] and sb.calls("pr merge") == []
+
+
+def test_wait_does_not_sleep_past_its_timeout(sb):
+    sb.state(pr=sb.pr(statusCheckRollup=[check("lint", "", "IN_PROGRESS")]))
+    start = time.monotonic()
+    done = sb.ship("wait", "--timeout", "1", SHIP_POLL_SECONDS="15")
+    assert done.returncode == 1 and "still running after 1 s" in done.stdout
+    assert time.monotonic() - start < 6
