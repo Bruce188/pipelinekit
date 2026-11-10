@@ -108,6 +108,8 @@ are left.
 bash scripts/verify.sh
 ```
 
+In a Claude Code session, `/kit` gives the same report.
+
 ## Rolling back
 
 Your 0.0.1 setup is still in the backups from step 1. To go back, move the current directory aside rather than deleting it, so sessions and memory created since the upgrade are not lost:
