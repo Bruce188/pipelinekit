@@ -54,7 +54,12 @@ SECTIONS = (
     ("activity", "Activity"),
 )
 SKIP_DIRS = {"__pycache__", ".pytest_cache", ".ruff_cache"}
-CONTROL = re.compile(r"[\x00-\x1f\x7f]+")
+# The same characters kitlog.py keeps out of the log: they can change how a
+# line reads (controls, separators, direction marks, zero-width characters).
+CONTROL = re.compile(
+    r"[\x00-\x1f\x7f-\x9f\xad\u061c\u200b-\u200f\u2028-\u202e\u2060-\u206f"
+    r"\ufeff\ud800-\udfff\U000e0000-\U000e007f]+"
+)
 WSL_NOTE = (
     "WSL: in Claude Code Desktop pick the WSL environment; "
     "a Local (Windows) session cannot run these hooks"
@@ -69,7 +74,7 @@ EVENT_KINDS = {
 }
 EVENT_HOOK = re.compile(r"^[A-Za-z0-9._-]{1,40}$")
 EVENT_RULE = re.compile(r"^[a-z-]{1,30}\.[a-z0-9-]{1,40}$")
-SESSION = re.compile(r"[A-Za-z0-9_-]{1,64}")
+SESSION = re.compile(r"[A-Za-z0-9_-]{1,80}")
 MAX_LOG_BYTES = 4_000_000  # read at most this much of a log file
 ACTIVITY_LINES = 20
 
@@ -817,11 +822,20 @@ def check_activity(c: Check) -> None:
     off = os.environ.get("PIPELINEKIT_LOG") == "0"
     if off:
         c.add("activity", "info", "the event log is switched off (PIPELINEKIT_LOG=0)")
-    since = time.time() - c.days * 86400
+    now = time.time()
+    since = now - c.days * 86400
+    directory = state_dir()
+    logs = [os.path.join(directory, n) for n in ("events.jsonl.1", "events.jsonl")]
+    lost = [p for p in logs if os.path.lexists(p) and not os.access(p, os.R_OK)]
+    if os.path.lexists(directory) and not os.path.isdir(directory):
+        lost = [directory]
+    for path in lost:
+        c.add("activity", "info", f"the event log cannot be read: {clean(path)}")
     seen: set[tuple] = set()
     groups: dict[tuple[str, str, str], dict] = {}
-    for e in read_events(state_dir()):
-        if e["when"] < since:
+    for e in read_events(directory):
+        # An event from the future was written by a clock that was wrong.
+        if e["when"] < since or e["when"] > now + 300:
             continue
         if c.session and e.get("session") != c.session:
             continue
@@ -838,10 +852,12 @@ def check_activity(c: Check) -> None:
             g["last"] = e["when"]
             g["reason"] = clean(e.get("reason") or "", 200)
     if not groups:
-        if not off:
+        if not off and not lost:
             c.add("activity", "info", f"no blocks, asks or hook errors ({c.window})")
         return
     ordered = sorted(groups.items(), key=lambda kv: (-kv[1]["last"], kv[0]))
+    hidden: list[str] = []
+    extra = 0
     for n, ((hook, rule, kind), g) in enumerate(ordered):
         when = time.gmtime(g["last"])
         c.activity.append(
@@ -855,7 +871,11 @@ def check_activity(c: Check) -> None:
             }
         )
         if n >= ACTIVITY_LINES:
-            continue
+            # A failed hook is not dropped for newer blocks.
+            if kind != "error" or extra >= ACTIVITY_LINES:
+                hidden.append(kind)
+                continue
+            extra += 1
         times = "once" if g["count"] == 1 else f"{g['count']} times"
         msg = (
             f"{rule} ({hook}): {EVENT_KINDS[kind]} {times}, "
@@ -864,12 +884,14 @@ def check_activity(c: Check) -> None:
         if g["reason"]:
             msg += f": {g['reason']}"
         c.add("activity", "warn" if kind == "error" else "info", msg)
-    more = len(ordered) - ACTIVITY_LINES
-    if more > 0:
+    if hidden:
+        failed = hidden.count("error")
         c.add(
             "activity",
-            "info",
-            f"{plural(more, 'more rule')} not shown (--json lists them all)",
+            "warn" if failed else "info",
+            f"{plural(len(hidden), 'more rule')} not shown"
+            + (f", {failed} of them failed" if failed else "")
+            + " (--json lists them all)",
         )
 
 
@@ -995,6 +1017,10 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    for stream in (sys.stdout, sys.stderr):
+        # A character the terminal cannot show must not end the report.
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="replace")
     try:
         code = main()
     except Exception as exc:  # the checker must not die with a traceback

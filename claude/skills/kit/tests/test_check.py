@@ -692,3 +692,51 @@ def test_event_log_formats_match_the_hooks(monkeypatch, tmp_path):
     assert check_py.EVENT_HOOK.pattern == kitlog.HOOK.pattern
     assert check_py.EVENT_RULE.pattern == kitlog.RULE.pattern
     assert tuple(check_py.EVENT_KINDS) == kitlog.KINDS
+
+
+def test_a_failed_hook_is_shown_however_busy_the_log_is(kit):
+    busy = [ev(f"git.rule-{n:02d}", age_days=n / 1000) for n in range(25)]
+    write_events(kit, *busy, ev("internal.crash", "error", age_days=2))
+    rc, out = check(kit)
+    assert rc == 0, out
+    assert "[warn] internal.crash (bash-guard): failed once" in out
+    assert "[info] 5 more rules not shown (--json lists them all)" in out
+    assert out.rstrip().endswith("Result: working, 1 warning")
+
+
+def test_characters_the_report_cannot_show_do_not_end_it(kit):
+    write_events(kit, ev(reason="a\x9b\u202e\u2028\u2029\ud800b"))
+    rc, out = check(kit)
+    assert rc == 0 and "UTC: a b" in out, out
+    rocket = ev("commit-msg.emoji", hook="commit-msg", reason="emoji \U0001f680 x")
+    write_events(kit, rocket)
+    plain = {"LC_ALL": "POSIX", "LANG": "", "PYTHONUTF8": "0"}
+    rc, out = check(kit, env=dict(plain, PYTHONCOERCECLOCALE="0"))
+    assert rc == 0 and "check failed" not in out, out
+    assert "commit-msg.emoji (commit-msg): blocked once" in out
+
+
+def test_events_from_the_future_are_left_out(kit):
+    write_events(kit, ev(age_days=-1), ev("sql.destructive", "ask"))
+    rc, out = check(kit, "--days", "30")
+    assert rc == 0 and activity_rules(out) == ["sql.destructive"], out
+
+
+def test_a_log_that_cannot_be_read_is_named(kit):
+    if os.geteuid() == 0:
+        pytest.skip("root reads every file")
+    write_events(kit, ev())
+    (state(kit) / "events.jsonl").chmod(0)
+    rc, out = check(kit)
+    assert rc == 0, out
+    assert "[info] the event log cannot be read: " in out
+    assert "no blocks, asks" not in out
+
+
+def test_a_session_id_as_long_as_the_hooks_store_it(kit):
+    long = "a" * 80
+    write_events(kit, ev(session=long))
+    rc, out = check(kit, "--session", long)
+    assert rc == 0 and activity_rules(out) == ["git.no-verify"], out
+    rc, out = check(kit, "--session", long + "a")
+    assert rc == 2, out

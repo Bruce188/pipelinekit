@@ -817,7 +817,7 @@ def main() -> int:
     groups = set(sys.argv[1:]) & ALL_GROUPS or ALL_GROUPS
     try:
         data = json.load(sys.stdin)
-    except ValueError:
+    except (ValueError, RecursionError):
         data = None
     if not isinstance(data, dict):
         record("error", "input.invalid", "invalid hook input")

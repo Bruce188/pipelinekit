@@ -361,7 +361,17 @@ def test_allowed_command_logs_nothing(env, tmp_path):
     assert not (tmp_path / "s").exists()
 
 
-@pytest.mark.parametrize("payload", ["not json", "[1, 2]", '"text"', "null", ""])
+@pytest.mark.parametrize(
+    "payload",
+    [
+        "not json",
+        "[1, 2]",
+        '"text"',
+        "null",
+        "",
+        pytest.param("[" * 200000, id="nested too deep"),
+    ],
+)
 def test_invalid_input_is_refused_and_logged(env, tmp_path, payload):
     p = raw(env, "", tmp_path / "s", payload=payload)
     assert p.returncode == 2

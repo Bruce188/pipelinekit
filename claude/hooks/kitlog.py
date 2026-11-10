@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import stat
 import sys
 import time
 
@@ -28,8 +29,16 @@ HOOK = re.compile(r"^[A-Za-z0-9._-]{1,40}$")
 RULE = re.compile(r"^[a-z-]{1,30}\.[a-z0-9-]{1,40}$")
 MAX_BYTES = 1_000_000  # rotate at this size; one older file is kept
 MAX_LINE = 2048
-CONTROL = re.compile(r"[\x00-\x1f\x7f]+")
-URL_CREDENTIALS = re.compile(r"://[^/@\s]*@")
+# Characters that can change how a line reads: controls (C0 and C1), the soft
+# hyphen, line and paragraph separators, direction marks, zero-width and tag
+# characters, and halves of a surrogate pair.
+CONTROL = re.compile(
+    r"[\x00-\x1f\x7f-\x9f\xad\u061c\u200b-\u200f\u2028-\u202e\u2060-\u206f"
+    r"\ufeff\ud800-\udfff\U000e0000-\U000e007f]+"
+)
+USER_PASSWORD = re.compile(r"[^\s/@:'\"]+:[^\s/'\"]*@")  # user:password@host
+URL_USER = re.compile(r"//[^/\s'\"]*@")  # //token@host
+URL_QUERY = re.compile(r"(?<=[^\s'\"])[?#][^\s'\"]*=[^\s'\"]*")  # ?token=...
 
 
 def state_dir() -> str:
@@ -47,9 +56,15 @@ def log_path() -> str:
 
 
 def tidy(text: object, limit: int) -> str:
-    """One printable line, without the credentials of any URL in it."""
-    text = CONTROL.sub(" ", "" if text is None else str(text)).strip()
-    return URL_CREDENTIALS.sub("://", text)[:limit]
+    """One printable line."""
+    return CONTROL.sub(" ", "" if text is None else str(text)).strip()[:limit]
+
+
+def without_credentials(text: str) -> str:
+    """Without what a URL or remote can carry as a secret: user:password@,
+    a user in front of the host, a query string and a fragment."""
+    text = URL_USER.sub("//", USER_PASSWORD.sub("", text))
+    return URL_QUERY.sub("", text)
 
 
 def event(
@@ -67,7 +82,7 @@ def event(
         "hook": hook,
         "kind": kind,
         "rule": rule,
-        "reason": tidy(reason, 300),
+        "reason": without_credentials(tidy(reason, 4000))[:300],
     }
     optional = {
         "prog": tidy(prog, 40),
@@ -108,8 +123,11 @@ def append(line: bytes) -> None:
     except FileNotFoundError:
         pass
     flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
-    fd = os.open(path, flags, 0o600)
+    # A named pipe at the path must not make a hook wait for a reader.
+    fd = os.open(path, flags | getattr(os, "O_NONBLOCK", 0), 0o600)
     try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise OSError("the log is not a regular file")
         os.write(fd, line)
     finally:
         os.close(fd)

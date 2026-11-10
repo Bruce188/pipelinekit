@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import os
 import stat
 import subprocess
 import sys
@@ -190,3 +191,52 @@ def test_cli_exits_zero_when_the_log_cannot_be_written(tmp_path):
     blocker.write_text("x")
     p = cli(blocker / "state", "pre-push", "block", "pre-push.protected-branch")
     assert p.returncode == 0 and p.stderr == ""
+
+
+@pytest.mark.parametrize(
+    "url,kept",
+    [
+        ("https://h.example/o/r.git?access_token=SECRET", "https://h.example/o/r.git"),
+        (
+            "https://h.example/o/r.git?private_token=SECRET&x=1",
+            "https://h.example/o/r.git",
+        ),
+        ("https://h.example/o/r.git#token=SECRET", "https://h.example/o/r.git"),
+        ("u5:SECRET@h.example:o/r.git", "h.example:o/r.git"),
+        ("//u11:SECRET@h.example/o/r.git", "//h.example/o/r.git"),
+        ("https://u3:SEC@RET@h.example/o/r.git", "https://h.example/o/r.git"),
+        ("https:/u12:SECRET@h.example/.env", "https:/h.example/.env"),
+        ("https://SECRET@h.example/o/r.git", "https://h.example/o/r.git"),
+        ("git@h.example:o/r.git", "git@h.example:o/r.git"),
+        ("ssh://h.example:22/o/r.git", "ssh://h.example:22/o/r.git"),
+    ],
+)
+def test_no_form_of_a_remote_keeps_its_credentials(state, url, kept):
+    reason = f"push to remote '{url}' is not allowed; only origin"
+    kitlog.log("bash-guard", "block", "git.push-remote", reason)
+    (e,) = events(state)
+    assert e["reason"] == f"push to remote '{kept}' is not allowed; only origin"
+    assert "SEC" not in (state / "events.jsonl").read_text()
+
+
+def test_reason_has_no_character_that_changes_how_a_line_reads(state):
+    odd = "\x9b\u202e\u2066\u200b\xad\u2028\u2029\ufeff\U000e0041\ud800"
+    kitlog.log("bash-guard", "block", "git.push-remote", f"a{odd}b")
+    (e,) = events(state)
+    assert e["reason"] == "a b"
+
+
+def test_a_named_pipe_at_the_log_path_is_left_alone(state):
+    state.mkdir()
+    pipe = state / "events.jsonl"
+    os.mkfifo(pipe)
+    env = {"PATH": "/usr/bin:/bin", "PIPELINEKIT_STATE_DIR": str(state)}
+    args = [sys.executable, str(KITLOG), "pre-push", "block", "pre-push.x", "y"]
+    p = subprocess.run(args, capture_output=True, text=True, env=env, timeout=30)
+    assert p.returncode == 0 and p.stderr == ""
+    reader = os.open(pipe, os.O_RDONLY | os.O_NONBLOCK)
+    try:
+        subprocess.run(args, env=env, timeout=30)
+        assert os.read(reader, 100) == b""
+    finally:
+        os.close(reader)

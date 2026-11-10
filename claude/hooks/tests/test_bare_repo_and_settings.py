@@ -133,3 +133,12 @@ def test_odd_input_never_ends_in_a_traceback(tmp_path, payload):
     assert p.returncode in (0, 2) and "Traceback" not in p.stderr
     if payload in ("not json", "[]"):
         assert p.returncode == 2 and "[input.invalid]" in p.stderr
+
+
+def test_input_nested_too_deep_is_refused(tmp_path):
+    env = dict(os.environ, PIPELINEKIT_STATE_DIR=str(tmp_path / "state"))
+    p = subprocess.run(
+        [str(BARE)], input="[" * 200000, capture_output=True, text=True, env=env
+    )
+    assert p.returncode == 2 and "Traceback" not in p.stderr
+    assert p.stderr.rstrip().endswith("[input.invalid]")

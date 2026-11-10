@@ -59,7 +59,7 @@ def record(kind: str, rule: str, reason: str, data: object = None) -> None:
 def main() -> int:
     try:
         data = json.load(sys.stdin)
-    except ValueError:
+    except (ValueError, RecursionError):
         data = None
     if not isinstance(data, dict):
         record("error", "input.invalid", "invalid hook input")
