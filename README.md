@@ -44,6 +44,13 @@ The installer merges `claude/config/settings.template.json` into `~/.claude/sett
 
 A repo with its own local `core.hooksPath` (husky, pre-commit framework, or a manual setting) bypasses these. Run `git config --show-origin core.hooksPath` inside it to check.
 
+Every refusal names its rule in square brackets, for example `[git.no-verify]`,
+and is recorded without the command text in
+`~/.local/state/pipelinekit/events.jsonl`. `/kit` lists what the hooks blocked,
+asked about or failed on in the last days. `PIPELINEKIT_LOG=0` switches the log
+off. Every rule id is in
+[Components](documentation/components.html#rule-ids-and-the-event-log).
+
 ### Skills
 
 | Skill | Use it for |
@@ -53,7 +60,7 @@ A repo with its own local `core.hooksPath` (husky, pre-commit framework, or a ma
 | `exchange-api-keys` | Exchange API keys for CryptoBargain and FundingRateArb: where they load from, never logging them, testnet vs mainnet, withdrawal-disabled and IP-restricted scopes, storage, rotation, leak runbook |
 | `docs-writer` | Render `docs-source/*.md` into self-contained HTML pages under `documentation/`, with optional data-driven interactive snippets |
 | `mobile` | Android (Kotlin/Compose) builds and device access from WSL2, iPhone home-screen web apps, Expo/EAS cloud builds for iOS, release and security checklist |
-| `kit` | Self-check, run as `/kit`: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, and environment conflicts |
+| `kit` | Self-check, run as `/kit`: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, environment conflicts, and what the hooks blocked or failed on in the last days |
 | `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then `ship.py` merges once every gate holds (own pull request, not a release, no required review, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
 
 ### CLAUDE.md template
@@ -231,7 +238,7 @@ python3 claude/skills/docs-writer/render.py   # renders every docs-source/*.md; 
 
 ```bash
 for t in claude/hooks/tests/test_*.sh; do bash "$t"; done   # git hooks
-python3 -m pytest claude/hooks/tests
+python3 -m pytest claude/hooks/tests claude/skills/kit/tests claude/skills/ship/tests
 bash tests/test_install.sh
 bash claude/skills/docs-writer/tests/test_render.sh
 bash claude/skills/docs-writer/tests/test_richness_threshold.sh

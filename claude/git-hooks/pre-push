@@ -5,6 +5,7 @@
 # so no command-line parsing is involved. Branch deletions are let through.
 # Then runs the repo's own pre-push hook (.git/hooks/pre-push or .githooks/pre-push).
 # Human override: ALLOW_MAIN_PUSH=1 git push ...
+# A refusal and a use of the override each leave one line in the kit's event log.
 set -u
 
 chain() {
@@ -16,6 +17,10 @@ chain() {
   done
 }
 
+kitlog() { # kitlog <kind> <rule> <reason>: one line in the kit's event log; never fails
+  python3 "$(dirname "$(realpath "$0")")/../hooks/kitlog.py" pre-push "$@" </dev/null >/dev/null 2>&1 || true
+}
+
 HOOK_STDIN=$(cat; echo x)
 HOOK_STDIN=${HOOK_STDIN%x}
 
@@ -25,9 +30,11 @@ while read -r _lref lsha rref _rsha; do
   case "$rref" in
     refs/heads/main|refs/heads/master)
       if [ "${ALLOW_MAIN_PUSH:-}" != 1 ]; then
-        echo "pre-push: direct push to ${rref#refs/heads/} refused; push a branch and open a PR (humans: ALLOW_MAIN_PUSH=1)" >&2
+        echo "pre-push: direct push to ${rref#refs/heads/} refused; push a branch and open a PR (humans: ALLOW_MAIN_PUSH=1) [pre-push.protected-branch]" >&2
+        kitlog block pre-push.protected-branch "direct push to ${rref#refs/heads/} refused"
         exit 1
-      fi ;;
+      fi
+      kitlog override pre-push.allow-main "ALLOW_MAIN_PUSH=1 let a push to ${rref#refs/heads/} through" ;;
   esac
 done <<<"$HOOK_STDIN"
 

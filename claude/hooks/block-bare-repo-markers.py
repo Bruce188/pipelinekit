@@ -11,7 +11,8 @@ cwd would hold HEAD together with config, objects or refs. A lone `config`
 (src/config, app/config) or a lone HEAD is allowed. Paths inside a real .git
 directory are allowed.
 
-Exit 0 = allow, exit 2 + stderr = block.
+Exit 0 = allow, exit 2 + stderr = block. A block is written to the kit's event
+log (kitlog.py) under the rule id `bare-repo.marker`.
 """
 
 from __future__ import annotations
@@ -44,21 +45,50 @@ def check(path: str, cwd: str) -> str | None:
     return None
 
 
+def record(kind: str, rule: str, reason: str, data: object = None) -> None:
+    """One line in the kit's event log. A missing or failing log changes nothing."""
+    try:
+        sys.dont_write_bytecode = True  # leave no __pycache__ beside the hooks
+        import kitlog
+
+        kitlog.log("block-bare-repo-markers", kind, rule, reason, data)
+    except Exception:
+        pass
+
+
 def main() -> int:
     try:
         data = json.load(sys.stdin)
     except ValueError:
+        data = None
+    if not isinstance(data, dict):
+        record("error", "input.invalid", "invalid hook input")
         print(
-            "BLOCKED: block-bare-repo-markers got invalid hook input", file=sys.stderr
+            "BLOCKED: block-bare-repo-markers got invalid hook input [input.invalid]",
+            file=sys.stderr,
         )
         return 2
-    tool_input = data.get("tool_input") or {}
+    tool_input = data.get("tool_input")
+    tool_input = tool_input if isinstance(tool_input, dict) else {}
     path = tool_input.get("file_path") or tool_input.get("path") or ""
     if not path:
         return 0
-    reason = check(path, data.get("cwd") or os.getcwd())
+    try:
+        reason = check(str(path), str(data.get("cwd") or os.getcwd()))
+    except Exception as exc:  # a bug here refuses the write, it does not crash
+        name = type(exc).__name__
+        record(
+            "error", "internal.crash", f"block-bare-repo-markers failed ({name})", data
+        )
+        print(
+            f"BLOCKED: block-bare-repo-markers failed ({name}); the write was not"
+            " checked [internal.crash]",
+            file=sys.stderr,
+        )
+        return 2
     if reason:
-        print(f"BLOCKED: {reason}", file=sys.stderr)
+        record("block", "bare-repo.marker", reason, data)
+        print(f"BLOCKED: {reason} [bare-repo.marker]", file=sys.stderr)
         return 2
     return 0
 

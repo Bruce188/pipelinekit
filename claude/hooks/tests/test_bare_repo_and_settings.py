@@ -1,6 +1,7 @@
 """block-bare-repo-markers.py and the settings template."""
 
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -91,3 +92,44 @@ def test_template_shape():
     assert all(h.get("if") for h in pre if h["command"].endswith("bash-guard.py"))
     handlers = [json.dumps(h, sort_keys=True) for h in pre]
     assert len(handlers) == len(set(handlers))
+
+
+def test_block_is_logged_with_its_rule(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "HEAD").write_text("ref: refs/heads/main\n")
+    env = dict(os.environ, PIPELINEKIT_STATE_DIR=str(tmp_path / "state"))
+    payload = json.dumps(
+        {"session_id": "s-2", "tool_input": {"file_path": "config"}, "cwd": str(repo)}
+    )
+    p = subprocess.run(
+        [str(BARE)], input=payload, capture_output=True, text=True, env=env
+    )
+    assert p.returncode == 2
+    assert p.stderr.startswith("BLOCKED: ")
+    assert p.stderr.rstrip().endswith("[bare-repo.marker]")
+    lines = (tmp_path / "state" / "events.jsonl").read_text().splitlines()
+    (e,) = [json.loads(ln) for ln in lines]
+    assert (e["hook"], e["kind"], e["rule"]) == (
+        "block-bare-repo-markers",
+        "block",
+        "bare-repo.marker",
+    )
+    assert e["session"] == "s-2" and e["cwd"] == str(repo)
+    payload = json.dumps({"tool_input": {"file_path": "notes.txt"}, "cwd": str(repo)})
+    p = subprocess.run(
+        [str(BARE)], input=payload, capture_output=True, text=True, env=env
+    )
+    assert p.returncode == 0
+    assert (tmp_path / "state" / "events.jsonl").read_text().splitlines() == lines
+
+
+@pytest.mark.parametrize("payload", ["not json", "[]", '{"tool_input": "x"}', "{}"])
+def test_odd_input_never_ends_in_a_traceback(tmp_path, payload):
+    env = dict(os.environ, PIPELINEKIT_STATE_DIR=str(tmp_path / "state"))
+    p = subprocess.run(
+        [str(BARE)], input=payload, capture_output=True, text=True, env=env
+    )
+    assert p.returncode in (0, 2) and "Traceback" not in p.stderr
+    if payload in ("not json", "[]"):
+        assert p.returncode == 2 and "[input.invalid]" in p.stderr

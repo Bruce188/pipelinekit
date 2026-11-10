@@ -2,12 +2,14 @@
 """pipelinekit self-check: report what is not working in an installed kit.
 
 Usage:
-  check.py [--json] [--quick] [--verbose] [--exit-zero]
+  check.py [--json] [--quick] [--verbose] [--exit-zero] [--days N] [--session ID]
   check.py --write-manifest REPO_ROOT
 
 Sections: install, changes since install (against the install manifest), a
-live probe of every hook (must block, must allow) and the environment.
-`--quick` skips the probes and everything slow.
+live probe of every hook (must block, must allow), the environment, and the
+activity of the hooks: what they blocked, asked about or failed on in the
+last N days (default 7), read from their event log.
+`--quick` skips the probes, the activity and everything slow.
 
 Exit 0 = healthy, 1 = problems found, 2 = the checker itself failed.
 Stdlib only. Reads $CLAUDE_HOME (default ~/.claude) and changes nothing in it.
@@ -16,6 +18,7 @@ Stdlib only. Reads $CLAUDE_HOME (default ~/.claude) and changes nothing in it.
 from __future__ import annotations
 
 import argparse
+import calendar
 import hashlib
 import importlib.metadata
 import json
@@ -29,6 +32,8 @@ import time
 
 SCHEMA = 1
 HOOKS = ("bash-guard.py", "block-bare-repo-markers.py", "post-edit-format.sh")
+# Imported or called by the hooks; not wired into settings.json themselves.
+HELPERS = ("kitlog.py",)
 GIT_HOOKS = ("commit-msg", "pre-commit", "pre-push")
 # Used when there is no manifest; a test keeps it equal to claude/skills/.
 KIT_SKILLS = (
@@ -46,6 +51,7 @@ SECTIONS = (
     ("drift", "Changes since install"),
     ("probe", "Live probe"),
     ("environment", "Environment"),
+    ("activity", "Activity"),
 )
 SKIP_DIRS = {"__pycache__", ".pytest_cache", ".ruff_cache"}
 CONTROL = re.compile(r"[\x00-\x1f\x7f]+")
@@ -53,6 +59,19 @@ WSL_NOTE = (
     "WSL: in Claude Code Desktop pick the WSL environment; "
     "a Local (Windows) session cannot run these hooks"
 )
+# The hooks' event log. claude/hooks/kitlog.py writes it; a test keeps the
+# kinds and the two patterns equal to the ones there.
+EVENT_KINDS = {
+    "block": "blocked",
+    "ask": "asked",
+    "override": "override used",
+    "error": "failed",
+}
+EVENT_HOOK = re.compile(r"^[A-Za-z0-9._-]{1,40}$")
+EVENT_RULE = re.compile(r"^[a-z-]{1,30}\.[a-z0-9-]{1,40}$")
+SESSION = re.compile(r"[A-Za-z0-9_-]{1,64}")
+MAX_LOG_BYTES = 4_000_000  # read at most this much of a log file
+ACTIVITY_LINES = 20
 
 
 def clean(text: object, limit: int = 300) -> str:
@@ -227,10 +246,18 @@ def write_manifest(repo: str, home: str) -> str:
 class Check:
     """One run: the install being checked and the findings so far."""
 
-    def __init__(self, home: str, quick: bool) -> None:
+    def __init__(
+        self, home: str, quick: bool, days: int = 7, session: str = ""
+    ) -> None:
         self.home = home
         self.quick = quick
+        self.days = days
+        self.session = session
+        self.window = f"last {plural(days, 'day')}" + (
+            f", session {session}" if session else ""
+        )
         self.items: list[dict] = []
+        self.activity: list[dict] = []  # one entry per rule that fired
         self.broken: set[str] = set()  # paths already reported as failed
         self.manifest, self.manifest_err = load_json(
             os.path.join(home, "pipelinekit", "manifest.json")
@@ -347,6 +374,18 @@ def check_install(c: Check) -> None:
         c.add("install", "pass", "CLAUDE.md rendered")
     for h in HOOKS:
         check_script(c, "hook", f"hooks/{h}")
+    for h in HELPERS:
+        rel = f"hooks/{h}"
+        if os.path.isfile(c.path(rel)):
+            c.add("install", "pass", f"hook helper: {h}")
+        else:
+            c.broken.add(rel)
+            c.add(
+                "install",
+                "fail",
+                f"hook helper missing: {h} "
+                "(the hooks still decide, but nothing is recorded)",
+            )
     for g in GIT_HOOKS:
         check_script(c, "git hook", f"git-hooks/{g}")
     check_hooks_path(c)
@@ -499,20 +538,24 @@ def payload(tool: str, tool_input: dict, cwd: str) -> str:
     )
 
 
-def probe_results(c: Check, name: str, results: list[tuple[str, str, str]]) -> None:
-    """results: (label, expected, got). One line per hook, or one per mismatch."""
+def probe_results(c: Check, name: str, results: list[tuple[str, str, str]]) -> bool:
+    """results: (label, expected, got). One line per hook, or one per mismatch.
+
+    True when every probe gave what was expected.
+    """
     if any(got == "cannot start" for _, _, got in results):
         c.add(
             "probe",
             "fail",
             f"{name} does not start (CRLF line endings, or no interpreter?)",
         )
-        return
+        return False
     wrong = [(label, want, got) for label, want, got in results if want != got]
     for label, want, got in wrong:
         c.add("probe", "fail", f"{name}: {label} gave '{got}', expected '{want}'")
     if not wrong:
         c.add("probe", "pass", f"{name}: {plural(len(results), 'probe')} as expected")
+    return not wrong
 
 
 def probe(c: Check) -> None:
@@ -523,8 +566,26 @@ def probe(c: Check) -> None:
             PIPELINEKIT_STATE_DIR=os.path.join(tmp, "state"),
             GIT_CEILING_DIRECTORIES=tmp,
         )
-        for k in ("ALLOW_MAIN_PUSH", "PIPELINEKIT_ALLOW_SECRET"):
+        for k in ("ALLOW_MAIN_PUSH", "PIPELINEKIT_ALLOW_SECRET", "PIPELINEKIT_LOG"):
             env.pop(k, None)
+        expected: list[tuple[str, str]] = []  # (hook, rule) a probe must have logged
+
+        def log_check() -> None:
+            if "hooks/kitlog.py" in c.broken or not expected:
+                return
+            events = read_events(env["PIPELINEKIT_STATE_DIR"])
+            logged = {(e["hook"], e["rule"]) for e in events}
+            silent = [hook for hook, rule in expected if (hook, rule) not in logged]
+            if silent:
+                c.add(
+                    "probe",
+                    "fail",
+                    f"event log: nothing recorded for {names(silent)}",
+                )
+            else:
+                done = plural(len(expected), "refusal")
+                c.add("probe", "pass", f"event log: {done} recorded")
+
         plain = os.path.join(tmp, "plain")
         repo = os.path.join(tmp, "repo")
         os.makedirs(os.path.join(plain, "refs"))
@@ -549,7 +610,8 @@ def probe(c: Check) -> None:
                 )
                 for grp, prog, cmd, want, label in GUARD_PROBES
             ]
-            probe_results(c, "bash-guard.py", results)
+            if probe_results(c, "bash-guard.py", results):
+                expected.append(("bash-guard", "git.no-verify"))
 
         rel = "hooks/block-bare-repo-markers.py"
         if rel not in c.broken:
@@ -569,7 +631,8 @@ def probe(c: Check) -> None:
                     ("HEAD", "block", "HEAD next to refs/"),
                 )
             ]
-            probe_results(c, "block-bare-repo-markers.py", results)
+            if probe_results(c, "block-bare-repo-markers.py", results):
+                expected.append(("block-bare-repo-markers", "bare-repo.marker"))
 
         rel = "hooks/post-edit-format.sh"
         if rel not in c.broken:
@@ -584,6 +647,7 @@ def probe(c: Check) -> None:
             c.add(
                 "probe", "warn", "git hooks not probed: git init failed in a temp dir"
             )
+            log_check()
             return
         good, bad = os.path.join(tmp, "good"), os.path.join(tmp, "bad")
         with open(good, "w", encoding="utf-8") as f:
@@ -601,7 +665,8 @@ def probe(c: Check) -> None:
                 ("a conventional message", "accept", git_hook(rel, [good])),
                 ("a non-conventional message", "reject", git_hook(rel, [bad])),
             ]
-            probe_results(c, "commit-msg", results)
+            if probe_results(c, "commit-msg", results):
+                expected.append(("commit-msg", "commit-msg.format"))
         rel = "git-hooks/pre-commit"
         if rel not in c.broken:
             probe_results(
@@ -618,7 +683,9 @@ def probe(c: Check) -> None:
                     ("refs/heads/main", "reject", "push to main"),
                 )
             ]
-            probe_results(c, "pre-push", results)
+            if probe_results(c, "pre-push", results):
+                expected.append(("pre-push", "pre-push.protected-branch"))
+        log_check()
 
 
 # ---------------------------------------------------------------- environment
@@ -687,6 +754,125 @@ def check_environment(c: Check) -> None:
         )
 
 
+# ---------------------------------------------------------------- activity
+
+
+def state_dir() -> str:
+    """Where the hooks keep their event log (the same rule as kitlog.py)."""
+    explicit = os.environ.get("PIPELINEKIT_STATE_DIR")
+    if explicit:
+        return explicit
+    base = os.environ.get("XDG_STATE_HOME") or os.path.join(
+        os.path.expanduser("~"), ".local", "state"
+    )
+    return os.path.join(base, "pipelinekit")
+
+
+def event_time(ts: object) -> int | None:
+    if not isinstance(ts, str):
+        return None
+    try:
+        return calendar.timegm(time.strptime(ts, "%Y-%m-%dT%H:%M:%SZ"))
+    except ValueError:
+        return None
+
+
+def read_events(directory: str) -> list[dict]:
+    """Every well-formed event in the log, older file first. Never raises."""
+    events = []
+    for name in ("events.jsonl.1", "events.jsonl"):
+        path = os.path.join(directory, name)
+        if not os.path.isfile(path):
+            continue
+        try:
+            with open(path, "rb") as f:
+                raw = f.read(MAX_LOG_BYTES)
+        except OSError:
+            continue
+        for line in raw.split(b"\n"):
+            try:
+                e = json.loads(line.decode("utf-8", "replace"))
+            except (ValueError, RecursionError):
+                continue
+            if not isinstance(e, dict):
+                continue
+            kind, hook, rule = e.get("kind"), e.get("hook"), e.get("rule")
+            when = event_time(e.get("ts"))
+            if (
+                isinstance(kind, str)
+                and kind in EVENT_KINDS
+                and isinstance(hook, str)
+                and EVENT_HOOK.match(hook)
+                and isinstance(rule, str)
+                and EVENT_RULE.match(rule)
+                and when is not None
+            ):
+                e["when"] = when
+                events.append(e)
+    return events
+
+
+def check_activity(c: Check) -> None:
+    """What the hooks blocked, asked about, let through or failed on."""
+    off = os.environ.get("PIPELINEKIT_LOG") == "0"
+    if off:
+        c.add("activity", "info", "the event log is switched off (PIPELINEKIT_LOG=0)")
+    since = time.time() - c.days * 86400
+    seen: set[tuple] = set()
+    groups: dict[tuple[str, str, str], dict] = {}
+    for e in read_events(state_dir()):
+        if e["when"] < since:
+            continue
+        if c.session and e.get("session") != c.session:
+            continue
+        key = (e["hook"], e["rule"], e["kind"])
+        call = e.get("tool_use_id")
+        if isinstance(call, str) and call:
+            # One command can trip the same rule once per program in it.
+            if (call, *key) in seen:
+                continue
+            seen.add((call, *key))
+        g = groups.setdefault(key, {"count": 0, "last": -1, "reason": ""})
+        g["count"] += 1
+        if e["when"] >= g["last"]:
+            g["last"] = e["when"]
+            g["reason"] = clean(e.get("reason") or "", 200)
+    if not groups:
+        if not off:
+            c.add("activity", "info", f"no blocks, asks or hook errors ({c.window})")
+        return
+    ordered = sorted(groups.items(), key=lambda kv: (-kv[1]["last"], kv[0]))
+    for n, ((hook, rule, kind), g) in enumerate(ordered):
+        when = time.gmtime(g["last"])
+        c.activity.append(
+            {
+                "hook": hook,
+                "rule": rule,
+                "kind": kind,
+                "count": g["count"],
+                "last": time.strftime("%Y-%m-%dT%H:%M:%SZ", when),
+                "reason": g["reason"],
+            }
+        )
+        if n >= ACTIVITY_LINES:
+            continue
+        times = "once" if g["count"] == 1 else f"{g['count']} times"
+        msg = (
+            f"{rule} ({hook}): {EVENT_KINDS[kind]} {times}, "
+            f"last {time.strftime('%Y-%m-%d %H:%M UTC', when)}"
+        )
+        if g["reason"]:
+            msg += f": {g['reason']}"
+        c.add("activity", "warn" if kind == "error" else "info", msg)
+    more = len(ordered) - ACTIVITY_LINES
+    if more > 0:
+        c.add(
+            "activity",
+            "info",
+            f"{plural(more, 'more rule')} not shown (--json lists them all)",
+        )
+
+
 # ---------------------------------------------------------------- report
 
 
@@ -717,7 +903,7 @@ def render_text(c: Check, verbose: bool) -> str:
         items = [i for i in c.items if i["section"] == key]
         if not items:
             continue
-        lines.append(title)
+        lines.append(f"{title} ({c.window})" if key == "activity" else title)
         shown = items if verbose else [i for i in items if i["level"] != "pass"]
         for i in shown:
             lines.append(f"  [{i['level']}] {i['msg']}")
@@ -748,18 +934,21 @@ def render_json(c: Check) -> str:
             "counts": {k: c.count(k) for k in ("fail", "warn", "info", "pass")},
             "repair": repair_hint(c),
             "results": c.items,
+            "activity": c.activity,
         },
         indent=2,
     )
 
 
-def run_checks(home: str, quick: bool) -> Check:
-    c = Check(home, quick)
+def run_checks(home: str, quick: bool, days: int = 7, session: str = "") -> Check:
+    c = Check(home, quick, days, session)
     check_install(c)
     check_drift(c)
     if not quick:
         probe(c)
     check_environment(c)
+    if not quick:
+        check_activity(c)
     return c
 
 
@@ -775,15 +964,32 @@ def main(argv: list[str] | None = None) -> int:
         "-v", "--verbose", action="store_true", help="list passed checks too"
     )
     ap.add_argument("--exit-zero", action="store_true", help="exit 0 whatever is found")
+    ap.add_argument(
+        "--days",
+        type=int,
+        default=7,
+        metavar="N",
+        help="activity of the last N days (1 to 365, default 7)",
+    )
+    ap.add_argument(
+        "--session",
+        default="",
+        metavar="ID",
+        help="activity of one Claude Code session only",
+    )
     ap.add_argument("--write-manifest", metavar="REPO_ROOT", help=argparse.SUPPRESS)
     args = ap.parse_args(argv)
+    if not 1 <= args.days <= 365:
+        ap.error("--days takes a whole number from 1 to 365")
+    if args.session and not SESSION.fullmatch(args.session):
+        ap.error("--session takes a session id (letters, digits, - and _)")
     home = os.environ.get("CLAUDE_HOME") or os.path.join(
         os.path.expanduser("~"), ".claude"
     )
     if args.write_manifest:
         write_manifest(args.write_manifest, home)
         return 0
-    c = run_checks(home, args.quick)
+    c = run_checks(home, args.quick, args.days, args.session)
     print(render_json(c) if args.json else render_text(c, args.verbose))
     return 0 if args.exit_zero or c.count("fail") == 0 else 1
 

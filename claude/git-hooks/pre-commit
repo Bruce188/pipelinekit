@@ -6,6 +6,8 @@
 #   - PIPELINEKIT_ALLOW_SECRET=1: skip the scan for one commit (humans only;
 #     the Claude bash-guard hook refuses that assignment).
 #   - gitleaks >= 8.19: `gitleaks git --staged`; older: `gitleaks protect --staged`.
+#   - A finding, a gitleaks failure and a use of the override each leave one
+#     line in the kit's event log.
 set -u
 
 chain() {
@@ -17,9 +19,14 @@ chain() {
   done
 }
 
+kitlog() { # kitlog <kind> <rule> <reason>: one line in the kit's event log; never fails
+  python3 "$(dirname "$(realpath "$0")")/../hooks/kitlog.py" pre-commit "$@" </dev/null >/dev/null 2>&1 || true
+}
+
 scan() {
   if [ "${PIPELINEKIT_ALLOW_SECRET:-}" = 1 ]; then
     echo "pre-commit: PIPELINEKIT_ALLOW_SECRET=1, secret scan skipped" >&2
+    kitlog override pre-commit.allow-secret "PIPELINEKIT_ALLOW_SECRET=1 skipped the secret scan"
     return 0
   fi
   if ! command -v gitleaks >/dev/null 2>&1; then
@@ -35,8 +42,10 @@ scan() {
   gitleaks "$sub" --staged --redact --no-banner --exit-code 3 -v >&2 || rc=$?
   case $rc in
     0) return 0 ;;
-    3) echo "pre-commit: gitleaks found secret(s) in staged changes (values redacted above). Unstage them; PIPELINEKIT_ALLOW_SECRET=1 overrides one commit." >&2 ;;
-    *) echo "pre-commit: gitleaks $sub failed (exit $rc); commit refused. Fix gitleaks or set PIPELINEKIT_ALLOW_SECRET=1 for one commit." >&2 ;;
+    3) echo "pre-commit: gitleaks found secret(s) in staged changes (values redacted above). Unstage them; PIPELINEKIT_ALLOW_SECRET=1 overrides one commit. [pre-commit.secret]" >&2
+       kitlog block pre-commit.secret "gitleaks found secrets in staged changes" ;;
+    *) echo "pre-commit: gitleaks $sub failed (exit $rc); commit refused. Fix gitleaks or set PIPELINEKIT_ALLOW_SECRET=1 for one commit. [pre-commit.gitleaks-failed]" >&2
+       kitlog error pre-commit.gitleaks-failed "gitleaks $sub failed (exit $rc)" ;;
   esac
   return 1
 }

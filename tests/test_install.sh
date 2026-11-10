@@ -9,6 +9,9 @@ export HOME="$T" CLAUDE_HOME="$T/.claude" USER_NAME="Test User" USER_EMAIL="test
 # Keep git's global config inside $T no matter what the caller's env says.
 export GIT_CONFIG_GLOBAL="$T/.gitconfig" XDG_CONFIG_HOME="$T/.config" GIT_CONFIG_NOSYSTEM=1
 export PIPELINEKIT_GIT_HOOKS=1
+# The hooks' event log stays inside $T as well.
+export PIPELINEKIT_STATE_DIR="$T/state"
+unset PIPELINEKIT_LOG
 mkdir -p "$CLAUDE_HOME"/{hooks,agents,skills/ios,skills/commit-conventions,skills/expo} "$CLAUDE_HOME/projects/keep"
 echo keep > "$CLAUDE_HOME/projects/keep/f"
 

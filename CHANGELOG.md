@@ -33,6 +33,14 @@ kit used to ship, so those parts are gone.
 - The installer writes `~/.claude/pipelinekit/manifest.json` (version, commit,
   file hashes, the kit's settings entries); the check compares against it.
 - `verify.sh` runs the same checker, so the installer, CI and `/kit` agree.
+- Every refusal names its rule id in square brackets (`[git.no-verify]`), and
+  the hooks record each block, ask, override and error in
+  `~/.local/state/pipelinekit/events.jsonl`: rule id, reason, session and
+  working directory, never the command text. Only its owner can read the
+  file, it rotates at 1 MB, and `PIPELINEKIT_LOG=0` switches it off.
+- `/kit` has an Activity section: what the hooks blocked, asked about or
+  failed on in the last 7 days, grouped by rule (`--days N`, `--session ID`).
+  The live probe also checks that refusals reach the log.
 
 ### Shipping
 
