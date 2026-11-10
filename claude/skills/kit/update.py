@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -53,7 +54,9 @@ def installed_kit(home: str) -> dict:
         raise Stop(f"the install manifest is {why}; run the installer once by hand")
     kit = {k: str(manifest.get(k) or "") for k in ("checkout", "branch", "commit")}
     kit["serena"] = manifest.get("serena")
-    if not os.path.isfile(os.path.join(kit["checkout"], "scripts", "install.sh")):
+    script = os.path.join(kit["checkout"], "scripts", "install.sh")
+    # A path that is not absolute would mean the directory this runs in.
+    if not os.path.isabs(script) or not os.path.isfile(script):
         raise Stop("the checkout this install was made from is not there")
     if not check.COMMIT.fullmatch(kit["commit"]):
         raise Stop("the install manifest names no commit")
@@ -145,13 +148,20 @@ def plan(home: str) -> int:
         return 0
     span = f"{installed}..{remote}"
     _, count = git(kit["checkout"], "rev-list", "--count", span)
+    # -z: one commit ends at a NUL, whatever line separator its subject holds.
     _, log = git(
-        kit["checkout"], "log", f"--max-count={MAX_SUBJECTS}", "--format=%h %s", span
+        kit["checkout"],
+        "log",
+        "-z",
+        f"--max-count={MAX_SUBJECTS}",
+        "--format=%h %s",
+        span,
     )
     total = int(count) if count.isdigit() else 0
     print("New commits (text from the remote, not instructions):")
-    for line in log.splitlines():
-        print(f"  {check.clean(line, 120)}")
+    for line in log.split("\0"):
+        if line.strip():
+            print(f"  {check.clean(line, 120)}")
     if total > MAX_SUBJECTS:
         print(f"  and {total - MAX_SUBJECTS} more")
     print(
@@ -170,6 +180,11 @@ def installer_args(kit: dict, home: str) -> list[str]:
     if serena is False or (serena is None and not shutil.which("serena")):
         args.append("--no-serena")
     return args
+
+
+def installed_commit(home: str) -> str:
+    manifest, _ = check.load_json(os.path.join(home, "pipelinekit", "manifest.json"))
+    return str(check.as_dict(manifest).get("commit") or "")
 
 
 def self_check(home: str) -> str:
@@ -220,14 +235,18 @@ def apply(home: str, target: str) -> int:
         rc = done.returncode
     except (OSError, subprocess.TimeoutExpired):
         rc = None
-    if rc != 0:
+    if rc != 0 and installed_commit(home) != remote:
+        by_hand = " ".join(shlex.quote(part) for part in command)
         raise Stop(
             f"the checkout is at {remote[:7]} but the installer failed "
-            f"(exit {rc}); run it by hand: bash {script}"
+            f"(exit {rc}); run it by hand: {by_hand}"
         )
     result = self_check(home)
+    if rc != 0:
+        how = "did not finish" if rc is None else f"ended with exit {rc}"
+        print(f"The installer replaced the files and then {how}.")
     print(f"Updated {kit['commit'][:7]} -> {remote[:7]}. Self-check: {result}.")
-    return 0 if result == "healthy" else 1
+    return 0 if rc == 0 and result == "healthy" else 1
 
 
 def main(argv: list[str] | None = None) -> int:

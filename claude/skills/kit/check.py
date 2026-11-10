@@ -27,6 +27,7 @@ import importlib.metadata
 import json
 import os
 import re
+import shlex
 import shutil
 import signal
 import subprocess
@@ -151,6 +152,7 @@ def run(
             input=stdin,
             capture_output=True,
             text=True,
+            errors="replace",
             env=env,
             cwd=cwd,
             timeout=timeout,
@@ -173,6 +175,7 @@ def run_group(argv: list[str], env: dict, timeout: int) -> tuple[int | None, str
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             text=True,
+            errors="replace",
             env=env,
             start_new_session=True,
         )
@@ -1302,7 +1305,8 @@ def check_update(c: Check) -> None:
     checkout, branch, installed = (
         str(m.get(k) or "") for k in ("checkout", "branch", "commit")
     )
-    if not checkout or not os.path.exists(os.path.join(checkout, ".git")):
+    there = os.path.isabs(checkout) and os.path.exists(os.path.join(checkout, ".git"))
+    if not there:
         return skip("the checkout this install was made from is not there")
     if not COMMIT.fullmatch(installed):
         return skip("the install manifest names no commit")
@@ -1373,11 +1377,15 @@ def check_update(c: Check) -> None:
 
 
 def repair_hint(c: Check) -> str:
-    checkout = str(as_dict(c.manifest).get("checkout") or "")
-    shown = checkout and clean(checkout) == checkout
-    if shown and os.path.isfile(os.path.join(checkout, "scripts", "install.sh")):
-        return f"bash {checkout}/scripts/install.sh"
-    return "bash scripts/install.sh in your pipelinekit checkout"
+    """The installer, with what the install was made without."""
+    m = as_dict(c.manifest)
+    checkout = str(m.get("checkout") or "")
+    script = os.path.join(checkout, "scripts", "install.sh")
+    keep = " --no-serena" if m.get("serena") is False else ""
+    shown = clean(checkout) == checkout
+    if shown and os.path.isabs(script) and os.path.isfile(script):
+        return f"bash {shlex.quote(script)}{keep}"
+    return f"bash scripts/install.sh{keep} in your pipelinekit checkout"
 
 
 def kit_info(c: Check) -> dict:

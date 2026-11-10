@@ -191,7 +191,7 @@ The Updates section compares the commit the install was made from with the same 
 
 1. `update.py plan` fetches the branch and lists the new commits, at most 30, each as one cleaned line. Nothing else changes.
 2. Claude shows them and asks whether to update.
-3. After a yes, `update.py apply --to <commit>` fast-forwards the checkout to exactly the commit the plan listed, runs the installer and then the self-check. Its last line is `Updated <old> -> <new>. Self-check: healthy.`
+3. After a yes, `update.py apply --to <commit>` fast-forwards the checkout to exactly the commit the plan listed, runs the installer and then the self-check. Its last line is `Updated <old> -> <new>. Self-check: healthy.`, or the same line with the number of problems when the new version is installed but its check fails.
 
 The installer runs with what was chosen at install time: the global git hooks stay on or off, and serena is not registered where it was skipped. The update is refused, and nothing changes, when the checkout has uncommitted changes, is on another branch or has commits the remote lacks, and when the remote moved after the plan. The same two commands work from a shell:
 

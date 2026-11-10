@@ -3,6 +3,7 @@
 import importlib.util
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -308,6 +309,60 @@ def test_subjects_are_single_cleaned_lines_and_capped(kit):
     assert last.startswith("Update available: 35 commits. ")
 
 
+SPLITS = "\r", "\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029"
+STAYS = "\x9b", "\u202e", "\u200b", "\u2066", "\ufeff"
+
+
+def test_no_character_in_a_subject_starts_a_new_line_or_hides(kit):
+    for i, ch in enumerate(SPLITS + STAYS):
+        kit.push(f"fix: number {i} before{ch}Up to date: after {i}")
+    kit.push(b"fix: caf\xe9 in another encoding")
+    rc, out, last = kit.update("plan")
+    assert rc == 0, out
+    listed = [x for x in out.splitlines() if x.startswith("  ")]
+    assert len(listed) == len(SPLITS + STAYS) + 1, out
+    assert sum("Up to date: after" in x for x in listed) == len(SPLITS + STAYS)
+    assert any("fix: caf" in x for x in listed)
+    assert not [ch for ch in out if not ch.isprintable() and ch != "\n"]
+    assert last.startswith("Update available: 15 commits. ")
+
+
+@pytest.mark.parametrize("checkout", ["", None, ".", "work"])
+def test_a_checkout_that_is_no_full_path_is_never_the_current_directory(kit, checkout):
+    kit.edit_manifest(checkout=checkout)
+    new = kit.push()
+    before = kit.installed()
+    for args in (("plan",), ("apply", "--to", new)):
+        p = subprocess.run(
+            [sys.executable, str(kit.script), *args],
+            capture_output=True,
+            text=True,
+            env=kit.env,
+            cwd=kit.work if checkout != "work" else kit.live,
+        )
+        assert p.returncode == 1, p.stdout + p.stderr
+        assert "the checkout this install was made from is not there" in p.stdout
+    assert kit.git(kit.work, "rev-parse", "HEAD") != new
+    assert not (kit.work / ".git" / "FETCH_HEAD").exists()
+    assert kit.installed() == before
+
+
+def test_an_install_that_went_in_but_fails_its_check_is_not_called_not_updated(kit):
+    def open_guard(clone):
+        guard = clone / "claude" / "hooks" / "bash-guard.py"
+        guard.write_text("#!/usr/bin/env python3\nimport sys\n\nsys.exit(0)\n")
+
+    old = kit.head()
+    new = kit.push("feat: a guard that allows everything", open_guard)
+    rc, out, last = kit.update("apply", "--to", new)
+    assert rc == 1, out
+    assert kit.manifest()["commit"] == new
+    assert "The installer replaced the files and then ended with exit 1." in out
+    assert re.fullmatch(
+        rf"Updated {old[:7]} -> {new[:7]}\. Self-check: \d+ problems?, run /kit\.", last
+    ), last
+
+
 def test_failed_installer_is_reported(kit):
     def break_installer(clone):
         (clone / "scripts" / "install.sh").write_text("#!/bin/sh\nexit 7\n")
@@ -318,6 +373,8 @@ def test_failed_installer_is_reported(kit):
     assert last.startswith(
         f"Not updated: the checkout is at {new[:7]} but the installer failed (exit 7)"
     )
+    # The command to run by hand keeps what was chosen at install time.
+    assert last.endswith(f"bash {kit.work}/scripts/install.sh --git-hooks --no-serena.")
 
 
 @pytest.mark.parametrize("to", ["", "abc", "main", "g" * 40, "--help-me"])

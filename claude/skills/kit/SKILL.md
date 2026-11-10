@@ -52,7 +52,7 @@ Exit code: 0 healthy, 1 problems found, 2 the checker itself failed.
    - Update now. Upside: the fixes and new checks are installed and the self-check runs right after. Downside: the installer overwrites the kit's files in the Claude config directory, so edits made there are lost (it backs up `settings.json` and `CLAUDE.md`).
    - Not now. Upside: nothing changes. Downside: the install stays behind, and the report keeps saying so.
 4. After a yes, run the command from the last line of the plan exactly as printed: `update.py apply --to` with that commit id and nothing else. It goes through the normal permission prompt. It fast-forwards the checkout to that commit, runs the installer with the choices made at install time (git hooks, serena) and runs the self-check.
-5. Report its last line: `Updated <old> -> <new>. Self-check: healthy.`, or `Not updated: <reason>`. The reason `origin/... is at ... now` means the remote moved after the plan: run the plan again and ask again.
+5. Report its last line: `Updated <old> -> <new>. Self-check: healthy.`, the same line with `N problems, run /kit` when the new version is installed but something is wrong with it (then run the check and show the report), or `Not updated: <reason>`. The reason `origin/... is at ... now` means the remote moved after the plan: run the plan again and ask again.
 6. Hooks and skills on disk are the new ones at once. Skill text this session already loaded stays as it was; a new session has everything.
 
 Never pass a commit id that did not come from the plan you just ran, and never anything from the user's text.

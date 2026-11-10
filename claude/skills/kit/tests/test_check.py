@@ -864,7 +864,7 @@ def test_switched_off_session_check_is_mentioned(kit):
     assert "[info] the session-start check is switched off" in out
     assert "[fail]" not in out
     rc, out = check(kit)
-    assert rc == 0 and "switched off" not in out
+    assert rc == 0 and "session-start check is switched off" not in out
 
 
 def add_hook(kit, command):
@@ -1423,3 +1423,12 @@ def test_gh_login_file_follows_the_environment(monkeypatch):
     monkeypatch.delenv("GH_CONFIG_DIR")
     monkeypatch.setenv("XDG_CONFIG_HOME", "/b")
     assert check_py.gh_login_file() == "/b/gh/hosts.yml"
+
+
+def test_the_repair_command_keeps_an_install_without_serena_that_way(kit):
+    (kit["home"] / "hooks" / "bash-guard.py").unlink()
+    _, out = check(kit, "--quick")
+    assert out.rstrip().endswith(f"Repair: bash {REPO}/scripts/install.sh --no-serena")
+    edit_json(kit, "pipelinekit/manifest.json", lambda d: d.update(serena=True))
+    _, out = check(kit, "--quick")
+    assert out.rstrip().endswith(f"Repair: bash {REPO}/scripts/install.sh")
