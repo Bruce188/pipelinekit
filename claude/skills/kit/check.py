@@ -3,13 +3,15 @@
 
 Usage:
   check.py [--json] [--quick] [--verbose] [--exit-zero] [--days N] [--session ID]
+           [--no-remote]
   check.py --write-manifest REPO_ROOT
 
 Sections: install, changes since install (against the install manifest), a
-live probe of every hook (must block, must allow), the environment, and the
+live probe of every hook (must block, must allow), the environment, whether
+the remote has a newer kit (asked once a day, never a failure), and the
 activity of the hooks: what they blocked, asked about or failed on in the
 last N days (default 7), read from their event log.
-`--quick` skips the probes, the activity and everything slow.
+`--quick` skips the probes, the update check, the activity and everything slow.
 
 Exit 0 = healthy, 1 = problems found, 2 = the checker itself failed.
 Stdlib only. Reads $CLAUDE_HOME (default ~/.claude) and changes nothing in it.
@@ -19,12 +21,14 @@ from __future__ import annotations
 
 import argparse
 import calendar
+import contextlib
 import hashlib
 import importlib.metadata
 import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -57,6 +61,7 @@ SECTIONS = (
     ("drift", "Changes since install"),
     ("probe", "Live probe"),
     ("environment", "Environment"),
+    ("update", "Updates"),
     ("activity", "Activity"),
 )
 SKIP_DIRS = {"__pycache__", ".pytest_cache", ".ruff_cache"}
@@ -91,6 +96,11 @@ EVENT_RULE = re.compile(r"^[a-z-]{1,30}\.[a-z0-9-]{1,40}$")
 SESSION = re.compile(r"[A-Za-z0-9_-]{1,80}")
 MAX_LOG_BYTES = 4_000_000  # read at most this much of a log file
 ACTIVITY_LINES = 20
+# The update check: how long an answer of the remote is reused, in seconds.
+UPDATE_TTL = {"ok": 24 * 3600, "gone": 24 * 3600, "unreachable": 3600}
+UPDATE_TIMEOUT = 5  # seconds the remote gets to answer
+BRANCH = re.compile(r"(?!-)[A-Za-z0-9._/+-]{1,200}")
+COMMIT = re.compile(r"[0-9a-f]{40,64}")
 
 
 def clean(text: object, limit: int = 300) -> str:
@@ -148,6 +158,34 @@ def run(
     except (OSError, subprocess.TimeoutExpired) as exc:
         return None, "", str(exc)
     return p.returncode, p.stdout, p.stderr
+
+
+def run_group(argv: list[str], env: dict, timeout: int) -> tuple[int | None, str]:
+    """(exit code, stdout) of a program that may start others, as git does.
+
+    It gets no terminal to ask on, and a timeout ends its children too.
+    Exit code None: it did not start or did not finish in time.
+    """
+    try:
+        p = subprocess.Popen(
+            argv,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            env=env,
+            start_new_session=True,
+        )
+    except OSError:
+        return None, ""
+    try:
+        out, _ = p.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        with contextlib.suppress(OSError):
+            os.killpg(p.pid, signal.SIGKILL)
+        p.communicate()
+        return None, ""
+    return p.returncode, out
 
 
 def git_value(*args: str) -> str:
@@ -303,6 +341,8 @@ def write_manifest(repo: str, home: str) -> str:
         "checkout": repo,
         "installed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "hooks_path": git_value("config", "--global", "--get", "core.hooksPath"),
+        # False: installed with --no-serena; an update keeps it that way.
+        "serena": os.environ.get("CLAUDE_INSTALL_SKIP_SERENA") != "1",
         "skills": sorted(
             d for d in os.listdir(skills) if os.path.isdir(os.path.join(skills, d))
         ),
@@ -334,6 +374,8 @@ class Check:
         self.window = f"last {plural(days, 'day')}" + (
             f", session {session}" if session else ""
         )
+        self.remote = True  # False: use a cached answer, do not ask the remote
+        self.update: dict = {}
         self.items: list[dict] = []
         self.activity: list[dict] = []  # one entry per rule that fired
         self.broken: set[str] = set()  # paths already reported as failed
@@ -892,6 +934,75 @@ def is_wsl() -> bool:
         return False
 
 
+def gh_login_file() -> str:
+    base = os.environ.get("GH_CONFIG_DIR") or os.path.join(
+        os.environ.get("XDG_CONFIG_HOME")
+        or os.path.join(os.path.expanduser("~"), ".config"),
+        "gh",
+    )
+    return os.path.join(base, "hosts.yml")
+
+
+def read_refused(path: str) -> bool:
+    """The file is ours and readable by its mode, and opening it is refused.
+
+    That is what a sandbox around this process does. Nothing is read from it.
+    """
+    try:
+        st = os.stat(path)
+        if st.st_uid != os.getuid() or not st.st_mode & 0o400:
+            return False
+        os.close(os.open(path, os.O_RDONLY))
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return False
+
+
+def check_sandbox(c: Check) -> None:
+    """The kit's deny rule for the gh login also binds gh inside the sandbox."""
+    if not shutil.which("gh"):
+        return
+    settings = as_dict(c.settings)
+    box = as_dict(settings.get("sandbox"))
+    rules = as_list(as_dict(settings.get("permissions")).get("deny"))
+    declared = box.get("enabled") is True and any(
+        str(r).startswith("Read(") and "gh/hosts.yml" in str(r) for r in rules
+    )
+    refused = read_refused(gh_login_file())
+    if not (declared or refused):
+        return
+    fix = (
+        'add "gh *" to sandbox.excludedCommands in settings.json, '
+        "or run gh outside the sandbox"
+    )
+    excluded = as_list(box.get("excludedCommands"))
+    if any(re.match(r"gh\b", str(x).strip()) for x in excluded):
+        c.add(
+            "environment",
+            "pass",
+            "gh is excluded from the Bash sandbox, which denies its login file",
+        )
+    elif declared:
+        c.add(
+            "environment",
+            "warn",
+            "the Bash sandbox is on and applies the deny rule for the gh login "
+            "file (hosts.yml) to gh itself: gh fails in sandboxed commands, and "
+            "so does git over https when it asks gh for the token",
+            fix,
+        )
+    else:
+        c.add(
+            "environment",
+            "info",
+            "this session cannot open the gh login file (hosts.yml), as inside "
+            "a Bash sandbox: gh works here only when it is excluded from it",
+            fix,
+        )
+
+
 def check_environment(c: Check) -> None:
     v = sys.version_info
     version = f"python3 {v.major}.{v.minor}.{v.micro}"
@@ -943,6 +1054,7 @@ def check_environment(c: Check) -> None:
             "playwright not installed for python3 "
             "(the ship skill tests web pages with it)",
         )
+    check_sandbox(c)
     local = git_value("config", "--local", "--get", "core.hooksPath")
     if local and not same_path(local, c.path("git-hooks")):
         c.add(
@@ -1099,6 +1211,167 @@ def check_activity(c: Check) -> None:
 # ---------------------------------------------------------------- report
 
 
+# ---------------------------------------------------------------- updates
+
+
+def age(seconds: float) -> str:
+    if seconds < 90:
+        return "just now"
+    if seconds < 5400:
+        return f"{round(seconds / 60)} minutes ago"
+    return f"{round(seconds / 3600)} hours ago"
+
+
+def remote_env() -> dict:
+    """git may not ask for a password: there is nobody to answer."""
+    return dict(os.environ, GIT_TERMINAL_PROMPT="0", GIT_ASKPASS="true")
+
+
+def ask_remote(checkout: str, branch: str) -> dict:
+    """What origin has on the branch: state ok, gone or unreachable."""
+    ref = f"refs/heads/{branch}"
+    rc, out = run_group(
+        ["git", "-C", checkout, "ls-remote", "--heads", "origin", ref],
+        remote_env(),
+        UPDATE_TIMEOUT,
+    )
+    if rc != 0:
+        return {"state": "unreachable", "commit": ""}
+    for line in out.splitlines():
+        commit, _, name = line.partition("\t")
+        if name.strip() == ref and COMMIT.fullmatch(commit):
+            return {"state": "ok", "commit": commit}
+    return {"state": "gone", "commit": ""}
+
+
+def update_cache() -> str:
+    return os.path.join(state_dir(), "update.json")
+
+
+def cached_answer(checkout: str, branch: str, now: float) -> dict | None:
+    data = as_dict(load_json(update_cache())[0])
+    state, at = data.get("state"), data.get("checked_at")
+    commit = str(data.get("commit") or "")
+    if (
+        data.get("checkout") != checkout
+        or data.get("branch") != branch
+        or state not in UPDATE_TTL
+        or isinstance(at, bool)
+        or not isinstance(at, (int, float))
+        or not 0 <= now - at < UPDATE_TTL[state]
+        or (state == "ok" and not COMMIT.fullmatch(commit))
+    ):
+        return None
+    return {"state": state, "commit": commit, "checked_at": at}
+
+
+def store_answer(checkout: str, branch: str, answer: dict) -> None:
+    """Best effort: without the file the remote is asked again next time."""
+    path = update_cache()
+    record = {
+        "checked_at": answer["checked_at"],
+        "checkout": checkout,
+        "branch": branch,
+        "state": answer["state"],
+        "commit": answer["commit"],
+    }
+    with contextlib.suppress(OSError):
+        os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
+        fd = os.open(path + ".tmp", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(record, f)
+        os.replace(path + ".tmp", path)
+
+
+def check_update(c: Check) -> None:
+    """Is the remote ahead of this install? Informs; never a problem."""
+
+    def skip(why: str) -> None:
+        c.update = {"state": "unknown"}
+        c.add("update", "info", f"not checked: {why}")
+
+    if os.environ.get("PIPELINEKIT_UPDATE_CHECK") == "0":
+        c.update = {"state": "off"}
+        c.add(
+            "update",
+            "info",
+            "the update check is switched off (PIPELINEKIT_UPDATE_CHECK=0)",
+        )
+        return
+    m = as_dict(c.manifest)
+    checkout, branch, installed = (
+        str(m.get(k) or "") for k in ("checkout", "branch", "commit")
+    )
+    if not checkout or not os.path.exists(os.path.join(checkout, ".git")):
+        return skip("the checkout this install was made from is not there")
+    if not COMMIT.fullmatch(installed):
+        return skip("the install manifest names no commit")
+    head = git_value("-C", checkout, "rev-parse", "HEAD")
+    if COMMIT.fullmatch(head) and head != installed:
+        c.add(
+            "update",
+            "info",
+            f"the checkout is at {head[:7]}, this install was made from "
+            f"{installed[:7]}: the installer brings the install in line",
+            repair_hint(c),
+        )
+    if not BRANCH.fullmatch(branch):
+        return skip("the install was made from a checkout that was on no branch")
+    now = time.time()
+    answer = cached_answer(checkout, branch, now)
+    if answer is None:
+        if not c.remote:
+            c.update = {"state": "unknown"}
+            return None
+        answer = dict(ask_remote(checkout, branch), checked_at=int(now))
+        store_answer(checkout, branch, answer)
+    remote = answer["commit"]
+    if answer["state"] == "unreachable":
+        return skip("origin did not answer (offline, no access or no such remote)")
+    if answer["state"] == "gone":
+        return skip(f"origin has no branch {branch}")
+    when = f"checked {age(now - answer['checked_at'])}"
+    c.update = {
+        "state": "current",
+        "branch": branch,
+        "installed": installed,
+        "remote": remote,
+        "checked_at": int(answer["checked_at"]),
+    }
+    if remote == installed:
+        c.add(
+            "update",
+            "pass",
+            f"up to date with origin/{branch} ({remote[:7]}, {when})",
+        )
+        return None
+    rc, _, _ = run(
+        ["git", "-C", checkout, "merge-base", "--is-ancestor", remote, installed],
+        timeout=5,
+    )
+    if rc == 0:
+        c.update["state"] = "ahead"
+        c.add(
+            "update",
+            "pass",
+            f"ahead of origin/{branch}: this install is from {installed[:7]}, "
+            f"the remote is at {remote[:7]} ({when})",
+        )
+        return None
+    c.update["state"] = "available"
+    count = git_value("-C", checkout, "rev-list", "--count", f"{installed}..{remote}")
+    behind = f", {plural(int(count), 'commit')} ahead" if count.isdigit() else ""
+    c.add(
+        "update",
+        "info",
+        f"update available: origin/{branch} is at {remote[:7]}{behind}, "
+        f"this install is from {installed[:7]} ({when})",
+        "/kit update in a session, or from a shell: "
+        f"python3 {c.path('skills/kit/update.py')} plan",
+    )
+    return None
+
+
 def repair_hint(c: Check) -> str:
     checkout = str(as_dict(c.manifest).get("checkout") or "")
     shown = checkout and clean(checkout) == checkout
@@ -1165,20 +1438,25 @@ def render_json(c: Check) -> str:
             "counts": {k: c.count(k) for k in ("fail", "warn", "info", "pass")},
             "repair": repair_hint(c),
             "results": c.items,
+            "update": c.update,
             "activity": c.activity,
         },
         indent=2,
     )
 
 
-def run_checks(home: str, quick: bool, days: int = 7, session: str = "") -> Check:
+def run_checks(
+    home: str, quick: bool, days: int = 7, session: str = "", remote: bool = True
+) -> Check:
     c = Check(home, quick, days, session)
+    c.remote = remote
     check_install(c)
     check_drift(c)
     if not quick:
         probe(c)
     check_environment(c)
     if not quick:
+        check_update(c)
         check_activity(c)
     return c
 
@@ -1208,6 +1486,11 @@ def main(argv: list[str] | None = None) -> int:
         metavar="ID",
         help="activity of one Claude Code session only",
     )
+    ap.add_argument(
+        "--no-remote",
+        action="store_true",
+        help="do not ask the remote for updates; an answer from today is still shown",
+    )
     ap.add_argument("--write-manifest", metavar="REPO_ROOT", help=argparse.SUPPRESS)
     args = ap.parse_args(argv)
     if not 1 <= args.days <= 365:
@@ -1220,7 +1503,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.write_manifest:
         write_manifest(args.write_manifest, home)
         return 0
-    c = run_checks(home, args.quick, args.days, args.session)
+    c = run_checks(home, args.quick, args.days, args.session, not args.no_remote)
     print(render_json(c) if args.json else render_text(c, args.verbose))
     return 0 if args.exit_zero or c.count("fail") == 0 else 1
 

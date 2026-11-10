@@ -137,7 +137,7 @@ With `ask`, Claude Code prompts you instead of refusing. `override` means a huma
 | `exchange-api-keys` | Exchange API keys for CryptoBargain and FundingRateArb: where they load from, never logging them, testnet vs mainnet, withdrawal-disabled and IP-restricted scopes, storage, rotation, leak runbook |
 | `docs-writer` | Render `docs-source/*.md` into self-contained HTML pages under `documentation/` with `render.py` and `template.html`, with optional data-driven interactive snippets |
 | `mobile` | Android (Kotlin/Compose) builds and device access from WSL2, iPhone home-screen web apps, Expo/EAS cloud builds for iOS, release and security checklist |
-| `kit` | Self-check, run as `/kit`: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, environment conflicts, and what the hooks blocked or failed on in the last days |
+| `kit` | Self-check, run as `/kit`: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, environment conflicts, what the hooks blocked or failed on in the last days, and whether a newer kit is available. `/kit update` applies it after asking |
 | `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then `ship.py` merges once every gate holds (own pull request, not a release, no required review, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
 
 In 0.1.0, `deploy` replaces the five separate `*-ops` skills and the per-provider deployment agents, `mobile` replaces `expo` and `ios`, and the ASP.NET Core security rules moved into `dotnet-conventions`.
@@ -151,7 +151,8 @@ In 0.1.0, `deploy` replaces the five separate `*-ops` skills and the per-provide
 | Install | Every hook, the event-log helper, git hook and skill is present; hooks are executable and have LF line endings; `settings.json` is valid, its hook commands point to files that exist, attribution is off and the secret deny rules are there; the global `core.hooksPath` |
 | Changes since install | Each installed file against the hash recorded at install time; the kit's hook entries and deny/ask rules in `settings.json` |
 | Live probe | Each hook gets input it must block and input it must allow: `git commit --no-verify`, a `docker` mount of `/etc`, `curl` piped into `sh`, `DROP TABLE` through `psql`, a `HEAD` file next to `refs/`, a non-conventional commit message, a push to `main`. The session-start check must report an install with nothing in it and say nothing about this one. Each refusal must also arrive in an event log, which the probe keeps in a temporary directory |
-| Environment | python3, Claude Code and gitleaks versions; whether `gh` and Playwright are available; WSL; a repository that sets its own `core.hooksPath` |
+| Environment | python3, Claude Code and gitleaks versions; whether `gh` and Playwright are available; WSL; a repository that sets its own `core.hooksPath`; a Bash sandbox that keeps `gh` from reading its own login file |
+| Updates | Whether the remote of the checkout the install was made from has commits this install lacks: `up to date`, `update available` or `not checked`. Information only, never a problem. Not part of `--quick` |
 | Activity | What the kit's hooks did in the last 7 days, read from the event log: each rule that blocked, asked, was overridden or failed, with a count and the last time. The 20 newest rules are listed, and a hook that failed is listed however old it is. See [Rule ids and the event log](#rule-ids-and-the-event-log). Not part of `--quick` |
 
 A line is `[fail]` when a guard is missing or does the wrong thing, `[warn]` when something changed but still works (for example a skill file you edited) or a hook failed while it ran, and `[info]` for context. The report ends with `Result: healthy`, or with the number of problems and the command that repairs the install. The check itself changes nothing in `~/.claude`.
@@ -175,13 +176,31 @@ python3 ~/.claude/skills/kit/check.py --verbose  # also list the checks that pas
 python3 ~/.claude/skills/kit/check.py --json     # for scripts
 python3 ~/.claude/skills/kit/check.py --days 30  # activity of the last 30 days (1 to 365)
 python3 ~/.claude/skills/kit/check.py --session ID  # activity of one session
+python3 ~/.claude/skills/kit/check.py --no-remote   # do not ask the remote for updates
 ```
 
-Exit code 0 means healthy, 1 means problems were found, 2 means the checker itself failed. `scripts/verify.sh` runs the same file. The JSON output has an `activity` list with every rule; the text report shows the 20 most recent.
+Exit code 0 means healthy, 1 means problems were found, 2 means the checker itself failed. `scripts/verify.sh` runs the same file. The JSON output has an `activity` list with every rule, where the text report shows the 20 most recent, and an `update` object with the state of the update check.
 
 The repository checks itself the same way. In CI the `install-smoke` job installs the kit into an empty home directory and expects a healthy report, then removes one hook and expects the report to name it. The whole workflow also runs every Monday at 05:17 UTC and can be started by hand (`gh workflow run CI`). A failed scheduled run opens the issue `Weekly self-check failed`, or adds a comment to it while it is open (`scripts/ci-report.sh`); close the issue once a run is green again. GitHub starts scheduled runs from the default branch only, and pauses them after 60 days without activity in the repository.
 
-The comparison data is `~/.claude/pipelinekit/manifest.json`, which the installer writes: kit version and commit, the checkout path, a SHA-256 of every installed file, and the `settings.json` entries the kit owns. An install made before this file existed reports `install manifest not found`; run the installer once.
+The comparison data is `~/.claude/pipelinekit/manifest.json`, which the installer writes: kit version and commit, the checkout path and branch, whether serena was registered, a SHA-256 of every installed file, and the `settings.json` entries the kit owns. An install made before this file existed reports `install manifest not found`; run the installer once.
+
+The Updates section compares the commit the install was made from with the same branch on `origin` of that checkout. It asks the remote at most once in 24 hours (`git ls-remote`, nothing is fetched), gives it 5 seconds and keeps the answer in `update.json` next to the event log. Offline, without the checkout, or when the install was made from a checkout on no branch, it says `not checked`. An available update is an `[info]` line and never changes the result. `PIPELINEKIT_UPDATE_CHECK=0` switches the check off; `--no-remote` uses only an answer it already has.
+
+`/kit update` applies an update from inside a session:
+
+1. `update.py plan` fetches the branch and lists the new commits, at most 30, each as one cleaned line. Nothing else changes.
+2. Claude shows them and asks whether to update.
+3. After a yes, `update.py apply --to <commit>` fast-forwards the checkout to exactly the commit the plan listed, runs the installer and then the self-check. Its last line is `Updated <old> -> <new>. Self-check: healthy.`
+
+The installer runs with what was chosen at install time: the global git hooks stay on or off, and serena is not registered where it was skipped. The update is refused, and nothing changes, when the checkout has uncommitted changes, is on another branch or has commits the remote lacks, and when the remote moved after the plan. The same two commands work from a shell:
+
+```bash
+python3 ~/.claude/skills/kit/update.py plan              # what would change
+python3 ~/.claude/skills/kit/update.py apply --to COMMIT # the full commit id the plan printed
+```
+
+The Environment section warns about one conflict that is easy to miss. When the Bash sandbox is on, a `Read` deny rule for the `gh` login file (`hosts.yml`) also applies to `gh` itself, so `gh` fails in sandboxed commands, and so does `git` over https when it asks `gh` for the token. The line names the fix: add `gh *` to `sandbox.excludedCommands` in `settings.json`, or run `gh` outside the sandbox.
 
 Two things are outside its reach. A `permissions.deny` match, or a prompt you declined, leaves no trace to report: Activity lists only what the kit's own hooks did. And the report describes the environment it runs in: another WSL distro, an SSH host or a sandboxed session can differ, so run the check there.
 

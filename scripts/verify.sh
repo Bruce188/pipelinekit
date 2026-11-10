@@ -8,7 +8,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FAIL=0
 
 echo "Verifying pipelinekit at $CLAUDE_HOME"
-python3 "$REPO_ROOT/claude/skills/kit/check.py" --verbose || FAIL=1
+python3 "$REPO_ROOT/claude/skills/kit/check.py" --verbose --no-remote || FAIL=1
 
 # Personal-data leak guard (repo checkout only).
 if [[ -d "$REPO_ROOT/claude" ]]; then
