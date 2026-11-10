@@ -73,7 +73,10 @@ CLIs. The installer renders it to
 
 ## Install
 
-Requirements: `bash`, `git` and `python3`. `uv` is needed only for serena.
+Requirements: `bash`, `git` and `python3` on Linux, macOS or WSL 2. `uv` is
+needed only for serena. On Windows, install inside WSL and start Claude Code
+Desktop sessions in the WSL environment; a Local Windows session cannot run
+the hooks. See [Claude Code Desktop](documentation/installation.html#claude-code-desktop).
 
 ```bash
 git clone https://github.com/Bruce188/pipelinekit.git
