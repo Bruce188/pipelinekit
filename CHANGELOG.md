@@ -24,6 +24,16 @@ kit used to ship, so those parts are gone.
   longer breaks the hook shebangs.
 - `verify.sh` runs each hook once instead of only checking that it exists.
 
+### Self-check
+
+- `/kit` reports what is not working in an install: missing or changed files,
+  hooks that no longer block or allow what they should, kit entries that went
+  missing from `settings.json`, a global `core.hooksPath` that changed. The
+  checks are in `claude/skills/kit/check.py` (`--quick`, `--verbose`, `--json`).
+- The installer writes `~/.claude/pipelinekit/manifest.json` (version, commit,
+  file hashes, the kit's settings entries); the check compares against it.
+- `verify.sh` runs the same checker, so the installer, CI and `/kit` agree.
+
 ### Security
 
 - Native permission rules: `deny` Read/Edit of `.env*` (except

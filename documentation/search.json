@@ -14,7 +14,7 @@
   {
     "title": "pipelinekit documentation",
     "slug": "index",
-    "excerpt": "pipelinekit v0.1.0 is a small Claude Code config kit. It contains guard hooks, permission rules, global git hooks, five skills, a short CLAUDE.md template, and an installer that copies them into…",
+    "excerpt": "pipelinekit v0.1.0 is a small Claude Code config kit. It contains guard hooks, permission rules, global git hooks, six skills, a short CLAUDE.md template, and an installer that copies them into…",
     "quadrant": "explanation"
   },
   {

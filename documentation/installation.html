@@ -654,7 +654,7 @@ bash<span class="w"> </span>scripts/install.sh<span class="w">            </span
 <p>You can safely run the installer again. To update, run <code>git pull</code> and then run the installer again.</p>
 <h2 id="what-the-installer-does">What the installer does</h2>
 <ol>
-<li>Copies the hooks, the global git hooks, the five skills and <code>config/never-stage.txt</code> into <code>~/.claude</code>. It overwrites those files in place and never moves or deletes the directory. It leaves <code>projects/</code>, <code>sessions/</code>, <code>plugins/</code> and your credentials alone.</li>
+<li>Copies the hooks, the global git hooks, the six skills and <code>config/never-stage.txt</code> into <code>~/.claude</code>. It overwrites those files in place and never moves or deletes the directory. It leaves <code>projects/</code>, <code>sessions/</code>, <code>plugins/</code> and your credentials alone.</li>
 <li>Removes skills, hooks and the <code>docs-writer</code> agent that earlier 0.1.0 builds installed (<code>commit-conventions</code>, <code>security-conventions</code>, <code>expo</code>, <code>ios</code>, the old guard hooks), but only if each is still byte-identical to a committed kit version. Edited copies are kept, with a warning.</li>
 <li>Renders <code>~/.claude/CLAUDE.md</code> from <code>claude/CLAUDE.md.template</code>. If the result differs from your existing file, the old one is saved as <code>CLAUDE.md.bak-&lt;timestamp&gt;</code>.</li>
 <li>Backs up <code>settings.json</code> to <code>settings.json.bak-&lt;timestamp&gt;</code>, then merges in <code>claude/config/settings.template.json</code>:
@@ -663,7 +663,7 @@ bash<span class="w"> </span>scripts/install.sh<span class="w">            </span
    - <code>attribution</code> is set to empty strings, so commits and PRs get no co-author trailer or footer.</li>
 <li>Asks whether to set the global git <code>core.hooksPath</code> to <code>~/.claude/git-hooks</code>. It never overwrites an existing value; it prints the command instead. Without a terminal, and without <code>--git-hooks</code>, it skips this step.</li>
 <li>Installs serena with <code>uv</code> at a pinned commit and registers it at user scope in <code>~/.claude.json</code>. It backs that file up first.</li>
-<li>Runs <code>scripts/verify.sh</code>.</li>
+<li>Writes <code>~/.claude/pipelinekit/manifest.json</code> (version, commit, a hash of every installed file, the kit's <code>settings.json</code> entries), then runs <code>scripts/verify.sh</code>.</li>
 </ol>
 <details>
 <summary>Repos that set their own core.hooksPath</summary>
@@ -761,7 +761,7 @@ git<span class="w"> </span>-C<span class="w"> </span>~/path/to/repo<span class="
 </tr>
 </tbody>
 </table>
-<p>To check a session, ask Claude to run <code>bash scripts/verify.sh</code> in it. The script then runs with that session's PATH and home directory.</p>
+<p>To check a session, type <code>/kit</code> in it. The check then runs with that session's PATH and home directory.</p>
 <h3 id="windows">Windows</h3>
 <p>Install the kit inside WSL 2 and start sessions in the <strong>WSL</strong> environment. The session is then a Linux process with the distro's <code>~/.claude</code>, PATH and git, so the hooks, the permission rules and the global git hooks behave as they do in the CLI. Clone the repo with git inside WSL as well.</p>
 <p>A <strong>Local</strong> session is a Windows process, even when its folder is a <code>\\wsl.localhost\&lt;distro&gt;\...</code> path:</p>
@@ -776,9 +776,11 @@ git<span class="w"> </span>-C<span class="w"> </span>~/path/to/repo<span class="
 <p>The hook files have CRLF line endings, usually because the repo was checked out with Git for Windows (<code>core.autocrlf=true</code>) before <code>.gitattributes</code> forced LF. The shebang no longer resolves, the hook cannot start, and the <code>PreToolUse</code> hooks block the call. Pull the current version and clone it again with git inside WSL, then run the installer again. <code>scripts/verify.sh</code> reports this as <code>hook does not start</code>.</p>
 </details>
 <h2 id="check-the-install">Check the install</h2>
+<p>Inside a Claude Code session, type <code>/kit</code>. From a shell:</p>
 <div class="codehilite"><pre><span></span><code>bash<span class="w"> </span>scripts/verify.sh
 </code></pre></div>
 
+<p>Both run the same checker, <code>claude/skills/kit/check.py</code>. Run it after every install or update, and whenever a hook blocks something you did not expect. <a href="components.html#self-check">Components</a> lists what it checks.</p>
 <p>The script checks that the kit's hooks, git hooks and skills are present, that each hook starts when it is run the way Claude Code runs it, that every hook command in <code>settings.json</code> points to a file that exists, that attribution is off, and that the secret deny rules are in place. It reports whether the global <code>core.hooksPath</code> points at the kit and whether <code>gitleaks</code> is installed.</p>
     </div>
 

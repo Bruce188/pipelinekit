@@ -22,7 +22,7 @@ TS="$(date +%Y%m%d-%H%M%S)"
 # Keep in sync with .mcp.json / .mcp.json.template.
 SERENA_REF="${SERENA_REF:-9b292a6c8b03c8306f117efeabb0ea7afdb0b3c0}"
 
-KIT_SKILLS=(dotnet-conventions deploy exchange-api-keys docs-writer mobile)
+KIT_SKILLS=(dotnet-conventions deploy exchange-api-keys docs-writer mobile kit)
 # Shipped by earlier versions. Removed on upgrade only if unmodified (see kit_file).
 RETIRED_SKILLS=(commit-conventions security-conventions expo ios)
 RETIRED_HOOKS=(block-dangerous-commands.sh block-push-main.sh block-stage-sensitive.sh env-scrub.py
@@ -43,7 +43,8 @@ Copies hooks, git hooks, skills and config into \$CLAUDE_HOME (default ~/.claude
 removes unmodified files that older kit versions installed, renders CLAUDE.md,
 merges hook wiring, permissions (deny/ask) and attribution-off into
 settings.json (backing it up first), installs global git hooks (asks first),
-installs and registers the serena MCP server, then runs scripts/verify.sh.
+installs and registers the serena MCP server, records what it installed in
+\$CLAUDE_HOME/pipelinekit/manifest.json, then runs scripts/verify.sh.
 EOF
 }
 
@@ -296,6 +297,12 @@ if GIT_COMMON="$(git -C "$REPO_ROOT" rev-parse --git-common-dir 2>/dev/null)"; t
     rm -f "$GIT_COMMON/hooks/pre-commit"
   fi
 fi
+
+# ---------- manifest ----------
+# What this install consists of; scripts/verify.sh and the /kit command compare
+# the live files and settings against it. Written last so it records the final state.
+CLAUDE_HOME="$CLAUDE_HOME" python3 "$REPO_ROOT/claude/skills/kit/check.py" --write-manifest "$REPO_ROOT"
+log "manifest: $CLAUDE_HOME/pipelinekit/manifest.json"
 
 # ---------- verify ----------
 CLAUDE_HOME="$CLAUDE_HOME" bash "$REPO_ROOT/scripts/verify.sh"
