@@ -1265,7 +1265,7 @@ footer {
 <div class="codehilite"><pre><span></span><code>pipelinekit: 2 problems in this install, first: hook missing: bash-guard.py. Run /kit for the report.
 </code></pre></div>
 
-<p>The hook never blocks a session. A check that takes longer than 4 seconds is dropped and shows up under Activity as <code>session-check.timeout</code>. <code>PIPELINEKIT_SESSION_CHECK=0</code> in the environment switches it off, and <code>/kit</code> then says so.</p>
+<p>The hook never blocks a session. A check that takes longer than 4 seconds is dropped, together with anything it started, and shows up under Activity as <code>session-check.timeout</code>. <code>PIPELINEKIT_SESSION_CHECK=0</code> in the environment switches it off, and <code>/kit</code> then says so.</p>
 <p>The checker is <code>claude/skills/kit/check.py</code>, stdlib only. It also runs outside a session:</p>
 <div class="codehilite"><pre><span></span><code>python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w">            </span><span class="c1"># full report, about a second</span>
 python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w"> </span>--quick<span class="w">    </span><span class="c1"># no live probes</span>

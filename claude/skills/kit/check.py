@@ -65,6 +65,7 @@ CONTROL = re.compile(
     r"[\x00-\x1f\x7f-\x9f\xad\u061c\u200b-\u200f\u2028-\u202e\u2060-\u206f"
     r"\ufeff\ud800-\udfff\U000e0000-\U000e007f]+"
 )
+SAFE_REL = re.compile(r"[A-Za-z0-9._@+-]+(/[A-Za-z0-9._@+-]+)*")
 WSL_NOTE = (
     "WSL: in Claude Code Desktop pick the WSL environment; "
     "a Local (Windows) session cannot run these hooks"
@@ -314,11 +315,16 @@ def check_settings(c: Check) -> None:
         return
     user_home = os.path.expanduser("~")
     bad = []
-    for groups in as_dict(c.settings.get("hooks")).values():
+    for event, groups in as_dict(c.settings.get("hooks")).items():
         for g in as_list(groups):
             for h in as_list(as_dict(g).get("hooks")):
-                first = (as_dict(h).get("command") or "").split(" ")[0]
-                first = os.path.expanduser(first)
+                cmd = as_dict(h).get("command")
+                if cmd is not None and not isinstance(cmd, str):
+                    where = event if event.isalnum() else "hooks"
+                    bad.append(f"a hook under {where} has a command that is not text")
+                    continue
+                # the program only: what follows it is not ours to repeat
+                first = os.path.expanduser(((cmd or "").split() or [""])[0])
                 first = first.replace("${HOME}", user_home).replace("$HOME", user_home)
                 if first.startswith("/") and not os.path.exists(first):
                     bad.append(f"hook command not found: {first}")
@@ -413,8 +419,16 @@ def drift_files(c: Check, files: dict) -> None:
     missing: dict[str, list[str]] = {}
     changed, same = [], 0
     gone = tuple(os.path.dirname(b) + "/" for b in c.broken if b.endswith("/SKILL.md"))
+    odd = [rel for rel in files if not SAFE_REL.fullmatch(rel)]
+    if odd:
+        c.add(
+            "drift",
+            "fail",
+            f"install manifest lists {plural(len(odd), 'name')} no kit file has: "
+            "run the installer once",
+        )
     for rel, digest in sorted(files.items()):
-        if c.quick and not rel.startswith(("hooks/", "git-hooks/")):
+        if rel in odd or (c.quick and not rel.startswith(("hooks/", "git-hooks/"))):
             continue
         if gone and rel.startswith(gone):
             continue  # the whole skill is already reported as missing
@@ -977,7 +991,7 @@ def kit_info(c: Check) -> dict:
 
 
 def render_text(c: Check, verbose: bool) -> str:
-    kit = kit_info(c)
+    kit = {k: clean(v) for k, v in kit_info(c).items()}
     head = " ".join(x for x in ("pipelinekit", kit["version"]) if x)
     ref = ", ".join(x for x in (kit["commit"][:7], kit["branch"]) if x)
     lines = [

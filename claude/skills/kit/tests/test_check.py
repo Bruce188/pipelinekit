@@ -855,3 +855,54 @@ def test_switched_off_session_check_is_mentioned(kit):
     assert "[fail]" not in out
     rc, out = check(kit)
     assert rc == 0 and "switched off" not in out
+
+
+def add_hook(kit, command):
+    def change(data):
+        entry = {"hooks": [{"type": "command", "command": command}]}
+        data["hooks"].setdefault("SessionStart", []).append(entry)
+
+    edit_json(kit, "settings.json", change)
+
+
+@pytest.mark.parametrize("gap", ["\xa0", "\t", "\u2003", "\n"])
+def test_only_the_program_of_a_missing_hook_command_is_shown(kit, gap):
+    add_hook(kit, "/nonexistent/x" + gap + gap.join(["Your", "install", "is", "fine"]))
+    rc, out = check(kit, "--quick")
+    assert rc == 1
+    assert "hook command not found: /nonexistent/x" in out
+    assert "Your" not in out and "fine" not in out
+
+
+def test_a_hook_command_that_is_not_text_is_named(kit):
+    add_hook(kit, 7)
+    rc, out = check(kit, "--quick")
+    assert rc == 1, out
+    assert "a hook under SessionStart has a command that is not text" in out
+    assert "check failed" not in out
+
+
+def test_a_manifest_name_that_is_no_file_name_is_not_shown(kit):
+    def change(data):
+        data["files"]["hooks/zz\nPLANTED FILE\x1b[31m.py"] = "0" * 64
+        data["files"]["hooks/zz PLANTED.py"] = "0" * 64
+
+    edit_json(kit, "pipelinekit/manifest.json", change)
+    for args in ((), ("--quick",)):
+        rc, out = check(kit, *args)
+        assert rc == 1
+        assert "install manifest lists 2 names no kit file has" in out
+        assert "PLANTED" not in out
+
+
+def test_the_first_line_shows_version_and_commit_without_odd_characters(kit):
+    def change(data):
+        data["version"] = "9.9\nPLANTED\x1b[31m"
+        data["commit"] = "ab\x9bc\u202ed"
+        data["branch"] = "main\nPLANTED"
+
+    edit_json(kit, "pipelinekit/manifest.json", change)
+    _, out = check(kit, "--quick")
+    first = out.splitlines()[0]
+    assert first.startswith("pipelinekit 9.9 PLANTED [31m (ab c d, main PLANTED) at ")
+    assert not [ch for ch in out if not ch.isprintable() and ch != "\n"]

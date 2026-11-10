@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -136,6 +137,37 @@ def test_slow_checker_is_dropped_without_a_word(home):
     assert (event["kind"], event["rule"]) == ("error", "session-check.timeout")
 
 
+def test_a_timeout_ends_what_the_checker_started(home):
+    hook = home / "hooks" / "session-check.py"
+    hook.write_text(hook.read_text().replace("TIMEOUT = 4 ", "TIMEOUT = 2 "))
+    note = home / "child.pid"
+    slow = (
+        "import subprocess, time\n"
+        "child = subprocess.Popen(['sleep', '30'])\n"
+        f"open({str(note)!r}, 'w').write(str(child.pid))\n"
+        "time.sleep(30)\n"
+    )
+    assert run(home, slow) == ""
+    assert [e["rule"] for e in logged(home)] == ["session-check.timeout"]
+    pid = int(note.read_text())
+    for _ in range(50):
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return
+        time.sleep(0.1)
+    os.kill(pid, 9)
+    pytest.fail("the checker's child was still running after the timeout")
+
+
+def test_a_finding_has_no_character_that_changes_how_the_line_reads(home):
+    odd = "\x1b[31m", "\x07", "\x9b", "\xa0", "\xad", "\u202e", "\u2066", "\u200b"
+    finding = "a" + "b".join((*odd, "\ufeff", "\U000e0041"))
+    message, _ = said(run(home, checker(("fail", finding))))
+    assert not [ch for ch in message if not ch.isprintable()], ascii(message)
+    assert "\xa0" not in message and "first: a" in message
+
+
 def test_switched_off(home):
     check = checker(("fail", "broken"))
     assert run(home, check, PIPELINEKIT_SESSION_CHECK="0") == ""
@@ -149,7 +181,10 @@ def test_checks_the_install_it_sits_in(home):
     assert "home=/elsewhere." in said(run(home, SHOW_HOME, CLAUDE_HOME="/elsewhere"))[0]
 
 
-@pytest.mark.parametrize("stdin", ["", "not json", "[1, 2]"])
+@pytest.mark.parametrize(
+    "stdin",
+    ["", "not json", "[1, 2]", pytest.param("[" * 200000, id="nested too deep")],
+)
 def test_odd_input_does_not_matter(home, stdin):
     assert run(home, checker(("pass", "ok")), stdin=stdin) == ""
     assert said(run(home, checker(("fail", "broken")), stdin=stdin))

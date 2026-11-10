@@ -14,8 +14,11 @@ PIPELINEKIT_SESSION_CHECK=0 switches it off. Stdlib only.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
+import re
+import signal
 import subprocess
 import sys
 
@@ -23,6 +26,11 @@ HOOK = "session-check"
 TIMEOUT = 4  # seconds; settings.json gives the hook 5
 MAX_DETAIL = 160
 REPAIR = "The kit's installer is the repair path and the user runs it."
+# The same characters check.py keeps out of its report: control, invisible, direction.
+CONTROL = re.compile(
+    r"[\x00-\x1f\x7f-\x9f\xad\u061c\u200b-\u200f\u2028-\u202e\u2060-\u206f"
+    r"\ufeff\ud800-\udfff\U000e0000-\U000e007f]+"
+)
 
 
 def record(rule, reason, data=None):
@@ -41,7 +49,7 @@ def hook_input():
         if sys.stdin is None or sys.stdin.isatty():
             return {}
         data = json.loads(sys.stdin.read() or "{}")
-    except (OSError, ValueError):
+    except (OSError, ValueError, RecursionError):
         return {}
     return data if isinstance(data, dict) else {}
 
@@ -67,8 +75,33 @@ def could_not_run(reason, advice, data):
 
 
 def one_line(text):
-    text = " ".join(str(text).split())
+    text = " ".join(CONTROL.sub(" ", str(text)).split())
     return text if len(text) <= MAX_DETAIL else text[: MAX_DETAIL - 3] + "..."
+
+
+def run_checker(checker, env):
+    """The checker's exit code and output. On a timeout it and all it started end."""
+    p = subprocess.Popen(
+        [sys.executable, checker, "--quick", "--json"],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        errors="replace",
+        env=env,
+        start_new_session=True,  # its own process group, so a child can go too
+    )
+    try:
+        out, _ = p.communicate(timeout=TIMEOUT)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except OSError:
+            p.kill()
+        with contextlib.suppress(subprocess.TimeoutExpired, OSError, ValueError):
+            p.communicate(timeout=1)
+        raise
+    return p.returncode, out
 
 
 def main():
@@ -88,15 +121,7 @@ def main():
     ):
         env["CLAUDE_HOME"] = home  # check the install this hook sits in
     try:
-        p = subprocess.run(
-            [sys.executable, checker, "--quick", "--json"],
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-            errors="replace",
-            timeout=TIMEOUT,
-            env=env,
-        )
+        code, out = run_checker(checker, env)
     except subprocess.TimeoutExpired:
         record("session-check.timeout", f"no result within {TIMEOUT} seconds", data)
         return
@@ -105,11 +130,11 @@ def main():
         could_not_run(reason, "Run the kit's installer again.", data)
         return
     try:
-        results = json.loads(p.stdout)["results"]
+        results = json.loads(out)["results"]
         fails = [r for r in results if r["level"] == "fail"]
         first = one_line(fails[0]["msg"]) if fails else ""
     except (ValueError, KeyError, TypeError, IndexError):
-        reason = f"check.py gave no report, exit {p.returncode}"
+        reason = f"check.py gave no report, exit {code}"
         could_not_run(reason, "Run /kit to see why.", data)
         return
     if not fails:

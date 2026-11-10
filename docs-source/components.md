@@ -162,7 +162,7 @@ The same check runs when a session starts. `session-check.py` is a SessionStart 
 pipelinekit: 2 problems in this install, first: hook missing: bash-guard.py. Run /kit for the report.
 ```
 
-The hook never blocks a session. A check that takes longer than 4 seconds is dropped and shows up under Activity as `session-check.timeout`. `PIPELINEKIT_SESSION_CHECK=0` in the environment switches it off, and `/kit` then says so.
+The hook never blocks a session. A check that takes longer than 4 seconds is dropped, together with anything it started, and shows up under Activity as `session-check.timeout`. `PIPELINEKIT_SESSION_CHECK=0` in the environment switches it off, and `/kit` then says so.
 
 The checker is `claude/skills/kit/check.py`, stdlib only. It also runs outside a session:
 
