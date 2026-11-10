@@ -59,13 +59,16 @@ LINE_LEAD = re.compile(
     r"(?:\[[ xX]\]\s+)?"
 )
 OPT_OUT = re.compile(
-    r"^(?:merges?\s*:\s*ask\b|`merges?\s*:\s*ask(?:\s+first)?`[\s.]*(?:-->)?$)",
+    r"^(?:(?:pipelinekit\s*:\s*)?merg(?:es?|ing)\s*(?::|-|\u2013|\u2014)\s*"
+    r"(?:always\s+)?(?:ask|never|manual(?:ly)?)\b"
+    r"|`merges?\s*:\s*ask(?:\s+first)?`[\s.]*(?:-->)?$)",
     re.I,
 )
 
-# Releases stay with the user. A release is recognised by its branches and by
-# its title, never by its diff. A miss here merges something the user wanted
-# to decide, so the rules lean towards asking.
+# Releases stay with the user. A release is recognised by its branches, by its
+# title and by what it changes: a version number, or a version heading in the
+# changelog. A miss here merges something the user wanted to decide, so the
+# rules lean towards asking.
 VERSION = r"v?\d+\.\d+(?:\.\d+)?(?:[-+.][0-9A-Za-z.-]+)?"
 RELEASE_HEAD = re.compile(
     r"^(?:"
@@ -85,39 +88,103 @@ STAGE_HEADS = wordset(
 )
 STAGE_PREFIXES = wordset("integration staging stage uat qa preprod env deploy")
 MAINLINES = ("main", "master")
-DEPLOY_BASES = wordset(
-    "production prod live stable deploy deployment deployments gh-pages pages"
+# One of these words anywhere in the name of a base branch makes it a deploy
+# branch: `production-eu`, `aws-prod`, `gh-pages`.
+DEPLOY_WORDS = wordset(
+    "production prod prd live stable deploy deployment deployments deployed "
+    "pages publish published released latest heroku netlify vercel"
 )
-TITLE_PREFIX = re.compile(r"^(?P<type>[a-z]+)(?:\((?P<scope>[^)]*)\))?!?:\s*", re.I)
+# The branches besides the default one that ordinary work goes into: a shared
+# working branch, a release line, another topic branch. Any other base is held.
+WORK_BASES = wordset(
+    "develop development dev integration staging stage next beta alpha "
+    "canary preview nightly edge uat qa preprod test testing trunk"
+)
+WORK_PREFIXES = wordset("integration staging stage uat qa preprod")
+TOPIC_PREFIXES = wordset(
+    "feat feature fix bugfix chore docs doc refactor test tests perf ci build "
+    "style revert task spike"
+)
+RELEASE_LINE = re.compile(
+    r"^(?:(?:pre-?)?releases?[/_-].+|(?:rel|rc|hotfix|support|maint|maintenance)"
+    r"[/-].+|v?\d+(?:\.(?:\d+|x))*)$"
+)
+TITLE_PREFIX = re.compile(r"^(?P<type>[a-z]+)(?:\((?P<scope>[^)]*)\))?!?\s*:\s*", re.I)
+# `[skip ci]` and its relatives say nothing about what a pull request is.
+CI_TAG = re.compile(
+    r"\[\s*(?:skip[ -][a-z]+|[a-z]+[ -]skip|no[ -]ci)\s*\]|\*{3}NO_CI\*{3}", re.I
+)
 MERGE_TITLE = re.compile(
     r"^merge\s+(?:remote-tracking\s+)?(?:branch\s+)?'?([\w./-]+)'?\s+into\s+"
     r"'?([\w./-]+)'?$",
     re.I,
 )
 RELEASE_MARK = re.compile(
-    r"[\[(]\s*(?:pre-?)?release(?:\s+v?\d[\w.+-]*)?\s*[\])]", re.I
+    r"\[[^\]]*\b(?:pre-?)?releases?\b[^\]]*\]"
+    r"|\(\s*(?:pre-?)?release(?:\s+v?\d[\w.+-]*)?\s*\)",
+    re.I,
 )
 TOKEN = re.compile(
     r"(?P<version>(?<![\w.])v?\d+(?:\.(?:\d+|x))+(?:[-+][0-9a-z][0-9a-z.]*)*"
-    r"|(?<![\w.])v\d+(?![\w.]))"
+    r"|(?<![\w.])v\d+(?![\w.])"
+    r"|(?<![\w.])(?:rc|beta|alpha)[ .-]?\d+(?![\w.]))"
     r"|(?P<word>[a-z][a-z0-9]*)"
     r"|(?P<number>\d+)"
 )
 # The words a release title is made of. A title with other words in it is
 # about something else: `fix: release the lock before retrying`.
 RELEASE_NAMES = wordset("release releases releasing released prerelease")
-STRONG = RELEASE_NAMES | wordset("version publish production prod")
+STRONG = RELEASE_NAMES | wordset("version publish production prod hotfix")
 ACTIONS = wordset(
-    "bump cut tag ship deploy prepare prep finalize finalise increment set "
-    "update new publish"
+    "bump bumps bumped bumping cut tag ship deploy prepare prepared preparing "
+    "prep finalize finalise finish finishing increment increase raise set "
+    "update new publish create creating promote promoting do make start"
 )
 FILLER = wordset("for to the of and a an from in on with into")
 VOCABULARY = (
     STRONG
     | ACTIONS
     | FILLER
-    | wordset("candidate rc changelog notes package packages npm pypi pre beta alpha")
+    | wordset(
+        "candidate rc changelog notes package packages npm pypi pre beta alpha "
+        "patch minor major number numbers initial first final stable"
+    )
 )
+# Files whose change is a new version: the whole file, a line that declares a
+# version, or a version heading in a changelog. Matched on the file name.
+VERSION_FILES = wordset("version version.txt .version version.json")
+JSON_FILES = wordset(
+    "package.json composer.json app.json manifest.json plugin.json "
+    "marketplace.json deno.json jsr.json lerna.json"
+)
+ASSIGN_FILES = wordset(
+    "pyproject.toml cargo.toml setup.cfg setup.py gradle.properties "
+    "build.gradle build.gradle.kts build.sbt pubspec.yaml chart.yaml mix.exs "
+    "__init__.py __about__.py __version__.py _version.py version.py "
+    "version.rb version.go version.ts version.js version.php"
+)
+ASSIGN_ENDS = (".gemspec", ".podspec")
+XML_ENDS = (".csproj", ".fsproj", ".vbproj", ".nuspec", ".props")
+CHANGELOGS = wordset(
+    "changelog.md changelog changelog.rst changelog.txt changes.md history.md "
+    "news.md releases.md release-notes.md"
+)
+JSON_VERSION = re.compile(r'^\s*"version"\s*:\s*"')
+ASSIGN_VERSION = re.compile(
+    r"^\s*(?:(?:export\s+)?(?:const|let|var|val|def)\s+|\w+\.|@|\$)?"
+    r"(?:__version__|app_?version|version_?(?:name|code)|version)"
+    r"(?:\s*(?::\s*\w+\s*)?[:=]|\s+[\"'])",
+    re.I,
+)
+XML_VERSION = re.compile(
+    r"^\s*<(?:Version|VersionPrefix|VersionSuffix|AssemblyVersion|FileVersion"
+    r"|PackageVersion|InformationalVersion|ApplicationVersion"
+    r"|ApplicationDisplayVersion)>"
+)
+VERSION_HEADING = re.compile(
+    r"^#{1,3}\s*\[?(?:(?:version|release)\s+)?v?\d+\.\d+", re.I
+)
+MAX_VERSION_FILES = 60
 QUIET_TYPES = wordset("docs test style refactor perf")
 PLAIN_TYPES = wordset("feat feature fix bugfix revert")
 
@@ -176,6 +243,14 @@ def count(n, word):
 def said(text, rc):
     """What a failed command answered, on one line."""
     return " ".join((text or "").split())[:300] or f"exit {rc}"
+
+
+def git_said(text, rc):
+    """Why a git command failed: its error line, without the hints around it."""
+    lines = [line.strip() for line in (text or "").splitlines()]
+    lines = [line for line in lines if line and not line.startswith("hint:")]
+    errors = [line for line in lines if line.startswith(("fatal:", "error:"))]
+    return said((errors or lines or [""])[0], rc)
 
 
 def poll_seconds():
@@ -511,10 +586,14 @@ def own_gate(repo, pr):
 def opts_out(text):
     """True when one line of `text` is the opt-out line itself."""
     for line in text.lstrip("\ufeff").splitlines():
-        for cell in line.split("|"):
-            cell = LINE_LEAD.sub("", cell.strip(), count=1)
-            if OPT_OUT.match(re.sub(r"[*_]", "", cell).strip()):
-                return True
+        cells = [
+            re.sub(r"[*_]", "", LINE_LEAD.sub("", cell.strip(), count=1)).strip()
+            for cell in line.split("|")
+        ]
+        # `| Merges | ask first |`: two cells of a table row read as one line.
+        pairs = [f"{a}: {b}" for a, b in zip(cells, cells[1:], strict=False) if a and b]
+        if any(OPT_OUT.match(cell) for cell in cells + pairs):
+            return True
     return False
 
 
@@ -591,13 +670,14 @@ def named_release(kind, scope, text, own=()):
     strong = implied or any(w in STRONG for w in words)
     if not unknown:
         if kind in PLAIN_TYPES:
-            return bool(versions) and strong
+            return bool(versions) and (strong or not words)
         return bool(versions) or strong
     if kind in PLAIN_TYPES or not versions or len(unknown) > 2:
         return False
-    lead = [w for w in words if w not in FILLER][:2]
+    lead = [w for w in words if w not in FILLER][:3]
     starts = lead[0] in RELEASE_NAMES or (
-        lead[0] in ACTIONS and len(lead) > 1 and lead[1] in RELEASE_NAMES
+        lead[0] in ACTIONS
+        and any(w == "version" or w in RELEASE_NAMES for w in lead[1:])
     )
     return implied or starts
 
@@ -618,17 +698,34 @@ def release_head(head, own=()):
 
 def release_title(title, default="", own=()):
     """True when a pull request title names a release, not a change about one."""
-    title = (title or "").strip()
-    m = MERGE_TITLE.match(title)
-    if m:
-        into = {default.lower(), *MAINLINES}
-        return m.group(2).lower() in into and release_head(m.group(1), own)
+    title = " ".join(CI_TAG.sub(" ", title or "").split())
     kind, scope, rest = "", "", title
     m = TITLE_PREFIX.match(title)
     if m:
         kind, scope = m.group("type").lower(), (m.group("scope") or "").lower()
         rest = title[m.end() :]
+    m = MERGE_TITLE.match(title) or MERGE_TITLE.match(rest)
+    if m:
+        into = {default.lower(), *MAINLINES}
+        return m.group(2).lower() in into and release_head(m.group(1), own)
     return bool(RELEASE_MARK.search(rest)) or named_release(kind, scope, rest, own)
+
+
+def deploy_base(base):
+    """True when the name of a base branch says it is deployed or published."""
+    low = base.lower()
+    if low.split("/")[0] in ("env", "environment", "environments"):
+        return True
+    return bool(DEPLOY_WORDS & set(re.split(r"[^a-z]+", low)))
+
+
+def work_base(base):
+    """True for a base that ordinary work goes into besides the default branch."""
+    low = base.lower()
+    if low in WORK_BASES or RELEASE_LINE.match(low):
+        return True
+    first, slash, _ = low.partition("/")
+    return bool(slash) and first in WORK_PREFIXES | TOPIC_PREFIXES
 
 
 def release_branches(head, base, default="", own=()):
@@ -640,15 +737,68 @@ def release_branches(head, base, default="", own=()):
             f"{base} is not the default branch ({default}): what goes into it "
             "is a release"
         )
-    parts = low.split("/")
-    staged = parts[0] in ("env", "environment", "environments")
-    if not main and (staged or DEPLOY_BASES & set(parts)):
+    if not main and deploy_base(base):
         return f"{base} is a deploy branch"
     if default and head == default and not main:
         return f"{head} into {base} promotes the default branch"
-    if main and release_head(head, own):
-        return f"{head} into {base} is a release"
+    if release_head(head, own):
+        if main:
+            return f"{head} into {base} is a release"
+        return f"{head} into {base} merges a release or stage branch"
+    if not main and not work_base(base):
+        return f"{base} is not the default branch or a known working branch"
     return ""
+
+
+def version_line(name, line):
+    """What a line added to a file of this name does to the version; else ''."""
+    if name in JSON_FILES:
+        return "sets a version in" if JSON_VERSION.match(line) else ""
+    if name in ASSIGN_FILES or name.endswith(ASSIGN_ENDS):
+        return "sets a version in" if ASSIGN_VERSION.match(line) else ""
+    if name.endswith(XML_ENDS):
+        return "sets a version in" if XML_VERSION.match(line) else ""
+    if name in CHANGELOGS:
+        return "adds a version heading to" if VERSION_HEADING.match(line) else ""
+    return ""
+
+
+def version_change(repo, base):
+    """(why, error): why the changes against `base` make a new version; else ''."""
+    span = f"refs/remotes/{repo.remote}/{base}...HEAD"
+    rc, out, err = repo.try_git("diff", "--name-only", "--no-renames", "-z", span)
+    if rc:
+        return "", said(err or out, rc)
+    watched = []
+    for path in filter(None, out.split("\0")):
+        name = path.rpartition("/")[2].lower()
+        shown = re.sub(r"[^\x21-\x7e]+", "?", path)[:120]
+        if name in VERSION_FILES:
+            return f"the diff changes {shown}", ""
+        if name in JSON_FILES | ASSIGN_FILES | CHANGELOGS or name.endswith(
+            ASSIGN_ENDS + XML_ENDS
+        ):
+            watched.append((path, name, shown))
+    if len(watched) > MAX_VERSION_FILES:
+        return f"the diff changes {len(watched)} files that can hold a version", ""
+    for path, name, shown in watched:
+        rc, out, err = repo.try_git(
+            "diff",
+            "--no-color",
+            "--no-ext-diff",
+            "--no-renames",
+            "-U0",
+            span,
+            "--",
+            f":(literal){path}",
+        )
+        if rc:
+            return "", said(err or out, rc)
+        for line in out.partition("\n@@")[2].splitlines():
+            what = version_line(name, line[1:]) if line.startswith("+") else ""
+            if what:
+                return f"the diff {what} {shown}", ""
+    return "", ""
 
 
 def release_gate(repo, pr):
@@ -662,6 +812,13 @@ def release_gate(repo, pr):
     why = release_branches(head, base, default, own)
     if why:
         return gate("release", "fail", why, stop=True)
+    why, error = version_change(repo, base)
+    if error:
+        return gate(
+            "release", "fail", f"cannot read what changes against {base}: {error}"
+        )
+    if why:
+        return gate("release", "fail", f"{why}: a new version is a release", stop=True)
     return gate("release", "pass", "not a release")
 
 
@@ -1120,8 +1277,15 @@ def update_base(repo, base):
     ):
         rc, out, err = repo.try_git(*step)
         if rc:
-            why = said(err or out, rc).rstrip(".")
-            return f"Still on {repo.branch}: git {' '.join(step)} failed: {why}."
+            why = git_said(err or out, rc).rstrip(".")
+            failed = f"git {' '.join(step)} failed: {why}"
+            now = repo.try_git("branch", "--show-current")[1] or "no branch"
+            if now == base:
+                return (
+                    f"Now on {base}, which could not be brought up to "
+                    f"{repo.remote}/{base}: {failed}."
+                )
+            return f"Still on {now}: {failed}."
     return f"Now on {base} at {short(repo.try_git('rev-parse', 'HEAD')[1])}."
 
 

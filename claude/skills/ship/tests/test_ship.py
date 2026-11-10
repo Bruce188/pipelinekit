@@ -70,6 +70,9 @@ elif kind == ["pr", "ready"]:
 elif kind == ["pr", "merge"]:
     if state.get("merge_error"):
         sys.exit(state["merge_error"])
+    if state.get("on_merge"):
+        import subprocess
+        subprocess.run(state["on_merge"], check=True)
 else:
     sys.exit("fake gh: unexpected call " + " ".join(args))
 """
@@ -214,6 +217,20 @@ class Sandbox:
     def passed(self):
         done = self.ship("record", "--result", "pass")
         assert done.returncode == 0, done.stderr
+
+    def change(self, path, before, after):
+        """Commit `before` to the base and `after` to the branch, both pushed."""
+        file = self.work / path
+        file.parent.mkdir(parents=True, exist_ok=True)
+        for branch, text in (("main", before), (BRANCH, after)):
+            self.git("checkout", "-q", branch)
+            if branch == BRANCH:
+                self.git("merge", "-q", "--no-edit", "main")
+            file.write_text(text)
+            self.git("add", "--", path)
+            self.git("commit", "-q", "-m", "chore: edit")
+            self.git("push", "-q", "origin", branch)
+        self.state()
 
     def advance_base(self):
         other = self.tmp / "other"
@@ -858,7 +875,10 @@ def held(over, default="main", name="o/r"):
     """The release gate itself, without a repository: (state, stop)."""
     info = {"nameWithOwner": name, "defaultBranchRef": {"name": default}}
     pr = {"title": "feat: thing", "headRefName": BRANCH, "baseRefName": "main"}
-    found = ship.release_gate(SimpleNamespace(info=lambda: info), {**pr, **over})
+    repo = SimpleNamespace(
+        info=lambda: info, remote="origin", try_git=lambda *args: (0, "", "")
+    )
+    found = ship.release_gate(repo, {**pr, **over})
     return found["state"], found["stop"]
 
 
@@ -891,6 +911,15 @@ OPT_OUTS = [
     "## Merges: ask first",
     "| Merges: ask first |",
     "| Rule | Merges: ask first |",
+    "| Merges | ask first |",
+    "| **Merges** | ask first |",
+    "Merges - ask first",
+    "Merges \u2014 ask first",
+    "Merging: ask first",
+    "Merges: always ask first",
+    "Merges: never",
+    "Merges: manual",
+    "<!-- pipelinekit: Merges: ask first -->",
 ]
 NOT_OPT_OUTS = [
     "To turn this off, add `Merges: ask first` to this file.",
@@ -899,6 +928,10 @@ NOT_OPT_OUTS = [
     "## Merges\n\nAsk the team in the channel.",
     "We do not use Merges: ask first here.",
     "To opt out, add the line `Merges: ask first`.",
+    "| Merges | squash only |",
+    "| Step | Merges |",
+    "Merging - how it works here",
+    "Merges: squash",
 ]
 
 
@@ -1087,6 +1120,35 @@ RELEASE_TITLES = [
     "chore: version packages",
     "chore: tag 1.0.0",
     "chore: 0.2.0",
+    "chore: bump patch version",
+    "bump minor version",
+    "chore: bump app version to 1.2.4",
+    "chore: bump version to 1.2.4 [skip ci]",
+    "chore: release 1.2.3 [ci skip]",
+    "Bumped version to 1.2.4",
+    "Bumping version",
+    "increase version",
+    "update version number",
+    "Hotfix 1.0.1",
+    "chore: create release 1.2.0",
+    "Initial release",
+    "first release",
+    "final release",
+    "major release",
+    "patch release",
+    "stable release",
+    "preparing release",
+    "do the release",
+    "finish 1.2.0",
+    "Beta 2",
+    "chore: rc1",
+    "Promote to production",
+    "chore: merge develop into main",
+    "[maven-release-plugin] prepare release v1.2.3",
+    "[Gradle Release Plugin] - new version commit: 1.2.4",
+    "chore : release 1.2.3",
+    "feat: 1.2.0",
+    "feat!: 2.0.0",
 ]
 ORDINARY_TITLES = [
     "fix: release 1.2.0 broke the installer",
@@ -1101,6 +1163,14 @@ ORDINARY_TITLES = [
     "docs: explain the release process",
     "chore: pipelinekit 0.2.0",
     "chore: bump pipelinekit to 0.2.0",
+    "chore(deps): bump lodash from 4.17.20 to 4.17.21 [skip ci]",
+    "chore: update next to 15.0.1",
+    "chore: update node to 20.1",
+    "chore(deps): update dependency typescript to v5",
+    "fix: hotfix script exits early",
+    "hotfix: login crash",
+    "fix: beta 2 flag is ignored",
+    "chore: merge main into develop",
 ]
 RELEASE_HEADS = [
     "chore/212-release-v0.2.0",
@@ -1138,6 +1208,11 @@ RELEASE_HEADS = [
     "develop",
     "dev",
     "next",
+    "chore/12-bump-patch-version",
+    "chore/12-patch-version",
+    "chore/12-major-version-bump",
+    "chore/12-hotfix-1.0.1",
+    "chore/12-rc1",
 ]
 ORDINARY_HEADS = [
     "fix/release-1.2-regression",
@@ -1162,11 +1237,44 @@ RELEASE_BRANCHES = [
     ("release/1.0", "master", "develop"),
     ("release/1.0", "main", "develop"),
     ("develop", "main", "develop"),
+    (BRANCH, "master", "main"),
+    (BRANCH, "release", "main"),
+    (BRANCH, "customer-a", "main"),
+    (BRANCH, "prd", "main"),
+    (BRANCH, "production-eu", "main"),
+    (BRANCH, "production_eu", "main"),
+    (BRANCH, "production-v2", "main"),
+    (BRANCH, "prod-us", "main"),
+    (BRANCH, "eu-production", "main"),
+    (BRANCH, "aws-prod", "main"),
+    (BRANCH, "azure-production", "main"),
+    (BRANCH, "live-eu", "main"),
+    (BRANCH, "deploy-prod", "main"),
+    (BRANCH, "cloudflare-pages", "main"),
+    (BRANCH, "heroku", "main"),
+    (BRANCH, "netlify", "main"),
+    (BRANCH, "vercel", "main"),
+    (BRANCH, "publish", "main"),
+    (BRANCH, "released", "main"),
+    (BRANCH, "latest", "main"),
+    ("staging", "production-eu", "main"),
+    ("develop", "staging", "main"),
+    ("develop", "release/1.0", "main"),
+    ("changeset-release/next", "next", "main"),
+    ("release/1.0", "develop", "main"),
 ]
 ORDINARY_BRANCHES = [
     (BRANCH, "develop", "develop"),
     (BRANCH, "release/v0.1.0", "main"),
     ("fix/9-typo", "staging", "main"),
+    (BRANCH, "feat/2-base", "main"),
+    (BRANCH, "1.x", "main"),
+    (BRANCH, "v2", "main"),
+    (BRANCH, "staging/eu", "main"),
+    (BRANCH, "next", "main"),
+    (BRANCH, "release-1.2", "main"),
+    (BRANCH, "hotfix/1.0.1", "main"),
+    (BRANCH, "trunk", "trunk"),
 ]
 
 
@@ -1212,6 +1320,120 @@ def test_merge_refuses_what_goes_into_main_when_it_is_not_the_default(sb):
     sb.state(repo=sb.repo(defaultBranchRef={"name": "develop"}))
     done = refused(sb, "release", 3)
     assert "main is not the default branch (develop)" in last_line(done)
+
+
+PACKAGE = (
+    '{\n  "name": "x",\n  "version": "%s",\n  "dependencies": {"lodash": "%s"}\n}\n'
+)
+PYPROJECT = '[project]\nname = "x"\nversion = "%s"\ndependencies = ["requests>=%s"]\n'
+CSPROJ = (
+    "<Project>\n  <PropertyGroup>\n    <Version>%s</Version>\n"
+    "  </PropertyGroup>\n</Project>\n"
+)
+LOG = "# Changelog\n\n%s## 1.0.0\n\n- first\n"
+# (file, on the base, on the branch, what the gate says)
+VERSION_CHANGES = [
+    ("VERSION", "1.0.0\n", "1.1.0\n", "the diff changes VERSION"),
+    ("pkg/VERSION", "1.0.0\n", "1.1.0\n", "the diff changes pkg/VERSION"),
+    (
+        "package.json",
+        PACKAGE % ("1.0.0", "4.17.20"),
+        PACKAGE % ("1.1.0", "4.17.20"),
+        "the diff sets a version in package.json",
+    ),
+    (
+        "pyproject.toml",
+        PYPROJECT % ("1.0.0", "2.0"),
+        PYPROJECT % ("1.1.0", "2.0"),
+        "the diff sets a version in pyproject.toml",
+    ),
+    (
+        "src/App/App.csproj",
+        CSPROJ % "1.0.0",
+        CSPROJ % "1.1.0",
+        "the diff sets a version in src/App/App.csproj",
+    ),
+    (
+        "src/x/__init__.py",
+        '__version__ = "1.0.0"\n',
+        '__version__ = "1.1.0"\n',
+        "the diff sets a version in src/x/__init__.py",
+    ),
+    (
+        "CHANGELOG.md",
+        LOG % "",
+        LOG % "## [1.1.0] - 2026-11-10\n\n- second\n\n",
+        "the diff adds a version heading to CHANGELOG.md",
+    ),
+]
+ORDINARY_CHANGES = [
+    ("package.json", PACKAGE % ("1.0.0", "4.17.20"), PACKAGE % ("1.0.0", "4.17.21")),
+    ("pyproject.toml", PYPROJECT % ("1.0.0", "2.0"), PYPROJECT % ("1.0.0", "2.1")),
+    ("CHANGELOG.md", LOG % "", LOG % "## Unreleased\n\n### Added\n\n- second\n\n"),
+    ("docs/guide.md", "# Guide\n", "# Guide\n\n## 2.0.0\n\nversion = 2\n"),
+    ("src/x/__init__.py", "import os\n", "import os\nimport sys\n"),
+]
+
+
+@pytest.mark.parametrize(("path", "before", "after", "words"), VERSION_CHANGES)
+def test_merge_refuses_a_change_of_the_version(sb, path, before, after, words):
+    sb.change(path, before, after)
+    sb.passed()
+    done = refused(sb, "release", 3)
+    assert last_line(done) == (
+        f"STOP: release: {words}: a new version is a release. Ask the user."
+    )
+
+
+@pytest.mark.parametrize(("path", "before", "after"), ORDINARY_CHANGES)
+def test_a_change_next_to_the_version_is_not_a_release(sb, path, before, after):
+    sb.change(path, before, after)
+    assert gates(sb.ship("status", "--json"))["release"]["state"] == "pass"
+
+
+def test_a_diff_that_cannot_be_read_is_not_taken_for_ordinary(sb):
+    sb.state(pr=sb.pr(baseRefName="develop"))
+    release = gates(sb.ship("status", "--json"))["release"]
+    assert release["state"] == "fail"
+    assert release["detail"].startswith("cannot read what changes against develop: ")
+
+
+def test_many_files_that_can_hold_a_version_are_held():
+    names = "\0".join(f"pkg{n}/package.json" for n in range(61))
+    repo = SimpleNamespace(remote="origin", try_git=lambda *args: (0, names, ""))
+    assert ship.version_change(repo, "main") == (
+        "the diff changes 61 files that can hold a version",
+        "",
+    )
+
+
+def test_merge_says_where_a_base_that_cannot_be_moved_left_the_checkout(sb):
+    sb.git("checkout", "-q", "main")
+    sb.commit("chore: local only")
+    sb.git("checkout", "-q", BRANCH)
+    sb.passed()
+    head = sb.head()
+    origin = str(sb.tmp / "origin.git")
+    sb.state(
+        on_merge=["git", "--git-dir", origin, "update-ref", "refs/heads/main", head]
+    )
+    done = sb.ship("merge")
+    assert done.returncode == 0, done.stdout + done.stderr
+    last = last_line(done)
+    assert last.startswith(
+        f"Merged #7 into main (squash) at {head[:7]}. Now on main, which could "
+        "not be brought up to origin/main: git merge -q --ff-only origin/main "
+        "failed: fatal: "
+    ), last
+    assert "hint:" not in last and "Still on" not in last
+    assert sb.git("branch", "--show-current") == "main"
+
+
+def test_a_failed_git_command_is_told_without_its_hints():
+    text = "hint: Diverging branches\nhint:\nfatal: Not possible to fast-forward.\n"
+    assert ship.git_said(text, 128) == "fatal: Not possible to fast-forward."
+    assert ship.git_said("hint: only\nplain words\n", 1) == "plain words"
+    assert ship.git_said("", 7) == "exit 7"
 
 
 # ---------------------------------------------------------------- answers, limits
