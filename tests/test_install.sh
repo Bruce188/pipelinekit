@@ -75,6 +75,9 @@ assert sum(c.endswith("/bash-guard.py") for c in cmds) == 9
 assert "echo my-hook" in cmds, "user hook lost"
 assert not any(c.endswith(("block-push-main.sh", "env-scrub.py")) for c in cmds), "old kit hook kept"
 assert "${CLAUDE_HOME}" not in json.dumps(d)
+(start,) = d["hooks"]["SessionStart"]
+assert start["matcher"] == "startup" and len(start["hooks"]) == 1, "session check wired twice"
+assert start["hooks"][0]["command"].endswith("/hooks/session-check.py")
 PY
 grep -q 'Test User <test@example.com>' "$CLAUDE_HOME/CLAUDE.md"
 ls "$CLAUDE_HOME"/settings.json.bak-* >/dev/null
@@ -107,6 +110,8 @@ assert m["hooks_path"] == f"{home}/git-hooks", "manifest missed the hooks path s
 assert "skills/kit/check.py" in m["files"] and all(m["files"].values()), "manifest file list incomplete"
 PY
 CLAUDE_HOME="$CLAUDE_HOME" bash "$REPO_ROOT/scripts/verify.sh" >/dev/null
+# The session-start check has nothing to say about a fresh install.
+[ -z "$(echo '{}' | "$CLAUDE_HOME/hooks/session-check.py")" ]
 
 # verify notices a hook that is present but cannot start (CRLF checkout).
 G="$CLAUDE_HOME/hooks/bash-guard.py"
@@ -114,4 +119,6 @@ sed $'s/$/\r/' "$G" > "$T/crlf" && cat "$T/crlf" > "$G"
 if CLAUDE_HOME="$CLAUDE_HOME" bash "$REPO_ROOT/scripts/verify.sh" >/dev/null 2>&1; then
   echo "test_install: verify passed with a CRLF hook" >&2; exit 1
 fi
+# The session-start check names /kit once a hook is broken.
+echo '{}' | "$CLAUDE_HOME/hooks/session-check.py" | grep -q 'Run /kit for the report'
 echo "test_install: PASS"

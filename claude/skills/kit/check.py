@@ -31,7 +31,12 @@ import tempfile
 import time
 
 SCHEMA = 1
-HOOKS = ("bash-guard.py", "block-bare-repo-markers.py", "post-edit-format.sh")
+HOOKS = (
+    "bash-guard.py",
+    "block-bare-repo-markers.py",
+    "post-edit-format.sh",
+    "session-check.py",
+)
 # Imported or called by the hooks; not wired into settings.json themselves.
 HELPERS = ("kitlog.py",)
 GIT_HOOKS = ("commit-msg", "pre-commit", "pre-push")
@@ -543,6 +548,23 @@ def payload(tool: str, tool_input: dict, cwd: str) -> str:
     )
 
 
+def session_decision(rc: int | None, out: str) -> str:
+    """What the session-start hook did: said nothing, or reported a problem."""
+    if rc is None:
+        return "cannot start"
+    if rc != 0:
+        return f"exit {rc}"
+    if not out.strip():
+        return "silent"
+    try:
+        said = as_dict(json.loads(out))
+    except ValueError:
+        return "bad output"
+    event = as_dict(said.get("hookSpecificOutput")).get("hookEventName")
+    named = "Run /kit" in str(said.get("systemMessage"))
+    return "report" if named and event == "SessionStart" else "bad output"
+
+
 def probe_results(c: Check, name: str, results: list[tuple[str, str, str]]) -> bool:
     """results: (label, expected, got). One line per hook, or one per mismatch.
 
@@ -571,7 +593,12 @@ def probe(c: Check) -> None:
             PIPELINEKIT_STATE_DIR=os.path.join(tmp, "state"),
             GIT_CEILING_DIRECTORIES=tmp,
         )
-        for k in ("ALLOW_MAIN_PUSH", "PIPELINEKIT_ALLOW_SECRET", "PIPELINEKIT_LOG"):
+        for k in (
+            "ALLOW_MAIN_PUSH",
+            "PIPELINEKIT_ALLOW_SECRET",
+            "PIPELINEKIT_LOG",
+            "PIPELINEKIT_SESSION_CHECK",
+        ):
             env.pop(k, None)
         expected: list[tuple[str, str]] = []  # (hook, rule) a probe must have logged
 
@@ -647,6 +674,31 @@ def probe(c: Check) -> None:
                 [("empty input", "allow", hook(rel, [], "{}", plain))],
             )
 
+        # The session-start check runs the installed check.py in quick mode.
+        rel = "hooks/session-check.py"
+        if rel not in c.broken and os.path.isfile(c.path("skills/kit/check.py")):
+            script = c.path(rel)
+            bare = os.path.join(tmp, "bare-home")
+            os.makedirs(bare)
+            start = json.dumps(
+                {
+                    "session_id": "kit-probe",
+                    "hook_event_name": "SessionStart",
+                    "source": "startup",
+                    "cwd": plain,
+                }
+            )
+
+            def session(home: str) -> str:
+                at = dict(env, CLAUDE_HOME=home)
+                rc, out, _ = run([script], stdin=start, env=at, cwd=plain)
+                return session_decision(rc, out)
+
+            results = [("an install with nothing in it", "report", session(bare))]
+            if not c.count("fail"):
+                results.append(("this install", "silent", session(c.home)))
+            probe_results(c, "session-check.py", results)
+
         rc, _, _ = run(["git", "init", "-q", "--template=", repo], env=env)
         if rc != 0:
             c.add(
@@ -713,6 +765,12 @@ def check_environment(c: Check) -> None:
         c.add("environment", "warn", f"{version}: the kit is tested on 3.10 and newer")
     if is_wsl():
         c.add("environment", "info", WSL_NOTE)
+    if os.environ.get("PIPELINEKIT_SESSION_CHECK") == "0":
+        c.add(
+            "environment",
+            "info",
+            "the session-start check is switched off (PIPELINEKIT_SESSION_CHECK=0)",
+        )
     if c.quick:
         return
     for prog, args, missing in (

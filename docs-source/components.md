@@ -19,10 +19,11 @@ The kit has five layers. Hover a chip for a one-line summary, or use the buttons
    "chips": [{"label": "permissions.deny", "tip": "No reading or editing secrets, keys or credentials"},
              {"label": "permissions.ask", "tip": "Prompt before editing Claude config or destructive git"},
              {"label": "attribution off", "tip": "No co-author trailer or PR footer"}]},
-  {"name": "Claude Code hooks", "color": "#f59e0b", "count": "3 scripts",
+  {"name": "Claude Code hooks", "color": "#f59e0b", "count": "4 scripts",
    "chips": [{"label": "bash-guard.py", "tip": "PreToolUse Bash: git, docker, fetch and SQL rules"},
              {"label": "block-bare-repo-markers.py", "tip": "PreToolUse Edit/Write"},
-             {"label": "post-edit-format.sh", "tip": "PostToolUse Edit/Write: prettier"}]},
+             {"label": "post-edit-format.sh", "tip": "PostToolUse Edit/Write: prettier"},
+             {"label": "session-check.py", "tip": "SessionStart: quick self-check, silent when healthy"}]},
   {"name": "Git hooks", "color": "#3b82f6", "count": "global core.hooksPath",
    "chips": [{"label": "commit-msg", "tip": "Conventional commits, no attribution or emoji"},
              {"label": "pre-commit", "tip": "gitleaks on staged changes"},
@@ -49,6 +50,7 @@ The installer merges `claude/config/settings.template.json` into `~/.claude/sett
 | `bash-guard.py` | PreToolUse `Bash` (`if`: git, docker, podman, curl, wget, psql, mysql, mariadb, sqlite3) | Blocks pushes to other remotes or main, remote changes, global git config writes, hook bypasses (`--no-verify`, `core.hooksPath`), staging `config/never-stage.txt` paths or bulk staging, sensitive docker mounts, and `curl \| sh`. Asks before `docker --privileged` and DROP/TRUNCATE |
 | `block-bare-repo-markers.py` | PreToolUse `Edit\|Write` | Blocks assembling a bare git repo (HEAD + config/objects/refs) in the working directory or one level down |
 | `post-edit-format.sh` | PostToolUse `Edit\|Write` | Runs the project's own prettier on ts/js/json/yaml |
+| `session-check.py` | SessionStart `startup` | Runs the self-check in quick mode when a session starts. Says nothing when the install is healthy, otherwise one line with the number of problems that names `/kit`. Never blocks a session. `PIPELINEKIT_SESSION_CHECK=0` switches it off |
 
 <details markdown="1">
 <summary>How deny and ask behave in bypassPermissions mode</summary>
@@ -111,6 +113,8 @@ The log is `~/.local/state/pipelinekit/events.jsonl`. `$XDG_STATE_HOME` moves it
 | `bare-repo.marker` | `block-bare-repo-markers` | block | A file that would complete a bare git repository |
 | `input.invalid` | `bash-guard`, `block-bare-repo-markers` | error | The hook got input it could not read |
 | `internal.crash` | `bash-guard`, `block-bare-repo-markers` | error | The hook itself failed, so the command was not checked |
+| `session-check.timeout` | `session-check` | error | The session-start check took longer than 4 seconds and was dropped |
+| `session-check.failed` | `session-check` | error | The session-start check could not run: `check.py` is missing or gave no report |
 | `commit-msg.format` | `commit-msg` | block | The subject is not a conventional commit |
 | `commit-msg.subject-length` | `commit-msg` | block | The subject is longer than 100 characters |
 | `commit-msg.wip` | `commit-msg` | block | A wip commit outside `.claude/worktrees/` |
@@ -122,7 +126,7 @@ The log is `~/.local/state/pipelinekit/events.jsonl`. `$XDG_STATE_HOME` moves it
 | `pre-push.protected-branch` | `pre-push` | block | A push to `main` or `master` |
 | `pre-push.allow-main` | `pre-push` | override | `ALLOW_MAIN_PUSH=1` let such a push through |
 
-With `ask`, Claude Code prompts you instead of refusing. `override` means a human-only variable let something through. `error` means the hook could not do its job; the command or commit is refused.
+With `ask`, Claude Code prompts you instead of refusing. `override` means a human-only variable let something through. `error` means the hook could not do its job: a guard hook then refuses the command or commit, while the session-start check only steps aside.
 
 ## Skills
 
@@ -146,11 +150,19 @@ In 0.1.0, `deploy` replaces the five separate `*-ops` skills and the per-provide
 |---------|-----------------|
 | Install | Every hook, the event-log helper, git hook and skill is present; hooks are executable and have LF line endings; `settings.json` is valid, its hook commands point to files that exist, attribution is off and the secret deny rules are there; the global `core.hooksPath` |
 | Changes since install | Each installed file against the hash recorded at install time; the kit's hook entries and deny/ask rules in `settings.json` |
-| Live probe | Each hook gets input it must block and input it must allow: `git commit --no-verify`, a `docker` mount of `/etc`, `curl` piped into `sh`, `DROP TABLE` through `psql`, a `HEAD` file next to `refs/`, a non-conventional commit message, a push to `main`. Each refusal must also arrive in an event log, which the probe keeps in a temporary directory |
+| Live probe | Each hook gets input it must block and input it must allow: `git commit --no-verify`, a `docker` mount of `/etc`, `curl` piped into `sh`, `DROP TABLE` through `psql`, a `HEAD` file next to `refs/`, a non-conventional commit message, a push to `main`. The session-start check must report an install with nothing in it and say nothing about this one. Each refusal must also arrive in an event log, which the probe keeps in a temporary directory |
 | Environment | python3, Claude Code and gitleaks versions; whether `gh` and Playwright are available; WSL; a repository that sets its own `core.hooksPath` |
 | Activity | What the kit's hooks did in the last 7 days, read from the event log: each rule that blocked, asked, was overridden or failed, with a count and the last time. The 20 newest rules are listed, and a hook that failed is listed however old it is. See [Rule ids and the event log](#rule-ids-and-the-event-log). Not part of `--quick` |
 
 A line is `[fail]` when a guard is missing or does the wrong thing, `[warn]` when something changed but still works (for example a skill file you edited) or a hook failed while it ran, and `[info]` for context. The report ends with `Result: healthy`, or with the number of problems and the command that repairs the install. The check itself changes nothing in `~/.claude`.
+
+The same check runs when a session starts. `session-check.py` is a SessionStart hook that runs `check.py --quick` on `startup` (not on resume or after `/clear`); it takes about 0.2 seconds. A healthy install, warnings included, gives no output. With a `[fail]` you get one line, and Claude is told the same:
+
+```text
+pipelinekit: 2 problems in this install, first: hook missing: bash-guard.py. Run /kit for the report.
+```
+
+The hook never blocks a session. A check that takes longer than 4 seconds is dropped and shows up under Activity as `session-check.timeout`. `PIPELINEKIT_SESSION_CHECK=0` in the environment switches it off, and `/kit` then says so.
 
 The checker is `claude/skills/kit/check.py`, stdlib only. It also runs outside a session:
 

@@ -45,6 +45,7 @@ def installed(tmp_path_factory):
         "PIPELINEKIT_ALLOW_SECRET",
         "PIPELINEKIT_STATE_DIR",
         "PIPELINEKIT_LOG",
+        "PIPELINEKIT_SESSION_CHECK",
         "XDG_STATE_HOME",
     ):
         env.pop(k, None)
@@ -118,13 +119,14 @@ def test_verbose_lists_every_probe(kit):
         "[pass] bash-guard.py: 5 probes as expected",
         "[pass] block-bare-repo-markers.py: 2 probes as expected",
         "[pass] post-edit-format.sh: 1 probe as expected",
+        "[pass] session-check.py: 2 probes as expected",
         "[pass] commit-msg: 2 probes as expected",
         "[pass] pre-commit: 1 probe as expected",
         "[pass] pre-push: 2 probes as expected",
         "[pass] event log: 4 refusals recorded",
         "[pass] hook helper: kitlog.py",
         "[pass] git: global core.hooksPath set",
-        "[pass] settings.json: 11 kit hook entries wired",
+        "[pass] settings.json: 12 kit hook entries wired",
     ):
         assert line in out, out
 
@@ -454,7 +456,7 @@ def test_manifest_describes_the_install(kit):
         for rel in files
         if rel.startswith("hooks/")
     )
-    assert len(m["settings"]["hooks"]) == 11
+    assert len(m["settings"]["hooks"]) == 12
     assert "Read(.env)" in m["settings"]["deny"]
 
 
@@ -760,3 +762,96 @@ def test_a_session_id_as_long_as_the_hooks_store_it(kit):
     assert rc == 0 and activity_rules(out) == ["git.no-verify"], out
     rc, out = check(kit, "--session", long + "a")
     assert rc == 2, out
+
+
+# ---------------------------------------------------------------- session start
+
+START = '{"session_id": "s1", "hook_event_name": "SessionStart", "source": "startup"}'
+WOLF = {
+    "systemMessage": "Run /kit",
+    "hookSpecificOutput": {"hookEventName": "SessionStart"},
+}
+CRY_WOLF = f"#!/bin/sh\necho '{json.dumps(WOLF)}'\n"
+
+
+def session_check(kit, **env):
+    """Run the installed session-start hook the way Claude Code does."""
+    p = subprocess.run(
+        [str(kit["home"] / "hooks" / "session-check.py")],
+        input=START,
+        capture_output=True,
+        text=True,
+        env=dict(kit["env"], **env),
+        cwd=kit["root"],
+    )
+    assert p.returncode == 0 and p.stderr == "", p.stderr
+    return p.stdout
+
+
+def test_session_check_says_nothing_on_a_healthy_install(kit):
+    before = snapshot(kit["user"])
+    assert session_check(kit) == ""
+    assert snapshot(kit["user"]) == before
+
+
+def test_session_check_names_kit_when_a_hook_is_gone(kit):
+    (kit["home"] / "hooks" / "bash-guard.py").unlink()
+    out = session_check(kit)
+    assert len(out.splitlines()) == 1, out
+    said = json.loads(out)
+    assert "hook missing: bash-guard.py" in said["systemMessage"]
+    assert said["systemMessage"].endswith("Run /kit for the report.")
+    assert said["hookSpecificOutput"]["hookEventName"] == "SessionStart"
+    assert session_check(kit, PIPELINEKIT_SESSION_CHECK="0") == ""
+
+
+def test_session_check_keeps_quiet_about_warnings(kit):
+    with open(kit["home"] / "hooks" / "post-edit-format.sh", "a") as f:
+        f.write("# my own note\n")
+    rc, out = check(kit, "--quick")
+    assert rc == 0 and "[warn] changed since install" in out, out
+    assert session_check(kit) == ""
+
+
+def test_session_check_is_a_wired_startup_hook(kit):
+    settings = json.loads((kit["home"] / "settings.json").read_text())
+    (group,) = settings["hooks"]["SessionStart"]
+    assert group["matcher"] == "startup"
+    (hook,) = group["hooks"]
+    assert hook["command"] == str(kit["home"] / "hooks" / "session-check.py")
+    assert hook["timeout"] == 5 and "onFailure" not in hook
+
+
+def test_unwired_session_check_is_reported(kit):
+    edit_json(kit, "settings.json", lambda d: d["hooks"].pop("SessionStart"))
+    rc, out = check(kit)
+    assert rc == 1
+    assert "session-check.py" in out and "[fail]" in out, out
+
+
+def test_probe_catches_a_session_check_that_never_speaks(kit):
+    replace_script(kit, "hooks/session-check.py", "#!/bin/sh\nexit 0\n")
+    rc, out = check(kit)
+    assert rc == 1
+    assert (
+        "[fail] session-check.py: an install with nothing in it gave 'silent', "
+        "expected 'report'"
+    ) in out
+
+
+def test_probe_catches_a_session_check_that_cries_wolf(kit):
+    replace_script(kit, "hooks/session-check.py", CRY_WOLF)
+    rc, out = check(kit)
+    assert rc == 1
+    assert (
+        "[fail] session-check.py: this install gave 'report', expected 'silent'" in out
+    )
+
+
+def test_switched_off_session_check_is_mentioned(kit):
+    rc, out = check(kit, env={"PIPELINEKIT_SESSION_CHECK": "0"})
+    assert rc == 0, out
+    assert "[info] the session-start check is switched off" in out
+    assert "[fail]" not in out
+    rc, out = check(kit)
+    assert rc == 0 and "switched off" not in out

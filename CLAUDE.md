@@ -7,7 +7,7 @@ Project-specific rules only; user-global rules live in `~/.claude/CLAUDE.md`.
 
 | Path | Purpose |
 |------|---------|
-| `claude/hooks/` | Claude Code guard hooks (`bash-guard.py`, `block-bare-repo-markers.py`, `post-edit-format.sh`) and `kitlog.py`, the event log they and the git hooks write to; tests for these and the git hooks in `claude/hooks/tests/` |
+| `claude/hooks/` | Claude Code hooks (`bash-guard.py`, `block-bare-repo-markers.py`, `post-edit-format.sh`, and `session-check.py`, which runs the self-check when a session starts) and `kitlog.py`, the event log they and the git hooks write to; tests for these and the git hooks in `claude/hooks/tests/` |
 | `claude/git-hooks/` | Global git hooks (`commit-msg`, `pre-commit`, `pre-push`) installed to `~/.claude/git-hooks` |
 | `claude/skills/` | `dotnet-conventions`, `deploy`, `exchange-api-keys`, `docs-writer`, `mobile`, `kit` (self-check: `check.py`, tests in `claude/skills/kit/tests/`), `ship` (test, fix and merge your own pull request: `ship.py`, tests in `claude/skills/ship/tests/`) |
 | `claude/config/never-stage.txt` | Paths `bash-guard.py` refuses to stage |

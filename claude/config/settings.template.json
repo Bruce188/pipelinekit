@@ -217,6 +217,19 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_HOME}/hooks/session-check.py",
+            "args": [],
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }

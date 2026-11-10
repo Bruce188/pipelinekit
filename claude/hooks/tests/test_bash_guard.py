@@ -499,5 +499,9 @@ def test_every_rule_id_is_in_the_docs():
     docs = (REPO / "docs-source" / "components.md").read_text()
     rules = {rule for _, rule in guard_rules()} | git_hook_rules()
     rules |= {"input.invalid", "internal.crash", "bare-repo.marker"}
+    session = (HOOKS / "session-check.py").read_text()
+    found = set(re.findall(r'"(session-check\.[a-z-]+)"', session))
+    assert len(found) == 2, found
+    rules |= found
     missing = sorted(r for r in rules if f"`{r}`" not in docs)
     assert not missing, f"rule ids missing from docs-source/components.md: {missing}"

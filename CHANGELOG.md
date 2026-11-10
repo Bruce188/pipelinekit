@@ -41,6 +41,10 @@ kit used to ship, so those parts are gone.
 - `/kit` has an Activity section: what the hooks blocked, asked about or
   failed on in the last 7 days, grouped by rule (`--days N`, `--session ID`).
   The live probe also checks that refusals reach the log.
+- A SessionStart hook (`session-check.py`) runs the quick check when a session
+  starts: no output when the install is healthy, one line naming `/kit` when
+  something is broken. It never blocks a session, and
+  `PIPELINEKIT_SESSION_CHECK=0` switches it off.
 
 ### Shipping
 
