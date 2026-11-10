@@ -560,6 +560,10 @@ SENSITIVE_TREES = ["/etc", "/root", "/proc", "/sys", "/dev", "/boot"] + [
         ".npmrc",
     )
 ]
+# Mount sources are compared after symlink resolution, so the lists also need
+# the resolved spellings: on macOS /etc and /var are links into /private.
+SENSITIVE_EXACT |= {os.path.realpath(p) for p in SENSITIVE_EXACT}
+SENSITIVE_TREES += [os.path.realpath(p) for p in SENSITIVE_TREES]
 
 
 def host_path(src: str, cwd: str) -> str | None:

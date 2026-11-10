@@ -253,6 +253,26 @@ def test_docker(env, cmd, want):
     assert run(env, cmd, cwd=env["project"]) == want
 
 
+def test_docker_sensitive_path_behind_symlink(env, tmp_path):
+    """macOS links /etc into /private; a linked home is the portable stand-in."""
+    real = tmp_path / "real"
+    (real / ".ssh").mkdir(parents=True)
+    link = tmp_path / "link"
+    link.symlink_to(real, target_is_directory=True)
+    e = dict(GIT_ENV, CLAUDE_HOME=str(env["home"]), HOME=str(link))
+    for src in ("~/.ssh", f"{link}/.ssh", f"{real}/.ssh", str(real)):
+        payload = json.dumps(
+            {
+                "tool_input": {"command": f"docker run -v {src}:/k node"},
+                "cwd": str(env["project"]),
+            }
+        )
+        p = subprocess.run(
+            [str(GUARD)], input=payload, capture_output=True, text=True, env=e
+        )
+        assert p.returncode == 2, (src, p.stdout, p.stderr)
+
+
 @pytest.mark.parametrize(
     "cmd,want",
     [
