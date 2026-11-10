@@ -1,0 +1,3 @@
+# The hooks are started through their shebang. A CRLF checkout (Git for Windows
+# defaults to core.autocrlf=true) turns that into `python3\r` and they stop running.
+* text=auto eol=lf
