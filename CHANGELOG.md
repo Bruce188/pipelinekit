@@ -14,6 +14,16 @@ kit used to ship, so those parts are gone.
   (with its render lib), `mobile`.
 - serena MCP registration (pinned commit); context7 stays optional.
 
+### Platforms
+
+- Claude Code Desktop: documented which session environments run the kit
+  (WSL and SSH yes, Local on Windows and Cloud no).
+- `install.sh` refuses to run in a native Windows shell (Git Bash, MSYS,
+  Cygwin), where the hooks cannot start.
+- `.gitattributes` forces LF, so a checkout made with Git for Windows no
+  longer breaks the hook shebangs.
+- `verify.sh` runs each hook once instead of only checking that it exists.
+
 ### Security
 
 - Native permission rules: `deny` Read/Edit of `.env*` (except

@@ -623,6 +623,8 @@ footer {
       <li class="lvl-2"><a href="#options">Options</a></li>
       <li class="lvl-2"><a href="#optional-context7">Optional: context7</a></li>
       <li class="lvl-2"><a href="#devcontainer-and-cloud-vms">Devcontainer and cloud VMs</a></li>
+      <li class="lvl-2"><a href="#claude-code-desktop">Claude Code Desktop</a></li>
+      <li class="lvl-3"><a href="#windows">Windows</a></li>
       <li class="lvl-2"><a href="#check-the-install">Check the install</a></li>
     </ul>
   </aside>
@@ -638,6 +640,7 @@ footer {
     <div id="page-content">
 <h2 id="requirements">Requirements</h2>
 <ul>
+<li>Linux, macOS or WSL 2. Native Windows shells are not supported; see <a href="#claude-code-desktop">Claude Code Desktop</a></li>
 <li><code>bash</code>, <code>git</code> and <code>python3</code></li>
 <li><code>gitleaks</code>, optional, for the pre-commit secret scan</li>
 <li><code>uv</code>, only if you want serena (<code>curl -LsSf https://astral.sh/uv/install.sh | sh</code>)</li>
@@ -720,11 +723,63 @@ git<span class="w"> </span>-C<span class="w"> </span>~/path/to/repo<span class="
 <li>The devcontainer in <code>.devcontainer/</code> runs the installer non-interactively when the container is created.</li>
 <li><code>scripts/cloud/</code> has bootstrap scripts and cloud-init files for Oracle Cloud and Hetzner VMs.</li>
 </ul>
+<h2 id="claude-code-desktop">Claude Code Desktop</h2>
+<p>The desktop app runs the same Claude Code as the CLI. The kit is active when the session's process reads the <code>~/.claude</code> you installed into and can start POSIX scripts, and that depends on the environment you pick for the session.</p>
+<table>
+<thead>
+<tr>
+<th>Environment</th>
+<th>Kit active</th>
+<th>What to do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Local, on macOS</td>
+<td>yes</td>
+<td>Nothing: it is the same <code>~/.claude</code> as the CLI</td>
+</tr>
+<tr>
+<td>WSL, on Windows</td>
+<td>yes</td>
+<td>Install inside the distro, then pick it under <strong>WSL</strong> in the environment selector</td>
+</tr>
+<tr>
+<td>Local, on Windows</td>
+<td>no</td>
+<td>Use the WSL environment instead</td>
+</tr>
+<tr>
+<td>SSH</td>
+<td>on the remote</td>
+<td>Run the installer on the remote host; the session uses that host's <code>~/.claude</code></td>
+</tr>
+<tr>
+<td>Cloud</td>
+<td>no</td>
+<td>The VM starts without your <code>~/.claude</code></td>
+</tr>
+</tbody>
+</table>
+<p>To check a session, ask Claude to run <code>bash scripts/verify.sh</code> in it. The script then runs with that session's PATH and home directory.</p>
+<h3 id="windows">Windows</h3>
+<p>Install the kit inside WSL 2 and start sessions in the <strong>WSL</strong> environment. The session is then a Linux process with the distro's <code>~/.claude</code>, PATH and git, so the hooks, the permission rules and the global git hooks behave as they do in the CLI. Clone the repo with git inside WSL as well.</p>
+<p>A <strong>Local</strong> session is a Windows process, even when its folder is a <code>\\wsl.localhost\&lt;distro&gt;\...</code> path:</p>
+<ul>
+<li>It reads <code>%USERPROFILE%\.claude</code>, not the distro's <code>~/.claude</code>, so in most folders none of the kit is loaded. <code>~/...</code> permission rules refer to the Windows profile, which leaves <code>~/.ssh</code> and the other protected paths inside the distro uncovered.</li>
+<li>If the folder is your WSL home directory, the kit's <code>settings.json</code> is picked up as project settings. Windows cannot start the hook scripts, and the <code>PreToolUse</code> hooks use <code>onFailure: "block"</code>, so every <code>Edit</code>, <code>Write</code> and guarded <code>Bash</code> call is refused with <code>its program could not be started (ENOENT)</code>.</li>
+<li>Git for Windows has its own global config. Commits made by a Local session, GitHub Desktop or another Windows tool skip the kit's git hooks.</li>
+</ul>
+<p>The installer refuses to run from Git Bash, MSYS or Cygwin for the same reason.</p>
+<details>
+<summary>Hooks fail with python3\r: No such file or directory</summary>
+<p>The hook files have CRLF line endings, usually because the repo was checked out with Git for Windows (<code>core.autocrlf=true</code>) before <code>.gitattributes</code> forced LF. The shebang no longer resolves, the hook cannot start, and the <code>PreToolUse</code> hooks block the call. Pull the current version and clone it again with git inside WSL, then run the installer again. <code>scripts/verify.sh</code> reports this as <code>hook does not start</code>.</p>
+</details>
 <h2 id="check-the-install">Check the install</h2>
 <div class="codehilite"><pre><span></span><code>bash<span class="w"> </span>scripts/verify.sh
 </code></pre></div>
 
-<p>The script checks that the kit's hooks, git hooks and skills are present, that every hook command in <code>settings.json</code> points to a file that exists, that attribution is off, and that the secret deny rules are in place. It reports whether the global <code>core.hooksPath</code> points at the kit and whether <code>gitleaks</code> is installed.</p>
+<p>The script checks that the kit's hooks, git hooks and skills are present, that each hook starts when it is run the way Claude Code runs it, that every hook command in <code>settings.json</code> points to a file that exists, that attribution is off, and that the secret deny rules are in place. It reports whether the global <code>core.hooksPath</code> points at the kit and whether <code>gitleaks</code> is installed.</p>
     </div>
 
     <div class="no-results" id="no-results">
