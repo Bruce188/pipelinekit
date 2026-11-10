@@ -972,7 +972,7 @@ footer {
 </table>
 <p>In 0.1.0, <code>deploy</code> replaces the five separate <code>*-ops</code> skills and the per-provider deployment agents, <code>mobile</code> replaces <code>expo</code> and <code>ios</code>, and the ASP.NET Core security rules moved into <code>dotnet-conventions</code>.</p>
 <h2 id="claude-md-template">CLAUDE.md template</h2>
-<p><code>claude/CLAUDE.md.template</code> is about 55 lines of English with no imported rule files. The installer fills in <code>${USER_NAME}</code>, <code>${USER_EMAIL}</code> and <code>${CLAUDE_HOME}</code> and writes the result to <code>~/.claude/CLAUDE.md</code>. It covers:</p>
+<p><code>claude/CLAUDE.md.template</code> is about 55 lines of English with no imported rule files. The installer fills in <code>${USER_NAME}</code>, <code>${USER_EMAIL}</code> and <code>${CLAUDE_HOME}</code> and writes the result to <code>~/.claude/CLAUDE.md</code>. It covers: It also tells Claude to put decisions that are yours to make as interactive questions: two to four options, each with its upside and downside, the recommended one first.</p>
 <ul>
 <li>your identity;</li>
 <li>git rules: commit only when asked, conventional commits, no AI attribution, no workflow jargon in commit text, the never-stage list, <code>.git/info/exclude</code> for Claude-specific ignores, and no direct pushes to <code>main</code>;</li>
