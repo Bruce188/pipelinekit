@@ -90,7 +90,7 @@ In 0.1.0, `deploy` replaces the five separate `*-ops` skills and the per-provide
 
 ## CLAUDE.md template
 
-`claude/CLAUDE.md.template` is about 55 lines of English with no imported rule files. The installer fills in `${USER_NAME}`, `${USER_EMAIL}` and `${CLAUDE_HOME}` and writes the result to `~/.claude/CLAUDE.md`. It covers:
+`claude/CLAUDE.md.template` is about 55 lines of English with no imported rule files. The installer fills in `${USER_NAME}`, `${USER_EMAIL}` and `${CLAUDE_HOME}` and writes the result to `~/.claude/CLAUDE.md`. It covers: It also tells Claude to put decisions that are yours to make as interactive questions: two to four options, each with its upside and downside, the recommended one first.
 
 - your identity;
 - git rules: commit only when asked, conventional commits, no AI attribution, no workflow jargon in commit text, the never-stage list, `.git/info/exclude` for Claude-specific ignores, and no direct pushes to `main`;
