@@ -465,3 +465,12 @@ def test_hook_lists_match_the_repo():
     assert sorted(check_py.HOOKS) == hooks
     git_hooks = sorted(p.name for p in (REPO / "claude" / "git-hooks").iterdir())
     assert sorted(check_py.GIT_HOOKS) == git_hooks
+
+
+def test_environment_covers_what_the_ship_skill_needs(kit):
+    rc, out = check(kit, "--verbose")
+    assert rc == 0, out
+    assert re.search(r"\[pass\] gh: \S|\[info\] gh not installed", out)
+    assert re.search(r"\[pass\] playwright: \S|\[info\] playwright not installed", out)
+    rc, out = check(kit, "--verbose", "--quick")
+    assert rc == 0 and "playwright" not in out

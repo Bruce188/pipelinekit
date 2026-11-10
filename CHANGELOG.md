@@ -34,6 +34,20 @@ kit used to ship, so those parts are gone.
   file hashes, the kit's settings entries); the check compares against it.
 - `verify.sh` runs the same checker, so the installer, CI and `/kit` agree.
 
+### Shipping
+
+- `ship` skill (`/ship`): Claude finishes the pull requests it opens. A fresh
+  agent acceptance-tests the change against the issue's criteria, findings are
+  fixed and tested again, and `claude/skills/ship/ship.py` merges once every
+  gate holds: own pull request, not a release, no required review, branch up
+  to date, a passed test for exactly this commit, green CI.
+- Release pull requests, tags, publishing, other people's pull requests and
+  anything behind branch protection stay with the user. A project opts out
+  with the line `Merges: ask first` in its `CLAUDE.md`.
+- `gh pr merge --admin` is on the `permissions.ask` list, `docs/uat/` (local
+  test reports) is on the never-stage list, and `/kit` reports whether `gh`
+  and Playwright are available.
+
 ### Security
 
 - Native permission rules: `deny` Read/Edit of `.env*` (except

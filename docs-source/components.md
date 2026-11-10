@@ -43,7 +43,7 @@ The installer merges `claude/config/settings.template.json` into `~/.claude/sett
 | Piece | Where | What it does |
 |------|-------|--------------|
 | `permissions.deny` | settings | Claude can't read or edit `.env*` (not `.env.example`), keys, `~/.ssh`, `~/.aws`, `~/.kube/config`, `~/.config/gh/hosts.yml`, credentials files. Holds in bypass mode |
-| `permissions.ask` | settings | Prompts before editing Claude settings/hooks or `~/.gitconfig`, and before `reset --hard`, `clean -f`, force push, `branch -D`, `checkout/restore .`. Prompts in bypass mode too |
+| `permissions.ask` | settings | Prompts before editing Claude settings/hooks or `~/.gitconfig`, and before `reset --hard`, `clean -f`, force push, `branch -D`, `checkout/restore .`, `gh pr merge --admin`. Prompts in bypass mode too |
 | `bash-guard.py` | PreToolUse `Bash` (`if`: git, docker, podman, curl, wget, psql, mysql, mariadb, sqlite3) | Blocks pushes to other remotes or main, remote changes, global git config writes, hook bypasses (`--no-verify`, `core.hooksPath`), staging `config/never-stage.txt` paths or bulk staging, sensitive docker mounts, and `curl \| sh`. Asks before `docker --privileged` and DROP/TRUNCATE |
 | `block-bare-repo-markers.py` | PreToolUse `Edit\|Write` | Blocks assembling a bare git repo (HEAD + config/objects/refs) in the working directory or one level down |
 | `post-edit-format.sh` | PostToolUse `Edit\|Write` | Runs the project's own prettier on ts/js/json/yaml |
@@ -86,6 +86,7 @@ A repo with its own local `core.hooksPath` (husky, the pre-commit framework, or 
 | `docs-writer` | Render `docs-source/*.md` into self-contained HTML pages under `documentation/` with `render.py` and `template.html`, with optional data-driven interactive snippets |
 | `mobile` | Android (Kotlin/Compose) builds and device access from WSL2, iPhone home-screen web apps, Expo/EAS cloud builds for iOS, release and security checklist |
 | `kit` | Self-check, run as `/kit`: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, and environment conflicts |
+| `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then `ship.py` merges once every gate holds (own pull request, not a release, no required review, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
 
 In 0.1.0, `deploy` replaces the five separate `*-ops` skills and the per-provider deployment agents, `mobile` replaces `expo` and `ios`, and the ASP.NET Core security rules moved into `dotnet-conventions`.
 
@@ -117,16 +118,62 @@ The comparison data is `~/.claude/pipelinekit/manifest.json`, which the installe
 
 Two things are outside its reach. A `permissions.deny` match, or a prompt you declined, leaves no trace to report. And the report describes the environment it runs in: another WSL distro, an SSH host or a sandboxed session can differ, so run the check there.
 
+## Shipping a pull request
+
+With the kit installed, Claude finishes the pull requests it opens instead of handing each one to you to merge. The `ship` skill (`/ship`) describes the loop, and `claude/skills/ship/ship.py` holds the conditions for the merge.
+
+1. The issue lists acceptance criteria as a checklist.
+2. Claude builds the change, runs the project's tests and opens a draft pull request.
+3. A fresh agent tests the change. It gets the criteria and the running build, not the code or the builder's notes. A web page is driven with Playwright, a command-line tool or installer runs in a throwaway directory, an API is started and called. A change with nothing user-visible gets a smoke run instead.
+4. Findings are fixed, each bug with a regression test, and the test runs again until it passes.
+5. `ship.py record` notes the result for the tested commit. `ship.py merge` waits for CI and merges.
+
+`ship.py merge` refuses unless every gate holds:
+
+| Gate | Holds when |
+|------|------------|
+| `pr` | The branch has an open pull request |
+| `own` | Your GitHub account opened it, and it is not from a fork |
+| `policy` | The project has not opted out |
+| `release` | It is not a release: no release or integration branch into the default branch, no release title |
+| `review` | No review is required, requested or asking for changes |
+| `current` | The local commit is the pull request's head and nothing tracked is uncommitted |
+| `up-to-date` | The branch contains its base branch and does not conflict with it |
+| `tested` | The last test record is a pass for exactly this commit |
+| `ci` | Every check has finished and passed |
+
+The merge command names the tested commit (`--match-head-commit`), so a commit pushed in between is not merged. The helper has no `--admin` option, and `gh pr merge --admin` is on the `permissions.ask` list. The merge method follows the base branch: a merge commit where the branch already has them, squash otherwise.
+
+These stay yours: release pull requests, tags, publishing and production deploys; pull requests someone else opened; anything behind a required review or branch protection. Claude also stops and asks when the same finding is still open after two fix attempts, after five failed rounds in a row, and when a test needs a decision the criteria do not settle.
+
+To turn self-merging off for a project, put this line in its `CLAUDE.md`:
+
+```text
+Merges: ask first
+```
+
+The same line in `~/.claude/CLAUDE.md` turns it off everywhere, and so does `PIPELINEKIT_MERGE=ask` in the environment. Claude then asks before it merges.
+
+Test reports and screenshots go to `docs/uat/` in the project. That directory is local: the helper adds it to `.git/info/exclude`, and it is on the never-stage list. The kit does not install Playwright; `/kit` reports whether `gh` and Playwright are available.
+
+```bash
+python3 ~/.claude/skills/ship/ship.py status           # every gate, with the reason
+python3 ~/.claude/skills/ship/ship.py merge --dry-run  # what would be merged, and how
+```
+
+Exit code 0 means done, 1 means a gate or a check failed, 2 means the helper could not run, 3 means stop and ask.
+
 ## CLAUDE.md template
 
-`claude/CLAUDE.md.template` is about 55 lines of English with no imported rule files. The installer fills in `${USER_NAME}`, `${USER_EMAIL}` and `${CLAUDE_HOME}` and writes the result to `~/.claude/CLAUDE.md`. It covers: It also tells Claude to put decisions that are yours to make as interactive questions: two to four options, each with its upside and downside, the recommended one first.
+`claude/CLAUDE.md.template` is about 60 lines of English with no imported rule files. The installer fills in `${USER_NAME}`, `${USER_EMAIL}` and `${CLAUDE_HOME}` and writes the result to `~/.claude/CLAUDE.md`. It covers:
 
 - your identity;
 - git rules: commit only when asked, conventional commits, no AI attribution, no workflow jargon in commit text, the never-stage list, `.git/info/exclude` for Claude-specific ignores, and no direct pushes to `main`;
 - the `docs/` (local, never committed) and `documentation/` (committed) split;
 - a base-branch detection snippet;
 - serena for symbol navigation, Grep/Glob for text;
-- GitHub habits with `gh`: issues before work, `<type>/<issue#>-<slug>` branches, draft PRs until checks pass, reading CI logs, releases;
+- decisions that are yours to make, asked as interactive questions: two to four options, each with its upside and downside, the recommended one first;
+- GitHub habits with `gh`: issues with acceptance criteria before work, `<type>/<issue#>-<slug>` branches, draft PRs, finishing its own PRs with the `ship` skill, reading CI logs, releases when you ask;
 - the deploy CLIs.
 
 ## MCP servers

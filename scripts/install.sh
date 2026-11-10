@@ -22,7 +22,7 @@ TS="$(date +%Y%m%d-%H%M%S)"
 # Keep in sync with .mcp.json / .mcp.json.template.
 SERENA_REF="${SERENA_REF:-9b292a6c8b03c8306f117efeabb0ea7afdb0b3c0}"
 
-KIT_SKILLS=(dotnet-conventions deploy exchange-api-keys docs-writer mobile kit)
+KIT_SKILLS=(dotnet-conventions deploy exchange-api-keys docs-writer mobile kit ship)
 # Shipped by earlier versions. Removed on upgrade only if unmodified (see kit_file).
 RETIRED_SKILLS=(commit-conventions security-conventions expo ios)
 RETIRED_HOOKS=(block-dangerous-commands.sh block-push-main.sh block-stage-sensitive.sh env-scrub.py
@@ -89,6 +89,7 @@ for s in "${KIT_SKILLS[@]}"; do
   cp -R "$REPO_ROOT/claude/skills/$s" "$CLAUDE_HOME/skills/$s"
 done
 find "$CLAUDE_HOME/skills" -name __pycache__ -type d -prune -exec rm -rf {} +
+chmod +x "$CLAUDE_HOME/skills/kit/check.py" "$CLAUDE_HOME/skills/ship/ship.py"
 cp -p "$REPO_ROOT/claude/config/never-stage.txt" "$CLAUDE_HOME/config/never-stage.txt"
 log "copied ${#KIT_SKILLS[@]} skills, hooks, git hooks, config"
 

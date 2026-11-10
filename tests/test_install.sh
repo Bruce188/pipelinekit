@@ -76,9 +76,13 @@ PY
 grep -q 'Test User <test@example.com>' "$CLAUDE_HOME/CLAUDE.md"
 ls "$CLAUDE_HOME"/settings.json.bak-* >/dev/null
 test -f "$CLAUDE_HOME/projects/keep/f"
-for s in dotnet-conventions deploy exchange-api-keys docs-writer mobile kit; do
+for s in dotnet-conventions deploy exchange-api-keys docs-writer mobile kit ship; do
   test -f "$CLAUDE_HOME/skills/$s/SKILL.md"
 done
+test -x "$CLAUDE_HOME/skills/ship/ship.py"
+grep -q 'Merges: ask first' "$CLAUDE_HOME/CLAUDE.md"
+# The helper starts from its installed place and says why it cannot go on.
+(cd "$T" && python3 "$CLAUDE_HOME/skills/ship/ship.py" status --exit-zero | grep -q 'not inside a git repository')
 test ! -e "$CLAUDE_HOME/skills/commit-conventions"
 test ! -e "$CLAUDE_HOME/skills/expo"
 test -f "$CLAUDE_HOME/skills/ios/SKILL.md"           # edited: kept

@@ -4,7 +4,7 @@ Identity: ${USER_NAME} <${USER_EMAIL}>.
 
 ## Git
 
-- Commit, push, or open PRs only when asked.
+- Commit, push, or open PRs only when asked. Being asked to build or fix something through a PR, or to carry out a plan, covers the commits, pushes and PRs that work needs.
 - Conventional commits (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`, `perf:`, `style:`, `build:`, `ci:`, `revert:`); enforced by the global git commit-msg hook (`git-hooks/commit-msg`). No emojis.
 - No AI attribution anywhere: no `Co-Authored-By`, no "Generated with", no AI comments. `settings.json` sets `attribution` to empty strings.
 - No workflow jargon in commit or PR text (`wip:`, `stream A`, `review-vN`, finding counts); write what a human developer would.
@@ -36,12 +36,14 @@ git rev-parse --verify "$BASE" 2>/dev/null || echo "ERROR: Base branch '$BASE' n
 ## GitHub (when the repo has a GitHub remote)
 
 Use `gh` and keep work traceable on GitHub:
-- Non-trivial task: find a matching issue (`gh issue list --search`) or create one with labels before starting. Split multi-part work into sub-issues (`gh api repos/{owner}/{repo}/issues/{n}/sub_issues -F sub_issue_id=<id>`, where `<id>` is the child's database id from `gh api repos/{owner}/{repo}/issues/<num> -q .id`, not its number).
-- Branch `<type>/<issue#>-<slug>`. PR via `gh pr create` with `Closes #N`, matching labels and milestone; open as draft until checks pass (`gh pr checks --watch`).
+- Non-trivial task: find a matching issue (`gh issue list --search`) or create one with labels before starting. Split multi-part work into sub-issues (`gh api repos/{owner}/{repo}/issues/{n}/sub_issues -F sub_issue_id=<id>`, where `<id>` is the child's database id from `gh api repos/{owner}/{repo}/issues/<num> -q .id`, not its number). Give the issue acceptance criteria as a checklist: things a user can observe.
+- Branch `<type>/<issue#>-<slug>`. PR via `gh pr create` with `Closes #N`, matching labels and milestone; open it as a draft.
+- A PR you opened is yours to finish. Use the `ship` skill: acceptance-test the change against the issue's criteria (a fresh agent that sees only the criteria and the running build; Playwright for web pages), fix what it finds, repeat until it passes, then merge once CI is green and go on with the next piece. Do not ask the user to merge it.
+- These stay with the user: release PRs, tags, publishing and production deploys; PRs someone else opened; anything behind a required review or branch protection (never `gh pr merge --admin`). A project turns self-merging off with the line `Merges: ask first` in its CLAUDE.md.
 - CI failure: read it with `gh run view <id> --log-failed` before guessing.
 - Bugs or follow-ups found outside the task's scope: open an issue instead of fixing silently or dropping them.
 - Workflows and parallel agents: one issue or sub-issue per stream; post one short progress comment per milestone and link each PR to its issue.
-- Releases: tag, then `gh release create` with notes from the merged PRs.
+- Releases, when the user asks for one: tag, then `gh release create` with notes from the merged PRs.
 - Ask first before closing, transferring or deleting issues, changing repo settings, or commenting on other people's issues/PRs.
 
 ## Deploy platforms
