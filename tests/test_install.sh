@@ -76,7 +76,7 @@ PY
 grep -q 'Test User <test@example.com>' "$CLAUDE_HOME/CLAUDE.md"
 ls "$CLAUDE_HOME"/settings.json.bak-* >/dev/null
 test -f "$CLAUDE_HOME/projects/keep/f"
-for s in dotnet-conventions deploy exchange-api-keys docs-writer mobile; do
+for s in dotnet-conventions deploy exchange-api-keys docs-writer mobile kit; do
   test -f "$CLAUDE_HOME/skills/$s/SKILL.md"
 done
 test ! -e "$CLAUDE_HOME/skills/commit-conventions"
@@ -90,6 +90,15 @@ test -f "$CLAUDE_HOME/agents/other.md"
 test ! -e "$CLAUDE_HOME/hooks/tests"
 test -x "$CLAUDE_HOME/git-hooks/pre-push"
 [ "$(git config --global core.hooksPath)" = "$CLAUDE_HOME/git-hooks" ]
+python3 - "$CLAUDE_HOME" "$REPO_ROOT" <<'PY'
+import json, subprocess, sys
+home, repo = sys.argv[1:]
+m = json.load(open(f"{home}/pipelinekit/manifest.json"))
+head = subprocess.run(["git", "-C", repo, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+assert m["commit"] == head, "manifest commit is not the checkout's HEAD"
+assert m["hooks_path"] == f"{home}/git-hooks", "manifest missed the hooks path set by this install"
+assert "skills/kit/check.py" in m["files"] and all(m["files"].values()), "manifest file list incomplete"
+PY
 CLAUDE_HOME="$CLAUDE_HOME" bash "$REPO_ROOT/scripts/verify.sh" >/dev/null
 
 # verify notices a hook that is present but cannot start (CRLF checkout).
