@@ -43,22 +43,64 @@ METHODS = {
 }
 PASSING = {"SUCCESS", "NEUTRAL", "SKIPPED"}
 FAILING = {"FAILURE", "ERROR"}
-OPT_OUT = re.compile(r"^\s*(?:[-*]\s*)?merges?\s*:\s*ask\b", re.I | re.M)
+
+# The line that opts a project out: plain, in a list, quoted, bold, inside an
+# HTML comment, or as code alone on its line. A sentence that only mentions
+# the line does not count.
+LEAD = r"[ \t]*(?:<!--[ \t]*)?(?:>[ \t]*)*(?:[-*+][ \t]+)?"
+OPT_OUT = re.compile(
+    rf"^{LEAD}(?:[*_]{{0,3}}merges?[*_]{{0,3}}[ \t]*:[*_]{{0,3}}[ \t]*ask\b"
+    rf"|`merges?[ \t]*:[ \t]*ask(?:[ \t]+first)?`[ \t.]*(?:-->)?[ \t]*$)",
+    re.I | re.M,
+)
+
+# Releases stay with the user. A release is recognised by its branches or by
+# its title; a miss here merges something the user wanted to decide, so the
+# patterns lean towards asking.
+VERSION = r"v?\d+\.\d+(?:\.\d+)?(?:[-+.][0-9A-Za-z.-]+)?"
 RELEASE_HEAD = re.compile(
-    r"^(?:release[/-].*|develop|development|dev|staging|next)$", re.I
+    r"^(?:"
+    r"(?:pre-?)?releases?(?:/.*|[-_]v?\d.*)?"
+    r"|release-please--.*|changeset-release/.*"
+    r"|(?:rel|rc|hotfix)[/-]v?\d+\.\d.*"
+    r"|[a-z]+/(?:pre-?)?release[/_-]v?\d.*"
+    r"|integration(?:/.*)?"
+    r"|develop|development|dev|staging|stage|next"
+    rf"|{VERSION}"
+    r")$",
+    re.I,
 )
-RELEASE_TITLE = re.compile(
-    r"^(?:chore\(release\)\s*:|release\s*[:(]|release\s+v?\d)", re.I
+DEPLOY_BASE = re.compile(r"^(?:production|prod|live|stable|deploy|deployment)$", re.I)
+TITLE_PREFIX = re.compile(r"^(?P<type>[a-z]+)(?:\((?P<scope>[^)]*)\))?!?:\s*", re.I)
+RELEASE_WORDS = re.compile(
+    r"^(?:(?:prepare|cut|publish|tag|ship)\s+(?:for\s+)?(?:the\s+)?)?"
+    r"releas(?:e|ing)\s+(?:candidate\s+|version\s+|of\s+)?(?:[\w@/.-]+\s+)?"
+    r"(?:v\d|\d+\.\d)"
+    r"|^(?:bump|cut|publish|tag)\s+(?:(?:the\s+)?version\s+)?(?:to\s+)?"
+    rf"{VERSION}(?!\S)"
+    r"|^version\s+packages$"
+    rf"|^{VERSION}$",
+    re.I,
 )
+
 CONVENTIONAL = re.compile(r"^[a-z]+(?:\([^)]*\))?!?: ")
 MAX_FAILED_ROUNDS = 5
 MAX_ROUNDS_OPEN = 3
+# After a draft is marked ready the pull request is read this many times,
+# about three seconds apart, and has to look mergeable every time.
+READY_LOOKS = 4
+READY_LOOKS_WORKFLOW = 15  # a workflow here starts on ready_for_review
+UNKNOWN_LOOKS = 20  # how long GitHub may take to say whether it can be merged
 EXIT_FAIL, EXIT_TOOL, EXIT_STOP = 1, 2, 3
 WORD = {"pass": "ok", "fail": "FAIL", "pending": "wait", "skip": "-"}
 
 
 class ToolError(Exception):
     """git or gh is missing, timed out or answered with an error."""
+
+
+class RecordError(ToolError):
+    """The test record is there but cannot be read."""
 
 
 def run(cmd, cwd=None, timeout=60):
@@ -86,6 +128,11 @@ def count(n, word):
     return f"{n} {word}" if n == 1 else f"{n} {word}s"
 
 
+def said(text, rc):
+    """What a failed command answered, on one line."""
+    return " ".join((text or "").split())[:300] or f"exit {rc}"
+
+
 def poll_seconds():
     try:
         return max(0.01, float(os.environ.get("SHIP_POLL_SECONDS", "15")))
@@ -109,6 +156,7 @@ class Repo:
         self.remote = remote if remote and remote != "." else "origin"
         self._info = None
         self._user = None
+        self._workflows = None
 
     def try_git(self, *args):
         return run(["git", *args], cwd=self.root)
@@ -164,21 +212,51 @@ class Repo:
     def record_file(self):
         return self.root / "docs" / "uat" / f"{slug(self.branch)}.json"
 
+    def workflows(self):
+        """The text of every GitHub workflow file in the checkout."""
+        if self._workflows is None:
+            texts = []
+            for path in sorted((self.root / ".github" / "workflows").glob("*.y*ml")):
+                try:
+                    texts.append(path.read_text(encoding="utf-8", errors="replace"))
+                except OSError:
+                    texts.append("")
+            self._workflows = texts
+        return self._workflows
+
     def has_workflows(self):
-        return any((self.root / ".github" / "workflows").glob("*.y*ml"))
+        return bool(self.workflows())
+
+    def expects_checks(self):
+        """A workflow here runs on pull requests, so a check should show up."""
+        return any("pull_request" in text for text in self.workflows())
+
+    def starts_on_ready(self):
+        return any("ready_for_review" in text for text in self.workflows())
 
 
 # ---------------------------------------------------------------- test record
 
 
 def load_record(path):
+    """The stored rounds; none when there is no file yet.
+
+    A file that is there but unreadable is an error: reading it as empty would
+    drop the earlier rounds on the next write.
+    """
+    problem = (
+        f"docs/uat/{path.name} is not a readable test record: move it away, "
+        "then record the test again"
+    )
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        data = {}
+    except FileNotFoundError:
+        return {"schema": SCHEMA, "rounds": []}
+    except (OSError, ValueError) as exc:
+        raise RecordError(problem) from exc
     rounds = data.get("rounds") if isinstance(data, dict) else None
     if not isinstance(rounds, list):
-        return {"schema": SCHEMA, "rounds": []}
+        raise RecordError(problem)
     data["rounds"] = [r for r in rounds if isinstance(r, dict)]
     return data
 
@@ -200,6 +278,22 @@ def ensure_ignored(repo):
         return
 
 
+def finding_ids(values):
+    """Finding ids without blanks, and without repeats that differ only in case."""
+    seen = {}
+    for value in values:
+        name = value.strip()
+        if name:
+            seen.setdefault(name.casefold(), name)
+    return sorted(seen.values())
+
+
+def open_ids(entry):
+    """{id in lower case: id as written} for the findings a round left open."""
+    found = entry.get("open") or []
+    return {i.strip().casefold(): i.strip() for i in found if isinstance(i, str)}
+
+
 def stop_reason(rounds):
     """Why the test loop should go back to the user, or an empty string."""
     tail = []
@@ -209,12 +303,19 @@ def stop_reason(rounds):
         tail.append(entry)
     if len(tail) >= MAX_FAILED_ROUNDS:
         return f"{len(tail)} failed rounds in a row"
-    if len(tail) >= MAX_ROUNDS_OPEN:
-        stuck = set(tail[0].get("open") or [])
-        for entry in tail[1:MAX_ROUNDS_OPEN]:
-            stuck &= set(entry.get("open") or [])
+    attempts = []  # newest first; a fix attempt is a new commit
+    for entry in tail:
+        if attempts and attempts[-1].get("commit") == entry.get("commit"):
+            continue
+        attempts.append(entry)
+    if len(attempts) >= MAX_ROUNDS_OPEN:
+        names = open_ids(attempts[0])
+        stuck = set(names)
+        for entry in attempts[1:MAX_ROUNDS_OPEN]:
+            stuck &= set(open_ids(entry))
         if stuck:
-            return f"{', '.join(sorted(stuck))} still open after two fix attempts"
+            left = ", ".join(sorted(names[key] for key in stuck))
+            return f"{left} still open after two fix attempts"
     return ""
 
 
@@ -235,7 +336,7 @@ def cmd_record(args, repo):
             "commit": repo.head,
             "result": args.result,
             "tester": args.tester,
-            "open": sorted(set(args.open)),
+            "open": args.open,
             "notes": args.notes,
             "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
@@ -244,7 +345,7 @@ def cmd_record(args, repo):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     ensure_ignored(repo)
-    left = f", open: {', '.join(sorted(set(args.open)))}" if args.open else ""
+    left = f", open: {', '.join(args.open)}" if args.open else ""
     print(
         f"Round {len(rounds)}: {args.result} on {short(repo.head)} "
         f"({args.tester}){left}"
@@ -363,12 +464,35 @@ def policy_gate(repo):
     return gate("policy", "pass", "no `Merges: ask first` line")
 
 
+def release_title(title):
+    """True when a pull request title names a release, not a change about one."""
+    title = (title or "").strip()
+    m = TITLE_PREFIX.match(title)
+    if not m:
+        return bool(RELEASE_WORDS.match(title))
+    kind, scope = m.group("type").lower(), (m.group("scope") or "").lower()
+    rest = title[m.end() :]
+    versioned = bool(re.search(rf"(?<![\w.]){VERSION}", f"{scope} {rest}"))
+    if scope == "release" and (versioned or kind in ("chore", "build", "ci")):
+        return True
+    if kind == "release" and versioned:
+        return True
+    return bool(RELEASE_WORDS.match(rest))
+
+
 def release_gate(repo, pr):
+    """A release, a deploy or a promotion of the default branch stays the user's."""
     head, base = pr.get("headRefName") or "", pr.get("baseRefName") or ""
     default = (repo.info().get("defaultBranchRef") or {}).get("name") or ""
-    if RELEASE_TITLE.match(pr.get("title") or ""):
+    main = base == default if default else base in ("main", "master", "trunk")
+    if release_title(pr.get("title")):
         return gate("release", "fail", "the title reads like a release", stop=True)
-    if base == default and RELEASE_HEAD.match(head):
+    if not main and DEPLOY_BASE.match(base):
+        return gate("release", "fail", f"{base} is a deploy branch", stop=True)
+    if default and head == default and not main:
+        why = f"{head} into {base} promotes the default branch"
+        return gate("release", "fail", why, stop=True)
+    if main and RELEASE_HEAD.match(head):
         return gate("release", "fail", f"{head} into {base} is a release", stop=True)
     return gate("release", "pass", "not a release")
 
@@ -425,7 +549,10 @@ def base_gate(repo, pr):
 
 
 def tested_gate(repo, head):
-    rounds = load_record(repo.record_file)["rounds"]
+    try:
+        rounds = load_record(repo.record_file)["rounds"]
+    except RecordError as exc:
+        return gate("tested", "fail", str(exc))
     where = repo.record_file.relative_to(repo.root).as_posix()
     if not rounds:
         return gate(
@@ -435,7 +562,11 @@ def tested_gate(repo, head):
         )
     last, n = rounds[-1], len(rounds)
     if last.get("result") != "pass":
-        left = ", ".join(last.get("open") or []) or "not named"
+        stuck = stop_reason(rounds)
+        if stuck:
+            why = f"round {n} failed, {stuck}: tell the user what is stuck"
+            return gate("tested", "fail", why, stop=True)
+        left = ", ".join(open_ids(last).values()) or "not named"
         return gate("tested", "fail", f"round {n} failed, still open: {left}")
     if last.get("commit") != head:
         return gate(
@@ -448,7 +579,12 @@ def tested_gate(repo, head):
     return gate("tested", "pass", f"round {n} passed on {short(head)} ({tester})")
 
 
-def ci_gate(pr):
+def ci_gate(pr, expected=False):
+    """CI as it stands now.
+
+    `expected`: a workflow here runs on pull requests, so a pull request
+    without a single check has not been picked up yet; that is not a pass.
+    """
     passed, failed, pending = sort_checks(pr.get("statusCheckRollup"))
     if failed:
         return gate(
@@ -461,12 +597,18 @@ def ci_gate(pr):
             "pending",
             f"{len(pending)} of {total} still running: {check_names(pending)}",
         )
+    if not passed and expected:
+        return gate(
+            "ci",
+            "pending",
+            "no check has shown up yet, and workflows here run on pull requests",
+        )
     if not passed:
         return gate("ci", "pass", "no CI checks on this pull request")
     return gate("ci", "pass", f"{count(len(passed), 'check')} finished, none failed")
 
 
-def evaluate(repo, pr):
+def evaluate(repo, pr, no_checks_ok=False):
     """Every gate for the current branch's pull request; CI as it stands now."""
     first = pr_gate(repo, pr)
     if first["state"] != "pass":
@@ -490,7 +632,7 @@ def evaluate(repo, pr):
         current_gate(repo, pr),
         base_gate(repo, pr),
         tested_gate(repo, pr.get("headRefOid") or ""),
-        ci_gate(pr),
+        ci_gate(pr, repo.expects_checks() and not no_checks_ok),
     ]
 
 
@@ -507,10 +649,13 @@ def verdict(gates):
 
 def render(repo, pr, gates):
     if pr:
-        draft = " (draft)" if pr.get("isDraft") else ""
+        state = (pr.get("state") or "OPEN").lower()
+        note = f" ({state})" if state != "open" else ""
+        if not note and pr.get("isDraft"):
+            note = " (draft)"
         title = (
             f"Pull request #{pr.get('number')}: {pr.get('headRefName')} -> "
-            f"{pr.get('baseRefName')}{draft}"
+            f"{pr.get('baseRefName')}{note}"
         )
     else:
         title = f"Branch {repo.branch}: no pull request"
@@ -518,8 +663,8 @@ def render(repo, pr, gates):
     for g in gates:
         lines.append(f"  {WORD[g['state']]:<5} {g['gate']:<11} {g['detail']}")
         lines.extend(f"{'':19}{hint}" for hint in g["hints"])
-    bad = [g for g in gates if g["state"] != "pass"]
-    if not bad:
+    bad = [g for g in gates if g["state"] in ("fail", "pending")]
+    if verdict(gates) == 0:
         lines.append("Result: ready to merge")
     elif any(g["stop"] for g in bad):
         mine = ", ".join(g["gate"] for g in bad if g["stop"])
@@ -551,7 +696,7 @@ def report(repo, pr, gates):
 
 def cmd_status(args, repo):
     pr = repo.pr()
-    gates = evaluate(repo, pr)
+    gates = evaluate(repo, pr, args.allow_no_checks)
     if args.json:
         print(json.dumps(report(repo, pr, gates), indent=2))
     else:
@@ -564,30 +709,40 @@ def cmd_status(args, repo):
 
 def grace_seconds(args, repo):
     if args.grace is not None:
-        return max(0, args.grace)
+        return args.grace
     return 90 if repo.has_workflows() else 0
 
 
-def wait_for_ci(repo, timeout, grace):
+def wait_for_ci(repo, timeout, grace, no_checks_ok=False):
     """Poll until every check on the local HEAD has finished.
 
     Returns (ci gate, pull request). `grace` is how long to wait for the first
-    check to show up, and for GitHub to see a push, before judging.
+    check to show up, and for GitHub to see a push, before judging. No check
+    at all is a failure when a workflow here runs on pull requests, unless
+    the caller says that none of them runs for this change.
     """
+    expected = repo.expects_checks() and not no_checks_ok
     start = time.monotonic()
     shown = ""
     while True:
         pr = repo.pr()
         if pr is None or pr.get("state") != "OPEN":
-            raise ToolError(f"no open pull request for {repo.branch}")
+            return gate("ci", "fail", f"no open pull request for {repo.branch}"), pr
         waited = time.monotonic() - start
         seen = pr.get("headRefOid") == repo.head
         passed, failed, pending = sort_checks(
             pr.get("statusCheckRollup") if seen else []
         )
-        if failed:
+        if failed or (seen and passed and not pending):
             return ci_gate(pr), pr
-        if seen and not pending and (passed or waited >= grace):
+        if seen and not pending and waited >= grace:
+            if expected:
+                detail = (
+                    f"no check has shown up after {int(waited)} s, and workflows "
+                    "here run on pull requests: look at the Actions tab; when "
+                    "none of them runs for this change, add --allow-no-checks"
+                )
+                return gate("ci", "fail", detail), pr
             return ci_gate(pr), pr
         if not seen and waited >= grace:
             detail = (
@@ -607,7 +762,8 @@ def wait_for_ci(repo, timeout, grace):
 
 
 def cmd_wait(args, repo):
-    ci, _ = wait_for_ci(repo, args.timeout, grace_seconds(args, repo))
+    grace = grace_seconds(args, repo)
+    ci, _ = wait_for_ci(repo, args.timeout, grace, args.allow_no_checks)
     print(f"CI {WORD[ci['state']]}: {ci['detail']}")
     for hint in ci["hints"]:
         print(f"  {hint}")
@@ -618,9 +774,18 @@ def cmd_wait(args, repo):
 
 
 def merge_plan(repo, pr, args):
-    """Merge method and commit subject, following what the base branch does."""
+    """Merge method and commit subject, following what the base branch does.
+
+    Returns (method, subject, problem); `problem` says why there is no plan.
+    """
     info = repo.info()
     allowed = [m for m, key in METHODS.items() if info.get(key)] or ["merge"]
+    if args.method and args.method not in allowed:
+        problem = (
+            f"this repository does not allow {args.method} merges "
+            f"(allowed: {', '.join(allowed)})"
+        )
+        return "", "", problem
     ref = f"refs/remotes/{repo.remote}/{pr.get('baseRefName')}"
     fmt = "--format=%h%x09%P%x09%s"  # the hash keeps the line from starting with a tab
     out = repo.try_git("log", "--first-parent", "-n", "30", fmt, ref)[1]
@@ -638,18 +803,68 @@ def merge_plan(repo, pr, args):
         conventional = sum(bool(CONVENTIONAL.match(s)) for s in sample)
         if conventional * 2 > len(sample):
             subject = f"chore: merge {pr.get('headRefName')}"
-    return method, subject
+    return method, subject, ""
 
 
-def merge_state(repo):
-    """mergeStateStatus once GitHub has worked it out (it lags after `ready`)."""
-    state = "UNKNOWN"
-    for _ in range(8):
-        state = (repo.pr() or {}).get("mergeStateStatus") or "UNKNOWN"
-        if state not in ("UNKNOWN", "DRAFT"):
-            break
-        time.sleep(min(poll_seconds(), 3))
-    return state
+def watch(repo, number, timeout, looks):
+    """Read the pull request again until GitHub's view of it holds still.
+
+    Marking a draft ready can start checks, request a review from the code
+    owners and bring branch protection in, and none of that shows at once. So
+    what depends on GitHub is read again and has to hold `looks` times in a
+    row. Returns None when the pull request can be merged, else the gate that
+    does not hold.
+    """
+    start = time.monotonic()
+    calm = unknown = 0
+    while True:
+        pr = repo.pr()
+        if pr is None or pr.get("state") != "OPEN":
+            return gate("pr", "fail", f"#{number} is no longer open")
+        head, base = pr.get("headRefOid") or "", pr.get("baseRefName")
+        if head != repo.head:
+            detail = (
+                f"the head of #{number} is now {short(head)}, the tested commit "
+                f"is {short(repo.head)}: pull and test again"
+            )
+            return gate("current", "fail", detail)
+        review = review_gate(pr)
+        if review["state"] != "pass":
+            return review
+        _, failed, pending = sort_checks(pr.get("statusCheckRollup"))
+        if failed:
+            detail = f"checks failed: {check_names(failed)}"
+            return gate("ci", "fail", detail, hints=log_hints(failed))
+        state = pr.get("mergeStateStatus") or "UNKNOWN"
+        if state in ("BEHIND", "DIRTY") or pr.get("mergeable") == "CONFLICTING":
+            word = "behind" if state == "BEHIND" else "in conflict with"
+            detail = (
+                f"#{number} is {word} {base}: merge {repo.remote}/{base} into "
+                "the branch and test again"
+            )
+            return gate("up-to-date", "fail", detail)
+        waited = time.monotonic() - start
+        if pending:
+            calm = unknown = 0
+            if waited >= timeout:
+                names = check_names(pending)
+                detail = f"checks still running after {int(waited)} s: {names}"
+                return gate("ci", "pending", detail)
+        elif state in ("UNKNOWN", "DRAFT") or pr.get("isDraft"):
+            calm = 0
+            unknown += 1
+            if unknown >= UNKNOWN_LOOKS:
+                detail = (
+                    f"GitHub has not said whether #{number} can be merged "
+                    f"(state {state.lower()}): run ship.py merge again"
+                )
+                return gate("pr", "pending", detail)
+        else:
+            unknown = 0
+            calm += 1
+            if calm >= looks:
+                return None
+        time.sleep(poll_seconds() if pending else min(poll_seconds(), 3))
 
 
 def update_base(repo, base):
@@ -660,50 +875,50 @@ def update_base(repo, base):
     ):
         rc, out, err = repo.try_git(*step)
         if rc:
-            why = (err or out).splitlines()[-1:] or [f"exit {rc}"]
-            print(f"note: git {' '.join(step)} failed: {why[0]}", file=sys.stderr)
+            print(
+                f"Note: still on {repo.branch}; git {' '.join(step)} failed: "
+                f"{said(err or out, rc)}"
+            )
             return
-    print(f"Now on {base} at {short(repo.git('rev-parse', 'HEAD'))}.")
+    print(f"Now on {base} at {short(repo.try_git('rev-parse', 'HEAD')[1])}.")
 
 
-def cmd_merge(args, repo):
-    pr = repo.pr()
-    gates = evaluate(repo, pr)
-    before_ci = gates[:-1]
-    if verdict(before_ci) == 0 and not args.dry_run:
-        ci, pr = wait_for_ci(repo, args.timeout, grace_seconds(args, repo))
-        gates = [*before_ci, ci]
-    print(render(repo, pr, gates))
-    code = verdict(gates)
-    if code:
-        return code
+def finish(args, repo, pr):
+    """Every gate holds: mark ready, look again, merge. The outcome is printed last."""
     number, base = str(pr.get("number")), pr.get("baseRefName")
-    method, subject = merge_plan(repo, pr, args)
+    draft = bool(pr.get("isDraft"))
+    method, subject, problem = merge_plan(repo, pr, args)
+    if problem:
+        print(f"Not merged: {problem}.")
+        return EXIT_TOOL
     cmd = ["pr", "merge", number, f"--{method}", "--match-head-commit", repo.head]
     if subject:
-        cmd += ["--subject", subject]
+        cmd.append(f"--subject={subject}")
     if args.dry_run:
-        print("Dry run. Would run: gh " + shlex.join(cmd))
+        first = f"mark #{number} ready, then " if draft else ""
+        print(f"Dry run. Would {first}run: gh {shlex.join(cmd)}")
         return 0
-    if pr.get("isDraft"):
+    undrafted = ""
+    looks = 1
+    if draft:
         rc, out, err = repo.gh("pr", "ready", number)
         if rc:
-            raise ToolError(f"gh pr ready: {err or out or f'exit {rc}'}")
-    state = merge_state(repo)
-    if state == "BLOCKED":
-        print(f"STOP: branch protection blocks the merge of #{number}. Ask the user.")
-        return EXIT_STOP
-    if state in ("BEHIND", "DIRTY"):
-        print(
-            f"Not merged: #{number} is {state.lower()} against {base}. "
-            f"Merge {repo.remote}/{base} into the branch and test again."
-        )
+            print(f"Not merged: gh pr ready failed: {said(err or out, rc)}")
+            return EXIT_TOOL
+        undrafted = f" #{number} is no longer a draft."
+        looks = READY_LOOKS_WORKFLOW if repo.starts_on_ready() else READY_LOOKS
+    problem = watch(repo, number, args.timeout, looks)
+    if problem:
+        for hint in problem["hints"]:
+            print(f"  {hint}")
+        if problem["stop"]:
+            print(f"STOP: {problem['detail']}.{undrafted} Ask the user.")
+            return EXIT_STOP
+        print(f"Not merged: {problem['detail']}.{undrafted}")
         return EXIT_FAIL
     rc, out, err = repo.gh(*cmd, timeout=120)
     if rc:
-        print(
-            f"ship: gh pr merge failed: {err or out or f'exit {rc}'}", file=sys.stderr
-        )
+        print(f"Not merged: gh pr merge failed: {said(err or out, rc)}.{undrafted}")
         return EXIT_FAIL
     print(f"Merged #{number} into {base} ({method}) at {short(repo.head)}.")
     if not args.stay:
@@ -711,7 +926,37 @@ def cmd_merge(args, repo):
     return 0
 
 
+def cmd_merge(args, repo):
+    pr = repo.pr()
+    gates = evaluate(repo, pr, args.allow_no_checks)
+    before_ci = gates[:-1]
+    if verdict(before_ci) == 0 and not args.dry_run:
+        grace = grace_seconds(args, repo)
+        ci, seen = wait_for_ci(repo, args.timeout, grace, args.allow_no_checks)
+        pr = seen or pr
+        gates = [*before_ci, ci]
+    print(render(repo, pr, gates))
+    code = verdict(gates)
+    if code:
+        return code
+    try:
+        return finish(args, repo, pr)
+    except ToolError as exc:
+        print(f"Not merged: {exc}")
+        return EXIT_TOOL
+
+
 # ---------------------------------------------------------------- entry
+
+
+def seconds(text):
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{text!r} is not a number") from None
+    if value < 0:
+        raise argparse.ArgumentTypeError("seconds cannot be negative")
+    return value
 
 
 def build_parser():
@@ -744,15 +989,22 @@ def build_parser():
     merge = sub.add_parser("merge", help="check the gates, wait for CI, merge")
     for cmd in (wait, merge):
         cmd.add_argument(
-            "--timeout", type=int, default=1800, metavar="S", help="default 1800"
+            "--timeout", type=seconds, default=1800, metavar="S", help="default 1800"
         )
         cmd.add_argument(
             "--grace",
-            type=int,
+            type=seconds,
             default=None,
             metavar="S",
             help="how long to wait for the first check to show up "
             "(default 90 with GitHub workflows in the repository, else 0)",
+        )
+    for cmd in (status, wait, merge):
+        cmd.add_argument(
+            "--allow-no-checks",
+            action="store_true",
+            help="accept a pull request on which no check shows up, when no "
+            "workflow runs for this change",
         )
     merge.add_argument("--method", choices=tuple(METHODS), help="default: as the base")
     merge.add_argument("--subject", default="", help="commit subject of the merge")
@@ -774,10 +1026,12 @@ COMMANDS = {
 def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.cmd == "record" and args.result == "pass" and args.open:
-        parser.error("a passed round has no open findings; record it as fail")
-    if args.cmd == "record" and args.result == "fail" and not args.open:
-        parser.error("name the findings that are still open: --open F1 F2")
+    if args.cmd == "record":
+        args.open = finding_ids(args.open)
+        if args.result == "pass" and args.open:
+            parser.error("a passed round has no open findings; record it as fail")
+        if args.result == "fail" and not args.open:
+            parser.error("name the findings that are still open: --open F1 F2")
     quiet = getattr(args, "exit_zero", False)
     try:
         return COMMANDS[args.cmd](args, Repo())

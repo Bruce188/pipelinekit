@@ -44,6 +44,10 @@ kit used to ship, so those parts are gone.
 - Release pull requests, tags, publishing, other people's pull requests and
   anything behind branch protection stay with the user. A project opts out
   with the line `Merges: ask first` in its `CLAUDE.md`.
+- After marking a draft ready the helper reads the pull request again
+  before it merges, so a check or review that only starts then is not
+  skipped. A pull request without any check is not green where workflows run
+  on pull requests (`--allow-no-checks` says otherwise).
 - `gh pr merge --admin` is on the `permissions.ask` list, `docs/uat/` (local
   test reports) is on the never-stage list, and `/kit` reports whether `gh`
   and Playwright are available.

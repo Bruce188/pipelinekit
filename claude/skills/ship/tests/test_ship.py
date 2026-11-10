@@ -32,14 +32,25 @@ if kind == ["pr", "view"]:
     pr = seq[min(n, len(seq) - 1)] if seq else state.get("pr")
     if pr is None:
         sys.exit('no pull requests found for branch "x"')
-    if os.path.exists(os.path.join(d, "ready")) and pr.get("isDraft"):
-        pr = dict(pr, isDraft=False, mergeStateStatus=state.get("after_ready", "CLEAN"))
+    if os.path.exists(os.path.join(d, "ready")):
+        counter = os.path.join(d, "ready_views")
+        k = int(open(counter).read()) if os.path.exists(counter) else 0
+        with open(counter, "w") as f:
+            f.write(str(k + 1))
+        if pr.get("isDraft"):
+            now = state.get("after_ready", "CLEAN")
+            pr = dict(pr, isDraft=False, mergeStateStatus=now)
+        later = state.get("after_ready_sequence")
+        if later:
+            pr = dict(pr, **later[min(k, len(later) - 1)])
     print(json.dumps(pr))
 elif kind == ["api", "user"]:
     print(state.get("user", "me"))
 elif kind == ["repo", "view"]:
     print(json.dumps(state["repo"]))
 elif kind == ["pr", "ready"]:
+    if state.get("ready_error"):
+        sys.exit(state["ready_error"])
     open(os.path.join(d, "ready"), "w").close()
 elif kind == ["pr", "merge"]:
     if state.get("merge_error"):
@@ -159,12 +170,27 @@ class Sandbox:
             check=False,
         )
 
-    def calls(self, kind):
+    def all_calls(self):
         log = self.fake / "calls.jsonl"
         if not log.exists():
             return []
-        rows = [json.loads(line) for line in log.read_text().splitlines()]
-        return [row for row in rows if row[:2] == kind.split()]
+        return [json.loads(line) for line in log.read_text().splitlines()]
+
+    def calls(self, kind):
+        return [row for row in self.all_calls() if row[:2] == kind.split()]
+
+    def views_after_ready(self):
+        """How often the pull request was read between `ready` and the merge."""
+        rows = self.all_calls()
+        start = rows.index(["pr", "ready", "7"])
+        merges = [i for i, row in enumerate(rows) if row[:2] == ["pr", "merge"]]
+        stop = merges[0] if merges else len(rows)
+        return sum(row[:2] == ["pr", "view"] for row in rows[start:stop])
+
+    def workflow(self, text="on: [push, pull_request]\n"):
+        path = self.work / ".github" / "workflows" / "ci.yml"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
 
     def passed(self):
         done = self.ship("record", "--result", "pass")
@@ -184,6 +210,10 @@ def sb(tmp_path):
 
 def gates(done):
     return {g["gate"]: g for g in json.loads(done.stdout)["gates"]}
+
+
+def last_line(done):
+    return done.stdout.strip().splitlines()[-1]
 
 
 # ---------------------------------------------------------------- status
@@ -223,6 +253,7 @@ def test_status_without_a_pull_request(sb):
     assert done.returncode == 1
     assert gates(done)["pr"]["state"] == "fail"
     assert gates(done)["own"]["state"] == "skip"
+    assert "Result: not ready (pr, tested)" in sb.ship("status").stdout
 
 
 def test_status_outside_a_repository_is_a_tool_error(sb, tmp_path):
@@ -417,8 +448,7 @@ def test_merge_follows_a_base_that_uses_merge_commits(sb):
         "--merge",
         "--match-head-commit",
         sb.head(),
-        "--subject",
-        f"chore: merge {BRANCH}",
+        f"--subject=chore: merge {BRANCH}",
     ]
     assert sb.git("branch", "--show-current") == BRANCH
 
@@ -437,9 +467,12 @@ def test_merge_dry_run_changes_nothing(sb):
     sb.passed()
     done = sb.ship("merge", "--dry-run")
     assert done.returncode == 0
-    assert "Would run: gh pr merge 7 --squash --match-head-commit" in done.stdout
+    plan = "run: gh pr merge 7 --squash --match-head-commit"
+    assert last_line(done).startswith(f"Dry run. Would mark #7 ready, then {plan}")
     assert sb.calls("pr merge") == [] and sb.calls("pr ready") == []
     assert sb.git("branch", "--show-current") == BRANCH
+    sb.state(pr=sb.pr(isDraft=False, mergeStateStatus="CLEAN"))
+    assert last_line(sb.ship("merge", "--dry-run")).startswith(f"Dry run. Would {plan}")
 
 
 def test_merge_stops_when_protection_shows_after_marking_ready(sb):
@@ -454,7 +487,9 @@ def test_merge_reports_a_refusal_by_github(sb):
     sb.passed()
     sb.state(merge_error="Pull request is not mergeable")
     done = sb.ship("merge")
-    assert done.returncode == 1 and "not mergeable" in done.stderr
+    assert done.returncode == 1
+    assert last_line(done).startswith("Not merged: gh pr merge failed: Pull request")
+    assert last_line(done).endswith("#7 is no longer a draft.")
     assert sb.git("branch", "--show-current") == BRANCH
 
 
@@ -566,7 +601,9 @@ def test_record_stops_after_five_failed_rounds(sb):
 
 def test_record_stops_when_a_finding_survives_two_fix_attempts(sb):
     assert sb.ship("record", "--result", "fail", "--open", "F1", "F2").returncode == 0
+    sb.commit("fix: first attempt")
     assert sb.ship("record", "--result", "fail", "--open", "F2", "F3").returncode == 0
+    sb.commit("fix: second attempt")
     done = sb.ship("record", "--result", "fail", "--open", "F2")
     assert (
         done.returncode == 3 and "F2 still open after two fix attempts" in done.stdout
@@ -590,3 +627,290 @@ def test_the_kit_template_names_the_opt_out_without_opting_out(sb):
     (home / "CLAUDE.md").write_text(template.read_text())
     assert "`Merges: ask first`" in template.read_text()
     assert gates(sb.ship("status", "--json"))["policy"]["state"] == "pass"
+
+
+# ---------------------------------------------------------------- after marking ready
+
+
+def test_merge_looks_again_after_marking_ready(sb):
+    sb.passed()
+    assert sb.ship("merge").returncode == 0
+    assert sb.views_after_ready() == 4
+
+
+def test_merge_looks_longer_when_a_workflow_starts_on_ready(sb):
+    sb.workflow("on:\n  pull_request:\n    types: [opened, ready_for_review]\n")
+    sb.passed()
+    assert sb.ship("merge").returncode == 0
+    assert sb.views_after_ready() == 15
+
+
+def test_merge_waits_for_a_check_that_starts_when_marked_ready(sb):
+    sb.passed()
+    running = {"statusCheckRollup": [check("lint"), check("owners", "", "QUEUED")]}
+    finished = {"statusCheckRollup": [check("lint"), check("owners")]}
+    sb.state(after_ready_sequence=[{}, {}, running, running, finished])
+    done = sb.ship("merge")
+    assert done.returncode == 0, done.stdout + done.stderr
+    # two calm looks, two with the check running, then four calm ones in a row
+    assert sb.views_after_ready() == 8
+    assert len(sb.calls("pr merge")) == 1
+
+
+def test_merge_gives_up_on_a_check_that_keeps_running(sb):
+    sb.passed()
+    running = {"statusCheckRollup": [check("lint"), check("owners", "", "QUEUED")]}
+    sb.state(after_ready_sequence=[running])
+    done = sb.ship("merge", "--timeout", "1")
+    assert done.returncode == 1 and sb.calls("pr merge") == []
+    assert last_line(done).startswith("Not merged: checks still running")
+    assert "#7 is no longer a draft." in last_line(done)
+
+
+@pytest.mark.parametrize(
+    ("later", "code", "words"),
+    [
+        (
+            {"statusCheckRollup": [check("owners", "FAILURE")]},
+            1,
+            "checks failed: owners",
+        ),
+        ({"reviewRequests": [{"login": "owner"}]}, 3, "review requested from owner"),
+        ({"reviewDecision": "REVIEW_REQUIRED"}, 3, "requires a review"),
+        ({"headRefOid": "1" * 40}, 1, "pull and test again"),
+        ({"mergeStateStatus": "BEHIND"}, 1, "behind main"),
+        ({"mergeStateStatus": "UNKNOWN"}, 1, "has not said"),
+        ({"state": "CLOSED"}, 1, "no longer open"),
+    ],
+)
+def test_merge_stops_on_what_shows_up_after_marking_ready(sb, later, code, words):
+    sb.passed()
+    sb.state(after_ready_sequence=[{}, {}, later])
+    done = sb.ship("merge")
+    assert done.returncode == code, done.stdout + done.stderr
+    assert sb.calls("pr merge") == []
+    assert words in last_line(done)
+    if code == 3:
+        assert last_line(done).startswith("STOP: ")
+        assert last_line(done).endswith("#7 is no longer a draft. Ask the user.")
+    else:
+        assert last_line(done).startswith("Not merged: ")
+    if "FAILURE" in json.dumps(later):
+        assert "gh run view 42 --log-failed" in done.stdout
+
+
+def test_merge_reports_a_failed_ready_last_on_stdout(sb):
+    sb.passed()
+    sb.state(ready_error="GraphQL: Resource not accessible by integration")
+    done = sb.ship("merge")
+    assert done.returncode == 2 and sb.calls("pr merge") == []
+    assert last_line(done).startswith("Not merged: gh pr ready failed: GraphQL")
+
+
+# ---------------------------------------------------------------- releases
+
+RELEASES = [
+    {"title": "chore: release 2.0.0"},
+    {"title": "chore: release v2.0.0"},
+    {"title": "chore(main): release 1.2.3"},
+    {"title": "chore(release): prepare notes"},
+    {"title": "build: release 1.0.0"},
+    {"title": "chore: prepare release 0.2.0"},
+    {"title": "Version Packages"},
+    {"title": "v1.2.3"},
+    {"title": "chore: bump version to 1.4.0"},
+    {"title": "chore: cut v0.2.0"},
+    {"title": "release: 1.2.0"},
+    {"title": "Release 1.2.3"},
+    {"headRefName": "integration"},
+    {"headRefName": "integration/q3"},
+    {"headRefName": "release"},
+    {"headRefName": "releases/1.0"},
+    {"headRefName": "rel/1.0"},
+    {"headRefName": "hotfix/1.0.1"},
+    {"headRefName": "stage"},
+    {"headRefName": "chore/release-2.0.0"},
+    {"headRefName": "changeset-release/main"},
+    {"headRefName": "release-please--branches--main"},
+    {"headRefName": "v1.2.3"},
+    {"headRefName": "prerelease/1.0"},
+    {"headRefName": "rc/1.0"},
+    {"baseRefName": "production"},
+    {"headRefName": "main", "baseRefName": "production"},
+    {"headRefName": "main", "baseRefName": "customer-a"},
+]
+NOT_RELEASES = [
+    {"title": "Release: notes page layout"},
+    {"title": "feat: release notes page"},
+    {"title": "fix: release the lock before retrying"},
+    {"title": "chore(deps): bump lodash from 4.17.20 to 4.17.21"},
+    {"title": "docs: versioning policy"},
+    {"headRefName": "feat/release-notes"},
+    {"headRefName": "hotfix/login-crash"},
+    {"headRefName": "release-notes-page"},
+    {"headRefName": "integration-tests/add-db"},
+    {"headRefName": "fix/7-rc-file"},
+    {"baseRefName": "release/v0.1.0"},
+    {"headRefName": "fix/9-typo", "baseRefName": "develop"},
+]
+
+
+def release_gate(sb, over):
+    sb.state(pr=sb.pr(**over))
+    done = sb.ship("status", "--json")
+    return gates(done)["release"]["state"], json.loads(done.stdout)["stop"]
+
+
+def test_releases_are_recognised(sb):
+    for over in RELEASES:
+        assert release_gate(sb, over) == ("fail", True), over
+
+
+def test_changes_that_only_mention_a_release_are_not_releases(sb):
+    for over in NOT_RELEASES:
+        assert release_gate(sb, over) == ("pass", False), over
+
+
+# ---------------------------------------------------------------- stuck loop, opt-out
+
+OPT_OUTS = [
+    "**Merges:** ask first",
+    "- **Merges**: ask first",
+    "__Merges:__ ask first",
+    "> Merges: ask first",
+    "`Merges: ask first`",
+    "- `Merges: ask first`.",
+    "<!-- Merges: ask first -->",
+    "<!--\nMerges: ask first\n-->",
+]
+NOT_OPT_OUTS = [
+    "To turn this off, add `Merges: ask first` to this file.",
+    "`Merges: ask first` turns the automatic merge off.",
+    "Merges are asked for first in other projects.",
+    "## Merges\n\nAsk the team in the channel.",
+]
+
+
+def policy(sb, line):
+    (sb.work / "CLAUDE.md").write_text(f"# Project\n\n{line}\n")
+    return gates(sb.ship("status", "--json"))["policy"]["state"]
+
+
+def test_the_opt_out_line_in_its_markdown_forms(sb):
+    for line in OPT_OUTS:
+        assert policy(sb, line) == "fail", line
+    for line in NOT_OPT_OUTS:
+        assert policy(sb, line) == "pass", line
+
+
+def test_a_stuck_loop_shows_in_status_and_merge(sb):
+    for n in range(3):
+        sb.commit(f"fix: attempt {n}")
+        last = sb.ship("record", "--result", "fail", "--open", "F2", f"F{n + 5}")
+    assert last.returncode == 3
+    sb.git("push", "-q")
+    sb.state()
+    done = sb.ship("status", "--json")
+    assert done.returncode == 3 and json.loads(done.stdout)["stop"] is True
+    assert "F2 still open after two fix attempts" in gates(done)["tested"]["detail"]
+    done = refused(sb, "tested", 3)
+    assert "Result: stop and ask the user (tested)" in done.stdout
+
+
+def test_rounds_on_one_commit_are_one_fix_attempt(sb):
+    for _ in range(4):
+        done = sb.ship("record", "--result", "fail", "--open", "F2")
+        assert done.returncode == 0, done.stdout
+
+
+def test_finding_ids_ignore_case_and_blanks(sb):
+    done = sb.ship("record", "--result", "fail", "--open", "f1", "F1", " F2 ", "")
+    assert done.returncode == 0
+    data = json.loads((sb.work / "docs/uat/feat-1-thing.json").read_text())
+    assert data["rounds"][0]["open"] == ["F2", "f1"]
+    assert sb.ship("record", "--result", "fail", "--open", " ").returncode == 2
+    for name in ("f2", "F2 "):
+        sb.commit("fix: again")
+        done = sb.ship("record", "--result", "fail", "--open", name)
+    assert done.returncode == 3
+    assert "F2 still open after two fix attempts" in done.stdout
+
+
+def test_an_unreadable_record_is_not_overwritten(sb):
+    path = sb.work / "docs/uat/feat-1-thing.json"
+    path.parent.mkdir(parents=True)
+    for text in ("{not json", '{"rounds": "none"}', "[]"):
+        path.write_text(text)
+        done = sb.ship("record", "--result", "pass")
+        assert done.returncode == 2 and "not a readable test record" in done.stderr
+        assert path.read_text() == text
+        done = sb.ship("status", "--json")
+        assert "not a readable test record" in gates(done)["tested"]["detail"]
+
+
+# ---------------------------------------------------------------- checks, arguments
+
+
+def test_no_check_is_not_a_pass_when_workflows_run_on_pull_requests(sb):
+    sb.workflow()
+    sb.passed()
+    sb.state(pr=sb.pr(statusCheckRollup=[]))
+    done = sb.ship("status", "--json")
+    assert gates(done)["ci"]["state"] == "pending"
+    done = sb.ship("status", "--json", "--allow-no-checks")
+    assert gates(done)["ci"]["state"] == "pass"
+    done = sb.ship("wait", "--grace", "0")
+    assert done.returncode == 1 and "no check has shown up" in done.stdout
+    assert sb.ship("wait", "--grace", "0", "--allow-no-checks").returncode == 0
+    assert "--allow-no-checks" in refused(sb, "ci", 1).stdout
+    done = sb.ship("merge", "--grace", "0", "--allow-no-checks")
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert len(sb.calls("pr merge")) == 1
+
+
+def test_no_check_is_fine_when_no_workflow_runs_on_pull_requests(sb):
+    sb.workflow("on:\n  push:\n    branches: [main]\n")
+    sb.state(pr=sb.pr(statusCheckRollup=[]))
+    assert gates(sb.ship("status", "--json"))["ci"]["state"] == "pass"
+    assert sb.ship("wait", "--grace", "0").returncode == 0
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ("wait", "--timeout", "-1"),
+        ("merge", "--grace", "-5"),
+        ("wait", "--grace", "soon"),
+    ],
+)
+def test_seconds_must_be_a_number_that_is_not_negative(sb, args):
+    done = sb.ship(*args)
+    assert done.returncode == 2 and sb.all_calls() == []
+
+
+def test_merge_passes_the_subject_as_one_argument(sb):
+    sb.passed()
+    assert sb.ship("merge", "--subject", "feat: thing (#7)").returncode == 0
+    assert sb.calls("pr merge")[0][-1] == "--subject=feat: thing (#7)"
+
+
+def test_merge_refuses_a_method_the_repository_does_not_allow(sb):
+    sb.passed()
+    done = sb.ship("merge", "--method", "rebase")
+    assert done.returncode == 2
+    assert "does not allow rebase merges" in last_line(done)
+    assert sb.calls("pr ready") == [] and sb.calls("pr merge") == []
+
+
+def test_wait_without_a_pull_request(sb):
+    sb.state(pr=None)
+    done = sb.ship("wait", "--grace", "0")
+    assert done.returncode == 1 and "no open pull request" in done.stdout
+
+
+def test_status_names_a_pull_request_that_is_not_open(sb):
+    sb.state(pr=sb.pr(state="MERGED"))
+    done = sb.ship("status")
+    first = done.stdout.splitlines()[0]
+    assert first.endswith("(merged)") and "draft" not in first
+    assert "Result: not ready (pr, tested)" in done.stdout

@@ -99,7 +99,7 @@ In 0.1.0, `deploy` replaces the five separate `*-ops` skills and the per-provide
 | Install | Every hook, git hook and skill is present; hooks are executable and have LF line endings; `settings.json` is valid, its hook commands point to files that exist, attribution is off and the secret deny rules are there; the global `core.hooksPath` |
 | Changes since install | Each installed file against the hash recorded at install time; the kit's hook entries and deny/ask rules in `settings.json` |
 | Live probe | Each hook gets input it must block and input it must allow: `git commit --no-verify`, a `docker` mount of `/etc`, `curl` piped into `sh`, `DROP TABLE` through `psql`, a `HEAD` file next to `refs/`, a non-conventional commit message, a push to `main` |
-| Environment | python3, Claude Code and gitleaks versions; WSL; a repository that sets its own `core.hooksPath` |
+| Environment | python3, Claude Code and gitleaks versions; whether `gh` and Playwright are available; WSL; a repository that sets its own `core.hooksPath` |
 
 A line is `[fail]` when a guard is missing or does the wrong thing, `[warn]` when something changed but still works (for example a skill file you edited), and `[info]` for context. The report ends with `Result: healthy`, or with the number of problems and the command that repairs the install. The check itself changes nothing in `~/.claude`.
 
@@ -135,16 +135,20 @@ With the kit installed, Claude finishes the pull requests it opens instead of ha
 | `pr` | The branch has an open pull request |
 | `own` | Your GitHub account opened it, and it is not from a fork |
 | `policy` | The project has not opted out |
-| `release` | It is not a release: no release or integration branch into the default branch, no release title |
+| `release` | It is not a release: no release, integration, staging or version branch into the default branch, not the default branch into another branch, nothing into a deploy branch such as `production`, no title that names a release or a version |
 | `review` | No review is required, requested or asking for changes |
 | `current` | The local commit is the pull request's head and nothing tracked is uncommitted |
 | `up-to-date` | The branch contains its base branch and does not conflict with it |
-| `tested` | The last test record is a pass for exactly this commit |
-| `ci` | Every check has finished and passed |
+| `tested` | The last test record is a pass for exactly this commit, and the loop is not stuck |
+| `ci` | Every check has finished and passed. A pull request with no check at all passes only where no workflow runs on pull requests, or with `--allow-no-checks` |
 
 The merge command names the tested commit (`--match-head-commit`), so a commit pushed in between is not merged. The helper has no `--admin` option, and `gh pr merge --admin` is on the `permissions.ask` list. The merge method follows the base branch: a merge commit where the branch already has them, squash otherwise.
 
-These stay yours: release pull requests, tags, publishing and production deploys; pull requests someone else opened; anything behind a required review or branch protection. Claude also stops and asks when the same finding is still open after two fix attempts, after five failed rounds in a row, and when a test needs a decision the criteria do not settle.
+A draft has to be marked ready before GitHub merges it, and that can start checks, add reviewers or turn on branch protection. The helper therefore reads the pull request again several times after marking it ready, and merges only when nothing new showed up. If something did, the pull request stays ready and unmerged. The last line of output is always the outcome: `Merged #12 into main ...`, `Not merged: ...` or `STOP: ...`.
+
+The release gate leans towards asking. A feature branch into a release branch such as `release/v1.0` is an ordinary change and merges; the release branch into `main` does not.
+
+These stay yours: release pull requests, tags, publishing and production deploys; pull requests someone else opened; anything behind a required review or branch protection. Claude also stops and asks when the same finding is still open after two fix attempts, after five failed rounds in a row, and when a test needs a decision the criteria do not settle. A stuck loop shows in `ship.py status` and blocks `ship.py merge` until you decide.
 
 To turn self-merging off for a project, put this line in its `CLAUDE.md`:
 
@@ -152,7 +156,7 @@ To turn self-merging off for a project, put this line in its `CLAUDE.md`:
 Merges: ask first
 ```
 
-The same line in `~/.claude/CLAUDE.md` turns it off everywhere, and so does `PIPELINEKIT_MERGE=ask` in the environment. Claude then asks before it merges.
+The same line in `~/.claude/CLAUDE.md` turns it off everywhere, and so does `PIPELINEKIT_MERGE=ask` in the environment. Claude then asks before it merges. The line counts on its own line, also as a list item, in bold, quoted, in backticks or inside an HTML comment. A sentence that only mentions it does not.
 
 Test reports and screenshots go to `docs/uat/` in the project. That directory is local: the helper adds it to `.git/info/exclude`, and it is on the never-stage list. The kit does not install Playwright; `/kit` reports whether `gh` and Playwright are available.
 
