@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - main
+      - 'release/**'
 
 permissions:
   contents: read
@@ -14,23 +15,23 @@ permissions:
 jobs:
   lint:
     name: lint
-    runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     env:
       CI: '1'
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # No Blacksmith drop-in — using upstream actions/checkout (v4.1.1)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Setup Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c  # No Blacksmith drop-in — using upstream actions/setup-python (v5.0.0)
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: '3.11'
       - name: Restore apt cache
-        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2  # No Blacksmith drop-in — using upstream actions/cache (v4.0.0)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: /var/cache/apt/archives
           key: apt-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}
       - name: Restore pip cache
-        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2  # No Blacksmith drop-in — using upstream actions/cache (v4.0.0)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: ~/.cache/pip
           key: pip-${{ runner.os }}-${{ hashFiles('pyproject.toml') || 'no-pyproject' }}
@@ -52,20 +53,19 @@ jobs:
       matrix:
         include:
           - os: ubuntu
-            runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}
-          # BLACKSMITH_DOES_NOT_SUPPORT_MACOS — using upstream GitHub-hosted macos-13 for the macOS leg.
+            runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
           - os: macos
-            runs-on: macos-13
+            runs-on: macos-latest
     runs-on: ${{ matrix.runs-on }}
     env:
       CI: '1'
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # No Blacksmith drop-in — using upstream actions/checkout (v4.1.1)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0  # tests/test_install.sh seeds old kit files from history
       - name: Setup Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c  # No Blacksmith drop-in — using upstream actions/setup-python (v5.0.0)
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: '3.11'
       - name: Run git-hook and installer tests
@@ -84,14 +84,14 @@ jobs:
 
   install-smoke:
     name: install-smoke
-    runs-on: ${{ vars.BLACKSMITH_RUNNER || 'blacksmith-4vcpu-ubuntu-2204' }}
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     env:
       CI: '1'
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # No Blacksmith drop-in — using upstream actions/checkout (v4.1.1)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Setup Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c  # No Blacksmith drop-in — using upstream actions/setup-python (v5.0.0)
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: '3.11'
       - name: Run install.sh into scratch HOME
