@@ -297,6 +297,9 @@ def check_terminal(page):
     page.wait_for_timeout(120)
     btn("pause").click()
     assert btn("play").is_enabled() and btn("pause").is_disabled()
+    # A pause in the middle of a command completes that line on the next typing
+    # tick, so let it land before taking the reference text.
+    page.wait_for_timeout(150)
     paused_at = screen.text_content()
     page.wait_for_timeout(200)
     assert screen.text_content() == paused_at, "output kept changing while paused"
