@@ -179,6 +179,8 @@ python3 ~/.claude/skills/kit/check.py --session ID  # activity of one session
 
 Exit code 0 means healthy, 1 means problems were found, 2 means the checker itself failed. `scripts/verify.sh` runs the same file. The JSON output has an `activity` list with every rule; the text report shows the 20 most recent.
 
+The repository checks itself the same way. In CI the `install-smoke` job installs the kit into an empty home directory and expects a healthy report, then removes one hook and expects the report to name it. The whole workflow also runs every Monday at 05:17 UTC and can be started by hand (`gh workflow run CI`). A failed scheduled run opens the issue `Weekly self-check failed`, or adds a comment to it while it is open (`scripts/ci-report.sh`); close the issue once a run is green again. GitHub starts scheduled runs from the default branch only, and pauses them after 60 days without activity in the repository.
+
 The comparison data is `~/.claude/pipelinekit/manifest.json`, which the installer writes: kit version and commit, the checkout path, a SHA-256 of every installed file, and the `settings.json` entries the kit owns. An install made before this file existed reports `install manifest not found`; run the installer once.
 
 Two things are outside its reach. A `permissions.deny` match, or a prompt you declined, leaves no trace to report: Activity lists only what the kit's own hooks did. And the report describes the environment it runs in: another WSL distro, an SSH host or a sandboxed session can differ, so run the check there.

@@ -8,6 +8,9 @@ on:
     branches:
       - main
       - 'release/**'
+  schedule:
+    - cron: '17 5 * * 1'  # Mondays 05:17 UTC; GitHub runs it from the default branch only
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -96,5 +99,34 @@ jobs:
           python-version: '3.11'
       - name: Run install.sh into scratch HOME
         run: |
-          export HOME="$(mktemp -d)"
-          bash scripts/install.sh --no-serena
+          SMOKE_HOME="$(mktemp -d)"
+          echo "SMOKE_HOME=$SMOKE_HOME" >> "$GITHUB_ENV"
+          HOME="$SMOKE_HOME" bash scripts/install.sh --no-serena
+      - name: Self-check passes on the fresh install
+        run: HOME="$SMOKE_HOME" python3 "$SMOKE_HOME/.claude/skills/kit/check.py"
+      - name: Self-check reports a removed hook
+        run: |
+          rm "$SMOKE_HOME/.claude/hooks/bash-guard.py"
+          rc=0
+          HOME="$SMOKE_HOME" python3 "$SMOKE_HOME/.claude/skills/kit/check.py" > "$SMOKE_HOME/report.txt" || rc=$?
+          cat "$SMOKE_HOME/report.txt"
+          [ "$rc" = 1 ] || { echo "expected exit 1 from the self-check, got $rc"; exit 1; }
+          grep -q "bash-guard.py" "$SMOKE_HOME/report.txt"
+
+  report:
+    name: report
+    needs: [lint, selftests, install-smoke]
+    if: ${{ failure() && github.event_name == 'schedule' }}
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Open or update the issue for the failed run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash scripts/ci-report.sh "$RUN_URL"
