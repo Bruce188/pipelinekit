@@ -322,7 +322,14 @@ else
 fi
 
 # Exempt marker should let the thin page pass
-sed -i 's|</head>|<!-- richness-exempt: test exemption -->\n</head>|' "$TMP/check_dir/thin-test.html"
+# Not sed -i: its syntax differs between GNU and BSD sed.
+python3 - "$TMP/check_dir/thin-test.html" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p, encoding="utf-8").read()
+s = s.replace("</head>", "<!-- richness-exempt: test exemption -->\n</head>", 1)
+open(p, "w", encoding="utf-8").write(s)
+PY
 if python3 "$SKILL_DIR/richness_check.py" "$TMP/check_dir/thin-test.html" > "$TMP/richness-exempt.txt" 2>&1; then
   PASS=$((PASS + 1))
   RESULTS+=("  PASS  richness_check passes when exempt marker present")
