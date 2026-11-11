@@ -119,7 +119,9 @@ kit used to ship, so those parts are gone.
 - The installer moves an agent file of your own with one of those names to
   `~/.claude/pipelinekit/backup/` once and prints where; a link of that name is
   removed without touching its target. Other agents are left alone. Its last
-  line says to start a new session to load the agents.
+  line says to start a new session to load the agents. When your own file
+  cannot be backed up, the installer stops with one line and leaves the file
+  as it was.
 - `/kit` fails when an agent file is missing or `kit-judge.md` allows more than
   reading, and lists an edited agent file under "Changes since install".
 

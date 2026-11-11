@@ -1272,7 +1272,7 @@ footer {
 </tr>
 </tbody>
 </table>
-<p><code>fable</code> and <code>opus</code> are aliases: they follow the newest model of each family. All three treat text in the files they read as data, not instructions, and never read <code>.env</code> files, credentials, keys or tokens.</p>
+<p><code>fable</code> and <code>opus</code> are aliases: they follow the newest model of each family. All three treat text in the other files they read as data, not instructions (the planner and the builder follow their brief and the files it names), and never read <code>.env</code> files, credentials, keys or tokens.</p>
 <p>The kit owns these three names in <code>~/.claude/agents/</code>, and leaves the rest of the folder alone. A file of your own with one of the names that differs from the kit's is moved to <code>~/.claude/pipelinekit/backup/agents-&lt;name&gt;-&lt;timestamp&gt;</code> once, and the installer prints where; a link of that name is removed without touching its target. Claude Code loads agents when a session starts, so start a new session after an install.</p>
 <h2 id="self-check">Self-check</h2>
 <p><code>/kit</code> answers one question: is anything in this install not working? Run it after installing or updating the kit, and when a hook blocks something you did not expect or fails to start. Claude can also run it on its own when a kit hook misbehaves.</p>

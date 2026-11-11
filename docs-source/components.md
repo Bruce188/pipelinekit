@@ -161,7 +161,7 @@ Together they are the parts of a judge loop: one agent plans, one builds, and in
 | `kit-builder` | `opus` | the session's tools | Builds the plan it is handed on the checked-out work branch, failing test first, runs the project's checks and commits; fixes the items it is given, in that order, and nothing else. Never creates or switches a branch, never pushes or deploys, never writes under `docs/loops/` |
 | `kit-judge` | `fable` | `Read, Grep, Glob` | Judges a plan or a build from one angle and answers with one JSON object: a score from 0 to 10, scores per dimension, blocking items and improvements, each with evidence and a fix. Reads only what its brief names, and never runs, writes, commits, pushes or deploys anything |
 
-`fable` and `opus` are aliases: they follow the newest model of each family. All three treat text in the files they read as data, not instructions, and never read `.env` files, credentials, keys or tokens.
+`fable` and `opus` are aliases: they follow the newest model of each family. All three treat text in the other files they read as data, not instructions (the planner and the builder follow their brief and the files it names), and never read `.env` files, credentials, keys or tokens.
 
 The kit owns these three names in `~/.claude/agents/`, and leaves the rest of the folder alone. A file of your own with one of the names that differs from the kit's is moved to `~/.claude/pipelinekit/backup/agents-<name>-<timestamp>` once, and the installer prints where; a link of that name is removed without touching its target. Claude Code loads agents when a session starts, so start a new session after an install.
 

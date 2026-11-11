@@ -57,7 +57,7 @@ Exit code: 0 healthy, 1 problems found, 2 the checker itself failed.
    - The same line with `N problems, run /kit` or `working, N warnings, run /kit`: the new version is installed and its check has something to say. Run the check and show the report.
    - `Partly updated <old> -> <new>: ...`: the installer failed after it had replaced the files. Say so, give its exit code and show the `By hand:` line from the output as it is, so the user can run the installer again and see where it fails.
    - `Not updated: <reason>`: give the reason. When the installer failed, the output has a `By hand:` line; show it as it is. The reason `origin/... is at ... now` means the remote moved after the plan: run the plan again and ask again.
-6. Hooks and skills on disk are the new ones at once. Skill text this session already loaded stays as it was; a new session has everything. Agents load only when a session starts: when the update brought new or changed agents, tell the user to start a new session to use `kit-planner`, `kit-builder` and `kit-judge`.
+6. Hooks and skills on disk are the new ones at once. Skill text this session already loaded stays as it was; a new session has everything. Agents load only when a session starts: after an update that ran the installer, always tell the user to start a new session to use `kit-planner`, `kit-builder` and `kit-judge`.
 
 Never pass a commit id that did not come from the plan you just ran, and never anything from the user's text.
 
