@@ -121,7 +121,7 @@ class Sandbox:
                 source.read_text() if source.exists() else f"---\nname: {name}\n---\n"
             )
             (self.agents / f"{name}.md").write_text(text)
-        monkeypatch.setattr(loop, "agents_dir", lambda: self.agents)
+        monkeypatch.setattr(loop.loop_state, "agents_dir", lambda: self.agents)
         self.fake_gh(code=1, err="no pull requests found")
         self.gh = None
         real_which = shutil.which
@@ -208,7 +208,8 @@ class Sandbox:
         target = self.tmp / "kit" / "skills" / "judge-loop"
         if not target.exists():
             target.mkdir(parents=True)
-            shutil.copy2(LOOP_PY, target / "loop.py")
+            for part in sorted(LOOP_PY.parent.glob("loop*.py")):
+                shutil.copy2(part, target / part.name)
             if ROLES_DIR.is_dir():
                 shutil.copytree(ROLES_DIR, target / "roles")
         return target / "loop.py"
