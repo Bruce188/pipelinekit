@@ -126,7 +126,7 @@ for a in kit-planner.md kit-builder.md kit-judge.md; do
   cmp "$REPO_ROOT/claude/agents/$a" "$CLAUDE_HOME/agents/$a"
 done
 [ "$(cat "$T/outside-agent.md")" = "outside" ]           # the link was not followed
-grep -qxF "[install] removed the link agents/kit-builder.md" "$T/install1.out"
+grep -qxF "[install] removed the link agents/kit-builder.md (its target is untouched)" "$T/install1.out"
 set -- "$CLAUDE_HOME"/pipelinekit/backup/*
 [ "$#" -eq 1 ]                                            # the own judge only, not the link
 [ -f "$1" ]
@@ -351,6 +351,28 @@ for c in k l; do
   fi
   cmp "$REPO_ROOT/claude/agents/kit-judge.md" "$FH/.claude/agents/kit-judge.md"
 done
+
+# (m) A file where the backup folder goes and a user's own kit-judge.md: the
+# installer stops with one line of its own and leaves the file as it was.
+fd_home m
+mkdir -p "$FH/.claude/agents" "$FH/.claude/pipelinekit"
+echo "my own judge, kept" >"$FH/.claude/agents/kit-judge.md"
+echo "not a folder" >"$FH/.claude/pipelinekit/backup"
+rc=0
+HOME="$FH" CLAUDE_HOME="$FH/.claude" GIT_CONFIG_GLOBAL="$FH/.gitconfig" \
+  XDG_CONFIG_HOME="$FH/.config" PIPELINEKIT_STATE_DIR="$FH/state" PIPELINEKIT_GIT_HOOKS=0 \
+  bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$FH/out" 2>"$FH/err" || rc=$?
+if [ "$rc" -eq 0 ]; then
+  echo "test_install: install went on with an own agent it could not move" >&2; exit 1
+fi
+if [ "$(cat "$FH/err")" != "[install][error] could not move your own agents/kit-judge.md to $FH/.claude/pipelinekit/backup. It is untouched and the kit's kit-judge.md was not installed. Move or rename it yourself, then run the installer again." ]; then
+  echo "test_install: stderr is not the one line about the own agent" >&2; cat "$FH/err" >&2; exit 1
+fi
+if grep -qE '(mkdir|mv):' "$FH/err"; then
+  echo "test_install: the raw mkdir or mv error was shown" >&2; cat "$FH/err" >&2; exit 1
+fi
+[ "$(cat "$FH/.claude/agents/kit-judge.md")" = "my own judge, kept" ]
+test -f "$FH/.claude/pipelinekit/backup"
 
 # (n) A folder named kit-planner.md holding one file: moved to a backup with its
 # file, and the kit's file is installed.

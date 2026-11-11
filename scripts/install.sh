@@ -129,14 +129,16 @@ for a in "${KIT_AGENTS[@]}"; do
   dst="$CLAUDE_HOME/agents/$a"
   if [[ -L "$dst" ]]; then
     rm -f "$dst"
-    log "removed the link agents/$a"
+    log "removed the link agents/$a (its target is untouched)"
   elif [[ -e "$dst" ]] && { [[ ! -f "$dst" ]] || { ! cmp -s "$dst" "$REPO_ROOT/claude/agents/$a" &&
     ! grep -qxF "agents/$a" <<<"$listed_files"; }; }; then
     backup="$CLAUDE_HOME/pipelinekit/backup/agents-$a-$TS"
-    mkdir -p "$CLAUDE_HOME/pipelinekit/backup"
-    mv "$dst" "$backup"
+    # A read-only folder or a file named backup: one line of ours, not mkdir's or mv's.
+    { mkdir -p "$CLAUDE_HOME/pipelinekit/backup" && mv "$dst" "$backup"; } 2>/dev/null ||
+      die "could not move your own agents/$a to $CLAUDE_HOME/pipelinekit/backup. It is untouched and the kit's $a was not installed. Move or rename it yourself, then run the installer again."
     log "kept your own $a in $backup"
   fi
+  rm -f "$dst"
   cp "$REPO_ROOT/claude/agents/$a" "$dst"
 done
 cp -p "$REPO_ROOT/claude/config/never-stage.txt" "$CLAUDE_HOME/config/never-stage.txt"
