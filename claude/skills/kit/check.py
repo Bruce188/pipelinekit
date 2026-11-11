@@ -52,6 +52,7 @@ KIT_SKILLS = (
     "docs-writer",
     "dotnet-conventions",
     "exchange-api-keys",
+    "frontend-design",
     "kit",
     "mobile",
     "ship",

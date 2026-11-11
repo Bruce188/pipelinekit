@@ -52,7 +52,8 @@ fi
 test ! -e "$T/win"
 
 bash "$REPO_ROOT/scripts/install.sh" --no-serena >/dev/null 2>&1
-bash "$REPO_ROOT/scripts/install.sh" --no-serena >/dev/null 2>&1
+out="$(bash "$REPO_ROOT/scripts/install.sh" --no-serena 2>&1)"
+grep -qF '[install] copied 8 skills' <<<"$out"
 
 python3 - "$CLAUDE_HOME/settings.json" "$REPO_ROOT/claude/config/settings.template.json" <<'PY'
 import json, sys
@@ -82,10 +83,13 @@ PY
 grep -q 'Test User <test@example.com>' "$CLAUDE_HOME/CLAUDE.md"
 ls "$CLAUDE_HOME"/settings.json.bak-* >/dev/null
 test -f "$CLAUDE_HOME/projects/keep/f"
-for s in dotnet-conventions deploy exchange-api-keys docs-writer mobile kit ship; do
+for s in dotnet-conventions deploy exchange-api-keys docs-writer frontend-design mobile kit ship; do
   test -f "$CLAUDE_HOME/skills/$s/SKILL.md"
 done
 test -x "$CLAUDE_HOME/skills/ship/ship.py"
+for f in SKILL.md LICENSE.txt SOURCE.md; do
+  cmp "$REPO_ROOT/claude/skills/frontend-design/$f" "$CLAUDE_HOME/skills/frontend-design/$f"
+done
 grep -q 'Merges: ask first' "$CLAUDE_HOME/CLAUDE.md"
 # The helper starts from its installed place and says why it cannot go on.
 (cd "$T" && python3 "$CLAUDE_HOME/skills/ship/ship.py" status --exit-zero | grep -q 'not inside a git repository')
@@ -121,4 +125,76 @@ if CLAUDE_HOME="$CLAUDE_HOME" bash "$REPO_ROOT/scripts/verify.sh" >/dev/null 2>&
 fi
 # The session-start check names /kit once a hook is broken.
 echo '{}' | "$CLAUDE_HOME/hooks/session-check.py" | grep -q 'Run /kit for the report'
+
+# frontend-design: a folder of that name that the kit did not install. Each case
+# runs in its own throwaway home below $T.
+KIT_FD="$REPO_ROOT/claude/skills/frontend-design"
+fd_home() { # fd_home <case>: a fresh home in $FH
+  FH="$T/fd-$1"
+  mkdir -p "$FH/.claude/skills"
+}
+fd_install() { # output in $FH/out
+  HOME="$FH" CLAUDE_HOME="$FH/.claude" GIT_CONFIG_GLOBAL="$FH/.gitconfig" \
+    XDG_CONFIG_HOME="$FH/.config" PIPELINEKIT_STATE_DIR="$FH/state" PIPELINEKIT_GIT_HOOKS=0 \
+    bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$FH/out" 2>&1
+}
+fd_backups() {
+  local d="$FH/.claude/pipelinekit/backup"
+  if [[ -d "$d" ]]; then find "$d" -mindepth 1 -maxdepth 1 | wc -l; else echo 0; fi
+}
+fd_is_kit() { diff -r "$KIT_FD" "$FH/.claude/skills/frontend-design" >/dev/null; }
+
+# (a) A hand-made skill before the first install: moved to a backup once.
+fd_home a
+mkdir "$FH/.claude/skills/frontend-design"
+echo "my own design notes" >"$FH/.claude/skills/frontend-design/SKILL.md"
+fd_install
+fd_is_kit
+[ "$(fd_backups)" -eq 1 ]
+B=("$FH"/.claude/pipelinekit/backup/*)
+[[ "${B[0]##*/}" =~ ^skills-frontend-design-[0-9]{8}T[0-9]{6}Z$ ]]
+grep -qx "my own design notes" "${B[0]}/SKILL.md"
+grep -qxF "[install] kept your own frontend-design skill in ${B[0]}" "$FH/out"
+fd_install
+[ "$(fd_backups)" -eq 1 ]
+if grep -qF 'kept your own' "$FH/out"; then
+  echo "test_install: a second install backed up the kit's own copy" >&2; exit 1
+fi
+
+# (b) The kit's own copy, edited after the install: replaced, no backup.
+fd_home b
+fd_install
+echo "my edit" >>"$FH/.claude/skills/frontend-design/SKILL.md"
+fd_install
+[ "$(fd_backups)" -eq 0 ]
+fd_is_kit
+
+# (c) A byte-identical copy and no manifest: replaced, no backup.
+fd_home c
+cp -R "$KIT_FD" "$FH/.claude/skills/frontend-design"
+fd_install
+[ "$(fd_backups)" -eq 0 ]
+fd_is_kit
+
+# (d) A link to a folder outside the home: only the link goes.
+fd_home d
+mkdir "$T/fd-outside"
+echo "theirs" >"$T/fd-outside/SKILL.md"
+ln -s "$T/fd-outside" "$FH/.claude/skills/frontend-design"
+fd_install
+test ! -L "$FH/.claude/skills/frontend-design"
+fd_is_kit
+[ "$(ls -A "$T/fd-outside")" = "SKILL.md" ]
+[ "$(cat "$T/fd-outside/SKILL.md")" = "theirs" ]
+[ "$(fd_backups)" -eq 0 ]
+grep -qxF "[install] removed the link skills/frontend-design -> $T/fd-outside" "$FH/out"
+
+# (e) A hand-made folder and a manifest that is not JSON: backed up, install ends well.
+fd_home e
+mkdir -p "$FH/.claude/skills/frontend-design" "$FH/.claude/pipelinekit"
+echo "mine" >"$FH/.claude/skills/frontend-design/SKILL.md"
+echo "{not json" >"$FH/.claude/pipelinekit/manifest.json"
+fd_install || { echo "test_install: install failed with a damaged manifest" >&2; cat "$FH/out" >&2; exit 1; }
+[ "$(fd_backups)" -eq 1 ]
+fd_is_kit
 echo "test_install: PASS"
