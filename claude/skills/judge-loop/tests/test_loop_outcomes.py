@@ -26,26 +26,36 @@ from loop_fixtures import (
 
 STALLS = [
     # kind, budget, scores, blocking, exit, outcome
-    ("plan", 3, [9, 9, 9], False, 0, "budget"),
+    ("plan", 1, [9], False, 0, "budget"),
+    ("build", 1, [9], False, 0, "budget"),
+    ("plan", 2, [9, 9], False, 0, "budget"),
+    ("build", 2, [9, 9], False, 0, "budget"),
+    ("plan", 3, [9, 9, 9], False, 3, "ask"),
+    ("plan", 3, [9, 9, 9], True, 3, "ask"),
     ("build", 3, [9, 9, 9], False, 0, "budget"),
-    ("plan", 4, [9, 9, 9, 9], False, 3, "ask"),
-    ("plan", 4, [9, 9, 9, 9], True, 3, "ask"),
-    ("build", 4, [9, 9, 9, 9], False, 0, "budget"),
-    ("build", 4, [9, 9, 9, 9], True, 3, "blocked"),
-    ("plan", 5, [9, 9, 9, 9], False, 3, "ask"),
-    ("plan", 5, [8, 9, 9, 9, 9], False, 3, "ask"),
-    ("build", 5, [9, 9, 9, 9], False, 3, "stalled"),
-    ("build", 5, [8, 9, 9, 9, 9], False, 0, "budget"),
-    ("plan", 6, [9, 9, 9, 9], False, 3, "ask"),
-    ("build", 6, [9, 9, 9, 9], False, 3, "stalled"),
-    ("build", 6, [8, 9, 9, 9, 9], False, 3, "stalled"),
+    ("build", 3, [9, 9, 9], True, 3, "blocked"),
+    ("build", 4, [9, 9, 9], False, 3, "stalled"),
+    ("build", 4, [8, 9, 9, 9], False, 0, "budget"),
+    ("plan", 4, [8, 9, 9, 9], False, 3, "ask"),
+    ("build", 5, [8, 9, 9, 9], False, 3, "stalled"),
+    ("build", 6, [9, 9, 9], False, 3, "stalled"),
+    ("plan", 5, [9, 9, 9], False, 3, "ask"),
+    ("plan", 6, [8, 9, 9, 9], False, 3, "ask"),
+    ("build", 4, [9, 8, 8], False, 3, "stalled"),
+    ("build", 4, [8, 8.5, 9, 9.5], False, 0, "budget"),
 ]
+
+
+def stall_id(row):
+    kind, budget, scores, blocking = row[:4]
+    shown = "-".join(str(s) for s in scores)
+    return f"{kind}-{budget}-{shown}{'-blocking' if blocking else ''}"
 
 
 @pytest.mark.parametrize(
     "kind, budget, scores, blocking, code, outcome",
     STALLS,
-    ids=[f"{s[0]}-{s[1]}-{len(s[2])}{'-blocking' if s[3] else ''}" for s in STALLS],
+    ids=[stall_id(s) for s in STALLS],
 )
 def test_the_stall_table(sb, kind, budget, scores, blocking, code, outcome):
     run = play(sb, kind, budget, scores, blocking)
@@ -55,22 +65,36 @@ def test_the_stall_table(sb, kind, budget, scores, blocking, code, outcome):
     assert len(st["rounds"]) == len(scores)
     first = {
         "budget": "Budget used:",
-        "ask": "STOP: ask the user, no gain in three rounds.",
-        "stalled": "STOP: stalled, no gain in three rounds.",
+        "ask": "STOP: ask the user, less than 0.2 gain in two rounds.",
+        "stalled": "STOP: stalled, less than 0.2 gain in two rounds.",
         "blocked": "STOP: blocking items left after the last round.",
     }[outcome]
     assert run.last.startswith(first)
+    if outcome in ("ask", "stalled") and not blocking:
+        assert st["streak"] == 2
+        shown = ", ".join(f"round {i} {s:.1f}" for i, s in enumerate(scores, 1))
+        assert f"Averages: {shown}" in run.lines
+
+
+@pytest.mark.parametrize("kind", ["build", "plan"])
+def test_the_stall_rule_compares_with_the_round_before(sb, kind):
+    # Against the best earlier average, 8.5 after 9 and 8 would stall in round 3.
+    run = play(sb, kind, 6, [9, 8, 8.5, 9])
+    st = sb.state(kind, "p1" if kind == "plan" else None)
+    assert (run.code, st["outcome"], st["streak"]) == (1, "open", 0), run
 
 
 def test_the_outcome_rows(sb):
     run = play(sb, "build", 5, [9])
     assert run.code == 1
-    assert run.lines[0] == "Round 1 of 5: average 9.0; general 9"
+    assert run.lines[0] == "Round 1 of 5: average 9.0; general 9 full"
     assert run.last == "Fix: 1 item (0 blocking). " + FIX_BUILD
     sb.change("app.py", 7)
     run = sb.judge({"general": result(10)})
     assert run.code == 0
-    assert run.lines[0] == "Round 2 of 5: average 10.0 (round before: 9.0); general 10"
+    assert run.lines[0] == (
+        "Round 2 of 5: average 10.0 (round before: 9.0); general 10 changes"
+    )
     assert (
         run.last == "Done: 10 from every judge in 2 rounds. Next: the acceptance test."
     )
@@ -88,13 +112,13 @@ def test_a_ten_with_an_open_blocking_item_is_not_done(sb):
 
 
 def test_diagnosed_sets_the_streak_to_zero(sb):
-    play(sb, "build", 6, [9, 9, 9, 9])
-    assert sb.state()["streak"] == 3
+    assert play(sb, "build", 6, [9, 9, 9]).code == 3
+    assert sb.state()["streak"] == 2
     run = sb.run("diagnosed", "--note", "the judges disagree")
     assert run.code == 0
     assert run.last == "Open: the cause is recorded. " + FIX_BUILD
     st = sb.state()
-    assert (st["outcome"], st["streak"]) == ("open", 0)
+    assert (st["outcome"], st["streak"], st["final"]) == ("open", 0, False)
     sb.change("app.py", 9)
     run = sb.judge({"general": scored(9)})
     assert run.code == 1
@@ -201,7 +225,7 @@ def test_abandon_from_an_unfinished_state(sb, outcome):
 NOT_FITTING = [
     ("diagnosed", ("--note", "x"), "open", FIX_BUILD[6:]),
     ("resume", ("--note", "x"), "open", FIX_BUILD[6:]),
-    ("resume", ("--note", "x"), "stalled", "find the cause"),
+    ("resume", ("--note", "x"), "stalled", "read the judge items and find the cause"),
     ("diagnosed", ("--note", "x"), "ask", "explain what holds"),
     (
         "accept",
@@ -228,7 +252,10 @@ def test_a_command_that_does_not_fit_the_state(sb, command, args, outcome, fits)
 
 
 def line_of(x, role="general", mark=""):
-    return f"  [{role} {x}] problem {x} | evidence: evidence {x} | fix: fix {x}{mark}"
+    return (
+        f"  [{role} {x}] problem {x} | evidence: evidence {x} | fix: fix {x} | "
+        f"check: check {x}{mark}"
+    )
 
 
 RAISED_AGAIN = (
@@ -293,7 +320,7 @@ def test_the_fix_list_again_after_a_stop(sb, kind, outcome, command):
     head = (
         "Open: the cause is recorded. "
         if command == "diagnosed"
-        else "Open: the user's answer is recorded, 3 round(s) left. "
+        else "Open: the user's answer is recorded, 3 rounds left. "
     )
     assert run.last == head + fix
     st = sb.state(*which)
@@ -316,16 +343,20 @@ def test_nothing_open_after_a_stop(sb, command, outcome):
 def test_a_blocked_round_shows_its_blocking_item(sb):
     run = play(sb, "build", 1, [9], blocking=True)
     assert (run.code, run.last) == (3, loop.BLOCKED)
-    assert run.lines[1] == "Averages: round 1 9.0"
-    assert run.lines[2] == "Judges below 10: general 9"
+    assert run.lines[1] == (
+        "r1: average 9.0 | general 9 full | items: 2 open, 0 closed, 2 new | "
+        "judge tokens: not given | fix tokens: not given"
+    )
+    assert run.lines[2] == "Averages: round 1 9.0"
+    assert run.lines[3] == "Judges below 10: general 9"
     assert items_block(run) == [line_of("B1"), line_of("I1")]
 
 
-# Changes only -----------------------------------------------------------------
+# Read modes -------------------------------------------------------------------
 
 
-def two_tens(sb, kind):
-    """general gives 10 twice while tests keeps the loop open."""
+def ten_and_nine(sb, kind):
+    """Round 1: general gives a 10 and tests a 9, so the loop stays open."""
     sb.two_judges()
     which = ("plan", "p1") if kind == "plan" else ("build", None)
     if kind == "plan":
@@ -333,57 +364,72 @@ def two_tens(sb, kind):
     else:
         sb.start_build()
     assert sb.judge({"general": 10, "tests": nine("T1")}, *which).code == 1
-    if kind == "build":
-        sb.change("app.py", 4, tag="r2")
-    run = sb.judge({"general": 10, "tests": nine("T1")}, *which)
-    assert run.code == 1
-    assert "Changes only next round: general" in run.lines
     return which
 
 
-def test_changes_only_in_a_build(sb):
-    which = two_tens(sb, "build")
+def test_a_build_round_reads_the_changes(sb):
+    which = ten_and_nine(sb, "build")
     sb.change("later.py", 2, tag="later")
     run = sb.run("brief")
-    assert run.code == 0
-    assert "Changes only this round: general" in run.lines
-    delta = sb.stored("general", ext="delta.diff").read_text()
-    assert "later.py" in delta
-    assert "app.py" not in delta
-    assert not sb.stored("tests", ext="delta.diff").exists()
-    assert "r3_general.delta.diff" in "\n".join(brief_of(run, "general", 3)[1])
-    assert "Changes only" not in "\n".join(brief_of(run, "tests", 3)[1])
-    assert sb.state(*which)["pending"]["round"] == 3
+    assert run.code == 0, run
+    assert sb.state(*which)["pending"]["modes"] == {
+        "general": "changes",
+        "tests": "changes",
+    }
+    for role in ("general", "tests"):
+        delta = sb.stored(role, ext="delta.diff").read_text()
+        assert "later.py" in delta
+        assert "app.py" not in delta
+        prompt = "\n".join(brief_of(run, role, 2)[1])
+        assert f"r2_{role}.delta.diff" in prompt
+        assert loop.START_FROM_LAST in prompt
 
 
-@pytest.mark.parametrize("blocking", [False, True], ids=["a nine", "a blocking item"])
-def test_changes_only_ends_after_a_nine(sb, blocking):
-    two_tens(sb, "build")
-    sb.change("later.py", 2, tag="later")
-    run = sb.judge(
-        {
-            "general": nine("G1", blocking=["G2"] if blocking else ()),
-            "tests": nine("T1"),
-        }
-    )
-    assert run.code == 1
-    assert sb.state()["rounds"][-1]["changes_only"] == ["general"]
-    assert not any(line.startswith("Changes only") for line in run.lines)
-    sb.change("later.py", 3, tag="again")
-    run = sb.run("brief")
-    assert not any(line.startswith("Changes only") for line in run.lines)
-    assert not sb.stored("general", ext="delta.diff").exists()
+def test_an_unchanged_plan_skips_its_ten(sb):
+    which = ten_and_nine(sb, "plan")
+    run = sb.run("brief", "--kind", "plan", "--name", "p1")
+    assert run.code == 0, run
+    assert "general: skipped, 10 in round 1, the work is unchanged" in run.lines
+    assert "----- brief general r2 -----" not in run.lines
+    assert sb.state(*which)["pending"]["modes"] == {
+        "general": "skipped",
+        "tests": "changes",
+    }
 
 
-def test_changes_only_in_a_plan(sb):
-    which = two_tens(sb, "plan")
+def test_a_changed_plan_gets_a_delta(sb):
+    which = ten_and_nine(sb, "plan")
     (sb.loopdir(*which) / "plan.md").write_text("# Plan\n\nstep one\nstep two\n")
     run = sb.run("brief", "--kind", "plan", "--name", "p1")
-    assert run.code == 0
-    assert "Changes only this round: general" in run.lines
+    assert run.code == 0, run
     delta = sb.stored("general", *which, ext="delta.diff").read_text()
-    assert delta.startswith("--- plan.r2.md\n+++ plan.md\n")
+    assert delta.startswith("--- plan.r1.md\n+++ plan.md\n")
     assert "+step two\n" in delta
+
+
+def test_a_ten_outside_the_changed_area_is_skipped(sb):
+    which = ten_and_nine(sb, "build")
+    (sb.loopdir(*which) / "map.md").write_text("code | app.py | tests\n")
+    sb.change("app.py", 4, tag="r2")
+    run = sb.run("brief")
+    assert run.code == 0, run
+    assert "general: skipped, 10 in round 1, nothing in its area changed" in run.lines
+    assert sb.save("tests", 10).code == 0
+    run = sb.run("round")
+    assert run.code == 1, run
+    assert run.lines[-1] == (
+        "Final round: every judge is at 10, 1 of them on earlier work. "
+        "Next: loop.py brief; those judges read everything once."
+    )
+    assert sb.state()["final"] is True
+    run = sb.run("brief")
+    assert run.code == 0, run
+    assert sb.state()["pending"]["modes"] == {"general": "full", "tests": "skipped"}
+    assert "tests: skipped, 10 in round 2, the work is unchanged" in run.lines
+    assert sb.save("general", 10).code == 0
+    run = sb.run("round")
+    assert run.code == 0, run
+    assert sb.state()["outcome"] == "done"
 
 
 # settle -----------------------------------------------------------------------
@@ -527,7 +573,8 @@ def test_leftovers_lists_blocking_first(sb):
         "Items left, blocking first:",
         line_of("B1"),
         line_of("I1"),
-        "Open: 2 items left (1 blocking). Next: file each as an issue.",
+        "Open: 2 items left (1 blocking). Next: loop.py leftovers --dir, then file "
+        "each body file as an issue.",
     ]
 
 
@@ -538,7 +585,8 @@ def test_leftovers_after_done(sb):
     assert run.lines[1:] == [
         line_of("I1"),
         line_of("I2"),
-        "Open: 2 items left (0 blocking). Next: file each as an issue.",
+        "Open: 2 items left (0 blocking). Next: loop.py leftovers --dir, then file "
+        "each body file as an issue.",
     ]
 
 
@@ -570,6 +618,7 @@ def test_leftovers_writes_body_files(sb):
     assert run.lines == [
         f"[general B1] {rel}/leftovers/general-B1.md",
         f"[general I1] {rel}/leftovers/general-I1.md",
+        f"all items in one file: {rel}/leftovers/all.md",
         "Open: 2 items left (1 blocking). Next: file each as an issue.",
     ]
     folder = sb.loopdir() / "leftovers"

@@ -35,10 +35,15 @@ def test_messages_walk_a_build_loop(sb):
     ends(
         sb.run("start", "build"),
         0,
-        f"Started: build loop {NAME}, 1 judge(s), at most 5 rounds.",
+        f"Started: build loop {NAME}, 1 judge, at most 5 rounds.",
         "Next: write criteria.md, then loop.py brief.",
     )
-    ends(sb.run("brief"), 2, "Refused: criteria.md is empty.", "loop.py brief.")
+    ends(
+        sb.run("brief"),
+        2,
+        f"Refused: docs/loops/{NAME}/build/criteria.md is missing or empty.",
+        "loop.py brief.",
+    )
     sb.criteria()
     ends(
         sb.run("save", "general"), 2, "Refused: no round is briefed.", "loop.py brief."
@@ -47,7 +52,7 @@ def test_messages_walk_a_build_loop(sb):
     ends(
         sb.run("brief"),
         0,
-        "Open: round 1 of 5 briefed for 1 judge(s).",
+        "Open: round 1 of 5 briefed for 1 judge.",
         "Next: start each judge, write its answer to its answer file, "
         "loop.py save <role>.",
     )
@@ -63,12 +68,14 @@ def test_messages_walk_a_build_loop(sb):
         "loop.py round.",
     )
     run = sb.run("round")
-    assert run.lines[0] == "Round 1 of 5: average 9.0; general 9"
+    assert run.lines[0] == "Round 1 of 5: average 9.0; general 9 full"
     ends(run, 1, "Fix: 1 item (0 blocking).", FIX_BUILD)
     ends(sb.run("status"), 0, "Open: round 2 of 5", FIX_BUILD.removeprefix("Next: "))
     ends(sb.run("leftovers"), 0, "Open: 1 item open (0 blocking), the loop is not")
     run = sb.judge({"general": 10})
-    assert run.lines[0] == "Round 2 of 5: average 10.0 (round before: 9.0); general 10"
+    assert run.lines[0] == (
+        "Round 2 of 5: average 10.0 (round before: 9.0); general 10 changes"
+    )
     assert run.code == 0
     assert (
         run.last == "Done: 10 from every judge in 2 rounds. Next: the acceptance test."
@@ -177,8 +184,10 @@ def test_bad_arguments_get_the_kits_words_not_argparses(sb):
     assert "usage:" not in run.out + run.err
     run = sb.command("start", "build", "--panel", "huge")
     assert run.code == 2
-    assert run.last.startswith("Refused:")
-    assert run.last.endswith("Next: loop.py start --help.")
+    assert run.last == (
+        "Refused: --panel takes auto, single or full. "
+        "Next: the same command with one of them."
+    )
     run = sb.command("nosuch")
     assert (
         run.last == "Refused: nosuch is not a command of loop.py. Next: loop.py --help."
@@ -232,7 +241,12 @@ def test_a_read_only_loop_folder(sb):
 
 
 def obj(**fields):
-    data = {"overall": 9, "dimensions": {"fit": 9}, "blocking": [], "improvements": []}
+    data = {
+        "overall": 9,
+        "dimensions": {"fit": 9},
+        "blocking": [],
+        "improvements": [item("I9")],
+    }
     for key, value in fields.items():
         if value is None:
             data.pop(key, None)
@@ -242,6 +256,7 @@ def obj(**fields):
 
 
 VALID = obj()
+NO_CHECK = {key: v for key, v in item("I1").items() if key != "check"}
 REJECTED = [
     ("not json", b"a score of 9", "json: not one JSON object"),
     ("code fence", b"```json\n" + VALID + b"\n```", "json: not one JSON object"),
@@ -322,6 +337,78 @@ REJECTED = [
         obj(blocking=[item("B1", problem=5)]),
         "blocking[1].problem: not a string",
     ),
+    ("9.3", obj(overall=9.3), "overall: not a step of 0.5"),
+    (
+        "dimension 7.25",
+        obj(dimensions={"fit": 7.25}),
+        "dimensions[1]: not a step of 0.5",
+    ),
+    ("no check", obj(improvements=[NO_CHECK]), "improvements[1].check: missing"),
+    (
+        "blocking without check",
+        obj(blocking=[NO_CHECK]),
+        "blocking[1].check: missing",
+    ),
+    (
+        "empty check",
+        obj(improvements=[item("I1", check=" ")]),
+        "improvements[1].check: empty",
+    ),
+    (
+        "check a number",
+        obj(improvements=[item("I1", check=3)]),
+        "improvements[1].check: not a string",
+    ),
+    (
+        "check of 2001",
+        obj(improvements=[item("I1", check="c" * 2001)]),
+        "improvements[1].check: too long",
+    ),
+    ("9 without an item", obj(improvements=[]), "overall: below 10 without an item"),
+    (
+        "9 with only an item not needed for 10",
+        obj(improvements=[item("I1", needed_for_10=False)]),
+        "overall: below 10 without an item",
+    ),
+    ("read half", obj(read="half"), "read: wrong type"),
+    ("read a number", obj(read=1), "read: wrong type"),
+    (
+        "10 from a read of the changes",
+        obj(overall=10, read="changes"),
+        "overall: a 10 without a full read",
+    ),
+    ("no dimensions", obj(dimensions=None), "dimensions: missing"),
+    ("dimensions a list", obj(dimensions=[9]), "dimensions: wrong type"),
+    ("no blocking", obj(blocking=None), "blocking: missing"),
+    (
+        "improvements a dict",
+        obj(improvements={"I1": item("I1")}),
+        "improvements: wrong type",
+    ),
+    ("blocking item a string", obj(blocking=["B1"]), "blocking[1]: wrong type"),
+    (
+        "id a number",
+        obj(improvements=[item(5)]),
+        "improvements[1].id: not a string",
+    ),
+    (
+        "no fix",
+        obj(improvements=[{k: v for k, v in item("I1").items() if k != "fix"}]),
+        "improvements[1].fix: missing",
+    ),
+    ("still_open a string", obj(still_open="I1"), "still_open: wrong type"),
+    ("still_open id a number", obj(still_open=[1]), "still_open[1]: wrong type"),
+    ("judge a number", obj(judge=5), "judge: not a string"),
+    (
+        "still_open without its item",
+        obj(still_open=["I1"]),
+        "still_open[1]: not an open id",
+    ),
+    (
+        "one id in both lists",
+        obj(blocking=[item("I9")]),
+        "improvements[1].id: not unique",
+    ),
 ]
 
 
@@ -331,7 +418,9 @@ def padded(data, size):
 
 ACCEPTED = [
     ("overall 0", obj(overall=0)),
-    ("overall 10", obj(overall=10)),
+    ("overall 10", obj(overall=10, read="full")),
+    ("9 from a read of the changes", obj(read="changes")),
+    ("a blocking item alone", obj(improvements=[], blocking=[item("B1")])),
     ("overall 9.5", obj(overall=9.5)),
     ("exactly 200 kB", padded(VALID, loop.MAX_RESULT)),
     ("field of 2000", obj(improvements=[item("I1", fix="y" * 2000)])),
@@ -345,6 +434,7 @@ ACCEPTED = [
             improvements=[item("I1", needed_for_10=False)],
             still_open=["I1"],
             judge="general",
+            read="full",
         ),
     ),
 ]
@@ -424,7 +514,10 @@ def test_results_through_save_and_round(sb):
 def test_save_stores_the_answer_byte_for_byte(sb):
     sb.start_build()
     sb.run("brief")
-    first = b'{"overall": 9, "dimensions": {}, "blocking": [], "improvements": []}\n'
+    first = (
+        b'{"overall": 9, "dimensions": {}, "blocking": [], "improvements": '
+        b'[{"id": "I1", "problem": "p", "evidence": "e", "fix": "f", "check": "c"}]}\n'
+    )
     assert sb.save("general", first).code == 0
     assert sb.stored("general").read_bytes() == first
     second = obj(overall=8)
@@ -480,19 +573,22 @@ def test_save_counts_the_misses(sb):
     assert run.code == 3
     assert run.last == (
         "STOP: not a score from general (json: not one JSON object). Next: ask that "
-        "judge once for the JSON object alone, write it to "
+        "judge once for the JSON object alone; write it to "
         f"{answer.relative_to(sb.root)}, "
         "loop.py save general."
     )
     run = sb.run("save", "general")
     assert run.code == 3
     assert run.last == (
-        "STOP: second miss from general. Next: ask the user (the skill's options for a "
-        "second miss); a fresh judge for this role needs their yes."
+        "STOP: second miss from general (json: not one JSON object). Next: ask the "
+        "user (the skill's options for a second miss); a fresh judge for this role "
+        "needs their yes."
     )
     run = sb.run("save", "general")
     assert run.code == 3
-    assert run.last.startswith("STOP: miss 3 from general. Next: ask the user")
+    assert run.last.startswith(
+        "STOP: miss 3 from general (json: not one JSON object). Next: ask the user"
+    )
 
 
 def test_two_saves_at_the_same_time(sb):
@@ -573,11 +669,12 @@ def test_identical_tens_in_two_rounds_both_count(sb):
     run = sb.judge({"general": 10, "tests": nine("T1")})
     assert run.code == 1, run
     assert sb.rounds() == 2
-    assert [r["scores"]["general"] for r in sb.state()["rounds"]] == [10, 10]
-    assert "Changes only next round: general" in run.lines
+    rounds = sb.state()["rounds"]
+    assert [r["scores"]["general"] for r in rounds] == [10, 10]
+    assert [r["modes"]["general"] for r in rounds] == ["full", "changes"]
     sb.change("app.py", 5, tag="again")
-    run = sb.run("brief")
-    assert "Changes only this round: general" in run.lines
+    assert sb.run("brief").code == 0
+    assert sb.state()["pending"]["modes"]["general"] == "changes"
     assert (sb.loopdir() / "judge" / "r3_general.delta.diff").is_file()
 
 

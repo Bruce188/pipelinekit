@@ -35,6 +35,42 @@ def load(path, name):
 
 
 loop = load(LOOP_PY, "judge_loop")
+GIT_ENV = {
+    "GIT_CONFIG_NOSYSTEM": "1",
+    "GIT_AUTHOR_NAME": "Test",
+    "GIT_AUTHOR_EMAIL": "test@example.com",
+    "GIT_COMMITTER_NAME": "Test",
+    "GIT_COMMITTER_EMAIL": "test@example.com",
+}
+
+
+def build_template(folder):
+    """A bare origin and a work checkout on the feature branch, at its first commit.
+
+    Built once per test session and copied into each sandbox: a copy is much
+    faster than the git commands that make it.
+    """
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "gitconfig").write_text("")
+    env = {**os.environ, **GIT_ENV, "GIT_CONFIG_GLOBAL": str(folder / "gitconfig")}
+    for key in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"):
+        env.pop(key, None)
+    origin, work = folder / "origin.git", folder / "work"
+
+    def git(*args, cwd=folder):
+        subprocess.run(
+            ["git", *args], cwd=cwd, env=env, check=True, capture_output=True
+        )
+
+    git("init", "-q", "--bare", "-b", "main", str(origin))
+    git("init", "-q", "-b", "main", str(work))
+    git("remote", "add", "origin", str(origin), cwd=work)
+    (work / "README.md").write_text("hello\n")
+    git("add", "-A", cwd=work)
+    git("commit", "-q", "-m", "chore: start", cwd=work)
+    git("push", "-q", "-u", "origin", "main", cwd=work)
+    git("checkout", "-q", "-b", BRANCH, cwd=work)
+    return folder
 
 
 def item(x, **extra):
@@ -45,11 +81,18 @@ def item(x, **extra):
         "problem": f"problem {x}",
         "evidence": f"evidence {x}",
         "fix": f"fix {x}",
+        "check": f"check {x}",
         **extra,
     }
 
 
 def result(overall=10, blocking=(), improvements=(), **extra):
+    """A judge answer. A score below 10 with no item gets one improvement; a 10
+    reads the work in full unless `read` is given (None leaves the field out)."""
+    if overall != 10 and not blocking and not improvements:
+        improvements = [item("I1")]
+    if overall == 10 and "read" not in extra:
+        extra["read"] = "full"
     data = {
         "overall": overall,
         "dimensions": {"fit": 10},
@@ -57,6 +100,8 @@ def result(overall=10, blocking=(), improvements=(), **extra):
         "improvements": [item(x) for x in improvements],
     }
     data.update(extra)
+    if data.get("read", "") is None:
+        del data["read"]
     return json.dumps(data).encode()
 
 
@@ -86,7 +131,7 @@ FIX_PLAN = "Next: have kit-planner fix in this order, then loop.py brief."
 class Sandbox:
     """A bare origin, a work checkout on a feature branch, a temporary home."""
 
-    def __init__(self, tmp, monkeypatch, capsys):
+    def __init__(self, tmp, monkeypatch, capsys, template=None):
         self.tmp = tmp
         self.mp = monkeypatch
         self.capsys = capsys
@@ -101,11 +146,7 @@ class Sandbox:
             "HOME": str(self.home),
             "CLAUDE_HOME": str(self.claude_home),
             "GIT_CONFIG_GLOBAL": str(tmp / "gitconfig"),
-            "GIT_CONFIG_NOSYSTEM": "1",
-            "GIT_AUTHOR_NAME": "Test",
-            "GIT_AUTHOR_EMAIL": "test@example.com",
-            "GIT_COMMITTER_NAME": "Test",
-            "GIT_COMMITTER_EMAIL": "test@example.com",
+            **GIT_ENV,
             "PATH": f"{self.bin}{os.pathsep}{os.environ.get('PATH', '')}",
         }
         for key, value in env.items():
@@ -129,17 +170,16 @@ class Sandbox:
         )
         self.origin = tmp / "origin.git"
         work = tmp / "work"
-        subprocess.run(
-            ["git", "init", "-q", "--bare", "-b", "main", str(self.origin)], check=True
-        )
-        subprocess.run(["git", "init", "-q", "-b", "main", str(work)], check=True)
+        if template is None:
+            template = build_template(tmp / "template")
+        shutil.copytree(template / "origin.git", self.origin, symlinks=True)
+        shutil.copytree(template / "work", work, symlinks=True)
+        config = work / ".git" / "config"
+        text = config.read_text()
+        assert str(template / "origin.git") in text
+        config.write_text(text.replace(str(template / "origin.git"), str(self.origin)))
         self.root = Path(os.path.realpath(work))
         monkeypatch.chdir(self.root)
-        self.git("remote", "add", "origin", str(self.origin))
-        self.write("README.md", "hello\n")
-        self.commit("chore: start")
-        self.git("push", "-q", "-u", "origin", "main")
-        self.git("checkout", "-q", "-b", BRANCH)
 
     # git and files
 
@@ -298,7 +338,10 @@ class Sandbox:
         """One round: brief, save every result, round. A score is a number or bytes."""
         run = self.run("brief", *which)
         assert run.code == 0, run
+        skipped = {line.split(":")[0] for line in run.lines if ": skipped, " in line}
         for role, data in scores.items():
+            if role in skipped:
+                continue
             saved = self.save(role, data, kind, name, which)
             assert saved.code == 0, saved
         return self.run("round", *which)

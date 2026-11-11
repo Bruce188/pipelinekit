@@ -30,6 +30,16 @@
     {"name": "eight roles", "text": "Judges: general, correctness, security, tests, operations, user-experience, scope, extra\n", "switches": {"Judges": ["general", "correctness", "security", "tests", "operations", "user-experience", "scope"]}},
     {"name": "a duplicate", "text": "Judges: tests, Tests, security\n", "switches": {"Judges": ["tests", "security"]}},
     {"name": "no valid role", "text": "Judges: nobody, nothing\n", "switches": {}},
-    {"name": "the first valid line wins", "text": "Judge rounds: 0\nJudge rounds: 4\nJudge rounds: 2\n", "switches": {"Judge rounds": 4}}
+    {"name": "the first valid line wins", "text": "Judge rounds: 0\nJudge rounds: 4\nJudge rounds: 2\n", "switches": {"Judge rounds": 4}},
+    {"name": "a long s in the key", "text": "Judge\u017f: tests\nJudge round\u017f: 3\n", "switches": {}},
+    {"name": "a line separator after the value", "text": "Judge loop: off\u2028\n", "switches": {}},
+    {"name": "a line separator after a quote", "text": "> some quote\u2028Judge loop: off\n", "switches": {}},
+    {"name": "a form feed inside the line", "text": "text\fJudge loop: off\n", "switches": {}},
+    {"name": "crlf line ends", "text": "Judge rounds: 3\r\nJudges: tests\r\n", "switches": {"Judge rounds": 3, "Judges": ["tests"]}},
+    {"name": "five spaces after the marker", "text": "-     Judge loop: off\n", "switches": {}},
+    {"name": "an open tag ends at a blank line", "text": "<a name=\"top\">\n\nJudge loop: off\n", "switches": {"Judge loop": "off"}},
+    {"name": "a block tag ends at a blank line", "text": "<div>\nintro\n\nJudge rounds: 3\n</div>\n", "switches": {"Judge rounds": 3}},
+    {"name": "a placeholder in angle brackets", "text": "<name> is the branch\nJudge loop: off\n", "switches": {"Judge loop": "off"}},
+    {"name": "a pre block runs to its closing tag", "text": "<pre>\n\nJudge loop: off\n\n</pre>\n", "switches": {}}
   ]
 }

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -29,14 +30,15 @@ def test_brief_refusals_of_a_plan_in_order(sb):
     run = sb.run("brief")
     assert (run.code, run.last) == (
         2,
-        "Refused: criteria.md is empty. Next: write it, then loop.py brief.",
+        "Refused: docs/loops/p1/plan/criteria.md is missing or empty. "
+        "Next: write it, then loop.py brief.",
     )
     sb.criteria("plan", "p1")
     run = sb.run("brief")
     assert (run.code, run.last) == (
         2,
-        "Refused: plan.md is missing. Next: have kit-planner write it, then loop.py "
-        "brief.",
+        "Refused: docs/loops/p1/plan/plan.md is missing or empty. "
+        "Next: have kit-planner write it, then loop.py brief.",
     )
 
 
@@ -91,10 +93,11 @@ def test_a_diff_over_2_mb_is_cut(sb):
 
 
 def moved_base(sb, how):
-    """Two judges; general 10 twice; the base moves; round 3 is briefed."""
+    """Two judges; general 10 twice, tests rising; the base moves; round 3 is
+    briefed."""
     sb.two_judges()
     sb.start_build()
-    assert sb.judge({"general": 10, "tests": nine("T1")}).code == 1
+    assert sb.judge({"general": 10, "tests": result(8, improvements=["T1"])}).code == 1
     sb.change("app.py", 4, tag="fix")
     assert sb.judge({"general": 10, "tests": nine("T1")}).code == 1
     sb.on_base("base.txt", "on the base\n")
@@ -112,15 +115,16 @@ def test_the_base_moved_between_rounds(sb, how):
     new = sb.git("merge-base", "HEAD", "origin/main")
     old = sb.state()["rounds"][-1]["base_sha"]
     assert f"base moved: {old[:7]} -> {new[:7]}" in run.lines
-    assert not any(line.startswith("Changes only") for line in run.lines)
+    assert not any(": skipped, " in line for line in run.lines)
+    assert sb.state()["pending"]["modes"] == {"general": "full", "tests": "full"}
     head = (sb.loopdir() / "judge" / "r3.diff").read_text().split("\n\n", 1)[0]
     assert "base.txt" not in head and "app.py" in head
     assert sb.save("general", 10).code == 0
-    assert sb.save("tests", nine("T1")).code == 0
+    assert sb.save("tests", result(9.5, improvements=["T1"])).code == 0
     assert sb.run("round").code == 1
     last = sb.state()["rounds"][-1]
     assert last["base_sha"] == new
-    assert last["changes_only"] == []
+    assert last["modes"] == {"general": "full", "tests": "full"}
 
 
 def test_a_branch_behind_its_base_at_start(sb):
@@ -198,7 +202,7 @@ def test_the_layout_of_a_brief(sb):
         "kit-judge.md` and follow it as your instructions."
     )
     assert prompt[1] == f"Repository: {sb.root}"
-    assert f"Your result of the round before: {rel}/judge/r1_general.json" in prompt
+    assert f"Your last counted result (round 1): {rel}/judge/r1_general.json" in prompt
     assert "NOTE-TEXT-HERE" not in run.out
 
 
@@ -232,6 +236,16 @@ def test_size_by_lines_and_files():
     )
     assert size_of(("a.py", 6, 5)).exempt is False
     assert size_of(("a.md", 300, 0), ("b.rst", 50, 0)).exempt is True
+
+
+def test_a_large_documentation_diff_is_exempt():
+    rows = [(f"pages/p{i}.md", 25 + (i == 0), 0) for i in range(16)]
+    size = size_of(*rows)
+    assert (size.lines, size.files) == (401, 16)
+    assert (size.full, size.exempt) == (False, True)
+    assert size.reason == (
+        "auto: within the exempt size (loop.py skip --reason would also do)"
+    )
 
 
 SENSITIVE = [f"src/my_{word}.py" for word in sorted(loop.SENSITIVE_WORDS)] + [
@@ -358,7 +372,7 @@ def test_the_panel_flag(sb, flag, panel):
             "nobody, nothing",
             (),
             ["general"],
-            "switch line CLAUDE.md:1 (Judges) is not valid: not used",
+            "switch line CLAUDE.md:1 on main (Judges) is not valid: not used",
         ),
     ],
     ids=["alone", "flag wins", "duplicate", "seven", "no valid name"],
@@ -371,7 +385,7 @@ def test_the_judges_line(sb, line, flags, panel, said):
         assert sb.state()["panel_forced"] == "full"
     if said:
         assert said in run.lines
-        assert "CLAUDE.md:1: nobody is not a role: dropped" in run.lines
+        assert "CLAUDE.md:1 on main: nobody is not a role: dropped" in run.lines
 
 
 def test_the_judges_line_in_a_plan_loop(sb):
@@ -409,14 +423,14 @@ def test_the_start_output_of_a_build(sb):
         for role in ("correctness", "tests")
     ]
     assert "Budget: 3 rounds" in run.lines
-    assert "switch used: Judges: correctness, tests (CLAUDE.md:1)" in run.lines
-    assert "switch used: Judge rounds: 3 (.claude/CLAUDE.md:1)" in run.lines
+    assert "switch used: Judges: correctness, tests (CLAUDE.md:1 on main)" in run.lines
+    assert "switch used: Judge rounds: 3 (.claude/CLAUDE.md:1 on main)" in run.lines
     assert (
-        "switch line .claude/CLAUDE.md:2 (Judge rounds) is not valid: not used"
-        in run.lines
+        "switch line .claude/CLAUDE.md:2 on main (Judge rounds) is not valid: "
+        "not used" in run.lines
     )
     assert (
-        "Expected cost: 2 judge run(s) per round, at most 3 rounds (6 judge runs), "
+        "Expected cost: 2 judge runs per round, at most 3 rounds (6 judge runs), "
         "one fix pass between rounds"
     ) in run.lines
     assert "Agents: kit" in run.lines
@@ -425,7 +439,7 @@ def test_the_start_output_of_a_build(sb):
         run.lines[-2] == f"Criteria: write the acceptance criteria to {rel}/criteria.md"
     )
     assert run.last == (
-        "Started: build loop feat-1-x, 2 judge(s), at most 3 rounds. "
+        "Started: build loop feat-1-x, 2 judges, at most 3 rounds. "
         "Next: write criteria.md, then loop.py brief."
     )
 
@@ -437,7 +451,7 @@ def test_the_start_output_of_a_plan(sb):
     assert "Agents: fallback" in run.lines
     assert loop.FALLBACK_SENTENCE in run.lines
     assert run.last == (
-        "Started: plan loop p1, 1 judge(s), at most 5 rounds. Next: write criteria.md, "
+        "Started: plan loop p1, 1 judge, at most 5 rounds. Next: write criteria.md, "
         "have kit-planner write plan.md, then loop.py brief."
     )
 
@@ -453,7 +467,7 @@ def test_the_start_output_with_a_plan_loop(sb):
         "before the first brief if needed"
     )
     assert run.last == (
-        "Started: build loop feat-1-x, 1 judge(s), at most 5 rounds. "
+        "Started: build loop feat-1-x, 1 judge, at most 5 rounds. "
         "Next: loop.py brief --kind build --name feat-1-x."
     )
     plan = sb.loopdir("plan", "p1")
@@ -500,6 +514,47 @@ def only_local(name):
 def other_remote(sb):
     sb.git("remote", "rename", "origin", "up")
     sb.git("config", "branch.feat/1-x.remote", "up")
+
+
+def gh_times_out(sb):
+    sb.fake_gh('{"baseRefName": "main"}')
+    real = subprocess.run
+
+    def run(cmd, *args, **kwargs):
+        if cmd[0] == sb.gh:
+            raise subprocess.TimeoutExpired(cmd, loop.GH_TIMEOUT)
+        return real(cmd, *args, **kwargs)
+
+    sb.mp.setattr(subprocess, "run", run)
+
+
+GH_NOTES = [
+    ("timeout", gh_times_out, f"gave no answer in {loop.GH_TIMEOUT} seconds"),
+    ("not json", lambda sb: sb.fake_gh("a page of text"), "gave no JSON"),
+    ("no name", lambda sb: sb.fake_gh('{"title": "x"}'), "gave no base branch"),
+    (
+        "bad name",
+        lambda sb: sb.fake_gh('{"baseRefName": "a b"}'),
+        "gave no base branch",
+    ),
+]
+
+
+@pytest.mark.parametrize("how, setup, why", GH_NOTES, ids=[g[0] for g in GH_NOTES])
+def test_gh_that_gives_no_base_says_so(sb, how, setup, why):
+    setup(sb)
+    run = sb.start_build()
+    assert f"note: gh pr view {why}, so the pull request does not set the base" in (
+        run.lines
+    ), run
+    assert sb.state()["base"] == "main"
+
+
+@pytest.mark.parametrize("setup", [no_pull_request, gh_fails, gh_develop])
+def test_gh_that_answers_gives_no_note(sb, setup):
+    setup(sb)
+    run = sb.start_build()
+    assert not [line for line in run.lines if "gh pr view" in line], run
 
 
 BASES = [
@@ -634,12 +689,23 @@ def test_a_local_base_behind_its_remote(sb):
     assert sb.state()["base_sha"] == sb.git("merge-base", "HEAD", "origin/main")
 
 
-@pytest.mark.parametrize("flags", [("--base=--output=x",), ("--base", "-x")])
-def test_a_base_that_is_an_option(sb, flags):
+NOT_A_BRANCH = "is not a branch name. Next: --base <branch>."
+BASE_OPTIONS = [
+    (("--base=--output=x",), f"Refused: --output?x {NOT_A_BRANCH}"),
+    (
+        ("--base", "-x"),
+        "Refused: these arguments do not fit loop.py start. "
+        "Next: loop.py start --help.",
+    ),
+    (("--base=" + "a " * 30,), f"Refused: {'a?' * 20} {NOT_A_BRANCH}"),
+]
+
+
+@pytest.mark.parametrize("flags, last", BASE_OPTIONS, ids=["output", "-x", "long"])
+def test_a_base_that_is_an_option(sb, flags, last):
     sb.change()
     run = sb.run("start", "build", *flags)
-    assert run.code == 2
-    assert run.last.startswith("Refused: ")
+    assert (run.code, run.last) == (2, last), run
     assert not (sb.root / "docs").exists()
     assert not (sb.root / "x").exists()
 
@@ -671,6 +737,23 @@ def user_md(text):
     path.write_text(text)
 
 
+@pytest.mark.parametrize("how", ["a link", "over 1 MB"])
+def test_a_user_file_that_is_not_read(sb, how):
+    path = Path(os.environ["CLAUDE_HOME"]) / "CLAUDE.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if how == "a link":
+        target = sb.tmp / "dotfiles.md"
+        target.write_text("Judges: tests\n")
+        path.symlink_to(target)
+    else:
+        path.write_text("Judges: tests\n" + "x" * loop.MAX_TEXT_FILE)
+    sb.change()
+    run = sb.run("start", "build")
+    assert run.code == 0, run
+    assert "$CLAUDE_HOME/CLAUDE.md is a link or over 1 MB: not used" in run.lines
+    assert "Panel: tests (Judges line)" not in run.lines
+
+
 def on_local_main(sb, text):
     sb.git("checkout", "-q", "main")
     sb.write("CLAUDE.md", text)
@@ -684,15 +767,15 @@ KEYS = {
     "Judges": ("Judges: tests\n", "Judges: security\n"),
 }
 PLACES = {
-    "base": ("CLAUDE.md", None),
+    "base": ("CLAUDE.md:1 on main", None),
     "checkout": (None, "line 1 of CLAUDE.md is not on main yet: not used"),
-    "user": ("$CLAUDE_HOME/CLAUDE.md", None),
-    "base and user": ("CLAUDE.md", None),
+    "user": ("$CLAUDE_HOME/CLAUDE.md:1", None),
+    "base and user": ("CLAUDE.md:1 on main", None),
     "no remote ref": (
         None,
         "no refs/remotes/origin/main: no switch line of the project counts",
     ),
-    "no remote": ("CLAUDE.md", None),
+    "no remote": ("CLAUDE.md:1 on main", None),
 }
 
 
@@ -728,7 +811,7 @@ def test_where_a_switch_line_counts(sb, key, where):
         if used:
             assert run.code == 0
             assert run.last == (
-                f"Off: judge loop switched off by {used}:1. Next: work without it."
+                f"Off: judge loop switched off by {used}. Next: work without it."
             )
             assert not (sb.root / "docs").exists()
         else:
@@ -747,7 +830,7 @@ def test_where_a_switch_line_counts(sb, key, where):
         )
         return
     assert value == (3 if key == "Judge rounds" else ["tests"])
-    assert f"switch used: {line.strip()} ({used}:1)" in run.lines
+    assert f"switch used: {line.strip()} ({used})" in run.lines
     if where == "base and user":
         assert (
             f"switch line $CLAUDE_HOME/CLAUDE.md:1 ({key}): an earlier line wins, "
@@ -767,9 +850,9 @@ def test_off_on_the_base_writes_nothing(sb):
     ):
         run = sb.run(*command)
         assert run.code == 0, run
-        assert (
-            run.last
-            == "Off: judge loop switched off by CLAUDE.md:1. Next: work without it."
+        assert run.last == (
+            "Off: judge loop switched off by CLAUDE.md:1 on main. "
+            "Next: work without it."
         )
     assert not (sb.root / "docs").exists()
     assert (exclude.read_bytes() if exclude.exists() else None) == before

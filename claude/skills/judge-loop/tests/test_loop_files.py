@@ -13,6 +13,7 @@ from loop_fixtures import (
     HOSTILE,
     NAME,
     ROLES_DIR,
+    SHA_A,
     SHIP_PY,
     brief_of,
     item,
@@ -39,6 +40,7 @@ def test_judge_text_is_cleaned_where_it_is_printed(sb):
         "problem": DIRTY_TEXT,
         "evidence": "z" * 301,
         "fix": DIRTY_TEXT,
+        "check": DIRTY_TEXT,
     }
     data = json.dumps(
         {
@@ -60,8 +62,9 @@ def test_judge_text_is_cleaned_where_it_is_printed(sb):
         for line in run.lines:
             if "fake line" in line or "zzz" in line:
                 assert line.startswith("  "), line
-    assert "z" * 300 in outs[0].out
-    assert "z" * 300 in outs[2].out
+    cut = "z" * (loop.LIMIT - len(loop.CUT_MARK)) + loop.CUT_MARK
+    assert cut in outs[0].out
+    assert cut in outs[2].out
 
 
 def test_names_in_printed_lines():
@@ -182,6 +185,10 @@ NAME_LINES = {
     "byte order mark": b"\xef\xbb\xbf---\nname: kit-judge\n---\n",
     "upper case": b"---\nname: KIT-JUDGE\n---\n",
     "a comment": b"---\nname: kit-judge # the judge\n---\n",
+    "a name in a block above": (
+        b"---\ndescription: |\n  name: helper\nname: kit-judge\n---\n"
+    ),
+    "an indented kit name": b"---\nmeta:\n  name: kit-judge\nname: helper\n---\n",
 }
 
 
@@ -209,6 +216,32 @@ def outside_folder(sb):
     folder.mkdir()
     (folder / "kit-judge.md").write_text("---\nname: kit-judge\n---\n")
     return folder
+
+
+UNREADABLE_NAMES = {
+    "an empty name": b"---\nname:\n  kit-judge\n---\n",
+    "a folded name": b"---\nname: >\n  kit-judge\n---\n",
+    "an anchor": b"---\nname: &a kit-judge\n---\n",
+    "a tag": b"---\nname: !!str kit-judge\n---\n",
+    "a quoted key": b'---\n"name": helper\n---\n',
+    "an escape in quotes": b'---\nname: "kit\\x2djudge"\n---\n',
+    "a flow mapping": b"---\n{name: kit-judge}\n---\n",
+}
+
+
+@pytest.mark.parametrize("text", UNREADABLE_NAMES.values(), ids=UNREADABLE_NAMES.keys())
+def test_a_project_agent_name_that_cannot_be_read(sb, text):
+    project_agent(sb, text=text)
+    sb.change("app.py", 3)
+    run = sb.run("start", "build")
+    rel = ".claude/agents/sub/x.md"
+    assert (run.code, run.last) == (3, CANNOT_CHECK.format(rel=rel))
+
+
+def test_a_project_agent_with_another_name_and_a_block(sb):
+    project_agent(sb, text=b"---\nname: helper\ndescription: |\n  name:\n---\n")
+    sb.change("app.py", 3)
+    assert sb.run("start", "build").code == 0
 
 
 UNCHECKABLE = ["a link", "over 64 kB", "a linked folder", "a linked agents folder"]
@@ -246,7 +279,8 @@ def test_a_project_agent_that_appears_after_round_one(sb):
     assert (run.code, run.last) == (3, OWN_AGENT.format(rel=rel, again="brief"))
     run = sb.run("brief", "--agents", "fallback")
     assert run.code == 0, run
-    assert run.lines[0] == "Agents: fallback"
+    assert run.lines[0] == "note: no changes.md row for [general I1]"
+    assert run.lines[1] == "Agents: fallback"
     assert loop.FALLBACK_SENTENCE in run.lines
     st = sb.state()
     assert (len(st["rounds"]), st["agents"]) == (1, "fallback")
@@ -265,7 +299,10 @@ def test_fallback_from_the_start(sb):
     run = sb.run("brief")
     above, prompt = brief_of(run, sb.state()["panel"][0], 1)
     assert above[0] == "Start: general-purpose, model fable"
-    assert prompt[0].startswith("Read `")
+    assert prompt[0] == (
+        f"Read `{sb.agents / 'kit-judge.md'}` and follow it as your instructions."
+    )
+    assert prompt[0].startswith(f"Read `{sb.tmp}")
     assert json.loads(sb.run("status", "--json").out)["agents"] == "fallback"
 
 
@@ -359,7 +396,7 @@ def test_no_such_loop(sb):
 
 
 def test_status_of_a_blocked_loop(sb):
-    play(sb, "build", 4, [9, 9, 9, 9], blocking=True)
+    play(sb, "build", 1, [9], blocking=True)
     run = sb.run("status")
     assert run.code == 0
     assert run.last.startswith("STOP: blocking items left after the last round.")
@@ -445,12 +482,12 @@ def dirty(sb):
 
 
 def blocked_without_rounds(sb):
-    play(sb, "build", 4, [9, 9, 9, 9], blocking=True)
+    play(sb, "build", 1, [9], blocking=True)
 
 
 def blocked_with_rounds(sb):
-    play(sb, "build", 4, [9, 9, 9, 9], blocking=True)
-    sb.set_state(budget=6)
+    play(sb, "build", 1, [9], blocking=True)
+    sb.set_state(budget=3)
 
 
 BUILD_NAME = (
@@ -621,6 +658,44 @@ BAD_STATES = {
     "an outcome won": lambda st: st.update(outcome="won"),
     "a kind x": lambda st: st.update(kind="x"),
     "a base ref HEAD~1": lambda st: st.update(base_ref="HEAD~1"),
+    "a mode won": lambda st: st["rounds"][0].update(modes={"general": "won"}),
+    "a mode of another role": lambda st: st["rounds"][0].update(
+        modes={"tests": "full"}
+    ),
+    "a read half": lambda st: st["rounds"][0].update(read={"general": "half"}),
+    "skipped to its own round": lambda st: st["rounds"][0].update(
+        skipped={"general": 1}
+    ),
+    "tokens -1": lambda st: st["rounds"][0].update(tokens={"general": -1}),
+    "tokens over 1e9": lambda st: st["rounds"][0].update(tokens={"general": 10**9 + 1}),
+    "fix tokens as text": lambda st: st["rounds"][0].update(fix_tokens="5"),
+    "item counts below 0": lambda st: st["rounds"][0].update(
+        items={"open": -1, "closed": 0, "new": 0}
+    ),
+    "item counts missing one": lambda st: st["rounds"][0].update(
+        items={"open": 1, "closed": 0}
+    ),
+    "a pending mode won": lambda st: st.update(
+        pending={
+            "round": 2,
+            "commit": SHA_A,
+            "base_sha": SHA_A,
+            "modes": {"general": "x"},
+        }
+    ),
+    "final as text": lambda st: st.update(final="yes"),
+    "a check that is a number": lambda st: st["items"]["general:I1"].update(check=5),
+    "a skip record on an open loop": lambda st: st.update(
+        skip={"reason": "x", "files": 1, "lines": 1, "user_ok": False}
+    ),
+    "a skip of -1 lines": lambda st: st.update(
+        outcome="skip",
+        skip={"reason": "x", "files": 1, "lines": -1, "user_ok": False},
+    ),
+    "a skip without user_ok": lambda st: st.update(
+        outcome="skip", skip={"reason": "x", "files": 1, "lines": 1}
+    ),
+    "a skip outcome without a record": lambda st: st.update(outcome="skip"),
 }
 
 
@@ -647,7 +722,7 @@ def test_an_off_line_comes_before_the_branch_name(sb, command):
     run = sb.run(*command)
     assert (run.code, run.last) == (
         0,
-        "Off: judge loop switched off by CLAUDE.md:1. Next: work without it.",
+        "Off: judge loop switched off by CLAUDE.md:1 on main. Next: work without it.",
     )
 
 
@@ -840,8 +915,18 @@ def test_a_role_file_names_its_dimensions_and_the_output(role):
         assert f"`{dim}`" in parts["Output"], dim
     for key in ("overall", "dimensions", "blocking", "improvements", "still_open"):
         assert f'`"{key}"`' in parts["Output"], key
-    for key in ("id", "problem", "evidence", "fix"):
+    for key in ("id", "problem", "evidence", "fix", "check", "read"):
         assert f'`"{key}"`' in parts["Output"], key
+    output = " ".join(parts["Output"].split())
+    for words in (
+        "Score in steps of 0.5.",
+        "The score is 10 minus named items: no item, no deduction.",
+        "List every gap now, not the top few.",
+        "a file and line, or the criterion it misses.",
+        "A dimension the work gives you nothing to judge on gets a 10 and no item.",
+    ):
+        assert words in output, words
+    assert "a command and its output" not in output
     assert parts["A 10 means"].strip()
     assert len(text.splitlines()) <= 40
 
