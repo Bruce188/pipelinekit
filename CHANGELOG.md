@@ -44,6 +44,13 @@ kit used to ship, so those parts are gone.
 - Release pull requests, tags, publishing, other people's pull requests and
   anything behind branch protection stay with the user. A project opts out
   with the line `Merges: ask first` in its `CLAUDE.md`.
+- The release gate reads the branches, the title and the diff. A version is
+  held wherever it is set, except in the places known to hold the versions of
+  other things (lock files, dependency tables, files that pin tools, CI,
+  tests, docs). `record --result pass` takes `--release yes` or `no`, a
+  project names its own with `Release files:` and `Release branches:` lines
+  in its `CLAUDE.md`, and a branch that pull requests were merged into counts
+  as a stage.
 - After marking a draft ready the helper watches the pull request for a
   settle time before it merges (30 seconds, 90 where a check is still to
   come; `--settle`), so a check or review that only starts then is not

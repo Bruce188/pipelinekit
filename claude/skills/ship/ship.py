@@ -8,7 +8,8 @@
 
 Exit codes: 0 ok; 1 a gate or a check failed; 2 usage or tool error; 3 stop and
 ask the user (a review, a release, someone else's pull request, a project that
-asks first, or a test loop that does not converge).
+asks first, or a test loop that does not converge). A passed round says
+whether the pull request is a release: `record --result pass --release no`.
 
 Standard library only. Needs git and a signed-in gh.
 """
@@ -16,16 +17,26 @@ Standard library only. Needs git and a signed-in gh.
 from __future__ import annotations
 
 import argparse
+import configparser
+import fnmatch
 import json
 import math
 import os
+import plistlib
 import re
 import shlex
 import subprocess
 import sys
 import time
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
+from xml.etree import ElementTree
+
+try:
+    import tomllib
+except ImportError:  # before Python 3.11
+    tomllib = None
 
 SCHEMA = 1
 PR_FIELDS = (
@@ -60,7 +71,7 @@ LINE_LEAD = re.compile(
 )
 OPT_OUT = re.compile(
     r"^(?:(?:pipelinekit\s*:\s*)?merg(?:es?|ing)\s*(?::|-|\u2013|\u2014)\s*"
-    r"(?:always\s+)?(?:ask|never|manual(?:ly)?)\b"
+    r"(?:always\s+)?(?:ask|never|off|manual(?:ly)?)\b"
     r"|`merges?\s*:\s*ask(?:\s+first)?`[\s.]*(?:-->)?$)",
     re.I,
 )
@@ -84,7 +95,7 @@ RELEASE_HEAD = re.compile(
 STAGE_HEADS = wordset(
     "develop development dev integration staging stage next beta alpha rc "
     "canary preview nightly edge uat qa preprod test testing stable "
-    "main master trunk"
+    "main master trunk snapshot"
 )
 STAGE_PREFIXES = wordset("integration staging stage uat qa preprod env deploy")
 MAINLINES = ("main", "master")
@@ -134,11 +145,13 @@ TOKEN = re.compile(
 # The words a release title is made of. A title with other words in it is
 # about something else: `fix: release the lock before retrying`.
 RELEASE_NAMES = wordset("release releases releasing released prerelease")
-STRONG = RELEASE_NAMES | wordset("version publish production prod hotfix")
+STRONG = RELEASE_NAMES | wordset(
+    "version versions publish production prod hotfix deploy"
+)
 ACTIONS = wordset(
     "bump bumps bumped bumping cut tag ship deploy prepare prepared preparing "
     "prep finalize finalise finish finishing increment increase raise set "
-    "update new publish create creating promote promoting do make start"
+    "update upgrade new publish create creating promote promoting do make start"
 )
 FILLER = wordset("for to the of and a an from in on with into")
 VOCABULARY = (
@@ -147,44 +160,210 @@ VOCABULARY = (
     | FILLER
     | wordset(
         "candidate rc changelog notes package packages npm pypi pre beta alpha "
-        "patch minor major number numbers initial first final stable"
+        "patch minor major number numbers initial first final stable lts ga rel re"
     )
 )
-# Files whose change is a new version: the whole file, a line that declares a
-# version, or a version heading in a changelog. Matched on the file name.
-VERSION_FILES = wordset("version version.txt .version version.json")
-JSON_FILES = wordset(
-    "package.json composer.json app.json manifest.json plugin.json "
-    "marketplace.json deno.json jsr.json lerna.json"
+# What a pull request changes decides too. The lists below name the places
+# where a version is ordinary: lock files, tool versions, dependencies, tests.
+# A version anywhere else is held, whatever the file format.
+NUMBER = re.compile(r"(?<![\w.])v?(\d+(?:\.\d+)+(?:[-+][0-9A-Za-z.]+)*)")
+LOCK_FILES = wordset(
+    "package-lock.json npm-shrinkwrap.json yarn.lock pnpm-lock.yaml cargo.lock "
+    "poetry.lock uv.lock pdm.lock pipfile.lock gemfile.lock composer.lock go.sum "
+    "go.mod packages.lock.json flake.lock mix.lock pubspec.lock podfile.lock "
+    "bun.lock bun.lockb deno.lock gradle.lockfile"
 )
-ASSIGN_FILES = wordset(
-    "pyproject.toml cargo.toml setup.cfg setup.py gradle.properties "
-    "build.gradle build.gradle.kts build.sbt pubspec.yaml chart.yaml mix.exs "
-    "__init__.py __about__.py __version__.py _version.py version.py "
-    "version.rb version.go version.ts version.js version.php"
+TOOL_FILES = wordset(
+    ".python-version .nvmrc .node-version .ruby-version .tool-versions "
+    ".java-version .terraform-version .sdkmanrc rust-toolchain "
+    "rust-toolchain.toml global.json gemfile pipfile .pre-commit-config.yaml "
+    "dependabot.yml renovate.json .mise.toml mise.toml gradle-wrapper.properties "
+    "libs.versions.toml directory.packages.props .gitlab-ci.yml "
+    "azure-pipelines.yml .travis.yml"
 )
-ASSIGN_ENDS = (".gemspec", ".podspec")
-XML_ENDS = (".csproj", ".fsproj", ".vbproj", ".nuspec", ".props")
-CHANGELOGS = wordset(
-    "changelog.md changelog changelog.rst changelog.txt changes.md history.md "
-    "news.md releases.md release-notes.md"
+TOOL_STARTS = (
+    "requirements",
+    "constraints",
+    "dockerfile",
+    "docker-compose",
+    "compose.",
 )
-JSON_VERSION = re.compile(r'^\s*"version"\s*:\s*"')
-ASSIGN_VERSION = re.compile(
-    r"^\s*(?:(?:export\s+)?(?:const|let|var|val|def)\s+|\w+\.|@|\$)?"
-    r"(?:__version__|app_?version|version_?(?:name|code)|version)"
-    r"(?:\s*(?::\s*\w+\s*)?[:=]|\s+[\"'])",
+SKIP_ENDS = (
+    ".lock",
+    ".tf",
+    ".hcl",
+    ".tfvars",
+    ".nix",
+    ".snap",
+    ".svg",
+    ".map",
+    ".ipynb",
+    ".min.js",
+    ".min.css",
+)
+SKIP_ROOTS = (
+    ".github/",
+    ".circleci/",
+    ".devcontainer/",
+    ".vscode/",
+    ".idea/",
+    ".husky/",
+)
+SKIP_DIRS = wordset(
+    "test tests testing __tests__ spec specs fixtures fixture testdata vendor "
+    "node_modules third_party thirdparty examples example samples sample "
+    "__mocks__ __snapshots__"
+)
+CODE_ENDS = wordset(
+    ".py .pyi .js .mjs .cjs .ts .mts .cts .tsx .jsx .rb .go .rs .java .kt .kts "
+    ".swift .c .h .cc .cpp .cxx .hpp .cs .fs .vb .php .pl .pm .sh .bash .zsh "
+    ".fish .ps1 .psm1 .bat .cmd .lua .ex .exs .erl .scala .clj .dart .m .mm .r "
+    ".jl .hs .ml .sql .vue .svelte .css .scss .less"
+)
+# Source files that are a manifest all the same.
+MANIFEST_CODE = wordset(
+    "setup.py mix.exs build.gradle.kts settings.gradle.kts package.swift conanfile.py"
+)
+DOC_ENDS = wordset(".md .markdown .mdx .rst .adoc .txt .html .htm .tex .org")
+NOTES_STEMS = wordset("changelog changes history news releases releasenotes")
+NOTES_DIRS = wordset(
+    "changelog changelogs releases release-notes release_notes releasenotes"
+)
+VERSION_STEMS = wordset(
+    "version bumpversion releasepleasemanifest appversion versioninfo"
+)
+XML_ENDS = (".xml", ".csproj", ".fsproj", ".vbproj", ".nuspec", ".props", ".targets")
+# A table or element of these names holds the versions of other things.
+DEPENDS = re.compile(
+    r"depend|require|reference|engine|resolution|override|peer|build-?system"
+    r"|toolchain|catalog",
     re.I,
 )
-XML_VERSION = re.compile(
-    r"^\s*<(?:Version|VersionPrefix|VersionSuffix|AssemblyVersion|FileVersion"
-    r"|PackageVersion|InformationalVersion|ApplicationVersion"
-    r"|ApplicationDisplayVersion)>"
+XML_DEPENDS = re.compile(
+    r"^(?:plugin|parent$|extension|properties$|profile)|depend|reference", re.I
 )
-VERSION_HEADING = re.compile(
-    r"^#{1,3}\s*\[?(?:(?:version|release)\s+)?v?\d+\.\d+", re.I
+KEY_WORD = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+")
+# A key with one of these words in it is the version of a tool or a format.
+TOOL_WORDS = wordset(
+    "python node nodejs ruby java jdk jvm go golang rust php sdk api schema "
+    "manifest lockfile lang language framework tool tools gradle kotlin swift "
+    "min minimum max maximum target compile required requires object format "
+    "protocol runtime dotnet terraform compiler ecma jsx config npm yarn pnpm "
+    "pip cargo maven scala clang gcc cmake xcode ndk typescript docker helm "
+    "kube kubernetes wrapper bundler engine plugin provider ansible os "
+    "platform model dictionary"
 )
-MAX_VERSION_FILES = 60
+TOOL_KEY_STARTS = (
+    "min",
+    "max",
+    "python",
+    "node",
+    "java",
+    "php",
+    "ruby",
+    "rust",
+    "api",
+    "sdk",
+    "schema",
+    "lockfile",
+    "required",
+    "target",
+    "compile",
+    "format",
+    "ecma",
+    "lang",
+    "golang",
+)
+VALUE = re.compile(r"\s*[\"'\[({]*v?\d")
+# `version = "1.2.3"` and its relatives anywhere on a line of a manifest.
+DECLARES = re.compile(
+    r"(?<![\w.-])(?P<key>[\w.-]*version\w*)[\"']?\s*"
+    r"(?:[:?+]?=(?!=)|:(?!:)|\(|>|\s)\s*[\"'\[({]*v?\d",
+    re.I,
+)
+# The same at the start of a line of source code, with a quoted number.
+CODE_VERSION = re.compile(
+    r"^\s*(?:(?:export|pub|public|private|internal|static|final|const|let|var"
+    r"|val|def|string|int)\s+)*(?:[\w.]+\.|@|\$)?"
+    r"(?:__version__|(?:app_?)?version(?:_?(?:name|code|string|number))?)"
+    r"\s*(?::\s*[\w&' ]+?)?\s*:?=\s*[\"'`]v?\d",
+    re.I,
+)
+# A line that pins something else: a dependency, a plugin, an image, a range.
+DEP_LINE = re.compile(
+    r"depend|require|plugin|classpath|implementation|\buses\s*:|\bimage\s*:"
+    r"|^\s*from\s|\brev\s*:|^\s*(?:gem|pod|id)\s|cmake_minimum"
+    r"|[\"')]\s+version\s+[\"']|^\s*<\?xml|[=~^<>]=|~>|\w@v?\d"
+    r"|[\w.-]+:[\w.-]+:v?\d",
+    re.I,
+)
+# Three numbers, so not an IP address.
+MASK = re.compile(r"(?<![\d.])\d+\.\d+\.\d+(?!\.?\d)(?:[-+][\w.]+)?")
+UNDERLINE = re.compile(r"^\s*([=\-~^\"*+#])\1{2,}\s*$")
+LINK_DEF = re.compile(r"^\s*\[v?\d[^\]]*\]\s*:")
+NOTE_WORDS = wordset("version release released v")
+PROJECT_LINE = re.compile(
+    r"^[*_]*release\s+(file|branch)(?:e?s)?[*_]*\s*:[*_]*\s*(.+)$", re.I
+)
+BINARY_ENDS = (
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".ico",
+    ".webp",
+    ".pdf",
+    ".zip",
+    ".gz",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".eot",
+    ".mp4",
+    ".mp3",
+    ".jar",
+    ".dll",
+    ".exe",
+    ".so",
+    ".bin",
+)
+DOC_STEMS = wordset(
+    "readme license licence copying notice authors contributing contributors "
+    "codeowners security todo"
+)
+DOTTED = re.compile(r"\d+[.,]\d")
+YAML_PAIR = re.compile(r"([\"']?)([\w.@/$-]+)\1\s*:(?:\s+(.*))?$")
+# What a line of release notes may hold besides the number and still be the
+# heading of a version: `Version 1.2.4`, `1.2.4 - November 10, 2026`.
+MONTHS = wordset(
+    "jan january feb february mar march apr april may jun june jul july aug "
+    "august sep sept september oct october nov november dec december"
+)
+STRIP_NOTE = re.compile(
+    r"\([^)]*\)|<[^>]*>|https?://\S+|\d{4}-\d{2}-\d{2}|:[a-z0-9_+-]+:", re.I
+)
+SHORTCODE = re.compile(r":[a-z0-9_+-]+:")
+LEVELS = wordset("patch minor major")
+VERSION_WORDS = wordset("version versions")
+# A title about one of these is about a tool, not about the project's version.
+TOOLCHAIN = wordset(
+    "python node nodejs ruby java go golang rust php dotnet net sdk gradle "
+    "kotlin swift docker typescript yarn pnpm terraform deps dependency "
+    "dependencies ubuntu debian alpine macos windows xcode android ios"
+)
+# And a title about one of these is about how releases are made.
+MACHINERY = wordset(
+    "workflow job script pipeline action docs config process checklist "
+    "template step gate check test tests guide automation ci"
+)
+# The first word of a stage branch with a region or a number: `staging-eu`.
+STAGE_FIRST = wordset(
+    "integration staging stage uat qa preprod snapshot canary nightly"
+)
+NEW_VERSION = ": a new version is a release"
+MAX_VERSION_FILES = 200
+MAX_BLOB = 1_000_000
+MAX_LINE = 500
 QUIET_TYPES = wordset("docs test style refactor perf")
 PLAIN_TYPES = wordset("feat feature fix bugfix revert")
 
@@ -479,6 +658,7 @@ def cmd_record(args, repo):
             "tester": args.tester,
             "open": args.open,
             "notes": args.notes,
+            "release": args.release,
             "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
     )
@@ -597,17 +777,13 @@ def opts_out(text):
     return False
 
 
-def policy_gate(repo, pr=None):
-    """The environment, the user or the project can ask for a question first.
+def policy_texts(repo, base=""):
+    """(label, text) of every CLAUDE.md that speaks for the project or the user.
 
-    The project's line counts in the checkout and on the base branch, so a
-    branch cannot drop it for its own pull request.
+    The project's files count in the checkout and on the base branch, so a
+    branch cannot drop a line for its own pull request.
     """
-    asked = os.environ.get("PIPELINEKIT_MERGE", "").strip()
-    if asked and asked.lower() != "auto":
-        return gate("policy", "fail", f"PIPELINEKIT_MERGE={asked[:20]}", stop=True)
     home = Path(os.environ.get("CLAUDE_HOME") or Path.home() / ".claude")
-    found = ""
     for label, path in (
         ("CLAUDE.md", repo.root / "CLAUDE.md"),
         (".claude/CLAUDE.md", repo.root / ".claude" / "CLAUDE.md"),
@@ -615,21 +791,24 @@ def policy_gate(repo, pr=None):
         ("your user-level CLAUDE.md", home / "CLAUDE.md"),
     ):
         try:
-            text = path.read_text(encoding="utf-8", errors="replace")
+            yield label, path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        if opts_out(text):
-            found = label
-            break
-    base = (pr or {}).get("baseRefName") or ""
-    names = ("CLAUDE.md", ".claude/CLAUDE.md") if base and not found else ()
-    for name in names:
+    for name in ("CLAUDE.md", ".claude/CLAUDE.md") if base else ():
         rc, text, _ = repo.try_git("show", f"refs/remotes/{repo.remote}/{base}:{name}")
-        if not rc and opts_out(text):
-            found = f"{name} on {base}"
-            break
-    if found:
-        return gate("policy", "fail", f"{found} says `Merges: ask first`", stop=True)
+        if not rc:
+            yield f"{name} on {base}", text
+
+
+def policy_gate(repo, pr=None):
+    """The environment, the user or the project can ask for a question first."""
+    asked = os.environ.get("PIPELINEKIT_MERGE", "").strip()
+    if asked and asked.lower() != "auto":
+        return gate("policy", "fail", f"PIPELINEKIT_MERGE={asked[:20]}", stop=True)
+    for label, text in policy_texts(repo, (pr or {}).get("baseRefName") or ""):
+        if opts_out(text):
+            why = f"{label} says `Merges: ask first`"
+            return gate("policy", "fail", why, stop=True)
     return gate("policy", "pass", "no `Merges: ask first` line")
 
 
@@ -654,32 +833,52 @@ def named_release(kind, scope, text, own=()):
     """True when the words after a type name a release or a version.
 
     A text made of release words alone names one: `chore: prepare 0.3.0`,
-    `chore: version bump`. With other words in it, it has to start like a
-    release and carry a version: `chore: release kit 1.2.0`, not
-    `chore(deps): bump lodash to 4.17.21`. After `feat` and `fix` any other
-    word makes it an ordinary change, and `docs`, `test`, `style`, `refactor`
-    and `perf` never name a release. `own` holds the words of the
-    repository's own name, which count as release words.
+    `chore: version bump`, `chore: patch`. With one or two other words in it,
+    it has to read like a release: start like one (`chore: release kit 1.2.0`,
+    `chore: bump version in package.json`), be a name and a number
+    (`chore: kit 1.2.0`) or be short and end in one (`chore: weekly release`).
+    A title about a tool (`ci: bump python version to 3.12`) or about how
+    releases are made (`chore: release script`) is ordinary. After `feat` and
+    `fix` any other word makes it an ordinary change, and `docs`, `test`,
+    `style`, `refactor` and `perf` never name a release. `own` holds the words
+    of the repository's own name, which count as release words.
     """
     if kind in QUIET_TYPES:
         return False
-    versions, words = words_of(text)
+    versions, words = words_of(SHORTCODE.sub(" ", text))
     words = [w for w in words if w not in own]
     unknown = [w for w in words if w not in VOCABULARY]
+    spoken = [w for w in words if w not in FILLER]
     implied = "release" in (kind, scope)
     strong = implied or any(w in STRONG for w in words)
+    names = RELEASE_NAMES | VERSION_WORDS
+    first = spoken[0] if spoken else ""
+    if TOOLCHAIN.intersection(words) and not implied and first not in RELEASE_NAMES:
+        return False
     if not unknown:
         if kind in PLAIN_TYPES:
             return bool(versions) and (strong or not words)
-        return bool(versions) or strong
-    if kind in PLAIN_TYPES or not versions or len(unknown) > 2:
+        if versions or strong:
+            return True
+        # `chore: patch`, `chore: bump minor`; not `chore: minor update`.
+        rest = spoken[1:] if first in ACTIONS and len(spoken) > 1 else spoken
+        return bool(rest) and all(w in LEVELS for w in rest)
+    if kind in PLAIN_TYPES or len(unknown) > 2:
         return False
-    lead = [w for w in words if w not in FILLER][:3]
-    starts = lead[0] in RELEASE_NAMES or (
-        lead[0] in ACTIONS
-        and any(w == "version" or w in RELEASE_NAMES for w in lead[1:])
+    if versions:
+        leads = first in RELEASE_NAMES or (
+            first in ACTIONS and any(w in names for w in spoken[1:3])
+        )
+        named = kind != "ci" and all(w in unknown for w in spoken)
+        ends = len(unknown) == 1 and len(spoken) <= 3 and spoken[-1] in RELEASE_NAMES
+        return implied or leads or named or ends
+    if len(unknown) > 1 or MACHINERY.intersection(words):
+        return False
+    if first in ACTIONS and len(spoken) > 1 and spoken[1] in names:
+        return True
+    return (len(spoken) <= 2 and first in RELEASE_NAMES) or (
+        len(spoken) <= 3 and spoken[-1] in names
     )
-    return implied or starts
 
 
 def release_head(head, own=()):
@@ -692,7 +891,13 @@ def release_head(head, own=()):
         return True
     if not slash:
         kind, text = "", name
+        parts = re.split(r"[-_.]+", name)
+        if len(parts) <= 2 and parts[0] in STAGE_FIRST:
+            return True
     text = re.sub(r"[-_/]+", " ", re.sub(r"^\d+[-_]", "", text))
+    if kind in TOPIC_PREFIXES:
+        # `feat/21-v2` is the second take of a feature, not version 2.
+        text = re.sub(r"(?<![\w.])v\d+(?![\w.])", " ", text)
     return named_release(kind, "", text, own)
 
 
@@ -750,55 +955,440 @@ def release_branches(head, base, default="", own=()):
     return ""
 
 
-def version_line(name, line):
-    """What a line added to a file of this name does to the version; else ''."""
-    if name in JSON_FILES:
-        return "sets a version in" if JSON_VERSION.match(line) else ""
-    if name in ASSIGN_FILES or name.endswith(ASSIGN_ENDS):
-        return "sets a version in" if ASSIGN_VERSION.match(line) else ""
-    if name.endswith(XML_ENDS):
-        return "sets a version in" if XML_VERSION.match(line) else ""
-    if name in CHANGELOGS:
-        return "adds a version heading to" if VERSION_HEADING.match(line) else ""
-    return ""
+def shown(path):
+    """A path as a message shows it: one line, plain characters, not too long."""
+    return re.sub(r"[^\x21-\x7e]+", "?", path)[:120]
 
 
-def version_change(repo, base):
-    """(why, error): why the changes against `base` make a new version; else ''."""
+def stem_of(name):
+    """`.bumpversion.cfg` -> `bumpversion`, `__version__.py` -> `version`."""
+    return re.sub(r"[-_ ]", "", name.lstrip(".").partition(".")[0])
+
+
+def ext_of(name):
+    """`.json` for `package.json`; '' for `VERSION` and for `.nvmrc`."""
+    bare = name.lstrip(".")
+    dot = bare.rfind(".")
+    return "" if dot < 0 else bare[dot:]
+
+
+def place(path):
+    """How a changed file is read for a version.
+
+    '' = not at all, `whole` = any change counts, `notes` = release notes,
+    `data` = a manifest or another file that is not source code, `code`.
+    """
+    low = path.lower()
+    *dirs, name = low.split("/")
+    if low.startswith(SKIP_ROOTS) or SKIP_DIRS.intersection(dirs):
+        return ""
+    if name in LOCK_FILES | TOOL_FILES or name.startswith(TOOL_STARTS):
+        return ""
+    if name.endswith(SKIP_ENDS + BINARY_ENDS):
+        return ""
+    stem, ext = stem_of(name), ext_of(name)
+    if ext in CODE_ENDS:
+        manifest = (
+            name in MANIFEST_CODE
+            or name.startswith(("assemblyinfo.", "build.gradle"))
+            or stem in ("version", "about")
+        )
+        return "data" if manifest else "code"
+    if stem in VERSION_STEMS:
+        return "whole"
+    if NOTES_DIRS.intersection(dirs) and NUMBER.search(name):
+        return "whole"
+    if stem in NOTES_STEMS:
+        return "notes"
+    if stem in DOC_STEMS or (ext in DOC_ENDS and name != "cmakelists.txt"):
+        return ""
+    return "data"
+
+
+def tool_key(key):
+    """True when a key names the version of a tool or of a file format."""
+    low = key.lower().lstrip("_-.@$")
+    words = {word.lower() for word in KEY_WORD.findall(key)}
+    if words & TOOL_WORDS:
+        return True
+    return low.startswith(TOOL_KEY_STARTS) and not low.startswith("minor")
+
+
+def version_key(key, value):
+    """True when `key = value` sets a version of the project itself."""
+    if "version" not in key.lower() or tool_key(key) or not VALUE.match(value):
+        return False
+    last = re.sub(r"[_@$-]", "", key.lower().rpartition(".")[2])
+    # A bare `version: 2` is the version of a file format.
+    return last != "version" or bool(DOTTED.match(value.lstrip(" \t\"'[({vV")))
+
+
+def walk(node, trail, out):
+    """Count the leaves of parsed JSON, TOML or a property list by their keys."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            walk(value, (*trail, str(key)), out)
+    elif isinstance(node, list):
+        for value in node:
+            walk(value, trail, out)
+    elif isinstance(node, (str, int, float)) and not isinstance(node, bool):
+        out[(trail, str(node))] += 1
+
+
+def xml_leaves(text):
+    """The leaves of an XML manifest, without what it pins for other things."""
+    if "<!ENTITY" in text.upper():
+        raise ValueError("entities are not expanded")
+    out = Counter()
+
+    def visit(node, trail):
+        tag = node.tag.rpartition("}")[2] if isinstance(node.tag, str) else ""
+        pins = {"Include", "Update"} & set(node.attrib)
+        if not tag or pins or XML_DEPENDS.search(tag):
+            return
+        here = (*trail, tag)
+        for name, value in node.attrib.items():
+            out[((*here, "@" + name.rpartition("}")[2]), value)] += 1
+        if len(node):
+            for child in node:
+                visit(child, here)
+        elif (node.text or "").strip():
+            out[(here, node.text.strip())] += 1
+
+    visit(ElementTree.fromstring(text), ())
+    return out
+
+
+def yaml_leaves(text):
+    """The `key: value` leaves of a YAML file, read by indentation."""
+    out, stack = Counter(), []
+    for raw in text.splitlines():
+        line = raw.split(" #")[0].rstrip()
+        body = line.lstrip(" ")
+        if not body or body.startswith(("#", "---", "...")):
+            continue
+        while body.startswith("- "):
+            body = body[2:].lstrip(" ")
+        indent = len(line) - len(body)
+        m = YAML_PAIR.match(body)
+        if not m:
+            continue
+        while stack and stack[-1][0] >= indent:
+            stack.pop()
+        key, value = m.group(2), (m.group(3) or "").strip()
+        if value[:1] in ("{", "[") and "version" in value.lower():
+            raise ValueError("a flow mapping is read by line")
+        if not value or value[0] in "|>&*!":
+            stack.append((indent, key))
+        else:
+            out[((*(k for _, k in stack), key), value.strip("\"'"))] += 1
+    return out
+
+
+def table_leaves(text):
+    """The leaves of a TOML file read by line, for a Python without tomllib."""
+    out, trail = Counter(), ()
+    for raw in text.splitlines():
+        line = raw.strip()
+        m = re.match(r"\[+\s*([^\]]+?)\s*\]+", line)
+        if m:
+            trail = tuple(part.strip("\"' ") for part in m.group(1).split("."))
+            continue
+        key, equals, value = line.partition("=")
+        if equals and not line.startswith("#"):
+            out[((*trail, key.strip("\"' ")), value.strip().strip("\"'"))] += 1
+    return out
+
+
+def leaves(name, text):
+    """The leaves of a manifest; None for a format that is read by line."""
+    if not text.strip():
+        return Counter()
+    out = Counter()
+    try:
+        if name.endswith(".json"):
+            walk(json.loads(text), (), out)
+        elif name.endswith(".toml"):
+            if tomllib is None:
+                return table_leaves(text)
+            walk(tomllib.loads(text), (), out)
+        elif name.endswith(".plist"):
+            walk(plistlib.loads(text.encode("utf-8")), (), out)
+        elif name.endswith(XML_ENDS):
+            return xml_leaves(text)
+        elif name.endswith((".cfg", ".ini")):
+            parser = configparser.ConfigParser(interpolation=None, strict=False)
+            parser.read_string(text)
+            for section in parser.sections():
+                for key, value in parser.items(section, raw=True):
+                    out[((section, key), value)] += 1
+        elif name.endswith((".yaml", ".yml")):
+            return yaml_leaves(text)
+        else:
+            return None
+    except Exception:  # noqa: BLE001 - whatever the parser raises: read by line
+        return None
+    return out
+
+
+def sets_version(trail, value):
+    """True when the leaf at `trail` is a version of the project itself."""
+    if not trail or any(DEPENDS.search(key) for key in trail[:-1]):
+        return False
+    return version_key(trail[-1].lstrip("@"), value)
+
+
+def line_rule(old, new):
+    """True when a line added to a file without a known format sets a version."""
+    before = Counter(old.splitlines())
+    after = Counter(new.splitlines())
+    added = [line for line in after - before if len(line) <= MAX_LINE]
+    removed = {
+        MASK.sub("#", line)
+        for line in before - after
+        if len(line) <= MAX_LINE and MASK.search(line)
+    }
+    for line in added:
+        if DEP_LINE.search(line):
+            continue
+        for m in DECLARES.finditer(line):
+            key = m.group("key")
+            if tool_key(key):
+                continue
+            last = re.sub(r"[_@$-]", "", key.lower().rpartition(".")[2])
+            if last != "version" or DOTTED.match(line[m.end() - 1 :]):
+                return True
+        # The same line as before with another number: `#define VER "1.2.4"`.
+        if (
+            MASK.search(line)
+            and MASK.sub("#", line) in removed
+            and not TOOL_WORDS.intersection(re.findall(r"[a-z]+", line.lower()))
+        ):
+            return True
+    return False
+
+
+def notes_rule(old, new, own=()):
+    """True when the release notes gain the heading of a version.
+
+    A line with a number the file did not hold yet counts when it is a
+    heading, a link definition, or nothing but the number, a date, the name of
+    the project and words like `version`. A sentence that names the version of
+    something else does not.
+    """
+    seen = {m.group(1) for m in NUMBER.finditer(old)}
+    lines = new.splitlines()
+    added = Counter(lines) - Counter(old.splitlines())
+    for at, line in enumerate(lines):
+        if added[line] <= 0:
+            continue
+        added[line] -= 1
+        if len(line) > MAX_LINE:
+            continue
+        fresh = [m for m in NUMBER.finditer(line) if m.group(1) not in seen]
+        if not fresh:
+            continue
+        body = line.strip()
+        below = lines[at + 1] if at + 1 < len(lines) else ""
+        if body.startswith(("#", "=")) or UNDERLINE.match(below):
+            return True
+        if LINK_DEF.match(line):
+            return True
+        versions, words = words_of(STRIP_NOTE.sub(" ", body))
+        if versions and all(w in own or w in NOTE_WORDS | MONTHS for w in words):
+            return True
+    return False
+
+
+def changed_files(repo, base):
+    """(files, error): old mode, new mode, old blob, new blob and path of each."""
     span = f"refs/remotes/{repo.remote}/{base}...HEAD"
-    rc, out, err = repo.try_git("diff", "--name-only", "--no-renames", "-z", span)
+    rc, out, err = repo.try_git(
+        "diff", "--raw", "--no-abbrev", "--no-renames", "-z", span
+    )
+    if rc:
+        return [], said(err or out, rc)
+    parts = [part for part in out.split("\0") if part]
+    files = []
+    for meta, path in zip(parts[::2], parts[1::2], strict=False):
+        fields = meta.lstrip(":").split()
+        if len(fields) >= 5:
+            files.append((*fields[:4], path))
+    return files, ""
+
+
+def blob(repo, sha):
+    """(text, error) of a blob; '' for the side of a diff that has no file."""
+    if not sha.strip("0"):
+        return "", ""
+    rc, out, err = repo.try_git("cat-file", "blob", sha)
+    return ("", said(err or out, rc)) if rc else (out, "")
+
+
+def code_version(repo, base):
+    """(path, error): a source file in which the diff sets a version; else ''."""
+    rc, out, err = repo.try_git(
+        "-c",
+        "core.quotePath=false",
+        "diff",
+        "-U0",
+        "--no-color",
+        "--no-ext-diff",
+        "--no-renames",
+        "-G[Vv][Ee][Rr][Ss][Ii][Oo][Nn]",
+        f"refs/remotes/{repo.remote}/{base}...HEAD",
+    )
     if rc:
         return "", said(err or out, rc)
-    watched = []
-    for path in filter(None, out.split("\0")):
-        name = path.rpartition("/")[2].lower()
-        shown = re.sub(r"[^\x21-\x7e]+", "?", path)[:120]
-        if name in VERSION_FILES:
-            return f"the diff changes {shown}", ""
-        if name in JSON_FILES | ASSIGN_FILES | CHANGELOGS or name.endswith(
-            ASSIGN_ENDS + XML_ENDS
+    path, header = "", False
+    for line in out.splitlines():
+        if line.startswith("diff --git "):
+            path, header = "", True
+        elif header and line.startswith("+++ "):
+            path = line[6:].rstrip("\t") if line.startswith("+++ b/") else ""
+        elif line.startswith("@@"):
+            header = False
+        elif (
+            not header
+            and path
+            and line.startswith("+")
+            and place(path) == "code"
+            and CODE_VERSION.match(line[1:])
         ):
-            watched.append((path, name, shown))
-    if len(watched) > MAX_VERSION_FILES:
-        return f"the diff changes {len(watched)} files that can hold a version", ""
-    for path, name, shown in watched:
-        rc, out, err = repo.try_git(
-            "diff",
-            "--no-color",
-            "--no-ext-diff",
-            "--no-renames",
-            "-U0",
-            span,
-            "--",
-            f":(literal){path}",
-        )
-        if rc:
-            return "", said(err or out, rc)
-        for line in out.partition("\n@@")[2].splitlines():
-            what = version_line(name, line[1:]) if line.startswith("+") else ""
-            if what:
-                return f"the diff {what} {shown}", ""
+            return path, ""
     return "", ""
+
+
+def sets(name, old, new):
+    """True when the change from `old` to `new` sets a version of the project."""
+    after = leaves(name, new)
+    before = leaves(name, old) if after is not None else None
+    if after is None or before is None:
+        return line_rule(old, new)
+    return any(sets_version(trail, value) for trail, value in after - before)
+
+
+def listed(patterns, value, names=False):
+    """True when `value` matches one of the patterns of a project line.
+
+    `dir/` is everything below a directory, anything else a glob on the whole
+    value and, with `names`, on the file name alone.
+    """
+    low = value.lower()
+    for pattern in patterns:
+        if pattern.endswith("/"):
+            hit = low.startswith(pattern)
+        else:
+            name = low.rpartition("/")[2]
+            hit = fnmatch.fnmatchcase(low, pattern) or (
+                names and fnmatch.fnmatchcase(name, pattern)
+            )
+        if hit:
+            return True
+    return False
+
+
+def project_lines(texts):
+    """(files, branches) that a `Release files:` or `Release branches:` line names."""
+    found = {"file": [], "branch": []}
+    for text in texts:
+        for raw in text.lstrip("\ufeff").splitlines():
+            line = LINE_LEAD.sub("", raw.strip(), count=1).replace("`", "")
+            m = PROJECT_LINE.match(line)
+            if not m:
+                continue
+            values = re.split(r"[,\s]+", m.group(2).lower())
+            found[m.group(1).lower()] += [
+                v for v in values if v and "<" not in v and v != "-->"
+            ]
+    return found["file"], found["branch"]
+
+
+def version_change(repo, base, own=(), release_files=()):
+    """(why, error): why the changes against `base` make a release; else ''.
+
+    Fails closed: a version is ordinary in the places the lists above name,
+    and held anywhere else.
+    """
+    files, error = changed_files(repo, base)
+    if error:
+        return "", error
+    watched, code = [], False
+    for old_mode, new_mode, old, new, path in files:
+        if {"160000", "120000"} & {old_mode, new_mode}:
+            continue
+        if listed(release_files, path, names=True):
+            return f"the diff changes {shown(path)}, a release file of this project", ""
+        kind = place(path)
+        if kind == "whole":
+            return f"the diff changes {shown(path)}{NEW_VERSION}", ""
+        if kind == "code":
+            code = True
+        elif kind and new.strip("0"):
+            watched.append((kind, old, new, path))
+    if len(watched) > MAX_VERSION_FILES:
+        why = f"the diff changes {len(watched)} files that can hold a version"
+        return why + NEW_VERSION, ""
+    for kind, old, new, path in watched:
+        before, error = blob(repo, old)
+        after, failed = blob(repo, new)
+        if error or failed:
+            return "", error or failed
+        if "\0" in after or len(after) > MAX_BLOB:
+            continue
+        if "\0" in before or len(before) > MAX_BLOB:
+            before = ""
+        if kind == "notes":
+            if notes_rule(before, after, own):
+                why = f"the diff adds a version heading to {shown(path)}"
+                return why + NEW_VERSION, ""
+        elif sets(path.lower(), before, after):
+            return f"the diff sets a version in {shown(path)}{NEW_VERSION}", ""
+    if code:
+        path, error = code_version(repo, base)
+        if error:
+            return "", error
+        if path:
+            return f"the diff sets a version in {shown(path)}{NEW_VERSION}", ""
+    return "", ""
+
+
+def promoted(repo, head):
+    """(why, error): pull requests were merged into the head, so it is a stage."""
+    kind, slash, _ = head.lower().partition("/")
+    if slash and kind in TOPIC_PREFIXES:
+        return "", ""
+    rc, out, err = repo.gh(
+        "pr", "list", "--base", head, "--state", "merged", "--limit", "1",
+        "--json", "number",
+    )  # fmt: skip
+    merged = []
+    if not rc:
+        try:
+            merged = json.loads(out)
+        except ValueError:
+            merged = None
+        if not isinstance(merged, list):
+            rc, err = 1, "unreadable answer"
+    if rc:
+        return "", f"cannot ask GitHub what was merged into {head}: {said(err, rc)}"
+    if merged:
+        why = f"pull requests were merged into {head}: merging it on is a promotion"
+        return why, ""
+    return "", ""
+
+
+def recorded_release(repo, head):
+    """What the passed round on `head` says: 'yes', 'no', '' or None for no round."""
+    try:
+        rounds = load_record(repo.record_file)["rounds"]
+    except RecordError:
+        return None
+    last = rounds[-1] if rounds else {}
+    if last.get("result") != "pass" or last.get("commit") != head:
+        return None
+    answer = last.get("release")
+    return answer if answer in ("yes", "no") else ""
 
 
 def release_gate(repo, pr):
@@ -807,18 +1397,41 @@ def release_gate(repo, pr):
     info = repo.info()
     default = (info.get("defaultBranchRef") or {}).get("name") or ""
     own = own_words(info)
+
+    def stop(why):
+        return gate("release", "fail", why, stop=True)
+
     if release_title(pr.get("title"), default, own):
-        return gate("release", "fail", "the title reads like a release", stop=True)
+        return stop("the title reads like a release")
     why = release_branches(head, base, default, own)
     if why:
-        return gate("release", "fail", why, stop=True)
-    why, error = version_change(repo, base)
+        return stop(why)
+    files, branches = project_lines(text for _, text in policy_texts(repo, base))
+    for name in (head, base):
+        if listed(branches, name):
+            return stop(f"{name} is a release branch of this project")
+    why, error = promoted(repo, head)
+    if error:
+        return gate("release", "fail", error)
+    if why:
+        return stop(why)
+    why, error = version_change(repo, base, own, files)
     if error:
         return gate(
             "release", "fail", f"cannot read what changes against {base}: {error}"
         )
     if why:
-        return gate("release", "fail", f"{why}: a new version is a release", stop=True)
+        return stop(why)
+    answer = recorded_release(repo, pr.get("headRefOid") or "")
+    if answer == "yes":
+        return stop("the test record says this is a release")
+    if answer == "":
+        return gate(
+            "release",
+            "fail",
+            "the test record does not say whether this is a release: record the "
+            "round again with --release yes or no",
+        )
     return gate("release", "pass", "not a release")
 
 
@@ -1407,6 +2020,13 @@ def build_parser():
         help="ids of the blocker and should-fix findings still open",
     )
     record.add_argument("--notes", default="", help="one line about the round")
+    record.add_argument(
+        "--release",
+        default="",
+        choices=("yes", "no"),
+        help="with a pass: does this pull request raise the version, add the "
+        "notes of one, publish, deploy or move a release branch on?",
+    )
     wait = sub.add_parser("wait", help="return when CI on the head commit is done")
     merge = sub.add_parser("merge", help="check the gates, wait for CI, merge")
     for cmd in (wait, merge):
@@ -1462,6 +2082,10 @@ def main(argv=None):
             parser.error("a passed round has no open findings; record it as fail")
         if args.result == "fail" and not args.open:
             parser.error("name the findings that are still open: --open F1 F2")
+        if args.result == "pass" and not args.release:
+            parser.error(
+                "say whether this pull request is a release: --release yes or no"
+            )
     quiet = getattr(args, "exit_zero", False)
     try:
         return COMMANDS[args.cmd](args, Repo())

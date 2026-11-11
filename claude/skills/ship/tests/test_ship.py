@@ -73,6 +73,10 @@ elif kind == ["pr", "merge"]:
     if state.get("on_merge"):
         import subprocess
         subprocess.run(state["on_merge"], check=True)
+elif kind == ["pr", "list"]:
+    if state.get("list_error"):
+        sys.exit(state["list_error"])
+    print(json.dumps(state.get("merged_into", [])))
 else:
     sys.exit("fake gh: unexpected call " + " ".join(args))
 """
@@ -214,8 +218,8 @@ class Sandbox:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text)
 
-    def passed(self):
-        done = self.ship("record", "--result", "pass")
+    def passed(self, release="no"):
+        done = self.ship("record", "--result", "pass", "--release", release)
         assert done.returncode == 0, done.stderr
 
     def change(self, path, before, after):
@@ -640,7 +644,7 @@ def test_record_refuses_a_pass_with_uncommitted_changes(sb):
     sb.git("add", "file.txt")
     sb.git("commit", "-q", "-m", "feat: file")
     (sb.work / "file.txt").write_text("two\n")
-    done = sb.ship("record", "--result", "pass")
+    done = sb.ship("record", "--result", "pass", "--release", "no")
     assert done.returncode == 1 and "commit first" in done.stderr
 
 
@@ -666,7 +670,7 @@ def test_record_stops_when_a_finding_survives_two_fix_attempts(sb):
 def test_a_passed_round_resets_the_count(sb):
     for _ in range(2):
         sb.ship("record", "--result", "fail", "--open", "F1")
-    assert sb.ship("record", "--result", "pass").returncode == 0
+    sb.passed()
     for _ in range(2):
         assert sb.ship("record", "--result", "fail", "--open", "F1").returncode == 0
 
@@ -871,12 +875,24 @@ NOT_RELEASES = [
 ]
 
 
-def held(over, default="main", name="o/r"):
+@pytest.fixture(autouse=True)
+def nobodys_rules(monkeypatch):
+    """No test reads the rules file of whoever runs the tests."""
+    monkeypatch.setenv("CLAUDE_HOME", "/nonexistent/claude-home")
+
+
+def held(over, default="main", name="o/r", merged="[]"):
     """The release gate itself, without a repository: (state, stop)."""
     info = {"nameWithOwner": name, "defaultBranchRef": {"name": default}}
     pr = {"title": "feat: thing", "headRefName": BRANCH, "baseRefName": "main"}
+    nowhere = Path("/nonexistent/checkout")
     repo = SimpleNamespace(
-        info=lambda: info, remote="origin", try_git=lambda *args: (0, "", "")
+        info=lambda: info,
+        remote="origin",
+        root=nowhere,
+        record_file=nowhere / "record.json",
+        try_git=lambda *args: (0, "", ""),
+        gh=lambda *args, **more: (0, merged, ""),
     )
     found = ship.release_gate(repo, {**pr, **over})
     return found["state"], found["stop"]
@@ -895,6 +911,7 @@ def test_changes_that_only_mention_a_release_are_not_releases(over):
 # ---------------------------------------------------------------- stuck loop, opt-out
 
 OPT_OUTS = [
+    "Merges: off",
     "**Merges:** ask first",
     "- **Merges**: ask first",
     "__Merges:__ ask first",
@@ -988,7 +1005,7 @@ def test_an_unreadable_record_is_not_overwritten(sb):
     path.parent.mkdir(parents=True)
     for text in ("{not json", '{"rounds": "none"}', "[]"):
         path.write_text(text)
-        done = sb.ship("record", "--result", "pass")
+        done = sb.ship("record", "--result", "pass", "--release", "no")
         assert done.returncode == 2 and "not a readable test record" in done.stderr
         assert path.read_text() == text
         done = sb.ship("status", "--json")
@@ -1149,6 +1166,21 @@ RELEASE_TITLES = [
     "chore : release 1.2.3",
     "feat: 1.2.0",
     "feat!: 2.0.0",
+    "chore: pipelinekit 0.2.0",
+    "chore: bump version in package.json",
+    "chore: release main",
+    "chore: weekly release",
+    "chore: next version",
+    "chore: bump versions",
+    "chore: v2.0.0 :tada:",
+    "chore: re-release 1.2.3",
+    "chore: upgrade version to 1.2.4",
+    "chore: LTS release 1.2.4",
+    "GA release",
+    "REL 1.2.4",
+    "chore: patch",
+    "Deploy",
+    "chore: rel 1.2.4",
 ]
 ORDINARY_TITLES = [
     "fix: release 1.2.0 broke the installer",
@@ -1161,7 +1193,6 @@ ORDINARY_TITLES = [
     "feat: add release notes page",
     "fix: version check in the installer",
     "docs: explain the release process",
-    "chore: pipelinekit 0.2.0",
     "chore: bump pipelinekit to 0.2.0",
     "chore(deps): bump lodash from 4.17.20 to 4.17.21 [skip ci]",
     "chore: update next to 15.0.1",
@@ -1171,6 +1202,10 @@ ORDINARY_TITLES = [
     "hotfix: login crash",
     "fix: beta 2 flag is ignored",
     "chore: merge main into develop",
+    "ci: bump python version to 3.12",
+    "chore: update .NET version to 9.0",
+    "chore: release script",
+    "chore: minor update",
 ]
 RELEASE_HEADS = [
     "chore/212-release-v0.2.0",
@@ -1213,12 +1248,18 @@ RELEASE_HEADS = [
     "chore/12-major-version-bump",
     "chore/12-hotfix-1.0.1",
     "chore/12-rc1",
+    "staging-eu",
+    "snapshot",
 ]
 ORDINARY_HEADS = [
     "fix/release-1.2-regression",
     "feat/release-2.0-banner",
     "docs/release-1.2-notes",
     "feat/12-release-notes",
+    "feat/21-v2",
+    "feat/3-v2",
+    "feat/61-v2",
+    "release-notes-page",
 ]
 # (head, base, default branch)
 RELEASE_BRANCHES = [
@@ -1399,10 +1440,13 @@ def test_a_diff_that_cannot_be_read_is_not_taken_for_ordinary(sb):
 
 
 def test_many_files_that_can_hold_a_version_are_held():
-    names = "\0".join(f"pkg{n}/package.json" for n in range(61))
-    repo = SimpleNamespace(remote="origin", try_git=lambda *args: (0, names, ""))
+    count = ship.MAX_VERSION_FILES + 1
+    meta = ":100644 100644 " + "1" * 40 + " " + "2" * 40 + " M"
+    raw = "".join(f"{meta}\0pkg{n}/package.json\0" for n in range(count))
+    repo = SimpleNamespace(remote="origin", try_git=lambda *args: (0, raw, ""))
     assert ship.version_change(repo, "main") == (
-        "the diff changes 61 files that can hold a version",
+        f"the diff changes {count} files that can hold a version: "
+        "a new version is a release",
         "",
     )
 
@@ -1434,6 +1478,332 @@ def test_a_failed_git_command_is_told_without_its_hints():
     assert ship.git_said(text, 128) == "fatal: Not possible to fast-forward."
     assert ship.git_said("hint: only\nplain words\n", 1) == "plain words"
     assert ship.git_said("", 7) == "exit 7"
+
+
+# ---------------------------------------------------------------- what the diff holds
+
+OLD, NEW = "1" * 40, "2" * 40
+
+
+def verdict(path, before, after, own=()):
+    """What the diff rules say about one changed file, without a repository."""
+    old = OLD if before else "0" * 40
+    raw = f":100644 100644 {old} {NEW} M\0{path}\0"
+    was = before.splitlines()
+    added = "".join(f"+{line}\n" for line in after.splitlines() if line not in was)
+    patch = f"diff --git a/{path} b/{path}\n--- a/{path}\n+++ b/{path}\n@@ -1 +1 @@\n"
+
+    def try_git(*args):
+        if "--raw" in args:
+            return 0, raw, ""
+        if args[0] == "cat-file":
+            return 0, {OLD: before, NEW: after}[args[2]], ""
+        return 0, patch + added, ""
+
+    repo = SimpleNamespace(remote="origin", try_git=try_git)
+    why, error = ship.version_change(repo, "main", own)
+    assert not error
+    return why
+
+
+def bump(path, text, old="1.2.3", new="1.2.4"):
+    return path, text % old, text % new
+
+
+POM = (
+    "<project>\n  <modelVersion>4.0.0</modelVersion>\n"
+    "  <parent>\n    <artifactId>base</artifactId>\n"
+    "    <version>%s</version>\n  </parent>\n"
+    "  <artifactId>demo</artifactId>\n  <version>%s</version>\n"
+    "  <dependencies>\n    <dependency>\n      <artifactId>junit</artifactId>\n"
+    "      <version>%s</version>\n    </dependency>\n  </dependencies>\n"
+    "</project>\n"
+)
+PLIST = (
+    '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0">\n<dict>\n'
+    "  <key>CFBundleName</key>\n  <string>Demo</string>\n"
+    "  <key>CFBundleShortVersionString</key>\n  <string>%s</string>\n"
+    "</dict>\n</plist>\n"
+)
+CHART = (
+    'apiVersion: v2\nname: demo\nversion: %s\nappVersion: "%s"\n'
+    "dependencies:\n  - name: redis\n    version: %s\n"
+)
+CARGO = (
+    '[package]\nname = "demo"\nversion = "%s"\n\n'
+    '[dependencies.clap]\nversion = "%s"\nfeatures = ["derive"]\n'
+)
+ENGINES = '{\n  "name": "x",\n  "version": "1.0.0",\n  "engines": {"node": ">=%s"}\n}\n'
+WORKFLOW = (
+    'steps:\n  - uses: actions/setup-python@%s\n    with:\n      python-version: "%s"\n'
+)
+HELD_FILES = [
+    ("pom.xml", POM % ("3.0.0", "1.2.3", "4.13.1"), POM % ("3.0.0", "1.2.4", "4.13.1")),
+    bump(
+        "demo.nuspec",
+        "<package>\n  <metadata>\n    <id>demo</id>\n"
+        "    <version>%s</version>\n  </metadata>\n</package>\n",
+    ),
+    bump("src/App/Properties/AssemblyInfo.cs", '[assembly: AssemblyVersion("%s.0")]\n'),
+    bump("ios/Demo/Info.plist", PLIST),
+    bump(
+        "CMakeLists.txt",
+        "cmake_minimum_required(VERSION 3.20)\nproject(demo VERSION %s)\n",
+    ),
+    bump("DESCRIPTION", "Package: demo\nVersion: %s\n"),
+    bump(".bumpversion.cfg", "[bumpversion]\ncurrent_version = %s\n"),
+    bump(".release-please-manifest.json", '{\n  ".": "%s"\n}\n'),
+    bump("VERSION.md", "%s\n"),
+    bump("build/version.properties", "version=%s\n"),
+    bump("package.json", '{"name":"demo-app","version":"%s","private":true}\n'),
+    bump("Cargo.toml", '[package]\nname = "demo"\nversion = "%s"\n'),
+    (
+        "Chart.yaml",
+        CHART % ("1.2.3", "1.2.3", "17.0.0"),
+        CHART % ("1.2.4", "1.2.3", "17.0.0"),
+    ),
+    (
+        "charts/demo/Chart.yaml",
+        CHART % ("1.2.3", "1.2.3", "17.0.0"),
+        CHART % ("1.2.3", "1.2.4", "17.0.0"),
+    ),
+    bump(
+        "openapi.yaml",
+        "openapi: 3.0.3\ninfo:\n  title: Demo\n  version: %s\npaths: {}\n",
+    ),
+    bump("demo.cabal", "name: demo\nversion: %s\n"),
+    bump("meson.build", "project('demo', 'c', version : '%s')\n"),
+    bump("snapcraft.yaml", "name: demo\nversion: '%s'\n"),
+    bump("galaxy.yml", "namespace: acme\nname: demo\nversion: %s\n"),
+    bump(
+        "deno.jsonc",
+        '{\n  // the package\n  "name": "@acme/demo",\n  "version": "%s"\n}\n',
+    ),
+    bump(
+        "src-tauri/tauri.conf.json",
+        '{\n  "productName": "demo",\n  "version": "%s"\n}\n',
+    ),
+    bump(
+        "setup.py", 'from setuptools import setup\n\nsetup(name="demo", version="%s")\n'
+    ),
+    bump("include/version.h", '#define DEMO_VERSION "%s"\n'),
+    bump(
+        "app/build.gradle",
+        'android {\n  defaultConfig {\n    versionName "%s"\n  }\n}\n',
+    ),
+]
+ORDINARY_FILES = [
+    ("pom.xml", POM % ("3.0.0", "1.2.3", "4.13.1"), POM % ("3.0.1", "1.2.3", "4.13.1")),
+    ("pom.xml", POM % ("3.0.0", "1.2.3", "4.13.1"), POM % ("3.0.0", "1.2.3", "4.13.2")),
+    ("Cargo.toml", CARGO % ("1.0.0", "4.4"), CARGO % ("1.0.0", "4.5")),
+    (
+        "Chart.yaml",
+        CHART % ("1.2.3", "1.2.3", "17.0.0"),
+        CHART % ("1.2.3", "1.2.3", "17.0.1"),
+    ),
+    ("package.json", ENGINES % "18.0.0", ENGINES % "20.0.0"),
+    bump("package-lock.json", '{\n  "name": "demo",\n  "version": "%s"\n}\n'),
+    bump("tests/fixtures/package.json", '{"name": "x", "version": "%s"}\n'),
+    bump("vendor/lib/VERSION", "%s\n"),
+    (".github/workflows/ci.yml", WORKFLOW % ("v5", "3.12"), WORKFLOW % ("v6", "3.13")),
+    bump("docker-compose.yml", 'version: "%s"\nservices: {}\n', "3.8", "3.9"),
+    bump(".nvmrc", "%s\n", "20.1.0", "22.0.0"),
+    bump("README.md", "# Demo\n\nInstall version %s.\n"),
+    ("docs/guide.md", "# Guide\n", "# Guide\n\n## 2.0.0\n\nversion = 2.0.0\n"),
+    (".readthedocs.yaml", "", "version: 2\nbuild:\n  os: ubuntu-22.04\n"),
+    bump("config/app.yaml", "host: %s\nport: 8080\n", "10.0.0.1", "10.0.0.2"),
+    bump("config/app.ini", "[server]\nhost = %s\n", "10.0.0.1", "10.0.0.2"),
+]
+
+
+@pytest.mark.parametrize(("path", "before", "after"), HELD_FILES)
+def test_a_version_of_the_project_is_held_in_any_manifest(path, before, after):
+    assert verdict(path, before, after).endswith(": a new version is a release")
+
+
+@pytest.mark.parametrize(("path", "before", "after"), ORDINARY_FILES)
+def test_a_version_of_something_else_is_ordinary(path, before, after):
+    assert verdict(path, before, after) == ""
+
+
+@pytest.mark.parametrize("parser", ["tomllib", "by line"])
+def test_toml_is_read_the_same_without_a_parser(monkeypatch, parser):
+    if parser == "by line":
+        monkeypatch.setattr(ship, "tomllib", None)
+    held_one = bump("Cargo.toml", '[package]\nname = "demo"\nversion = "%s"\n')
+    assert verdict(*held_one).startswith("the diff sets a version in Cargo.toml")
+    assert (
+        verdict("Cargo.toml", CARGO % ("1.0.0", "4.4"), CARGO % ("1.0.0", "4.5")) == ""
+    )
+    assert (
+        verdict(
+            "pyproject.toml", PYPROJECT % ("1.0.0", "2.0"), PYPROJECT % ("1.0.0", "2.1")
+        )
+        == ""
+    )
+
+
+NOTES = "Changelog\n=========\n\n%s1.2.3\n-----\n\n- first\n"
+# (file, what the branch adds above the last version)
+HELD_NOTES = [
+    ("CHANGELOG.md", "1.2.4\n=====\n\n- second\n\n"),
+    ("CHANGELOG.md", "1.2.4 (2026-11-10)\n------------------\n\n- second\n\n"),
+    ("CHANGELOG.md", "## demo-app 1.2.4\n\n- second\n\n"),
+    ("CHANGELOG.md", "## demo-app@1.2.4\n\n- second\n\n"),
+    ("CHANGELOG.md", "#### [1.2.4]\n\n- second\n\n"),
+    ("CHANGELOG.md", "## \U0001f389 1.2.4\n\n- second\n\n"),
+    ("CHANGELOG.md", "**1.2.4**\n\n- second\n\n"),
+    ("CHANGELOG.md", "demo-app 1.2.4 - November 10, 2026\n\n- second\n\n"),
+    ("CHANGELOG.md", "Version 1.2.4\n\n- second\n\n"),
+    ("CHANGELOG.md", "[1.2.4]: https://example.test/compare/v1.2.3...v1.2.4\n\n"),
+    ("RELEASE_NOTES.md", "## 1.2.4\n\n- second\n\n"),
+    ("CHANGELOG", "1.2.4\n-----\n\n- second\n\n"),
+    ("docs/CHANGELOG.rst", "1.2.4\n-----\n\n- second\n\n"),
+    ("HISTORY.rst", "1.2.4 (2026-11-10)\n++++++++++++++++++\n\n- second\n\n"),
+    ("NEWS", "demo-app 1.2.4\n\n- second\n\n"),
+]
+ORDINARY_NOTES = [
+    "Unreleased\n----------\n\n- bump lodash to 4.17.21\n\n",
+    "Unreleased\n----------\n\n- needs Python 3.12 or newer\n\n",
+    "Unreleased\n----------\n\n- fix a crash that 1.2.3 brought in\n\n",
+    "Unreleased\n----------\n\n- second\n\n",
+]
+
+
+@pytest.mark.parametrize(("path", "added"), HELD_NOTES)
+def test_a_new_version_in_the_release_notes_is_held(path, added):
+    own = ship.own_words({"nameWithOwner": "o/demo-app"})
+    why = verdict(path, NOTES % "", NOTES % added, own)
+    assert (
+        why == f"the diff adds a version heading to {path}: a new version is a release"
+    )
+
+
+@pytest.mark.parametrize("added", ORDINARY_NOTES)
+def test_a_note_about_another_version_is_ordinary(added):
+    own = ship.own_words({"nameWithOwner": "o/demo-app"})
+    assert verdict("CHANGELOG.md", NOTES % "", NOTES % added, own) == ""
+
+
+def test_a_new_file_of_release_notes_for_one_version_is_held():
+    why = verdict("docs/releases/1.2.4.md", "", "# What is new\n\n- second\n")
+    assert why == "the diff changes docs/releases/1.2.4.md: a new version is a release"
+
+
+# ---------------------------------------------------------------- promotions
+
+
+def test_a_branch_that_pull_requests_were_merged_into_is_a_stage():
+    assert held({"headRefName": "team-blue"}) == ("pass", False)
+    assert held({"headRefName": "team-blue"}, merged='[{"number": 3}]') == (
+        "fail",
+        True,
+    )
+
+
+def test_a_topic_branch_is_not_asked_about():
+    def gh(*args, **more):
+        raise AssertionError("asked GitHub about a topic branch")
+
+    assert ship.promoted(SimpleNamespace(gh=gh), BRANCH) == ("", "")
+
+
+@pytest.mark.parametrize(
+    "answer", [(1, "", "HTTP 502"), (0, "<html>", ""), (0, "", ""), (0, "null", "")]
+)
+def test_no_answer_about_a_branch_is_not_taken_for_no(answer):
+    repo = SimpleNamespace(gh=lambda *args, **more: answer)
+    why, error = ship.promoted(repo, "team-blue")
+    assert not why
+    assert error.startswith("cannot ask GitHub what was merged into team-blue: ")
+
+
+def test_merge_refuses_a_branch_that_pull_requests_were_merged_into(sb):
+    sb.passed()
+    sb.state(pr=sb.pr(headRefName="team-blue"), merged_into=[{"number": 3}])
+    done = refused(sb, "release", 3)
+    assert last_line(done) == (
+        "STOP: release: pull requests were merged into team-blue: merging it on "
+        "is a promotion. Ask the user."
+    )
+    asked = sb.calls("pr list")[0]
+    assert asked[asked.index("--base") + 1] == "team-blue"
+    assert asked[asked.index("--state") + 1] == "merged"
+
+
+def test_merge_waits_when_github_does_not_say_what_was_merged(sb):
+    sb.passed()
+    sb.state(pr=sb.pr(headRefName="team-blue"), list_error="HTTP 502")
+    done = refused(sb, "release", 1)
+    assert "cannot ask GitHub what was merged into team-blue: " in last_line(done)
+
+
+# ---------------------------------------------------------------- the recorded answer
+
+
+def test_a_passed_round_has_to_say_whether_it_is_a_release(sb):
+    done = sb.ship("record", "--result", "pass")
+    assert done.returncode == 2
+    assert "--release yes or no" in done.stderr
+    assert not (sb.work / "docs").exists()
+    assert sb.ship("record", "--result", "fail", "--open", "F1").returncode == 0
+
+
+def test_merge_refuses_what_the_record_calls_a_release(sb):
+    sb.passed("yes")
+    done = refused(sb, "release", 3)
+    assert last_line(done) == (
+        "STOP: release: the test record says this is a release. Ask the user."
+    )
+
+
+def test_a_record_without_the_answer_does_not_pass(sb):
+    sb.passed()
+    file = sb.work / "docs" / "uat" / "feat-1-thing.json"
+    data = json.loads(file.read_text())
+    del data["rounds"][-1]["release"]
+    file.write_text(json.dumps(data))
+    assert "--release yes or no" in last_line(refused(sb, "release", 1))
+
+
+# ---------------------------------------------------------------- project lines
+
+
+def test_project_lines_name_release_files_and_branches():
+    texts = [
+        "# Rules\n\nRelease files: app/build.txt, deploy/\n"
+        "- **Release branches:** `team-*`\n",
+        "Release file: *.ver\nThe release files: are listed above.\n"
+        "Release branch: Shipping\n",
+    ]
+    files, branches = ship.project_lines(texts)
+    assert files == ["app/build.txt", "deploy/", "*.ver"]
+    assert branches == ["team-*", "shipping"]
+
+
+def test_merge_refuses_a_change_to_a_release_file_of_the_project(sb):
+    sb.change("CLAUDE.md", "# Rules\n", "# Rules\n\nRelease files: app/build.txt\n")
+    sb.change("app/build.txt", "7\n", "8\n")
+    sb.passed()
+    done = refused(sb, "release", 3)
+    assert last_line(done) == (
+        "STOP: release: the diff changes app/build.txt, a release file of this "
+        "project. Ask the user."
+    )
+
+
+def test_a_file_the_project_does_not_name_is_ordinary(sb):
+    sb.change("app/build.txt", "7\n", "8\n")
+    assert gates(sb.ship("status", "--json"))["release"]["state"] == "pass"
+
+
+def test_merge_refuses_a_release_branch_of_the_project(sb):
+    sb.change("CLAUDE.md", "# Rules\n", "# Rules\n\nRelease branches: feat/1-*\n")
+    sb.passed()
+    done = refused(sb, "release", 3)
+    assert last_line(done) == (
+        "STOP: release: feat/1-thing is a release branch of this project. Ask the user."
+    )
 
 
 # ---------------------------------------------------------------- answers, limits
@@ -1475,7 +1845,7 @@ def test_finding_ids_split_on_commas_and_semicolons(sb):
 
 def test_record_refuses_the_default_branch(sb):
     sb.git("checkout", "-q", "main")
-    done = sb.ship("record", "--result", "pass")
+    done = sb.ship("record", "--result", "pass", "--release", "no")
     assert done.returncode == 2
     assert "main is not the branch of a pull request" in done.stderr
     assert not (sb.work / "docs").exists()
