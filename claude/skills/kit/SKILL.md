@@ -1,6 +1,6 @@
 ---
 name: kit
-description: Reports what is not working in the pipelinekit install - missing or changed files, hooks that no longer block or allow what they should, settings entries that went missing, environment conflicts - and what the hooks blocked, asked about or failed on in the last days. Use when a kit hook (bash-guard, block-bare-repo-markers, commit-msg, pre-commit, pre-push) blocks something unexpectedly or fails, right after installing or updating the kit, or when the user asks whether their Claude Code setup, hooks or guardrails still work.
+description: Reports what is not working in the pipelinekit install - missing or changed files, hooks that no longer block or allow what they should, settings entries that went missing, environment conflicts - and what the hooks blocked, asked about or failed on in the last days. Use when a kit hook (bash-guard, block-bare-repo-markers, commit-msg, pre-commit, pre-push) blocks something unexpectedly or fails, when the session-start check reported problems in the install, right after installing or updating the kit, or when the user asks whether their Claude Code setup, hooks or guardrails still work.
 argument-hint: "[--verbose | --quick | --json | --days N]"
 allowed-tools: Bash(python3 *skills/kit/check.py*)
 ---
@@ -52,4 +52,5 @@ Exit code: 0 healthy, 1 problems found, 2 the checker itself failed.
 
 - A `permissions.deny` match and a prompt the user declined leave no trace, so they are not in the report.
 - Activity covers the kit's own hooks, from the first refusal after this version was installed. `PIPELINEKIT_LOG=0` switches the log off; `--quick` leaves the section out.
+- `session-check.py` runs this checker with `--quick` when a session starts and prints one line only when something fails. `PIPELINEKIT_SESSION_CHECK=0` switches that off.
 - The report describes the session it runs in. Another environment (a different WSL distro, an SSH host, a sandboxed session) can differ; run the check there.

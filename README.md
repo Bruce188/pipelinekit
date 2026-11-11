@@ -31,6 +31,7 @@ The installer merges `claude/config/settings.template.json` into `~/.claude/sett
 | `bash-guard.py` | PreToolUse `Bash` (`if`: git, docker, podman, curl, wget, psql, mysql, mariadb, sqlite3) | Blocks pushes to other remotes or main, remote changes, global git config writes, hook bypasses (`--no-verify`, `core.hooksPath`), staging `config/never-stage.txt` paths or bulk staging, sensitive docker mounts, and `curl \| sh`. Asks before `docker --privileged` and DROP/TRUNCATE |
 | `block-bare-repo-markers.py` | PreToolUse `Edit`/`Write` | Blocks assembling a bare git repo (HEAD + config/objects/refs) in the working directory or one level down |
 | `post-edit-format.sh` | PostToolUse `Edit`/`Write` | Runs the project's own prettier on ts/js/json/yaml |
+| `session-check.py` | SessionStart `startup` | Quick self-check when a session starts: silent when the install is healthy, one line naming `/kit` when something is broken. Never blocks. `PIPELINEKIT_SESSION_CHECK=0` switches it off |
 
 ### Git hooks
 
