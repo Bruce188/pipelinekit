@@ -607,12 +607,15 @@ def check_judge_tools(c: Check) -> None:
     except OSError:
         head = None
     # Only a key at column 0 is the tools key. Any other line whose key reads
-    # tools (indented, inside a block scalar, or quoted) makes the file suspect.
+    # tools (indented, inside a block scalar, or quoted) makes the file suspect,
+    # and so does any indented line: YAML joins it to the value above it.
     tools, other = [], False
     for line in head or []:
         if re.match(r"tools\s*:", line):
             tools.append(line.split(":", 1)[1])
-        elif ":" in line and line.split(":", 1)[0].strip(" \t\"'") == "tools":
+        elif line.startswith((" ", "\t")) or (
+            ":" in line and line.split(":", 1)[0].strip(" \t\"'") == "tools"
+        ):
             other = True
     if (
         not other

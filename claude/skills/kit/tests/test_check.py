@@ -283,6 +283,12 @@ JUDGE_TOOLS_LINE = "tools: Read, Grep, Glob\n"
         (JUDGE_TOOLS_LINE, "description: |\n  tools: Read, Grep, Glob\n"),
         (JUDGE_TOOLS_LINE, "x:\n  tools: Read, Grep, Glob\n"),
         (JUDGE_TOOLS_LINE, JUDGE_TOOLS_LINE + '"tools": Bash\n'),
+        (JUDGE_TOOLS_LINE, JUDGE_TOOLS_LINE + "  tools: Bash\n"),
+        # YAML joins an indented line to the value above it, empty lines or not.
+        (JUDGE_TOOLS_LINE, JUDGE_TOOLS_LINE + "  , Bash\n"),
+        (JUDGE_TOOLS_LINE, JUDGE_TOOLS_LINE + "\n  , Bash\n"),
+        # An indented --- closes no frontmatter either.
+        ("tools: Read, Grep, Glob\n---\n", "tools: Read, Grep, Glob\n ---\n"),
         # An indented --- opens no frontmatter.
         ("---\nname: kit-judge\n", " ---\nname: kit-judge\n"),
     ],
