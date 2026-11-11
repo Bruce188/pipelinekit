@@ -127,7 +127,10 @@ class Kit:
             cwd=self.live,
         )
         out = p.stdout + p.stderr
-        return p.returncode, out, (out.strip().splitlines() or [""])[-1]
+        # The result line is the last line of stdout; the installer's warnings
+        # (no gitleaks on this machine, say) arrive on stderr after it.
+        said = p.stdout.strip().splitlines() or p.stderr.strip().splitlines()
+        return p.returncode, out, (said or [""])[-1]
 
     def push(self, subject="feat: more", change=None):
         """Somebody else pushes a commit; `change(clone)` edits the kit."""
