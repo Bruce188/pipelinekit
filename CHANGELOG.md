@@ -88,6 +88,27 @@ kit used to ship, so those parts are gone.
   test reports) is on the never-stage list, and `/kit` reports whether `gh`
   and Playwright are available.
 
+### Design
+
+- `frontend-design` skill, vendored unchanged from `anthropics/skills`
+  (`skills/frontend-design` at commit
+  `41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f`) under the Apache License 2.0.
+  `SOURCE.md` in its folder records the commit, the checksums and how to move
+  to a newer commit.
+- The `CLAUDE.md` template has a Design section: load `frontend-design` before
+  building or reshaping anything a person looks at; a project's own design
+  system and the host's rules for the output come first; `dataviz` decides
+  chart form when the session has it; skip it for small fixes inside an
+  existing design.
+- `docs-writer` has a Design section: `frontend-design` guides new snippets,
+  template changes and raw HTML in a page, within the template's CSS
+  variables and without remote assets.
+- `/kit` adds an `[info]` line when a `frontend-design` plugin is enabled in
+  the user settings next to the kit's copy, and says how to keep one.
+- The installer moves a `frontend-design` skill of your own to
+  `~/.claude/pipelinekit/backup/` once and prints where; a link of that name
+  is removed without touching its target.
+
 ### Security
 
 - Native permission rules: `deny` Read/Edit of `.env*` (except

@@ -139,3 +139,49 @@ def test_kit_answer_relays_the_plugin_line():
     assert "always mention the line about a `frontend-design` plugin" in fourth
     row = re.search(r"^\| Environment \|.*$", text, re.M).group(0)
     assert "a `frontend-design` plugin enabled next to the kit's copy" in row
+
+
+# ---------------------------------------------------------------- docs
+
+DOCS = (
+    "README.md",
+    "docs-source/components.md",
+    "docs-source/credits.md",
+    "CHANGELOG.md",
+    "documentation/components.html",
+    "documentation/credits.html",
+)
+
+# The count check of the docs: every "<number> skills" must say eight.
+COUNT = re.compile(
+    r"(^|[^0-9a-z])([0-9]+|one|two|three|four|five|six|seven|eight|nine|ten) skills",
+    re.I,
+)
+
+
+def test_docs_name_the_skill_its_source_and_licence():
+    for rel in DOCS:
+        text = read(rel)
+        for word in ("frontend-design", "anthropics/skills", "Apache"):
+            assert word in text, (rel, word)
+
+
+def test_credits_name_the_vendored_skill():
+    assert "no vendored third-party source" not in read("docs-source/credits.md")
+
+
+def test_skill_counts_say_eight():
+    assert "8 skills" in read("docs-source/components.md")
+    for rel in ("docs-source/index.md", "docs-source/installation.md"):
+        assert "eight skills" in read(rel), rel
+    paths = [REPO / "README.md"]
+    paths += sorted(p for p in (REPO / "docs-source").rglob("*") if p.is_file())
+    for path in paths:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            for match in COUNT.finditer(line):
+                assert match.group(2).lower() in ("8", "eight"), (path.name, line)
+
+
+def test_template_line_count_is_not_the_old_one():
+    for rel in ("README.md", "docs-source/components.md"):
+        assert "about 60 lines" not in read(rel), rel

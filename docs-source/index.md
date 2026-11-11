@@ -4,7 +4,7 @@ diataxis: explanation
 
 # pipelinekit documentation
 
-pipelinekit v0.1.0 is a small Claude Code config kit. It contains guard hooks, permission rules, global git hooks, seven skills, a short `CLAUDE.md` template, and an installer that copies them into `~/.claude`.
+pipelinekit v0.1.0 is a small Claude Code config kit. It contains guard hooks, permission rules, global git hooks, eight skills, a short `CLAUDE.md` template, and an installer that copies them into `~/.claude`.
 
 <div data-snippet="search-widget"></div>
 

@@ -28,9 +28,11 @@ The kit has five layers. Hover a chip for a one-line summary, or use the buttons
    "chips": [{"label": "commit-msg", "tip": "Conventional commits, no attribution or emoji"},
              {"label": "pre-commit", "tip": "gitleaks on staged changes"},
              {"label": "pre-push", "tip": "No pushes to main or master"}]},
-  {"name": "Skills", "color": "#10b981", "count": "7 skills",
+  {"name": "Skills", "color": "#10b981", "count": "8 skills",
    "chips": [{"label": "dotnet-conventions"}, {"label": "deploy"}, {"label": "exchange-api-keys"},
-             {"label": "docs-writer"}, {"label": "mobile"},
+             {"label": "docs-writer"},
+             {"label": "frontend-design", "tip": "Visual design guidance, from anthropics/skills (Apache-2.0)"},
+             {"label": "mobile"},
              {"label": "kit", "tip": "Self-check, run as /kit"},
              {"label": "ship", "tip": "Test, fix and merge your own pull request"}]},
   {"name": "MCP", "color": "#8b5cf6",
@@ -136,6 +138,7 @@ With `ask`, Claude Code prompts you instead of refusing. `override` means a huma
 | `deploy` | Router for Vercel, Railway, Render, DigitalOcean App Platform and Azure (Container Apps, App Service): auth check, deploy, secrets without argv, verify, logs, rollback, and trading-bot overlap. Per-provider detail in `references/`. If a CLI is missing or not logged in, it stops and asks you |
 | `exchange-api-keys` | Exchange API keys for CryptoBargain and FundingRateArb: where they load from, never logging them, testnet vs mainnet, withdrawal-disabled and IP-restricted scopes, storage, rotation, leak runbook |
 | `docs-writer` | Render `docs-source/*.md` into self-contained HTML pages under `documentation/` with `render.py` and `template.html`, with optional data-driven interactive snippets |
+| `frontend-design` | Visual design guidance: aesthetic direction, typography, layout and copy, loaded before building or reshaping anything a person looks at (app or site UI, HTML pages and Artifacts, `docs-writer` snippets, charts and dashboards). Vendored unchanged from [`anthropics/skills`](https://github.com/anthropics/skills) (`skills/frontend-design` at a pinned commit) under the Apache License 2.0; `SOURCE.md` in its folder records the commit, the checksums and how to move to a newer one. The rest of the kit is MIT |
 | `mobile` | Android (Kotlin/Compose) builds and device access from WSL2, iPhone home-screen web apps, Expo/EAS cloud builds for iOS, release and security checklist |
 | `kit` | Self-check, run as `/kit`: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, environment conflicts, what the hooks blocked or failed on in the last days, and whether a newer kit is available. `/kit update` applies it after asking |
 | `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then `ship.py` merges once every gate holds (own pull request, not a release, no required review, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
@@ -151,7 +154,7 @@ In 0.1.0, `deploy` replaces the five separate `*-ops` skills and the per-provide
 | Install | Every hook, the event-log helper, git hook and skill is present; hooks are executable and have LF line endings; `settings.json` is valid, its hook commands point to files that exist, attribution is off and the secret deny rules are there; the global `core.hooksPath` |
 | Changes since install | Each installed file against the hash recorded at install time; the kit's hook entries and deny/ask rules in `settings.json` |
 | Live probe | Each hook gets input it must block and input it must allow: `git commit --no-verify`, a `docker` mount of `/etc`, `curl` piped into `sh`, `DROP TABLE` through `psql`, a `HEAD` file next to `refs/`, a non-conventional commit message, a push to `main`. The session-start check must report an install with nothing in it and say nothing about this one. Each refusal must also arrive in an event log, which the probe keeps in a temporary directory |
-| Environment | python3, Claude Code and gitleaks versions; whether `gh` and Playwright are available; WSL; a repository that sets its own `core.hooksPath`; a Bash sandbox that keeps `gh` from reading its own login file |
+| Environment | python3, Claude Code and gitleaks versions; whether `gh` and Playwright are available; WSL; a repository that sets its own `core.hooksPath`; a Bash sandbox that keeps `gh` from reading its own login file; a `frontend-design` plugin enabled next to the kit's copy, as an `[info]` line that says how to keep one. Only the user-level `settings.json` is read, so a plugin enabled in one project's settings is not reported |
 | Updates | Whether the remote of the checkout the install was made from has commits this install lacks: `up to date`, `update available` or `not checked`. Information only, never a problem. Not part of `--quick` |
 | Activity | What the kit's hooks did in the last 7 days, read from the event log: each rule that blocked, asked, was overridden or failed, with a count and the last time. The 20 newest rules are listed, and a hook that failed is listed however old it is. See [Rule ids and the event log](#rule-ids-and-the-event-log). Not part of `--quick` |
 
@@ -276,7 +279,7 @@ Exit code 0 means done, 1 means a gate or a check failed, 2 means the helper cou
 
 ## CLAUDE.md template
 
-`claude/CLAUDE.md.template` is about 60 lines of English with no imported rule files. The installer fills in `${USER_NAME}`, `${USER_EMAIL}` and `${CLAUDE_HOME}` and writes the result to `~/.claude/CLAUDE.md`. It covers:
+`claude/CLAUDE.md.template` is 67 lines of English with no imported rule files. The installer fills in `${USER_NAME}`, `${USER_EMAIL}` and `${CLAUDE_HOME}` and writes the result to `~/.claude/CLAUDE.md`. It covers:
 
 - your identity;
 - git rules: commit only when asked, conventional commits, no AI attribution, no workflow jargon in commit text, the never-stage list, `.git/info/exclude` for Claude-specific ignores, and no direct pushes to `main`;
@@ -284,6 +287,7 @@ Exit code 0 means done, 1 means a gate or a check failed, 2 means the helper cou
 - a base-branch detection snippet;
 - serena for symbol navigation, Grep/Glob for text;
 - decisions that are yours to make, asked as interactive questions: two to four options, each with its upside and downside, the recommended one first;
+- design: load `frontend-design` before building or reshaping anything a person looks at; the project's own design system or brand comes first, then the host's rules for the output, then the skill; the `dataviz` skill, when the session has it, decides chart form; `docs-writer` pages keep the template's CSS variables; skip it for work with no visual output and for small fixes inside an existing design;
 - GitHub habits with `gh`: issues with acceptance criteria before work, `<type>/<issue#>-<slug>` branches, draft PRs, finishing its own PRs with the `ship` skill, reading CI logs, releases when you ask;
 - the deploy CLIs.
 
