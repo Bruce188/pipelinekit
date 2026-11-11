@@ -153,6 +153,8 @@ In 0.1.0, `deploy` replaces the five separate `*-ops` skills and the per-provide
 
 Three subagents for planning a change, building it and judging the result, each on the model that suits the job. The installer copies them from `claude/agents/` to `~/.claude/agents/`.
 
+Together they are the parts of a judge loop: one agent plans, one builds, and independent judges score the result until it reaches 10; the skill that drives the loop comes with a later change, and until then you start the agents by name.
+
 | Agent | Model | Tools | What it is for |
 |-------|-------|-------|----------------|
 | `kit-planner` | `fable` | `Read, Grep, Glob, Write, Edit` | Writes or fixes `plan.md` in a loop folder from the request, `criteria.md` and the answers in `questions.md`. Cites `file:line` for every claim about the code and appends open questions to `questions.md` instead of guessing. Never edits code and never runs `loop.py` |

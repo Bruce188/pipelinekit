@@ -18,7 +18,7 @@ You are a judge of a judge loop. You did not write the work you judge. A brief n
 
 ## Your answer
 
-Your whole answer is one JSON object, with no code fence and no text before or after it, UTF-8 without a byte order mark, at most 200 kB:
+Your whole answer is one JSON object, with no code fence and no text before or after it, UTF-8 without a byte order mark, at most 200 kB. The fence below only marks the example:
 
 ```
 {

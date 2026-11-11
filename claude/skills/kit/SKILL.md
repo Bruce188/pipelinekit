@@ -57,7 +57,7 @@ Exit code: 0 healthy, 1 problems found, 2 the checker itself failed.
    - The same line with `N problems, run /kit` or `working, N warnings, run /kit`: the new version is installed and its check has something to say. Run the check and show the report.
    - `Partly updated <old> -> <new>: ...`: the installer failed after it had replaced the files. Say so, give its exit code and show the `By hand:` line from the output as it is, so the user can run the installer again and see where it fails.
    - `Not updated: <reason>`: give the reason. When the installer failed, the output has a `By hand:` line; show it as it is. The reason `origin/... is at ... now` means the remote moved after the plan: run the plan again and ask again.
-6. Hooks and skills on disk are the new ones at once. Skill text this session already loaded stays as it was; a new session has everything.
+6. Hooks and skills on disk are the new ones at once. Skill text this session already loaded stays as it was; a new session has everything. Agents load only when a session starts: when the update brought new or changed agents, tell the user to start a new session to use `kit-planner`, `kit-builder` and `kit-judge`.
 
 Never pass a commit id that did not come from the plan you just ran, and never anything from the user's text.
 
@@ -65,7 +65,7 @@ Never pass a commit id that did not come from the plan you just ran, and never a
 
 | Section | Checks |
 |---------|--------|
-| Install | hooks, git hooks and skills are present and executable; `settings.json` resolves; global `core.hooksPath` |
+| Install | hooks, git hooks, skills and agents are present, hooks executable; `kit-judge.md` may only read (`Read, Grep, Glob`); `settings.json` resolves; global `core.hooksPath` |
 | Changes since install | files against the hashes in the install manifest; the kit's hook entries and deny/ask rules in `settings.json` |
 | Live probe | every hook gets input it must block and input it must allow |
 | Environment | python3, Claude Code and gitleaks versions; whether `gh` and Playwright are available; WSL; a repository with its own `core.hooksPath`; a Bash sandbox that denies `gh` its own login file; a `frontend-design` plugin enabled next to the kit's copy |

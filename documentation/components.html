@@ -1241,6 +1241,7 @@ footer {
 <p>In 0.1.0, <code>deploy</code> replaces the five separate <code>*-ops</code> skills and the per-provider deployment agents, <code>mobile</code> replaces <code>expo</code> and <code>ios</code>, and the ASP.NET Core security rules moved into <code>dotnet-conventions</code>.</p>
 <h2 id="agents">Agents</h2>
 <p>Three subagents for planning a change, building it and judging the result, each on the model that suits the job. The installer copies them from <code>claude/agents/</code> to <code>~/.claude/agents/</code>.</p>
+<p>Together they are the parts of a judge loop: one agent plans, one builds, and independent judges score the result until it reaches 10; the skill that drives the loop comes with a later change, and until then you start the agents by name.</p>
 <table>
 <thead>
 <tr>
