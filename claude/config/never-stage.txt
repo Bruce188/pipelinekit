@@ -58,6 +58,7 @@ docs/progress.md
 docs/review.md
 docs/review-*.md
 docs/reviews/
+docs/uat/
 docs/prompts*.md
 docs/analysis*.md
 docs/context-dump.md

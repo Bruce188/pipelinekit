@@ -34,6 +34,33 @@ kit used to ship, so those parts are gone.
   file hashes, the kit's settings entries); the check compares against it.
 - `verify.sh` runs the same checker, so the installer, CI and `/kit` agree.
 
+### Shipping
+
+- `ship` skill (`/ship`): Claude finishes the pull requests it opens. A fresh
+  agent acceptance-tests the change against the issue's criteria, findings are
+  fixed and tested again, and `claude/skills/ship/ship.py` merges once every
+  gate holds: own pull request, not a release, no required review, branch up
+  to date, a passed test for exactly this commit, green CI.
+- Release pull requests, tags, publishing, other people's pull requests and
+  anything behind branch protection stay with the user. A project opts out
+  with the line `Merges: ask first` in its `CLAUDE.md`.
+- The release gate reads the branches, the title and the diff. A version is
+  held wherever it is set, except in the places known to hold the versions of
+  other things (lock files, dependency tables, files that pin tools, CI,
+  tests, docs). `record --result pass` takes `--release yes` or `no`, a
+  project names its own with `Release files:` and `Release branches:` lines
+  in its `CLAUDE.md`, and a branch that pull requests were merged into counts
+  as a stage.
+- After marking a draft ready the helper watches the pull request for a
+  settle time before it merges (30 seconds, 90 where a check is still to
+  come; `--settle`), so a check or review that only starts then is not
+  skipped. A pull request without any check is not green where workflows run
+  on pull requests, and a check that was skipped on the draft does not count
+  as a run (`--allow-no-checks` says otherwise).
+- `gh pr merge --admin` is on the `permissions.ask` list, `docs/uat/` (local
+  test reports) is on the never-stage list, and `/kit` reports whether `gh`
+  and Playwright are available.
+
 ### Security
 
 - Native permission rules: `deny` Read/Edit of `.env*` (except

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.metadata
 import json
 import os
 import re
@@ -37,6 +38,7 @@ KIT_SKILLS = (
     "exchange-api-keys",
     "kit",
     "mobile",
+    "ship",
 )
 PLACEHOLDERS = ("${USER_NAME}", "${USER_EMAIL}", "${CLAUDE_HOME}")
 SECTIONS = (
@@ -652,6 +654,11 @@ def check_environment(c: Check) -> None:
             ["--version"],
             "claude CLI not on PATH (install: https://claude.ai/install.sh)",
         ),
+        (
+            "gh",
+            ["--version"],
+            "gh not installed (the ship skill needs it for pull requests)",
+        ),
     ):
         if not shutil.which(prog):
             c.add("environment", "info", missing)
@@ -659,7 +666,17 @@ def check_environment(c: Check) -> None:
         _, out, err = run([prog, *args])
         first = ((out or err).strip().splitlines() or ["version unknown"])[0]
         label = "claude CLI" if prog == "claude" else prog
-        c.add("environment", "pass", f"{label}: {first}")
+        c.add("environment", "pass", f"{label}: {first.removeprefix('gh version ')}")
+    try:
+        found = importlib.metadata.version("playwright")
+        c.add("environment", "pass", f"playwright: {found} (python3)")
+    except importlib.metadata.PackageNotFoundError:
+        c.add(
+            "environment",
+            "info",
+            "playwright not installed for python3 "
+            "(the ship skill tests web pages with it)",
+        )
     local = git_value("config", "--local", "--get", "core.hooksPath")
     if local and not same_path(local, c.path("git-hooks")):
         c.add(

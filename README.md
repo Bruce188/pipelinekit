@@ -27,7 +27,7 @@ The installer merges `claude/config/settings.template.json` into `~/.claude/sett
 | Piece | Where | What it does |
 |------|-------|--------------|
 | `permissions.deny` | settings | Claude can't read or edit `.env*` (not `.env.example`), keys, `~/.ssh`, `~/.aws`, `~/.kube/config`, `~/.config/gh/hosts.yml`, credentials files. Holds in bypass mode |
-| `permissions.ask` | settings | Prompts before editing Claude settings/hooks or `~/.gitconfig`, and before `reset --hard`, `clean -f`, force push, `branch -D`, `checkout/restore .`. Prompts in bypass mode too |
+| `permissions.ask` | settings | Prompts before editing Claude settings/hooks or `~/.gitconfig`, and before `reset --hard`, `clean -f`, force push, `branch -D`, `checkout/restore .`, `gh pr merge --admin`. Prompts in bypass mode too |
 | `bash-guard.py` | PreToolUse `Bash` (`if`: git, docker, podman, curl, wget, psql, mysql, mariadb, sqlite3) | Blocks pushes to other remotes or main, remote changes, global git config writes, hook bypasses (`--no-verify`, `core.hooksPath`), staging `config/never-stage.txt` paths or bulk staging, sensitive docker mounts, and `curl \| sh`. Asks before `docker --privileged` and DROP/TRUNCATE |
 | `block-bare-repo-markers.py` | PreToolUse `Edit`/`Write` | Blocks assembling a bare git repo (HEAD + config/objects/refs) in the working directory or one level down |
 | `post-edit-format.sh` | PostToolUse `Edit`/`Write` | Runs the project's own prettier on ts/js/json/yaml |
@@ -54,15 +54,16 @@ A repo with its own local `core.hooksPath` (husky, pre-commit framework, or a ma
 | `docs-writer` | Render `docs-source/*.md` into self-contained HTML pages under `documentation/`, with optional data-driven interactive snippets |
 | `mobile` | Android (Kotlin/Compose) builds and device access from WSL2, iPhone home-screen web apps, Expo/EAS cloud builds for iOS, release and security checklist |
 | `kit` | Self-check, run as `/kit`: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, and environment conflicts |
+| `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then `ship.py` merges once every gate holds (own pull request, not a release, no required review, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
 
 ### CLAUDE.md template
 
-`claude/CLAUDE.md.template` is about 50 lines long. It covers your identity,
+`claude/CLAUDE.md.template` is about 60 lines long. It covers your identity,
 git rules (conventional commits, no AI attribution, never-stage list, no
 direct pushes to `main`), the `docs/` and `documentation/` split, base-branch
-detection, serena vs Grep, GitHub issue/PR habits with `gh`, and the deploy
-CLIs. The installer renders it to
-`~/.claude/CLAUDE.md`.
+detection, serena vs Grep, GitHub issue/PR habits with `gh` (Claude tests and
+merges the pull requests it opens; releases stay yours), and the deploy CLIs.
+The installer renders it to `~/.claude/CLAUDE.md`.
 
 ### MCP servers
 
