@@ -91,6 +91,7 @@ for f in SKILL.md LICENSE.txt SOURCE.md; do
   cmp "$REPO_ROOT/claude/skills/frontend-design/$f" "$CLAUDE_HOME/skills/frontend-design/$f"
 done
 grep -q 'Merges: ask first' "$CLAUDE_HOME/CLAUDE.md"
+grep -qx '## Design' "$CLAUDE_HOME/CLAUDE.md"
 # The helper starts from its installed place and says why it cannot go on.
 (cd "$T" && python3 "$CLAUDE_HOME/skills/ship/ship.py" status --exit-zero | grep -q 'not inside a git repository')
 test ! -e "$CLAUDE_HOME/skills/commit-conventions"

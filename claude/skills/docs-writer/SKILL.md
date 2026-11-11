@@ -89,6 +89,10 @@ Each snippet's header comment documents its full JSON schema. Read it before use
 
 **New snippet:** add `snippets/<name>.html` with a header comment (purpose + usage), a root element carrying `class="pkit-<tag>"` and `data-snippet-mount="<name>"`, a `<style>` scoped to `.pkit-<tag>` using only the template's CSS variables (`--bg`, `--fg`, `--accent`, `--border`, ...), and an IIFE `<script>` that initialises every mount once (guard with `dataset.pkitInit`) and reads its data from `root.querySelector('script[type="application/json"]')`. No remote assets. Headings inside snippets use a `pkit-*` class so they stay out of the page ToC.
 
+## Design
+
+Load the `frontend-design` skill before adding a snippet, restyling `template.html` or writing raw HTML in a page's markdown source. Generated HTML is still never edited by hand. Snippets and raw HTML use only the template's CSS variables (`--bg`, `--fg`, `--accent`, `--border`, ...); a restyle changes the values of those variables in `template.html` and adds no hard-coded colours elsewhere. No remote assets: where `frontend-design` suggests a typeface or file from the network, use a system font stack or inline the asset. A page that is plain markdown needs no design pass.
+
 ## When to use something else
 
 - A shareable page in claude.ai, or a one-off explainer: use Artifacts / the claude.ai docs skill.

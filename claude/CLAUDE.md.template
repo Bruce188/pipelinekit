@@ -33,6 +33,14 @@ git rev-parse --verify "$BASE" 2>/dev/null || echo "ERROR: Base branch '$BASE' n
 - Decisions that are the user's to make: ask with the interactive question tool instead of prose. Two to four options per question. Each option states its upside and its downside. Put the option you recommend first and mark it "(Recommended)". Every question must make sense on its own. Without that tool, use a numbered list with the same parts. Do not ask about things that have a conventional default.
 - A kit hook (`bash-guard.py`, `block-bare-repo-markers.py`, `commit-msg`, `pre-commit`, `pre-push`) that blocks something unexpectedly or fails to start: run `/kit` to see what is broken before working around it. The same when a session starts with a `pipelinekit:` line about problems in the install.
 
+## Design
+
+- Before building or reshaping anything a person looks at, load the `frontend-design` skill: app or site UI, an HTML page or Artifact, a new `docs-writer` snippet or a change to its template, a chart or dashboard.
+- When several sources apply, this order holds: the project's own design system or brand; then the host's rules for the output (an Artifact's page contract and theme tokens); then `frontend-design`.
+- Charts: the `dataviz` skill, when the session has it, decides chart form, colours and marks; `frontend-design` decides the page around the chart.
+- `docs-writer` pages keep the template's CSS variables; there `frontend-design` guides new snippets, template changes and raw HTML in a page's markdown source.
+- Skip it for work with no visual output and for small fixes inside an existing design: follow what is there.
+
 ## GitHub (when the repo has a GitHub remote)
 
 Use `gh` and keep work traceable on GitHub:
