@@ -15,6 +15,7 @@ Project-specific rules only; user-global rules live in `~/.claude/CLAUDE.md`.
 | `claude/CLAUDE.md.template` | Rendered to `~/.claude/CLAUDE.md` by the installer |
 | `scripts/install.sh` | In-place overlay into `~/.claude`, settings merge, global git hooks, serena registration |
 | `scripts/verify.sh` | Post-install checks: runs `claude/skills/kit/check.py`, then greps for personal paths |
+| `scripts/ci-report.sh` | Opens or updates the issue for a failed scheduled CI run (the `report` job in `.github/workflows/ci.yml`); test in `tests/test_ci_report.sh` |
 | `tests/test_install.sh` | Installer test in a throwaway HOME |
 | `docs-source/` | Markdown sources for the docs site |
 | `documentation/` | Rendered HTML docs; regenerate with `python3 claude/skills/docs-writer/render.py` |

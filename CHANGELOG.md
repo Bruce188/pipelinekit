@@ -45,6 +45,10 @@ kit used to ship, so those parts are gone.
   starts: no output when the install is healthy, one line naming `/kit` when
   something is broken. It never blocks a session, and
   `PIPELINEKIT_SESSION_CHECK=0` switches it off.
+- CI runs the checker on a fresh install and on one with a hook removed. The
+  workflow also runs every Monday and on demand; a failed scheduled run opens
+  the issue `Weekly self-check failed` or adds a comment to it
+  (`scripts/ci-report.sh`).
 
 ### Shipping
 
