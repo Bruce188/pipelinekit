@@ -3,10 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Credits — pipelinekit</title>
-<meta name="description" content="Pipelinekit ships under the MIT license and stands on the shoulders of several upstream projects, plus inspiration from individual researchers and the Claude platform itself. This page consolidates every vendored upstream + its pinned SHA…">
-<meta name="generator" content="pipelinekit docs-writer/2 — rich-template">
-<style>
+<title>Credits</title>
+<meta name="description" content="These are pipelinekit&#x27;s license and the projects it builds on."><style>
 /* === Reset + variables === */
 *, *::before, *::after { box-sizing: border-box; }
 :root {
@@ -201,12 +199,6 @@ body {
   gap: 2rem;
   padding: 2rem 1.5rem;
 }
-@media (max-width: 900px) {
-  .layout { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; }
-  .toc { display: none; }
-  .toc.open { display: block; position: fixed; top: 60px; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 99; padding: 1.5rem; overflow-y: auto; }
-  .toc-mobile-btn { display: inline-flex; }
-}
 .toc-mobile-btn {
   display: none;
   border: 1px solid var(--border);
@@ -218,6 +210,13 @@ body {
   font-size: 0.85rem;
   align-items: center;
   gap: 0.4rem;
+}
+/* After the base rules above, or their display wins over the breakpoint. */
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; }
+  .toc { display: none; }
+  .toc.open { display: block; position: fixed; top: 60px; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 99; padding: 1.5rem; overflow-y: auto; }
+  .toc-mobile-btn { display: inline-flex; }
 }
 
 /* === ToC sidebar === */
@@ -593,8 +592,8 @@ footer {
 
 <header class="topbar">
   <a class="brand" href="index.html">
-    <span class="logo">P</span>
-    <span>pipelinekit docs</span>
+    <span class="logo">D</span>
+    <span>Documentation</span>
   </a>
   <div class="crumbs">
     <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Credits</span>
@@ -618,11 +617,8 @@ footer {
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
     <ul>
-      <li class="lvl-2"><a href="#vendored-upstreams-legal-attribution">Vendored upstreams (legal attribution)</a></li>
-      <li class="lvl-3"><a href="#what-pipelinekit-deltas-means">What &quot;pipelinekit deltas&quot; means</a></li>
-      <li class="lvl-2"><a href="#inspirational-but-not-vendored">Inspirational-but-not-vendored</a></li>
-      <li class="lvl-2"><a href="#pipelinekit-s-own-license">Pipelinekit&#x27;s own license</a></li>
-      <li class="lvl-2"><a href="#how-to-add-a-new-upstream">How to add a new upstream</a></li>
+      <li class="lvl-2"><a href="#license">License</a></li>
+      <li class="lvl-2"><a href="#upstreams">Upstreams</a></li>
     </ul>
   </aside>
 
@@ -630,100 +626,51 @@ footer {
     <header class="page-header">
       <span class="diataxis-chip diataxis-reference">reference</span>
       <h1>Credits</h1>
-      <p class="description">Pipelinekit ships under the MIT license and stands on the shoulders of several upstream projects, plus inspiration from individual researchers and the Claude platform itself. This page consolidates every vendored upstream + its pinned SHA…</p>
+      <p class="description">These are pipelinekit&#x27;s license and the projects it builds on.</p>
       <div class="page-meta"></div>
     </header>
 
     <div id="page-content">
-<!-- richness-exempt: vendored-upstream attribution + license reference; a legal-attribution table is not a reader-interaction surface, interactivity would be decorative -->
-<h2 id="vendored-upstreams-legal-attribution">Vendored upstreams (legal attribution)</h2>
-<p>These projects contributed source code that lives inside the pipelinekit tree. Each has a per-directory <code>NOTICE.md</code> with the full upstream license text inline. Re-vendoring procedures are documented in each NOTICE so updates stay mechanical.</p>
+<!-- richness-exempt: license and attribution reference; a short table needs no interactivity -->
+
+<h2 id="license">License</h2>
+<p>pipelinekit is MIT licensed. See <a href="https://github.com/Bruce188/pipelinekit/blob/main/LICENSE"><code>LICENSE</code></a>.</p>
+<h2 id="upstreams">Upstreams</h2>
+<p>pipelinekit v0.1.0 vendors one third-party skill: <code>frontend-design</code> from <a href="https://github.com/anthropics/skills">anthropics/skills</a>, unchanged, under the Apache License 2.0. Its <code>LICENSE.txt</code> is next to it in <code>claude/skills/frontend-design/</code>, and <code>SOURCE.md</code> there records the commit and the checksums. The vendored agents and skills in 0.0.1 came from <a href="https://github.com/wshobson/agents">wshobson/agents</a>, <a href="https://github.com/alirezarezvani/claude-skills">alirezarezvani/claude-skills</a>, <a href="https://github.com/alirezarezvani/ClaudeForge">alirezarezvani/ClaudeForge</a> and <a href="https://github.com/mattpocock/skills">mattpocock/skills</a>. All of them were removed with the pipeline. Their notices are still in the git history of earlier releases.</p>
 <table>
 <thead>
 <tr>
-<th>Upstream</th>
-<th>Pinned SHA</th>
-<th>License</th>
-<th>Vendored into</th>
-<th>Scope</th>
+<th>Project</th>
+<th>Role</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a href="https://github.com/wshobson/agents">wshobson/agents</a></td>
-<td><code>08ded5e7</code></td>
-<td>MIT (© 2024 Seth Hobson)</td>
-<td><code>claude/agents/</code></td>
-<td>2 specialist agents (deployment-engineer, incident-responder)</td>
+<td><a href="https://docs.anthropic.com/en/docs/claude-code">Claude Code</a></td>
+<td>The runtime that the hooks, skills and agent plug into</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alirezarezvani/claude-skills">alirezarezvani/claude-skills</a></td>
-<td><code>0d477a06</code></td>
-<td>MIT (© 2025 Alireza Rezvani)</td>
-<td><code>claude/agents/personas/</code>, <code>claude/skills/{write-a-skill,zoom-out}/</code> (via mattpocock), referenced by <code>documentation/SKILL-AUTHORING-STANDARD.html</code> + <code>documentation/SKILL_PIPELINE.html</code></td>
-<td>Skill-authoring DNA template (10 patterns), SKILL pipeline lifecycle reference, persona pack</td>
+<td><a href="https://github.com/anthropics/skills">anthropics/skills</a></td>
+<td>Source of the <code>frontend-design</code> skill: <code>skills/frontend-design</code> at commit <code>41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f</code>, Apache-2.0, vendored unchanged</td>
 </tr>
 <tr>
-<td><a href="https://github.com/alirezarezvani/ClaudeForge">alirezarezvani/ClaudeForge</a></td>
-<td><code>6eb741b4</code></td>
-<td>MIT (© 2025 Alireza Rezvani)</td>
-<td><code>claude/agents/claude-md-guardian.md</code>, <code>claude/skills/claude-md-enhancer/</code></td>
-<td>CLAUDE.md drift detection + best-practices audit; the parent claude-md-enhancer skill</td>
+<td><a href="https://github.com/oraios/serena">serena</a></td>
+<td>MCP server for symbol navigation, installed at a pinned commit</td>
 </tr>
 <tr>
-<td><a href="https://github.com/mattpocock/skills">mattpocock/skills</a></td>
-<td><code>e74f0061</code></td>
-<td>MIT (© Matt Pocock)</td>
-<td><code>claude/skills/tdd/</code>, <code>claude/skills/write-a-skill/</code>, <code>claude/skills/zoom-out/</code></td>
-<td>TDD doctrine pack (deep-modules, interface-design, mocking, refactoring, tests), skill-authoring helper, zoom-out reflection skill</td>
+<td><a href="https://github.com/upstash/context7">context7</a></td>
+<td>Optional MCP server for library docs</td>
+</tr>
+<tr>
+<td><a href="https://github.com/gitleaks/gitleaks">gitleaks</a></td>
+<td>Secret scanner used by the repo's pre-commit hook</td>
+</tr>
+<tr>
+<td><a href="https://python-markdown.github.io/">Python-Markdown</a> and <a href="https://pygments.org/">Pygments</a></td>
+<td>Used by the <code>docs-writer</code> renderer</td>
 </tr>
 </tbody>
 </table>
-<h3 id="what-pipelinekit-deltas-means">What "pipelinekit deltas" means</h3>
-<p>For every vendored file, pipelinekit applies a small, documented set of transformations so re-vendoring stays mechanical:</p>
-<ol>
-<li><strong>HTML-comment attribution header</strong> prepended to the top of each file, naming the upstream + short SHA + license.</li>
-<li><strong>Frontmatter rewrites</strong> where upstream conventions diverge (e.g., ClaudeForge's <code>permissions:</code> block is dropped; <code>model: haiku</code> → <code>model: sonnet</code>).</li>
-<li><strong>Integration appendix</strong> appended to the END of the file (e.g., agents get a <code>## Pipelinekit Integration — /review</code> block).</li>
-<li><strong>Re-vendor procedure</strong> documented in the per-directory <code>NOTICE.md</code> so a future maintainer can pull a new SHA and re-apply deltas without re-reading this page.</li>
-</ol>
-<p>The deltas are intentionally surface-level — pipelinekit does NOT rewrite upstream prose, examples, or doctrine. Re-vendoring is mostly mechanical: bump the SHA, re-fetch the file, re-prepend the header, re-append the integration block. See any <code>NOTICE.md</code> for the canonical 7-step recipe.</p>
-<h2 id="inspirational-but-not-vendored">Inspirational-but-not-vendored</h2>
-<p>These projects and people influenced pipelinekit's design without contributing source code. There's no legal attribution obligation, but credit is due.</p>
-<table>
-<thead>
-<tr>
-<th>Influence</th>
-<th>What pipelinekit borrowed</th>
-<th>Where it appears</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong><a href="https://karpathy.ai/">Andrej Karpathy</a></strong></td>
-<td>The autoresearch-loop pattern (hypothesize → mutate one file → benchmark → keep-or-reset → append TSV row → repeat).</td>
-<td><code>claude/skills/research/</code> (the <code>/research</code> skill). The <code>symbol-verifier</code> agent (anti-hallucination focus) is inspired by the same first-principles verification ethos.</td>
-</tr>
-<tr>
-<td><strong><a href="https://www.anthropic.com/">Anthropic</a></strong></td>
-<td>The entire runtime: Claude Code, the Agent SDK, the multi-agent dispatch primitive, Skills, Hooks, MCP, the <code>PushNotification</code> tool, and the underlying Claude models that every pipelinekit phase calls.</td>
-<td>Pervasive. Pipelinekit IS a workflow overlay on Claude Code — without Anthropic's platform there's no pipelinekit.</td>
-</tr>
-</tbody>
-</table>
-<h2 id="pipelinekit-s-own-license">Pipelinekit's own license</h2>
-<p>Pipelinekit itself is <strong>MIT licensed</strong> — see <a href="https://github.com/Bruce188/pipelinekit/blob/main/LICENSE"><code>LICENSE</code></a> at the repo root. Copyright 2026 pipelinekit contributors.</p>
-<p>The MIT terms apply to all original pipelinekit code: the orchestrator (<code>claude/skills/pipeline/orchestrate.sh</code>), the workflow skills, the hooks, the docs-writer template + snippet library, the install scripts, and the documentation. Vendored upstream files retain their original licenses (linked above) — the per-directory <code>NOTICE.md</code> is authoritative for each one.</p>
-<h2 id="how-to-add-a-new-upstream">How to add a new upstream</h2>
-<p>If you're vendoring a new upstream into pipelinekit, the convention is:</p>
-<ol>
-<li><strong>Pin a SHA.</strong> Never reference <code>main</code> or <code>HEAD</code> — always a specific commit. Document the pinning command (<code>gh api repos/&lt;owner&gt;/&lt;repo&gt;/commits/HEAD --jq .sha</code>) in the NOTICE.</li>
-<li><strong>Write a <code>NOTICE.md</code></strong> in the same directory as the vendored files. Include: upstream URL, pinned SHA, upstream file paths, license, pipelinekit deltas, re-vendor procedure.</li>
-<li><strong>Prepend HTML-comment attribution headers</strong> to each vendored file (so a reader of the file alone can trace it back).</li>
-<li><strong>Add a row to the table on this page</strong> so the cross-project audit stays current.</li>
-<li><strong>Add a row to the <a href="https://github.com/Bruce188/pipelinekit/blob/main/claude/skills/docs-writer/skills-audit.py">skills audit</a></strong> if the vendored upstream adds new user-facing skills.</li>
-</ol>
-<p>The goal is that any future maintainer can re-vendor every upstream by following the per-NOTICE recipe — no detective work, no implicit knowledge.</p>
     </div>
 
     <div class="no-results" id="no-results">
@@ -733,7 +680,7 @@ footer {
 </div>
 
 <footer>
-  <div>Generated by <a href="https://github.com/Bruce188/pipelinekit">pipelinekit</a> · <code>docs-writer/2</code> · <a href="credits.html">Credits</a></div>
+  <div><a href="credits.html">Credits</a></div>
   <div>Self-contained HTML · no CDN · no remote assets</div>
 </footer>
 
@@ -747,7 +694,7 @@ footer {
   const iconLight = document.getElementById('theme-icon-light');
   const iconDark = document.getElementById('theme-icon-dark');
   const root = document.documentElement;
-  const STORE_KEY = 'pkit-docs-theme';
+  const STORE_KEY = 'docs-theme';
 
   function applyTheme(mode) {
     if (mode === 'auto') {
@@ -895,7 +842,7 @@ footer {
       if (!m) return false;
       const frag = document.createDocumentFragment();
       let last = 0;
-      txt.replace(regex, (match, _g, off) => {
+      txt.replace(regex, (match, off) => {  // no capture groups: (match, offset, string)
         if (off > last) frag.appendChild(document.createTextNode(txt.slice(last, off)));
         const span = document.createElement('span');
         span.className = 'search-hit';
@@ -971,7 +918,11 @@ footer {
                  : ['DANGER'].includes(kind) ? 'danger'
                  : ['SUCCESS','OK'].includes(kind) ? 'success' : 'info';
     const icon = klass === 'warn' ? '⚠' : klass === 'danger' ? '✕' : klass === 'success' ? '✓' : 'ℹ';
-    first.textContent = first.textContent.slice(m[0].length);
+    // Strip the [TIP] marker from the leading text node only, so links and
+    // inline code in the first paragraph survive.
+    const lead = first.firstChild;
+    if (lead && lead.nodeType === 3 && lead.nodeValue.length >= m[0].length) lead.nodeValue = lead.nodeValue.slice(m[0].length);
+    else first.textContent = first.textContent.slice(m[0].length);
     const wrap = document.createElement('div');
     wrap.className = 'callout ' + klass;
     wrap.innerHTML = '<span class="callout-icon">' + icon + '</span><div class="callout-body"></div>';

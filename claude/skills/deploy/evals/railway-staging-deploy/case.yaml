@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: railway-staging-deploy
+expected_outcome: |
+  Runs `railway whoami`/`railway status` first, stops if not logged in, deploys with `railway up` scoped to the staging environment, checks a health endpoint, reads logs with a valid `railway logs` form, and does not touch production.

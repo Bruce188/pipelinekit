@@ -1,0 +1,1736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Components</title>
+<meta name="description" content="This page lists what pipelinekit v0.1.0 installs and what each part does."><style>
+/* === Reset + variables === */
+*, *::before, *::after { box-sizing: border-box; }
+:root {
+  --bg: #ffffff;
+  --bg-elev: #fafbfc;
+  --bg-code: #f4f5f7;
+  --bg-sel: #e3f2fd;
+  --fg: #1a1d23;
+  --fg-muted: #5a6172;
+  --fg-subtle: #8b94a3;
+  --border: #e1e5eb;
+  --border-strong: #c5cbd4;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-soft: #dbeafe;
+  --success: #059669;
+  --warn: #d97706;
+  --danger: #dc2626;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --radius: 6px;
+  --radius-sm: 4px;
+  --mono: ui-monospace, "JetBrains Mono", "SF Mono", "Cascadia Code", "Consolas", monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --transition: 150ms ease;
+  /* Syntax highlight colors (light) */
+  --syn-kw: #7c3aed;     /* keyword purple */
+  --syn-str: #059669;    /* string green */
+  --syn-num: #d97706;    /* number orange */
+  --syn-com: #6b7280;    /* comment gray */
+  --syn-fn: #2563eb;     /* function blue */
+  --syn-cls: #db2777;    /* class pink */
+  --syn-op: #1f2937;     /* operator near-fg */
+}
+html[data-theme="dark"], :root[data-theme="dark"] {
+  --bg: #0b0f1a;
+  --bg-elev: #131825;
+  --bg-code: #161c2c;
+  --bg-sel: #1e3a5f;
+  --fg: #e8ecf3;
+  --fg-muted: #9aa3b3;
+  --fg-subtle: #6b7589;
+  --border: #1f2638;
+  --border-strong: #2a3349;
+  --accent: #60a5fa;
+  --accent-hover: #93c5fd;
+  --accent-soft: #1e3a8a33;
+  --success: #34d399;
+  --warn: #fbbf24;
+  --danger: #f87171;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+  --syn-kw: #c084fc;
+  --syn-str: #4ade80;
+  --syn-num: #fbbf24;
+  --syn-com: #94a3b8;
+  --syn-fn: #60a5fa;
+  --syn-cls: #f472b6;
+  --syn-op: #e8ecf3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b0f1a;
+    --bg-elev: #131825;
+    --bg-code: #161c2c;
+    --bg-sel: #1e3a5f;
+    --fg: #e8ecf3;
+    --fg-muted: #9aa3b3;
+    --fg-subtle: #6b7589;
+    --border: #1f2638;
+    --border-strong: #2a3349;
+    --accent: #60a5fa;
+    --accent-hover: #93c5fd;
+    --accent-soft: #1e3a8a33;
+    --success: #34d399;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+    --syn-kw: #c084fc;
+    --syn-str: #4ade80;
+    --syn-num: #fbbf24;
+    --syn-com: #94a3b8;
+    --syn-fn: #60a5fa;
+    --syn-cls: #f472b6;
+    --syn-op: #e8ecf3;
+  }
+}
+html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+body {
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.65;
+  background: var(--bg);
+  color: var(--fg);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background var(--transition), color var(--transition);
+}
+::selection { background: var(--bg-sel); }
+
+/* === Top bar === */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: saturate(180%) blur(10px);
+}
+.topbar .brand {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--fg);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.topbar .brand .logo {
+  width: 22px; height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: white;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.7rem;
+}
+.topbar .crumbs {
+  color: var(--fg-muted);
+  font-size: 0.85rem;
+  flex: 1;
+}
+.topbar .crumbs a { color: var(--fg-muted); text-decoration: none; }
+.topbar .crumbs a:hover { color: var(--accent); }
+.search-box {
+  position: relative;
+  flex: 0 1 280px;
+}
+.search-box input {
+  width: 100%;
+  padding: 0.4rem 0.7rem 0.4rem 2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  transition: border-color var(--transition);
+}
+.search-box input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.search-box .icon {
+  position: absolute;
+  left: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fg-subtle);
+  pointer-events: none;
+}
+.theme-toggle {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg-muted);
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  transition: all var(--transition);
+}
+.theme-toggle:hover { color: var(--fg); border-color: var(--border-strong); }
+
+/* === Layout === */
+.layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  max-width: 1280px;
+  margin: 0 auto;
+  gap: 2rem;
+  padding: 2rem 1.5rem;
+}
+.toc-mobile-btn {
+  display: none;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg-muted);
+  padding: 0.35rem 0.7rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.85rem;
+  align-items: center;
+  gap: 0.4rem;
+}
+/* After the base rules above, or their display wins over the breakpoint. */
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; }
+  .toc { display: none; }
+  .toc.open { display: block; position: fixed; top: 60px; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 99; padding: 1.5rem; overflow-y: auto; }
+  .toc-mobile-btn { display: inline-flex; }
+}
+
+/* === ToC sidebar === */
+.toc {
+  position: sticky;
+  top: 80px;
+  align-self: start;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  font-size: 0.85rem;
+  padding-right: 0.5rem;
+}
+.toc-heading {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-subtle);
+  font-weight: 700;
+  margin: 0 0 0.7rem 0.5rem;
+}
+.toc ul { list-style: none; padding: 0; margin: 0; }
+.toc li { margin: 0; }
+.toc a {
+  display: block;
+  padding: 0.3rem 0.5rem;
+  color: var(--fg-muted);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  transition: all var(--transition);
+  line-height: 1.4;
+}
+.toc a:hover { color: var(--fg); background: var(--bg-elev); }
+.toc a.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 500;
+}
+.toc .lvl-3 a { padding-left: 1.4rem; font-size: 0.8rem; }
+
+/* === Main content === */
+main { min-width: 0; }
+.page-header { margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+.page-header h1 { font-size: 2rem; font-weight: 700; line-height: 1.2; margin: 0 0 0.5rem; letter-spacing: -0.01em; }
+.page-header .description { color: var(--fg-muted); font-size: 1.05rem; line-height: 1.5; margin: 0; }
+.page-meta { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; font-size: 0.8rem; color: var(--fg-subtle); }
+.page-meta .meta-item { display: inline-flex; align-items: center; gap: 0.3rem; }
+.page-meta code { background: var(--bg-code); padding: 0.05rem 0.4rem; border-radius: var(--radius-sm); font-size: 0.8rem; }
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--fg);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  position: relative;
+}
+h2 { font-size: 1.6rem; margin: 2.5rem 0 1rem; padding-top: 0.5rem; }
+h3 { font-size: 1.25rem; margin: 2rem 0 0.8rem; }
+h4 { font-size: 1.05rem; margin: 1.5rem 0 0.5rem; color: var(--fg-muted); }
+h5, h6 { font-size: 0.95rem; margin: 1rem 0 0.4rem; color: var(--fg-muted); }
+h2 .anchor, h3 .anchor, h4 .anchor {
+  position: absolute;
+  left: -1.3rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fg-subtle);
+  opacity: 0;
+  text-decoration: none;
+  font-weight: 400;
+  transition: opacity var(--transition);
+  font-size: 0.9em;
+}
+h2:hover .anchor, h3:hover .anchor, h4:hover .anchor { opacity: 1; }
+h2 .anchor:hover, h3 .anchor:hover, h4 .anchor:hover { color: var(--accent); }
+p { margin: 0.9rem 0; }
+a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color var(--transition); }
+a:hover { border-bottom-color: var(--accent); }
+strong { font-weight: 600; color: var(--fg); }
+em { font-style: italic; }
+hr { border: none; border-top: 1px solid var(--border); margin: 2.5rem 0; }
+
+/* === Code === */
+code {
+  font-family: var(--mono);
+  font-size: 0.88em;
+  background: var(--bg-code);
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  color: var(--fg);
+}
+pre {
+  position: relative;
+  background: var(--bg-code);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.2rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+  box-shadow: var(--shadow-sm);
+}
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--fg);
+}
+pre .lang-label {
+  position: absolute;
+  top: 0.5rem;
+  right: 3rem;
+  font-size: 0.7rem;
+  color: var(--fg-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--sans);
+  font-weight: 600;
+  user-select: none;
+}
+pre .copy-btn {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.5rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  border-radius: var(--radius-sm);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: all var(--transition);
+  font-family: var(--sans);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+pre:hover .copy-btn { opacity: 1; }
+pre .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+pre .copy-btn.copied { color: var(--success); border-color: var(--success); }
+
+/* Pygments syntax classes */
+.codehilite .k, .codehilite .kn, .codehilite .kd, .codehilite .kr, .codehilite .kt { color: var(--syn-kw); font-weight: 500; }
+.codehilite .s, .codehilite .s1, .codehilite .s2, .codehilite .sb { color: var(--syn-str); }
+.codehilite .mi, .codehilite .mf, .codehilite .mh, .codehilite .mo { color: var(--syn-num); }
+.codehilite .c, .codehilite .c1, .codehilite .cm, .codehilite .ch { color: var(--syn-com); font-style: italic; }
+.codehilite .nf, .codehilite .fm { color: var(--syn-fn); font-weight: 500; }
+.codehilite .nc, .codehilite .ne { color: var(--syn-cls); font-weight: 500; }
+.codehilite .o, .codehilite .ow { color: var(--syn-op); }
+.codehilite .nv, .codehilite .vc, .codehilite .vg, .codehilite .vi { color: var(--syn-fn); }
+.codehilite .nb { color: var(--syn-fn); }
+.codehilite .gp { color: var(--syn-com); user-select: none; }
+
+/* === Tables === */
+.table-wrap { overflow-x: auto; margin: 1rem 0; border: 1px solid var(--border); border-radius: var(--radius); }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+thead { background: var(--bg-elev); border-bottom: 1px solid var(--border); }
+th {
+  text-align: left;
+  padding: 0.6rem 0.9rem;
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+th.sortable::after {
+  content: "↕";
+  margin-left: 0.4rem;
+  color: var(--fg-subtle);
+  font-size: 0.75rem;
+}
+th.sortable.asc::after { content: "↑"; color: var(--accent); }
+th.sortable.desc::after { content: "↓"; color: var(--accent); }
+td { padding: 0.6rem 0.9rem; border-top: 1px solid var(--border); vertical-align: top; }
+tbody tr:hover { background: var(--bg-elev); }
+tbody tr.filtered-out { display: none; }
+
+/* === Lists === */
+ul, ol { padding-left: 1.5rem; margin: 0.8rem 0; }
+ul li, ol li { margin: 0.3rem 0; }
+ul ul, ol ol, ul ol, ol ul { margin: 0.2rem 0; }
+
+/* === Blockquotes === */
+blockquote {
+  border-left: 3px solid var(--accent);
+  background: var(--bg-elev);
+  padding: 0.7rem 1.1rem;
+  margin: 1rem 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  color: var(--fg);
+}
+blockquote p:first-child { margin-top: 0; }
+blockquote p:last-child { margin-bottom: 0; }
+
+/* === Callouts (auto-detected from blockquote first line) === */
+.callout {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.85rem 1.1rem;
+  border-radius: var(--radius);
+  margin: 1rem 0;
+  border-left: 3px solid;
+  background: var(--bg-elev);
+}
+.callout-icon { font-size: 1.1rem; line-height: 1.4; flex-shrink: 0; }
+.callout-body { flex: 1; min-width: 0; }
+.callout-body p:first-child { margin-top: 0; font-weight: 600; }
+.callout-body p:last-child { margin-bottom: 0; }
+.callout.info { border-left-color: var(--accent); }
+.callout.info .callout-icon { color: var(--accent); }
+.callout.warn { border-left-color: var(--warn); }
+.callout.warn .callout-icon { color: var(--warn); }
+.callout.danger { border-left-color: var(--danger); }
+.callout.danger .callout-icon { color: var(--danger); }
+.callout.success { border-left-color: var(--success); }
+.callout.success .callout-icon { color: var(--success); }
+
+/* === Details/Summary === */
+details {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0;
+  margin: 1rem 0;
+}
+details[open] { border-color: var(--border-strong); }
+summary {
+  padding: 0.7rem 1rem;
+  cursor: pointer;
+  font-weight: 600;
+  user-select: none;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+summary::before { content: "▶"; transition: transform var(--transition); font-size: 0.75rem; color: var(--fg-subtle); }
+details[open] summary::before { transform: rotate(90deg); }
+summary::-webkit-details-marker { display: none; }
+details > *:not(summary) { padding: 0 1rem 0.8rem; }
+
+/* === Highlights (search) === */
+.search-hit { background: rgba(255, 230, 0, 0.45); border-radius: 2px; padding: 0 2px; }
+html[data-theme="dark"] .search-hit, :root[data-theme="dark"] .search-hit { background: rgba(255, 200, 0, 0.35); }
+
+/* === Diataxis quadrant chip === */
+.diataxis-chip {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  margin-bottom: 0.7rem;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--fg-muted);
+}
+.diataxis-chip.diataxis-tutorial { color: #047857; border-color: #6ee7b7; background: #ecfdf5; }
+.diataxis-chip.diataxis-how-to { color: #1d4ed8; border-color: #93c5fd; background: #eff6ff; }
+.diataxis-chip.diataxis-reference { color: #6d28d9; border-color: #c4b5fd; background: #f5f3ff; }
+.diataxis-chip.diataxis-explanation { color: #b45309; border-color: #fcd34d; background: #fffbeb; }
+html[data-theme="dark"] .diataxis-chip.diataxis-tutorial, :root[data-theme="dark"] .diataxis-chip.diataxis-tutorial { color: #6ee7b7; background: #064e3b33; border-color: #047857; }
+html[data-theme="dark"] .diataxis-chip.diataxis-how-to, :root[data-theme="dark"] .diataxis-chip.diataxis-how-to { color: #93c5fd; background: #1e3a8a33; border-color: #1d4ed8; }
+html[data-theme="dark"] .diataxis-chip.diataxis-reference, :root[data-theme="dark"] .diataxis-chip.diataxis-reference { color: #c4b5fd; background: #4c1d9533; border-color: #6d28d9; }
+html[data-theme="dark"] .diataxis-chip.diataxis-explanation, :root[data-theme="dark"] .diataxis-chip.diataxis-explanation { color: #fcd34d; background: #78350f33; border-color: #b45309; }
+
+/* === Docs index search widget === */
+.docs-search {
+  margin: 1.5rem 0 2rem;
+  padding: 1.2rem 1.4rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.docs-search input[type="search"] {
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  transition: border-color var(--transition);
+}
+.docs-search input[type="search"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.docs-search-results {
+  list-style: none;
+  padding: 0;
+  margin: 0.8rem 0 0;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.docs-search-results li {
+  margin: 0;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+.docs-search-results li:last-child { border-bottom: none; }
+.docs-search-results a {
+  display: block;
+  color: var(--fg);
+  text-decoration: none;
+  font-weight: 500;
+  border-bottom: none;
+}
+.docs-search-results a:hover { color: var(--accent); }
+.docs-search-results .docs-search-excerpt {
+  font-size: 0.83rem;
+  color: var(--fg-muted);
+  margin-top: 0.15rem;
+}
+.docs-search-results .docs-search-quadrant {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-left: 0.5rem;
+  color: var(--fg-subtle);
+}
+.docs-search-hint {
+  font-size: 0.82rem;
+  color: var(--fg-subtle);
+  margin: 0.5rem 0 0;
+}
+
+/* === Footer === */
+footer {
+  margin: 4rem auto 0;
+  padding: 2rem 1.5rem;
+  max-width: 1280px;
+  border-top: 1px solid var(--border);
+  font-size: 0.82rem;
+  color: var(--fg-subtle);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+/* === No-result state for search === */
+.no-results {
+  display: none;
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--fg-muted);
+}
+.no-results.visible { display: block; }
+
+/* === Print === */
+@media print {
+  .topbar, .toc, .toc-mobile-btn, .copy-btn, .theme-toggle, .search-box, footer { display: none !important; }
+  .layout { display: block; padding: 0; max-width: none; }
+  body { font-size: 11pt; }
+  pre { page-break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <span class="logo">D</span>
+    <span>Documentation</span>
+  </a>
+  <div class="crumbs">
+    <a href="index.html">Home</a> &nbsp;/&nbsp; <span>Components</span>
+  </div>
+  <div class="search-box">
+    <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="search" id="page-search" placeholder="Filter page (/)" aria-label="Filter content on this page">
+  </div>
+  <button class="toc-mobile-btn" id="toc-toggle" aria-label="Toggle table of contents">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    Contents
+  </button>
+  <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
+    <svg id="theme-icon-light" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+    <svg id="theme-icon-dark" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <span id="theme-label">Auto</span>
+  </button>
+</header>
+
+<div class="layout">
+  <aside class="toc" id="toc">
+    <h2 class="toc-heading">On this page</h2>
+    <ul>
+      <li class="lvl-2"><a href="#overview">Overview</a></li>
+      <li class="lvl-2"><a href="#guard-hooks-and-permissions">Guard hooks and permissions</a></li>
+      <li class="lvl-3"><a href="#the-never-stage-list">The never-stage list</a></li>
+      <li class="lvl-2"><a href="#git-hooks">Git hooks</a></li>
+      <li class="lvl-2"><a href="#rule-ids-and-the-event-log">Rule ids and the event log</a></li>
+      <li class="lvl-2"><a href="#skills">Skills</a></li>
+      <li class="lvl-2"><a href="#agents">Agents</a></li>
+      <li class="lvl-2"><a href="#self-check">Self-check</a></li>
+      <li class="lvl-2"><a href="#shipping-a-pull-request">Shipping a pull request</a></li>
+      <li class="lvl-2"><a href="#claude-md-template">CLAUDE.md template</a></li>
+      <li class="lvl-2"><a href="#mcp-servers">MCP servers</a></li>
+      <li class="lvl-2"><a href="#what-is-not-included">What is not included</a></li>
+    </ul>
+  </aside>
+
+  <main>
+    <header class="page-header">
+      <span class="diataxis-chip diataxis-reference">reference</span>
+      <h1>Components</h1>
+      <p class="description">This page lists what pipelinekit v0.1.0 installs and what each part does.</p>
+      <div class="page-meta"></div>
+    </header>
+
+    <div id="page-content">
+<blockquote>
+<p>The hooks and skills are still being reviewed, so details may change in later releases. The hooks are guardrails that catch common mistakes. They are not a security boundary, and they do not replace review.</p>
+</blockquote>
+<h2 id="overview">Overview</h2>
+<p>The kit has six layers. Hover a chip for a one-line summary, or use the buttons to focus on one layer.</p>
+<!-- snippet:architecture-diagram
+     Layered architecture stack: one coloured band per layer, each holding
+     chips with hover tooltips. Filter buttons dim every other layer.
+
+     The page supplies the layers (top to bottom) as a JSON child of the
+     placeholder. "count" and "tip" are optional; "color" is any CSS colour.
+       <div data-snippet="architecture-diagram">
+       <script type="application/json">
+       {"layers": [
+         {"name": "Clients", "color": "#10b981", "count": "2 apps",
+          "chips": [{"label": "web", "tip": "React SPA"}, {"label": "cli"}]},
+         {"name": "API", "color": "#3b82f6",
+          "chips": [{"label": "gateway", "tip": "Auth and routing"}]}]}
+       </script>
+       </div>
+-->
+<div class="pkit-arch-diagram" data-snippet-mount="architecture-diagram">
+<script type="application/json">
+{"layers": [
+  {"name": "Settings rules", "color": "#ef4444", "count": "settings.json",
+   "chips": [{"label": "permissions.deny", "tip": "No reading or editing secrets, keys or credentials"},
+             {"label": "permissions.ask", "tip": "Prompt before editing Claude config or destructive git"},
+             {"label": "attribution off", "tip": "No co-author trailer or PR footer"}]},
+  {"name": "Claude Code hooks", "color": "#f59e0b", "count": "4 scripts",
+   "chips": [{"label": "bash-guard.py", "tip": "PreToolUse Bash: git, docker, fetch and SQL rules"},
+             {"label": "block-bare-repo-markers.py", "tip": "PreToolUse Edit/Write"},
+             {"label": "post-edit-format.sh", "tip": "PostToolUse Edit/Write: prettier"},
+             {"label": "session-check.py", "tip": "SessionStart: quick self-check, silent when healthy"}]},
+  {"name": "Git hooks", "color": "#3b82f6", "count": "global core.hooksPath",
+   "chips": [{"label": "commit-msg", "tip": "Conventional commits, no attribution or emoji"},
+             {"label": "pre-commit", "tip": "gitleaks on staged changes"},
+             {"label": "pre-push", "tip": "No pushes to main or master"}]},
+  {"name": "Skills", "color": "#10b981", "count": "8 skills",
+   "chips": [{"label": "dotnet-conventions"}, {"label": "deploy"}, {"label": "exchange-api-keys"},
+             {"label": "docs-writer"},
+             {"label": "frontend-design", "tip": "Visual design guidance, from anthropics/skills (Apache-2.0)"},
+             {"label": "mobile"},
+             {"label": "kit", "tip": "Self-check, run as /kit"},
+             {"label": "ship", "tip": "Test, fix and merge your own pull request"}]},
+  {"name": "Agents", "color": "#ec4899", "count": "3 agents",
+   "chips": [{"label": "kit-planner", "tip": "Model: fable"},
+             {"label": "kit-builder", "tip": "Model: opus"},
+             {"label": "kit-judge", "tip": "Model: fable"}]},
+  {"name": "MCP", "color": "#8b5cf6",
+   "chips": [{"label": "serena", "tip": "Installed by default at a pinned commit"},
+             {"label": "context7", "tip": "Optional, per project"}]}]}
+</script>
+  <style>
+    .pkit-arch-diagram {
+      margin: 1.5rem 0;
+      padding: 1.5rem;
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .pkit-arch-diagram .pkit-ad-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1.2rem;
+      align-items: center;
+    }
+    .pkit-arch-diagram .pkit-ad-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--fg-subtle);
+      font-weight: 600;
+    }
+    .pkit-arch-diagram .pkit-ad-layer-btn {
+      padding: 0.3rem 0.65rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--fg-muted);
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: all var(--transition);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .pkit-arch-diagram .pkit-ad-layer-btn .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .pkit-arch-diagram .pkit-ad-layer-btn:hover { color: var(--fg); border-color: var(--border-strong); }
+    .pkit-arch-diagram .pkit-ad-layer-btn.active { color: var(--fg); border-color: var(--accent); background: var(--accent-soft); }
+
+    .pkit-arch-diagram .pkit-ad-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .pkit-arch-diagram .pkit-ad-layer {
+      border-radius: var(--radius);
+      padding: 0.9rem 1.1rem;
+      transition: opacity var(--transition), transform var(--transition);
+      border: 1px solid var(--border);
+      position: relative;
+    }
+    .pkit-arch-diagram .pkit-ad-layer.dimmed {
+      opacity: 0.25;
+      filter: grayscale(40%);
+    }
+    .pkit-arch-diagram .pkit-ad-layer { background: linear-gradient(135deg, color-mix(in srgb, var(--layer-color, var(--accent)) 12%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, var(--layer-color, var(--accent)) 35%, var(--border)); }
+
+    .pkit-arch-diagram .pkit-ad-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.5rem;
+    }
+    .pkit-arch-diagram .pkit-ad-name {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--fg);
+    }
+    .pkit-arch-diagram .pkit-ad-name .lvl {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--fg-subtle);
+      margin-right: 0.5rem;
+    }
+    .pkit-arch-diagram .pkit-ad-count {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--fg-muted);
+      background: var(--bg);
+      padding: 0.1rem 0.5rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+    .pkit-arch-diagram .pkit-ad-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+    }
+    .pkit-arch-diagram .pkit-ad-chip {
+      padding: 0.18rem 0.55rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--fg-muted);
+      cursor: help;
+      transition: all 100ms ease;
+      position: relative;
+    }
+    .pkit-arch-diagram .pkit-ad-chip:hover {
+      color: var(--fg);
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .pkit-arch-diagram .pkit-ad-chip.more { font-style: italic; color: var(--fg-subtle); }
+
+    .pkit-arch-diagram .pkit-ad-flow {
+      display: flex;
+      justify-content: center;
+      padding: 0.1rem 0;
+      color: var(--fg-subtle);
+      font-size: 0.85rem;
+    }
+    .pkit-arch-diagram .pkit-ad-tooltip {
+      position: absolute;
+      background: var(--fg);
+      color: var(--bg);
+      padding: 0.45rem 0.7rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.78rem;
+      max-width: 280px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 120ms ease;
+      z-index: 20;
+      box-shadow: var(--shadow-md);
+      line-height: 1.4;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: normal;
+    }
+    .pkit-arch-diagram .pkit-ad-chip:hover .pkit-ad-tooltip, .pkit-arch-diagram .pkit-ad-chip:focus .pkit-ad-tooltip { opacity: 1; }
+  </style>
+
+  <div class="pkit-ad-controls" data-ad-controls></div>
+  <div class="pkit-ad-stack" data-ad-stack></div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  document.querySelectorAll('.pkit-arch-diagram[data-snippet-mount="architecture-diagram"]').forEach(diagram => {
+    if (diagram.dataset.pkitInit) return;
+    diagram.dataset.pkitInit = '1';
+    const dataEl = diagram.querySelector('script[type="application/json"]');
+    const controls = diagram.querySelector('[data-ad-controls]');
+    const stack = diagram.querySelector('[data-ad-stack]');
+    if (!dataEl || !controls || !stack) return;
+    const layers = JSON.parse(dataEl.textContent).layers || [];
+
+    controls.innerHTML = '<span class="pkit-ad-label">Filter layer:</span>' +
+      '<button class="pkit-ad-layer-btn active" data-layer="all">All</button>' +
+      layers.map((l, i) => `<button class="pkit-ad-layer-btn" data-layer="${i}"><span class="dot" style="background:${esc(l.color || 'var(--accent)')}"></span>${esc(l.name)}</button>`).join('');
+    stack.innerHTML = layers.map((l, i) =>
+      (i ? '<div class="pkit-ad-flow" aria-hidden="true">&#9660;</div>' : '') +
+      `<div class="pkit-ad-layer" data-layer="${i}" style="--layer-color:${esc(l.color || 'var(--accent)')}">
+         <div class="pkit-ad-header">
+           <div class="pkit-ad-name"><span class="lvl">L${i + 1}</span>${esc(l.name)}</div>
+           ${l.count ? `<div class="pkit-ad-count">${esc(l.count)}</div>` : ''}
+         </div>
+         <div class="pkit-ad-chips">${(l.chips || []).map(c =>
+           `<span class="pkit-ad-chip" tabindex="0">${esc(c.label)}${c.tip ? `<span class="pkit-ad-tooltip">${esc(c.tip)}</span>` : ''}</span>`).join('')}</div>
+       </div>`).join('');
+
+    const btns = controls.querySelectorAll('.pkit-ad-layer-btn');
+    btns.forEach(btn => btn.addEventListener('click', () => {
+      btns.forEach(b => b.classList.toggle('active', b === btn));
+      stack.querySelectorAll('.pkit-ad-layer').forEach(l =>
+        l.classList.toggle('dimmed', btn.dataset.layer !== 'all' && l.dataset.layer !== btn.dataset.layer));
+    }));
+  });
+})();
+</script>
+
+
+<h2 id="guard-hooks-and-permissions">Guard hooks and permissions</h2>
+<p>The installer merges <code>claude/config/settings.template.json</code> into <code>~/.claude/settings.json</code>. The hook scripts live in <code>~/.claude/hooks/</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>Where</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>permissions.deny</code></td>
+<td>settings</td>
+<td>Claude can't read or edit <code>.env*</code> (not <code>.env.example</code>), keys, <code>~/.ssh</code>, <code>~/.aws</code>, <code>~/.kube/config</code>, <code>~/.config/gh/hosts.yml</code>, credentials files. Holds in bypass mode</td>
+</tr>
+<tr>
+<td><code>permissions.ask</code></td>
+<td>settings</td>
+<td>Prompts before editing Claude settings/hooks or <code>~/.gitconfig</code>, and before <code>reset --hard</code>, <code>clean -f</code>, force push, <code>branch -D</code>, <code>checkout/restore .</code>, <code>gh pr merge --admin</code>. Prompts in bypass mode too</td>
+</tr>
+<tr>
+<td><code>bash-guard.py</code></td>
+<td>PreToolUse <code>Bash</code> (<code>if</code>: git, docker, podman, curl, wget, psql, mysql, mariadb, sqlite3)</td>
+<td>Blocks pushes to other remotes or main, remote changes, global git config writes, hook bypasses (<code>--no-verify</code>, <code>core.hooksPath</code>), staging <code>config/never-stage.txt</code> paths or bulk staging, sensitive docker mounts, and <code>curl \| sh</code>. Asks before <code>docker --privileged</code> and DROP/TRUNCATE</td>
+</tr>
+<tr>
+<td><code>block-bare-repo-markers.py</code></td>
+<td>PreToolUse <code>Edit\|Write</code></td>
+<td>Blocks assembling a bare git repo (HEAD + config/objects/refs) in the working directory or one level down</td>
+</tr>
+<tr>
+<td><code>post-edit-format.sh</code></td>
+<td>PostToolUse <code>Edit\|Write</code></td>
+<td>Runs the project's own prettier on ts/js/json/yaml</td>
+</tr>
+<tr>
+<td><code>session-check.py</code></td>
+<td>SessionStart <code>startup</code></td>
+<td>Runs the self-check in quick mode when a session starts. Says nothing when the install is healthy, otherwise one line with the number of problems that names <code>/kit</code>. Never blocks a session. <code>PIPELINEKIT_SESSION_CHECK=0</code> switches it off</td>
+</tr>
+</tbody>
+</table>
+<details>
+<summary>How deny and ask behave in bypassPermissions mode</summary>
+<ul>
+<li><code>permissions.deny</code> blocks in every mode, bypass included. Rules are evaluated deny, then ask, then allow.</li>
+<li>Explicit <code>permissions.ask</code> rules still prompt in bypass mode. <code>allow</code> rules have no effect there.</li>
+<li>Bypass mode does not prompt for the built-in protected paths (<code>.git</code>, <code>.claude</code>, <code>.gitconfig</code>), so the template adds explicit <code>ask</code> rules for Claude's settings, hooks, git hooks and config, <code>~/.gitconfig</code> and <code>.git/hooks/**</code>.</li>
+<li>A hook that exits 2 blocks in every mode. Destructive git commands use native ask rules rather than hook asks.</li>
+<li>Read/Edit deny rules also stop <code>cat</code>, <code>head</code>, <code>sed</code>, <code>tee</code> and redirects in Bash, but not <code>python -c open(...)</code> or MCP tools. Only the sandbox closes that.</li>
+<li><code>.env.example</code>, <code>.env.sample</code> and <code>.env.template</code> are carved out with <code>!</code> rules. Outside the current directory only an exact <code>.env</code> is denied.</li>
+</ul>
+</details>
+<h3 id="the-never-stage-list">The never-stage list</h3>
+<p><code>config/never-stage.txt</code> is the single list of paths that must not be committed. It is gitignore-style, with <code>!</code> negation, and covers env files, credentials, keys, and the local <code>docs/</code> workflow notes. <code>bash-guard.py</code> reads it. Edit the copy in <code>~/.claude/config/</code> to change it for your machine. The installer overwrites that copy on the next run, so put changes you want to keep in the repo's <code>claude/config/never-stage.txt</code>.</p>
+<h2 id="git-hooks">Git hooks</h2>
+<p><code>claude/git-hooks/</code> is installed to <code>~/.claude/git-hooks</code> and, if you agree, set as the global <code>core.hooksPath</code>. Each hook runs the repository's own <code>.git/hooks/&lt;name&gt;</code> or <code>.githooks/&lt;name&gt;</code> afterwards.</p>
+<table>
+<thead>
+<tr>
+<th>Hook</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>commit-msg</code></td>
+<td>Conventional commits (<code>feat fix refactor docs test chore perf style build ci revert</code>, scopes, <code>!</code>). Rejects wip (outside <code>.claude/worktrees/</code>), AI attribution and emoji. Lets <code>Merge</code>, <code>Revert "</code>, <code>fixup!</code>/<code>squash!</code>/<code>amend!</code> through</td>
+</tr>
+<tr>
+<td><code>pre-commit</code></td>
+<td><code>gitleaks</code> scan of staged changes. Warns and allows if gitleaks is missing. <code>PIPELINEKIT_ALLOW_SECRET=1</code> skips one commit</td>
+</tr>
+<tr>
+<td><code>pre-push</code></td>
+<td>Refuses pushes to <code>main</code>/<code>master</code>. <code>ALLOW_MAIN_PUSH=1</code> overrides (humans only; bash-guard refuses it for Claude)</td>
+</tr>
+</tbody>
+</table>
+<p>A repo with its own local <code>core.hooksPath</code> (husky, the pre-commit framework, or a manual setting) bypasses these. Run <code>git config --show-origin core.hooksPath</code> inside it to check.</p>
+<h2 id="rule-ids-and-the-event-log">Rule ids and the event log</h2>
+<p>Every refusal ends with the id of its rule in square brackets, for example <code>BLOCKED: git commit --no-verify skips the git hooks [git.no-verify]</code>. The hooks also record each block, ask, override and error in an event log, and <code>/kit</code> reads it back under Activity (see <a href="#self-check">Self-check</a>).</p>
+<p>The log is <code>~/.local/state/pipelinekit/events.jsonl</code>. <code>$XDG_STATE_HOME</code> moves it as usual, and <code>PIPELINEKIT_STATE_DIR</code> names the directory outright. One line per event holds the time, the hook, the kind, the rule id, the hook's reason and, when known, the session and the working directory. The command text is never written. A reason can name the path, the branch or the name of the remote it is about. A push to a URL is recorded without the URL, and what a URL in any other reason can carry as a secret (a user and password, a query string, a fragment) is removed first, and so are control and direction characters. Only you can read the file (mode 600). At 1 MB it moves to <code>events.jsonl.1</code>, so there are never more than two files. <code>PIPELINEKIT_LOG=0</code> switches the log off. A log that cannot be written never changes what a hook decides.</p>
+<table>
+<thead>
+<tr>
+<th>Rule id</th>
+<th>Hook</th>
+<th>Kind</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>parse.unparsable</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>The command could not be parsed, for example unbalanced quotes</td>
+</tr>
+<tr>
+<td><code>git.no-verify</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td><code>--no-verify</code>, or <code>git commit -n</code></td>
+</tr>
+<tr>
+<td><code>git.hookspath-option</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td><code>git -c core.hooksPath=...</code></td>
+</tr>
+<tr>
+<td><code>git.config-hookspath</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>Changing <code>core.hooksPath</code>, also through a <code>GIT_CONFIG_*</code> variable</td>
+</tr>
+<tr>
+<td><code>git.config-global</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>A write with <code>git config --global</code> or <code>--system</code></td>
+</tr>
+<tr>
+<td><code>git.override-variable</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>Setting a human-only override such as <code>ALLOW_MAIN_PUSH</code></td>
+</tr>
+<tr>
+<td><code>git.remote-change</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td><code>git remote add</code> or <code>git remote set-url</code></td>
+</tr>
+<tr>
+<td><code>git.push-remote</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>A push to a remote other than <code>origin</code></td>
+</tr>
+<tr>
+<td><code>git.push-protected</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>A direct push to <code>main</code> or <code>master</code></td>
+</tr>
+<tr>
+<td><code>git.push-all</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td><code>git push --all</code>, <code>--mirror</code> or <code>--branches</code></td>
+</tr>
+<tr>
+<td><code>git.never-stage</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>Staging or committing a path on the never-stage list</td>
+</tr>
+<tr>
+<td><code>git.never-stage-missing</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>The never-stage list is missing, so nothing is staged</td>
+</tr>
+<tr>
+<td><code>git.bulk-staging</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td><code>git add -A</code>, <code>git add .</code>, <code>git commit -a</code> and other bulk staging</td>
+</tr>
+<tr>
+<td><code>git.add-expansion</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>A <code>git add</code> path with <code>$</code> or a backtick in it</td>
+</tr>
+<tr>
+<td><code>git.pathspec-file</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td><code>--pathspec-from-file</code> on <code>git add</code> or <code>git commit</code></td>
+</tr>
+<tr>
+<td><code>docker.mount-sensitive</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>A mount of a sensitive host path such as <code>/etc</code></td>
+</tr>
+<tr>
+<td><code>docker.mount-variable</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>A mount source with an unresolved variable</td>
+</tr>
+<tr>
+<td><code>docker.privileged</code></td>
+<td><code>bash-guard</code></td>
+<td>ask</td>
+<td><code>docker run --privileged</code></td>
+</tr>
+<tr>
+<td><code>fetch.pipe-to-shell</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>A download piped into a shell or interpreter</td>
+</tr>
+<tr>
+<td><code>fetch.substitution</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>Downloaded code run through substitution, as in <code>bash -c "$(curl ...)"</code></td>
+</tr>
+<tr>
+<td><code>fetch.process-substitution</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>Downloaded code run through process substitution, as in <code>bash &lt;(curl ...)</code></td>
+</tr>
+<tr>
+<td><code>sql.destructive</code></td>
+<td><code>bash-guard</code></td>
+<td>ask</td>
+<td><code>DROP</code> or <code>TRUNCATE</code> sent to a database client</td>
+</tr>
+<tr>
+<td><code>bare-repo.marker</code></td>
+<td><code>block-bare-repo-markers</code></td>
+<td>block</td>
+<td>A file that would complete a bare git repository</td>
+</tr>
+<tr>
+<td><code>input.invalid</code></td>
+<td><code>bash-guard</code>, <code>block-bare-repo-markers</code></td>
+<td>error</td>
+<td>The hook got input it could not read</td>
+</tr>
+<tr>
+<td><code>internal.crash</code></td>
+<td><code>bash-guard</code>, <code>block-bare-repo-markers</code></td>
+<td>error</td>
+<td>The hook itself failed, so the command was not checked</td>
+</tr>
+<tr>
+<td><code>session-check.timeout</code></td>
+<td><code>session-check</code></td>
+<td>error</td>
+<td>The session-start check took longer than 4 seconds and was dropped</td>
+</tr>
+<tr>
+<td><code>session-check.failed</code></td>
+<td><code>session-check</code></td>
+<td>error</td>
+<td>The session-start check could not run: <code>check.py</code> is missing or gave no report</td>
+</tr>
+<tr>
+<td><code>commit-msg.format</code></td>
+<td><code>commit-msg</code></td>
+<td>block</td>
+<td>The subject is not a conventional commit</td>
+</tr>
+<tr>
+<td><code>commit-msg.subject-length</code></td>
+<td><code>commit-msg</code></td>
+<td>block</td>
+<td>The subject is longer than 100 characters</td>
+</tr>
+<tr>
+<td><code>commit-msg.wip</code></td>
+<td><code>commit-msg</code></td>
+<td>block</td>
+<td>A wip commit outside <code>.claude/worktrees/</code></td>
+</tr>
+<tr>
+<td><code>commit-msg.ai-attribution</code></td>
+<td><code>commit-msg</code></td>
+<td>block</td>
+<td>An AI attribution line in the message</td>
+</tr>
+<tr>
+<td><code>commit-msg.emoji</code></td>
+<td><code>commit-msg</code></td>
+<td>block</td>
+<td>An emoji in the message</td>
+</tr>
+<tr>
+<td><code>pre-commit.secret</code></td>
+<td><code>pre-commit</code></td>
+<td>block</td>
+<td>gitleaks found a secret in the staged changes</td>
+</tr>
+<tr>
+<td><code>pre-commit.gitleaks-failed</code></td>
+<td><code>pre-commit</code></td>
+<td>error</td>
+<td>gitleaks itself failed</td>
+</tr>
+<tr>
+<td><code>pre-commit.allow-secret</code></td>
+<td><code>pre-commit</code></td>
+<td>override</td>
+<td><code>PIPELINEKIT_ALLOW_SECRET=1</code> skipped the scan</td>
+</tr>
+<tr>
+<td><code>pre-push.protected-branch</code></td>
+<td><code>pre-push</code></td>
+<td>block</td>
+<td>A push to <code>main</code> or <code>master</code></td>
+</tr>
+<tr>
+<td><code>pre-push.allow-main</code></td>
+<td><code>pre-push</code></td>
+<td>override</td>
+<td><code>ALLOW_MAIN_PUSH=1</code> let such a push through</td>
+</tr>
+</tbody>
+</table>
+<p>With <code>ask</code>, Claude Code prompts you instead of refusing. <code>override</code> means a human-only variable let something through. <code>error</code> means the hook could not do its job: a guard hook then refuses the command or commit, while the session-start check only steps aside.</p>
+<h2 id="skills">Skills</h2>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>Use it for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dotnet-conventions</code></td>
+<td>.NET layering, DI, EF Core migrations, testing (FluentAssertions 7.x pin), BackgroundService rules, target-framework support dates, plus ASP.NET Core security in <code>references/security.md</code></td>
+</tr>
+<tr>
+<td><code>deploy</code></td>
+<td>Router for Vercel, Railway, Render, DigitalOcean App Platform and Azure (Container Apps, App Service): auth check, deploy, secrets without argv, verify, logs, rollback, and trading-bot overlap. Per-provider detail in <code>references/</code>. If a CLI is missing or not logged in, it stops and asks you</td>
+</tr>
+<tr>
+<td><code>exchange-api-keys</code></td>
+<td>Exchange API keys for CryptoBargain and FundingRateArb: where they load from, never logging them, testnet vs mainnet, withdrawal-disabled and IP-restricted scopes, storage, rotation, leak runbook</td>
+</tr>
+<tr>
+<td><code>docs-writer</code></td>
+<td>Render <code>docs-source/*.md</code> into self-contained HTML pages under <code>documentation/</code> with <code>render.py</code> and <code>template.html</code>, with optional data-driven interactive snippets</td>
+</tr>
+<tr>
+<td><code>frontend-design</code></td>
+<td>Visual design guidance: aesthetic direction, typography, layout and copy, loaded before building or reshaping anything a person looks at (app or site UI, HTML pages and Artifacts, <code>docs-writer</code> snippets, charts and dashboards). Vendored unchanged from <a href="https://github.com/anthropics/skills"><code>anthropics/skills</code></a> (<code>skills/frontend-design</code> at a pinned commit) under the Apache License 2.0; <code>SOURCE.md</code> in its folder records the commit, the checksums and how to move to a newer one. The rest of the kit is MIT</td>
+</tr>
+<tr>
+<td><code>mobile</code></td>
+<td>Android (Kotlin/Compose) builds and device access from WSL2, iPhone home-screen web apps, Expo/EAS cloud builds for iOS, release and security checklist</td>
+</tr>
+<tr>
+<td><code>kit</code></td>
+<td>Self-check, run as <code>/kit</code>: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from <code>settings.json</code>, environment conflicts, what the hooks blocked or failed on in the last days, and whether a newer kit is available. <code>/kit update</code> applies it after asking</td>
+</tr>
+<tr>
+<td><code>ship</code></td>
+<td>Run as <code>/ship</code>: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then <code>ship.py</code> merges once every gate holds (own pull request, not a release, no required review, a passed test for exactly this commit, green CI). A project opts out with <code>Merges: ask first</code> in its <code>CLAUDE.md</code></td>
+</tr>
+</tbody>
+</table>
+<p>In 0.1.0, <code>deploy</code> replaces the five separate <code>*-ops</code> skills and the per-provider deployment agents, <code>mobile</code> replaces <code>expo</code> and <code>ios</code>, and the ASP.NET Core security rules moved into <code>dotnet-conventions</code>.</p>
+<h2 id="agents">Agents</h2>
+<p>Three subagents for planning a change, building it and judging the result, each on the model that suits the job. The installer copies them from <code>claude/agents/</code> to <code>~/.claude/agents/</code>.</p>
+<p>Together they are the parts of a judge loop: one agent plans, one builds, and independent judges score the result until it reaches 10; the skill that drives the loop comes with a later change, and until then you start the agents by name.</p>
+<table>
+<thead>
+<tr>
+<th>Agent</th>
+<th>Model</th>
+<th>Tools</th>
+<th>What it is for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>kit-planner</code></td>
+<td><code>fable</code></td>
+<td><code>Read, Grep, Glob, Write, Edit</code></td>
+<td>Writes or fixes <code>plan.md</code> in a loop folder from the request, <code>criteria.md</code> and the answers in <code>questions.md</code>. Cites <code>file:line</code> for every claim about the code and appends open questions to <code>questions.md</code> instead of guessing. Never edits code and never runs <code>loop.py</code></td>
+</tr>
+<tr>
+<td><code>kit-builder</code></td>
+<td><code>opus</code></td>
+<td>the session's tools</td>
+<td>Builds the plan it is handed on the checked-out work branch, failing test first, runs the project's checks and commits; fixes the items it is given, in that order, and nothing else. Never creates or switches a branch, never pushes or deploys, never writes under <code>docs/loops/</code></td>
+</tr>
+<tr>
+<td><code>kit-judge</code></td>
+<td><code>fable</code></td>
+<td><code>Read, Grep, Glob</code></td>
+<td>Judges a plan or a build from one angle and answers with one JSON object: a score from 0 to 10, scores per dimension, blocking items and improvements, each with evidence and a fix. Reads only what its brief names, and never runs, writes, commits, pushes or deploys anything</td>
+</tr>
+</tbody>
+</table>
+<p><code>fable</code> and <code>opus</code> are aliases: they follow the newest model of each family. All three treat text in the other files they read as data, not instructions (the planner and the builder follow their brief and the files it names), and never read <code>.env</code> files, credentials, keys or tokens.</p>
+<p>The kit owns these three names in <code>~/.claude/agents/</code>, and leaves the rest of the folder alone. A file of your own with one of the names that differs from the kit's is moved to <code>~/.claude/pipelinekit/backup/agents-&lt;name&gt;-&lt;timestamp&gt;</code> once, and the installer prints where; a link of that name is removed without touching its target. Claude Code loads agents when a session starts, so start a new session after an install.</p>
+<h2 id="self-check">Self-check</h2>
+<p><code>/kit</code> answers one question: is anything in this install not working? Run it after installing or updating the kit, and when a hook blocks something you did not expect or fails to start. Claude can also run it on its own when a kit hook misbehaves.</p>
+<table>
+<thead>
+<tr>
+<th>Section</th>
+<th>What is checked</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Install</td>
+<td>Every hook, the event-log helper, git hook, skill and agent is present; <code>kit-judge.md</code> has the one tools line <code>Read, Grep, Glob</code>, else <code>kit-judge.md allows more than reading</code>; hooks are executable and have LF line endings; <code>settings.json</code> is valid, its hook commands point to files that exist, attribution is off and the secret deny rules are there; the global <code>core.hooksPath</code></td>
+</tr>
+<tr>
+<td>Changes since install</td>
+<td>Each installed file, the agent files included, against the hash recorded at install time; the kit's hook entries and deny/ask rules in <code>settings.json</code></td>
+</tr>
+<tr>
+<td>Live probe</td>
+<td>Each hook gets input it must block and input it must allow: <code>git commit --no-verify</code>, a <code>docker</code> mount of <code>/etc</code>, <code>curl</code> piped into <code>sh</code>, <code>DROP TABLE</code> through <code>psql</code>, a <code>HEAD</code> file next to <code>refs/</code>, a non-conventional commit message, a push to <code>main</code>. The session-start check must report an install with nothing in it and say nothing about this one. Each refusal must also arrive in an event log, which the probe keeps in a temporary directory</td>
+</tr>
+<tr>
+<td>Environment</td>
+<td>python3, Claude Code and gitleaks versions; whether <code>gh</code> and Playwright are available; WSL; a repository that sets its own <code>core.hooksPath</code>; a Bash sandbox that keeps <code>gh</code> from reading its own login file; a <code>frontend-design</code> plugin enabled next to the kit's copy, as an <code>[info]</code> line that says how to keep one. Only the user-level <code>settings.json</code> is read, so a plugin enabled in one project's settings is not reported</td>
+</tr>
+<tr>
+<td>Updates</td>
+<td>Whether the remote of the checkout the install was made from has commits this install lacks: <code>up to date</code>, <code>update available</code> or <code>not checked</code>. Information only, never a problem. Not part of <code>--quick</code></td>
+</tr>
+<tr>
+<td>Activity</td>
+<td>What the kit's hooks did in the last 7 days, read from the event log: each rule that blocked, asked, was overridden or failed, with a count and the last time. The 20 newest rules are listed, and a hook that failed is listed however old it is. See <a href="#rule-ids-and-the-event-log">Rule ids and the event log</a>. Not part of <code>--quick</code></td>
+</tr>
+</tbody>
+</table>
+<p>A line is <code>[fail]</code> when a guard is missing or does the wrong thing, <code>[warn]</code> when something changed but still works (for example a skill file you edited) or a hook failed while it ran, and <code>[info]</code> for context. The report ends with <code>Result: healthy</code>, or with the number of problems and the command that repairs the install. The check itself changes nothing in <code>~/.claude</code>.</p>
+<p>The report repeats a name from <code>settings.json</code> or the install manifest only when it reads as a plain name: a hook's file name, an event, a rule, a version, a branch. Anything else is counted and not quoted, so a line that sits in one of those files cannot show up as a line of the report. Characters that draw as nothing or change how a line reads are removed. A plain name can still spell a word, so read the report as a list of names, not as advice.</p>
+<p>The same check runs when a session starts. <code>session-check.py</code> is a SessionStart hook that runs <code>check.py --quick</code> on <code>startup</code> (not on resume or after <code>/clear</code>); it takes about 0.2 seconds. A healthy install, warnings included, gives no output. With a <code>[fail]</code> you get one line with the number of problems and no text from the report, and Claude is told the same:</p>
+<div class="codehilite"><pre><span></span><code>pipelinekit: 2 problems in this install. Run /kit for the report.
+</code></pre></div>
+
+<p>The hook never blocks a session. A check that takes longer than 4 seconds is dropped, together with anything it started, and shows up under Activity as <code>session-check.timeout</code>. <code>PIPELINEKIT_SESSION_CHECK=0</code> in the environment switches it off, and <code>/kit</code> then says so.</p>
+<p>The checker is <code>claude/skills/kit/check.py</code>, stdlib only. It also runs outside a session:</p>
+<div class="codehilite"><pre><span></span><code>python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w">            </span><span class="c1"># full report, about a second</span>
+python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w"> </span>--quick<span class="w">    </span><span class="c1"># no live probes</span>
+python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w"> </span>--verbose<span class="w">  </span><span class="c1"># also list the checks that passed</span>
+python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w"> </span>--json<span class="w">     </span><span class="c1"># for scripts</span>
+python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w"> </span>--days<span class="w"> </span><span class="m">30</span><span class="w">  </span><span class="c1"># activity of the last 30 days (1 to 365)</span>
+python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w"> </span>--session<span class="w"> </span>ID<span class="w">  </span><span class="c1"># activity of one session</span>
+python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w"> </span>--no-remote<span class="w">   </span><span class="c1"># do not ask the remote for updates</span>
+</code></pre></div>
+
+<p>Exit code 0 means healthy, 1 means problems were found, 2 means the checker itself failed. <code>scripts/verify.sh</code> runs the same file. The JSON output has an <code>activity</code> list with every rule, where the text report shows the 20 most recent, and an <code>update</code> object with the state of the update check.</p>
+<p>The repository checks itself the same way. In CI the <code>install-smoke</code> job installs the kit into an empty home directory and expects a healthy report, then removes one hook and expects the report to name it. The whole workflow also runs every Monday at 05:17 UTC and can be started by hand (<code>gh workflow run CI</code>). A failed scheduled run opens the issue <code>Weekly self-check failed</code>, or adds a comment to it while it is open (<code>scripts/ci-report.sh</code>); close the issue once a run is green again. GitHub starts scheduled runs from the default branch only, and pauses them after 60 days without activity in the repository.</p>
+<p>The comparison data is <code>~/.claude/pipelinekit/manifest.json</code>, which the installer writes: kit version and commit, the checkout path and branch, whether serena was registered, a SHA-256 of every installed file, and the <code>settings.json</code> entries the kit owns. An install made before this file existed reports <code>install manifest not found</code>; run the installer once.</p>
+<p>The Updates section compares the commit the install was made from with the same branch on <code>origin</code> of that checkout. It asks the remote at most once in 24 hours (<code>git ls-remote</code>, nothing is fetched), gives it 5 seconds and keeps the answer in <code>update.json</code> next to the event log. Offline, without the checkout, or when the install was made from a checkout on no branch, it says <code>not checked</code>. An available update is an <code>[info]</code> line and never changes the result. <code>PIPELINEKIT_UPDATE_CHECK=0</code> switches the check off; <code>--no-remote</code> uses only an answer it already has.</p>
+<p><code>/kit update</code> applies an update from inside a session:</p>
+<ol>
+<li><code>update.py plan</code> fetches the branch and lists the new commits, at most 30, each as one cleaned line. Nothing else changes.</li>
+<li>Claude shows them and asks whether to update.</li>
+<li>After a yes, <code>update.py apply --to &lt;commit&gt;</code> fast-forwards the checkout to exactly the commit the plan listed, runs the installer and then the self-check. Its last line is <code>Updated &lt;old&gt; -&gt; &lt;new&gt;. Self-check: healthy.</code>, or the same line with the number of problems or warnings when the new version is installed and its check has something to say. When the installer fails, the last line starts with <code>Not updated:</code> or, when the files were already replaced, with <code>Partly updated</code>, and a line <code>By hand: &lt;command&gt;</code> above it holds the installer command to run again.</li>
+</ol>
+<p>The installer runs with what was chosen at install time: the global git hooks stay on or off, and serena is not registered where it was skipped. The update is refused, and nothing changes, when the checkout has uncommitted changes, is on another branch or has commits the remote lacks, and when the remote moved after the plan. The same two commands work from a shell:</p>
+<div class="codehilite"><pre><span></span><code>python3<span class="w"> </span>~/.claude/skills/kit/update.py<span class="w"> </span>plan<span class="w">              </span><span class="c1"># what would change</span>
+python3<span class="w"> </span>~/.claude/skills/kit/update.py<span class="w"> </span>apply<span class="w"> </span>--to<span class="w"> </span>COMMIT<span class="w"> </span><span class="c1"># the full commit id the plan printed</span>
+</code></pre></div>
+
+<p>The Environment section warns about one conflict that is easy to miss. When the Bash sandbox is on, a <code>Read</code> deny rule for the <code>gh</code> login file (<code>hosts.yml</code>) also applies to <code>gh</code> itself, so <code>gh</code> fails in sandboxed commands, and so does <code>git</code> over https when it asks <code>gh</code> for the token. The line names the fix: add <code>gh *</code> to <code>sandbox.excludedCommands</code> in <code>settings.json</code>, or run <code>gh</code> outside the sandbox.</p>
+<p>Two things are outside its reach. A <code>permissions.deny</code> match, or a prompt you declined, leaves no trace to report: Activity lists only what the kit's own hooks did. And the report describes the environment it runs in: another WSL distro, an SSH host or a sandboxed session can differ, so run the check there.</p>
+<h2 id="shipping-a-pull-request">Shipping a pull request</h2>
+<p>With the kit installed, Claude finishes the pull requests it opens instead of handing each one to you to merge. The <code>ship</code> skill (<code>/ship</code>) describes the loop, and <code>claude/skills/ship/ship.py</code> holds the conditions for the merge.</p>
+<ol>
+<li>The issue lists acceptance criteria as a checklist.</li>
+<li>Claude builds the change, runs the project's tests and opens a draft pull request.</li>
+<li>A fresh agent tests the change. It gets the criteria and the running build, not the code or the builder's notes. A web page is driven with Playwright, a command-line tool or installer runs in a throwaway directory, an API is started and called. A change with nothing user-visible gets a smoke run instead.</li>
+<li>Findings are fixed, each bug with a regression test, and the test runs again until it passes.</li>
+<li><code>ship.py record</code> notes the result for the tested commit, and with a pass whether the pull request is a release (<code>--release yes</code> or <code>--release no</code>). <code>ship.py merge</code> waits for CI and merges.</li>
+</ol>
+<p><code>ship.py merge</code> refuses unless every gate holds:</p>
+<table>
+<thead>
+<tr>
+<th>Gate</th>
+<th>Holds when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pr</code></td>
+<td>The branch has an open pull request</td>
+</tr>
+<tr>
+<td><code>own</code></td>
+<td>Your GitHub account opened it, and it is not from a fork</td>
+</tr>
+<tr>
+<td><code>policy</code></td>
+<td>The project has not opted out</td>
+</tr>
+<tr>
+<td><code>release</code></td>
+<td>It is not a release. A release is: a release, stage or version branch (<code>release/1.0</code>, <code>develop</code>, <code>staging</code>, <code>v2</code>, <code>chore/release-0.2.0</code>) into the default branch or into another long-lived branch; the default branch into another branch; anything into a deploy branch such as <code>production</code>, <code>prod-eu</code> or <code>gh-pages</code>; anything into <code>main</code> where another branch is the default; anything into a branch that is neither the default nor a known working branch; a branch that pull requests were merged into; a title that names a release or a version; a diff that sets a version or changes a release file of the project; a test record that says it is one (all below)</td>
+</tr>
+<tr>
+<td><code>review</code></td>
+<td>No review is required, requested or asking for changes</td>
+</tr>
+<tr>
+<td><code>current</code></td>
+<td>The local commit is the pull request's head and nothing tracked is uncommitted</td>
+</tr>
+<tr>
+<td><code>up-to-date</code></td>
+<td>The branch contains its base branch and does not conflict with it</td>
+</tr>
+<tr>
+<td><code>tested</code></td>
+<td>The last test record is a pass for exactly this commit, and the loop is not stuck</td>
+</tr>
+<tr>
+<td><code>ci</code></td>
+<td>Every check has finished and passed. A pull request with no check at all passes only where no workflow runs on pull requests, or with <code>--allow-no-checks</code></td>
+</tr>
+</tbody>
+</table>
+<p>The merge command names the tested commit (<code>--match-head-commit</code>), so a commit pushed in between is not merged. The helper has no <code>--admin</code> option, and <code>gh pr merge --admin</code> is on the <code>permissions.ask</code> list. The merge method follows the base branch: a merge commit where the branch already has them, squash otherwise.</p>
+<p>A draft has to be marked ready before GitHub merges it, and that can start checks, add reviewers or turn on branch protection. The helper therefore watches the pull request after marking it ready and merges only when it stayed mergeable for the whole settle time: 30 seconds, or 90 (the <code>--grace</code> time) where a check is still to come, because none has run yet or a workflow starts on <code>ready_for_review</code>. <code>--settle S</code> sets the time. Where a workflow runs on pull requests, a check must really have run by then: one that was skipped on the draft does not count, and only <code>--allow-no-checks</code> lifts that. If something showed up, the pull request stays ready and unmerged. The last line of output is always the outcome: <code>Merged #12 into main ...</code>, <code>Not merged: ...</code> or <code>STOP: ...</code>.</p>
+<p>The release gate leans towards asking. A feature branch into a release branch such as <code>release/v1.0</code> is an ordinary change and merges; the release branch into <code>main</code> does not. A title counts when it is made of release words (<code>chore: prepare 0.3.0</code>, <code>Bump version: 1.2.3 to 1.2.4</code>, <code>chore: release kit 1.2.0</code>, <code>chore: bump version in package.json</code>, <code>chore: weekly release</code>, <code>chore: patch</code>, <code>Deploy</code>), not when it is about a release (<code>fix: release 1.2.0 broke the installer</code>, <code>chore: release script</code>), about a dependency (<code>chore(deps): bump lodash to 4.17.21</code>) or about a tool (<code>ci: bump python version to 3.12</code>); <code>docs</code>, <code>test</code>, <code>style</code>, <code>refactor</code> and <code>perf</code> titles never count.</p>
+<p>The gate also reads the diff against the base branch. It does not work from a list of known manifests: a version is ordinary in the places known to hold the versions of other things, and held anywhere else, whatever the file format.</p>
+<p>Held are:</p>
+<ul>
+<li>any change to a version file (<code>VERSION</code>, <code>version.txt</code>, <code>.bumpversion.cfg</code>, <code>.release-please-manifest.json</code>) and any numbered file in a release-notes directory (<code>docs/releases/1.2.4.md</code>);</li>
+<li>a new or changed value under a key with <code>version</code> in its name, in any manifest or data file: <code>package.json</code>, <code>pyproject.toml</code>, <code>Cargo.toml</code>, <code>pom.xml</code>, a <code>.csproj</code> or <code>.nuspec</code>, <code>Chart.yaml</code>, <code>Info.plist</code>, <code>CMakeLists.txt</code>, <code>build.gradle</code>, <code>setup.py</code>, <code>AssemblyInfo.cs</code>, <code>version.h</code>, and files the helper has never heard of. In a file without a known format, a line that only swaps one three-part number for another counts too;</li>
+<li>a line of source code that sets a quoted version: an assignment (<code>__version__ = "1.2.4"</code>, <code>public static readonly string Version = "1.2.4";</code>), a key of an object, a struct or a dictionary (<code>version: "1.2.4",</code>), a <code>#define APP_VERSION "1.2.4"</code>. <code>app.config.js</code> and <code>app.config.ts</code> are read as manifests;</li>
+<li>a new version heading in release notes (<code>CHANGELOG</code>, <code>CHANGES</code>, <code>HISTORY</code>, <code>NEWS</code>, <code>RELEASES</code>, <code>RELEASE_NOTES</code>, with any extension): <code>## 1.2.4</code>, <code>## [1.2.4] - 2026-11-10</code>, <code>1.2.4</code> over an underline, <code>**1.2.4**</code>, <code>## kit 1.2.4</code>, a link definition <code>[1.2.4]: ...</code>.</li>
+</ul>
+<p>Ordinary are: lock files; files that pin tools (<code>.nvmrc</code>, <code>.python-version</code>, <code>Dockerfile</code>, <code>docker-compose.yml</code>, <code>requirements*.txt</code>, <code>.pre-commit-config.yaml</code>, <code>packages.config</code>, <code>deps.edn</code>); everything under <code>.github/</code>, <code>.circleci/</code> and <code>.devcontainer/</code>; files in test, fixture, example and vendor directories; documentation (<code>README</code>, <code>.md</code>, <code>.rst</code>, <code>.txt</code>, <code>.html</code>); dependency tables and elements (<code>dependencies</code>, <code>[dependencies.clap]</code>, <code>&lt;parent&gt;</code>, <code>&lt;dependency&gt;</code>, <code>engines</code>); keys that name a tool or a format (<code>python-version</code>, <code>apiVersion</code>, <code>schemaVersion</code>, <code>minSdkVersion</code>); a whole number under a plain <code>version</code> key (<code>version: 2</code> is a format version); a changelog entry under an existing heading.</p>
+<p>No reading of a diff is complete, so three more things decide:</p>
+<ul>
+<li><code>ship.py record --result pass</code> takes <code>--release yes</code> or <code>--release no</code>. Whoever ran the test knows what the change is and says so; <code>yes</code> holds the pull request, and a pass without the answer is not accepted.</li>
+<li>A project names its own release files and branches in its <code>CLAUDE.md</code>, each on a line of its own: <code>Release files: app/build.txt, deploy/</code> and <code>Release branches: team-*, customer-*</code>. A change to one of the files, and a pull request from or into one of the branches, is held. <code>deploy/</code> is everything below that directory; anything else is a glob on the path, for files also on the file name alone. As with the opt-out line, the <code>CLAUDE.md</code> on the base branch counts as well.</li>
+<li>A branch that other pull requests were merged into is a stage, whatever it is called, and merging it on is a promotion. The helper asks GitHub about every head branch that is not a topic branch (<code>feat/...</code>, <code>fix/...</code>); without an answer nothing merges.</li>
+</ul>
+<p>The gate guards your own project against a slip. It is not a defence against a pull request written to get past it. It does not see: a version in a place the lists call ordinary (a label in a <code>Dockerfile</code>, a file under <code>tests/</code> or <code>examples/</code>, a <code>.md</code> file that is not release notes); a whole-number version under a plain <code>version</code> key; a version that source code spells another way (<code>VERSION = (1, 2, 4)</code>, the header comment of a plugin); a version in a <code>.nix</code> or <code>.tf</code> file; a version Maven takes from <code>&lt;properties&gt;</code> or <code>${revision}</code>; files over 1 MB and binary files; a release whose title uses no release word (<code>chore: go live</code>) and whose diff sets no version. It holds some pull requests that are not releases: a nested package getting its first version, a version-like setting in a config file, a branch whose short name starts with a stage word (<code>qa-fixes</code>), a title that is a name and a number (<code>chore: lodash 4.17.21</code>). When that happens, say that it may be merged, and merge it yourself.</p>
+<p>Known working branches are: the default branch; the shared branches <code>develop</code>, <code>development</code>, <code>dev</code>, <code>integration</code>, <code>staging</code>, <code>stage</code>, <code>next</code>, <code>beta</code>, <code>alpha</code>, <code>canary</code>, <code>preview</code>, <code>nightly</code>, <code>edge</code>, <code>uat</code>, <code>qa</code>, <code>preprod</code>, <code>test</code>, <code>testing</code> and <code>trunk</code>; branches under <code>integration/</code>, <code>staging/</code>, <code>stage/</code>, <code>uat/</code>, <code>qa/</code> and <code>preprod/</code>; release lines, which is anything that starts with <code>release/</code>, <code>release-</code>, <code>releases/</code>, <code>rel/</code>, <code>rc/</code>, <code>hotfix/</code>, <code>support/</code> or <code>maint/</code>, and bare version names such as <code>1.x</code> or <code>v2</code>; topic branches such as <code>feat/12-base</code> (a stacked pull request). A pull request into any other branch (<code>customer-a</code>, <code>release</code>) is held, because the helper cannot know what that branch stands for. Name such a branch on a <code>Release branches:</code> line when it is a release branch. As the branch a pull request comes from, <code>hotfix/login-crash</code> is a fix like any other; only a hotfix branch with a version in its name (<code>hotfix/1.2.1</code>), or one that other pull requests were merged into, is held.</p>
+<p>These stay yours: release pull requests, tags, publishing and production deploys; pull requests someone else opened; anything behind a required review or branch protection. Claude also stops and asks when the same finding is still open after two fix attempts, after five failed rounds in a row, and when a test needs a decision the criteria do not settle. A stuck loop shows in <code>ship.py status</code> and blocks <code>ship.py merge</code> until you decide.</p>
+<p>To turn self-merging off for a project, put this line in its <code>CLAUDE.md</code>:</p>
+<div class="codehilite"><pre><span></span><code>Merges: ask first
+</code></pre></div>
+
+<p>The same line in <code>~/.claude/CLAUDE.md</code> turns it off everywhere, and so does <code>PIPELINEKIT_MERGE</code> in the environment with any non-empty value but <code>auto</code>. Claude then asks before it merges. The line counts on its own line, also as a list or task item, a heading, a table cell or two cells of a row (<code>| Merges | ask first |</code>), in bold, quoted, in backticks or inside an HTML comment. <code>Merging: ask first</code>, <code>Merges - ask first</code>, <code>Merges: always ask first</code>, <code>Merges: never</code>, <code>Merges: off</code> and <code>Merges: manual</code> count as the same line. A sentence that only mentions it does not. The <code>CLAUDE.md</code> on the base branch counts as well, so a branch cannot drop the line for its own pull request.</p>
+<p>Test reports and screenshots go to <code>docs/uat/</code> in the project. That directory is local: the helper adds it to <code>.git/info/exclude</code>, and it is on the never-stage list. The kit does not install Playwright; <code>/kit</code> reports whether <code>gh</code> and Playwright are available.</p>
+<div class="codehilite"><pre><span></span><code>python3<span class="w"> </span>~/.claude/skills/ship/ship.py<span class="w"> </span>status<span class="w">           </span><span class="c1"># every gate, with the reason</span>
+python3<span class="w"> </span>~/.claude/skills/ship/ship.py<span class="w"> </span>merge<span class="w"> </span>--dry-run<span class="w">  </span><span class="c1"># what would be merged, and how</span>
+</code></pre></div>
+
+<p>Exit code 0 means done, 1 means a gate or a check failed, 2 means the helper could not run, 3 means stop and ask.</p>
+<h2 id="claude-md-template">CLAUDE.md template</h2>
+<p><code>claude/CLAUDE.md.template</code> is 67 lines of English with no imported rule files. The installer fills in <code>${USER_NAME}</code>, <code>${USER_EMAIL}</code> and <code>${CLAUDE_HOME}</code> and writes the result to <code>~/.claude/CLAUDE.md</code>. It covers:</p>
+<ul>
+<li>your identity;</li>
+<li>git rules: commit only when asked, conventional commits, no AI attribution, no workflow jargon in commit text, the never-stage list, <code>.git/info/exclude</code> for Claude-specific ignores, and no direct pushes to <code>main</code>;</li>
+<li>the <code>docs/</code> (local, never committed) and <code>documentation/</code> (committed) split;</li>
+<li>a base-branch detection snippet;</li>
+<li>serena for symbol navigation, Grep/Glob for text;</li>
+<li>decisions that are yours to make, asked as interactive questions: two to four options, each with its upside and downside, the recommended one first;</li>
+<li>design: load <code>frontend-design</code> before building or reshaping anything a person looks at; the project's own design system or brand comes first, then the host's rules for the output, then the skill; the <code>dataviz</code> skill, when the session has it, decides chart form; <code>docs-writer</code> pages keep the template's CSS variables; skip it for work with no visual output and for small fixes inside an existing design;</li>
+<li>GitHub habits with <code>gh</code>: issues with acceptance criteria before work, <code>&lt;type&gt;/&lt;issue#&gt;-&lt;slug&gt;</code> branches, draft PRs, finishing its own PRs with the <code>ship</code> skill, reading CI logs, releases when you ask;</li>
+<li>the deploy CLIs.</li>
+</ul>
+<h2 id="mcp-servers">MCP servers</h2>
+<table>
+<thead>
+<tr>
+<th>Server</th>
+<th>Installed by default</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>serena</td>
+<td>Yes, unless you pass <code>--no-serena</code></td>
+<td>Symbol-level code navigation. Installed with <code>uv</code> from a pinned commit and registered at user scope in <code>~/.claude.json</code>. A project <code>.mcp.json</code> entry takes precedence</td>
+</tr>
+<tr>
+<td>context7</td>
+<td>No</td>
+<td>Library and framework docs. Copy its entry from <code>.mcp.json.template</code> into a project's <code>.mcp.json</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="what-is-not-included">What is not included</h2>
+<p>Plan mode, the Workflow tool, <code>/code-review</code>, <code>/security-review</code>, <code>/simplify</code>, the Explore and Plan agents, auto-memory, worktree isolation, <code>/loop</code> and <code>/schedule</code> are all built into Claude Code. pipelinekit no longer provides its own versions. See <a href="upgrading.html#what-was-removed">Upgrading from 0.0.1</a> for how the old components map to these built-ins.</p>
+    </div>
+
+    <div class="no-results" id="no-results">
+      <p>No matches on this page. Clear the filter to see all content.</p>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div><a href="credits.html">Credits</a></div>
+  <div>Self-contained HTML · no CDN · no remote assets</div>
+</footer>
+
+<script>
+(function() {
+  'use strict';
+
+  // ============ Theme toggle (auto → light → dark cycle) ============
+  const themeToggle = document.getElementById('theme-toggle');
+  const themeLabel = document.getElementById('theme-label');
+  const iconLight = document.getElementById('theme-icon-light');
+  const iconDark = document.getElementById('theme-icon-dark');
+  const root = document.documentElement;
+  const STORE_KEY = 'docs-theme';
+
+  function applyTheme(mode) {
+    if (mode === 'auto') {
+      root.removeAttribute('data-theme');
+      themeLabel.textContent = 'Auto';
+      iconLight.style.display = 'none';
+      iconDark.style.display = '';
+    } else {
+      root.setAttribute('data-theme', mode);
+      themeLabel.textContent = mode === 'dark' ? 'Dark' : 'Light';
+      iconLight.style.display = mode === 'dark' ? 'none' : '';
+      iconDark.style.display = mode === 'dark' ? '' : 'none';
+    }
+  }
+  applyTheme(localStorage.getItem(STORE_KEY) || 'auto');
+  themeToggle.addEventListener('click', () => {
+    const cur = localStorage.getItem(STORE_KEY) || 'auto';
+    const next = cur === 'auto' ? 'light' : cur === 'light' ? 'dark' : 'auto';
+    localStorage.setItem(STORE_KEY, next);
+    applyTheme(next);
+  });
+
+  // ============ Anchor links on headings ============
+  document.querySelectorAll('h2[id], h3[id], h4[id]').forEach(h => {
+    const a = document.createElement('a');
+    a.href = '#' + h.id;
+    a.className = 'anchor';
+    a.setAttribute('aria-label', 'Permalink to ' + h.textContent);
+    a.textContent = '#';
+    h.insertBefore(a, h.firstChild);
+  });
+
+  // ============ Copy-code buttons ============
+  document.querySelectorAll('pre').forEach(pre => {
+    const code = pre.querySelector('code');
+    if (!code) return;
+    // Try to detect language from class
+    const cls = code.className || pre.className || '';
+    const langMatch = cls.match(/language-(\w+)|codehilite/) || cls.match(/\b(\w+)\b/);
+    let lang = '';
+    const cm = cls.match(/language-(\w+)/);
+    if (cm) lang = cm[1];
+    if (lang && lang !== 'codehilite') {
+      const label = document.createElement('span');
+      label.className = 'lang-label';
+      label.textContent = lang;
+      pre.appendChild(label);
+    }
+    const btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.type = 'button';
+    btn.setAttribute('aria-label', 'Copy code');
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy';
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(code.innerText);
+        btn.classList.add('copied');
+        btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Copied';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy';
+        }, 1800);
+      } catch (e) {
+        btn.textContent = 'Press Ctrl+C';
+      }
+    });
+    pre.appendChild(btn);
+  });
+
+  // ============ Sortable tables ============
+  document.querySelectorAll('table').forEach(table => {
+    const thead = table.querySelector('thead');
+    if (!thead) return;
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+    // Wrap in scroll container
+    if (!table.parentElement.classList.contains('table-wrap')) {
+      const wrap = document.createElement('div');
+      wrap.className = 'table-wrap';
+      table.parentNode.insertBefore(wrap, table);
+      wrap.appendChild(table);
+    }
+    thead.querySelectorAll('th').forEach((th, idx) => {
+      th.classList.add('sortable');
+      th.addEventListener('click', () => sortByColumn(table, idx, th));
+    });
+  });
+  function sortByColumn(table, colIdx, th) {
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const isAsc = !th.classList.contains('asc');
+    table.querySelectorAll('th').forEach(h => h.classList.remove('asc', 'desc'));
+    th.classList.toggle('asc', isAsc);
+    th.classList.toggle('desc', !isAsc);
+    rows.sort((a, b) => {
+      const av = (a.children[colIdx]?.innerText || '').trim();
+      const bv = (b.children[colIdx]?.innerText || '').trim();
+      const an = parseFloat(av);
+      const bn = parseFloat(bv);
+      let cmp;
+      if (!isNaN(an) && !isNaN(bn)) cmp = an - bn;
+      else cmp = av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
+      return isAsc ? cmp : -cmp;
+    });
+    rows.forEach(r => tbody.appendChild(r));
+  }
+
+  // ============ ScrollSpy for ToC ============
+  const tocLinks = document.querySelectorAll('.toc a');
+  const headings = document.querySelectorAll('main h2[id], main h3[id]');
+  if (tocLinks.length && headings.length && 'IntersectionObserver' in window) {
+    const linkByHash = {};
+    tocLinks.forEach(a => { linkByHash[a.getAttribute('href')] = a; });
+    const visible = new Set();
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        const h = '#' + e.target.id;
+        if (e.isIntersecting) visible.add(h);
+        else visible.delete(h);
+      });
+      tocLinks.forEach(a => a.classList.remove('active'));
+      // Pick the topmost-visible heading
+      const candidates = Array.from(headings).filter(h => visible.has('#' + h.id));
+      const first = candidates[0] || headings[0];
+      if (first && linkByHash['#' + first.id]) linkByHash['#' + first.id].classList.add('active');
+    }, { rootMargin: '-100px 0px -60% 0px', threshold: 0 });
+    headings.forEach(h => io.observe(h));
+  }
+
+  // ============ In-page search filter ============
+  const searchInput = document.getElementById('page-search');
+  const noResults = document.getElementById('no-results');
+  const pageContent = document.getElementById('page-content');
+  function clearHighlights() {
+    pageContent.querySelectorAll('.search-hit').forEach(el => {
+      const t = document.createTextNode(el.textContent);
+      el.parentNode.replaceChild(t, el);
+    });
+    pageContent.normalize();
+  }
+  function highlightInNode(node, regex) {
+    if (node.nodeType === 3) {
+      const txt = node.nodeValue;
+      const m = txt.match(regex);
+      if (!m) return false;
+      const frag = document.createDocumentFragment();
+      let last = 0;
+      txt.replace(regex, (match, off) => {  // no capture groups: (match, offset, string)
+        if (off > last) frag.appendChild(document.createTextNode(txt.slice(last, off)));
+        const span = document.createElement('span');
+        span.className = 'search-hit';
+        span.textContent = match;
+        frag.appendChild(span);
+        last = off + match.length;
+      });
+      if (last < txt.length) frag.appendChild(document.createTextNode(txt.slice(last)));
+      node.parentNode.replaceChild(frag, node);
+      return true;
+    }
+    if (node.nodeType !== 1) return false;
+    if (['SCRIPT','STYLE','PRE','CODE'].includes(node.tagName)) return false;
+    let any = false;
+    Array.from(node.childNodes).forEach(c => { if (highlightInNode(c, regex)) any = true; });
+    return any;
+  }
+  function filter(q) {
+    clearHighlights();
+    // Filter table rows
+    document.querySelectorAll('table tbody tr').forEach(tr => tr.classList.remove('filtered-out'));
+    if (!q) { noResults.classList.remove('visible'); return; }
+    const lc = q.toLowerCase();
+    const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    let anyHit = false;
+    if (highlightInNode(pageContent, regex)) anyHit = true;
+    // Table filtering
+    document.querySelectorAll('table tbody tr').forEach(tr => {
+      const txt = tr.innerText.toLowerCase();
+      if (!txt.includes(lc)) tr.classList.add('filtered-out');
+      else anyHit = true;
+    });
+    noResults.classList.toggle('visible', !anyHit);
+  }
+  if (searchInput) {
+    let debounce;
+    searchInput.addEventListener('input', (e) => {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => filter(e.target.value.trim()), 80);
+    });
+  }
+  // Keyboard: / focuses search
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '/' && document.activeElement !== searchInput && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      searchInput.focus();
+    }
+    if (e.key === 'Escape' && document.activeElement === searchInput) {
+      searchInput.value = '';
+      filter('');
+      searchInput.blur();
+    }
+  });
+
+  // ============ Mobile ToC drawer ============
+  const tocToggle = document.getElementById('toc-toggle');
+  const toc = document.getElementById('toc');
+  if (tocToggle && toc) {
+    tocToggle.addEventListener('click', () => toc.classList.toggle('open'));
+    toc.addEventListener('click', (e) => {
+      if (e.target.tagName === 'A') toc.classList.remove('open');
+    });
+  }
+
+  // ============ Auto-detect callouts from blockquotes starting with [NOTE]/[INFO]/etc ============
+  document.querySelectorAll('blockquote').forEach(bq => {
+    const first = bq.querySelector('p:first-child');
+    if (!first) return;
+    const m = first.textContent.match(/^\[(NOTE|INFO|TIP|WARN|WARNING|DANGER|ALERT|SUCCESS|OK)\]\s*/i);
+    if (!m) return;
+    const kind = m[1].toUpperCase();
+    const klass = ['WARN','WARNING','ALERT'].includes(kind) ? 'warn'
+                 : ['DANGER'].includes(kind) ? 'danger'
+                 : ['SUCCESS','OK'].includes(kind) ? 'success' : 'info';
+    const icon = klass === 'warn' ? '⚠' : klass === 'danger' ? '✕' : klass === 'success' ? '✓' : 'ℹ';
+    // Strip the [TIP] marker from the leading text node only, so links and
+    // inline code in the first paragraph survive.
+    const lead = first.firstChild;
+    if (lead && lead.nodeType === 3 && lead.nodeValue.length >= m[0].length) lead.nodeValue = lead.nodeValue.slice(m[0].length);
+    else first.textContent = first.textContent.slice(m[0].length);
+    const wrap = document.createElement('div');
+    wrap.className = 'callout ' + klass;
+    wrap.innerHTML = '<span class="callout-icon">' + icon + '</span><div class="callout-body"></div>';
+    const body = wrap.querySelector('.callout-body');
+    while (bq.firstChild) body.appendChild(bq.firstChild);
+    bq.parentNode.replaceChild(wrap, bq);
+  });
+
+})();
+</script>
+
+</body>
+</html>

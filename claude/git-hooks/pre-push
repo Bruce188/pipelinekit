@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Global git pre-push hook (core.hooksPath = ~/.claude/git-hooks).
+# Refuses pushes that update main or master on the remote, judged from the
+# refs git passes on stdin (<local ref> <local sha> <remote ref> <remote sha>),
+# so no command-line parsing is involved. Branch deletions are let through.
+# Then runs the repo's own pre-push hook (.git/hooks/pre-push or .githooks/pre-push).
+# Human override: ALLOW_MAIN_PUSH=1 git push ...
+# A refusal and a use of the override each leave one line in the kit's event log.
+set -u
+
+chain() {
+  local name=$1 self h; shift
+  self=$(realpath "$0")
+  for h in "$(git rev-parse --git-common-dir)/hooks/$name" "$(git rev-parse --show-toplevel 2>/dev/null)/.githooks/$name"; do
+    [ -x "$h" ] && [ "$(realpath "$h")" != "$self" ] || continue
+    printf '%s' "${HOOK_STDIN:-}" | "$h" "$@" || return $?
+  done
+}
+
+kitlog() { # kitlog <kind> <rule> <reason>: one line in the kit's event log; never fails
+  python3 "$(dirname "$(realpath "$0")")/../hooks/kitlog.py" pre-push "$@" </dev/null >/dev/null 2>&1 || true
+}
+
+HOOK_STDIN=$(cat; echo x)
+HOOK_STDIN=${HOOK_STDIN%x}
+
+while read -r _lref lsha rref _rsha; do
+  [ -n "${lsha:-}" ] || continue
+  case "$lsha" in *[!0]*) ;; *) continue ;; esac   # all zeros: deleting the remote ref
+  case "$rref" in
+    refs/heads/main|refs/heads/master)
+      if [ "${ALLOW_MAIN_PUSH:-}" != 1 ]; then
+        echo "pre-push: direct push to ${rref#refs/heads/} refused; push a branch and open a PR (humans: ALLOW_MAIN_PUSH=1) [pre-push.protected-branch]" >&2
+        kitlog block pre-push.protected-branch "direct push to ${rref#refs/heads/} refused"
+        exit 1
+      fi
+      kitlog override pre-push.allow-main "ALLOW_MAIN_PUSH=1 let a push to ${rref#refs/heads/} through" ;;
+  esac
+done <<<"$HOOK_STDIN"
+
+chain pre-push "$@" || exit $?
+exit 0
