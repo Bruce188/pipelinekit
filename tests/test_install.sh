@@ -57,10 +57,16 @@ if PATH="$T/fakebin:$PATH" CLAUDE_HOME="$T/win" bash "$REPO_ROOT/scripts/install
 fi
 test ! -e "$T/win"
 
+# The usage text names the agents.
+help="$(bash "$REPO_ROOT/scripts/install.sh" --help)"
+for a in kit-planner kit-builder kit-judge; do
+  grep -qF "$a" <<<"$help"
+done
+
 bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$T/install1.out" 2>&1
 bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$T/install2.out" 2>&1
 grep -qF '[install] copied 8 skills' "$T/install2.out"
-n_skills="$(sed -n 's/^KIT_SKILLS=(\(.*\))$/\1/p' "$REPO_ROOT/scripts/install.sh" | wc -w)"
+n_skills="$(sed -n 's/^KIT_SKILLS=(\(.*\))$/\1/p' "$REPO_ROOT/scripts/install.sh" | wc -w | tr -d ' ')"
 grep -qF "[install] copied $n_skills skills, 3 agents, " "$T/install2.out"
 # The closing line names the agents and says how to load them.
 [ "$(tail -n 1 "$T/install2.out")" = \
@@ -113,6 +119,7 @@ test ! -e "$CLAUDE_HOME/hooks/denial_tracker.py"
 test -f "$CLAUDE_HOME/hooks/env-scrub.py"            # edited: kept
 test ! -e "$CLAUDE_HOME/agents/docs-writer.md"
 test -f "$CLAUDE_HOME/agents/other.md"
+[ "$(cat "$CLAUDE_HOME/agents/other.md")" = "mine" ]
 for a in kit-planner.md kit-builder.md kit-judge.md; do
   test -f "$CLAUDE_HOME/agents/$a"
   test ! -L "$CLAUDE_HOME/agents/$a"
@@ -121,7 +128,8 @@ done
 [ "$(cat "$T/outside-agent.md")" = "outside" ]           # the link was not followed
 grep -qxF "[install] removed the link agents/kit-builder.md" "$T/install1.out"
 set -- "$CLAUDE_HOME"/pipelinekit/backup/*
-[ "$#" -eq 1 ] && [ -f "$1" ]                             # the own judge only, not the link
+[ "$#" -eq 1 ]                                            # the own judge only, not the link
+[ -f "$1" ]
 [[ "${1##*/}" =~ ^agents-kit-judge\.md-[0-9]{8}-[0-9]{6}$ ]]
 [ "$(cat "$1")" = "my own judge" ]
 grep -qxF "[install] kept your own kit-judge.md in $1" "$T/install1.out"
@@ -154,7 +162,9 @@ cmp "$REPO_ROOT/claude/agents/kit-planner.md" "$CLAUDE_HOME/agents/kit-planner.m
 if grep -qF 'kept your own' "$T/install3.out"; then
   echo "test_install: an edited kit agent was backed up" >&2; exit 1
 fi
-set -- "${CLAUDE_HOME}"/pipelinekit/backup/agents-*; [ "$#" -eq 1 ] && [ -f "$1" ]
+set -- "${CLAUDE_HOME}"/pipelinekit/backup/agents-*
+[ "$#" -eq 1 ]
+[ -f "$1" ]
 
 # verify notices a hook that is present but cannot start (CRLF checkout).
 G="$CLAUDE_HOME/hooks/bash-guard.py"
@@ -323,4 +333,38 @@ B=("$FH"/.claude/pipelinekit/backup/agents-kit-judge.md-*)
 [ "$(cat "${B[0]}")" = "my own judge" ]
 cmp "$REPO_ROOT/claude/agents/kit-judge.md" "$FH/.claude/agents/kit-judge.md"
 python3 -c 'import json, sys; json.load(open(sys.argv[1]))' "$FH/.claude/pipelinekit/manifest.json"
+
+# (k) A byte-identical copy of the kit's kit-judge.md and no manifest, (l) the
+# same with a manifest holding only "{": the kit's own file, so no backup.
+for c in k l; do
+  fd_home "$c"
+  mkdir -p "$FH/.claude/agents"
+  cp "$REPO_ROOT/claude/agents/kit-judge.md" "$FH/.claude/agents/kit-judge.md"
+  if [ "$c" = l ]; then
+    mkdir -p "$FH/.claude/pipelinekit"
+    echo "{" >"$FH/.claude/pipelinekit/manifest.json"
+  fi
+  fd_install || { echo "test_install: install failed with the kit's own kit-judge.md ($c)" >&2; cat "$FH/out" >&2; exit 1; }
+  [ "$(fd_backups)" -eq 0 ]
+  if grep -qF 'kept your own' "$FH/out"; then
+    echo "test_install: a copy of the kit's own kit-judge.md was backed up ($c)" >&2; exit 1
+  fi
+  cmp "$REPO_ROOT/claude/agents/kit-judge.md" "$FH/.claude/agents/kit-judge.md"
+done
+
+# (n) A folder named kit-planner.md holding one file: moved to a backup with its
+# file, and the kit's file is installed.
+fd_home n
+mkdir -p "$FH/.claude/agents/kit-planner.md"
+echo "inside" >"$FH/.claude/agents/kit-planner.md/note.txt"
+fd_install || { echo "test_install: install failed with a folder in place of an agent" >&2; cat "$FH/out" >&2; exit 1; }
+[ "$(fd_backups)" -eq 1 ]
+B=("$FH"/.claude/pipelinekit/backup/agents-kit-planner.md-*)
+test -d "${B[0]}"
+[ "$(ls -A "${B[0]}")" = "note.txt" ]
+[ "$(cat "${B[0]}/note.txt")" = "inside" ]
+test -f "$FH/.claude/agents/kit-planner.md"
+cmp "$REPO_ROOT/claude/agents/kit-planner.md" "$FH/.claude/agents/kit-planner.md"
+[ "$(grep -c 'kept your own' "$FH/out")" -eq 1 ]
+grep -qxF "[install] kept your own kit-planner.md in ${B[0]}" "$FH/out"
 echo "test_install: PASS"
