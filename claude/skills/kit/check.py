@@ -85,6 +85,13 @@ WSL_NOTE = (
     "WSL: in Claude Code Desktop pick the WSL environment; "
     "a Local (Windows) session cannot run these hooks"
 )
+# The kit ships frontend-design; the same skill enabled as a plugin loads twice.
+DESIGN_SKILL = "frontend-design"
+DESIGN_PLUGIN_NOTE = (
+    "frontend-design is also enabled as a plugin, so sessions that load plugins "
+    "get two copies (harmless). To keep one, disable the plugin: /plugin in a "
+    "terminal session, or its enabledPlugins entry in ~/.claude/settings.json."
+)
 # The hooks' event log. claude/hooks/kitlog.py writes it; a test keeps the
 # kinds and the two patterns equal to the ones there.
 EVENT_KINDS = {
@@ -1007,6 +1014,28 @@ def check_sandbox(c: Check) -> None:
         )
 
 
+def check_design_plugin(c: Check) -> None:
+    """One info line when the user settings enable frontend-design as a plugin.
+
+    A key is repeated only when it reads as a plain name; the rest are counted.
+    """
+    plugins = as_dict(as_dict(c.settings).get("enabledPlugins"))
+    found = [
+        key
+        for key, on in plugins.items()
+        if on is True and (key == DESIGN_SKILL or key.startswith(DESIGN_SKILL + "@"))
+    ]
+    if not found:
+        return
+    shown = sorted(key for key in found if plain(key, PLAIN_NAME))
+    if shown:
+        more = len(found) - 1
+        tail = f"Plugin: {shown[0]}" + (f" and {more} more" if more else "")
+    else:
+        tail = f"Plugin entries: {len(found)}"
+    c.add("environment", "info", f"{DESIGN_PLUGIN_NOTE} {tail}")
+
+
 def check_environment(c: Check) -> None:
     v = sys.version_info
     version = f"python3 {v.major}.{v.minor}.{v.micro}"
@@ -1022,6 +1051,7 @@ def check_environment(c: Check) -> None:
             "info",
             "the session-start check is switched off (PIPELINEKIT_SESSION_CHECK=0)",
         )
+    check_design_plugin(c)
     if c.quick:
         return
     for prog, args, missing in (
