@@ -730,12 +730,12 @@ def read_switches(ctx, base):
         local = read_plain(ctx.root / rel, MAX_TEXT_FILE)
         if local:
             on_base = {
-                (key, value) for key, value, _, _ in parse_switches(text) if value
+                (key, repr(value)) for key, value, _, _ in parse_switches(text) if value
             }
             for key, value, number, _ in parse_switches(
                 local.decode("utf-8", "replace")
             ):
-                if value is not None and (key, value) not in on_base:
+                if value is not None and (key, repr(value)) not in on_base:
                     where = show_branch(base) if base else "the base branch"
                     said.append(
                         f"line {number} of {rel} is not on {where} yet: not used"
