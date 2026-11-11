@@ -568,6 +568,12 @@ def test_duplicate_frontend_design_plugin_is_one_info_line(kit):
     (line,) = plugin_lines(check(kit, "--quick")[1])
     assert line.endswith("Plugin entries: 1") and "a" * 25 not in line
 
+    longest = "frontend-design@" + "a" * 24
+    assert len(longest) == 40
+    enable_plugins(kit, {longest: True})
+    (line,) = plugin_lines(check(kit, "--quick")[1])
+    assert line.endswith(f"Plugin: {longest}")
+
 
 @pytest.mark.parametrize(
     "plugins",
@@ -578,8 +584,19 @@ def test_duplicate_frontend_design_plugin_is_one_info_line(kit):
         {"frontend-design@x": 1},
         ["frontend-design@x"],
         "frontend-design@x",
+        {"frontend-design-system@x": True},
+        {"my-frontend-design@x": True},
     ],
-    ids=["absent", "false", "string", "one", "list", "text"],
+    ids=[
+        "absent",
+        "false",
+        "string",
+        "one",
+        "list",
+        "text",
+        "longer-name",
+        "prefixed-name",
+    ],
 )
 def test_no_plugin_line_otherwise(kit, plugins):
     enable_plugins(kit, plugins)

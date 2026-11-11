@@ -197,5 +197,19 @@ echo "mine" >"$FH/.claude/skills/frontend-design/SKILL.md"
 echo "{not json" >"$FH/.claude/pipelinekit/manifest.json"
 fd_install || { echo "test_install: install failed with a damaged manifest" >&2; cat "$FH/out" >&2; exit 1; }
 [ "$(fd_backups)" -eq 1 ]
+B=("$FH"/.claude/pipelinekit/backup/*)
+grep -qx "mine" "${B[0]}/SKILL.md"
 fd_is_kit
+
+# (f) A hand-made folder and a manifest whose skills entry is not a list: backed up.
+fd_home f
+mkdir -p "$FH/.claude/skills/frontend-design" "$FH/.claude/pipelinekit"
+echo "mine as well" >"$FH/.claude/skills/frontend-design/SKILL.md"
+echo '{"skills": "frontend-design"}' >"$FH/.claude/pipelinekit/manifest.json"
+fd_install || { echo "test_install: install failed with a misshapen manifest" >&2; cat "$FH/out" >&2; exit 1; }
+[ "$(fd_backups)" -eq 1 ]
+B=("$FH"/.claude/pipelinekit/backup/*)
+grep -qx "mine as well" "${B[0]}/SKILL.md"
+fd_is_kit
+
 echo "test_install: PASS"

@@ -183,5 +183,7 @@ def test_skill_counts_say_eight():
 
 
 def test_template_line_count_is_not_the_old_one():
+    lines = len(read("claude/CLAUDE.md.template").splitlines())
     for rel in ("README.md", "docs-source/components.md"):
         assert "about 60 lines" not in read(rel), rel
+        assert f"{lines} lines" in read(rel), rel
