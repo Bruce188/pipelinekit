@@ -156,10 +156,12 @@ In 0.1.0, `deploy` replaces the five separate `*-ops` skills and the per-provide
 
 A line is `[fail]` when a guard is missing or does the wrong thing, `[warn]` when something changed but still works (for example a skill file you edited) or a hook failed while it ran, and `[info]` for context. The report ends with `Result: healthy`, or with the number of problems and the command that repairs the install. The check itself changes nothing in `~/.claude`.
 
-The same check runs when a session starts. `session-check.py` is a SessionStart hook that runs `check.py --quick` on `startup` (not on resume or after `/clear`); it takes about 0.2 seconds. A healthy install, warnings included, gives no output. With a `[fail]` you get one line, and Claude is told the same:
+The report repeats a name from `settings.json` or the install manifest only when it reads as a plain name: a hook's file name, an event, a rule, a version, a branch. Anything else is counted and not quoted, so a line that sits in one of those files cannot show up as a line of the report. Characters that draw as nothing or change how a line reads are removed. A plain name can still spell a word, so read the report as a list of names, not as advice.
+
+The same check runs when a session starts. `session-check.py` is a SessionStart hook that runs `check.py --quick` on `startup` (not on resume or after `/clear`); it takes about 0.2 seconds. A healthy install, warnings included, gives no output. With a `[fail]` you get one line with the number of problems and no text from the report, and Claude is told the same:
 
 ```text
-pipelinekit: 2 problems in this install, first: hook missing: bash-guard.py. Run /kit for the report.
+pipelinekit: 2 problems in this install. Run /kit for the report.
 ```
 
 The hook never blocks a session. A check that takes longer than 4 seconds is dropped, together with anything it started, and shows up under Activity as `session-check.timeout`. `PIPELINEKIT_SESSION_CHECK=0` in the environment switches it off, and `/kit` then says so.

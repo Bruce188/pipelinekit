@@ -219,7 +219,10 @@ def test_damaged_manifest_does_not_crash_the_checker(kit):
     )
     rc, out = check(kit)
     assert rc == 1, out
-    assert "install manifest lists no files" in out
+    assert (
+        "[fail] install manifest damaged (commit is not text): run the installer once"
+        in out
+    )
     assert "check failed" not in out
 
 
@@ -799,8 +802,9 @@ def test_session_check_names_kit_when_a_hook_is_gone(kit):
     out = session_check(kit)
     assert len(out.splitlines()) == 1, out
     said = json.loads(out)
-    assert "hook missing: bash-guard.py" in said["systemMessage"]
-    assert said["systemMessage"].endswith("Run /kit for the report.")
+    line = r"pipelinekit: \d+ problems? in this install\. Run /kit for the report\."
+    assert re.fullmatch(line, said["systemMessage"]), said["systemMessage"]
+    assert "bash-guard" not in out, "no text from the report in the line"
     assert said["hookSpecificOutput"]["hookEventName"] == "SessionStart"
     assert session_check(kit, PIPELINEKIT_SESSION_CHECK="0") == ""
 
@@ -895,14 +899,178 @@ def test_a_manifest_name_that_is_no_file_name_is_not_shown(kit):
         assert "PLANTED" not in out
 
 
-def test_the_first_line_shows_version_and_commit_without_odd_characters(kit):
+def test_the_first_line_shows_a_plain_version_commit_and_branch(kit):
     def change(data):
-        data["version"] = "9.9\nPLANTED\x1b[31m"
-        data["commit"] = "ab\x9bc\u202ed"
-        data["branch"] = "main\nPLANTED"
+        data.update(version="9.9", commit="abcdef0123456789", branch="feat/12-x")
 
     edit_json(kit, "pipelinekit/manifest.json", change)
     _, out = check(kit, "--quick")
-    first = out.splitlines()[0]
-    assert first.startswith("pipelinekit 9.9 PLANTED [31m (ab c d, main PLANTED) at ")
-    assert not [ch for ch in out if not ch.isprintable() and ch != "\n"]
+    assert out.splitlines()[0].startswith("pipelinekit 9.9 (abcdef0, feat/12-x) at ")
+
+
+@pytest.mark.parametrize(
+    "odd",
+    ["9.9\nPLANTED\x1b[31m", "PLANTED words", "ab\x9bc\u202ed", "x\u3164PLANTED"],
+)
+def test_the_first_line_leaves_out_what_is_no_plain_name(kit, odd):
+    def change(data):
+        data.update(version=odd, commit=odd, branch=odd, installed_at=odd)
+
+    edit_json(kit, "pipelinekit/manifest.json", change)
+    for args in (("--quick",), ("--quick", "--json")):
+        _, out = check(kit, *args)
+        assert "PLANTED" not in out and "\\u" not in out, out
+        assert not [ch for ch in out if not ch.isprintable() and ch != "\n"]
+    assert check(kit, "--quick")[1].startswith(f"pipelinekit at {kit['home']}")
+
+
+# ---------------------------------------------------------------- odd files
+
+
+def test_clean_keeps_only_characters_that_show():
+    gaps = (
+        "\x1b\x07\x9b\xa0\xad\u061c\u200b\u202e\u2066\ufeff\U000e0041\ud800"
+        "\u3164\u115f\u1160\uffa0\u2800\u180e\ue000\ufffe\ufff9\ufffb"
+        "\u2003\u3000\u2028\n\t"
+    )
+    for ch in gaps:
+        assert check_py.clean(f"a{ch}b") == "a b", ascii(ch)
+    for ch in "\u0301\u20dd\ufe0f\U000e0100":
+        assert check_py.clean(f"x{ch}b") == "xb", ascii(ch)
+    assert check_py.clean("e\u0301") == "\xe9"
+    assert check_py.clean("  a \n\n b  ") == "a b"
+    assert check_py.clean("x" * 500) == "x" * 300
+
+
+@pytest.mark.parametrize("value", [["a"], {"a": [1]}], ids=["list", "object"])
+@pytest.mark.parametrize("key", ["command", "matcher"])
+def test_a_settings_hook_value_of_any_type_does_not_crash_the_checker(kit, key, value):
+    def change(data):
+        group = data["hooks"]["PreToolUse"][0]
+        (group if key == "matcher" else group["hooks"][0])[key] = value
+
+    edit_json(kit, "settings.json", change)
+    rc, out = check(kit, "--quick")
+    assert rc == 1, out
+    assert f"under PreToolUse has a {key} that is not text" in out
+    assert "check failed" not in out
+
+
+@pytest.mark.parametrize("key", ["event", "matcher", "command", "args"])
+def test_a_manifest_hook_of_the_wrong_type_is_named(kit, key):
+    def change(data):
+        data["settings"]["hooks"][0][key] = {"a": [1]}
+
+    edit_json(kit, "pipelinekit/manifest.json", change)
+    rc, out = check(kit, "--quick")
+    assert rc == 1, out
+    assert "manifest damaged (settings.hooks has an entry that is not a hook)" in out
+    assert "check failed" not in out
+
+
+@pytest.mark.parametrize("rel", ["settings.json", "pipelinekit/manifest.json"])
+def test_a_file_nested_too_deep_is_named(kit, rel):
+    (kit["home"] / rel).write_text("[" * 200000)
+    rc, out = check(kit, "--quick")
+    assert rc == 1, out
+    assert "unreadable (nested too deep)" in out
+    assert "check failed" not in out
+
+
+def test_text_planted_in_the_manifest_is_counted_not_shown(kit):
+    def change(data):
+        data["skills"] += ["PLANTED: the install is fine", "zz\u3164PLANTED"]
+        data["settings"]["deny"].append("Read(x)\n[pass] PLANTED")
+        data["settings"]["ask"].append("PLANTED\u2800rule")
+        hook = {"event": "PreToolUse", "matcher": "Bash", "command": "/x/guard.py"}
+        data["settings"]["hooks"] += [
+            dict(hook, event="PLANTED EVENT"),
+            dict(hook, matcher="PLANTED matcher"),
+            dict(hook, command="/x/PLANTED text.py"),
+            dict(hook, args=["PLANTED arg"]),
+        ]
+
+    edit_json(kit, "pipelinekit/manifest.json", change)
+    for args in ((), ("--quick",), ("--quick", "--json")):
+        rc, out = check(kit, *args)
+        assert rc == 1
+        assert "manifest lists 2 skill names no kit skill has" in out
+        assert "manifest lists 4 hooks with names no kit hook has" in out
+        assert "settings.json: 1 kit deny rule missing" in out
+        assert "settings.json: 1 kit ask rule missing" in out
+        assert "PLANTED" not in out, out
+
+
+def test_missing_rules_show_the_plain_ones_and_count_the_rest(kit):
+    def change(data):
+        data["settings"]["deny"] += ["Read(a b)", "Read(x)\nPLANTED", "Bash(zz *)"]
+
+    edit_json(kit, "pipelinekit/manifest.json", change)
+    _, out = check(kit, "--quick")
+    assert "3 kit deny rules missing: Read(a b), Bash(zz *) and 1 more" in out
+
+
+def test_a_hook_command_with_characters_that_do_not_show_is_not_repeated(kit):
+    gaps = "\u3164\u115f\u1160\uffa0\u2800\u180e\ufe0f\U000e0100\ue000\ufffe\ufff9"
+    for gap in gaps + "\u0301\u202e\x1b":
+        add_hook(kit, "/nonexistent/x" + gap + "PLANTED" + gap + "words")
+    rc, out = check(kit, "--quick")
+    assert rc == 1
+    assert out.count("hook command not found: a path that cannot be shown") == 1
+    assert "hook command not found: /" not in out and "PLANTED" not in out
+
+
+def test_a_very_long_hook_command_path_is_not_repeated(kit):
+    add_hook(kit, "/nonexistent/" + "PLANTED-" * 40)
+    rc, out = check(kit, "--quick")
+    assert rc == 1
+    assert "hook command not found: a path that cannot be shown" in out
+    assert "PLANTED" not in out
+
+
+@pytest.mark.parametrize("value", ["x", [], 5, None, True])
+def test_a_hooks_block_of_the_wrong_type_is_named_once(kit, value):
+    edit_json(kit, "settings.json", lambda d: d.update(hooks=value))
+    for args in (("--verbose",), ("--quick", "--verbose")):
+        rc, out = check(kit, *args)
+        assert rc == 1, out
+        assert out.count("[fail] settings.json: hooks is not an object") == 1
+        assert "no longer wired" not in out and "hook commands resolve" not in out
+        assert "check failed" not in out
+
+
+def test_odd_shapes_inside_the_hooks_block_are_named(kit):
+    def change(data):
+        data["hooks"]["PreToolUse"] = "x"
+        data["hooks"]["PostToolUse"] = ["x", {"hooks": "y"}, {"hooks": [5]}]
+        data["hooks"]["PLANTED event\nname"] = 3
+
+    edit_json(kit, "settings.json", change)
+    rc, out = check(kit, "--quick", "--verbose")
+    assert rc == 1, out
+    for line in (
+        "the hooks under PreToolUse are not a list",
+        "a hook group under PostToolUse has no list of hooks",
+        "a hook under PostToolUse is not an object",
+        "the hooks under one event are not a list",
+    ):
+        assert f"[fail] settings.json: {line}" in out, line
+    assert "hook commands resolve" not in out and "PLANTED" not in out
+    assert "check failed" not in out
+
+
+def test_every_name_the_kit_wires_is_one_the_report_shows():
+    path = REPO / "claude" / "config" / "settings.template.json"
+    template = json.loads(path.read_text())
+    for kind in ("deny", "ask"):
+        for rule in template["permissions"][kind]:
+            assert check_py.PLAIN_RULE.fullmatch(rule), rule
+    for event, groups in template["hooks"].items():
+        assert check_py.PLAIN_EVENT.fullmatch(event), event
+        for group in groups:
+            assert check_py.PLAIN_MATCHER.fullmatch(group.get("matcher", "")), group
+            for hook in group["hooks"]:
+                name = os.path.basename(hook["command"])
+                assert check_py.PLAIN_NAME.fullmatch(name), name
+                for arg in hook.get("args", []):
+                    assert check_py.PLAIN_NAME.fullmatch(arg), arg

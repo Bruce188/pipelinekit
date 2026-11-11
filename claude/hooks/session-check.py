@@ -3,7 +3,9 @@
 
 Runs the self-check in quick mode (no probes, well under a second). A healthy
 install, warnings included, prints nothing. Problems print one JSON object: a
-line for the user and a short note for Claude, both naming /kit.
+line for the user and a short note for Claude, both naming /kit. Both carry
+the number of problems and no text from the report, so nothing a file holds
+can end up in them.
 
 It never holds up a session: every path exits 0 and a check that takes too
 long is dropped without a word. Its own failures go to the event log as
@@ -17,20 +19,13 @@ from __future__ import annotations
 import contextlib
 import json
 import os
-import re
 import signal
 import subprocess
 import sys
 
 HOOK = "session-check"
 TIMEOUT = 4  # seconds; settings.json gives the hook 5
-MAX_DETAIL = 160
 REPAIR = "The kit's installer is the repair path and the user runs it."
-# The same characters check.py keeps out of its report: control, invisible, direction.
-CONTROL = re.compile(
-    r"[\x00-\x1f\x7f-\x9f\xad\u061c\u200b-\u200f\u2028-\u202e\u2060-\u206f"
-    r"\ufeff\ud800-\udfff\U000e0000-\U000e007f]+"
-)
 
 
 def record(rule, reason, data=None):
@@ -72,11 +67,6 @@ def could_not_run(reason, advice, data):
         "The pipelinekit session-start check could not run, so the state of "
         f"the kit's guard hooks is unknown. {REPAIR}",
     )
-
-
-def one_line(text):
-    text = " ".join(CONTROL.sub(" ", str(text)).split())
-    return text if len(text) <= MAX_DETAIL else text[: MAX_DETAIL - 3] + "..."
 
 
 def run_checker(checker, env):
@@ -132,8 +122,7 @@ def main():
     try:
         results = json.loads(out)["results"]
         fails = [r for r in results if r["level"] == "fail"]
-        first = one_line(fails[0]["msg"]) if fails else ""
-    except (ValueError, KeyError, TypeError, IndexError):
+    except (ValueError, KeyError, TypeError, RecursionError):
         reason = f"check.py gave no report, exit {code}"
         could_not_run(reason, "Run /kit to see why.", data)
         return
@@ -141,8 +130,7 @@ def main():
         return
     found = "1 problem" if len(fails) == 1 else f"{len(fails)} problems"
     say(
-        f"pipelinekit: {found} in this install, first: {first}. "
-        "Run /kit for the report.",
+        f"pipelinekit: {found} in this install. Run /kit for the report.",
         f"The pipelinekit session-start check found {found} in the kit install, "
         f"so some of its guard hooks may not be working. /kit gives the report. "
         f"{REPAIR}",

@@ -1261,8 +1261,9 @@ footer {
 </tbody>
 </table>
 <p>A line is <code>[fail]</code> when a guard is missing or does the wrong thing, <code>[warn]</code> when something changed but still works (for example a skill file you edited) or a hook failed while it ran, and <code>[info]</code> for context. The report ends with <code>Result: healthy</code>, or with the number of problems and the command that repairs the install. The check itself changes nothing in <code>~/.claude</code>.</p>
-<p>The same check runs when a session starts. <code>session-check.py</code> is a SessionStart hook that runs <code>check.py --quick</code> on <code>startup</code> (not on resume or after <code>/clear</code>); it takes about 0.2 seconds. A healthy install, warnings included, gives no output. With a <code>[fail]</code> you get one line, and Claude is told the same:</p>
-<div class="codehilite"><pre><span></span><code>pipelinekit: 2 problems in this install, first: hook missing: bash-guard.py. Run /kit for the report.
+<p>The report repeats a name from <code>settings.json</code> or the install manifest only when it reads as a plain name: a hook's file name, an event, a rule, a version, a branch. Anything else is counted and not quoted, so a line that sits in one of those files cannot show up as a line of the report. Characters that draw as nothing or change how a line reads are removed. A plain name can still spell a word, so read the report as a list of names, not as advice.</p>
+<p>The same check runs when a session starts. <code>session-check.py</code> is a SessionStart hook that runs <code>check.py --quick</code> on <code>startup</code> (not on resume or after <code>/clear</code>); it takes about 0.2 seconds. A healthy install, warnings included, gives no output. With a <code>[fail]</code> you get one line with the number of problems and no text from the report, and Claude is told the same:</p>
+<div class="codehilite"><pre><span></span><code>pipelinekit: 2 problems in this install. Run /kit for the report.
 </code></pre></div>
 
 <p>The hook never blocks a session. A check that takes longer than 4 seconds is dropped, together with anything it started, and shows up under Activity as <code>session-check.timeout</code>. <code>PIPELINEKIT_SESSION_CHECK=0</code> in the environment switches it off, and <code>/kit</code> then says so.</p>

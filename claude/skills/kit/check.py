@@ -29,6 +29,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import unicodedata
 
 SCHEMA = 1
 HOOKS = (
@@ -59,12 +60,19 @@ SECTIONS = (
     ("activity", "Activity"),
 )
 SKIP_DIRS = {"__pycache__", ".pytest_cache", ".ruff_cache"}
-# The same characters kitlog.py keeps out of the log: they can change how a
-# line reads (controls, separators, direction marks, zero-width characters).
-CONTROL = re.compile(
-    r"[\x00-\x1f\x7f-\x9f\xad\u061c\u200b-\u200f\u2028-\u202e\u2060-\u206f"
-    r"\ufeff\ud800-\udfff\U000e0000-\U000e007f]+"
-)
+# Letters and symbols that draw as nothing: the fillers and the braille blank.
+BLANK = frozenset("\u115f\u1160\u3164\uffa0\u2800")
+# What the report repeats from settings.json or the manifest has to read as a
+# name. Anything else is counted, not quoted.
+PLAIN_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._@+-]{0,39}")
+PLAIN_EVENT = re.compile(r"[A-Za-z]{1,40}")
+PLAIN_MATCHER = re.compile(r"[A-Za-z0-9_.*|-]{0,60}")
+PLAIN_RULE = re.compile(r"[A-Za-z0-9_]{1,40}(\([!-~]([ -~]{0,78}[!-~])?\))?")
+PLAIN_VERSION = re.compile(r"[0-9A-Za-z][0-9A-Za-z.+_-]{0,39}")
+PLAIN_BRANCH = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/+@-]{0,79}")
+PLAIN_COMMIT = re.compile(r"[0-9a-f]{7,64}")
+PLAIN_TIME = re.compile(r"[0-9TZ:.+-]{1,32}")
+MAX_PATH_SHOWN = 120
 SAFE_REL = re.compile(r"[A-Za-z0-9._@+-]+(/[A-Za-z0-9._@+-]+)*")
 WSL_NOTE = (
     "WSL: in Claude Code Desktop pick the WSL environment; "
@@ -86,8 +94,25 @@ ACTIVITY_LINES = 20
 
 
 def clean(text: object, limit: int = 300) -> str:
-    """One printable line. The report is read by people and by a model."""
-    return CONTROL.sub(" ", str(text)).strip()[:limit]
+    """One line of characters that show. People and a model read the report.
+
+    Controls, format and direction marks, private-use and unassigned code
+    points, every kind of space and the blank letters become one plain space.
+    Marks that stack on a letter are dropped once composing has used them.
+    """
+    out = []
+    for ch in unicodedata.normalize("NFC", str(text)[: limit * 8]):
+        kind = unicodedata.category(ch)
+        if kind[0] in "CZ" or ch in BLANK:
+            out.append(" ")
+        elif kind not in ("Mn", "Me"):
+            out.append(ch)
+    return " ".join("".join(out).split())[:limit]
+
+
+def plain(value: object, pattern: re.Pattern) -> str:
+    """The value when it reads as the name the pattern describes, else ""."""
+    return value if isinstance(value, str) and pattern.fullmatch(value) else ""
 
 
 def names(items: list[str], limit: int = 5) -> str:
@@ -145,11 +170,53 @@ def load_json(path: str) -> tuple[dict | None, str]:
             data = json.load(f)
     except FileNotFoundError:
         return None, "missing"
+    except RecursionError:
+        return None, "unreadable (nested too deep)"
     except (OSError, ValueError) as exc:
         return None, f"unreadable ({exc})"
     if not isinstance(data, dict):
         return None, "not a JSON object"
     return data, ""
+
+
+def manifest_problem(m: dict) -> str:
+    """What in an install manifest has the wrong type, or ""."""
+
+    def texts(value: object) -> bool:
+        return isinstance(value, list) and all(isinstance(v, str) for v in value)
+
+    keys = ("version", "commit", "branch", "origin", "checkout", "installed_at")
+    for key in (*keys, "hooks_path"):
+        if not isinstance(m.get(key, ""), str):
+            return f"{key} is not text"
+    if not texts(m.get("skills", [])):
+        return "skills is not a list of names"
+    files = m.get("files", {})
+    if not isinstance(files, dict) or not texts(list(files.values())):
+        return "files is not a table of names and hashes"
+    settings = m.get("settings", {})
+    if not isinstance(settings, dict):
+        return "settings is not an object"
+    for kind in ("deny", "ask"):
+        if not texts(settings.get(kind, [])):
+            return f"settings.{kind} is not a list of rules"
+    hooks = settings.get("hooks", [])
+    if not isinstance(hooks, list):
+        return "settings.hooks is not a list"
+    for e in hooks:
+        if not (
+            isinstance(e, dict)
+            and all(isinstance(e.get(k, ""), str) for k in ("event", "matcher"))
+            and isinstance(e.get("command", ""), str)
+            and texts(e.get("args", []))
+        ):
+            return "settings.hooks has an entry that is not a hook"
+    return ""
+
+
+def wiring(event: object, matcher: object, command: object, args: object) -> str:
+    """One hook entry as text that compares, whatever types a file holds."""
+    return json.dumps([event, matcher, command, args], sort_keys=True, default=str)
 
 
 def as_dict(value: object) -> dict:
@@ -273,9 +340,14 @@ class Check:
         self.manifest, self.manifest_err = load_json(
             os.path.join(home, "pipelinekit", "manifest.json")
         )
+        if self.manifest is not None and manifest_problem(self.manifest):
+            self.manifest_err = f"damaged ({manifest_problem(self.manifest)})"
+            self.manifest = None
         self.settings, self.settings_err = load_json(
             os.path.join(home, "settings.json")
         )
+        hooks = as_dict(self.settings).get("hooks", {})
+        self.hooks_block = isinstance(hooks, dict)
 
     def add(self, section: str, level: str, msg: str, fix: str = "") -> None:
         item = {"section": section, "level": level, "msg": clean(msg)}
@@ -315,19 +387,35 @@ def check_settings(c: Check) -> None:
         return
     user_home = os.path.expanduser("~")
     bad = []
+    if not c.hooks_block:
+        bad.append("hooks is not an object")
     for event, groups in as_dict(c.settings.get("hooks")).items():
-        for g in as_list(groups):
-            for h in as_list(as_dict(g).get("hooks")):
-                cmd = as_dict(h).get("command")
+        where = plain(event, PLAIN_EVENT) or "one event"
+        if not isinstance(groups, list):
+            bad.append(f"the hooks under {where} are not a list")
+            continue
+        for g in groups:
+            entries = g.get("hooks") if isinstance(g, dict) else None
+            if not isinstance(entries, list):
+                bad.append(f"a hook group under {where} has no list of hooks")
+                continue
+            if not isinstance(g.get("matcher", ""), str):
+                bad.append(f"a hook group under {where} has a matcher that is not text")
+            for h in entries:
+                if not isinstance(h, dict):
+                    bad.append(f"a hook under {where} is not an object")
+                    continue
+                cmd = h.get("command")
                 if cmd is not None and not isinstance(cmd, str):
-                    where = event if event.isalnum() else "hooks"
                     bad.append(f"a hook under {where} has a command that is not text")
                     continue
                 # the program only: what follows it is not ours to repeat
                 first = os.path.expanduser(((cmd or "").split() or [""])[0])
                 first = first.replace("${HOME}", user_home).replace("$HOME", user_home)
                 if first.startswith("/") and not os.path.exists(first):
-                    bad.append(f"hook command not found: {first}")
+                    ok = clean(first) == first and len(first) <= MAX_PATH_SHOWN
+                    shown = first if ok else "a path that cannot be shown"
+                    bad.append(f"hook command not found: {shown}")
     a = c.settings.get("attribution")
     off = a is False or (as_dict(a).get("commit") == "" and as_dict(a).get("pr") == "")
     if not off:
@@ -405,7 +493,18 @@ def check_install(c: Check) -> None:
     for g in GIT_HOOKS:
         check_script(c, "git hook", f"git-hooks/{g}")
     check_hooks_path(c)
-    for s in as_list(as_dict(c.manifest).get("skills")) or KIT_SKILLS:
+    listed = as_list(as_dict(c.manifest).get("skills")) or KIT_SKILLS
+    odd = [s for s in listed if not plain(s, PLAIN_NAME)]
+    if odd:
+        c.add(
+            "install",
+            "fail",
+            f"install manifest lists {plural(len(odd), 'skill name')} "
+            "no kit skill has: run the installer once",
+        )
+    for s in listed:
+        if s in odd:
+            continue
         rel = f"skills/{s}/SKILL.md"
         if os.path.isfile(c.path(rel)):
             c.add("install", "pass", f"skill: {s}")
@@ -463,22 +562,42 @@ def drift_settings(c: Check, kit: dict) -> None:
         for g in as_list(groups):
             for h in as_list(as_dict(g).get("hooks")):
                 h = as_dict(h)
-                key = (event, as_dict(g).get("matcher", ""), h.get("command", ""))
-                wired.add((*key, json.dumps(h.get("args", []))))
-    entries = [as_dict(e) for e in as_list(kit.get("hooks"))]
-    lost = 0
+                matcher = as_dict(g).get("matcher", "")
+                wired.add(
+                    wiring(event, matcher, h.get("command", ""), h.get("args", []))
+                )
+    # A hooks block of the wrong type is named by the install section.
+    entries = [as_dict(e) for e in as_list(kit.get("hooks"))] if c.hooks_block else []
+    lost = odd = 0
     for e in entries:
         key = (e.get("event"), e.get("matcher"), e.get("command"))
-        if (*key, json.dumps(e.get("args", []))) in wired:
+        if wiring(*key, e.get("args", [])) in wired:
             continue
         lost += 1
-        args = [str(a) for a in as_list(e.get("args"))]
-        what = " ".join([os.path.basename(str(e.get("command") or "")), *args])
+        event = plain(e.get("event"), PLAIN_EVENT)
+        matcher = e.get("matcher") or ""
+        name = plain(os.path.basename(e.get("command") or ""), PLAIN_NAME)
+        args = as_list(e.get("args"))
+        if not (
+            event
+            and name
+            and PLAIN_MATCHER.fullmatch(matcher)
+            and all(plain(a, PLAIN_NAME) for a in args)
+        ):
+            odd += 1
+            continue
         c.add(
             "drift",
             "fail",
             f"settings.json: kit hook no longer wired: "
-            f"{e.get('event')} {e.get('matcher')} -> {what}",
+            f"{event} {matcher} -> {' '.join([name, *args])}",
+        )
+    if odd:
+        c.add(
+            "drift",
+            "fail",
+            f"install manifest lists {plural(odd, 'hook')} with names no kit hook "
+            "has: run the installer once",
         )
     if entries and not lost:
         c.add("drift", "pass", f"settings.json: {len(entries)} kit hook entries wired")
@@ -487,11 +606,14 @@ def drift_settings(c: Check, kit: dict) -> None:
         rules = as_list(kit.get(kind))
         gone = [r for r in rules if r not in as_list(perms.get(kind))]
         if gone:
+            shown = [r for r in gone if plain(r, PLAIN_RULE)][:3]
+            more = len(gone) - len(shown)
+            text = ", ".join(shown) + (f" and {more} more" if shown and more else "")
             c.add(
                 "drift",
                 level,
-                f"settings.json: {plural(len(gone), f'kit {kind} rule')} missing: "
-                f"{names(gone, 3)}",
+                f"settings.json: {plural(len(gone), f'kit {kind} rule')} missing"
+                + (f": {text}" if text else ""),
             )
         elif rules:
             c.add("drift", "pass", f"settings.json: {len(rules)} kit {kind} rules")
@@ -979,15 +1101,23 @@ def check_activity(c: Check) -> None:
 
 def repair_hint(c: Check) -> str:
     checkout = str(as_dict(c.manifest).get("checkout") or "")
-    if checkout and os.path.isfile(os.path.join(checkout, "scripts", "install.sh")):
+    shown = checkout and clean(checkout) == checkout
+    if shown and os.path.isfile(os.path.join(checkout, "scripts", "install.sh")):
         return f"bash {checkout}/scripts/install.sh"
     return "bash scripts/install.sh in your pipelinekit checkout"
 
 
 def kit_info(c: Check) -> dict:
     m = as_dict(c.manifest)
-    keys = ("version", "commit", "branch", "installed_at", "checkout")
-    return {k: str(m.get(k) or "") for k in keys}
+    names_shown = {
+        "version": PLAIN_VERSION,
+        "commit": PLAIN_COMMIT,
+        "branch": PLAIN_BRANCH,
+        "installed_at": PLAIN_TIME,
+    }
+    info = {k: plain(m.get(k), p) for k, p in names_shown.items()}
+    info["checkout"] = clean(m.get("checkout") or "")
+    return info
 
 
 def render_text(c: Check, verbose: bool) -> str:
