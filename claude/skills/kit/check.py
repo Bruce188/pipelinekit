@@ -92,6 +92,8 @@ DESIGN_PLUGIN_NOTE = (
     "get two copies (harmless). To keep one, disable the plugin: /plugin in a "
     "terminal session, or its enabledPlugins entry in ~/.claude/settings.json."
 )
+# An enabledPlugins key for it: the name, "@" and a marketplace name.
+DESIGN_PLUGIN_KEY = re.compile(re.escape(DESIGN_SKILL) + r"@[A-Za-z0-9._-]+")
 # The hooks' event log. claude/hooks/kitlog.py writes it; a test keeps the
 # kinds and the two patterns equal to the ones there.
 EVENT_KINDS = {
@@ -1015,15 +1017,18 @@ def check_sandbox(c: Check) -> None:
 
 
 def check_design_plugin(c: Check) -> None:
-    """One info line when the user settings enable frontend-design as a plugin.
+    """One info line when the user settings enable frontend-design as a plugin
+    and the kit's copy is installed (without it there are no two copies).
 
     A key is repeated only when it reads as a plain name; the rest are counted.
     """
+    if not os.path.isfile(c.path(f"skills/{DESIGN_SKILL}/SKILL.md")):
+        return
     plugins = as_dict(as_dict(c.settings).get("enabledPlugins"))
     found = [
         key
         for key, on in plugins.items()
-        if on is True and (key == DESIGN_SKILL or key.startswith(DESIGN_SKILL + "@"))
+        if on is True and DESIGN_PLUGIN_KEY.fullmatch(key)
     ]
     if not found:
         return

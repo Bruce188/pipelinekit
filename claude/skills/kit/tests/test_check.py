@@ -546,26 +546,28 @@ def test_duplicate_frontend_design_plugin_is_one_info_line(kit):
     assert len(note) == 221 and len(f"{note} Plugin: ") == 230
     assert len(f"{note} Plugin: {'x' * 40} and 9999 more") == 284
 
-    enable_plugins(kit, {"frontend-design": True, "frontend-design@x": True})
+    enable_plugins(kit, {"frontend-design@y": True, "frontend-design@x": True})
     (line,) = plugin_lines(check(kit, "--quick")[1])
-    assert line.endswith("Plugin: frontend-design and 1 more")
+    assert line.endswith("Plugin: frontend-design@x and 1 more")
 
+    # A key that is not exactly name@marketplace is not counted, nor repeated.
     odd = "frontend-design@x PLANTED words"
     enable_plugins(kit, {odd: True})
     for args in (("--quick",), ("--quick", "--json")):
         rc, out = check(kit, *args)
         assert rc == 0 and "PLANTED" not in out, out
-    (line,) = plugin_lines(check(kit, "--quick")[1])
-    assert "/plugin" in line and line.endswith("Plugin entries: 1")
+        assert not plugin_lines(out)
 
     enable_plugins(kit, {odd: True, "frontend-design@x": True})
     rc, out = check(kit, "--quick")
     assert "PLANTED" not in out
     (line,) = plugin_lines(out)
-    assert line.endswith("Plugin: frontend-design@x and 1 more")
+    assert line.endswith("Plugin: frontend-design@x")
 
+    # A valid key too long to repeat is counted.
     enable_plugins(kit, {"frontend-design@" + "a" * 25: True})
     (line,) = plugin_lines(check(kit, "--quick")[1])
+    assert "/plugin" in line
     assert line.endswith("Plugin entries: 1") and "a" * 25 not in line
 
     longest = "frontend-design@" + "a" * 24
@@ -586,6 +588,11 @@ def test_duplicate_frontend_design_plugin_is_one_info_line(kit):
         "frontend-design@x",
         {"frontend-design-system@x": True},
         {"my-frontend-design@x": True},
+        {"frontend-design@claude-plugins-official ": True},
+        {"frontend-design@": True},
+        {"frontend-design": True},
+        {"frontend-design@x\n": True},
+        {"frontend-design@x/y": True},
     ],
     ids=[
         "absent",
@@ -596,6 +603,11 @@ def test_duplicate_frontend_design_plugin_is_one_info_line(kit):
         "text",
         "longer-name",
         "prefixed-name",
+        "trailing-space",
+        "no-marketplace",
+        "bare-name",
+        "trailing-newline",
+        "slash",
     ],
 )
 def test_no_plugin_line_otherwise(kit, plugins):
@@ -603,6 +615,17 @@ def test_no_plugin_line_otherwise(kit, plugins):
     rc, out = check(kit, "--quick")
     assert rc == 0, out
     assert not plugin_lines(out)
+
+
+def test_no_plugin_line_without_the_kit_copy(kit):
+    enable_plugins(kit, {"frontend-design@claude-plugins-official": True})
+    (kit["home"] / "skills" / "frontend-design" / "SKILL.md").unlink()
+    for args in ((), ("--quick",)):
+        rc, out = check(kit, *args)
+        assert rc == 1
+        assert "[fail] skill missing: frontend-design" in out
+        assert not plugin_lines(out)
+        assert "two copies" not in out
 
 
 def test_no_plugin_line_with_unreadable_settings(kit):
