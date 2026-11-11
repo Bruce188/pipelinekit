@@ -621,6 +621,7 @@ footer {
       <li class="lvl-2"><a href="#guard-hooks-and-permissions">Guard hooks and permissions</a></li>
       <li class="lvl-3"><a href="#the-never-stage-list">The never-stage list</a></li>
       <li class="lvl-2"><a href="#git-hooks">Git hooks</a></li>
+      <li class="lvl-2"><a href="#rule-ids-and-the-event-log">Rule ids and the event log</a></li>
       <li class="lvl-2"><a href="#skills">Skills</a></li>
       <li class="lvl-2"><a href="#self-check">Self-check</a></li>
       <li class="lvl-2"><a href="#shipping-a-pull-request">Shipping a pull request</a></li>
@@ -675,9 +676,11 @@ footer {
    "chips": [{"label": "commit-msg", "tip": "Conventional commits, no attribution or emoji"},
              {"label": "pre-commit", "tip": "gitleaks on staged changes"},
              {"label": "pre-push", "tip": "No pushes to main or master"}]},
-  {"name": "Skills", "color": "#10b981", "count": "5 skills",
+  {"name": "Skills", "color": "#10b981", "count": "7 skills",
    "chips": [{"label": "dotnet-conventions"}, {"label": "deploy"}, {"label": "exchange-api-keys"},
-             {"label": "docs-writer"}, {"label": "mobile"}]},
+             {"label": "docs-writer"}, {"label": "mobile"},
+             {"label": "kit", "tip": "Self-check, run as /kit"},
+             {"label": "ship", "tip": "Test, fix and merge your own pull request"}]},
   {"name": "MCP", "color": "#8b5cf6",
    "chips": [{"label": "serena", "tip": "Installed by default at a pinned commit"},
              {"label": "context7", "tip": "Optional, per project"}]}]}
@@ -941,6 +944,232 @@ footer {
 </tbody>
 </table>
 <p>A repo with its own local <code>core.hooksPath</code> (husky, the pre-commit framework, or a manual setting) bypasses these. Run <code>git config --show-origin core.hooksPath</code> inside it to check.</p>
+<h2 id="rule-ids-and-the-event-log">Rule ids and the event log</h2>
+<p>Every refusal ends with the id of its rule in square brackets, for example <code>BLOCKED: git commit --no-verify skips the git hooks [git.no-verify]</code>. The hooks also record each block, ask, override and error in an event log, and <code>/kit</code> reads it back under Activity (see <a href="#self-check">Self-check</a>).</p>
+<p>The log is <code>~/.local/state/pipelinekit/events.jsonl</code>. <code>$XDG_STATE_HOME</code> moves it as usual, and <code>PIPELINEKIT_STATE_DIR</code> names the directory outright. One line per event holds the time, the hook, the kind, the rule id, the hook's reason and, when known, the session and the working directory. The command text is never written. A reason can name the path, the branch or the name of the remote it is about. A push to a URL is recorded without the URL, and what a URL in any other reason can carry as a secret (a user and password, a query string, a fragment) is removed first, and so are control and direction characters. Only you can read the file (mode 600). At 1 MB it moves to <code>events.jsonl.1</code>, so there are never more than two files. <code>PIPELINEKIT_LOG=0</code> switches the log off. A log that cannot be written never changes what a hook decides.</p>
+<table>
+<thead>
+<tr>
+<th>Rule id</th>
+<th>Hook</th>
+<th>Kind</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>parse.unparsable</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>The command could not be parsed, for example unbalanced quotes</td>
+</tr>
+<tr>
+<td><code>git.no-verify</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td><code>--no-verify</code>, or <code>git commit -n</code></td>
+</tr>
+<tr>
+<td><code>git.hookspath-option</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td><code>git -c core.hooksPath=...</code></td>
+</tr>
+<tr>
+<td><code>git.config-hookspath</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>Changing <code>core.hooksPath</code>, also through a <code>GIT_CONFIG_*</code> variable</td>
+</tr>
+<tr>
+<td><code>git.config-global</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>A write with <code>git config --global</code> or <code>--system</code></td>
+</tr>
+<tr>
+<td><code>git.override-variable</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>Setting a human-only override such as <code>ALLOW_MAIN_PUSH</code></td>
+</tr>
+<tr>
+<td><code>git.remote-change</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td><code>git remote add</code> or <code>git remote set-url</code></td>
+</tr>
+<tr>
+<td><code>git.push-remote</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>A push to a remote other than <code>origin</code></td>
+</tr>
+<tr>
+<td><code>git.push-protected</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>A direct push to <code>main</code> or <code>master</code></td>
+</tr>
+<tr>
+<td><code>git.push-all</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td><code>git push --all</code>, <code>--mirror</code> or <code>--branches</code></td>
+</tr>
+<tr>
+<td><code>git.never-stage</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>Staging or committing a path on the never-stage list</td>
+</tr>
+<tr>
+<td><code>git.never-stage-missing</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>The never-stage list is missing, so nothing is staged</td>
+</tr>
+<tr>
+<td><code>git.bulk-staging</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td><code>git add -A</code>, <code>git add .</code>, <code>git commit -a</code> and other bulk staging</td>
+</tr>
+<tr>
+<td><code>git.add-expansion</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>A <code>git add</code> path with <code>$</code> or a backtick in it</td>
+</tr>
+<tr>
+<td><code>git.pathspec-file</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td><code>--pathspec-from-file</code> on <code>git add</code> or <code>git commit</code></td>
+</tr>
+<tr>
+<td><code>docker.mount-sensitive</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>A mount of a sensitive host path such as <code>/etc</code></td>
+</tr>
+<tr>
+<td><code>docker.mount-variable</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>A mount source with an unresolved variable</td>
+</tr>
+<tr>
+<td><code>docker.privileged</code></td>
+<td><code>bash-guard</code></td>
+<td>ask</td>
+<td><code>docker run --privileged</code></td>
+</tr>
+<tr>
+<td><code>fetch.pipe-to-shell</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>A download piped into a shell or interpreter</td>
+</tr>
+<tr>
+<td><code>fetch.substitution</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>Downloaded code run through substitution, as in <code>bash -c "$(curl ...)"</code></td>
+</tr>
+<tr>
+<td><code>fetch.process-substitution</code></td>
+<td><code>bash-guard</code></td>
+<td>block</td>
+<td>Downloaded code run through process substitution, as in <code>bash &lt;(curl ...)</code></td>
+</tr>
+<tr>
+<td><code>sql.destructive</code></td>
+<td><code>bash-guard</code></td>
+<td>ask</td>
+<td><code>DROP</code> or <code>TRUNCATE</code> sent to a database client</td>
+</tr>
+<tr>
+<td><code>bare-repo.marker</code></td>
+<td><code>block-bare-repo-markers</code></td>
+<td>block</td>
+<td>A file that would complete a bare git repository</td>
+</tr>
+<tr>
+<td><code>input.invalid</code></td>
+<td><code>bash-guard</code>, <code>block-bare-repo-markers</code></td>
+<td>error</td>
+<td>The hook got input it could not read</td>
+</tr>
+<tr>
+<td><code>internal.crash</code></td>
+<td><code>bash-guard</code>, <code>block-bare-repo-markers</code></td>
+<td>error</td>
+<td>The hook itself failed, so the command was not checked</td>
+</tr>
+<tr>
+<td><code>commit-msg.format</code></td>
+<td><code>commit-msg</code></td>
+<td>block</td>
+<td>The subject is not a conventional commit</td>
+</tr>
+<tr>
+<td><code>commit-msg.subject-length</code></td>
+<td><code>commit-msg</code></td>
+<td>block</td>
+<td>The subject is longer than 100 characters</td>
+</tr>
+<tr>
+<td><code>commit-msg.wip</code></td>
+<td><code>commit-msg</code></td>
+<td>block</td>
+<td>A wip commit outside <code>.claude/worktrees/</code></td>
+</tr>
+<tr>
+<td><code>commit-msg.ai-attribution</code></td>
+<td><code>commit-msg</code></td>
+<td>block</td>
+<td>An AI attribution line in the message</td>
+</tr>
+<tr>
+<td><code>commit-msg.emoji</code></td>
+<td><code>commit-msg</code></td>
+<td>block</td>
+<td>An emoji in the message</td>
+</tr>
+<tr>
+<td><code>pre-commit.secret</code></td>
+<td><code>pre-commit</code></td>
+<td>block</td>
+<td>gitleaks found a secret in the staged changes</td>
+</tr>
+<tr>
+<td><code>pre-commit.gitleaks-failed</code></td>
+<td><code>pre-commit</code></td>
+<td>error</td>
+<td>gitleaks itself failed</td>
+</tr>
+<tr>
+<td><code>pre-commit.allow-secret</code></td>
+<td><code>pre-commit</code></td>
+<td>override</td>
+<td><code>PIPELINEKIT_ALLOW_SECRET=1</code> skipped the scan</td>
+</tr>
+<tr>
+<td><code>pre-push.protected-branch</code></td>
+<td><code>pre-push</code></td>
+<td>block</td>
+<td>A push to <code>main</code> or <code>master</code></td>
+</tr>
+<tr>
+<td><code>pre-push.allow-main</code></td>
+<td><code>pre-push</code></td>
+<td>override</td>
+<td><code>ALLOW_MAIN_PUSH=1</code> let such a push through</td>
+</tr>
+</tbody>
+</table>
+<p>With <code>ask</code>, Claude Code prompts you instead of refusing. <code>override</code> means a human-only variable let something through. <code>error</code> means the hook could not do its job; the command or commit is refused.</p>
 <h2 id="skills">Skills</h2>
 <table>
 <thead>
@@ -972,7 +1201,7 @@ footer {
 </tr>
 <tr>
 <td><code>kit</code></td>
-<td>Self-check, run as <code>/kit</code>: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from <code>settings.json</code>, and environment conflicts</td>
+<td>Self-check, run as <code>/kit</code>: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from <code>settings.json</code>, environment conflicts, and what the hooks blocked or failed on in the last days</td>
 </tr>
 <tr>
 <td><code>ship</code></td>
@@ -993,7 +1222,7 @@ footer {
 <tbody>
 <tr>
 <td>Install</td>
-<td>Every hook, git hook and skill is present; hooks are executable and have LF line endings; <code>settings.json</code> is valid, its hook commands point to files that exist, attribution is off and the secret deny rules are there; the global <code>core.hooksPath</code></td>
+<td>Every hook, the event-log helper, git hook and skill is present; hooks are executable and have LF line endings; <code>settings.json</code> is valid, its hook commands point to files that exist, attribution is off and the secret deny rules are there; the global <code>core.hooksPath</code></td>
 </tr>
 <tr>
 <td>Changes since install</td>
@@ -1001,25 +1230,31 @@ footer {
 </tr>
 <tr>
 <td>Live probe</td>
-<td>Each hook gets input it must block and input it must allow: <code>git commit --no-verify</code>, a <code>docker</code> mount of <code>/etc</code>, <code>curl</code> piped into <code>sh</code>, <code>DROP TABLE</code> through <code>psql</code>, a <code>HEAD</code> file next to <code>refs/</code>, a non-conventional commit message, a push to <code>main</code></td>
+<td>Each hook gets input it must block and input it must allow: <code>git commit --no-verify</code>, a <code>docker</code> mount of <code>/etc</code>, <code>curl</code> piped into <code>sh</code>, <code>DROP TABLE</code> through <code>psql</code>, a <code>HEAD</code> file next to <code>refs/</code>, a non-conventional commit message, a push to <code>main</code>. Each refusal must also arrive in an event log, which the probe keeps in a temporary directory</td>
 </tr>
 <tr>
 <td>Environment</td>
 <td>python3, Claude Code and gitleaks versions; whether <code>gh</code> and Playwright are available; WSL; a repository that sets its own <code>core.hooksPath</code></td>
 </tr>
+<tr>
+<td>Activity</td>
+<td>What the kit's hooks did in the last 7 days, read from the event log: each rule that blocked, asked, was overridden or failed, with a count and the last time. The 20 newest rules are listed, and a hook that failed is listed however old it is. See <a href="#rule-ids-and-the-event-log">Rule ids and the event log</a>. Not part of <code>--quick</code></td>
+</tr>
 </tbody>
 </table>
-<p>A line is <code>[fail]</code> when a guard is missing or does the wrong thing, <code>[warn]</code> when something changed but still works (for example a skill file you edited), and <code>[info]</code> for context. The report ends with <code>Result: healthy</code>, or with the number of problems and the command that repairs the install. The check itself changes nothing in <code>~/.claude</code>.</p>
+<p>A line is <code>[fail]</code> when a guard is missing or does the wrong thing, <code>[warn]</code> when something changed but still works (for example a skill file you edited) or a hook failed while it ran, and <code>[info]</code> for context. The report ends with <code>Result: healthy</code>, or with the number of problems and the command that repairs the install. The check itself changes nothing in <code>~/.claude</code>.</p>
 <p>The checker is <code>claude/skills/kit/check.py</code>, stdlib only. It also runs outside a session:</p>
 <div class="codehilite"><pre><span></span><code>python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w">            </span><span class="c1"># full report, about a second</span>
 python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w"> </span>--quick<span class="w">    </span><span class="c1"># no live probes</span>
 python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w"> </span>--verbose<span class="w">  </span><span class="c1"># also list the checks that passed</span>
 python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w"> </span>--json<span class="w">     </span><span class="c1"># for scripts</span>
+python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w"> </span>--days<span class="w"> </span><span class="m">30</span><span class="w">  </span><span class="c1"># activity of the last 30 days (1 to 365)</span>
+python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w"> </span>--session<span class="w"> </span>ID<span class="w">  </span><span class="c1"># activity of one session</span>
 </code></pre></div>
 
-<p>Exit code 0 means healthy, 1 means problems were found, 2 means the checker itself failed. <code>scripts/verify.sh</code> runs the same file.</p>
+<p>Exit code 0 means healthy, 1 means problems were found, 2 means the checker itself failed. <code>scripts/verify.sh</code> runs the same file. The JSON output has an <code>activity</code> list with every rule; the text report shows the 20 most recent.</p>
 <p>The comparison data is <code>~/.claude/pipelinekit/manifest.json</code>, which the installer writes: kit version and commit, the checkout path, a SHA-256 of every installed file, and the <code>settings.json</code> entries the kit owns. An install made before this file existed reports <code>install manifest not found</code>; run the installer once.</p>
-<p>Two things are outside its reach. A <code>permissions.deny</code> match, or a prompt you declined, leaves no trace to report. And the report describes the environment it runs in: another WSL distro, an SSH host or a sandboxed session can differ, so run the check there.</p>
+<p>Two things are outside its reach. A <code>permissions.deny</code> match, or a prompt you declined, leaves no trace to report: Activity lists only what the kit's own hooks did. And the report describes the environment it runs in: another WSL distro, an SSH host or a sandboxed session can differ, so run the check there.</p>
 <h2 id="shipping-a-pull-request">Shipping a pull request</h2>
 <p>With the kit installed, Claude finishes the pull requests it opens instead of handing each one to you to merge. The <code>ship</code> skill (<code>/ship</code>) describes the loop, and <code>claude/skills/ship/ship.py</code> holds the conditions for the merge.</p>
 <ol>

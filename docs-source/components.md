@@ -27,9 +27,11 @@ The kit has five layers. Hover a chip for a one-line summary, or use the buttons
    "chips": [{"label": "commit-msg", "tip": "Conventional commits, no attribution or emoji"},
              {"label": "pre-commit", "tip": "gitleaks on staged changes"},
              {"label": "pre-push", "tip": "No pushes to main or master"}]},
-  {"name": "Skills", "color": "#10b981", "count": "5 skills",
+  {"name": "Skills", "color": "#10b981", "count": "7 skills",
    "chips": [{"label": "dotnet-conventions"}, {"label": "deploy"}, {"label": "exchange-api-keys"},
-             {"label": "docs-writer"}, {"label": "mobile"}]},
+             {"label": "docs-writer"}, {"label": "mobile"},
+             {"label": "kit", "tip": "Self-check, run as /kit"},
+             {"label": "ship", "tip": "Test, fix and merge your own pull request"}]},
   {"name": "MCP", "color": "#8b5cf6",
    "chips": [{"label": "serena", "tip": "Installed by default at a pinned commit"},
              {"label": "context7", "tip": "Optional, per project"}]}]}
@@ -76,6 +78,52 @@ The installer merges `claude/config/settings.template.json` into `~/.claude/sett
 
 A repo with its own local `core.hooksPath` (husky, the pre-commit framework, or a manual setting) bypasses these. Run `git config --show-origin core.hooksPath` inside it to check.
 
+## Rule ids and the event log
+
+Every refusal ends with the id of its rule in square brackets, for example `BLOCKED: git commit --no-verify skips the git hooks [git.no-verify]`. The hooks also record each block, ask, override and error in an event log, and `/kit` reads it back under Activity (see [Self-check](#self-check)).
+
+The log is `~/.local/state/pipelinekit/events.jsonl`. `$XDG_STATE_HOME` moves it as usual, and `PIPELINEKIT_STATE_DIR` names the directory outright. One line per event holds the time, the hook, the kind, the rule id, the hook's reason and, when known, the session and the working directory. The command text is never written. A reason can name the path, the branch or the name of the remote it is about. A push to a URL is recorded without the URL, and what a URL in any other reason can carry as a secret (a user and password, a query string, a fragment) is removed first, and so are control and direction characters. Only you can read the file (mode 600). At 1 MB it moves to `events.jsonl.1`, so there are never more than two files. `PIPELINEKIT_LOG=0` switches the log off. A log that cannot be written never changes what a hook decides.
+
+| Rule id | Hook | Kind | When |
+|---------|------|------|------|
+| `parse.unparsable` | `bash-guard` | block | The command could not be parsed, for example unbalanced quotes |
+| `git.no-verify` | `bash-guard` | block | `--no-verify`, or `git commit -n` |
+| `git.hookspath-option` | `bash-guard` | block | `git -c core.hooksPath=...` |
+| `git.config-hookspath` | `bash-guard` | block | Changing `core.hooksPath`, also through a `GIT_CONFIG_*` variable |
+| `git.config-global` | `bash-guard` | block | A write with `git config --global` or `--system` |
+| `git.override-variable` | `bash-guard` | block | Setting a human-only override such as `ALLOW_MAIN_PUSH` |
+| `git.remote-change` | `bash-guard` | block | `git remote add` or `git remote set-url` |
+| `git.push-remote` | `bash-guard` | block | A push to a remote other than `origin` |
+| `git.push-protected` | `bash-guard` | block | A direct push to `main` or `master` |
+| `git.push-all` | `bash-guard` | block | `git push --all`, `--mirror` or `--branches` |
+| `git.never-stage` | `bash-guard` | block | Staging or committing a path on the never-stage list |
+| `git.never-stage-missing` | `bash-guard` | block | The never-stage list is missing, so nothing is staged |
+| `git.bulk-staging` | `bash-guard` | block | `git add -A`, `git add .`, `git commit -a` and other bulk staging |
+| `git.add-expansion` | `bash-guard` | block | A `git add` path with `$` or a backtick in it |
+| `git.pathspec-file` | `bash-guard` | block | `--pathspec-from-file` on `git add` or `git commit` |
+| `docker.mount-sensitive` | `bash-guard` | block | A mount of a sensitive host path such as `/etc` |
+| `docker.mount-variable` | `bash-guard` | block | A mount source with an unresolved variable |
+| `docker.privileged` | `bash-guard` | ask | `docker run --privileged` |
+| `fetch.pipe-to-shell` | `bash-guard` | block | A download piped into a shell or interpreter |
+| `fetch.substitution` | `bash-guard` | block | Downloaded code run through substitution, as in `bash -c "$(curl ...)"` |
+| `fetch.process-substitution` | `bash-guard` | block | Downloaded code run through process substitution, as in `bash <(curl ...)` |
+| `sql.destructive` | `bash-guard` | ask | `DROP` or `TRUNCATE` sent to a database client |
+| `bare-repo.marker` | `block-bare-repo-markers` | block | A file that would complete a bare git repository |
+| `input.invalid` | `bash-guard`, `block-bare-repo-markers` | error | The hook got input it could not read |
+| `internal.crash` | `bash-guard`, `block-bare-repo-markers` | error | The hook itself failed, so the command was not checked |
+| `commit-msg.format` | `commit-msg` | block | The subject is not a conventional commit |
+| `commit-msg.subject-length` | `commit-msg` | block | The subject is longer than 100 characters |
+| `commit-msg.wip` | `commit-msg` | block | A wip commit outside `.claude/worktrees/` |
+| `commit-msg.ai-attribution` | `commit-msg` | block | An AI attribution line in the message |
+| `commit-msg.emoji` | `commit-msg` | block | An emoji in the message |
+| `pre-commit.secret` | `pre-commit` | block | gitleaks found a secret in the staged changes |
+| `pre-commit.gitleaks-failed` | `pre-commit` | error | gitleaks itself failed |
+| `pre-commit.allow-secret` | `pre-commit` | override | `PIPELINEKIT_ALLOW_SECRET=1` skipped the scan |
+| `pre-push.protected-branch` | `pre-push` | block | A push to `main` or `master` |
+| `pre-push.allow-main` | `pre-push` | override | `ALLOW_MAIN_PUSH=1` let such a push through |
+
+With `ask`, Claude Code prompts you instead of refusing. `override` means a human-only variable let something through. `error` means the hook could not do its job; the command or commit is refused.
+
 ## Skills
 
 | Skill | Use it for |
@@ -85,7 +133,7 @@ A repo with its own local `core.hooksPath` (husky, the pre-commit framework, or 
 | `exchange-api-keys` | Exchange API keys for CryptoBargain and FundingRateArb: where they load from, never logging them, testnet vs mainnet, withdrawal-disabled and IP-restricted scopes, storage, rotation, leak runbook |
 | `docs-writer` | Render `docs-source/*.md` into self-contained HTML pages under `documentation/` with `render.py` and `template.html`, with optional data-driven interactive snippets |
 | `mobile` | Android (Kotlin/Compose) builds and device access from WSL2, iPhone home-screen web apps, Expo/EAS cloud builds for iOS, release and security checklist |
-| `kit` | Self-check, run as `/kit`: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, and environment conflicts |
+| `kit` | Self-check, run as `/kit`: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, environment conflicts, and what the hooks blocked or failed on in the last days |
 | `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then `ship.py` merges once every gate holds (own pull request, not a release, no required review, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
 
 In 0.1.0, `deploy` replaces the five separate `*-ops` skills and the per-provider deployment agents, `mobile` replaces `expo` and `ios`, and the ASP.NET Core security rules moved into `dotnet-conventions`.
@@ -96,12 +144,13 @@ In 0.1.0, `deploy` replaces the five separate `*-ops` skills and the per-provide
 
 | Section | What is checked |
 |---------|-----------------|
-| Install | Every hook, git hook and skill is present; hooks are executable and have LF line endings; `settings.json` is valid, its hook commands point to files that exist, attribution is off and the secret deny rules are there; the global `core.hooksPath` |
+| Install | Every hook, the event-log helper, git hook and skill is present; hooks are executable and have LF line endings; `settings.json` is valid, its hook commands point to files that exist, attribution is off and the secret deny rules are there; the global `core.hooksPath` |
 | Changes since install | Each installed file against the hash recorded at install time; the kit's hook entries and deny/ask rules in `settings.json` |
-| Live probe | Each hook gets input it must block and input it must allow: `git commit --no-verify`, a `docker` mount of `/etc`, `curl` piped into `sh`, `DROP TABLE` through `psql`, a `HEAD` file next to `refs/`, a non-conventional commit message, a push to `main` |
+| Live probe | Each hook gets input it must block and input it must allow: `git commit --no-verify`, a `docker` mount of `/etc`, `curl` piped into `sh`, `DROP TABLE` through `psql`, a `HEAD` file next to `refs/`, a non-conventional commit message, a push to `main`. Each refusal must also arrive in an event log, which the probe keeps in a temporary directory |
 | Environment | python3, Claude Code and gitleaks versions; whether `gh` and Playwright are available; WSL; a repository that sets its own `core.hooksPath` |
+| Activity | What the kit's hooks did in the last 7 days, read from the event log: each rule that blocked, asked, was overridden or failed, with a count and the last time. The 20 newest rules are listed, and a hook that failed is listed however old it is. See [Rule ids and the event log](#rule-ids-and-the-event-log). Not part of `--quick` |
 
-A line is `[fail]` when a guard is missing or does the wrong thing, `[warn]` when something changed but still works (for example a skill file you edited), and `[info]` for context. The report ends with `Result: healthy`, or with the number of problems and the command that repairs the install. The check itself changes nothing in `~/.claude`.
+A line is `[fail]` when a guard is missing or does the wrong thing, `[warn]` when something changed but still works (for example a skill file you edited) or a hook failed while it ran, and `[info]` for context. The report ends with `Result: healthy`, or with the number of problems and the command that repairs the install. The check itself changes nothing in `~/.claude`.
 
 The checker is `claude/skills/kit/check.py`, stdlib only. It also runs outside a session:
 
@@ -110,13 +159,15 @@ python3 ~/.claude/skills/kit/check.py            # full report, about a second
 python3 ~/.claude/skills/kit/check.py --quick    # no live probes
 python3 ~/.claude/skills/kit/check.py --verbose  # also list the checks that passed
 python3 ~/.claude/skills/kit/check.py --json     # for scripts
+python3 ~/.claude/skills/kit/check.py --days 30  # activity of the last 30 days (1 to 365)
+python3 ~/.claude/skills/kit/check.py --session ID  # activity of one session
 ```
 
-Exit code 0 means healthy, 1 means problems were found, 2 means the checker itself failed. `scripts/verify.sh` runs the same file.
+Exit code 0 means healthy, 1 means problems were found, 2 means the checker itself failed. `scripts/verify.sh` runs the same file. The JSON output has an `activity` list with every rule; the text report shows the 20 most recent.
 
 The comparison data is `~/.claude/pipelinekit/manifest.json`, which the installer writes: kit version and commit, the checkout path, a SHA-256 of every installed file, and the `settings.json` entries the kit owns. An install made before this file existed reports `install manifest not found`; run the installer once.
 
-Two things are outside its reach. A `permissions.deny` match, or a prompt you declined, leaves no trace to report. And the report describes the environment it runs in: another WSL distro, an SSH host or a sandboxed session can differ, so run the check there.
+Two things are outside its reach. A `permissions.deny` match, or a prompt you declined, leaves no trace to report: Activity lists only what the kit's own hooks did. And the report describes the environment it runs in: another WSL distro, an SSH host or a sandboxed session can differ, so run the check there.
 
 ## Shipping a pull request
 

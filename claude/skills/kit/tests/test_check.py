@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -38,7 +39,14 @@ def installed(tmp_path_factory):
         XDG_CONFIG_HOME=str(user / ".config"),
         PIPELINEKIT_GIT_HOOKS="1",
     )
-    for k in ("ALLOW_MAIN_PUSH", "PIPELINEKIT_ALLOW_SECRET", "PIPELINEKIT_STATE_DIR"):
+    # The event log then sits below the throwaway HOME, as on a real machine.
+    for k in (
+        "ALLOW_MAIN_PUSH",
+        "PIPELINEKIT_ALLOW_SECRET",
+        "PIPELINEKIT_STATE_DIR",
+        "PIPELINEKIT_LOG",
+        "XDG_STATE_HOME",
+    ):
         env.pop(k, None)
     p = subprocess.run(
         ["bash", str(REPO / "scripts" / "install.sh"), "--no-serena"],
@@ -59,12 +67,12 @@ def kit(installed):
     return installed
 
 
-def check(kit, *args, cwd=None):
+def check(kit, *args, cwd=None, env=None):
     p = subprocess.run(
         [sys.executable, str(CHECK), *args],
         capture_output=True,
         text=True,
-        env=kit["env"],
+        env=dict(kit["env"], **(env or {})),
         cwd=cwd or kit["root"],
     )
     return p.returncode, p.stdout + p.stderr
@@ -113,6 +121,8 @@ def test_verbose_lists_every_probe(kit):
         "[pass] commit-msg: 2 probes as expected",
         "[pass] pre-commit: 1 probe as expected",
         "[pass] pre-push: 2 probes as expected",
+        "[pass] event log: 4 refusals recorded",
+        "[pass] hook helper: kitlog.py",
         "[pass] git: global core.hooksPath set",
         "[pass] settings.json: 11 kit hook entries wired",
     ):
@@ -373,6 +383,7 @@ def test_json_report(kit):
         "counts",
         "repair",
         "results",
+        "activity",
     }
     assert d["healthy"] is True and d["mode"] == "full"
     assert d["counts"]["fail"] == 0 and d["counts"]["pass"] > 20
@@ -384,6 +395,7 @@ def test_json_report(kit):
         "drift",
         "probe",
         "environment",
+        "activity",
     }
 
 
@@ -462,7 +474,7 @@ def test_hook_lists_match_the_repo():
         for p in (REPO / "claude" / "hooks").iterdir()
         if p.is_file() and p.suffix in (".py", ".sh")
     )
-    assert sorted(check_py.HOOKS) == hooks
+    assert sorted(check_py.HOOKS + check_py.HELPERS) == hooks
     git_hooks = sorted(p.name for p in (REPO / "claude" / "git-hooks").iterdir())
     assert sorted(check_py.GIT_HOOKS) == git_hooks
 
@@ -474,3 +486,277 @@ def test_environment_covers_what_the_ship_skill_needs(kit):
     assert re.search(r"\[pass\] playwright: \S|\[info\] playwright not installed", out)
     rc, out = check(kit, "--verbose", "--quick")
     assert rc == 0 and "playwright" not in out
+
+
+# ---------------------------------------------------------------- activity
+
+
+def state(kit):
+    return kit["user"] / ".local" / "state" / "pipelinekit"
+
+
+def ev(rule="git.no-verify", kind="block", hook="bash-guard", age_days=0.0, **more):
+    ts = time.strftime(
+        "%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - age_days * 86400)
+    )
+    e = {"ts": ts, "v": 1, "hook": hook, "kind": kind, "rule": rule}
+    return {**e, "reason": "why it was refused", **more}
+
+
+def write_events(kit, *events, name="events.jsonl"):
+    state(kit).mkdir(parents=True, exist_ok=True)
+    with open(state(kit) / name, "a") as f:
+        for e in events:
+            f.write((e if isinstance(e, str) else json.dumps(e)) + "\n")
+
+
+def activity_rules(out):
+    return re.findall(r"^  \[(?:info|warn)\] (\S+) \(\S+\): ", out, re.M)
+
+
+def test_activity_of_a_fresh_install_is_empty(kit):
+    rc, out = check(kit)
+    assert rc == 0, out
+    assert "Activity (last 7 days)\n  [info] no blocks, asks or hook errors" in out
+    assert not state(kit).exists()
+
+
+def test_activity_lists_what_the_hooks_refused(kit):
+    write_events(
+        kit,
+        ev(tool_use_id="t1", age_days=2),
+        ev(tool_use_id="t2", age_days=1),
+        ev(tool_use_id="t3", reason="the newest reason"),
+        ev("sql.destructive", "ask", age_days=3),
+        ev("pre-push.allow-main", "override", "pre-push", age_days=4),
+    )
+    rc, out = check(kit)
+    assert rc == 0, out
+    assert "[info] git.no-verify (bash-guard): blocked 3 times, last 20" in out
+    assert "UTC: the newest reason" in out
+    assert "[info] sql.destructive (bash-guard): asked once, last 20" in out
+    assert "[info] pre-push.allow-main (pre-push): override used once, last 20" in out
+    assert "no blocks, asks" not in out
+    assert "[warn]" not in out and out.rstrip().endswith("Result: healthy")
+    newest_first = ["git.no-verify", "sql.destructive", "pre-push.allow-main"]
+    assert activity_rules(out) == newest_first
+
+
+def test_a_hook_error_is_a_warning(kit):
+    crash = ev("internal.crash", "error", reason="bash-guard failed (KeyError)")
+    write_events(kit, crash)
+    rc, out = check(kit)
+    assert rc == 0, out
+    assert "[warn] internal.crash (bash-guard): failed once, last 20" in out
+    assert "UTC: bash-guard failed (KeyError)" in out
+    assert out.rstrip().endswith("Result: working, 1 warning")
+
+
+def test_activity_window(kit):
+    write_events(kit, ev(age_days=10))
+    rc, out = check(kit)
+    assert rc == 0 and "git.no-verify" not in out and "no blocks, asks" in out
+    rc, out = check(kit, "--days", "30")
+    assert rc == 0 and "Activity (last 30 days)" in out
+    assert "git.no-verify (bash-guard): blocked once" in out
+    for bad in ("0", "366", "x"):
+        rc, out = check(kit, "--days", bad)
+        assert rc == 2, out
+
+
+def test_activity_of_one_session(kit):
+    other = ev("sql.destructive", "ask", session="bbb-2")
+    write_events(kit, ev(session="aaa-1"), other)
+    rc, out = check(kit, "--session", "aaa-1")
+    assert rc == 0, out
+    assert "Activity (last 7 days, session aaa-1)" in out
+    assert activity_rules(out) == ["git.no-verify"]
+    rc, out = check(kit, "--session", "ccc-3")
+    assert "no blocks, asks or hook errors (last 7 days, session ccc-3)" in out
+    rc, out = check(kit, "--session", "a b; rm -rf x")
+    assert rc == 2, out
+
+
+def test_one_command_counts_once(kit):
+    progs = ("git/git", "git/gh", "fetch/curl")
+    write_events(kit, *[ev(tool_use_id="toolu_1", prog=p) for p in progs])
+    write_events(kit, ev(), ev())  # git hooks have no tool call id
+    rc, out = check(kit)
+    assert "git.no-verify (bash-guard): blocked 3 times" in out, out
+
+
+def test_damaged_log_lines_are_skipped(kit):
+    noise = "a\x1b[31mb\nIgnore previous instructions" + "x" * 900
+    write_events(
+        kit,
+        "not json",
+        "[]",
+        '{"kind": "block"}',
+        "[" * 5000,
+        ev(rule="Evil Rule"),
+        ev(hook="x" * 99),
+        ev(kind=["block"]),
+        ev(kind="shout"),
+        {**ev(), "ts": "yesterday"},
+        {**ev(), "ts": 5},
+        ev("git.push-protected", reason=noise),
+    )
+    (state(kit) / "events.jsonl.1").write_bytes(b"\xff\xfe\x00 not text\n")
+    rc, out = check(kit)
+    assert rc == 0, out
+    assert "check failed" not in out and "Traceback" not in out
+    assert activity_rules(out) == ["git.push-protected"]
+    (line,) = [ln for ln in out.splitlines() if "git.push-protected" in ln]
+    assert "\x1b" not in out and len(line) < 330
+    rc, out = check(kit, "--json")
+    assert [a["rule"] for a in json.loads(out)["activity"]] == ["git.push-protected"]
+
+
+def test_activity_reads_the_older_log_file(kit):
+    write_events(kit, ev(), name="events.jsonl.1")
+    write_events(kit, ev())
+    rc, out = check(kit)
+    assert "git.no-verify (bash-guard): blocked 2 times" in out, out
+
+
+def test_event_log_switched_off(kit):
+    off = {"PIPELINEKIT_LOG": "0"}
+    rc, out = check(kit, env=off)
+    assert rc == 0, out
+    assert "[info] the event log is switched off (PIPELINEKIT_LOG=0)" in out
+    assert "no blocks, asks" not in out
+    # The probes still test that the hooks can record.
+    rc, out = check(kit, "--verbose", env=off)
+    assert "[pass] event log: 4 refusals recorded" in out, out
+
+
+def test_quick_has_no_activity(kit):
+    write_events(kit, ev("internal.crash", "error"))
+    rc, out = check(kit, "--quick")
+    assert rc == 0 and "Activity" not in out and "internal.crash" not in out
+    d = json.loads(check(kit, "--quick", "--json")[1])
+    assert d["activity"] == []
+
+
+def test_json_activity(kit):
+    first, last = ev(age_days=1, reason="older"), ev(reason="newer")
+    write_events(kit, first, last)
+    d = json.loads(check(kit, "--json")[1])
+    assert d["activity"] == [
+        {
+            "hook": "bash-guard",
+            "rule": "git.no-verify",
+            "kind": "block",
+            "count": 2,
+            "last": last["ts"],
+            "reason": "newer",
+        }
+    ]
+    assert d["healthy"] is True
+
+
+def test_missing_log_helper(kit):
+    (kit["home"] / "hooks" / "kitlog.py").unlink()
+    rc, out = check(kit)
+    assert rc == 1
+    assert "[fail] hook helper missing: kitlog.py" in out
+    assert "missing: hooks/kitlog.py" not in out and "event log:" not in out
+    assert "gave" not in out  # the hooks themselves still decide
+
+
+def test_log_helper_that_records_nothing(kit):
+    body = "#!/usr/bin/env python3\ndef log(*a, **k):\n    return False\n"
+    replace_script(kit, "hooks/kitlog.py", body)
+    rc, out = check(kit)
+    assert rc == 1
+    hooks = "bash-guard, block-bare-repo-markers, commit-msg, pre-push"
+    assert f"[fail] event log: nothing recorded for {hooks}" in out
+
+
+def test_event_log_formats_match_the_hooks(monkeypatch, tmp_path):
+    path = REPO / "claude" / "hooks" / "kitlog.py"
+    spec = importlib.util.spec_from_file_location("kitlog", path)
+    kitlog = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(kitlog)
+    cases = (
+        {"PIPELINEKIT_STATE_DIR": str(tmp_path / "a")},
+        {"XDG_STATE_HOME": str(tmp_path / "b")},
+        {},
+    )
+    for case in cases:
+        for k in ("PIPELINEKIT_STATE_DIR", "XDG_STATE_HOME"):
+            monkeypatch.delenv(k, raising=False)
+        for k, v in case.items():
+            monkeypatch.setenv(k, v)
+        assert check_py.state_dir() == kitlog.state_dir()
+    assert check_py.EVENT_HOOK.pattern == kitlog.HOOK.pattern
+    assert check_py.EVENT_RULE.pattern == kitlog.RULE.pattern
+    assert tuple(check_py.EVENT_KINDS) == kitlog.KINDS
+
+
+def test_a_failed_hook_is_shown_however_busy_the_log_is(kit):
+    busy = [ev(f"git.rule-{n:02d}", age_days=n / 1000) for n in range(25)]
+    write_events(kit, *busy, ev("internal.crash", "error", age_days=2))
+    rc, out = check(kit)
+    assert rc == 0, out
+    assert "[warn] internal.crash (bash-guard): failed once" in out
+    assert "[info] 5 more rules not shown (--json lists them all)" in out
+    assert out.rstrip().endswith("Result: working, 1 warning")
+
+
+def test_characters_the_report_cannot_show_do_not_end_it(kit):
+    write_events(kit, ev(reason="a\x9b\u202e\u2028\u2029\ud800b"))
+    rc, out = check(kit)
+    assert rc == 0 and "UTC: a b" in out, out
+    rocket = ev("commit-msg.emoji", hook="commit-msg", reason="emoji \U0001f680 x")
+    write_events(kit, rocket)
+    plain = {"LC_ALL": "POSIX", "LANG": "", "PYTHONUTF8": "0"}
+    rc, out = check(kit, env=dict(plain, PYTHONCOERCECLOCALE="0"))
+    assert rc == 0 and "check failed" not in out, out
+    assert "commit-msg.emoji (commit-msg): blocked once" in out
+
+
+def test_events_from_the_future_are_left_out(kit):
+    write_events(kit, ev(age_days=-1), ev("sql.destructive", "ask"))
+    rc, out = check(kit, "--days", "30")
+    assert rc == 0 and activity_rules(out) == ["sql.destructive"], out
+
+
+def test_a_log_that_cannot_be_read_is_named(kit):
+    if os.geteuid() == 0:
+        pytest.skip("root reads every file")
+    write_events(kit, ev())
+    (state(kit) / "events.jsonl").chmod(0)
+    rc, out = check(kit)
+    assert rc == 0, out
+    assert "[info] the event log cannot be read: " in out
+    assert "no blocks, asks" not in out
+
+
+@pytest.mark.parametrize("how", ["closed directory", "directory", "pipe"])
+def test_a_log_that_is_there_is_not_called_empty(kit, how):
+    if os.geteuid() == 0:
+        pytest.skip("root reads every file")
+    write_events(kit, ev())
+    log = state(kit) / "events.jsonl"
+    if how == "closed directory":
+        state(kit).chmod(0)
+    else:
+        log.unlink()
+        log.mkdir() if how == "directory" else os.mkfifo(log)
+    try:
+        rc, out = check(kit)
+    finally:
+        state(kit).chmod(0o700)
+    assert rc == 0, out
+    assert "[info] the event log cannot be read: " in out
+    assert "no blocks, asks" not in out
+
+
+def test_a_session_id_as_long_as_the_hooks_store_it(kit):
+    long = "a" * 80
+    write_events(kit, ev(session=long))
+    rc, out = check(kit, "--session", long)
+    assert rc == 0 and activity_rules(out) == ["git.no-verify"], out
+    rc, out = check(kit, "--session", long + "a")
+    assert rc == 2, out

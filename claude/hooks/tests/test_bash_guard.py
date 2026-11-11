@@ -1,7 +1,9 @@
 """bash-guard.py: every bypass and false positive from the hooks reviews."""
 
+import ast
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -295,3 +297,207 @@ def test_group_argument_limits_checks(env):
 def test_invalid_input_blocks():
     p = subprocess.run([str(GUARD)], input="not json", capture_output=True, text=True)
     assert p.returncode == 2 and "BLOCKED" in p.stderr
+
+
+# ---------------------------------------------------------------- rule ids, event log
+
+REPO = HOOKS.parents[1]
+GIT_HOOKS = ("commit-msg", "pre-commit", "pre-push")
+RULE = re.compile(r"^[a-z-]+\.[a-z0-9-]+$")
+
+
+def raw(env, cmd, state, args=(), extra=None, payload=None, guard=GUARD):
+    e = dict(GIT_ENV, CLAUDE_HOME=str(env["home"]), PIPELINEKIT_STATE_DIR=str(state))
+    e.pop("PIPELINEKIT_LOG", None)
+    e.update(extra or {})
+    if payload is None:
+        payload = json.dumps(
+            {
+                "session_id": "s-1",
+                "tool_use_id": "toolu_1",
+                "tool_input": {"command": cmd},
+                "cwd": str(env["repo"]),
+            }
+        )
+    return subprocess.run(
+        [str(guard), *args], input=payload, capture_output=True, text=True, env=e
+    )
+
+
+def logged(state):
+    log = Path(state) / "events.jsonl"
+    if not log.exists():
+        return []
+    return [json.loads(ln) for ln in log.read_text().splitlines()]
+
+
+def test_block_names_its_rule_and_is_logged(env, tmp_path):
+    cmd = 'git commit --no-verify -m "token-4f9a1c"'
+    p = raw(env, cmd, tmp_path / "s", args=["git", "git"])
+    assert p.returncode == 2
+    assert p.stderr.startswith("BLOCKED: ")
+    assert p.stderr.rstrip().endswith("[git.no-verify]")
+    (e,) = logged(tmp_path / "s")
+    assert (e["hook"], e["kind"], e["rule"]) == ("bash-guard", "block", "git.no-verify")
+    assert e["session"] == "s-1" and e["tool_use_id"] == "toolu_1"
+    assert e["prog"] == "git/git" and e["cwd"] == str(env["repo"])
+    assert e["reason"] and e["reason"] in p.stderr
+    assert "token-4f9a1c" not in (tmp_path / "s" / "events.jsonl").read_text()
+
+
+@pytest.mark.parametrize(
+    "remote",
+    [
+        "https://user:pa ss@h.example/r",
+        "https://user:pa'ss@h.example/r",
+        "https://tok en@h.example/r",
+        "ssh://user:pa ss@h.example:22/r",
+        "https://h.example/r?TOKEN123",
+        "https://h.example/r#TOKEN123",
+        "user:pass@h.example:r.git",
+        "../h.example",
+    ],
+)
+def test_a_push_to_a_url_is_refused_without_repeating_it(env, tmp_path, remote):
+    p = raw(env, f'git push "{remote}" feat', tmp_path / "s")
+    assert p.returncode == 2
+    assert p.stderr.rstrip().endswith("[git.push-remote]")
+    (e,) = logged(tmp_path / "s")
+    assert e["reason"] == "push to a URL or path is not allowed; only origin"
+    assert "h.example" not in p.stderr
+    assert "h.example" not in (tmp_path / "s" / "events.jsonl").read_text()
+
+
+def test_a_push_to_another_remote_names_it(env, tmp_path):
+    p = raw(env, "git push upstream feat", tmp_path / "s")
+    assert p.returncode == 2
+    (e,) = logged(tmp_path / "s")
+    assert e["reason"] == "push to remote 'upstream' is not allowed; only origin"
+
+
+def test_ask_names_its_rule_and_is_logged(env, tmp_path):
+    p = raw(env, 'psql -c "DROP TABLE users"', tmp_path / "s")
+    assert p.returncode == 0
+    out = json.loads(p.stdout)["hookSpecificOutput"]
+    assert out["permissionDecision"] == "ask"
+    assert out["permissionDecisionReason"].endswith("[sql.destructive]")
+    (e,) = logged(tmp_path / "s")
+    assert (e["kind"], e["rule"]) == ("ask", "sql.destructive")
+
+
+def test_allowed_command_logs_nothing(env, tmp_path):
+    p = raw(env, "git status", tmp_path / "s")
+    assert p.returncode == 0 and p.stdout == ""
+    assert not (tmp_path / "s").exists()
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        "not json",
+        "[1, 2]",
+        '"text"',
+        "null",
+        "",
+        pytest.param("[" * 200000, id="nested too deep"),
+    ],
+)
+def test_invalid_input_is_refused_and_logged(env, tmp_path, payload):
+    p = raw(env, "", tmp_path / "s", payload=payload)
+    assert p.returncode == 2
+    assert p.stderr.startswith("BLOCKED: ")
+    assert p.stderr.rstrip().endswith("[input.invalid]")
+    (e,) = logged(tmp_path / "s")
+    assert (e["kind"], e["rule"]) == ("error", "input.invalid")
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"tool_input": "git status"},
+        {"tool_input": {"command": 5}},
+        {"tool_input": {"command": ["git", "status"]}},
+        {"tool_input": None, "cwd": 7},
+        {},
+    ],
+)
+def test_odd_input_never_ends_in_a_traceback(env, tmp_path, payload):
+    p = raw(env, "", tmp_path / "s", payload=json.dumps(payload))
+    assert p.returncode in (0, 2), p.stderr
+    assert "Traceback" not in p.stderr
+
+
+def test_a_log_that_cannot_be_written_changes_nothing(env, tmp_path):
+    blocker = tmp_path / "file"
+    blocker.write_text("x")
+    p = raw(env, "git commit --no-verify -m x", blocker / "state")
+    assert p.returncode == 2 and p.stderr.rstrip().endswith("[git.no-verify]")
+    p = raw(env, 'psql -c "DROP TABLE users"', blocker / "state")
+    assert p.returncode == 0 and "ask" in p.stdout
+    off = {"PIPELINEKIT_LOG": "0"}
+    p = raw(env, "git commit --no-verify -m x", tmp_path / "s", extra=off)
+    assert p.returncode == 2 and not (tmp_path / "s").exists()
+
+
+def test_guard_works_without_the_log_helper(env, tmp_path):
+    alone = tmp_path / "hooks"
+    alone.mkdir()
+    shutil.copy(GUARD, alone / "bash-guard.py")
+    p = raw(
+        env, "git commit --no-verify -m x", tmp_path / "s", guard=alone / GUARD.name
+    )
+    assert p.returncode == 2 and p.stderr.rstrip().endswith("[git.no-verify]")
+    assert (
+        raw(env, "git status", tmp_path / "s", guard=alone / GUARD.name).returncode == 0
+    )
+    assert not (tmp_path / "s").exists()
+
+
+def test_logging_leaves_nothing_beside_the_hooks(env, tmp_path):
+    hooks = tmp_path / "hooks"
+    hooks.mkdir()
+    for name in ("bash-guard.py", "kitlog.py"):
+        shutil.copy(HOOKS / name, hooks / name)
+    p = raw(
+        env, "git commit --no-verify -m x", tmp_path / "s", guard=hooks / GUARD.name
+    )
+    assert p.returncode == 2 and len(logged(tmp_path / "s")) == 1
+    assert sorted(f.name for f in hooks.iterdir()) == ["bash-guard.py", "kitlog.py"]
+
+
+def guard_rules():
+    """(line, rule) for every `raise Block(...)` / `raise Ask(...)` in the guard."""
+    found = []
+    for node in ast.walk(ast.parse(GUARD.read_text())):
+        if not (isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call)):
+            continue
+        call = node.exc
+        if getattr(call.func, "id", "") not in ("Block", "Ask"):
+            continue
+        assert len(call.args) == 2, f"line {node.lineno}: reason and rule id"
+        rule = call.args[1]
+        assert isinstance(rule, ast.Constant) and isinstance(rule.value, str)
+        found.append((node.lineno, rule.value))
+    return found
+
+
+def git_hook_rules():
+    text = "".join((HOOKS.parent / "git-hooks" / n).read_text() for n in GIT_HOOKS)
+    return set(re.findall(r"\b(?:commit-msg|pre-commit|pre-push)\.[a-z][a-z-]+", text))
+
+
+def test_every_refusal_has_a_rule_id():
+    rules = guard_rules()
+    assert len(rules) >= 27
+    for line, rule in rules:
+        assert RULE.match(rule), f"line {line}: {rule}"
+        assert rule.split(".")[0] in ("git", "docker", "fetch", "sql", "parse"), rule
+    assert len(git_hook_rules()) == 10, git_hook_rules()
+
+
+def test_every_rule_id_is_in_the_docs():
+    docs = (REPO / "docs-source" / "components.md").read_text()
+    rules = {rule for _, rule in guard_rules()} | git_hook_rules()
+    rules |= {"input.invalid", "internal.crash", "bare-repo.marker"}
+    missing = sorted(r for r in rules if f"`{r}`" not in docs)
+    assert not missing, f"rule ids missing from docs-source/components.md: {missing}"
