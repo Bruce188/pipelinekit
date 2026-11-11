@@ -1185,7 +1185,7 @@ class Loop:
         return os.lstat(self.path("state.json")).st_mtime_ns
 
 
-def scan(ctx):
+def scan(ctx, load=True):
     """Every loop folder of the checkout: docs/loops/<name>/<kind> with a state."""
     folder = check_contained(ctx.root, "docs/loops", "docs/loops")
     if not folder.is_dir():
@@ -1200,8 +1200,9 @@ def scan(ctx):
             loop = Loop(ctx, kind, entry.name)
             if os.path.lexists(loop.path("state.json")):
                 found.append(loop)
-    for loop in found:
-        loop.load()
+    if load:
+        for loop in found:
+            loop.load()
     return found
 
 
@@ -1562,6 +1563,7 @@ def cmd_start(args):
             "only for a head with nothing to judge.",
         )
     loop = Loop(ctx, kind, name)
+    others = [lp for lp in scan(ctx, load=False) if (lp.kind, lp.name) != (kind, name)]
     old = existing(loop)
     if old and old["outcome"] in UNFINISHED:
         raise Exit(
@@ -1600,6 +1602,8 @@ def cmd_start(args):
     )
     loop.mkdir()
     loop.save()
+    if others:
+        QUALIFY.extend([True, (kind, name)])
     if plan:
         loop.write("plan.md", plan[0])
         loop.write("criteria.md", plan[1])
