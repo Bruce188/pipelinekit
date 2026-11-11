@@ -583,12 +583,15 @@ def check_install(c: Check) -> None:
 
 
 def frontmatter(text: str) -> list[str] | None:
-    """The lines between the opening and the closing --- of a markdown file."""
+    """The lines between the opening and the closing --- of a markdown file.
+
+    Only an unindented --- opens or closes it.
+    """
     lines = text.replace("\r", "").split("\n")
-    if not lines or lines[0].strip() != "---":
+    if not lines or lines[0].rstrip() != "---":
         return None
     for i in range(1, len(lines)):
-        if lines[i].strip() == "---":
+        if lines[i].rstrip() == "---":
             return lines[1:i]
     return None
 
@@ -603,12 +606,19 @@ def check_judge_tools(c: Check) -> None:
             head = frontmatter(f.read(65536))
     except OSError:
         head = None
-    tools = [
-        line.split(":", 1)[1]
-        for line in head or []
-        if ":" in line and line.split(":", 1)[0].strip() == "tools"
-    ]
-    if len(tools) == 1 and tuple(t.strip() for t in tools[0].split(",")) == JUDGE_TOOLS:
+    # Only a key at column 0 is the tools key. Any other line whose key reads
+    # tools (indented, inside a block scalar, or quoted) makes the file suspect.
+    tools, other = [], False
+    for line in head or []:
+        if re.match(r"tools\s*:", line):
+            tools.append(line.split(":", 1)[1])
+        elif ":" in line and line.split(":", 1)[0].strip(" \t\"'") == "tools":
+            other = True
+    if (
+        not other
+        and len(tools) == 1
+        and tuple(t.strip() for t in tools[0].split(",")) == JUDGE_TOOLS
+    ):
         c.add("install", "pass", "kit-judge.md only reads")
     else:
         c.add(

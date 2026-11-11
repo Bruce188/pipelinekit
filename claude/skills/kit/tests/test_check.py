@@ -268,21 +268,31 @@ def test_other_agents_of_the_user_are_not_reported(kit):
     assert "mine.md" not in out
 
 
+JUDGE_TOOLS_LINE = "tools: Read, Grep, Glob\n"
+
+
 @pytest.mark.parametrize(
-    "tools",
+    ("old", "new"),
     [
-        "tools: Read, Grep, Glob, Write\n",
-        "tools: Read, Grep, Glob, Bash\n",
-        "tools: Read, Grep, Glob\ntools: Edit\n",
-        "tools:\n  - Read\n",
-        "",  # no tools line: every tool
+        (JUDGE_TOOLS_LINE, "tools: Read, Grep, Glob, Write\n"),
+        (JUDGE_TOOLS_LINE, "tools: Read, Grep, Glob, Bash\n"),
+        (JUDGE_TOOLS_LINE, "tools: Read, Grep, Glob\ntools: Edit\n"),
+        (JUDGE_TOOLS_LINE, "tools:\n  - Read\n"),
+        (JUDGE_TOOLS_LINE, ""),  # no tools line: every tool
+        # An indented tools line is not the key: the real one is missing.
+        (JUDGE_TOOLS_LINE, "description: |\n  tools: Read, Grep, Glob\n"),
+        (JUDGE_TOOLS_LINE, "x:\n  tools: Read, Grep, Glob\n"),
+        (JUDGE_TOOLS_LINE, JUDGE_TOOLS_LINE + '"tools": Bash\n'),
+        # An indented --- opens no frontmatter.
+        ("---\nname: kit-judge\n", " ---\nname: kit-judge\n"),
     ],
 )
-def test_judge_that_may_do_more_than_read(kit, tools):
+def test_judge_that_may_do_more_than_read(kit, old, new):
     judge = kit["home"] / "agents" / "kit-judge.md"
     text = judge.read_text()
-    assert text.count("tools: Read, Grep, Glob\n") == 1
-    judge.write_text(text.replace("tools: Read, Grep, Glob\n", tools))
+    assert text.count(JUDGE_TOOLS_LINE) == 1
+    assert text.count(old) == 1
+    judge.write_text(text.replace(old, new))
     rc, out = check(kit, "--quick")
     assert rc == 1
     assert "[fail] kit-judge.md allows more than reading: run the installer" in out
