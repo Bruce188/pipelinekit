@@ -4,7 +4,8 @@
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 T="$(mktemp -d)"
-trap 'rm -rf "$T"' EXIT
+# A case that stops while a folder is read-only still leaves nothing behind.
+trap 'chmod -R u+w "$T" 2>/dev/null; rm -rf "$T"' EXIT
 export HOME="$T" CLAUDE_HOME="$T/.claude" USER_NAME="Test User" USER_EMAIL="test@example.com"
 # Keep git's global config inside $T no matter what the caller's env says.
 export GIT_CONFIG_GLOBAL="$T/.gitconfig" XDG_CONFIG_HOME="$T/.config" GIT_CONFIG_NOSYSTEM=1
@@ -234,4 +235,42 @@ fd_install
 B=("$FH"/.claude/pipelinekit/backup/*)
 grep -qx "a second file" "${B[0]}"
 fd_is_kit
+# (h), (i): the own folder cannot be moved. The installer stops with one line of
+# its own, without mkdir's or mv's text, and leaves the folder as it was.
+fd_cannot_move() { # fd_cannot_move <tool whose text must not show>
+  local own="$FH/.claude/skills/frontend-design" rc=0
+  HOME="$FH" CLAUDE_HOME="$FH/.claude" GIT_CONFIG_GLOBAL="$FH/.gitconfig" \
+    XDG_CONFIG_HOME="$FH/.config" PIPELINEKIT_STATE_DIR="$FH/state" PIPELINEKIT_GIT_HOOKS=0 \
+    bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$FH/out" 2>"$FH/err" || rc=$?
+  if [ "$rc" -eq 0 ]; then
+    echo "test_install: install went on with an own folder it could not move" >&2; exit 1
+  fi
+  if ! grep -qxF "[install][error] could not move your own skills/frontend-design to $FH/.claude/pipelinekit/backup. It is untouched and the skills were not installed. Move or rename it yourself, then run the installer again." "$FH/err"; then
+    echo "test_install: no line saying the own folder could not be moved" >&2; cat "$FH/err" >&2; exit 1
+  fi
+  if grep -qF "$1:" "$FH/err"; then
+    echo "test_install: the raw $1 error was shown" >&2; cat "$FH/err" >&2; exit 1
+  fi
+  if [ "$(ls -A "$own")" != "SKILL.md" ] || [ "$(cat "$own/SKILL.md")" != "my own, kept" ]; then
+    echo "test_install: the own folder changed" >&2; exit 1
+  fi
+}
+
+# (h) The own folder and skills/ are read-only. Root is not stopped by the mode.
+if [ "$(id -u)" -ne 0 ]; then
+  fd_home h
+  mkdir "$FH/.claude/skills/frontend-design"
+  echo "my own, kept" >"$FH/.claude/skills/frontend-design/SKILL.md"
+  chmod 555 "$FH/.claude/skills/frontend-design" "$FH/.claude/skills"
+  fd_cannot_move mv
+  chmod 755 "$FH/.claude/skills/frontend-design" "$FH/.claude/skills"
+fi
+
+# (i) A file where the backup folder goes.
+fd_home i
+mkdir -p "$FH/.claude/skills/frontend-design" "$FH/.claude/pipelinekit"
+echo "my own, kept" >"$FH/.claude/skills/frontend-design/SKILL.md"
+echo "not a folder" >"$FH/.claude/pipelinekit/backup"
+fd_cannot_move mkdir
+test -f "$FH/.claude/pipelinekit/backup"
 echo "test_install: PASS"

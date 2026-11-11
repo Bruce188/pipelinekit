@@ -100,9 +100,11 @@ if [[ -L "$FD" ]]; then
   log "removed the link skills/frontend-design -> $target"
 elif [[ -e "$FD" ]] && { [[ ! -d "$FD" ]] || { [[ "$listed" == 0 ]] &&
   ! diff -rq "$FD" "$REPO_ROOT/claude/skills/frontend-design" >/dev/null 2>&1; }; }; then
-  mkdir -p "$CLAUDE_HOME/pipelinekit/backup"
-  FD_BACKUP="$CLAUDE_HOME/pipelinekit/backup/skills-frontend-design-$(date -u +%Y%m%dT%H%M%SZ)"
-  mv "$FD" "$FD_BACKUP"
+  FD_BACKUPS="$CLAUDE_HOME/pipelinekit/backup"
+  FD_BACKUP="$FD_BACKUPS/skills-frontend-design-$(date -u +%Y%m%dT%H%M%SZ)"
+  # A read-only folder or a file named backup: one line of ours, not mkdir's or mv's.
+  { mkdir -p "$FD_BACKUPS" && mv "$FD" "$FD_BACKUP"; } 2>/dev/null ||
+    die "could not move your own skills/frontend-design to $FD_BACKUPS. It is untouched and the skills were not installed. Move or rename it yourself, then run the installer again."
   log "kept your own frontend-design skill in $FD_BACKUP"
 fi
 for s in "${KIT_SKILLS[@]}"; do
