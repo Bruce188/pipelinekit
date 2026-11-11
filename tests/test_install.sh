@@ -212,4 +212,26 @@ B=("$FH"/.claude/pipelinekit/backup/*)
 grep -qx "mine as well" "${B[0]}/SKILL.md"
 fd_is_kit
 
+# (g) A file of that name: moved to a backup, also once the manifest lists the skill.
+fd_home g
+echo "a file, not a skill" >"$FH/.claude/skills/frontend-design"
+fd_install || { echo "test_install: install failed with a file in place of the skill" >&2; cat "$FH/out" >&2; exit 1; }
+[ "$(fd_backups)" -eq 1 ]
+B=("$FH"/.claude/pipelinekit/backup/*)
+test -f "${B[0]}"
+grep -qx "a file, not a skill" "${B[0]}"
+grep -qxF "[install] kept your own frontend-design skill in ${B[0]}" "$FH/out"
+test -d "$FH/.claude/skills/frontend-design"
+fd_is_kit
+python3 - "$FH/.claude/pipelinekit/manifest.json" <<'PY'
+import json, sys
+assert "frontend-design" in json.load(open(sys.argv[1]))["skills"], "manifest misses the skill"
+PY
+rm -rf "$FH/.claude/pipelinekit/backup" "$FH/.claude/skills/frontend-design"
+echo "a second file" >"$FH/.claude/skills/frontend-design"
+fd_install
+[ "$(fd_backups)" -eq 1 ]
+B=("$FH"/.claude/pipelinekit/backup/*)
+grep -qx "a second file" "${B[0]}"
+fd_is_kit
 echo "test_install: PASS"

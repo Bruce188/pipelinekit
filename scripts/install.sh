@@ -87,7 +87,8 @@ chmod +x "$CLAUDE_HOME"/git-hooks/*
 # frontend-design is a public skill name, so a user may already have a folder of
 # that name; the kit owns it from now on. A link is removed (never followed); a
 # folder the kit did not install and that differs from the kit's is moved to a
-# backup once. A missing or damaged manifest counts as "not installed by the kit".
+# backup once, and so is anything else of that name (a file is never the kit's).
+# A missing or damaged manifest counts as "not installed by the kit".
 FD="$CLAUDE_HOME/skills/frontend-design"
 listed=0
 if python3 -c 'import json,sys; m=json.load(open(sys.argv[1])); s=m.get("skills"); sys.exit(0 if isinstance(s,list) and "frontend-design" in s else 1)' "$CLAUDE_HOME/pipelinekit/manifest.json" 2>/dev/null; then
@@ -97,7 +98,8 @@ if [[ -L "$FD" ]]; then
   target="$(readlink "$FD" || true)"
   rm -f "$FD"
   log "removed the link skills/frontend-design -> $target"
-elif [[ -d "$FD" && "$listed" == 0 ]] && ! diff -rq "$FD" "$REPO_ROOT/claude/skills/frontend-design" >/dev/null 2>&1; then
+elif [[ -e "$FD" ]] && { [[ ! -d "$FD" ]] || { [[ "$listed" == 0 ]] &&
+  ! diff -rq "$FD" "$REPO_ROOT/claude/skills/frontend-design" >/dev/null 2>&1; }; }; then
   mkdir -p "$CLAUDE_HOME/pipelinekit/backup"
   FD_BACKUP="$CLAUDE_HOME/pipelinekit/backup/skills-frontend-design-$(date -u +%Y%m%dT%H%M%SZ)"
   mv "$FD" "$FD_BACKUP"
