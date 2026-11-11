@@ -345,6 +345,36 @@ def test_block_names_its_rule_and_is_logged(env, tmp_path):
     assert "token-4f9a1c" not in (tmp_path / "s" / "events.jsonl").read_text()
 
 
+@pytest.mark.parametrize(
+    "remote",
+    [
+        "https://user:pa ss@h.example/r",
+        "https://user:pa'ss@h.example/r",
+        "https://tok en@h.example/r",
+        "ssh://user:pa ss@h.example:22/r",
+        "https://h.example/r?TOKEN123",
+        "https://h.example/r#TOKEN123",
+        "user:pass@h.example:r.git",
+        "../h.example",
+    ],
+)
+def test_a_push_to_a_url_is_refused_without_repeating_it(env, tmp_path, remote):
+    p = raw(env, f'git push "{remote}" feat', tmp_path / "s")
+    assert p.returncode == 2
+    assert p.stderr.rstrip().endswith("[git.push-remote]")
+    (e,) = logged(tmp_path / "s")
+    assert e["reason"] == "push to a URL or path is not allowed; only origin"
+    assert "h.example" not in p.stderr
+    assert "h.example" not in (tmp_path / "s" / "events.jsonl").read_text()
+
+
+def test_a_push_to_another_remote_names_it(env, tmp_path):
+    p = raw(env, "git push upstream feat", tmp_path / "s")
+    assert p.returncode == 2
+    (e,) = logged(tmp_path / "s")
+    assert e["reason"] == "push to remote 'upstream' is not allowed; only origin"
+
+
 def test_ask_names_its_rule_and_is_logged(env, tmp_path):
     p = raw(env, 'psql -c "DROP TABLE users"', tmp_path / "s")
     assert p.returncode == 0

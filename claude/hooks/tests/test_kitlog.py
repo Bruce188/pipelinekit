@@ -209,6 +209,16 @@ def test_cli_exits_zero_when_the_log_cannot_be_written(tmp_path):
         ("https://SECRET@h.example/o/r.git", "https://h.example/o/r.git"),
         ("git@h.example:o/r.git", "git@h.example:o/r.git"),
         ("ssh://h.example:22/o/r.git", "ssh://h.example:22/o/r.git"),
+        ("https://u1:SEC RET@h.example/o/r.git", "https://h.example/o/r.git"),
+        ("https://u1:SEC'RET@h.example/o/r.git", "https://h.example/o/r.git"),
+        ('https://u1:SEC"RET@h.example/o/r.git', "https://h.example/o/r.git"),
+        ("https://SEC RET@h.example/o/r.git", "https://h.example/o/r.git"),
+        ("ssh://u1:SEC\tRET@h.example:22/o/r.git", "ssh://h.example:22/o/r.git"),
+        ("u5:SEC RET@h.example:o/r.git", "h.example:o/r.git"),
+        ("https://h.example/o/r.git?SECRET", "https://h.example/o/r.git"),
+        ("https://h.example/o/r.git#SECRET", "https://h.example/o/r.git"),
+        ("https://h.example/o/r.git?SECRET#x", "https://h.example/o/r.git"),
+        ("https://h.example?SECRET", "https://h.example"),
     ],
 )
 def test_no_form_of_a_remote_keeps_its_credentials(state, url, kept):

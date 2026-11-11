@@ -36,9 +36,10 @@ CONTROL = re.compile(
     r"[\x00-\x1f\x7f-\x9f\xad\u061c\u200b-\u200f\u2028-\u202e\u2060-\u206f"
     r"\ufeff\ud800-\udfff\U000e0000-\U000e007f]+"
 )
-USER_PASSWORD = re.compile(r"[^\s/@:'\"]+:[^\s/'\"]*@")  # user:password@host
-URL_USER = re.compile(r"//[^/\s'\"]*@")  # //token@host
-URL_QUERY = re.compile(r"(?<=[^\s'\"])[?#][^\s'\"]*=[^\s'\"]*")  # ?token=...
+# A password can hold a space or a quote, so only a slash ends it.
+USER_PASSWORD = re.compile(r"[^\s/@:'\"]+:[^/]{0,400}@")  # user:password@host
+URL_USER = re.compile(r"//[^/]{0,400}@")  # //token@host
+URL_QUERY = re.compile(r"(?<=[^\s'\"])[?#][^\s'\"]*")  # ?token=... and #token
 
 
 def state_dir() -> str:

@@ -733,6 +733,26 @@ def test_a_log_that_cannot_be_read_is_named(kit):
     assert "no blocks, asks" not in out
 
 
+@pytest.mark.parametrize("how", ["closed directory", "directory", "pipe"])
+def test_a_log_that_is_there_is_not_called_empty(kit, how):
+    if os.geteuid() == 0:
+        pytest.skip("root reads every file")
+    write_events(kit, ev())
+    log = state(kit) / "events.jsonl"
+    if how == "closed directory":
+        state(kit).chmod(0)
+    else:
+        log.unlink()
+        log.mkdir() if how == "directory" else os.mkfifo(log)
+    try:
+        rc, out = check(kit)
+    finally:
+        state(kit).chmod(0o700)
+    assert rc == 0, out
+    assert "[info] the event log cannot be read: " in out
+    assert "no blocks, asks" not in out
+
+
 def test_a_session_id_as_long_as_the_hooks_store_it(kit):
     long = "a" * 80
     write_events(kit, ev(session=long))

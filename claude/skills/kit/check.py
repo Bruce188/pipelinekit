@@ -826,8 +826,15 @@ def check_activity(c: Check) -> None:
     since = now - c.days * 86400
     directory = state_dir()
     logs = [os.path.join(directory, n) for n in ("events.jsonl.1", "events.jsonl")]
-    lost = [p for p in logs if os.path.lexists(p) and not os.access(p, os.R_OK)]
-    if os.path.lexists(directory) and not os.path.isdir(directory):
+    # A log that is there and cannot be read is named, not taken for empty.
+    lost = [
+        p
+        for p in logs
+        if os.path.lexists(p) and not (os.path.isfile(p) and os.access(p, os.R_OK))
+    ]
+    if os.path.lexists(directory) and not (
+        os.path.isdir(directory) and os.access(directory, os.R_OK | os.X_OK)
+    ):
         lost = [directory]
     for path in lost:
         c.add("activity", "info", f"the event log cannot be read: {clean(path)}")

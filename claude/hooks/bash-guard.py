@@ -337,6 +337,9 @@ def check_git_config(args: list[str]) -> None:
         )
 
 
+REMOTE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+
+
 def check_push(args: list[str], cwd: str) -> None:
     with_arg = {"-o", "--push-option", "--receive-pack", "--exec", "--repo"}
     positional: list[str] = []
@@ -364,9 +367,10 @@ def check_push(args: list[str], cwd: str) -> None:
     if remote is None and positional:
         remote = positional.pop(0)
     if remote is not None and remote != "origin":
-        raise Block(
-            f"push to remote '{remote}' is not allowed; only origin", "git.push-remote"
-        )
+        # A URL can carry a password: only the name of a remote is repeated.
+        named = REMOTE_NAME.fullmatch(remote)
+        where = f"remote '{remote}'" if named else "a URL or path"
+        raise Block(f"push to {where} is not allowed; only origin", "git.push-remote")
     refspecs = positional
     if not refspecs:
         rc, out = run_git(cwd, "symbolic-ref", "--short", "-q", "HEAD")
