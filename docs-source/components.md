@@ -191,7 +191,7 @@ With the kit installed, Claude finishes the pull requests it opens instead of ha
 2. Claude builds the change, runs the project's tests and opens a draft pull request.
 3. A fresh agent tests the change. It gets the criteria and the running build, not the code or the builder's notes. A web page is driven with Playwright, a command-line tool or installer runs in a throwaway directory, an API is started and called. A change with nothing user-visible gets a smoke run instead.
 4. Findings are fixed, each bug with a regression test, and the test runs again until it passes.
-5. `ship.py record` notes the result for the tested commit. `ship.py merge` waits for CI and merges.
+5. `ship.py record` notes the result for the tested commit, and with a pass whether the pull request is a release (`--release yes` or `--release no`). `ship.py merge` waits for CI and merges.
 
 `ship.py merge` refuses unless every gate holds:
 
@@ -200,7 +200,7 @@ With the kit installed, Claude finishes the pull requests it opens instead of ha
 | `pr` | The branch has an open pull request |
 | `own` | Your GitHub account opened it, and it is not from a fork |
 | `policy` | The project has not opted out |
-| `release` | It is not a release: no release, integration, staging or version branch into the default branch, not the default branch into another branch, nothing into a deploy branch such as `production`, no title that names a release or a version |
+| `release` | It is not a release. A release is: a release, stage or version branch (`release/1.0`, `develop`, `staging`, `v2`, `chore/release-0.2.0`) into the default branch or into another long-lived branch; the default branch into another branch; anything into a deploy branch such as `production`, `prod-eu` or `gh-pages`; anything into `main` where another branch is the default; anything into a branch that is neither the default nor a known working branch; a branch that pull requests were merged into; a title that names a release or a version; a diff that sets a version or changes a release file of the project; a test record that says it is one (all below) |
 | `review` | No review is required, requested or asking for changes |
 | `current` | The local commit is the pull request's head and nothing tracked is uncommitted |
 | `up-to-date` | The branch contains its base branch and does not conflict with it |
@@ -209,9 +209,30 @@ With the kit installed, Claude finishes the pull requests it opens instead of ha
 
 The merge command names the tested commit (`--match-head-commit`), so a commit pushed in between is not merged. The helper has no `--admin` option, and `gh pr merge --admin` is on the `permissions.ask` list. The merge method follows the base branch: a merge commit where the branch already has them, squash otherwise.
 
-A draft has to be marked ready before GitHub merges it, and that can start checks, add reviewers or turn on branch protection. The helper therefore reads the pull request again several times after marking it ready, and merges only when nothing new showed up. If something did, the pull request stays ready and unmerged. The last line of output is always the outcome: `Merged #12 into main ...`, `Not merged: ...` or `STOP: ...`.
+A draft has to be marked ready before GitHub merges it, and that can start checks, add reviewers or turn on branch protection. The helper therefore watches the pull request after marking it ready and merges only when it stayed mergeable for the whole settle time: 30 seconds, or 90 (the `--grace` time) where a check is still to come, because none has run yet or a workflow starts on `ready_for_review`. `--settle S` sets the time. Where a workflow runs on pull requests, a check must really have run by then: one that was skipped on the draft does not count, and only `--allow-no-checks` lifts that. If something showed up, the pull request stays ready and unmerged. The last line of output is always the outcome: `Merged #12 into main ...`, `Not merged: ...` or `STOP: ...`.
 
-The release gate leans towards asking. A feature branch into a release branch such as `release/v1.0` is an ordinary change and merges; the release branch into `main` does not.
+The release gate leans towards asking. A feature branch into a release branch such as `release/v1.0` is an ordinary change and merges; the release branch into `main` does not. A title counts when it is made of release words (`chore: prepare 0.3.0`, `Bump version: 1.2.3 to 1.2.4`, `chore: release kit 1.2.0`, `chore: bump version in package.json`, `chore: weekly release`, `chore: patch`, `Deploy`), not when it is about a release (`fix: release 1.2.0 broke the installer`, `chore: release script`), about a dependency (`chore(deps): bump lodash to 4.17.21`) or about a tool (`ci: bump python version to 3.12`); `docs`, `test`, `style`, `refactor` and `perf` titles never count.
+
+The gate also reads the diff against the base branch. It does not work from a list of known manifests: a version is ordinary in the places known to hold the versions of other things, and held anywhere else, whatever the file format.
+
+Held are:
+
+- any change to a version file (`VERSION`, `version.txt`, `.bumpversion.cfg`, `.release-please-manifest.json`) and any numbered file in a release-notes directory (`docs/releases/1.2.4.md`);
+- a new or changed value under a key with `version` in its name, in any manifest or data file: `package.json`, `pyproject.toml`, `Cargo.toml`, `pom.xml`, a `.csproj` or `.nuspec`, `Chart.yaml`, `Info.plist`, `CMakeLists.txt`, `build.gradle`, `setup.py`, `AssemblyInfo.cs`, `version.h`, and files the helper has never heard of. In a file without a known format, a line that only swaps one three-part number for another counts too;
+- a line of source code that sets a quoted version: an assignment (`__version__ = "1.2.4"`, `public static readonly string Version = "1.2.4";`), a key of an object, a struct or a dictionary (`version: "1.2.4",`), a `#define APP_VERSION "1.2.4"`. `app.config.js` and `app.config.ts` are read as manifests;
+- a new version heading in release notes (`CHANGELOG`, `CHANGES`, `HISTORY`, `NEWS`, `RELEASES`, `RELEASE_NOTES`, with any extension): `## 1.2.4`, `## [1.2.4] - 2026-11-10`, `1.2.4` over an underline, `**1.2.4**`, `## kit 1.2.4`, a link definition `[1.2.4]: ...`.
+
+Ordinary are: lock files; files that pin tools (`.nvmrc`, `.python-version`, `Dockerfile`, `docker-compose.yml`, `requirements*.txt`, `.pre-commit-config.yaml`, `packages.config`, `deps.edn`); everything under `.github/`, `.circleci/` and `.devcontainer/`; files in test, fixture, example and vendor directories; documentation (`README`, `.md`, `.rst`, `.txt`, `.html`); dependency tables and elements (`dependencies`, `[dependencies.clap]`, `<parent>`, `<dependency>`, `engines`); keys that name a tool or a format (`python-version`, `apiVersion`, `schemaVersion`, `minSdkVersion`); a whole number under a plain `version` key (`version: 2` is a format version); a changelog entry under an existing heading.
+
+No reading of a diff is complete, so three more things decide:
+
+- `ship.py record --result pass` takes `--release yes` or `--release no`. Whoever ran the test knows what the change is and says so; `yes` holds the pull request, and a pass without the answer is not accepted.
+- A project names its own release files and branches in its `CLAUDE.md`, each on a line of its own: `Release files: app/build.txt, deploy/` and `Release branches: team-*, customer-*`. A change to one of the files, and a pull request from or into one of the branches, is held. `deploy/` is everything below that directory; anything else is a glob on the path, for files also on the file name alone. As with the opt-out line, the `CLAUDE.md` on the base branch counts as well.
+- A branch that other pull requests were merged into is a stage, whatever it is called, and merging it on is a promotion. The helper asks GitHub about every head branch that is not a topic branch (`feat/...`, `fix/...`); without an answer nothing merges.
+
+The gate guards your own project against a slip. It is not a defence against a pull request written to get past it. It does not see: a version in a place the lists call ordinary (a label in a `Dockerfile`, a file under `tests/` or `examples/`, a `.md` file that is not release notes); a whole-number version under a plain `version` key; a version that source code spells another way (`VERSION = (1, 2, 4)`, the header comment of a plugin); a version in a `.nix` or `.tf` file; a version Maven takes from `<properties>` or `${revision}`; files over 1 MB and binary files; a release whose title uses no release word (`chore: go live`) and whose diff sets no version. It holds some pull requests that are not releases: a nested package getting its first version, a version-like setting in a config file, a branch whose short name starts with a stage word (`qa-fixes`), a title that is a name and a number (`chore: lodash 4.17.21`). When that happens, say that it may be merged, and merge it yourself.
+
+Known working branches are: the default branch; the shared branches `develop`, `development`, `dev`, `integration`, `staging`, `stage`, `next`, `beta`, `alpha`, `canary`, `preview`, `nightly`, `edge`, `uat`, `qa`, `preprod`, `test`, `testing` and `trunk`; branches under `integration/`, `staging/`, `stage/`, `uat/`, `qa/` and `preprod/`; release lines, which is anything that starts with `release/`, `release-`, `releases/`, `rel/`, `rc/`, `hotfix/`, `support/` or `maint/`, and bare version names such as `1.x` or `v2`; topic branches such as `feat/12-base` (a stacked pull request). A pull request into any other branch (`customer-a`, `release`) is held, because the helper cannot know what that branch stands for. Name such a branch on a `Release branches:` line when it is a release branch. As the branch a pull request comes from, `hotfix/login-crash` is a fix like any other; only a hotfix branch with a version in its name (`hotfix/1.2.1`), or one that other pull requests were merged into, is held.
 
 These stay yours: release pull requests, tags, publishing and production deploys; pull requests someone else opened; anything behind a required review or branch protection. Claude also stops and asks when the same finding is still open after two fix attempts, after five failed rounds in a row, and when a test needs a decision the criteria do not settle. A stuck loop shows in `ship.py status` and blocks `ship.py merge` until you decide.
 
@@ -221,7 +242,7 @@ To turn self-merging off for a project, put this line in its `CLAUDE.md`:
 Merges: ask first
 ```
 
-The same line in `~/.claude/CLAUDE.md` turns it off everywhere, and so does `PIPELINEKIT_MERGE=ask` in the environment. Claude then asks before it merges. The line counts on its own line, also as a list item, in bold, quoted, in backticks or inside an HTML comment. A sentence that only mentions it does not.
+The same line in `~/.claude/CLAUDE.md` turns it off everywhere, and so does `PIPELINEKIT_MERGE` in the environment with any non-empty value but `auto`. Claude then asks before it merges. The line counts on its own line, also as a list or task item, a heading, a table cell or two cells of a row (`| Merges | ask first |`), in bold, quoted, in backticks or inside an HTML comment. `Merging: ask first`, `Merges - ask first`, `Merges: always ask first`, `Merges: never`, `Merges: off` and `Merges: manual` count as the same line. A sentence that only mentions it does not. The `CLAUDE.md` on the base branch counts as well, so a branch cannot drop the line for its own pull request.
 
 Test reports and screenshots go to `docs/uat/` in the project. That directory is local: the helper adds it to `.git/info/exclude`, and it is on the never-stage list. The kit does not install Playwright; `/kit` reports whether `gh` and Playwright are available.
 
