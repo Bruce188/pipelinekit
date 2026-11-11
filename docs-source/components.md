@@ -10,7 +10,7 @@ This page lists what pipelinekit v0.1.0 installs and what each part does.
 
 ## Overview
 
-The kit has five layers. Hover a chip for a one-line summary, or use the buttons to focus on one layer.
+The kit has six layers. Hover a chip for a one-line summary, or use the buttons to focus on one layer.
 
 <div data-snippet="architecture-diagram">
 <script type="application/json">
@@ -35,6 +35,10 @@ The kit has five layers. Hover a chip for a one-line summary, or use the buttons
              {"label": "mobile"},
              {"label": "kit", "tip": "Self-check, run as /kit"},
              {"label": "ship", "tip": "Test, fix and merge your own pull request"}]},
+  {"name": "Agents", "color": "#ec4899", "count": "3 agents",
+   "chips": [{"label": "kit-planner", "tip": "Model: fable"},
+             {"label": "kit-builder", "tip": "Model: opus"},
+             {"label": "kit-judge", "tip": "Model: fable"}]},
   {"name": "MCP", "color": "#8b5cf6",
    "chips": [{"label": "serena", "tip": "Installed by default at a pinned commit"},
              {"label": "context7", "tip": "Optional, per project"}]}]}
@@ -145,14 +149,30 @@ With `ask`, Claude Code prompts you instead of refusing. `override` means a huma
 
 In 0.1.0, `deploy` replaces the five separate `*-ops` skills and the per-provider deployment agents, `mobile` replaces `expo` and `ios`, and the ASP.NET Core security rules moved into `dotnet-conventions`.
 
+## Agents
+
+Three subagents for planning a change, building it and judging the result, each on the model that suits the job. The installer copies them from `claude/agents/` to `~/.claude/agents/`.
+
+Together they are the parts of a judge loop: one agent plans, one builds, and independent judges score the result until it reaches 10; the skill that drives the loop comes with a later change, and until then you start the agents by name.
+
+| Agent | Model | Tools | What it is for |
+|-------|-------|-------|----------------|
+| `kit-planner` | `fable` | `Read, Grep, Glob, Write, Edit` | Writes or fixes `plan.md` in a loop folder from the request, `criteria.md` and the answers in `questions.md`. Cites `file:line` for every claim about the code and appends open questions to `questions.md` instead of guessing. Never edits code and never runs `loop.py` |
+| `kit-builder` | `opus` | the session's tools | Builds the plan it is handed on the checked-out work branch, failing test first, runs the project's checks and commits; fixes the items it is given, in that order, and nothing else. Never creates or switches a branch, never pushes or deploys, never writes under `docs/loops/` |
+| `kit-judge` | `fable` | `Read, Grep, Glob` | Judges a plan or a build from one angle and answers with one JSON object: a score from 0 to 10, scores per dimension, blocking items and improvements, each with evidence and a fix. Reads only what its brief names, and never runs, writes, commits, pushes or deploys anything |
+
+`fable` and `opus` are aliases: they follow the newest model of each family. All three treat text in the other files they read as data, not instructions (the planner and the builder follow their brief and the files it names), and never read `.env` files, credentials, keys or tokens.
+
+The kit owns these three names in `~/.claude/agents/`, and leaves the rest of the folder alone. A file of your own with one of the names that differs from the kit's is moved to `~/.claude/pipelinekit/backup/agents-<name>-<timestamp>` once, and the installer prints where; a link of that name is removed without touching its target. Claude Code loads agents when a session starts, so start a new session after an install.
+
 ## Self-check
 
 `/kit` answers one question: is anything in this install not working? Run it after installing or updating the kit, and when a hook blocks something you did not expect or fails to start. Claude can also run it on its own when a kit hook misbehaves.
 
 | Section | What is checked |
 |---------|-----------------|
-| Install | Every hook, the event-log helper, git hook and skill is present; hooks are executable and have LF line endings; `settings.json` is valid, its hook commands point to files that exist, attribution is off and the secret deny rules are there; the global `core.hooksPath` |
-| Changes since install | Each installed file against the hash recorded at install time; the kit's hook entries and deny/ask rules in `settings.json` |
+| Install | Every hook, the event-log helper, git hook, skill and agent is present; `kit-judge.md` has the one tools line `Read, Grep, Glob`, else `kit-judge.md allows more than reading`; hooks are executable and have LF line endings; `settings.json` is valid, its hook commands point to files that exist, attribution is off and the secret deny rules are there; the global `core.hooksPath` |
+| Changes since install | Each installed file, the agent files included, against the hash recorded at install time; the kit's hook entries and deny/ask rules in `settings.json` |
 | Live probe | Each hook gets input it must block and input it must allow: `git commit --no-verify`, a `docker` mount of `/etc`, `curl` piped into `sh`, `DROP TABLE` through `psql`, a `HEAD` file next to `refs/`, a non-conventional commit message, a push to `main`. The session-start check must report an install with nothing in it and say nothing about this one. Each refusal must also arrive in an event log, which the probe keeps in a temporary directory |
 | Environment | python3, Claude Code and gitleaks versions; whether `gh` and Playwright are available; WSL; a repository that sets its own `core.hooksPath`; a Bash sandbox that keeps `gh` from reading its own login file; a `frontend-design` plugin enabled next to the kit's copy, as an `[info]` line that says how to keep one. Only the user-level `settings.json` is read, so a plugin enabled in one project's settings is not reported |
 | Updates | Whether the remote of the checkout the install was made from has commits this install lacks: `up to date`, `update available` or `not checked`. Information only, never a problem. Not part of `--quick` |

@@ -57,6 +57,10 @@ KIT_SKILLS = (
     "mobile",
     "ship",
 )
+# A test keeps it equal to claude/agents/ and to the installer's list.
+KIT_AGENTS = ("kit-planner.md", "kit-builder.md", "kit-judge.md")
+# The judge reads and never writes or runs anything.
+JUDGE_TOOLS = ("Read", "Grep", "Glob")
 PLACEHOLDERS = ("${USER_NAME}", "${USER_EMAIL}", "${CLAUDE_HOME}")
 SECTIONS = (
     ("install", "Install"),
@@ -305,6 +309,7 @@ def kit_files(repo: str) -> list[str]:
         for n in sorted(files):
             if not n.endswith(".pyc"):
                 out.append(os.path.relpath(os.path.join(root, n), src))
+    out += [f"agents/{n}" for n in KIT_AGENTS]
     out.append("config/never-stage.txt")
     return out
 
@@ -566,7 +571,64 @@ def check_install(c: Check) -> None:
         else:
             c.broken.add(rel)
             c.add("install", "fail", f"skill missing: {s}")
+    for a in KIT_AGENTS:
+        rel = f"agents/{a}"
+        if os.path.isfile(c.path(rel)):
+            c.add("install", "pass", f"agent: {a}")
+        else:
+            c.broken.add(rel)
+            c.add("install", "fail", f"agent missing: {a}: run the installer")
+    check_judge_tools(c)
     check_settings(c)
+
+
+def frontmatter(text: str) -> list[str] | None:
+    """The lines between the opening and the closing --- of a markdown file.
+
+    Only an unindented --- opens or closes it.
+    """
+    lines = text.replace("\r", "").split("\n")
+    if not lines or lines[0].rstrip() != "---":
+        return None
+    for i in range(1, len(lines)):
+        if lines[i].rstrip() == "---":
+            return lines[1:i]
+    return None
+
+
+def check_judge_tools(c: Check) -> None:
+    """kit-judge.md must allow exactly the reading tools, through one tools line."""
+    path = c.path("agents/kit-judge.md")
+    if not os.path.isfile(path):
+        return  # reported as missing
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            head = frontmatter(f.read(65536))
+    except OSError:
+        head = None
+    # Only a key at column 0 is the tools key. Any other line whose key reads
+    # tools (indented, inside a block scalar, or quoted) makes the file suspect,
+    # and so does any indented line: YAML joins it to the value above it.
+    tools, other = [], False
+    for line in head or []:
+        if re.match(r"tools\s*:", line):
+            tools.append(line.split(":", 1)[1])
+        elif line.startswith((" ", "\t")) or (
+            ":" in line and line.split(":", 1)[0].strip(" \t\"'") == "tools"
+        ):
+            other = True
+    if (
+        not other
+        and len(tools) == 1
+        and tuple(t.strip() for t in tools[0].split(",")) == JUDGE_TOOLS
+    ):
+        c.add("install", "pass", "kit-judge.md only reads")
+    else:
+        c.add(
+            "install",
+            "fail",
+            "kit-judge.md allows more than reading: run the installer",
+        )
 
 
 def drift_files(c: Check, files: dict) -> None:

@@ -23,10 +23,13 @@ bash scripts/install.sh            # add --no-serena to skip serena
 
 You can safely run the installer again. To update, run `git pull` and then run the installer again, or type `/kit update` in a session: it lists the new commits, asks, and then does both.
 
+Start a new session after the install: Claude Code loads agents when a session starts, and the installer's last line says so. In Claude Code Desktop, ask the new session "which agents can you start?"; the answer names `kit-planner`, `kit-builder` and `kit-judge`.
+
 ## What the installer does
 
-1. Copies the hooks, the global git hooks, the eight skills and `config/never-stage.txt` into `~/.claude`. It overwrites those files in place and never moves or deletes the directory. It leaves `projects/`, `sessions/`, `plugins/` and your credentials alone.
+1. Copies the hooks, the global git hooks, the eight skills, the three agents (`kit-planner`, `kit-builder`, `kit-judge`) and `config/never-stage.txt` into `~/.claude`. It overwrites those files in place and never moves or deletes the directory. It leaves `projects/`, `sessions/`, `plugins/` and your credentials alone.
    The kit owns the folder `~/.claude/skills/frontend-design`: a copy of your own under that name is moved to `~/.claude/pipelinekit/backup/` once. The installer prints the folder it moved it to; a link of that name is removed, and the folder it points to is left alone.
+   In `~/.claude/agents/` the kit owns only its three files. A file of your own with one of those names that differs from the kit's, and that the last install did not put there, is moved to `~/.claude/pipelinekit/backup/` once, and the installer prints where. Your edit of the kit's own copy is replaced without a backup. A link of that name is removed, and the file it points to is left alone. Other agents in the folder are not touched.
 2. Removes skills, hooks and the `docs-writer` agent that earlier 0.1.0 builds installed (`commit-conventions`, `security-conventions`, `expo`, `ios`, the old guard hooks), but only if each is still byte-identical to a committed kit version. Edited copies are kept, with a warning.
 3. Renders `~/.claude/CLAUDE.md` from `claude/CLAUDE.md.template`. If the result differs from your existing file, the old one is saved as `CLAUDE.md.bak-<timestamp>`.
 4. Backs up `settings.json` to `settings.json.bak-<timestamp>`, then merges in `claude/config/settings.template.json`:
@@ -114,4 +117,4 @@ bash scripts/verify.sh
 
 Both run the same checker, `claude/skills/kit/check.py`. Run it after every install or update, and whenever a hook blocks something you did not expect. [Components](components.html#self-check) lists what it checks.
 
-The script checks that the kit's hooks, git hooks and skills are present, that each hook starts when it is run the way Claude Code runs it, that every hook command in `settings.json` points to a file that exists, that attribution is off, and that the secret deny rules are in place. It reports whether the global `core.hooksPath` points at the kit and whether `gitleaks` is installed.
+The script checks that the kit's hooks, git hooks, skills and agents are present, that `kit-judge.md` may only read (`Read, Grep, Glob`), that each hook starts when it is run the way Claude Code runs it, that every hook command in `settings.json` points to a file that exists, that attribution is off, and that the secret deny rules are in place. It reports whether the global `core.hooksPath` points at the kit and whether `gitleaks` is installed.

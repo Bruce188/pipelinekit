@@ -10,6 +10,7 @@ Project-specific rules only; user-global rules live in `~/.claude/CLAUDE.md`.
 | `claude/hooks/` | Claude Code hooks (`bash-guard.py`, `block-bare-repo-markers.py`, `post-edit-format.sh`, and `session-check.py`, which runs the self-check when a session starts) and `kitlog.py`, the event log they and the git hooks write to; tests for these and the git hooks in `claude/hooks/tests/` |
 | `claude/git-hooks/` | Global git hooks (`commit-msg`, `pre-commit`, `pre-push`) installed to `~/.claude/git-hooks` |
 | `claude/skills/` | `dotnet-conventions`, `deploy`, `exchange-api-keys`, `docs-writer`, `frontend-design` (vendored from `anthropics/skills`, see its `SOURCE.md`; do not edit), `mobile`, `kit` (self-check: `check.py`, update: `update.py`, tests in `claude/skills/kit/tests/`), `ship` (test, fix and merge your own pull request: `ship.py`, tests in `claude/skills/ship/tests/`) |
+| `claude/agents/` | `kit-planner.md` (model `fable`), `kit-builder.md` (`opus`), `kit-judge.md` (`fable`, tools `Read, Grep, Glob` only), installed to `~/.claude/agents/`; listed in `KIT_AGENTS` in `check.py` and `scripts/install.sh`, text tests in `claude/skills/kit/tests/test_agents.py` |
 | `claude/config/never-stage.txt` | Paths `bash-guard.py` refuses to stage |
 | `claude/config/settings.template.json` | Hooks, permissions, env and attribution merged into `~/.claude/settings.json` |
 | `claude/CLAUDE.md.template` | Rendered to `~/.claude/CLAUDE.md` by the installer |

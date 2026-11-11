@@ -23,6 +23,7 @@ TS="$(date +%Y%m%d-%H%M%S)"
 SERENA_REF="${SERENA_REF:-9b292a6c8b03c8306f117efeabb0ea7afdb0b3c0}"
 
 KIT_SKILLS=(dotnet-conventions deploy exchange-api-keys docs-writer frontend-design mobile kit ship)
+KIT_AGENTS=(kit-planner.md kit-builder.md kit-judge.md)
 # Shipped by earlier versions. Removed on upgrade only if unmodified (see kit_file).
 RETIRED_SKILLS=(commit-conventions security-conventions expo ios)
 RETIRED_HOOKS=(block-dangerous-commands.sh block-push-main.sh block-stage-sensitive.sh env-scrub.py
@@ -39,7 +40,8 @@ usage() {
 pipelinekit v$VERSION
 Usage: bash scripts/install.sh [--no-serena] [--git-hooks|--no-git-hooks] [--help]
 
-Copies hooks, git hooks, skills and config into \$CLAUDE_HOME (default ~/.claude),
+Copies hooks, git hooks, skills, the agents kit-planner, kit-builder and
+kit-judge, and config into \$CLAUDE_HOME (default ~/.claude),
 removes unmodified files that older kit versions installed, renders CLAUDE.md,
 merges hook wiring, permissions (deny/ask) and attribution-off into
 settings.json (backing it up first), installs global git hooks (asks first),
@@ -65,7 +67,7 @@ case "$(uname -s)" in
 esac
 command -v python3 >/dev/null || die "python3 is required"
 log "pipelinekit v$VERSION -> $CLAUDE_HOME"
-mkdir -p "$CLAUDE_HOME"/{hooks,git-hooks,skills,config}
+mkdir -p "$CLAUDE_HOME"/{hooks,git-hooks,skills,agents,config}
 
 # kit_file <installed file> <repo path>: true if the installed file is
 # byte-identical to a committed version of <repo path>, i.e. this kit put it
@@ -113,8 +115,34 @@ for s in "${KIT_SKILLS[@]}"; do
 done
 find "$CLAUDE_HOME/skills" -name __pycache__ -type d -prune -exec rm -rf {} +
 chmod +x "$CLAUDE_HOME/skills/kit/check.py" "$CLAUDE_HOME/skills/ship/ship.py"
+# agents/ is the user's folder too: only the kit's three files are touched. A
+# link is removed (never followed). A file the last install did not list in its
+# manifest and that differs from the kit's is moved to a backup once, and so is
+# anything else of that name. A missing or damaged manifest lists nothing.
+listed_files="$(python3 -c 'import json, sys
+m = json.load(open(sys.argv[1], encoding="utf-8"))
+f = m.get("files") if isinstance(m, dict) else None
+for k in f if isinstance(f, dict) else ():
+    if "\n" not in k and "\r" not in k:
+        print(k)' "$CLAUDE_HOME/pipelinekit/manifest.json" 2>/dev/null)" || listed_files=""
+for a in "${KIT_AGENTS[@]}"; do
+  dst="$CLAUDE_HOME/agents/$a"
+  if [[ -L "$dst" ]]; then
+    rm -f "$dst"
+    log "removed the link agents/$a (its target is untouched)"
+  elif [[ -e "$dst" ]] && { [[ ! -f "$dst" ]] || { ! cmp -s "$dst" "$REPO_ROOT/claude/agents/$a" &&
+    ! grep -qxF "agents/$a" <<<"$listed_files"; }; }; then
+    backup="$CLAUDE_HOME/pipelinekit/backup/agents-$a-$TS"
+    # A read-only folder or a file named backup: one line of ours, not mkdir's or mv's.
+    { mkdir -p "$CLAUDE_HOME/pipelinekit/backup" && mv "$dst" "$backup"; } 2>/dev/null ||
+      die "could not move your own agents/$a to $CLAUDE_HOME/pipelinekit/backup. It is untouched and the kit's $a was not installed. Move or rename it yourself, then run the installer again."
+    log "kept your own $a in $backup"
+  fi
+  rm -f "$dst"
+  cp "$REPO_ROOT/claude/agents/$a" "$dst"
+done
 cp -p "$REPO_ROOT/claude/config/never-stage.txt" "$CLAUDE_HOME/config/never-stage.txt"
-log "copied ${#KIT_SKILLS[@]} skills, hooks, git hooks, config"
+log "copied ${#KIT_SKILLS[@]} skills, ${#KIT_AGENTS[@]} agents, hooks, git hooks, config"
 
 # Files from older kit versions: remove the ones we installed, keep edited ones.
 retire() { # retire <installed file> <repo path> <rm args...>
@@ -331,3 +359,4 @@ log "manifest: $CLAUDE_HOME/pipelinekit/manifest.json"
 
 # ---------- verify ----------
 CLAUDE_HOME="$CLAUDE_HOME" bash "$REPO_ROOT/scripts/verify.sh"
+log "start a new session to load the agents (kit-planner, kit-builder, kit-judge)"

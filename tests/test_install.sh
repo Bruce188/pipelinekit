@@ -29,6 +29,11 @@ done
 { old claude/skills/ios/SKILL.md; echo "my edit"; } > "$CLAUDE_HOME/skills/ios/SKILL.md"
 { old claude/hooks/env-scrub.py; echo "# my edit"; } > "$CLAUDE_HOME/hooks/env-scrub.py"
 echo "mine" > "$CLAUDE_HOME/agents/other.md"
+# A user's own agent with a kit name (moved to a backup once), and a link with
+# another kit name (removed, never followed).
+echo "my own judge" > "$CLAUDE_HOME/agents/kit-judge.md"
+echo "outside" > "$T/outside-agent.md"
+ln -s "$T/outside-agent.md" "$CLAUDE_HOME/agents/kit-builder.md"
 
 # Pre-existing settings: stale and old-kit hooks, a user hook, user rules, an unrelated key.
 H="$CLAUDE_HOME/hooks"
@@ -52,9 +57,20 @@ if PATH="$T/fakebin:$PATH" CLAUDE_HOME="$T/win" bash "$REPO_ROOT/scripts/install
 fi
 test ! -e "$T/win"
 
-bash "$REPO_ROOT/scripts/install.sh" --no-serena >/dev/null 2>&1
-out="$(bash "$REPO_ROOT/scripts/install.sh" --no-serena 2>&1)"
-grep -qF '[install] copied 8 skills' <<<"$out"
+# The usage text names the agents.
+help="$(bash "$REPO_ROOT/scripts/install.sh" --help)"
+for a in kit-planner kit-builder kit-judge; do
+  grep -qF "$a" <<<"$help"
+done
+
+bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$T/install1.out" 2>&1
+bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$T/install2.out" 2>&1
+grep -qF '[install] copied 8 skills' "$T/install2.out"
+n_skills="$(sed -n 's/^KIT_SKILLS=(\(.*\))$/\1/p' "$REPO_ROOT/scripts/install.sh" | wc -w | tr -d ' ')"
+grep -qF "[install] copied $n_skills skills, 3 agents, " "$T/install2.out"
+# The closing line names the agents and says how to load them.
+[ "$(tail -n 1 "$T/install2.out")" = \
+  "[install] start a new session to load the agents (kit-planner, kit-builder, kit-judge)" ]
 
 python3 - "$CLAUDE_HOME/settings.json" "$REPO_ROOT/claude/config/settings.template.json" <<'PY'
 import json, sys
@@ -103,6 +119,24 @@ test ! -e "$CLAUDE_HOME/hooks/denial_tracker.py"
 test -f "$CLAUDE_HOME/hooks/env-scrub.py"            # edited: kept
 test ! -e "$CLAUDE_HOME/agents/docs-writer.md"
 test -f "$CLAUDE_HOME/agents/other.md"
+[ "$(cat "$CLAUDE_HOME/agents/other.md")" = "mine" ]
+for a in kit-planner.md kit-builder.md kit-judge.md; do
+  test -f "$CLAUDE_HOME/agents/$a"
+  test ! -L "$CLAUDE_HOME/agents/$a"
+  cmp "$REPO_ROOT/claude/agents/$a" "$CLAUDE_HOME/agents/$a"
+done
+[ "$(cat "$T/outside-agent.md")" = "outside" ]           # the link was not followed
+grep -qxF "[install] removed the link agents/kit-builder.md (its target is untouched)" "$T/install1.out"
+set -- "$CLAUDE_HOME"/pipelinekit/backup/*
+[ "$#" -eq 1 ]                                            # the own judge only, not the link
+[ -f "$1" ]
+[[ "${1##*/}" =~ ^agents-kit-judge\.md-[0-9]{8}-[0-9]{6}$ ]] ||
+  { echo "test_install: unexpected backup name ${1##*/}" >&2; exit 1; }
+[ "$(cat "$1")" = "my own judge" ]
+grep -qxF "[install] kept your own kit-judge.md in $1" "$T/install1.out"
+if grep -qF 'kept your own' "$T/install2.out"; then
+  echo "test_install: a second install backed up the kit's own agent" >&2; exit 1
+fi
 test ! -e "$CLAUDE_HOME/hooks/tests"
 test -x "$CLAUDE_HOME/git-hooks/pre-push"
 [ "$(git config --global core.hooksPath)" = "$CLAUDE_HOME/git-hooks" ]
@@ -118,6 +152,20 @@ PY
 CLAUDE_HOME="$CLAUDE_HOME" bash "$REPO_ROOT/scripts/verify.sh" >/dev/null
 # The session-start check has nothing to say about a fresh install.
 [ -z "$(echo '{}' | "$CLAUDE_HOME/hooks/session-check.py")" ]
+
+# An installed agent edited by hand: the check lists it, an install restores it
+# without a backup.
+echo "my edit" >> "$CLAUDE_HOME/agents/kit-planner.md"
+report="$(python3 "$CLAUDE_HOME/skills/kit/check.py" --no-remote)"
+grep -qF 'changed since install: agents/kit-planner.md' <<<"$report"
+bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$T/install3.out" 2>&1
+cmp "$REPO_ROOT/claude/agents/kit-planner.md" "$CLAUDE_HOME/agents/kit-planner.md"
+if grep -qF 'kept your own' "$T/install3.out"; then
+  echo "test_install: an edited kit agent was backed up" >&2; exit 1
+fi
+set -- "${CLAUDE_HOME}"/pipelinekit/backup/agents-*
+[ "$#" -eq 1 ]
+[ -f "$1" ]
 
 # verify notices a hook that is present but cannot start (CRLF checkout).
 G="$CLAUDE_HOME/hooks/bash-guard.py"
@@ -154,7 +202,8 @@ fd_install
 fd_is_kit
 [ "$(fd_backups)" -eq 1 ]
 B=("$FH"/.claude/pipelinekit/backup/*)
-[[ "${B[0]##*/}" =~ ^skills-frontend-design-[0-9]{8}T[0-9]{6}Z$ ]]
+[[ "${B[0]##*/}" =~ ^skills-frontend-design-[0-9]{8}T[0-9]{6}Z$ ]] ||
+  { echo "test_install: unexpected backup name ${B[0]##*/}" >&2; exit 1; }
 grep -qx "my own design notes" "${B[0]}/SKILL.md"
 grep -qxF "[install] kept your own frontend-design skill in ${B[0]}" "$FH/out"
 fd_install
@@ -273,4 +322,99 @@ echo "my own, kept" >"$FH/.claude/skills/frontend-design/SKILL.md"
 echo "not a folder" >"$FH/.claude/pipelinekit/backup"
 fd_cannot_move mkdir
 test -f "$FH/.claude/pipelinekit/backup"
+
+# (j) A manifest holding only "{" and a user's own kit-judge.md: the manifest
+# lists nothing, so the file is backed up, and the install ends well.
+fd_home j
+mkdir -p "$FH/.claude/agents" "$FH/.claude/pipelinekit"
+echo "{" >"$FH/.claude/pipelinekit/manifest.json"
+echo "my own judge" >"$FH/.claude/agents/kit-judge.md"
+fd_install || { echo "test_install: install failed with a broken manifest" >&2; cat "$FH/out" >&2; exit 1; }
+[ "$(fd_backups)" -eq 1 ]
+B=("$FH"/.claude/pipelinekit/backup/agents-kit-judge.md-*)
+[ "$(cat "${B[0]}")" = "my own judge" ]
+cmp "$REPO_ROOT/claude/agents/kit-judge.md" "$FH/.claude/agents/kit-judge.md"
+python3 -c 'import json, sys; json.load(open(sys.argv[1]))' "$FH/.claude/pipelinekit/manifest.json"
+
+# (k) A byte-identical copy of the kit's kit-judge.md and no manifest, (l) the
+# same with a manifest holding only "{": the kit's own file, so no backup.
+for c in k l; do
+  fd_home "$c"
+  mkdir -p "$FH/.claude/agents"
+  cp "$REPO_ROOT/claude/agents/kit-judge.md" "$FH/.claude/agents/kit-judge.md"
+  if [ "$c" = l ]; then
+    mkdir -p "$FH/.claude/pipelinekit"
+    echo "{" >"$FH/.claude/pipelinekit/manifest.json"
+  fi
+  fd_install || { echo "test_install: install failed with the kit's own kit-judge.md ($c)" >&2; cat "$FH/out" >&2; exit 1; }
+  [ "$(fd_backups)" -eq 0 ]
+  if grep -qF 'kept your own' "$FH/out"; then
+    echo "test_install: a copy of the kit's own kit-judge.md was backed up ($c)" >&2; exit 1
+  fi
+  cmp "$REPO_ROOT/claude/agents/kit-judge.md" "$FH/.claude/agents/kit-judge.md"
+done
+# Home k again: the manifest lists kit-builder.md, which is now a hard link to a
+# file outside the home. The install replaces the link and never writes through it.
+FH="$T/fd-k"
+echo outside >"$T/hl-outside.md"
+rm "$FH/.claude/agents/kit-builder.md"
+ln "$T/hl-outside.md" "$FH/.claude/agents/kit-builder.md"
+fd_install || { echo "test_install: install failed with a hard-linked agent" >&2; cat "$FH/out" >&2; exit 1; }
+if [ "$(cat "$T/hl-outside.md")" != "outside" ]; then
+  echo "test_install: the install wrote through a hard link to a file outside" >&2; exit 1
+fi
+cmp "$REPO_ROOT/claude/agents/kit-builder.md" "$FH/.claude/agents/kit-builder.md"
+[ "$(fd_backups)" -eq 0 ]
+
+# (m) A file where the backup folder goes and a user's own kit-judge.md: the
+# installer stops with one line of its own and leaves the file as it was.
+fd_home m
+mkdir -p "$FH/.claude/agents" "$FH/.claude/pipelinekit"
+echo "my own judge, kept" >"$FH/.claude/agents/kit-judge.md"
+echo "not a folder" >"$FH/.claude/pipelinekit/backup"
+rc=0
+HOME="$FH" CLAUDE_HOME="$FH/.claude" GIT_CONFIG_GLOBAL="$FH/.gitconfig" \
+  XDG_CONFIG_HOME="$FH/.config" PIPELINEKIT_STATE_DIR="$FH/state" PIPELINEKIT_GIT_HOOKS=0 \
+  bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$FH/out" 2>"$FH/err" || rc=$?
+if [ "$rc" -eq 0 ]; then
+  echo "test_install: install went on with an own agent it could not move" >&2; exit 1
+fi
+if [ "$(cat "$FH/err")" != "[install][error] could not move your own agents/kit-judge.md to $FH/.claude/pipelinekit/backup. It is untouched and the kit's kit-judge.md was not installed. Move or rename it yourself, then run the installer again." ]; then
+  echo "test_install: stderr is not the one line about the own agent" >&2; cat "$FH/err" >&2; exit 1
+fi
+if grep -qE '(mkdir|mv):' "$FH/err"; then
+  echo "test_install: the raw mkdir or mv error was shown" >&2; cat "$FH/err" >&2; exit 1
+fi
+[ "$(cat "$FH/.claude/agents/kit-judge.md")" = "my own judge, kept" ]
+test -f "$FH/.claude/pipelinekit/backup"
+
+# (n) A folder named kit-planner.md holding one file: moved to a backup with its
+# file, and the kit's file is installed.
+fd_home n
+mkdir -p "$FH/.claude/agents/kit-planner.md"
+echo "inside" >"$FH/.claude/agents/kit-planner.md/note.txt"
+fd_install || { echo "test_install: install failed with a folder in place of an agent" >&2; cat "$FH/out" >&2; exit 1; }
+[ "$(fd_backups)" -eq 1 ]
+B=("$FH"/.claude/pipelinekit/backup/agents-kit-planner.md-*)
+test -d "${B[0]}"
+[ "$(ls -A "${B[0]}")" = "note.txt" ]
+[ "$(cat "${B[0]}/note.txt")" = "inside" ]
+test -f "$FH/.claude/agents/kit-planner.md"
+cmp "$REPO_ROOT/claude/agents/kit-planner.md" "$FH/.claude/agents/kit-planner.md"
+[ "$(grep -c 'kept your own' "$FH/out")" -eq 1 ]
+grep -qxF "[install] kept your own kit-planner.md in ${B[0]}" "$FH/out"
+python3 - "$FH/.claude/pipelinekit/manifest.json" <<'PY'
+import json, sys
+assert "agents/kit-planner.md" in json.load(open(sys.argv[1]))["files"], "manifest misses the agent"
+PY
+# The same folder again, now that the manifest lists the agent: still a backup.
+rm -rf "$FH/.claude/pipelinekit/backup" "$FH/.claude/agents/kit-planner.md"
+mkdir "$FH/.claude/agents/kit-planner.md"
+echo "inside again" >"$FH/.claude/agents/kit-planner.md/note.txt"
+fd_install || { echo "test_install: install failed with a folder in place of a listed agent" >&2; cat "$FH/out" >&2; exit 1; }
+[ "$(fd_backups)" -eq 1 ]
+B=("$FH"/.claude/pipelinekit/backup/agents-kit-planner.md-*)
+test -d "${B[0]}"
+[ "$(cat "${B[0]}/note.txt")" = "inside again" ]
+cmp "$REPO_ROOT/claude/agents/kit-planner.md" "$FH/.claude/agents/kit-planner.md"
 echo "test_install: PASS"

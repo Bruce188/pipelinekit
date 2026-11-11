@@ -223,6 +223,104 @@ def test_edited_frontend_design_is_only_a_warning(kit):
     assert "[warn] changed since install: skills/frontend-design/SKILL.md" in out
 
 
+# ---------------------------------------------------------------- agents
+
+
+def test_installed_agents_pass(kit):
+    rc, out = check(kit, "--verbose")
+    assert rc == 0, out
+    for name in check_py.KIT_AGENTS:
+        assert f"[pass] agent: {name}" in out
+    assert "[pass] kit-judge.md only reads" in out
+
+
+@pytest.mark.parametrize("mode", [(), ("--quick",)])
+def test_removed_agent_is_one_line(kit, mode):
+    (kit["home"] / "agents" / "kit-builder.md").unlink()
+    rc, out = check(kit, *mode)
+    assert rc == 1
+    assert "[fail] agent missing: kit-builder.md: run the installer" in out
+    assert out.count("kit-builder") == 1, out
+
+
+def test_removed_judge_is_not_also_a_tools_problem(kit):
+    (kit["home"] / "agents" / "kit-judge.md").unlink()
+    rc, out = check(kit)
+    assert rc == 1
+    assert "[fail] agent missing: kit-judge.md: run the installer" in out
+    assert "allows more than reading" not in out
+
+
+def test_edited_agent_is_a_change_since_install(kit):
+    with open(kit["home"] / "agents" / "kit-planner.md", "a") as f:
+        f.write("\nmy own note\n")
+    rc, out = check(kit)
+    assert rc == 0, out
+    assert (
+        "Changes since install\n  [warn] changed since install: agents/kit-planner.md"
+    ) in out
+
+
+def test_other_agents_of_the_user_are_not_reported(kit):
+    (kit["home"] / "agents" / "mine.md").write_text("my own agent\n")
+    rc, out = check(kit)
+    assert rc == 0, out
+    assert "mine.md" not in out
+
+
+JUDGE_TOOLS_LINE = "tools: Read, Grep, Glob\n"
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        (JUDGE_TOOLS_LINE, "tools: Read, Grep, Glob, Write\n"),
+        (JUDGE_TOOLS_LINE, "tools: Read, Grep, Glob, Bash\n"),
+        (JUDGE_TOOLS_LINE, "tools: Read, Grep, Glob\ntools: Edit\n"),
+        (JUDGE_TOOLS_LINE, "tools:\n  - Read\n"),
+        (JUDGE_TOOLS_LINE, ""),  # no tools line: every tool
+        # An indented tools line is not the key: the real one is missing.
+        (JUDGE_TOOLS_LINE, "description: |\n  tools: Read, Grep, Glob\n"),
+        (JUDGE_TOOLS_LINE, "x:\n  tools: Read, Grep, Glob\n"),
+        (JUDGE_TOOLS_LINE, JUDGE_TOOLS_LINE + '"tools": Bash\n'),
+        (JUDGE_TOOLS_LINE, JUDGE_TOOLS_LINE + "  tools: Bash\n"),
+        # YAML joins an indented line to the value above it, empty lines or not.
+        (JUDGE_TOOLS_LINE, JUDGE_TOOLS_LINE + "  , Bash\n"),
+        (JUDGE_TOOLS_LINE, JUDGE_TOOLS_LINE + "\n  , Bash\n"),
+        # An indented --- closes no frontmatter either.
+        ("tools: Read, Grep, Glob\n---\n", "tools: Read, Grep, Glob\n ---\n"),
+        # An indented --- opens no frontmatter.
+        ("---\nname: kit-judge\n", " ---\nname: kit-judge\n"),
+    ],
+)
+def test_judge_that_may_do_more_than_read(kit, old, new):
+    judge = kit["home"] / "agents" / "kit-judge.md"
+    text = judge.read_text()
+    assert text.count(JUDGE_TOOLS_LINE) == 1
+    assert text.count(old) == 1
+    judge.write_text(text.replace(old, new))
+    rc, out = check(kit, "--quick")
+    assert rc == 1
+    assert "[fail] kit-judge.md allows more than reading: run the installer" in out
+
+
+def test_judge_tools_line_outside_the_frontmatter_does_not_count(kit):
+    judge = kit["home"] / "agents" / "kit-judge.md"
+    text = judge.read_text().replace("tools: Read, Grep, Glob\n", "")
+    judge.write_text(text + "\ntools: Read, Grep, Glob\n")
+    rc, out = check(kit, "--quick")
+    assert rc == 1
+    assert "kit-judge.md allows more than reading" in out
+
+
+def test_judge_with_crlf_line_endings_still_only_reads(kit):
+    judge = kit["home"] / "agents" / "kit-judge.md"
+    judge.write_bytes(judge.read_bytes().replace(b"\n", b"\r\n"))
+    rc, out = check(kit, "--quick", "--verbose")
+    assert rc == 0, out
+    assert "[pass] kit-judge.md only reads" in out
+
+
 def test_missing_manifest(kit):
     (kit["home"] / "pipelinekit" / "manifest.json").unlink()
     rc, out = check(kit)
@@ -472,6 +570,9 @@ def test_manifest_describes_the_install(kit):
         "skills/kit/SKILL.md",
         "config/never-stage.txt",
         "CLAUDE.md",
+        "agents/kit-planner.md",
+        "agents/kit-builder.md",
+        "agents/kit-judge.md",
     ):
         assert rel in files
     assert all(files.values()), "a file was listed but not installed"
@@ -492,6 +593,15 @@ def test_skill_list_matches_the_repo_and_the_installer():
     text = (REPO / "scripts" / "install.sh").read_text()
     listed = re.search(r"^KIT_SKILLS=\(([^)]*)\)", text, re.M).group(1).split()
     assert sorted(listed) == in_repo
+
+
+def test_agent_list_matches_the_repo_and_the_installer():
+    in_repo = sorted(p.name for p in (REPO / "claude" / "agents").iterdir())
+    assert sorted(check_py.KIT_AGENTS) == in_repo
+    text = (REPO / "scripts" / "install.sh").read_text()
+    listed = re.search(r"^KIT_AGENTS=\(([^)]*)\)", text, re.M).group(1).split()
+    assert sorted(listed) == in_repo
+    assert len(set(listed)) == len(listed)
 
 
 def test_hook_lists_match_the_repo():
