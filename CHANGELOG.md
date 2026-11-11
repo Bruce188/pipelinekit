@@ -49,6 +49,17 @@ kit used to ship, so those parts are gone.
   workflow also runs every Monday and on demand; a failed scheduled run opens
   the issue `Weekly self-check failed` or adds a comment to it
   (`scripts/ci-report.sh`).
+- `/kit` has an Updates section: it asks the remote of the checkout once a day
+  whether there are commits this install lacks and says `up to date`,
+  `update available` or `not checked`. It never counts as a problem;
+  `PIPELINEKIT_UPDATE_CHECK=0` switches it off.
+- `/kit update` lists the new commits, asks, then fast-forwards the checkout
+  to exactly the commit it listed, runs the installer with the options chosen
+  at install time and runs the self-check (`claude/skills/kit/update.py`). It
+  refuses on uncommitted changes, another branch, own commits or a remote that
+  moved in the meantime.
+- The Environment section says when the Bash sandbox keeps `gh` from reading
+  its own login file, and which setting fixes that.
 
 ### Shipping
 

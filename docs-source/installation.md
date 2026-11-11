@@ -21,7 +21,7 @@ cd pipelinekit
 bash scripts/install.sh            # add --no-serena to skip serena
 ```
 
-You can safely run the installer again. To update, run `git pull` and then run the installer again.
+You can safely run the installer again. To update, run `git pull` and then run the installer again, or type `/kit update` in a session: it lists the new commits, asks, and then does both.
 
 ## What the installer does
 

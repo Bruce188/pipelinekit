@@ -1219,7 +1219,7 @@ footer {
 </tr>
 <tr>
 <td><code>kit</code></td>
-<td>Self-check, run as <code>/kit</code>: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from <code>settings.json</code>, environment conflicts, and what the hooks blocked or failed on in the last days</td>
+<td>Self-check, run as <code>/kit</code>: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from <code>settings.json</code>, environment conflicts, what the hooks blocked or failed on in the last days, and whether a newer kit is available. <code>/kit update</code> applies it after asking</td>
 </tr>
 <tr>
 <td><code>ship</code></td>
@@ -1252,7 +1252,11 @@ footer {
 </tr>
 <tr>
 <td>Environment</td>
-<td>python3, Claude Code and gitleaks versions; whether <code>gh</code> and Playwright are available; WSL; a repository that sets its own <code>core.hooksPath</code></td>
+<td>python3, Claude Code and gitleaks versions; whether <code>gh</code> and Playwright are available; WSL; a repository that sets its own <code>core.hooksPath</code>; a Bash sandbox that keeps <code>gh</code> from reading its own login file</td>
+</tr>
+<tr>
+<td>Updates</td>
+<td>Whether the remote of the checkout the install was made from has commits this install lacks: <code>up to date</code>, <code>update available</code> or <code>not checked</code>. Information only, never a problem. Not part of <code>--quick</code></td>
 </tr>
 <tr>
 <td>Activity</td>
@@ -1274,11 +1278,25 @@ python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w"> </s
 python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w"> </span>--json<span class="w">     </span><span class="c1"># for scripts</span>
 python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w"> </span>--days<span class="w"> </span><span class="m">30</span><span class="w">  </span><span class="c1"># activity of the last 30 days (1 to 365)</span>
 python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w"> </span>--session<span class="w"> </span>ID<span class="w">  </span><span class="c1"># activity of one session</span>
+python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w"> </span>--no-remote<span class="w">   </span><span class="c1"># do not ask the remote for updates</span>
 </code></pre></div>
 
-<p>Exit code 0 means healthy, 1 means problems were found, 2 means the checker itself failed. <code>scripts/verify.sh</code> runs the same file. The JSON output has an <code>activity</code> list with every rule; the text report shows the 20 most recent.</p>
+<p>Exit code 0 means healthy, 1 means problems were found, 2 means the checker itself failed. <code>scripts/verify.sh</code> runs the same file. The JSON output has an <code>activity</code> list with every rule, where the text report shows the 20 most recent, and an <code>update</code> object with the state of the update check.</p>
 <p>The repository checks itself the same way. In CI the <code>install-smoke</code> job installs the kit into an empty home directory and expects a healthy report, then removes one hook and expects the report to name it. The whole workflow also runs every Monday at 05:17 UTC and can be started by hand (<code>gh workflow run CI</code>). A failed scheduled run opens the issue <code>Weekly self-check failed</code>, or adds a comment to it while it is open (<code>scripts/ci-report.sh</code>); close the issue once a run is green again. GitHub starts scheduled runs from the default branch only, and pauses them after 60 days without activity in the repository.</p>
-<p>The comparison data is <code>~/.claude/pipelinekit/manifest.json</code>, which the installer writes: kit version and commit, the checkout path, a SHA-256 of every installed file, and the <code>settings.json</code> entries the kit owns. An install made before this file existed reports <code>install manifest not found</code>; run the installer once.</p>
+<p>The comparison data is <code>~/.claude/pipelinekit/manifest.json</code>, which the installer writes: kit version and commit, the checkout path and branch, whether serena was registered, a SHA-256 of every installed file, and the <code>settings.json</code> entries the kit owns. An install made before this file existed reports <code>install manifest not found</code>; run the installer once.</p>
+<p>The Updates section compares the commit the install was made from with the same branch on <code>origin</code> of that checkout. It asks the remote at most once in 24 hours (<code>git ls-remote</code>, nothing is fetched), gives it 5 seconds and keeps the answer in <code>update.json</code> next to the event log. Offline, without the checkout, or when the install was made from a checkout on no branch, it says <code>not checked</code>. An available update is an <code>[info]</code> line and never changes the result. <code>PIPELINEKIT_UPDATE_CHECK=0</code> switches the check off; <code>--no-remote</code> uses only an answer it already has.</p>
+<p><code>/kit update</code> applies an update from inside a session:</p>
+<ol>
+<li><code>update.py plan</code> fetches the branch and lists the new commits, at most 30, each as one cleaned line. Nothing else changes.</li>
+<li>Claude shows them and asks whether to update.</li>
+<li>After a yes, <code>update.py apply --to &lt;commit&gt;</code> fast-forwards the checkout to exactly the commit the plan listed, runs the installer and then the self-check. Its last line is <code>Updated &lt;old&gt; -&gt; &lt;new&gt;. Self-check: healthy.</code>, or the same line with the number of problems or warnings when the new version is installed and its check has something to say. When the installer fails, the last line starts with <code>Not updated:</code> or, when the files were already replaced, with <code>Partly updated</code>, and a line <code>By hand: &lt;command&gt;</code> above it holds the installer command to run again.</li>
+</ol>
+<p>The installer runs with what was chosen at install time: the global git hooks stay on or off, and serena is not registered where it was skipped. The update is refused, and nothing changes, when the checkout has uncommitted changes, is on another branch or has commits the remote lacks, and when the remote moved after the plan. The same two commands work from a shell:</p>
+<div class="codehilite"><pre><span></span><code>python3<span class="w"> </span>~/.claude/skills/kit/update.py<span class="w"> </span>plan<span class="w">              </span><span class="c1"># what would change</span>
+python3<span class="w"> </span>~/.claude/skills/kit/update.py<span class="w"> </span>apply<span class="w"> </span>--to<span class="w"> </span>COMMIT<span class="w"> </span><span class="c1"># the full commit id the plan printed</span>
+</code></pre></div>
+
+<p>The Environment section warns about one conflict that is easy to miss. When the Bash sandbox is on, a <code>Read</code> deny rule for the <code>gh</code> login file (<code>hosts.yml</code>) also applies to <code>gh</code> itself, so <code>gh</code> fails in sandboxed commands, and so does <code>git</code> over https when it asks <code>gh</code> for the token. The line names the fix: add <code>gh *</code> to <code>sandbox.excludedCommands</code> in <code>settings.json</code>, or run <code>gh</code> outside the sandbox.</p>
 <p>Two things are outside its reach. A <code>permissions.deny</code> match, or a prompt you declined, leaves no trace to report: Activity lists only what the kit's own hooks did. And the report describes the environment it runs in: another WSL distro, an SSH host or a sandboxed session can differ, so run the check there.</p>
 <h2 id="shipping-a-pull-request">Shipping a pull request</h2>
 <p>With the kit installed, Claude finishes the pull requests it opens instead of handing each one to you to merge. The <code>ship</code> skill (<code>/ship</code>) describes the loop, and <code>claude/skills/ship/ship.py</code> holds the conditions for the merge.</p>

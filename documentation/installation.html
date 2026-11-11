@@ -651,7 +651,7 @@ footer {
 bash<span class="w"> </span>scripts/install.sh<span class="w">            </span><span class="c1"># add --no-serena to skip serena</span>
 </code></pre></div>
 
-<p>You can safely run the installer again. To update, run <code>git pull</code> and then run the installer again.</p>
+<p>You can safely run the installer again. To update, run <code>git pull</code> and then run the installer again, or type <code>/kit update</code> in a session: it lists the new commits, asks, and then does both.</p>
 <h2 id="what-the-installer-does">What the installer does</h2>
 <ol>
 <li>Copies the hooks, the global git hooks, the seven skills and <code>config/never-stage.txt</code> into <code>~/.claude</code>. It overwrites those files in place and never moves or deletes the directory. It leaves <code>projects/</code>, <code>sessions/</code>, <code>plugins/</code> and your credentials alone.</li>

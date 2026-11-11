@@ -38,6 +38,9 @@ def installed(tmp_path_factory):
         GIT_CONFIG_NOSYSTEM="1",
         XDG_CONFIG_HOME=str(user / ".config"),
         PIPELINEKIT_GIT_HOOKS="1",
+        # The real remote is none of a test's business; the update tests switch
+        # the check on against a local origin.
+        PIPELINEKIT_UPDATE_CHECK="0",
     )
     # The event log then sits below the throwaway HOME, as on a real machine.
     for k in (
@@ -388,8 +391,10 @@ def test_json_report(kit):
         "counts",
         "repair",
         "results",
+        "update",
         "activity",
     }
+    assert d["update"] == {"state": "off"}
     assert d["healthy"] is True and d["mode"] == "full"
     assert d["counts"]["fail"] == 0 and d["counts"]["pass"] > 20
     assert d["kit"]["checkout"] == str(REPO)
@@ -400,6 +405,7 @@ def test_json_report(kit):
         "drift",
         "probe",
         "environment",
+        "update",
         "activity",
     }
 
@@ -858,7 +864,7 @@ def test_switched_off_session_check_is_mentioned(kit):
     assert "[info] the session-start check is switched off" in out
     assert "[fail]" not in out
     rc, out = check(kit)
-    assert rc == 0 and "switched off" not in out
+    assert rc == 0 and "session-start check is switched off" not in out
 
 
 def add_hook(kit, command):
@@ -1074,3 +1080,355 @@ def test_every_name_the_kit_wires_is_one_the_report_shows():
                 assert check_py.PLAIN_NAME.fullmatch(name), name
                 for arg in hook.get("args", []):
                     assert check_py.PLAIN_NAME.fullmatch(arg), arg
+
+
+# ---------------------------------------------------------------- updates
+
+ON = {"PIPELINEKIT_UPDATE_CHECK": "1"}
+
+
+def git(kit, cwd, *args):
+    p = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(cwd),
+            "-c",
+            "user.name=Test User",
+            "-c",
+            "user.email=test@example.com",
+            "-c",
+            "core.hooksPath=/dev/null",
+            *args,
+        ],
+        capture_output=True,
+        text=True,
+        env=kit["env"],
+    )
+    assert p.returncode == 0, p.stderr
+    return p.stdout.strip()
+
+
+@pytest.fixture
+def tracked(kit, tmp_path):
+    """The install says it came from a checkout whose origin is a local repo."""
+    origin, work = tmp_path / "origin.git", tmp_path / "work"
+    git(kit, tmp_path, "init", "-q", "--bare", "-b", "main", str(origin))
+    git(kit, tmp_path, "init", "-q", "-b", "main", str(work))
+    (work / "f0").write_text("0\n")
+    git(kit, work, "add", "f0")
+    git(kit, work, "commit", "-qm", "feat: start")
+    git(kit, work, "remote", "add", "origin", str(origin))
+    git(kit, work, "push", "-q", "origin", "main")
+    head = git(kit, work, "rev-parse", "HEAD")
+    edit_json(
+        kit,
+        "pipelinekit/manifest.json",
+        lambda d: d.update(checkout=str(work), branch="main", commit=head),
+    )
+    return {"kit": kit, "work": work, "origin": origin, "head": head}
+
+
+def commit_in(t, repo, subject="feat: more"):
+    n = len(list(repo.iterdir()))
+    (repo / f"f{n}").write_text("x\n")
+    git(t["kit"], repo, "add", "-A")
+    git(t["kit"], repo, "commit", "-qm", subject)
+    return git(t["kit"], repo, "rev-parse", "HEAD")
+
+
+def push_commit(t, subject="feat: more"):
+    """Somebody else pushes to origin; the checkout does not know yet."""
+    other = t["work"].parent / "other"
+    if not other.exists():
+        git(t["kit"], other.parent, "clone", "-q", str(t["origin"]), str(other))
+    new = commit_in(t, other, subject)
+    git(t["kit"], other, "push", "-q", "origin", "main")
+    return new
+
+
+def cache(kit):
+    return state(kit) / "update.json"
+
+
+def test_up_to_date(tracked):
+    kit = tracked["kit"]
+    rc, out = check(kit, "--verbose", env=ON)
+    assert rc == 0, out
+    line = (
+        f"[pass] up to date with origin/main ({tracked['head'][:7]}, checked just now)"
+    )
+    assert "Updates\n" in out and line in out
+    assert out.rstrip().endswith("Result: healthy")
+    saved = json.loads(cache(kit).read_text())
+    assert saved["state"] == "ok" and saved["commit"] == tracked["head"]
+    assert cache(kit).stat().st_mode & 0o777 == 0o600
+
+
+def test_update_available_is_information_not_a_problem(tracked):
+    kit = tracked["kit"]
+    new = push_commit(tracked)
+    rc, out = check(kit, env=ON)
+    assert rc == 0, out
+    assert (
+        f"[info] update available: origin/main is at {new[:7]}, "
+        f"this install is from {tracked['head'][:7]} (checked just now)"
+    ) in out
+    assert "fix: /kit update in a session, or from a shell: python3 " in out
+    assert "[warn]" not in out and out.rstrip().endswith("Result: healthy")
+    rc, out = check(kit, "--json", env=ON)
+    d = json.loads(out)
+    assert rc == 0 and d["healthy"] is True
+    assert d["update"]["state"] == "available"
+    assert d["update"]["remote"] == new and d["update"]["installed"] == tracked["head"]
+
+
+def test_update_counts_the_commits_it_can_see(tracked):
+    kit = tracked["kit"]
+    push_commit(tracked)
+    new = push_commit(tracked)
+    git(kit, tracked["work"], "fetch", "-q", "origin")
+    rc, out = check(kit, env=ON)
+    assert rc == 0, out
+    assert f"origin/main is at {new[:7]}, 2 commits ahead, this install" in out
+
+
+def test_remote_is_asked_once_a_day(tracked):
+    kit = tracked["kit"]
+    check(kit, env=ON)
+    new = push_commit(tracked)
+    rc, out = check(kit, "--verbose", env=ON)
+    assert "[pass] up to date with origin/main" in out, out
+    saved = json.loads(cache(kit).read_text())
+    saved["checked_at"] -= 5 * 3600
+    cache(kit).write_text(json.dumps(saved))
+    rc, out = check(kit, "--verbose", env=ON)
+    assert "up to date with origin/main" in out and "checked 5 hours ago" in out
+    saved["checked_at"] -= 20 * 3600
+    cache(kit).write_text(json.dumps(saved))
+    rc, out = check(kit, env=ON)
+    assert f"update available: origin/main is at {new[:7]}" in out, out
+
+
+@pytest.mark.parametrize(
+    "junk", ["", "not json", "[]", '{"state": "ok"}', '{"checked_at": true}']
+)
+def test_broken_cache_is_ignored(tracked, junk):
+    kit = tracked["kit"]
+    cache(kit).parent.mkdir(parents=True, exist_ok=True)
+    cache(kit).write_text(junk)
+    rc, out = check(kit, "--verbose", env=ON)
+    assert rc == 0 and "[pass] up to date with origin/main" in out, out
+
+
+def test_cache_of_another_checkout_is_not_used(tracked):
+    kit = tracked["kit"]
+    check(kit, env=ON)
+    saved = json.loads(cache(kit).read_text())
+    saved.update(checkout="/somewhere/else", commit="0" * 40)
+    cache(kit).write_text(json.dumps(saved))
+    rc, out = check(kit, "--verbose", env=ON)
+    assert "[pass] up to date with origin/main" in out, out
+
+
+def test_unreachable_origin_is_not_a_problem(tracked):
+    kit = tracked["kit"]
+    git(
+        kit, tracked["work"], "remote", "set-url", "origin", str(tracked["work"] / "no")
+    )
+    rc, out = check(kit, env=ON)
+    assert rc == 0, out
+    assert "[info] not checked: origin did not answer" in out
+    assert out.rstrip().endswith("Result: healthy")
+    assert json.loads(cache(kit).read_text())["state"] == "unreachable"
+    # An hour later it is asked again; an answer would be kept for a day.
+    git(kit, tracked["work"], "remote", "set-url", "origin", str(tracked["origin"]))
+    rc, out = check(kit, env=ON)
+    assert "not checked: origin did not answer" in out
+    saved = json.loads(cache(kit).read_text())
+    saved["checked_at"] -= 2 * 3600
+    cache(kit).write_text(json.dumps(saved))
+    rc, out = check(kit, "--verbose", env=ON)
+    assert "[pass] up to date with origin/main" in out, out
+
+
+def test_branch_gone_from_origin(tracked):
+    kit = tracked["kit"]
+    edit_json(kit, "pipelinekit/manifest.json", lambda d: d.update(branch="old"))
+    rc, out = check(kit, env=ON)
+    assert rc == 0 and "[info] not checked: origin has no branch old" in out, out
+
+
+@pytest.mark.parametrize(
+    "change, said",
+    [
+        ({"checkout": "/no/such/checkout"}, "the checkout this install was made from"),
+        ({"checkout": ""}, "the checkout this install was made from"),
+        ({"commit": "abc"}, "the install manifest names no commit"),
+        ({"branch": ""}, "the install was made from a checkout that was on no branch"),
+        (
+            {"branch": "--upload-pack=touch pwned"},
+            "the install was made from a checkout that was on no branch",
+        ),
+    ],
+)
+def test_update_not_checked(tracked, change, said):
+    kit = tracked["kit"]
+    edit_json(kit, "pipelinekit/manifest.json", lambda d: d.update(change))
+    rc, out = check(kit, env=ON, cwd=tracked["work"].parent)
+    assert rc == 0, out
+    assert f"[info] not checked: {said}" in out
+    assert not cache(kit).exists()
+    assert not (tracked["work"].parent / "pwned").exists()
+
+
+def test_update_check_switched_off(tracked):
+    kit = tracked["kit"]
+    push_commit(tracked)
+    rc, out = check(kit)
+    assert rc == 0, out
+    assert "[info] the update check is switched off (PIPELINEKIT_UPDATE_CHECK=0)" in out
+    assert "update available" not in out and not cache(kit).exists()
+
+
+def test_quick_has_no_update_check(tracked):
+    kit = tracked["kit"]
+    rc, out = check(kit, "--quick", "--verbose", env=ON)
+    assert rc == 0 and "Updates" not in out and not cache(kit).exists(), out
+    assert json.loads(check(kit, "--quick", "--json", env=ON)[1])["update"] == {}
+
+
+def test_no_remote_uses_only_a_recent_answer(tracked):
+    kit = tracked["kit"]
+    rc, out = check(kit, "--no-remote", "--verbose", env=ON)
+    assert rc == 0 and "Updates" not in out and not cache(kit).exists(), out
+    check(kit, env=ON)
+    rc, out = check(kit, "--no-remote", "--verbose", env=ON)
+    assert "[pass] up to date with origin/main" in out, out
+
+
+def test_checkout_ahead_of_the_install(tracked):
+    kit = tracked["kit"]
+    new = commit_in(tracked, tracked["work"])
+    rc, out = check(kit, "--verbose", env=ON)
+    assert rc == 0, out
+    assert (
+        f"[info] the checkout is at {new[:7]}, this install was made from "
+        f"{tracked['head'][:7]}: the installer brings the install in line"
+    ) in out
+    assert "fix: bash " in out and "scripts/install.sh" in out
+    assert "[pass] up to date with origin/main" in out
+
+
+def test_install_ahead_of_origin(tracked):
+    kit = tracked["kit"]
+    new = commit_in(tracked, tracked["work"])
+    edit_json(kit, "pipelinekit/manifest.json", lambda d: d.update(commit=new))
+    rc, out = check(kit, "--verbose", env=ON)
+    assert rc == 0, out
+    assert f"[pass] ahead of origin/main: this install is from {new[:7]}" in out
+    assert "update available" not in out
+
+
+def test_remote_call_ends_with_its_children():
+    start = time.time()
+    rc, out = check_py.run_group(
+        ["sh", "-c", "sleep 30 & sleep 30"], dict(os.environ), 1
+    )
+    assert (rc, out) == (None, "") and time.time() - start < 10
+    assert check_py.run_group(["/no/such/program"], dict(os.environ), 1) == (None, "")
+    assert check_py.run_group(["sh", "-c", "echo hi"], dict(os.environ), 5) == (
+        0,
+        "hi\n",
+    )
+
+
+def test_age_in_words():
+    assert check_py.age(5) == "just now"
+    assert check_py.age(600) == "10 minutes ago"
+    assert check_py.age(3 * 3600) == "3 hours ago"
+
+
+# ---------------------------------------------------------------- sandbox
+
+
+@pytest.fixture
+def with_gh(kit, tmp_path):
+    """A gh on PATH, so the check does not depend on the machine's own."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "gh").write_text("#!/bin/sh\necho 'gh version 2.0.0 (test)'\n")
+    (bin_dir / "gh").chmod(0o755)
+    return {"PATH": f"{bin_dir}{os.pathsep}{kit['env']['PATH']}"}
+
+
+def test_sandbox_denies_gh_its_login(kit, with_gh):
+    edit_json(kit, "settings.json", lambda d: d.update(sandbox={"enabled": True}))
+    rc, out = check(kit, env=with_gh)
+    assert rc == 0, out
+    assert "[warn] the Bash sandbox is on and applies the deny rule for the gh" in out
+    assert 'fix: add "gh *" to sandbox.excludedCommands in settings.json' in out
+    assert "Result: working, 1 warning" in out
+    assert "sandbox" not in check(kit, "--quick", env=with_gh)[1]
+
+
+@pytest.mark.parametrize("excluded", [["gh *"], ["docker", "gh"], ["gh:*"]])
+def test_sandbox_with_gh_excluded(kit, with_gh, excluded):
+    box = {"enabled": True, "excludedCommands": excluded}
+    edit_json(kit, "settings.json", lambda d: d.update(sandbox=box))
+    rc, out = check(kit, "--verbose", env=with_gh)
+    assert rc == 0 and "[warn]" not in out, out
+    assert "[pass] gh is excluded from the Bash sandbox" in out
+
+
+@pytest.mark.parametrize(
+    "box",
+    [
+        None,
+        {},
+        {"enabled": False},
+        {"enabled": "yes"},
+        "on",
+        {"enabled": True, "excludedCommands": ["ghost"]},
+    ],
+)
+def test_sandbox_off_or_gh_not_excluded(kit, with_gh, box):
+    edit_json(kit, "settings.json", lambda d: d.update(sandbox=box))
+    rc, out = check(kit, "--verbose", env=with_gh)
+    assert rc == 0, out
+    warned = isinstance(box, dict) and box.get("enabled") is True
+    assert ("[warn] the Bash sandbox is on" in out) is warned
+    assert "gh is excluded" not in out
+
+
+def test_refused_read_is_told_from_a_closed_file(tmp_path, monkeypatch):
+    login = tmp_path / "hosts.yml"
+    assert check_py.read_refused(str(login)) is False  # no file
+    login.write_text("x\n")
+    assert check_py.read_refused(str(login)) is False  # readable
+    login.chmod(0)
+    assert check_py.read_refused(str(login)) is False  # closed by its owner
+    login.chmod(0o600)
+
+    def refuse(*_a, **_k):
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(check_py.os, "open", refuse)
+    assert check_py.read_refused(str(login)) is True
+
+
+def test_gh_login_file_follows_the_environment(monkeypatch):
+    monkeypatch.setenv("GH_CONFIG_DIR", "/a/gh")
+    assert check_py.gh_login_file() == "/a/gh/hosts.yml"
+    monkeypatch.delenv("GH_CONFIG_DIR")
+    monkeypatch.setenv("XDG_CONFIG_HOME", "/b")
+    assert check_py.gh_login_file() == "/b/gh/hosts.yml"
+
+
+def test_the_repair_command_keeps_an_install_without_serena_that_way(kit):
+    (kit["home"] / "hooks" / "bash-guard.py").unlink()
+    _, out = check(kit, "--quick")
+    assert out.rstrip().endswith(f"Repair: bash {REPO}/scripts/install.sh --no-serena")
+    edit_json(kit, "pipelinekit/manifest.json", lambda d: d.update(serena=True))
+    _, out = check(kit, "--quick")
+    assert out.rstrip().endswith(f"Repair: bash {REPO}/scripts/install.sh")

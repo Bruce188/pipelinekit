@@ -61,7 +61,7 @@ off. Every rule id is in
 | `exchange-api-keys` | Exchange API keys for CryptoBargain and FundingRateArb: where they load from, never logging them, testnet vs mainnet, withdrawal-disabled and IP-restricted scopes, storage, rotation, leak runbook |
 | `docs-writer` | Render `docs-source/*.md` into self-contained HTML pages under `documentation/`, with optional data-driven interactive snippets |
 | `mobile` | Android (Kotlin/Compose) builds and device access from WSL2, iPhone home-screen web apps, Expo/EAS cloud builds for iOS, release and security checklist |
-| `kit` | Self-check, run as `/kit`: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, environment conflicts, and what the hooks blocked or failed on in the last days |
+| `kit` | Self-check, run as `/kit`: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, environment conflicts, what the hooks blocked or failed on in the last days, and whether a newer kit is available. `/kit update` applies it after asking |
 | `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then `ship.py` merges once every gate holds (own pull request, not a release, no required review, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
 
 ### CLAUDE.md template
@@ -114,7 +114,8 @@ You can safely run the installer again to update. It:
 6. installs serena and registers it in `~/.claude.json`, backing that file up
    first;
 7. records what it installed in `~/.claude/pipelinekit/manifest.json` and runs
-   `scripts/verify.sh`. Later, `/kit` in a session repeats that check.
+   `scripts/verify.sh`. Later, `/kit` in a session repeats that check, and `/kit update`
+   brings in a newer kit after asking.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|

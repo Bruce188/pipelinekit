@@ -302,7 +302,8 @@ fi
 # ---------- manifest ----------
 # What this install consists of; scripts/verify.sh and the /kit command compare
 # the live files and settings against it. Written last so it records the final state.
-CLAUDE_HOME="$CLAUDE_HOME" python3 "$REPO_ROOT/claude/skills/kit/check.py" --write-manifest "$REPO_ROOT"
+CLAUDE_HOME="$CLAUDE_HOME" CLAUDE_INSTALL_SKIP_SERENA="${CLAUDE_INSTALL_SKIP_SERENA:-0}" \
+  python3 "$REPO_ROOT/claude/skills/kit/check.py" --write-manifest "$REPO_ROOT"
 log "manifest: $CLAUDE_HOME/pipelinekit/manifest.json"
 
 # ---------- verify ----------
