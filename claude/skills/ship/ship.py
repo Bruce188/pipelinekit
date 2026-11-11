@@ -179,7 +179,8 @@ TOOL_FILES = wordset(
     "rust-toolchain.toml global.json gemfile pipfile .pre-commit-config.yaml "
     "dependabot.yml renovate.json .mise.toml mise.toml gradle-wrapper.properties "
     "libs.versions.toml directory.packages.props .gitlab-ci.yml "
-    "azure-pipelines.yml .travis.yml"
+    "azure-pipelines.yml .travis.yml packages.config paket.dependencies "
+    "paket.lock deps.edn"
 )
 TOOL_STARTS = (
     "requirements",
@@ -222,7 +223,8 @@ CODE_ENDS = wordset(
 )
 # Source files that are a manifest all the same.
 MANIFEST_CODE = wordset(
-    "setup.py mix.exs build.gradle.kts settings.gradle.kts package.swift conanfile.py"
+    "setup.py mix.exs build.gradle.kts settings.gradle.kts package.swift "
+    "conanfile.py app.config.js app.config.ts app.config.mjs app.config.cjs"
 )
 DOC_ENDS = wordset(".md .markdown .mdx .rst .adoc .txt .html .htm .tex .org")
 NOTES_STEMS = wordset("changelog changes history news releases releasenotes")
@@ -281,18 +283,31 @@ DECLARES = re.compile(
     r"(?:[:?+]?=(?!=)|:(?!:)|\(|>|\s)\s*[\"'\[({]*v?\d",
     re.I,
 )
-# The same at the start of a line of source code, with a quoted number.
+# The same at the start of a line of source code, with a quoted number: an
+# assignment, a key of an object, a struct or a dictionary, a `#define`.
+VERSION_NAME = (
+    r"(?:__version__|(?:(?:app|package|pkg|project)_?)?version"
+    r"(?:_?(?:name|code|string|number))?)"
+)
 CODE_VERSION = re.compile(
-    r"^\s*(?:(?:export|pub|public|private|internal|static|final|const|let|var"
-    r"|val|def|string|int)\s+)*(?:[\w.]+\.|@|\$)?"
-    r"(?:__version__|(?:app_?)?version(?:_?(?:name|code|string|number))?)"
-    r"\s*(?::\s*[\w&' ]+?)?\s*:?=\s*[\"'`]v?\d",
+    r"^\s*(?:"
+    r"(?:(?:export|pub|public|private|protected|internal|static|final|const"
+    r"|constexpr|readonly|override|inline|extern|let|var|val|def|local|our|my"
+    r"|string|std::string|int|char)(?:\s+|\s*\*\s*))*(?:[\w.]+\.|@|\$)?"
+    + VERSION_NAME
+    + r"\s*(?:\[\d*\]\s*)?(?:\{[^{}]*\}\s*)?(?::\s*[\w&' ]+?\s*)?:?=>?"
+    r"|[\"']?" + VERSION_NAME + r"[\"']?\s*(?::|=>)(?=\s*[\"'`]v?\d+\.\d)"
+    r"|#\s*define\s+" + VERSION_NAME + r"(?=\s)"
+    r"|define\(\s*[\"']" + VERSION_NAME + r"[\"']\s*,"
+    r"|@version(?=\s)"
+    r")\s*[\"'`]v?\d",
     re.I,
 )
 # A line that pins something else: a dependency, a plugin, an image, a range.
 DEP_LINE = re.compile(
     r"depend|require|plugin|classpath|implementation|\buses\s*:|\bimage\s*:"
-    r"|^\s*from\s|\brev\s*:|^\s*(?:gem|pod|id)\s|cmake_minimum"
+    r"|^\s*from\s|\brev\s*:|^\s*(?:gem|pod|id)\s|cmake_minimum|bazel_dep"
+    r"|\.package\("
     r"|[\"')]\s+version\s+[\"']|^\s*<\?xml|[=~^<>]=|~>|\w@v?\d"
     r"|[\w.-]+:[\w.-]+:v?\d",
     re.I,

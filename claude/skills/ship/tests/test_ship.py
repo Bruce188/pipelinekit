@@ -1591,6 +1591,7 @@ HELD_FILES = [
         "app/build.gradle",
         'android {\n  defaultConfig {\n    versionName "%s"\n  }\n}\n',
     ),
+    bump("MODULE.bazel", 'module(name = "app", version = "%s")\n'),
 ]
 ORDINARY_FILES = [
     ("pom.xml", POM % ("3.0.0", "1.2.3", "4.13.1"), POM % ("3.0.1", "1.2.3", "4.13.1")),
@@ -1613,6 +1614,23 @@ ORDINARY_FILES = [
     (".readthedocs.yaml", "", "version: 2\nbuild:\n  os: ubuntu-22.04\n"),
     bump("config/app.yaml", "host: %s\nport: 8080\n", "10.0.0.1", "10.0.0.2"),
     bump("config/app.ini", "[server]\nhost = %s\n", "10.0.0.1", "10.0.0.2"),
+    bump(
+        "packages.config",
+        '<packages>\n  <package id="Json" version="%s" targetFramework="net48" />\n'
+        "</packages>\n",
+    ),
+    bump(
+        "MODULE.bazel",
+        'module(name = "app", version = "1.0.0")\n'
+        'bazel_dep(name = "rules_go", version = "%s")\n',
+    ),
+    bump("deps.edn", '{:deps {org.clojure/clojure {:mvn/version "%s"}}}\n'),
+    bump(
+        "Package.swift",
+        "let package = Package(\n  dependencies: [\n"
+        '    .package(url: "https://example.invalid/x.git", from: "%s"),\n  ]\n)\n',
+    ),
+    bump("paket.dependencies", "source https://example.invalid\nnuget Json %s\n"),
 ]
 
 
@@ -1623,6 +1641,58 @@ def test_a_version_of_the_project_is_held_in_any_manifest(path, before, after):
 
 @pytest.mark.parametrize(("path", "before", "after"), ORDINARY_FILES)
 def test_a_version_of_something_else_is_ordinary(path, before, after):
+    assert verdict(path, before, after) == ""
+
+
+HELD_CODE = [
+    bump(
+        "app.config.js",
+        "module.exports = {\n  expo: {\n    version: '%s',\n  },\n};\n",
+    ),
+    bump("app.config.ts", 'export default {\n  name: "demo",\n  version: "%s",\n};\n'),
+    bump(
+        "app.config.js",
+        "export default {\n  android: { versionCode: %s },\n};\n",
+        "7",
+        "8",
+    ),
+    bump("src/meta.ts", 'export const meta = {\n  version: "%s",\n} as const;\n'),
+    bump("meta.js", "module.exports = {\n  'version': '%s',\n};\n"),
+    bump("src/AppInfo.cs", '    public static readonly string Version = "%s";\n'),
+    bump("src/AppInfo.cs", '    public static string Version { get; } = "%s";\n'),
+    bump("src/AppInfo.cs", '    public static string Version => "%s";\n'),
+    bump("src/config.h", '#define APP_VERSION "%s"\n'),
+    bump("src/app.cpp", 'static const std::string VERSION = "%s";\n'),
+    bump("src/app.c", 'static const char *VERSION = "%s";\n'),
+    bump("src/app.ts", 'export class App {\n  static readonly version = "%s";\n}\n'),
+    bump("cmd/root.go", 'var rootCmd = &cobra.Command{\n\tVersion: "%s",\n}\n'),
+    bump("lib/demo.ex", '  @version "%s"\n'),
+    bump("lib/Demo.pm", "our $VERSION = '%s';\n"),
+    bump("demo.lua", 'local VERSION = "%s"\n'),
+    bump("demo.php", "define('APP_VERSION', '%s');\n"),
+    bump("config/app.php", "return [\n    'version' => '%s',\n];\n"),
+    bump("src/x/__init__.py", '__version__ = "%s"\n'),
+]
+ORDINARY_CODE = [
+    bump("src/client.ts", 'const options = {\n  apiVersion: "%s",\n};\n'),
+    bump("src/app.js", 'version === "%s" ? migrate() : start();\n'),
+    bump("src/config.h", '#define PYTHON_VERSION "%s"\n'),
+    bump("src/app.ts", 'const format = {\n  version: "%s",\n};\n', "1", "2"),
+    bump("src/app.py", '    print("version: %s")\n'),
+    bump("tests/meta.js", "module.exports = {\n  version: '%s',\n};\n"),
+    bump("src/app.js", "  // version: '%s' was the last one with the old login\n"),
+]
+
+
+@pytest.mark.parametrize(("path", "before", "after"), HELD_CODE)
+def test_a_version_set_in_source_code_is_held(path, before, after):
+    assert verdict(path, before, after) == (
+        f"the diff sets a version in {path}: a new version is a release"
+    )
+
+
+@pytest.mark.parametrize(("path", "before", "after"), ORDINARY_CODE)
+def test_source_code_that_only_names_a_version_is_ordinary(path, before, after):
     assert verdict(path, before, after) == ""
 
 
