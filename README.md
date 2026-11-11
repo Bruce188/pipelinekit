@@ -101,7 +101,9 @@ bash scripts/install.sh            # add --no-serena to skip serena, --git-hooks
 You can safely run the installer again to update. It:
 
 1. copies the hooks, git hooks, skills and `config/never-stage.txt` into
-   `~/.claude`, overwriting them in place without moving the directory;
+   `~/.claude`, overwriting them in place without moving the directory. A copy
+   of your own under `~/.claude/skills/frontend-design` that differs from the
+   kit's is moved to `~/.claude/pipelinekit/backup/` once;
 2. removes skills, hooks and the agent that earlier 0.1.0 builds installed
    (`commit-conventions`, `security-conventions`, `expo`, `ios`, the old guard
    hooks, `agents/docs-writer.md`), but only if they are unmodified kit copies;
