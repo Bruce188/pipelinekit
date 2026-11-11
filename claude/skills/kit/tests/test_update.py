@@ -159,6 +159,9 @@ def kit(template):
     return Kit(template)
 
 
+BY_HAND = "By hand: bash {work}/scripts/install.sh --git-hooks --no-serena"
+
+
 def bump_version(clone):
     (clone / "VERSION").write_text("9.9.9\n")
 
@@ -357,10 +360,48 @@ def test_an_install_that_went_in_but_fails_its_check_is_not_called_not_updated(k
     rc, out, last = kit.update("apply", "--to", new)
     assert rc == 1, out
     assert kit.manifest()["commit"] == new
-    assert "The installer replaced the files and then ended with exit 1." in out
     assert re.fullmatch(
-        rf"Updated {old[:7]} -> {new[:7]}\. Self-check: \d+ problems?, run /kit\.", last
+        rf"Partly updated {old[:7]} -> {new[:7]}: the installer failed \(exit 1\) "
+        r"after it had replaced the files; its command is on the By hand line\. "
+        r"Self-check: \d+ problems?, run /kit\.",
+        last,
     ), last
+    assert BY_HAND.format(work=kit.work) in out.splitlines()
+
+
+def test_an_installer_that_fails_after_its_work_is_not_called_a_clean_update(kit):
+    def fail_late(clone):
+        scripts = clone / "scripts"
+        (scripts / "install.sh").rename(scripts / "install-real.sh")
+        (scripts / "install.sh").write_text(
+            '#!/bin/bash\nbash "$(dirname "$0")/install-real.sh" "$@"\nexit 7\n'
+        )
+
+    old = kit.head()
+    new = kit.push("feat: an installer that fails at its end", fail_late)
+    rc, out, last = kit.update("apply", "--to", new)
+    assert rc == 1, out
+    assert kit.manifest()["commit"] == new
+    assert last == (
+        f"Partly updated {old[:7]} -> {new[:7]}: the installer failed (exit 7) "
+        "after it had replaced the files; its command is on the By hand line. "
+        "Self-check: healthy."
+    )
+    assert BY_HAND.format(work=kit.work) in out.splitlines()
+
+
+def test_a_warning_in_the_new_install_is_not_called_healthy(kit):
+    path = kit.home / "settings.json"
+    settings = json.loads(path.read_text())
+    settings["sandbox"] = {"enabled": True}
+    path.write_text(json.dumps(settings, indent=2))
+    old = kit.head()
+    new = kit.push("feat: version nine", bump_version)
+    rc, out, last = kit.update("apply", "--to", new)
+    assert rc == 0, out
+    assert last == (
+        f"Updated {old[:7]} -> {new[:7]}. Self-check: working, 1 warning, run /kit."
+    )
 
 
 def test_failed_installer_is_reported(kit):
@@ -370,14 +411,18 @@ def test_failed_installer_is_reported(kit):
     new = kit.push("feat: broken installer", break_installer)
     rc, out, last = kit.update("apply", "--to", new)
     assert rc == 1, out
-    assert last.startswith(
-        f"Not updated: the checkout is at {new[:7]} but the installer failed (exit 7)"
+    assert last == (
+        f"Not updated: the checkout is at {new[:7]} but the installer failed "
+        "(exit 7) and may have replaced some files; its command is on the By "
+        "hand line."
     )
-    # The command to run by hand keeps what was chosen at install time.
-    assert last.endswith(f"bash {kit.work}/scripts/install.sh --git-hooks --no-serena.")
+    # The command keeps what was chosen at install time and pastes as it is.
+    assert BY_HAND.format(work=kit.work) in out.splitlines()
 
 
-@pytest.mark.parametrize("to", ["", "abc", "main", "g" * 40, "--help-me"])
+@pytest.mark.parametrize(
+    "to", ["", "abc", "main", "g" * 40, "--help-me", "a" * 39, "a" * 41, "a" * 63]
+)
 def test_apply_wants_a_full_commit_id(kit, to):
     rc, out, _ = kit.update("apply", f"--to={to}")
     assert rc == 2 and "full commit id" in out, out
