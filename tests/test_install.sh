@@ -130,7 +130,8 @@ grep -qxF "[install] removed the link agents/kit-builder.md (its target is untou
 set -- "$CLAUDE_HOME"/pipelinekit/backup/*
 [ "$#" -eq 1 ]                                            # the own judge only, not the link
 [ -f "$1" ]
-[[ "${1##*/}" =~ ^agents-kit-judge\.md-[0-9]{8}-[0-9]{6}$ ]]
+[[ "${1##*/}" =~ ^agents-kit-judge\.md-[0-9]{8}-[0-9]{6}$ ]] ||
+  { echo "test_install: unexpected backup name ${1##*/}" >&2; exit 1; }
 [ "$(cat "$1")" = "my own judge" ]
 grep -qxF "[install] kept your own kit-judge.md in $1" "$T/install1.out"
 if grep -qF 'kept your own' "$T/install2.out"; then
@@ -201,7 +202,8 @@ fd_install
 fd_is_kit
 [ "$(fd_backups)" -eq 1 ]
 B=("$FH"/.claude/pipelinekit/backup/*)
-[[ "${B[0]##*/}" =~ ^skills-frontend-design-[0-9]{8}T[0-9]{6}Z$ ]]
+[[ "${B[0]##*/}" =~ ^skills-frontend-design-[0-9]{8}T[0-9]{6}Z$ ]] ||
+  { echo "test_install: unexpected backup name ${B[0]##*/}" >&2; exit 1; }
 grep -qx "my own design notes" "${B[0]}/SKILL.md"
 grep -qxF "[install] kept your own frontend-design skill in ${B[0]}" "$FH/out"
 fd_install
@@ -351,6 +353,18 @@ for c in k l; do
   fi
   cmp "$REPO_ROOT/claude/agents/kit-judge.md" "$FH/.claude/agents/kit-judge.md"
 done
+# Home k again: the manifest lists kit-builder.md, which is now a hard link to a
+# file outside the home. The install replaces the link and never writes through it.
+FH="$T/fd-k"
+echo outside >"$T/hl-outside.md"
+rm "$FH/.claude/agents/kit-builder.md"
+ln "$T/hl-outside.md" "$FH/.claude/agents/kit-builder.md"
+fd_install || { echo "test_install: install failed with a hard-linked agent" >&2; cat "$FH/out" >&2; exit 1; }
+if [ "$(cat "$T/hl-outside.md")" != "outside" ]; then
+  echo "test_install: the install wrote through a hard link to a file outside" >&2; exit 1
+fi
+cmp "$REPO_ROOT/claude/agents/kit-builder.md" "$FH/.claude/agents/kit-builder.md"
+[ "$(fd_backups)" -eq 0 ]
 
 # (m) A file where the backup folder goes and a user's own kit-judge.md: the
 # installer stops with one line of its own and leaves the file as it was.
@@ -389,4 +403,18 @@ test -f "$FH/.claude/agents/kit-planner.md"
 cmp "$REPO_ROOT/claude/agents/kit-planner.md" "$FH/.claude/agents/kit-planner.md"
 [ "$(grep -c 'kept your own' "$FH/out")" -eq 1 ]
 grep -qxF "[install] kept your own kit-planner.md in ${B[0]}" "$FH/out"
+python3 - "$FH/.claude/pipelinekit/manifest.json" <<'PY'
+import json, sys
+assert "agents/kit-planner.md" in json.load(open(sys.argv[1]))["files"], "manifest misses the agent"
+PY
+# The same folder again, now that the manifest lists the agent: still a backup.
+rm -rf "$FH/.claude/pipelinekit/backup" "$FH/.claude/agents/kit-planner.md"
+mkdir "$FH/.claude/agents/kit-planner.md"
+echo "inside again" >"$FH/.claude/agents/kit-planner.md/note.txt"
+fd_install || { echo "test_install: install failed with a folder in place of a listed agent" >&2; cat "$FH/out" >&2; exit 1; }
+[ "$(fd_backups)" -eq 1 ]
+B=("$FH"/.claude/pipelinekit/backup/agents-kit-planner.md-*)
+test -d "${B[0]}"
+[ "$(cat "${B[0]}/note.txt")" = "inside again" ]
+cmp "$REPO_ROOT/claude/agents/kit-planner.md" "$FH/.claude/agents/kit-planner.md"
 echo "test_install: PASS"
