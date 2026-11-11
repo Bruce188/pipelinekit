@@ -22,7 +22,7 @@ TS="$(date +%Y%m%d-%H%M%S)"
 # Keep in sync with .mcp.json / .mcp.json.template.
 SERENA_REF="${SERENA_REF:-9b292a6c8b03c8306f117efeabb0ea7afdb0b3c0}"
 
-KIT_SKILLS=(dotnet-conventions deploy exchange-api-keys docs-writer mobile kit ship)
+KIT_SKILLS=(dotnet-conventions deploy exchange-api-keys docs-writer frontend-design mobile kit ship)
 # Shipped by earlier versions. Removed on upgrade only if unmodified (see kit_file).
 RETIRED_SKILLS=(commit-conventions security-conventions expo ios)
 RETIRED_HOOKS=(block-dangerous-commands.sh block-push-main.sh block-stage-sensitive.sh env-scrub.py
@@ -84,6 +84,29 @@ find "$REPO_ROOT/claude/hooks" -maxdepth 1 -type f \( -name '*.sh' -o -name '*.p
 chmod +x "$CLAUDE_HOME"/hooks/*.sh "$CLAUDE_HOME"/hooks/*.py
 cp -p "$REPO_ROOT"/claude/git-hooks/* "$CLAUDE_HOME/git-hooks/"
 chmod +x "$CLAUDE_HOME"/git-hooks/*
+# frontend-design is a public skill name, so a user may already have a folder of
+# that name; the kit owns it from now on. A link is removed (never followed); a
+# folder the kit did not install and that differs from the kit's is moved to a
+# backup once, and so is anything else of that name (a file is never the kit's).
+# A missing or damaged manifest counts as "not installed by the kit".
+FD="$CLAUDE_HOME/skills/frontend-design"
+listed=0
+if python3 -c 'import json,sys; m=json.load(open(sys.argv[1])); s=m.get("skills"); sys.exit(0 if isinstance(s,list) and "frontend-design" in s else 1)' "$CLAUDE_HOME/pipelinekit/manifest.json" 2>/dev/null; then
+  listed=1
+fi
+if [[ -L "$FD" ]]; then
+  target="$(readlink "$FD" || true)"
+  rm -f "$FD"
+  log "removed the link skills/frontend-design -> $target"
+elif [[ -e "$FD" ]] && { [[ ! -d "$FD" ]] || { [[ "$listed" == 0 ]] &&
+  ! diff -rq "$FD" "$REPO_ROOT/claude/skills/frontend-design" >/dev/null 2>&1; }; }; then
+  FD_BACKUPS="$CLAUDE_HOME/pipelinekit/backup"
+  FD_BACKUP="$FD_BACKUPS/skills-frontend-design-$(date -u +%Y%m%dT%H%M%SZ)"
+  # A read-only folder or a file named backup: one line of ours, not mkdir's or mv's.
+  { mkdir -p "$FD_BACKUPS" && mv "$FD" "$FD_BACKUP"; } 2>/dev/null ||
+    die "could not move your own skills/frontend-design to $FD_BACKUPS. It is untouched and the skills were not installed. Move or rename it yourself, then run the installer again."
+  log "kept your own frontend-design skill in $FD_BACKUP"
+fi
 for s in "${KIT_SKILLS[@]}"; do
   rm -rf "${CLAUDE_HOME:?}/skills/$s"
   cp -R "$REPO_ROOT/claude/skills/$s" "$CLAUDE_HOME/skills/$s"

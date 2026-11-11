@@ -15,10 +15,10 @@ Arguments given with the command: `$ARGUMENTS`. If the first word is `update`, f
 
 ## How to answer
 
-1. Lead with the `Result:` line. If it says healthy, say so in one sentence and stop.
+1. Lead with the `Result:` line. If it says healthy, say so in one sentence, add what the two exceptions of step 4 call for when those lines are there (`update available`: a newer kit is there and `/kit update` applies it; a `frontend-design` plugin: both copies are loaded and how to keep one), and stop.
 2. List every `[fail]` first, in plain words: what is broken and what that means for the user (for example "pushes to main are no longer refused").
 3. Then the `[warn]` lines. A file that changed since install is only a problem if the user did not edit it.
-4. Mention `[info]` lines only when they explain a problem. One exception: for `update available`, say in one sentence that a newer kit is there and that `/kit update` applies it.
+4. Mention `[info]` lines only when they explain a problem. Two exceptions: for `update available`, say in one sentence that a newer kit is there and that `/kit update` applies it; and always mention the line about a `frontend-design` plugin.
 5. In the Activity section a `[warn]` is a hook that failed while it ran: name the hook and the rule id. Blocks, asks and overrides are the kit doing its job; go through them only when the user asks what was refused, or when one explains a problem. The id at the start of a line (`git.no-verify`) is the one a refusal printed in square brackets; the components page of the kit's documentation lists every id.
 6. Give the repair command from the `Repair:` or `fix:` line. Do not run it, and do not edit the Claude config directory yourself: the installer is the repair path and the user runs it. `/kit update` is the one case where you start the installer, and only after the user said yes.
 7. When there is a real choice (repair now, or keep an edited file), ask it as an interactive question: two to four options, each with its upside and downside, the recommended one first.
@@ -68,7 +68,7 @@ Never pass a commit id that did not come from the plan you just ran, and never a
 | Install | hooks, git hooks and skills are present and executable; `settings.json` resolves; global `core.hooksPath` |
 | Changes since install | files against the hashes in the install manifest; the kit's hook entries and deny/ask rules in `settings.json` |
 | Live probe | every hook gets input it must block and input it must allow |
-| Environment | python3, Claude Code and gitleaks versions; whether `gh` and Playwright are available; WSL; a repository with its own `core.hooksPath`; a Bash sandbox that denies `gh` its own login file |
+| Environment | python3, Claude Code and gitleaks versions; whether `gh` and Playwright are available; WSL; a repository with its own `core.hooksPath`; a Bash sandbox that denies `gh` its own login file; a `frontend-design` plugin enabled next to the kit's copy |
 | Updates | whether the remote of the checkout has commits this install lacks: up to date, update available, or not checked. Never a problem by itself |
 | Activity | what the hooks blocked, asked about, let through on an override or failed on in the last 7 days, per rule, from their event log (`~/.local/state/pipelinekit/events.jsonl`). The log holds rule ids and reasons, never the command |
 

@@ -4,7 +4,8 @@
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 T="$(mktemp -d)"
-trap 'rm -rf "$T"' EXIT
+# A case that stops while a folder is read-only still leaves nothing behind.
+trap 'chmod -R u+w "$T" 2>/dev/null; rm -rf "$T"' EXIT
 export HOME="$T" CLAUDE_HOME="$T/.claude" USER_NAME="Test User" USER_EMAIL="test@example.com"
 # Keep git's global config inside $T no matter what the caller's env says.
 export GIT_CONFIG_GLOBAL="$T/.gitconfig" XDG_CONFIG_HOME="$T/.config" GIT_CONFIG_NOSYSTEM=1
@@ -52,7 +53,8 @@ fi
 test ! -e "$T/win"
 
 bash "$REPO_ROOT/scripts/install.sh" --no-serena >/dev/null 2>&1
-bash "$REPO_ROOT/scripts/install.sh" --no-serena >/dev/null 2>&1
+out="$(bash "$REPO_ROOT/scripts/install.sh" --no-serena 2>&1)"
+grep -qF '[install] copied 8 skills' <<<"$out"
 
 python3 - "$CLAUDE_HOME/settings.json" "$REPO_ROOT/claude/config/settings.template.json" <<'PY'
 import json, sys
@@ -82,11 +84,15 @@ PY
 grep -q 'Test User <test@example.com>' "$CLAUDE_HOME/CLAUDE.md"
 ls "$CLAUDE_HOME"/settings.json.bak-* >/dev/null
 test -f "$CLAUDE_HOME/projects/keep/f"
-for s in dotnet-conventions deploy exchange-api-keys docs-writer mobile kit ship; do
+for s in dotnet-conventions deploy exchange-api-keys docs-writer frontend-design mobile kit ship; do
   test -f "$CLAUDE_HOME/skills/$s/SKILL.md"
 done
 test -x "$CLAUDE_HOME/skills/ship/ship.py"
+for f in SKILL.md LICENSE.txt SOURCE.md; do
+  cmp "$REPO_ROOT/claude/skills/frontend-design/$f" "$CLAUDE_HOME/skills/frontend-design/$f"
+done
 grep -q 'Merges: ask first' "$CLAUDE_HOME/CLAUDE.md"
+grep -qx '## Design' "$CLAUDE_HOME/CLAUDE.md"
 # The helper starts from its installed place and says why it cannot go on.
 (cd "$T" && python3 "$CLAUDE_HOME/skills/ship/ship.py" status --exit-zero | grep -q 'not inside a git repository')
 test ! -e "$CLAUDE_HOME/skills/commit-conventions"
@@ -121,4 +127,150 @@ if CLAUDE_HOME="$CLAUDE_HOME" bash "$REPO_ROOT/scripts/verify.sh" >/dev/null 2>&
 fi
 # The session-start check names /kit once a hook is broken.
 echo '{}' | "$CLAUDE_HOME/hooks/session-check.py" | grep -q 'Run /kit for the report'
+
+# frontend-design: a folder of that name that the kit did not install. Each case
+# runs in its own throwaway home below $T.
+KIT_FD="$REPO_ROOT/claude/skills/frontend-design"
+fd_home() { # fd_home <case>: a fresh home in $FH
+  FH="$T/fd-$1"
+  mkdir -p "$FH/.claude/skills"
+}
+fd_install() { # output in $FH/out
+  HOME="$FH" CLAUDE_HOME="$FH/.claude" GIT_CONFIG_GLOBAL="$FH/.gitconfig" \
+    XDG_CONFIG_HOME="$FH/.config" PIPELINEKIT_STATE_DIR="$FH/state" PIPELINEKIT_GIT_HOOKS=0 \
+    bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$FH/out" 2>&1
+}
+fd_backups() {
+  local d="$FH/.claude/pipelinekit/backup"
+  if [[ -d "$d" ]]; then find "$d" -mindepth 1 -maxdepth 1 | wc -l; else echo 0; fi
+}
+fd_is_kit() { diff -r "$KIT_FD" "$FH/.claude/skills/frontend-design" >/dev/null; }
+
+# (a) A hand-made skill before the first install: moved to a backup once.
+fd_home a
+mkdir "$FH/.claude/skills/frontend-design"
+echo "my own design notes" >"$FH/.claude/skills/frontend-design/SKILL.md"
+fd_install
+fd_is_kit
+[ "$(fd_backups)" -eq 1 ]
+B=("$FH"/.claude/pipelinekit/backup/*)
+[[ "${B[0]##*/}" =~ ^skills-frontend-design-[0-9]{8}T[0-9]{6}Z$ ]]
+grep -qx "my own design notes" "${B[0]}/SKILL.md"
+grep -qxF "[install] kept your own frontend-design skill in ${B[0]}" "$FH/out"
+fd_install
+[ "$(fd_backups)" -eq 1 ]
+if grep -qF 'kept your own' "$FH/out"; then
+  echo "test_install: a second install backed up the kit's own copy" >&2; exit 1
+fi
+
+# (b) The kit's own copy, edited after the install: replaced, no backup.
+fd_home b
+fd_install
+echo "my edit" >>"$FH/.claude/skills/frontend-design/SKILL.md"
+fd_install
+[ "$(fd_backups)" -eq 0 ]
+fd_is_kit
+
+# (c) A byte-identical copy and no manifest: replaced, no backup.
+fd_home c
+cp -R "$KIT_FD" "$FH/.claude/skills/frontend-design"
+fd_install
+[ "$(fd_backups)" -eq 0 ]
+fd_is_kit
+
+# (d) A link to a folder outside the home: only the link goes.
+fd_home d
+mkdir "$T/fd-outside"
+echo "theirs" >"$T/fd-outside/SKILL.md"
+ln -s "$T/fd-outside" "$FH/.claude/skills/frontend-design"
+fd_install
+test ! -L "$FH/.claude/skills/frontend-design"
+fd_is_kit
+[ "$(ls -A "$T/fd-outside")" = "SKILL.md" ]
+[ "$(cat "$T/fd-outside/SKILL.md")" = "theirs" ]
+[ "$(fd_backups)" -eq 0 ]
+grep -qxF "[install] removed the link skills/frontend-design -> $T/fd-outside" "$FH/out"
+
+# (e) A hand-made folder and a manifest that is not JSON: backed up, install ends well.
+fd_home e
+mkdir -p "$FH/.claude/skills/frontend-design" "$FH/.claude/pipelinekit"
+echo "mine" >"$FH/.claude/skills/frontend-design/SKILL.md"
+echo "{not json" >"$FH/.claude/pipelinekit/manifest.json"
+fd_install || { echo "test_install: install failed with a damaged manifest" >&2; cat "$FH/out" >&2; exit 1; }
+[ "$(fd_backups)" -eq 1 ]
+B=("$FH"/.claude/pipelinekit/backup/*)
+grep -qx "mine" "${B[0]}/SKILL.md"
+fd_is_kit
+
+# (f) A hand-made folder and a manifest whose skills entry is not a list: backed up.
+fd_home f
+mkdir -p "$FH/.claude/skills/frontend-design" "$FH/.claude/pipelinekit"
+echo "mine as well" >"$FH/.claude/skills/frontend-design/SKILL.md"
+echo '{"skills": "frontend-design"}' >"$FH/.claude/pipelinekit/manifest.json"
+fd_install || { echo "test_install: install failed with a misshapen manifest" >&2; cat "$FH/out" >&2; exit 1; }
+[ "$(fd_backups)" -eq 1 ]
+B=("$FH"/.claude/pipelinekit/backup/*)
+grep -qx "mine as well" "${B[0]}/SKILL.md"
+fd_is_kit
+
+# (g) A file of that name: moved to a backup, also once the manifest lists the skill.
+fd_home g
+echo "a file, not a skill" >"$FH/.claude/skills/frontend-design"
+fd_install || { echo "test_install: install failed with a file in place of the skill" >&2; cat "$FH/out" >&2; exit 1; }
+[ "$(fd_backups)" -eq 1 ]
+B=("$FH"/.claude/pipelinekit/backup/*)
+test -f "${B[0]}"
+grep -qx "a file, not a skill" "${B[0]}"
+grep -qxF "[install] kept your own frontend-design skill in ${B[0]}" "$FH/out"
+test -d "$FH/.claude/skills/frontend-design"
+fd_is_kit
+python3 - "$FH/.claude/pipelinekit/manifest.json" <<'PY'
+import json, sys
+assert "frontend-design" in json.load(open(sys.argv[1]))["skills"], "manifest misses the skill"
+PY
+rm -rf "$FH/.claude/pipelinekit/backup" "$FH/.claude/skills/frontend-design"
+echo "a second file" >"$FH/.claude/skills/frontend-design"
+fd_install
+[ "$(fd_backups)" -eq 1 ]
+B=("$FH"/.claude/pipelinekit/backup/*)
+grep -qx "a second file" "${B[0]}"
+fd_is_kit
+# (h), (i): the own folder cannot be moved. The installer stops with one line of
+# its own, without mkdir's or mv's text, and leaves the folder as it was.
+fd_cannot_move() { # fd_cannot_move <tool whose text must not show>
+  local own="$FH/.claude/skills/frontend-design" rc=0
+  HOME="$FH" CLAUDE_HOME="$FH/.claude" GIT_CONFIG_GLOBAL="$FH/.gitconfig" \
+    XDG_CONFIG_HOME="$FH/.config" PIPELINEKIT_STATE_DIR="$FH/state" PIPELINEKIT_GIT_HOOKS=0 \
+    bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$FH/out" 2>"$FH/err" || rc=$?
+  if [ "$rc" -eq 0 ]; then
+    echo "test_install: install went on with an own folder it could not move" >&2; exit 1
+  fi
+  if ! grep -qxF "[install][error] could not move your own skills/frontend-design to $FH/.claude/pipelinekit/backup. It is untouched and the skills were not installed. Move or rename it yourself, then run the installer again." "$FH/err"; then
+    echo "test_install: no line saying the own folder could not be moved" >&2; cat "$FH/err" >&2; exit 1
+  fi
+  if grep -qF "$1:" "$FH/err"; then
+    echo "test_install: the raw $1 error was shown" >&2; cat "$FH/err" >&2; exit 1
+  fi
+  if [ "$(ls -A "$own")" != "SKILL.md" ] || [ "$(cat "$own/SKILL.md")" != "my own, kept" ]; then
+    echo "test_install: the own folder changed" >&2; exit 1
+  fi
+}
+
+# (h) The own folder and skills/ are read-only. Root is not stopped by the mode.
+if [ "$(id -u)" -ne 0 ]; then
+  fd_home h
+  mkdir "$FH/.claude/skills/frontend-design"
+  echo "my own, kept" >"$FH/.claude/skills/frontend-design/SKILL.md"
+  chmod 555 "$FH/.claude/skills/frontend-design" "$FH/.claude/skills"
+  fd_cannot_move mv
+  chmod 755 "$FH/.claude/skills/frontend-design" "$FH/.claude/skills"
+fi
+
+# (i) A file where the backup folder goes.
+fd_home i
+mkdir -p "$FH/.claude/skills/frontend-design" "$FH/.claude/pipelinekit"
+echo "my own, kept" >"$FH/.claude/skills/frontend-design/SKILL.md"
+echo "not a folder" >"$FH/.claude/pipelinekit/backup"
+fd_cannot_move mkdir
+test -f "$FH/.claude/pipelinekit/backup"
 echo "test_install: PASS"

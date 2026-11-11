@@ -677,9 +677,11 @@ footer {
    "chips": [{"label": "commit-msg", "tip": "Conventional commits, no attribution or emoji"},
              {"label": "pre-commit", "tip": "gitleaks on staged changes"},
              {"label": "pre-push", "tip": "No pushes to main or master"}]},
-  {"name": "Skills", "color": "#10b981", "count": "7 skills",
+  {"name": "Skills", "color": "#10b981", "count": "8 skills",
    "chips": [{"label": "dotnet-conventions"}, {"label": "deploy"}, {"label": "exchange-api-keys"},
-             {"label": "docs-writer"}, {"label": "mobile"},
+             {"label": "docs-writer"},
+             {"label": "frontend-design", "tip": "Visual design guidance, from anthropics/skills (Apache-2.0)"},
+             {"label": "mobile"},
              {"label": "kit", "tip": "Self-check, run as /kit"},
              {"label": "ship", "tip": "Test, fix and merge your own pull request"}]},
   {"name": "MCP", "color": "#8b5cf6",
@@ -1214,6 +1216,10 @@ footer {
 <td>Render <code>docs-source/*.md</code> into self-contained HTML pages under <code>documentation/</code> with <code>render.py</code> and <code>template.html</code>, with optional data-driven interactive snippets</td>
 </tr>
 <tr>
+<td><code>frontend-design</code></td>
+<td>Visual design guidance: aesthetic direction, typography, layout and copy, loaded before building or reshaping anything a person looks at (app or site UI, HTML pages and Artifacts, <code>docs-writer</code> snippets, charts and dashboards). Vendored unchanged from <a href="https://github.com/anthropics/skills"><code>anthropics/skills</code></a> (<code>skills/frontend-design</code> at a pinned commit) under the Apache License 2.0; <code>SOURCE.md</code> in its folder records the commit, the checksums and how to move to a newer one. The rest of the kit is MIT</td>
+</tr>
+<tr>
 <td><code>mobile</code></td>
 <td>Android (Kotlin/Compose) builds and device access from WSL2, iPhone home-screen web apps, Expo/EAS cloud builds for iOS, release and security checklist</td>
 </tr>
@@ -1252,7 +1258,7 @@ footer {
 </tr>
 <tr>
 <td>Environment</td>
-<td>python3, Claude Code and gitleaks versions; whether <code>gh</code> and Playwright are available; WSL; a repository that sets its own <code>core.hooksPath</code>; a Bash sandbox that keeps <code>gh</code> from reading its own login file</td>
+<td>python3, Claude Code and gitleaks versions; whether <code>gh</code> and Playwright are available; WSL; a repository that sets its own <code>core.hooksPath</code>; a Bash sandbox that keeps <code>gh</code> from reading its own login file; a <code>frontend-design</code> plugin enabled next to the kit's copy, as an <code>[info]</code> line that says how to keep one. Only the user-level <code>settings.json</code> is read, so a plugin enabled in one project's settings is not reported</td>
 </tr>
 <tr>
 <td>Updates</td>
@@ -1387,7 +1393,7 @@ python3<span class="w"> </span>~/.claude/skills/ship/ship.py<span class="w"> </s
 
 <p>Exit code 0 means done, 1 means a gate or a check failed, 2 means the helper could not run, 3 means stop and ask.</p>
 <h2 id="claude-md-template">CLAUDE.md template</h2>
-<p><code>claude/CLAUDE.md.template</code> is about 60 lines of English with no imported rule files. The installer fills in <code>${USER_NAME}</code>, <code>${USER_EMAIL}</code> and <code>${CLAUDE_HOME}</code> and writes the result to <code>~/.claude/CLAUDE.md</code>. It covers:</p>
+<p><code>claude/CLAUDE.md.template</code> is 67 lines of English with no imported rule files. The installer fills in <code>${USER_NAME}</code>, <code>${USER_EMAIL}</code> and <code>${CLAUDE_HOME}</code> and writes the result to <code>~/.claude/CLAUDE.md</code>. It covers:</p>
 <ul>
 <li>your identity;</li>
 <li>git rules: commit only when asked, conventional commits, no AI attribution, no workflow jargon in commit text, the never-stage list, <code>.git/info/exclude</code> for Claude-specific ignores, and no direct pushes to <code>main</code>;</li>
@@ -1395,6 +1401,7 @@ python3<span class="w"> </span>~/.claude/skills/ship/ship.py<span class="w"> </s
 <li>a base-branch detection snippet;</li>
 <li>serena for symbol navigation, Grep/Glob for text;</li>
 <li>decisions that are yours to make, asked as interactive questions: two to four options, each with its upside and downside, the recommended one first;</li>
+<li>design: load <code>frontend-design</code> before building or reshaping anything a person looks at; the project's own design system or brand comes first, then the host's rules for the output, then the skill; the <code>dataviz</code> skill, when the session has it, decides chart form; <code>docs-writer</code> pages keep the template's CSS variables; skip it for work with no visual output and for small fixes inside an existing design;</li>
 <li>GitHub habits with <code>gh</code>: issues with acceptance criteria before work, <code>&lt;type&gt;/&lt;issue#&gt;-&lt;slug&gt;</code> branches, draft PRs, finishing its own PRs with the <code>ship</code> skill, reading CI logs, releases when you ask;</li>
 <li>the deploy CLIs.</li>
 </ul>

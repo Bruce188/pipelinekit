@@ -60,17 +60,21 @@ off. Every rule id is in
 | `deploy` | Router for Vercel, Railway, Render, DigitalOcean App Platform and Azure (Container Apps, App Service): auth check, deploy, secrets without argv, verify, logs, rollback, and trading-bot overlap. Per-provider detail in `references/` |
 | `exchange-api-keys` | Exchange API keys for CryptoBargain and FundingRateArb: where they load from, never logging them, testnet vs mainnet, withdrawal-disabled and IP-restricted scopes, storage, rotation, leak runbook |
 | `docs-writer` | Render `docs-source/*.md` into self-contained HTML pages under `documentation/`, with optional data-driven interactive snippets |
+| `frontend-design` | Visual design guidance, loaded before building or reshaping anything a person looks at: app or site UI, HTML pages and Artifacts, `docs-writer` snippets, charts and dashboards. From [`anthropics/skills`](https://github.com/anthropics/skills), unchanged, under Apache-2.0 (see its `SOURCE.md`) |
 | `mobile` | Android (Kotlin/Compose) builds and device access from WSL2, iPhone home-screen web apps, Expo/EAS cloud builds for iOS, release and security checklist |
 | `kit` | Self-check, run as `/kit`: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, environment conflicts, what the hooks blocked or failed on in the last days, and whether a newer kit is available. `/kit update` applies it after asking |
 | `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then `ship.py` merges once every gate holds (own pull request, not a release, no required review, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
 
 ### CLAUDE.md template
 
-`claude/CLAUDE.md.template` is about 60 lines long. It covers your identity,
+`claude/CLAUDE.md.template` is 67 lines long. It covers your identity,
 git rules (conventional commits, no AI attribution, never-stage list, no
 direct pushes to `main`), the `docs/` and `documentation/` split, base-branch
-detection, serena vs Grep, GitHub issue/PR habits with `gh` (Claude tests and
-merges the pull requests it opens; releases stay yours), and the deploy CLIs.
+detection, serena vs Grep, a design rule (load `frontend-design` before visual
+work; a project's own design system and the host's rules for the output come
+first; skip it for small fixes inside an existing design), GitHub issue/PR
+habits with `gh` (Claude tests and merges the pull requests it opens; releases
+stay yours), and the deploy CLIs.
 The installer renders it to `~/.claude/CLAUDE.md`.
 
 ### MCP servers
@@ -97,7 +101,9 @@ bash scripts/install.sh            # add --no-serena to skip serena, --git-hooks
 You can safely run the installer again to update. It:
 
 1. copies the hooks, git hooks, skills and `config/never-stage.txt` into
-   `~/.claude`, overwriting them in place without moving the directory;
+   `~/.claude`, overwriting them in place without moving the directory. A copy
+   of your own under `~/.claude/skills/frontend-design` that differs from the
+   kit's is moved to `~/.claude/pipelinekit/backup/` once;
 2. removes skills, hooks and the agent that earlier 0.1.0 builds installed
    (`commit-conventions`, `security-conventions`, `expo`, `ios`, the old guard
    hooks, `agents/docs-writer.md`), but only if they are unmodified kit copies;
@@ -249,3 +255,7 @@ bash claude/skills/docs-writer/tests/test_richness_threshold.sh
 ## License
 
 MIT, see [LICENSE](LICENSE).
+
+### Third-party
+
+The files under `claude/skills/frontend-design/` other than `SOURCE.md` are Anthropic's, unchanged, under the Apache License 2.0 (`LICENSE.txt` in that folder). The MIT licence covers the rest.

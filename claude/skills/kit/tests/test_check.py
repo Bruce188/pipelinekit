@@ -208,6 +208,21 @@ def test_edited_skill_file_is_only_a_warning(kit):
     assert "Result: working, 1 warning" in out
 
 
+def test_removed_frontend_design_skill_file(kit):
+    (kit["home"] / "skills" / "frontend-design" / "SKILL.md").unlink()
+    rc, out = check(kit)
+    assert rc == 1
+    assert "[fail] skill missing: frontend-design" in out
+
+
+def test_edited_frontend_design_is_only_a_warning(kit):
+    with open(kit["home"] / "skills" / "frontend-design" / "SKILL.md", "a") as f:
+        f.write("\nmy own note\n")
+    rc, out = check(kit)
+    assert rc == 0, out
+    assert "[warn] changed since install: skills/frontend-design/SKILL.md" in out
+
+
 def test_missing_manifest(kit):
     (kit["home"] / "pipelinekit" / "manifest.json").unlink()
     rc, out = check(kit)
@@ -497,6 +512,128 @@ def test_environment_covers_what_the_ship_skill_needs(kit):
     assert re.search(r"\[pass\] playwright: \S|\[info\] playwright not installed", out)
     rc, out = check(kit, "--verbose", "--quick")
     assert rc == 0 and "playwright" not in out
+
+
+PLUGIN_LINE = "frontend-design is also enabled"
+
+
+def plugin_lines(out):
+    return [ln for ln in out.splitlines() if PLUGIN_LINE in ln]
+
+
+def enable_plugins(kit, plugins):
+    edit_json(kit, "settings.json", lambda d: d.update(enabledPlugins=plugins))
+
+
+def test_duplicate_frontend_design_plugin_is_one_info_line(kit):
+    key = "frontend-design@claude-plugins-official"
+    enable_plugins(kit, {key: True})
+    for args in ((), ("--quick",)):
+        rc, out = check(kit, *args)
+        assert rc == 0, out
+        (line,) = plugin_lines(out)
+        assert line.startswith("  [info] ") and "/plugin" in line
+        assert line.endswith(f"Plugin: {key}")
+    rc, out = check(kit, "--json")
+    d = json.loads(out)
+    assert rc == 0 and d["healthy"] is True
+    (item,) = [r for r in d["results"] if PLUGIN_LINE in r["msg"]]
+    assert item["level"] == "info" and item["section"] == "environment"
+    assert len(item["msg"]) <= 300
+    # The fixed text and the longest line it can make stay below clean()'s limit.
+    note = check_py.DESIGN_PLUGIN_NOTE
+    assert item["msg"] == f"{note} Plugin: {key}"
+    assert len(note) == 221 and len(f"{note} Plugin: ") == 230
+    assert len(f"{note} Plugin: {'x' * 40} and 9999 more") == 284
+
+    enable_plugins(kit, {"frontend-design@y": True, "frontend-design@x": True})
+    (line,) = plugin_lines(check(kit, "--quick")[1])
+    assert line.endswith("Plugin: frontend-design@x and 1 more")
+
+    # A key that is not exactly name@marketplace is not counted, nor repeated.
+    odd = "frontend-design@x PLANTED words"
+    enable_plugins(kit, {odd: True})
+    for args in (("--quick",), ("--quick", "--json")):
+        rc, out = check(kit, *args)
+        assert rc == 0 and "PLANTED" not in out, out
+        assert not plugin_lines(out)
+
+    enable_plugins(kit, {odd: True, "frontend-design@x": True})
+    rc, out = check(kit, "--quick")
+    assert "PLANTED" not in out
+    (line,) = plugin_lines(out)
+    assert line.endswith("Plugin: frontend-design@x")
+
+    # A valid key too long to repeat is counted.
+    enable_plugins(kit, {"frontend-design@" + "a" * 25: True})
+    (line,) = plugin_lines(check(kit, "--quick")[1])
+    assert "/plugin" in line
+    assert line.endswith("Plugin entries: 1") and "a" * 25 not in line
+
+    longest = "frontend-design@" + "a" * 24
+    assert len(longest) == 40
+    enable_plugins(kit, {longest: True})
+    (line,) = plugin_lines(check(kit, "--quick")[1])
+    assert line.endswith(f"Plugin: {longest}")
+
+
+@pytest.mark.parametrize(
+    "plugins",
+    [
+        {"other@x": True},
+        {"frontend-design@x": False},
+        {"frontend-design@x": "true"},
+        {"frontend-design@x": 1},
+        ["frontend-design@x"],
+        "frontend-design@x",
+        {"frontend-design-system@x": True},
+        {"my-frontend-design@x": True},
+        {"frontend-design@claude-plugins-official ": True},
+        {"frontend-design@": True},
+        {"frontend-design": True},
+        {"frontend-design@x\n": True},
+        {"frontend-design@x/y": True},
+    ],
+    ids=[
+        "absent",
+        "false",
+        "string",
+        "one",
+        "list",
+        "text",
+        "longer-name",
+        "prefixed-name",
+        "trailing-space",
+        "no-marketplace",
+        "bare-name",
+        "trailing-newline",
+        "slash",
+    ],
+)
+def test_no_plugin_line_otherwise(kit, plugins):
+    enable_plugins(kit, plugins)
+    rc, out = check(kit, "--quick")
+    assert rc == 0, out
+    assert not plugin_lines(out)
+
+
+def test_no_plugin_line_without_the_kit_copy(kit):
+    enable_plugins(kit, {"frontend-design@claude-plugins-official": True})
+    (kit["home"] / "skills" / "frontend-design" / "SKILL.md").unlink()
+    for args in ((), ("--quick",)):
+        rc, out = check(kit, *args)
+        assert rc == 1
+        assert "[fail] skill missing: frontend-design" in out
+        assert not plugin_lines(out)
+        assert "two copies" not in out
+
+
+def test_no_plugin_line_with_unreadable_settings(kit):
+    (kit["home"] / "settings.json").write_text("{not json")
+    rc, out = check(kit)
+    assert rc == 1
+    assert "[fail] settings.json: unreadable" in out
+    assert not plugin_lines(out)
 
 
 # ---------------------------------------------------------------- activity
