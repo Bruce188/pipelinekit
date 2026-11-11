@@ -109,6 +109,20 @@ kit used to ship, so those parts are gone.
   `~/.claude/pipelinekit/backup/` once and prints where; a link of that name
   is removed without touching its target.
 
+### Agents
+
+- Three agents in `claude/agents/`, installed to `~/.claude/agents/`:
+  `kit-planner` (model `fable`) writes a plan, `kit-builder` (model `opus`)
+  builds it failing test first and commits on the work branch, `kit-judge`
+  (model `fable`, tools `Read, Grep, Glob`) scores a plan or a build with one
+  JSON object.
+- The installer moves an agent file of your own with one of those names to
+  `~/.claude/pipelinekit/backup/` once and prints where; a link of that name is
+  removed without touching its target. Other agents are left alone. Its last
+  line says to start a new session to load the agents.
+- `/kit` fails when an agent file is missing or `kit-judge.md` allows more than
+  reading, and lists an edited agent file under "Changes since install".
+
 ### Security
 
 - Native permission rules: `deny` Read/Edit of `.env*` (except

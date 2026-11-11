@@ -652,10 +652,12 @@ bash<span class="w"> </span>scripts/install.sh<span class="w">            </span
 </code></pre></div>
 
 <p>You can safely run the installer again. To update, run <code>git pull</code> and then run the installer again, or type <code>/kit update</code> in a session: it lists the new commits, asks, and then does both.</p>
+<p>Start a new session after the install: Claude Code loads agents when a session starts, and the installer's last line says so. In Claude Code Desktop, ask the new session "which agents can you start?"; the answer names <code>kit-planner</code>, <code>kit-builder</code> and <code>kit-judge</code>.</p>
 <h2 id="what-the-installer-does">What the installer does</h2>
 <ol>
-<li>Copies the hooks, the global git hooks, the eight skills and <code>config/never-stage.txt</code> into <code>~/.claude</code>. It overwrites those files in place and never moves or deletes the directory. It leaves <code>projects/</code>, <code>sessions/</code>, <code>plugins/</code> and your credentials alone.
-   The kit owns the folder <code>~/.claude/skills/frontend-design</code>: a copy of your own under that name is moved to <code>~/.claude/pipelinekit/backup/</code> once. The installer prints the folder it moved it to; a link of that name is removed, and the folder it points to is left alone.</li>
+<li>Copies the hooks, the global git hooks, the eight skills, the three agents (<code>kit-planner</code>, <code>kit-builder</code>, <code>kit-judge</code>) and <code>config/never-stage.txt</code> into <code>~/.claude</code>. It overwrites those files in place and never moves or deletes the directory. It leaves <code>projects/</code>, <code>sessions/</code>, <code>plugins/</code> and your credentials alone.
+   The kit owns the folder <code>~/.claude/skills/frontend-design</code>: a copy of your own under that name is moved to <code>~/.claude/pipelinekit/backup/</code> once. The installer prints the folder it moved it to; a link of that name is removed, and the folder it points to is left alone.
+   In <code>~/.claude/agents/</code> the kit owns only its three files. A file of your own with one of those names that differs from the kit's, and that the last install did not put there, is moved to <code>~/.claude/pipelinekit/backup/</code> once, and the installer prints where. Your edit of the kit's own copy is replaced without a backup. A link of that name is removed, and the file it points to is left alone. Other agents in the folder are not touched.</li>
 <li>Removes skills, hooks and the <code>docs-writer</code> agent that earlier 0.1.0 builds installed (<code>commit-conventions</code>, <code>security-conventions</code>, <code>expo</code>, <code>ios</code>, the old guard hooks), but only if each is still byte-identical to a committed kit version. Edited copies are kept, with a warning.</li>
 <li>Renders <code>~/.claude/CLAUDE.md</code> from <code>claude/CLAUDE.md.template</code>. If the result differs from your existing file, the old one is saved as <code>CLAUDE.md.bak-&lt;timestamp&gt;</code>.</li>
 <li>Backs up <code>settings.json</code> to <code>settings.json.bak-&lt;timestamp&gt;</code>, then merges in <code>claude/config/settings.template.json</code>:
@@ -782,7 +784,7 @@ git<span class="w"> </span>-C<span class="w"> </span>~/path/to/repo<span class="
 </code></pre></div>
 
 <p>Both run the same checker, <code>claude/skills/kit/check.py</code>. Run it after every install or update, and whenever a hook blocks something you did not expect. <a href="components.html#self-check">Components</a> lists what it checks.</p>
-<p>The script checks that the kit's hooks, git hooks and skills are present, that each hook starts when it is run the way Claude Code runs it, that every hook command in <code>settings.json</code> points to a file that exists, that attribution is off, and that the secret deny rules are in place. It reports whether the global <code>core.hooksPath</code> points at the kit and whether <code>gitleaks</code> is installed.</p>
+<p>The script checks that the kit's hooks, git hooks, skills and agents are present, that <code>kit-judge.md</code> may only read (<code>Read, Grep, Glob</code>), that each hook starts when it is run the way Claude Code runs it, that every hook command in <code>settings.json</code> points to a file that exists, that attribution is off, and that the secret deny rules are in place. It reports whether the global <code>core.hooksPath</code> points at the kit and whether <code>gitleaks</code> is installed.</p>
     </div>
 
     <div class="no-results" id="no-results">

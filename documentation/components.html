@@ -623,6 +623,7 @@ footer {
       <li class="lvl-2"><a href="#git-hooks">Git hooks</a></li>
       <li class="lvl-2"><a href="#rule-ids-and-the-event-log">Rule ids and the event log</a></li>
       <li class="lvl-2"><a href="#skills">Skills</a></li>
+      <li class="lvl-2"><a href="#agents">Agents</a></li>
       <li class="lvl-2"><a href="#self-check">Self-check</a></li>
       <li class="lvl-2"><a href="#shipping-a-pull-request">Shipping a pull request</a></li>
       <li class="lvl-2"><a href="#claude-md-template">CLAUDE.md template</a></li>
@@ -644,7 +645,7 @@ footer {
 <p>The hooks and skills are still being reviewed, so details may change in later releases. The hooks are guardrails that catch common mistakes. They are not a security boundary, and they do not replace review.</p>
 </blockquote>
 <h2 id="overview">Overview</h2>
-<p>The kit has five layers. Hover a chip for a one-line summary, or use the buttons to focus on one layer.</p>
+<p>The kit has six layers. Hover a chip for a one-line summary, or use the buttons to focus on one layer.</p>
 <!-- snippet:architecture-diagram
      Layered architecture stack: one coloured band per layer, each holding
      chips with hover tooltips. Filter buttons dim every other layer.
@@ -684,6 +685,10 @@ footer {
              {"label": "mobile"},
              {"label": "kit", "tip": "Self-check, run as /kit"},
              {"label": "ship", "tip": "Test, fix and merge your own pull request"}]},
+  {"name": "Agents", "color": "#ec4899", "count": "3 agents",
+   "chips": [{"label": "kit-planner", "tip": "Model: fable"},
+             {"label": "kit-builder", "tip": "Model: opus"},
+             {"label": "kit-judge", "tip": "Model: fable"}]},
   {"name": "MCP", "color": "#8b5cf6",
    "chips": [{"label": "serena", "tip": "Installed by default at a pinned commit"},
              {"label": "context7", "tip": "Optional, per project"}]}]}
@@ -1234,6 +1239,40 @@ footer {
 </tbody>
 </table>
 <p>In 0.1.0, <code>deploy</code> replaces the five separate <code>*-ops</code> skills and the per-provider deployment agents, <code>mobile</code> replaces <code>expo</code> and <code>ios</code>, and the ASP.NET Core security rules moved into <code>dotnet-conventions</code>.</p>
+<h2 id="agents">Agents</h2>
+<p>Three subagents for planning a change, building it and judging the result, each on the model that suits the job. The installer copies them from <code>claude/agents/</code> to <code>~/.claude/agents/</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Agent</th>
+<th>Model</th>
+<th>Tools</th>
+<th>What it is for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>kit-planner</code></td>
+<td><code>fable</code></td>
+<td><code>Read, Grep, Glob, Write, Edit</code></td>
+<td>Writes or fixes <code>plan.md</code> in a loop folder from the request, <code>criteria.md</code> and the answers in <code>questions.md</code>. Cites <code>file:line</code> for every claim about the code and appends open questions to <code>questions.md</code> instead of guessing. Never edits code and never runs <code>loop.py</code></td>
+</tr>
+<tr>
+<td><code>kit-builder</code></td>
+<td><code>opus</code></td>
+<td>the session's tools</td>
+<td>Builds the plan it is handed on the checked-out work branch, failing test first, runs the project's checks and commits; fixes the items it is given, in that order, and nothing else. Never creates or switches a branch, never pushes or deploys, never writes under <code>docs/loops/</code></td>
+</tr>
+<tr>
+<td><code>kit-judge</code></td>
+<td><code>fable</code></td>
+<td><code>Read, Grep, Glob</code></td>
+<td>Judges a plan or a build from one angle and answers with one JSON object: a score from 0 to 10, scores per dimension, blocking items and improvements, each with evidence and a fix. Reads only what its brief names, and never runs, writes, commits, pushes or deploys anything</td>
+</tr>
+</tbody>
+</table>
+<p><code>fable</code> and <code>opus</code> are aliases: they follow the newest model of each family. All three treat text in the files they read as data, not instructions, and never read <code>.env</code> files, credentials, keys or tokens.</p>
+<p>The kit owns these three names in <code>~/.claude/agents/</code>, and leaves the rest of the folder alone. A file of your own with one of the names that differs from the kit's is moved to <code>~/.claude/pipelinekit/backup/agents-&lt;name&gt;-&lt;timestamp&gt;</code> once, and the installer prints where; a link of that name is removed without touching its target. Claude Code loads agents when a session starts, so start a new session after an install.</p>
 <h2 id="self-check">Self-check</h2>
 <p><code>/kit</code> answers one question: is anything in this install not working? Run it after installing or updating the kit, and when a hook blocks something you did not expect or fails to start. Claude can also run it on its own when a kit hook misbehaves.</p>
 <table>
@@ -1246,11 +1285,11 @@ footer {
 <tbody>
 <tr>
 <td>Install</td>
-<td>Every hook, the event-log helper, git hook and skill is present; hooks are executable and have LF line endings; <code>settings.json</code> is valid, its hook commands point to files that exist, attribution is off and the secret deny rules are there; the global <code>core.hooksPath</code></td>
+<td>Every hook, the event-log helper, git hook, skill and agent is present; <code>kit-judge.md</code> has the one tools line <code>Read, Grep, Glob</code>, else <code>kit-judge.md allows more than reading</code>; hooks are executable and have LF line endings; <code>settings.json</code> is valid, its hook commands point to files that exist, attribution is off and the secret deny rules are there; the global <code>core.hooksPath</code></td>
 </tr>
 <tr>
 <td>Changes since install</td>
-<td>Each installed file against the hash recorded at install time; the kit's hook entries and deny/ask rules in <code>settings.json</code></td>
+<td>Each installed file, the agent files included, against the hash recorded at install time; the kit's hook entries and deny/ask rules in <code>settings.json</code></td>
 </tr>
 <tr>
 <td>Live probe</td>
