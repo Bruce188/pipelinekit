@@ -3,6 +3,7 @@
 # ruff: noqa: F403, F405
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import re
@@ -17,7 +18,7 @@ from loop_state import *
 
 # Switch lines -----------------------------------------------------------------
 
-SWITCH = re.compile(r"(judge loop|judge rounds|judges):[ \t]*(.*?)[ \t]*", re.I)
+SWITCH = re.compile(r"(judge loop|judge rounds|judges):[ \t]*(.*?)[ \t]*", re.I | re.A)
 KEYS = {"judge loop": "Judge loop", "judge rounds": "Judge rounds", "judges": "Judges"}
 FENCE = re.compile(r"( {0,3})(`{3,}|~{3,})(.*)")
 LIST_ITEM = re.compile(r"( {0,3})([-*+]|\d{1,9}\.)( +)(.*)")
@@ -26,6 +27,8 @@ VOID_TAGS = frozenset(
     ("br", "hr", "img", "input", "meta", "link", "area", "base", "col", "embed")
     + ("source", "wbr")
 )
+# Raw HTML that runs to its closing tag; any other tag ends at a blank line.
+RAW_TAGS = frozenset(("pre", "script", "style", "textarea"))
 
 
 def switch_value(key, value):
@@ -52,7 +55,8 @@ def parse_switches(text):
     fence = comment = None
     tag = None
     list_col = None
-    for number, line in enumerate(text.splitlines(), 1):
+    for number, line in enumerate(text.split("\n"), 1):
+        line = line.removesuffix("\r")
         if fence:
             m = FENCE.fullmatch(line)
             closes = m and m.group(2)[0] == fence[0] and len(m.group(2)) >= len(fence)
@@ -64,7 +68,7 @@ def parse_switches(text):
                 comment = None
             continue
         if tag:
-            if f"</{tag}" in line.lower():
+            if f"</{tag}" in line.lower() or (tag not in RAW_TAGS and not line.strip()):
                 tag = None
             continue
         if not line.strip():
@@ -78,7 +82,7 @@ def parse_switches(text):
                 comment = True
             continue
         m = HTML_OPEN.match(line)
-        if m:
+        if m and (m.group(1).lower() in RAW_TAGS or not line[m.end() :].strip()):
             name = m.group(1).lower()
             opens = name not in VOID_TAGS and not line.rstrip().endswith("/>")
             if opens and f"</{name}" not in line.lower():
@@ -95,6 +99,8 @@ def parse_switches(text):
         if m:
             spaces = len(m.group(3)) if len(m.group(3)) <= 4 else 1
             list_col = len(m.group(1)) + len(m.group(2)) + spaces
+            if spaces < len(m.group(3)):
+                continue  # five spaces or more: code inside the item
             content = m.group(4)
         else:
             list_col = None
@@ -152,7 +158,7 @@ def read_switches(ctx, base):
             proc = ctx.git.run("cat-file", "blob", f"{ref}:{rel}", ok=(0, 128))
             if proc.returncode == 0 and len(proc.stdout) <= MAX_TEXT_FILE:
                 text = proc.stdout.decode("utf-8", "replace")
-        sources.append((rel, text))
+        sources.append((rel, text, f" on {show_branch(base)}" if ref else ""))
         local = read_plain(ctx.root / rel, MAX_TEXT_FILE)
         if local:
             on_base = {
@@ -168,10 +174,12 @@ def read_switches(ctx, base):
                     )
     home, shown = user_home()
     data = read_plain(home / "CLAUDE.md", MAX_TEXT_FILE)
-    sources.append((shown, data.decode("utf-8", "replace") if data else ""))
-    for rel, text in sources:
+    if data is False:
+        said.append(f"{shown} is a link or over 1 MB: not used")
+    sources.append((shown, data.decode("utf-8", "replace") if data else "", ""))
+    for rel, text, on in sources:
         for key, value, number, dropped in parse_switches(text):
-            where = f"{rel}:{number}"
+            where = f"{rel}:{number}{on}"
             for name in dropped:
                 said.append(
                     f"{where}: {show_name(name, 'a name')} is not a role: dropped"
@@ -183,7 +191,13 @@ def read_switches(ctx, base):
                     f"switch line {where} ({key}): an earlier line wins, not used"
                 )
             else:
-                used[key] = {"key": key, "value": value, "file": rel, "line": number}
+                used[key] = {
+                    "key": key,
+                    "value": value,
+                    "file": rel,
+                    "line": number,
+                    "where": where,
+                }
     return used, said
 
 
@@ -214,6 +228,7 @@ def plain_base(ctx, value):
 
 
 def gh_base(ctx):
+    """The base branch of the pull request; None, with a note when gh misbehaved."""
     gh = shutil.which("gh")
     if not gh or not ctx.branch:
         return None
@@ -225,12 +240,24 @@ def gh_base(ctx):
             timeout=GH_TIMEOUT,
             check=False,
         )
-        if proc.returncode:
-            return None
-        name = json.loads(proc.stdout.decode("utf-8")).get("baseRefName")
-    except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
-        return None
-    return plain_base(ctx, name) if isinstance(name, str) else None
+    except subprocess.TimeoutExpired:
+        return gh_note(f"gave no answer in {GH_TIMEOUT} seconds")
+    except (OSError, subprocess.SubprocessError):
+        return gh_note("did not run")
+    if proc.returncode:
+        return None  # no pull request for this branch
+    try:
+        data = json.loads(proc.stdout.decode("utf-8"))
+    except ValueError:
+        return gh_note("gave no JSON")
+    name = data.get("baseRefName") if isinstance(data, dict) else None
+    base = plain_base(ctx, name) if isinstance(name, str) else None
+    return base or gh_note("gave no base branch")
+
+
+def gh_note(why):
+    say(f"note: gh pr view {why}, so the pull request does not set the base")
+    return None
 
 
 def find_base(ctx, given):
@@ -342,15 +369,15 @@ class Size:
             or (self.files == 1 and self.lines <= EXEMPT_LINES)
             or all(is_doc(p) for p, _, _ in rows)
         )
-        if self.lines > FULL_LINES:
-            self.reason = f"auto: {count(self.lines, 'changed line')}"
-        elif self.files > FULL_FILES:
-            self.reason = f"auto: {count(self.files, 'file')}"
-        elif self.exempt:
+        if self.exempt:
             self.full = False
             self.reason = (
                 "auto: within the exempt size (loop.py skip --reason would also do)"
             )
+        elif self.lines > FULL_LINES:
+            self.reason = f"auto: {count(self.lines, 'changed line')}"
+        elif self.files > FULL_FILES:
+            self.reason = f"auto: {count(self.files, 'file')}"
         else:
             self.full = False
             lines = count(self.lines, "changed line")
@@ -372,20 +399,43 @@ def choose_panel(kind, forced, switches, size):
 # Agents -----------------------------------------------------------------------
 
 
+NOT_ONE_LINE = tuple("|>&!*{[")
+
+
 def frontmatter_name(data):
+    """A kit agent name of any name line of the front matter, else ''.
+
+    None when the top-level name cannot be read on one line, so it cannot be
+    checked: an empty value, a block, anchor, tag or flow value, a quoted key,
+    an escape inside double quotes, or front matter that is one flow mapping.
+    """
     text = data.decode("utf-8", "replace").lstrip("\ufeff").replace("\r", "")
     lines = text.split("\n")
-    if not lines or lines[0].strip() != "---":
+    if lines[0].strip() != "---":
         return ""
-    for line in lines[1:]:
+    unreadable = False
+    for number, line in enumerate(lines[1:]):
         if line.strip() == "---":
             break
+        if number == 0 and line.lstrip().startswith("{"):
+            return None
         key, sep, value = line.partition(":")
-        if sep and key.strip().lower() == "name":
-            value = re.sub(r"\s#.*$", "", value).strip()
-            value = value.strip("\"'").strip()
-            return value.lower()
-    return ""
+        bare = key.strip().strip("\"'")
+        if not sep or bare.lower() != "name":
+            continue
+        top = not line[:1].isspace()
+        value = re.sub(r"\s#.*$", "", value).strip()
+        name = value.strip("\"'").strip().lower()
+        if name in AGENT_NAMES:
+            return name
+        if top and (
+            key.strip() != bare
+            or not value
+            or value.startswith(NOT_ONE_LINE)
+            or (value.startswith('"') and "\\" in value)
+        ):
+            unreadable = True
+    return None if unreadable else ""
 
 
 def project_agent(root):
@@ -419,18 +469,23 @@ def project_agent(root):
                 if data is False:
                     return "", rel
                 name = frontmatter_name(data or b"")
+                if name is None:
+                    return "", rel
                 if name in AGENT_NAMES:
                     return name, rel
     return None
 
 
-def check_agents(ctx, agents, command):
+def check_agents(ctx, agents, command, panel=()):
     folder = loop_state.agents_dir()
     for name in AGENT_NAMES:
         if not (folder / f"{name}.md").is_file():
             raise Exit(
                 2, f"Refused: agents/{name}.md is not installed. Next: run /kit."
             )
+    for role in panel:
+        if not (skill_dir() / "roles" / f"{role}.md").is_file():
+            raise Exit(2, f"Refused: roles/{role}.md is not installed. Next: run /kit.")
     if agents != "kit":
         return
     hit = project_agent(ctx.root)
@@ -474,7 +529,7 @@ def no_history(
     )
 
 
-def prepare(args, command):
+def prepare(args):
     """The checks `start` and `skip` share, in their fixed order."""
     kind = getattr(args, "loop_kind", "build")
     if kind == "build" and getattr(args, "name", None) is not None:
@@ -501,8 +556,7 @@ def prepare(args, command):
         entry = switches["Judge loop"]
         raise Exit(
             0,
-            f"Off: judge loop switched off by {entry['file']}:{entry['line']}. "
-            "Next: work without it.",
+            f"Off: judge loop switched off by {entry['where']}. Next: work without it.",
         )
     if kind == "build" and not base_ref:
         raise Exit(
@@ -621,8 +675,8 @@ def new_state(**fields):
         "pending": {},
         "rounds": [],
         "items": {},
-        "last_full": {},
         "streak": 0,
+        "final": False,
         "notes": [],
         "outcome": "open",
         "commit": "",
@@ -634,7 +688,7 @@ def new_state(**fields):
 
 def cmd_start(args):
     ctx, kind, name, base, base_ref, base_sha, source, switches, said, size = prepare(
-        args, "start"
+        args
     )
     if kind == "build" and size.files == 0:
         raise Exit(
@@ -659,6 +713,7 @@ def cmd_start(args):
     check_agents(ctx, args.agents, "start")
     forced = "" if args.panel == "auto" else args.panel
     panel, reason = choose_panel(kind, forced, switches, size)
+    check_agents(ctx, args.agents, "start", panel)
     budget = (
         switches["Judge rounds"]["value"]
         if "Judge rounds" in switches
@@ -682,12 +737,18 @@ def cmd_start(args):
         plan_loop={"name": args.plan_loop, "sha256": plan[2]} if plan else {},
     )
     loop.mkdir()
+    if plan:
+        try:
+            loop.write("plan.md", plan[0])
+            loop.write("criteria.md", plan[1])
+        except OSError:
+            for sub in ("plan.md", "criteria.md"):
+                with contextlib.suppress(OSError):
+                    os.unlink(loop.path(sub))
+            raise
     loop.save()
     if others:
         QUALIFY.extend([True, (kind, name)])
-    if plan:
-        loop.write("plan.md", plan[0])
-        loop.write("criteria.md", plan[1])
     say(f"Repository: {clean(ctx.root)}")
     if moved:
         say(f"Earlier loop moved to {show_path(moved)}")
@@ -712,10 +773,7 @@ def cmd_start(args):
         )
     say(f"Budget: {count(budget, 'round')}")
     for entry in switches.values():
-        say(
-            f"switch used: {clean(switch_text(entry))} "
-            f"({entry['file']}:{entry['line']})"
-        )
+        say(f"switch used: {clean(switch_text(entry))} ({entry['where']})")
     for line in said:
         say(clean(line))
     say(f"Agents: {args.agents}")
@@ -723,10 +781,14 @@ def cmd_start(args):
         say(FALLBACK_SENTENCE)
     j = len(panel)
     say(
-        f"Expected cost: {j} judge run(s) per round, at most {budget} rounds "
-        f"({j * budget} judge runs), one fix pass between rounds"
+        f"Expected cost: {count(j, 'judge run')} per round, at most "
+        f"{count(budget, 'round')} ({count(j * budget, 'judge run')}), one fix pass "
+        "between rounds"
     )
-    head = f"Started: {kind} loop {name}, {j} judge(s), at most {budget} rounds."
+    head = (
+        f"Started: {kind} loop {name}, {count(j, 'judge')}, at most "
+        f"{count(budget, 'round')}."
+    )
     if plan:
         say(
             f"plan.md and criteria.md copied from plan loop {args.plan_loop}; "
@@ -745,10 +807,17 @@ def cmd_start(args):
 
 def configure_start(sub):
     sub.add_argument("loop_kind", choices=KINDS, metavar="plan|build")
-    sub.add_argument("--name")
-    sub.add_argument("--panel", choices=("auto", "single", "full"), default="auto")
-    sub.add_argument("--base")
-    sub.add_argument("--plan-loop", dest="plan_loop")
+    sub.add_argument("--name", help="the loop's name (default: from the branch)")
+    sub.add_argument(
+        "--panel",
+        choices=("auto", "single", "full"),
+        default="auto",
+        help="auto by the size of the change, one judge, or all six",
+    )
+    sub.add_argument("--base", help="the branch the work is compared with")
+    sub.add_argument(
+        "--plan-loop", dest="plan_loop", help="the plan loop this build follows"
+    )
     sub.add_argument("--agents", choices=("kit", "fallback"), default="kit")
 
 

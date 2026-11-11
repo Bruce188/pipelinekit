@@ -42,6 +42,12 @@ GH_TIMEOUT = 10
 LIMIT = 300
 REFUSED_SHOWN = 40
 MAX_PATH_SHOWN = 120
+MAX_TOKENS = 1_000_000_000
+MAX_AREA_FILE = 200 * 1024
+MAX_AREA_PATH = 120
+MODES = ("full", "changes", "skipped")
+READS = ("full", "changes")
+CUT_MARK = " [cut]"
 
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}")
 ITEM_ID = re.compile(r"[A-Z][A-Za-z0-9_-]{0,19}")
@@ -83,17 +89,6 @@ STEERING_FOLDERS = frozenset((".claude", "agents", "skills", "commands", "roles"
 
 # Why a result is no score: a field and a phrase, all of them the helper's own
 # words. Nothing from the answer file is ever part of the reason.
-FIELDS = (
-    "size",
-    "encoding",
-    "json",
-    "overall",
-    "dimensions",
-    "blocking",
-    "improvements",
-    "still_open",
-    "judge",
-)
 MISSING = "missing"
 WRONG_TYPE = "wrong type"
 NOT_A_NUMBER = "not a number"
@@ -110,6 +105,9 @@ TEN_WITH_OPEN = "a 10 with open items"
 NOT_ONE_OBJECT = "not one JSON object"
 NOT_UTF8 = "not UTF-8"
 OVER_SIZE = "over 200 kB"
+NOT_HALF_STEP = "not a step of 0.5"
+BELOW_NO_ITEM = "below 10 without an item"
+TEN_NOT_FULL = "a 10 without a full read"
 WHY_PHRASES = (
     MISSING,
     WRONG_TYPE,
@@ -127,12 +125,54 @@ WHY_PHRASES = (
     NOT_ONE_OBJECT,
     NOT_UTF8,
     OVER_SIZE,
+    NOT_HALF_STEP,
+    BELOW_NO_ITEM,
+    TEN_NOT_FULL,
 )
 # The reasons of `round` that name no field.
 NO_RESULT = "no result saved"
 SAVE_UNFINISHED = "the save did not finish"
 RESULT_CHANGED = "the result changed after it was saved"
 OTHER_WORK = "other work"
+
+# The sentences of every judge brief, word for word.
+TEN_MINUS = (
+    "Your score is 10 minus named items: each lost point needs an item that says "
+    "where, what is wrong, the smallest fix and the check that proves it. No item, "
+    "no deduction."
+)
+EVERY_GAP = "List every gap you can find in this round, not the top few."
+NO_MARK_DOWN = (
+    "Do not mark down for what waits on the user, needs the host, or stands in "
+    "settled.md."
+)
+NO_RAISE_AGAIN = (
+    "Do not raise a closed item again without showing where it is still wrong."
+)
+HALF_STEPS = "Score in steps of 0.5."
+READ_FULL = (
+    "Read a file you judge whole, once. For a single fact, search first and read "
+    "those lines. Read nothing twice."
+)
+START_FROM_LAST = (
+    "Start from your last result and the delta. Read only what changed and what it "
+    'touches. Before you give a 10, read the whole work again and answer "read": '
+    '"full".'
+)
+READ_CHANGES = (
+    "Read the delta once. For a single fact outside it, search first and read those "
+    "lines. The full read before a 10 is the one second read."
+)
+ONE_OBJECT = "Answer with one compact JSON object and nothing else."
+REAL_DEFECT = (
+    "From this round on a new item must be a real defect or a gap against "
+    "criteria.md or the plan, not something that could be nicer."
+)
+CHANGE_LOG = (
+    "The author's change log holds claims, not proof. Use only its rows marked "
+    "r{m} or later: check a `fixed` row in the work, weigh the evidence of an "
+    "`answered` row, and do not mark down what an `owner` row leaves to the user."
+)
 
 NOT_A_REPO = (
     "Refused: not in a git repository. "

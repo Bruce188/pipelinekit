@@ -6,28 +6,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
+import traceback
 from pathlib import Path
 
 from loop_rounds import *
 
 # status -----------------------------------------------------------------------
-
-
-def saved_roles(loop):
-    """The roles whose result for the pending round is saved."""
-    st = loop.st
-    pending = st["pending"]
-    if not pending:
-        return []
-    n, briefed = pending["round"], work_id(pending)
-    out = []
-    for role in st["panel"]:
-        meta = read_meta(loop, n, role)
-        ok = meta and meta.get("round") == n and meta.get("briefed") == briefed
-        if ok and os.path.lexists(loop.path(f"judge/r{n}_{role}.json")):
-            out.append(role)
-    return out
 
 
 def next_text(loop):
@@ -36,7 +22,7 @@ def next_text(loop):
     if st["outcome"] != "open":
         return closing_line(loop).split(" Next: ", 1)[1]
     if st["pending"]:
-        if len(saved_roles(loop)) < len(st["panel"]):
+        if len(saved_roles(loop)) < len(briefed_roles(st)):
             return (
                 "start each judge, write its answer to its answer file, "
                 "loop.py save <role>."
@@ -50,6 +36,7 @@ def next_text(loop):
 def status_data(loop):
     st = loop.st
     saved = saved_roles(loop)
+    pending = st["pending"]
     return {
         "kind": loop.kind,
         "name": loop.name,
@@ -58,23 +45,44 @@ def status_data(loop):
         "budget": st["budget"],
         "panel": st["panel"],
         "agents": st["agents"],
-        "scores": [{"round": r["n"], "scores": r["scores"]} for r in st["rounds"]],
+        "scores": [
+            {
+                "round": r["n"],
+                "scores": r["scores"],
+                "modes": r.get("modes", {}),
+                "read": r.get("read", {}),
+                "skipped": r.get("skipped", {}),
+                "tokens": r.get("tokens", {}),
+                "fix_tokens": r.get("fix_tokens"),
+                "items": r.get("items", {}),
+            }
+            for r in st["rounds"]
+        ],
+        "scorecard": [scorecard_line(st, r) for r in st["rounds"]],
+        "final": bool(st.get("final")),
+        "pending_modes": pending.get("modes", {}) if pending else {},
         "saved": saved,
-        "missing": [r for r in st["panel"] if r not in saved] if st["pending"] else [],
+        "missing": [r for r in briefed_roles(st) if r not in saved] if pending else [],
         "open": [k for k, _ in ordered_open(st)],
         "settled": [
             k
             for k, it in st["items"].items()
             if it["settled"] and not it["settled"]["raised_again"]
         ],
-        "changes_only": changes_only(st, False),
-        "next": next_text(loop),
+        "next": qualify_next(next_text(loop)),
     }
 
 
 def cmd_status(args):
     ctx = Ctx()
-    loop = pick(ctx, args, "status")
+    try:
+        loop = pick(ctx, args, "status")
+    except Exit:
+        if not args.json or scan(ctx, load=False):
+            raise
+        none = {"outcome": "none", "next": "loop.py start plan or loop.py start build."}
+        say(json.dumps(none, sort_keys=True))
+        return 0
     st = loop.st
     data = status_data(loop)
     if args.json:
@@ -83,20 +91,31 @@ def cmd_status(args):
     say(f"Loop: {loop.kind} {loop.name} in {loop.rel}/")
     if loop.kind == "build":
         say(f"Branch: {show_branch(st['branch'])}, base {show_branch(st['base'])}")
-    say(f"Outcome: {st['outcome']}, round {data['round']} of {st['budget']}")
-    say(f"Panel: {', '.join(st['panel'])} ({clean(st['panel_reason'])})")
-    say(f"Agents: {st['agents']}")
-    for r in st["rounds"]:
-        scores = ", ".join(f"{role} {score_text(s)}" for role, s in r["scores"].items())
-        say(f"Round {r['n']}: average {average_text(r['average'])}; {scores}")
-    if data["changes_only"]:
-        say(f"Changes only next round: {', '.join(data['changes_only'])}")
+    if st["outcome"] == "skip":
+        skip = st.get("skip") if isinstance(st.get("skip"), dict) else {}
+        asked = "yes" if skip.get("user_ok") else "no"
+        say("Outcome: skip")
+        say(f"Reason: {clean(skip.get('reason', ''))} (user asked: {asked})")
+    else:
+        say(f"Outcome: {st['outcome']}, round {data['round']} of {st['budget']}")
+        say(f"Panel: {', '.join(st['panel'])} ({clean(st['panel_reason'])})")
+        say(f"Agents: {st['agents']}")
+    for line in data["scorecard"]:
+        say(line)
+    if st["pending"]:
+        say(pending_line(st))
+    for note in st["notes"]:
+        if is_type(note.get("text"), str) and is_type(note.get("action"), str):
+            say(
+                f"note, round {note.get('round')}, {clean(note['action'], 20)}: "
+                f"{clean(note['text'])}"
+            )
     k, b = print_items(loop)
     n, sb = settled_counts(st)
     say(f"Open items: {k} ({b} blocking); settled: {n} ({sb} blocking)")
     if st["outcome"] != "open":
         raise Exit(0, closing_line(loop))
-    j = len(st["panel"])
+    j = len(briefed_roles(st)) if st["pending"] else len(st["panel"])
     missing = ", ".join(data["missing"]) if st["pending"] else ", ".join(st["panel"])
     raise Exit(
         0,
@@ -107,7 +126,7 @@ def cmd_status(args):
 
 def configure_status(sub):
     add_which(sub)
-    sub.add_argument("--json", action="store_true")
+    sub.add_argument("--json", action="store_true", help="print one JSON object")
 
 
 COMMANDS["status"] = (configure_status, cmd_status)
@@ -116,17 +135,24 @@ COMMANDS["status"] = (configure_status, cmd_status)
 # After a stop -----------------------------------------------------------------
 
 
-def fits(loop):
-    """The command that fits the state of a loop."""
-    return next_text(loop)
-
-
 def not_apply(loop, command):
     return Exit(
         2,
         f"Refused: the loop is {loop.st['outcome']}; {command} does not apply. "
-        f"Next: {fits(loop)}",
+        f"Next: {next_text(loop)}",
     )
+
+
+def given(value, flag):
+    """A note or reason with something in it, cleaned; else the refusal."""
+    text = clean(value)
+    if not text:
+        raise Exit(
+            2,
+            f"Refused: {flag} is empty. "
+            "Next: the same command with the user's answer in a few words.",
+        )
+    return text
 
 
 def add_note(st, action, text):
@@ -147,8 +173,9 @@ def cmd_diagnosed(args):
     check_branch(loop)
     if st["outcome"] != "stalled":
         raise not_apply(loop, "diagnosed")
-    st["outcome"], st["streak"] = "open", 0
-    add_note(st, "diagnosed", args.note)
+    note = given(args.note, "--note")
+    st["outcome"], st["streak"], st["final"] = "open", 0, False
+    add_note(st, "diagnosed", note)
     loop.save()
     raise Exit(0, f"Open: the cause is recorded. Next: {open_next(loop)}")
 
@@ -173,14 +200,15 @@ def cmd_resume(args):
             "Refused: no round is left. Next: the same command with --rounds N (1 to "
             "5).",
         )
+    note = given(args.note, "--note")
     st["budget"] += args.rounds or 0
-    st["outcome"], st["streak"] = "open", 0
-    add_note(st, "resume", args.note)
+    st["outcome"], st["streak"], st["final"] = "open", 0, False
+    add_note(st, "resume", note)
     loop.save()
     left = st["budget"] - len(st["rounds"])
     raise Exit(
         0,
-        f"Open: the user's answer is recorded, {left} round(s) left. Next: "
+        f"Open: the user's answer is recorded, {count(left, 'round')} left. Next: "
         f"{open_next(loop)}",
     )
 
@@ -198,8 +226,9 @@ def cmd_accept(args):
             "Refused: nothing is judged yet, so there is nothing to accept. "
             "Next: judge a round, or loop.py abandon.",
         )
+    note = given(args.note, "--note")
     st["outcome"], st["pending"] = "accepted", {}
-    add_note(st, "accept", args.note)
+    add_note(st, "accept", note)
     loop.save()
     raise Exit(0, accepted_line(st))
 
@@ -210,20 +239,21 @@ def cmd_abandon(args):
     st = loop.st
     if st["outcome"] not in UNFINISHED:
         raise not_apply(loop, "abandon")
+    note = given(args.note, "--note")
     st["outcome"], st["pending"] = "abandoned", {}
-    add_note(st, "abandon", args.note)
+    add_note(st, "abandon", note)
     loop.save()
     raise Exit(0, ABANDONED)
 
 
 def configure_note(sub):
     add_which(sub)
-    sub.add_argument("--note", required=True)
+    sub.add_argument("--note", required=True, help=NOTE_HELP)
 
 
 def configure_resume(sub):
     configure_note(sub)
-    sub.add_argument("--rounds", type=int)
+    sub.add_argument("--rounds", type=int, help="1 to 5 more rounds")
 
 
 COMMANDS["diagnosed"] = (configure_note, cmd_diagnosed)
@@ -252,7 +282,7 @@ def cmd_settle(args):
             "STOP: ask the user before settling a blocking item. "
             "Next: with their yes, the same command with --user-ok.",
         )
-    note = clean(args.note)
+    note = given(args.note, "--note")
     item["settled"] = {
         "round": len(st["rounds"]),
         "user_ok": bool(args.user_ok),
@@ -266,6 +296,18 @@ def cmd_settle(args):
     head = f"Settled: {role} {item_id} ({n} settled, {b} blocking)."
     if st["outcome"] == "open" and st["rounds"] and not st["pending"]:
         raise Exit(0, f"{head} Next: {open_next(loop)}")
+    if st["outcome"] in ("ask", "blocked"):
+        raise Exit(
+            0,
+            f"{head} Next: settle what else the decision closes, then loop.py resume "
+            "--note (with --rounds N when no round is left).",
+        )
+    if st["outcome"] == "stalled":
+        raise Exit(
+            0,
+            f"{head} Next: settle what else the decision closes, then loop.py "
+            "diagnosed --note.",
+        )
     raise Exit(0, f"{head} Next: {next_text(loop)}")
 
 
@@ -273,8 +315,8 @@ def configure_settle(sub):
     sub.add_argument("role")
     sub.add_argument("id")
     add_which(sub)
-    sub.add_argument("--note", required=True)
-    sub.add_argument("--user-ok", dest="user_ok", action="store_true")
+    sub.add_argument("--note", required=True, help=NOTE_HELP)
+    sub.add_argument("--user-ok", dest="user_ok", action="store_true", help=OK_HELP)
 
 
 COMMANDS["settle"] = (configure_settle, cmd_settle)
@@ -286,7 +328,8 @@ COMMANDS["settle"] = (configure_settle, cmd_settle)
 def body_lines(item):
     return [
         f"    {field}: {clean(item[field], MAX_FIELD)}"
-        for field in ("kind", "problem", "evidence", "fix")
+        for field in ("kind", "problem", "evidence", "fix", "check")
+        if field in item
     ]
 
 
@@ -327,18 +370,25 @@ def cmd_leftovers(args):
             checklist.append(f"- [ ] {role} {item_id}")
             say(f"[{role} {item_id}] {loop.rel}/{rel}")
         loop.write("leftovers/all.md", "\n".join(everything + checklist) + "\n")
-    else:
-        say("Items left, blocking first:")
-        for key, item in items:
-            say(item_line(key, item))
+        say(f"all items in one file: {loop.rel}/leftovers/all.md")
+        raise Exit(
+            0,
+            f"Open: {count(k, 'item')} left ({b} blocking). "
+            "Next: file each as an issue.",
+        )
+    say("Items left, blocking first:")
+    for key, item in items:
+        say(item_line(key, item))
     raise Exit(
-        0, f"Open: {count(k, 'item')} left ({b} blocking). Next: file each as an issue."
+        0,
+        f"Open: {count(k, 'item')} left ({b} blocking). "
+        "Next: loop.py leftovers --dir, then file each body file as an issue.",
     )
 
 
 def configure_leftovers(sub):
     add_which(sub)
-    sub.add_argument("--dir", action="store_true")
+    sub.add_argument("--dir", action="store_true", help="also write one file per item")
 
 
 COMMANDS["leftovers"] = (configure_leftovers, cmd_leftovers)
@@ -350,7 +400,7 @@ COMMANDS["leftovers"] = (configure_leftovers, cmd_leftovers)
 def cmd_skip(args):
     args.loop_kind, args.name, args.plan_loop = "build", None, None
     ctx, kind, name, base, base_ref, base_sha, source, switches, said, size = prepare(
-        args, "skip"
+        args
     )
     loop = Loop(ctx, kind, name)
     old = existing(loop)
@@ -379,6 +429,7 @@ def cmd_skip(args):
         )
     if old and old["outcome"] != "skip":
         say(f"Earlier loop moved to {show_path(move_aside(loop))}")
+    reason = given(args.reason, "--reason")
     loop.st = new_state(
         kind=kind,
         name=name,
@@ -393,7 +444,7 @@ def cmd_skip(args):
         outcome="skip",
         commit=head,
         skip={
-            "reason": clean(args.reason),
+            "reason": reason,
             "files": size.files,
             "lines": size.lines,
             "user_ok": bool(args.user_ok),
@@ -407,9 +458,9 @@ def cmd_skip(args):
 
 
 def configure_skip(sub):
-    sub.add_argument("--reason", required=True)
-    sub.add_argument("--base")
-    sub.add_argument("--user-ok", dest="user_ok", action="store_true")
+    sub.add_argument("--reason", required=True, help="why it is not judged")
+    sub.add_argument("--base", help=BASE_HELP)
+    sub.add_argument("--user-ok", dest="user_ok", action="store_true", help=OK_HELP)
 
 
 COMMANDS["skip"] = (configure_skip, cmd_skip)
@@ -420,6 +471,26 @@ COMMANDS["skip"] = (configure_skip, cmd_skip)
 
 class Parser(argparse.ArgumentParser):
     def error(self, message):
+        """A refusal that names the cause; never the value that was given."""
+        hit = re.search(r"arguments are required: (.+)", message)
+        if hit:
+            needs = clean(hit.group(1), 80)
+            raise Exit(
+                2,
+                f"Refused: {self.prog} needs {needs}. "
+                f"Next: the same command with it; {self.prog} --help.",
+            )
+        hit = re.match(
+            r"argument (\S+): invalid choice: .*\(choose from (.+)\)", message
+        )
+        if hit:
+            choices = [c.strip(" '\"") for c in hit.group(2).split(",")]
+            took = ", ".join(choices[:-1]) + f" or {choices[-1]}"
+            raise Exit(
+                2,
+                f"Refused: {clean(hit.group(1), 40)} takes {clean(took, 80)}. "
+                "Next: the same command with one of them.",
+            )
         raise Exit(
             2,
             f"Refused: these arguments do not fit {self.prog}. Next: {self.prog} "
@@ -427,15 +498,48 @@ class Parser(argparse.ArgumentParser):
         )
 
 
+NOTE_HELP = "your own short summary of what the user said"
+OK_HELP = "only after the user said yes"
+BASE_HELP = "the branch the work is compared with"
+TOP_HELP = (
+    "The judge loop helper: keeps the state of a plan or build loop and says what "
+    'comes next. Every run ends on one line, "<Word>: <what happened>. Next: '
+    '<command, or who acts>.". Exit codes: 0 done or go on; 1 fix, then another '
+    "round; 2 refused or could not run; 3 stop, do not fix: the line says who acts "
+    "next."
+)
+
+DESCRIPTIONS = {
+    "start": "Start a judge loop for a plan or a build.",
+    "brief": "Brief the judges of the next round.",
+    "save": "Check and store one judge's answer.",
+    "round": "Count the saved results of the round.",
+    "status": "Show the state of a loop.",
+    "diagnosed": "Record the cause of a stall and go on.",
+    "resume": "Record the user's answer and go on.",
+    "accept": "End the loop: the user accepts the work as it is.",
+    "abandon": "End the loop: nothing counts as judged.",
+    "settle": "Record the user's decision on one open item.",
+    "leftovers": "List the items left after a finished loop.",
+    "skip": "Record a change that is not judged.",
+}
+
+
 def parser():
     top = Parser(
         prog="loop.py",
-        description="The judge loop helper.",
+        description=TOP_HELP,
         allow_abbrev=False,
     )
     subs = top.add_subparsers(dest="command", parser_class=Parser)
     for name, (configure, _) in COMMANDS.items():
-        sub = subs.add_parser(name, allow_abbrev=False, prog=f"loop.py {name}")
+        sub = subs.add_parser(
+            name,
+            allow_abbrev=False,
+            prog=f"loop.py {name}",
+            help=DESCRIPTIONS.get(name),
+            description=DESCRIPTIONS.get(name),
+        )
         configure(sub)
     return top
 
@@ -452,8 +556,24 @@ def error_path(err):
     return show_path(rel)
 
 
+def where_failed(err):
+    """The function and line of the helper where an error came from."""
+    frames = [
+        f
+        for f in traceback.extract_tb(err.__traceback__)
+        if re.fullmatch(r"loop(_[a-z]+)?\.py", os.path.basename(f.filename))
+    ]
+    if not frames:
+        return ""
+    frame = frames[-1]
+    name = os.path.basename(frame.filename)
+    return f"  in {clean(frame.name, 40)}, {name} line {frame.lineno}"
+
+
 def main(argv=None):
     QUALIFY.clear()
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="backslashreplace")
     argv = sys.argv[1:] if argv is None else list(argv)
     try:
         if argv and not argv[0].startswith("-") and argv[0] not in COMMANDS:
@@ -496,6 +616,9 @@ def main(argv=None):
         )
         return 2
     except Exception as err:
+        where = where_failed(err)
+        if where:
+            say(where)
         say(
             f"Error: {type(err).__name__}. Next: run /kit; when it is healthy, report "
             "this."

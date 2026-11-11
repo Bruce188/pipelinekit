@@ -52,16 +52,21 @@ class Ctx:
     """The checkout a command runs in."""
 
     def __init__(self):
-        try:
-            proc = subprocess.run(
-                ["git", "rev-parse", "--show-toplevel"],
-                capture_output=True,
-                check=False,
-            )
-        except OSError:
-            raise Exit(2, NOT_A_REPO) from None
+        proc = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            check=False,
+            env={**os.environ, "LC_ALL": "C"},
+        )
         top = os.fsdecode(proc.stdout).strip()
-        if proc.returncode or not top:
+        if proc.returncode:
+            err = os.fsdecode(proc.stderr)
+            if "not a git repository" in err:
+                raise Exit(2, NOT_A_REPO)
+            raise GitFailed(
+                "rev-parse", proc.returncode, git_said(err, proc.returncode)
+            )
+        if not top:
             raise Exit(2, NOT_A_REPO)
         self.root = Path(os.path.realpath(top))
         self.git = Git(self.root)
@@ -138,6 +143,8 @@ def read_plain(path, limit):
 
     A link, a file of another type or a larger file gives False.
     """
+    if not hasattr(os, "O_NOFOLLOW") and os.path.islink(path):
+        return False
     try:
         fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
     except FileNotFoundError:
@@ -178,9 +185,15 @@ def ensure_ignored(ctx):
         path = ctx.root / path
     path.parent.mkdir(parents=True, exist_ok=True)
     old = path.read_bytes() if path.exists() else b""
-    lead = b"\n" if old and not old.endswith(b"\n") else b""
-    with open(path, "ab") as fh:
-        fh.write(lead + b"docs/loops/\n")
+    if b"docs/loops/" not in old.splitlines():
+        lead = b"\n" if old and not old.endswith(b"\n") else b""
+        with open(path, "ab") as fh:
+            fh.write(lead + b"docs/loops/\n")
+    if ctx.git.code("check-ignore", "-q", "docs/loops/x") != 0:
+        say(
+            "note: a .gitignore rule takes docs/loops/ back in; never stage it "
+            "(git add with explicit paths only)."
+        )
 
 
 def user_home():
@@ -224,7 +237,6 @@ STATE_TYPES = {
     "pending": dict,
     "rounds": list,
     "items": dict,
-    "last_full": dict,
     "streak": int,
     "notes": list,
     "outcome": str,
@@ -255,6 +267,63 @@ def good_branch(git, name):
     return proc.returncode == 0 and os.fsdecode(proc.stdout).strip() == name
 
 
+def modes_ok(modes, panel):
+    return isinstance(modes, dict) and all(
+        r in panel and m in MODES for r, m in modes.items()
+    )
+
+
+def tokens_ok(value, absent_ok=True):
+    if value is None:
+        return absent_ok
+    return is_type(value, int) and 0 <= value <= MAX_TOKENS
+
+
+def round_extras_ok(rnd, panel):
+    """The fields of a counted round that the amendment added; each optional."""
+    if "modes" in rnd and not modes_ok(rnd["modes"], panel):
+        return False
+    read = rnd.get("read", {})
+    if not (
+        isinstance(read, dict)
+        and all(r in panel and v in READS for r, v in read.items())
+    ):
+        return False
+    skipped = rnd.get("skipped", {})
+    if not (
+        isinstance(skipped, dict)
+        and all(
+            r in panel and is_type(m, int) and 1 <= m < rnd["n"]
+            for r, m in skipped.items()
+        )
+    ):
+        return False
+    tokens = rnd.get("tokens", {})
+    if not (
+        isinstance(tokens, dict)
+        and all(r in panel and tokens_ok(v, False) for r, v in tokens.items())
+    ):
+        return False
+    if not tokens_ok(rnd.get("fix_tokens")):
+        return False
+    counts = rnd.get("items", {"open": 0, "closed": 0, "new": 0})
+    return isinstance(counts, dict) and all(
+        is_type(counts.get(k), int) and counts[k] >= 0
+        for k in ("open", "closed", "new")
+    )
+
+
+def skip_ok(st):
+    skip = st["skip"]
+    if st["outcome"] != "skip":
+        return not skip
+    return (
+        is_type(skip.get("reason"), str)
+        and all(is_type(skip.get(k), int) and skip[k] >= 0 for k in ("files", "lines"))
+        and is_type(skip.get("user_ok"), bool)
+    )
+
+
 def state_ok(st, kind, name, git):
     """True when a loaded state holds every field with a fitting value."""
     if any(not is_type(st.get(k), t) for k, t in STATE_TYPES.items()):
@@ -270,6 +339,8 @@ def state_ok(st, kind, name, git):
         st["budget"] >= 1 and st["streak"] >= 0,
         sha_or_empty(st["commit"]) and sha_or_empty(st["base_sha"], not build),
         not build or st["branch"],
+        is_type(st.get("final", False), bool),
+        skip_ok(st),
     ]
     if not all(checks):
         return False
@@ -304,6 +375,10 @@ def state_ok(st, kind, name, git):
             is_type(pending.get("sha256"), str) and HEX64.fullmatch(pending["sha256"])
         ):
             return False
+        if not modes_ok(pending.get("modes", {}), st["panel"]):
+            return False
+        if not tokens_ok(pending.get("fix_tokens")):
+            return False
     for i, rnd in enumerate(st["rounds"], 1):
         if not isinstance(rnd, dict) or rnd.get("n") != i:
             return False
@@ -325,7 +400,7 @@ def state_ok(st, kind, name, git):
             return False
         if not (is_number(rnd.get("average")) and is_type(rnd.get("blocking"), int)):
             return False
-        if not (isinstance(rnd.get("changes_only"), list)):
+        if not round_extras_ok(rnd, st["panel"]):
             return False
     for key, item in st["items"].items():
         role, _, item_id = key.partition(":")
@@ -339,6 +414,8 @@ def state_ok(st, kind, name, git):
             return False
         if not all(is_type(item.get(k), str) for k in ("problem", "evidence", "fix")):
             return False
+        if not is_type(item.get("check", ""), str):
+            return False
         if not all(is_type(item.get(k), int) for k in ("first", "last")):
             return False
         settled = item.get("settled")
@@ -351,8 +428,6 @@ def state_ok(st, kind, name, git):
             and is_type(settled.get("raised_again"), int)
         ):
             return False
-    if not all(r in ROLES and is_type(v, int) for r, v in st["last_full"].items()):
-        return False
     if not all(isinstance(note, dict) for note in st["notes"]):
         return False
     return all(isinstance(entry, dict) for entry in st["switches"])
@@ -402,10 +477,6 @@ class Loop:
     def exists(self, sub=""):
         return os.path.lexists(self.path(sub))
 
-    def has_files(self):
-        folder = self.path()
-        return folder.is_dir() and any(os.scandir(folder))
-
     def load(self):
         rel = f"{self.rel}/state.json"
         tracked = self.ctx.git.run("ls-files", "-z", "--", rel).stdout
@@ -432,7 +503,11 @@ class Loop:
                 f"Error: {show_path(rel)} was written by another version of the kit. "
                 "Next: run the installer.",
             )
-        if not state_ok(st, self.kind, self.name, self.ctx.git):
+        try:
+            fits = state_ok(st, self.kind, self.name, self.ctx.git)
+        except (TypeError, ValueError, KeyError, AttributeError):
+            fits = False
+        if not fits:
             raise unreadable
         self.st = st
         return st
@@ -526,14 +601,20 @@ QUALIFIED = re.compile(
 )
 
 
+def qualify_next(text):
+    """The text after "Next: ", its commands naming the loop when there are two."""
+    if len(QUALIFY) < 2:
+        return text
+    kind, name = QUALIFY[-1]
+    return QUALIFIED.sub(lambda m: f"{m.group(1)} --kind {kind} --name {name}", text)
+
+
 def qualify(line):
     """With more than one loop folder, every Next: command names its loop."""
-    if len(QUALIFY) < 2 or " Next: " not in line:
+    if " Next: " not in line:
         return line
-    kind, name = QUALIFY[-1]
     head, tail = line.split(" Next: ", 1)
-    tail = QUALIFIED.sub(lambda m: f"{m.group(1)} --kind {kind} --name {name}", tail)
-    return f"{head} Next: {tail}"
+    return f"{head} Next: {qualify_next(tail)}"
 
 
 def check_branch(loop):

@@ -18,6 +18,8 @@ def _number(value, field):
         raise NoScore(field, NOT_A_NUMBER)
     if not 0 <= value <= 10:
         raise NoScore(field, OUT_OF_RANGE)
+    if (value * 2) % 1:
+        raise NoScore(field, NOT_HALF_STEP)
     return value
 
 
@@ -34,11 +36,12 @@ def _text(item, key, field):
     return value
 
 
-def check_result(raw: bytes, role: str, open_ids=()) -> dict:
+def check_result(raw: bytes, role: str, open_ids=(), mode="full") -> dict:
     """The result of one judge as a score, or NoScore with its reason.
 
-    `open_ids` are the ids that were open for this judge after the round
-    before; a `still_open` entry must be one of them.
+    `open_ids` are the ids that were open in this judge's last counted result;
+    a `still_open` entry must be one of them. `mode` is the read of the brief,
+    which holds when the answer names none.
     """
     if len(raw) > MAX_RESULT:
         raise NoScore("size", OVER_SIZE)
@@ -101,6 +104,7 @@ def check_result(raw: bytes, role: str, open_ids=()) -> dict:
                 "problem": _text(item, "problem", field),
                 "evidence": _text(item, "evidence", field),
                 "fix": _text(item, "fix", field),
+                "check": _text(item, "check", field),
             }
             if "needed_for_10" in item:
                 if not isinstance(item["needed_for_10"], bool):
@@ -121,11 +125,23 @@ def check_result(raw: bytes, role: str, open_ids=()) -> dict:
                 raise NoScore(f"still_open[{i}]", NOT_OPEN_ID)
             still_open.append(item_id)
 
+    read = mode if mode in READS else "full"
+    if "read" in data:
+        if data["read"] not in READS:
+            raise NoScore("read", WRONG_TYPE)
+        read = data["read"]
+
     if "judge" in data:
         if not isinstance(data["judge"], str):
             raise NoScore("judge", NOT_A_STRING)
         if data["judge"] != role:
             raise NoScore("judge", NOT_THE_ROLE)
+
+    named = items["blocking"] + [
+        e for e in items["improvements"] if e.get("needed_for_10") is not False
+    ]
+    if overall < 10 and not named:
+        raise NoScore("overall", BELOW_NO_ITEM)
 
     if overall == 10:
         if items["blocking"]:
@@ -137,12 +153,15 @@ def check_result(raw: bytes, role: str, open_ids=()) -> dict:
                 and entry.get("needed_for_10") is not False
             ):
                 raise NoScore("overall", TEN_WITH_OPEN)
+        if read != "full":
+            raise NoScore("overall", TEN_NOT_FULL)
 
     return {
         "overall": overall,
         "blocking": items["blocking"],
         "improvements": items["improvements"],
         "still_open": still_open,
+        "read": read,
     }
 
 
@@ -178,21 +197,49 @@ def settled_suffix(st):
 
 
 def ordered_open(st):
-    """The open items: blocking, carried, new; each as (key, item)."""
+    """The open items: blocking, carried, new; each as (key, item).
+
+    Within a group the order is the panel's, then the round an item was first
+    raised, then its id, so the list does not depend on how the state was saved.
+    """
     last = len(st["rounds"])
-    items = [(k, it) for k, it in st["items"].items() if effective_open(it)]
+    panel = list(st["panel"])
+
+    def place(entry):
+        role, _, item_id = entry[0].partition(":")
+        where = panel.index(role) if role in panel else len(panel)
+        return where, entry[1]["first"], item_id
+
+    items = sorted(
+        ((k, it) for k, it in st["items"].items() if effective_open(it)), key=place
+    )
     blocking = [x for x in items if x[1]["kind"] == "blocking"]
     carried = [x for x in items if x[1]["kind"] != "blocking" and x[1]["first"] < last]
     new = [x for x in items if x[1]["kind"] != "blocking" and x[1]["first"] >= last]
     return blocking + carried + new
 
 
+def field_text(text):
+    """One field of a Fix line: cut at LIMIT characters with a mark."""
+    shown = clean(text, MAX_FIELD)
+    if len(shown) > LIMIT:
+        return shown[: LIMIT - len(CUT_MARK)] + CUT_MARK
+    return shown
+
+
+def is_cut(item):
+    fields = ("problem", "evidence", "fix", "check")
+    return any(len(clean(item.get(f, ""), MAX_FIELD)) > LIMIT for f in fields)
+
+
 def item_line(key, item):
     role, _, item_id = key.partition(":")
     line = (
-        f"  [{role} {item_id}] {clean(item['problem'])} | evidence: "
-        f"{clean(item['evidence'])} | fix: {clean(item['fix'])}"
+        f"  [{role} {item_id}] {field_text(item['problem'])} | evidence: "
+        f"{field_text(item['evidence'])} | fix: {field_text(item['fix'])}"
     )
+    if item.get("check"):
+        line += f" | check: {field_text(item['check'])}"
     if item["settled"] and item["settled"]["raised_again"]:
         line += (
             " (raised again after being settled: fix it only if the judge gives new "
@@ -218,9 +265,14 @@ def print_items(loop, questions_since=None):
         )
     lines += [item_line(k, it) for k, it in items]
     if lines:
-        say("Items to fix, in this order:")
+        finished = st["outcome"] not in UNFINISHED
+        say("Items left:" if finished else "Items to fix, in this order:")
         for line in lines:
             say(line)
+    for key, it in items:
+        if is_cut(it):
+            role = key.partition(":")[0]
+            say(f"  full text: {loop.rel}/judge/r{it['last']}_{role}.json")
     return len(items), sum(1 for _, it in items if it["kind"] == "blocking")
 
 
@@ -255,7 +307,12 @@ def progress_line(st):
     text = f"Round {r['n']} of {st['budget']}: average {average_text(r['average'])}"
     if len(st["rounds"]) > 1:
         text += f" (round before: {average_text(st['rounds'][-2]['average'])})"
-    scores = ", ".join(f"{role} {score_text(s)}" for role, s in r["scores"].items())
+    modes = r.get("modes", {})
+    scores = ", ".join(
+        f"{role} {score_text(r['scores'][role])} {modes.get(role, 'full')}"
+        for role in st["panel"]
+        if role in r["scores"]
+    )
     return f"{text}; {scores}"
 
 
@@ -270,15 +327,15 @@ USER_WAIT = (
     "Next: ask the user, then loop.py resume, accept or abandon."
 )
 STALLED = (
-    "STOP: stalled, no gain in three rounds. Next: find the cause (judges disagree, a "
-    "fix trades one gap for another, or a decision of the user is missing); when it "
-    "needs the user, ask (the skill's options for a stalled build); then loop.py "
-    "diagnosed --note."
+    "STOP: stalled, less than 0.2 gain in two rounds. Next: read the judge items and "
+    "find the cause (judges disagree, a fix trades one gap for another, or a decision "
+    "of the user is missing); when it needs the user, ask (the skill's options for a "
+    "stalled build); then loop.py diagnosed --note."
 )
 ASK = (
-    "STOP: ask the user, no gain in three rounds. Next: explain what holds the score "
-    "back and ask how to go on (the skill's options for ask); then loop.py resume, "
-    "accept or abandon."
+    "STOP: ask the user, less than 0.2 gain in two rounds. Next: explain what holds "
+    "the score back and ask how to go on (the skill's options for ask); then loop.py "
+    "resume, accept or abandon."
 )
 BLOCKED = (
     "STOP: blocking items left after the last round. Next: ask the user (the skill's "
