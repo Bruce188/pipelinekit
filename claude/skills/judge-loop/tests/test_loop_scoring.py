@@ -225,6 +225,7 @@ def test_scorecard_lines_alone():
     )
     some = a_round(2, **later, tokens={"tests": 5})
     none = a_round(2, **later, tokens={})
+    both["read"] = {"tests": "changes", "scope": "full"}
     st = {"rounds": [first, both]}
     assert loop.scorecard_line(st, first) == (
         "r1: average 9.5 | general 9.5 full, tests 9.5 full, scope 9.5 full | items: 3 "
@@ -232,7 +233,8 @@ def test_scorecard_lines_alone():
     )
     assert loop.scorecard_line(st, both) == (
         "r2: average 9.8 (gain +0.33) | general 10 skipped, tests 9.5 changes, "
-        "scope 10 changes | items: 1 open, 2 closed, 0 new | judge tokens: 11 | "
+        "scope 10 changes, read full | items: 1 open, 2 closed, 0 new | judge "
+        "tokens: 11 | "
         "fix tokens: 900"
     )
     assert loop.scorecard_line(st, some).endswith(
@@ -264,6 +266,9 @@ def test_the_token_numbers(sb):
     sb.answer("general", nine("I1"))
     assert sb.run("save", "general", "--tokens", "5").code == 0
     assert meta(sb, 1)["tokens"] == 5
+    assert sb.run("save", "general").code == 0
+    assert meta(sb, 1)["tokens"] == 5
+    sb.answer("general", nine("I1") + b"\n")
     assert sb.run("save", "general").code == 0
     assert "tokens" not in meta(sb, 1)
     assert sb.run("save", "general", "--tokens", "1000000000").code == 0

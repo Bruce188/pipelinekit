@@ -18,6 +18,8 @@ NOT_PLAIN = (
     "Refused: {path} is not a plain file of at most 200 kB. "
     "Next: shorten it, then loop.py brief."
 )
+PATTERN = re.compile(r"[*?\[]")
+ROW_FORM = " (a row reads: - r{n} [{key}] fixed|answered|owner: <text>)"
 WAIT_NOTE = (
     "note: {items} {verb} for the user. Ask in one batch and record the answers "
     "(questions.md, loop.py settle) before the judges run."
@@ -55,7 +57,12 @@ def saved_roles(loop):
     out = []
     for role in briefed_roles(st):
         meta = read_meta(loop, n, role)
-        ok = meta and meta.get("round") == n and meta.get("briefed") == briefed
+        ok = (
+            meta
+            and meta.get("round") == n
+            and meta.get("briefed") == briefed
+            and meta.get("read") in READS
+        )
         if ok and os.path.lexists(loop.path(f"judge/r{n}_{role}.json")):
             out.append(role)
     return out
@@ -110,7 +117,17 @@ def read_areas(loop):
         if not line.strip() or line.lstrip().startswith("#") or line.count("|") != 2:
             continue
         name, paths, roles = (part.strip() for part in line.split("|"))
-        paths = [area_path(p.strip()) for p in paths.split(",")]
+        entries = [p.strip() for p in paths.split(",")]
+        pattern = next((p for p in entries if PATTERN.search(p)), None)
+        if pattern is not None:
+            shown = re.sub(r"[^A-Za-z0-9._/*?\[\]@+-]", "?", pattern[:MAX_AREA_PATH])
+            raise Exit(
+                2,
+                f"Refused: map.md line {number} has a pattern ({shown}); paths are "
+                "files or folders ending in /. Next: write each path as a file or a "
+                "folder ending in /, then loop.py brief.",
+            )
+        paths = [area_path(p) for p in entries]
         roles = [r.strip() for r in roles.split(",")]
         if (
             not name
@@ -212,13 +229,17 @@ def counting_rows(st, rows, role):
 def print_notes(st, rows):
     """The notes before the first brief of a round: missing rows, waiting items."""
     waiting = set()
+    form = ROW_FORM
     for key, item in st["items"].items():
         if not effective_open(item):
             continue
         role, _, item_id = key.partition(":")
         mine = [r for r in counting_rows(st, rows, role) if r[2] == item_id]
         if not mine:
-            say(f"note: no changes.md row for [{role} {item_id}]")
+            key_text = f"{role} {item_id}"
+            row = form.format(n=len(st["rounds"]), key=key_text)
+            say(f"note: no changes.md row for [{key_text}]{row}")
+            form = ""
         if any(r[3] == "owner" for r in mine):
             waiting.add(key)
     if waiting:
@@ -318,9 +339,8 @@ def scorecard_line(st, rnd):
         before = st["rounds"][rnd["n"] - 2]
         gain = gain_text(doubled(rnd), doubled(before), len(rnd["scores"]))
         head += f" (gain {gain})"
-    modes = rnd.get("modes", {})
     judges = ", ".join(
-        f"{role} {score_text(score)} {modes.get(role, 'full')}"
+        f"{role} {score_text(score)} {judge_mode(rnd, role)}"
         for role, score in rnd["scores"].items()
     )
     counts = rnd.get("items", {"open": 0, "closed": 0, "new": 0})

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
+import sys
 import unicodedata
 
 SCHEMA = 1
@@ -21,6 +23,13 @@ KINDS = ("plan", "build")
 UNFINISHED = ("open", "stalled", "ask", "blocked")
 FINISHED = ("done", "budget", "accepted", "abandoned", "skip")
 OUTCOMES = UNFINISHED + FINISHED
+OUTCOME_WORDS = {
+    "ask": "waiting for the user",
+    "blocked": "waiting for the user on blocking items",
+    "budget": "out of rounds",
+    "accepted": "accepted by the user",
+    "skip": "skipped without a judge",
+}
 AGENT_NAMES = ("kit-planner", "kit-builder", "kit-judge")
 FALLBACK_SENTENCE = "fallback: the judge is not limited to reading by its tools"
 
@@ -276,5 +285,24 @@ def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def outcome_words(outcome) -> str:
+    """An outcome as plain words: "the loop is <words>"."""
+    return OUTCOME_WORDS.get(outcome, outcome)
+
+
+def quiet_stdout():
+    """Send the rest of the output to the null device: its reader is gone."""
+    try:
+        null = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(null, sys.stdout.fileno())
+        os.close(null)
+    except (OSError, ValueError, AttributeError):
+        pass
+
+
 def say(line=""):
-    print(line, flush=True)
+    """Print one line; a reader that went away does not stop the command."""
+    try:
+        print(line, flush=True)
+    except BrokenPipeError:
+        quiet_stdout()

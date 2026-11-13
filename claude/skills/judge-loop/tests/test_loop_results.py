@@ -74,7 +74,7 @@ def test_messages_walk_a_build_loop(sb):
     ends(sb.run("leftovers"), 0, "Open: 1 item open (0 blocking), the loop is not")
     run = sb.judge({"general": 10})
     assert run.lines[0] == (
-        "Round 2 of 5: average 10.0 (round before: 9.0); general 10 changes"
+        "Round 2 of 5: average 10.0 (round before: 9.0); general 10 changes, read full"
     )
     assert run.code == 0
     assert (
@@ -273,7 +273,7 @@ REJECTED = [
     ("string 10", obj(overall="10"), "overall: not a number"),
     ("10.5", obj(overall=10.5), "overall: outside 0 to 10"),
     ("-1", obj(overall=-1), "overall: outside 0 to 10"),
-    ("dimension text", obj(dimensions={"fit": "high"}), "dimensions[1]: not a number"),
+    ("dimension text", obj(dimensions={"fit": "high"}), "dimensions.fit: not a number"),
     (
         "21 dimensions",
         obj(dimensions={f"d{i}": 5 for i in range(21)}),
@@ -341,7 +341,7 @@ REJECTED = [
     (
         "dimension 7.25",
         obj(dimensions={"fit": 7.25}),
-        "dimensions[1]: not a step of 0.5",
+        "dimensions.fit: not a step of 0.5",
     ),
     ("no check", obj(improvements=[NO_CHECK]), "improvements[1].check: missing"),
     (

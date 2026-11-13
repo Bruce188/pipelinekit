@@ -69,8 +69,9 @@ def check_result(raw: bytes, role: str, open_ids=(), mode="full") -> dict:
         raise NoScore("dimensions", WRONG_TYPE)
     if len(dimensions) > MAX_DIMENSIONS:
         raise NoScore("dimensions", TOO_MANY)
-    for i, value in enumerate(dimensions.values(), 1):
-        _number(value, f"dimensions[{i}]")
+    for i, (name, value) in enumerate(dimensions.items(), 1):
+        shown = f".{name}" if NAME.fullmatch(name) else f"[{i}]"
+        _number(value, f"dimensions{shown}")
 
     lists = {}
     for name in ("blocking", "improvements"):
@@ -302,14 +303,21 @@ def below_ten(st):
     return "Judges below 10: " + (", ".join(low) if low else "none")
 
 
+def judge_mode(rnd, role):
+    """A judge's mode in a round; a changes judge that read in full says so."""
+    mode = rnd.get("modes", {}).get(role, "full")
+    if mode == "changes" and rnd.get("read", {}).get(role) == "full":
+        return "changes, read full"
+    return mode
+
+
 def progress_line(st):
     r = st["rounds"][-1]
     text = f"Round {r['n']} of {st['budget']}: average {average_text(r['average'])}"
     if len(st["rounds"]) > 1:
         text += f" (round before: {average_text(st['rounds'][-2]['average'])})"
-    modes = r.get("modes", {})
     scores = ", ".join(
-        f"{role} {score_text(r['scores'][role])} {modes.get(role, 'full')}"
+        f"{role} {score_text(r['scores'][role])} {judge_mode(r, role)}"
         for role in st["panel"]
         if role in r["scores"]
     )
@@ -411,7 +419,10 @@ def state_exit(loop):
         return Exit(3, STALLED_WAIT)
     if outcome in ("ask", "blocked"):
         return Exit(3, USER_WAIT)
-    return Exit(2, f"Refused: this loop ended ({outcome}). Next: loop.py status.")
+    return Exit(
+        2,
+        f"Refused: this loop ended ({outcome_words(outcome)}). Next: loop.py status.",
+    )
 
 
 def closing_line(loop):
