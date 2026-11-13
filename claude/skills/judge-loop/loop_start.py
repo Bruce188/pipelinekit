@@ -173,7 +173,11 @@ def read_switches(ctx, base):
                         f"line {number} of {rel} is not on {where} yet: not used"
                     )
     home, shown = user_home()
-    data = read_plain(home / "CLAUDE.md", MAX_TEXT_FILE)
+    try:
+        data = read_plain(home / "CLAUDE.md", MAX_TEXT_FILE)
+    except IsADirectoryError:
+        data = None
+        said.append(f"{shown} is a folder where a file was expected: not used")
     if data is False:
         said.append(f"{shown} is a link or over 1 MB: not used")
     sources.append((shown, data.decode("utf-8", "replace") if data else "", ""))
