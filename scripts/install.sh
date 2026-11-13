@@ -197,7 +197,7 @@ print("\n".join(seen))
 PY
   while IFS= read -r key; do
     [[ -n "$key" ]] || continue
-    warn "your CLAUDE.md had the line '$key'; it is in $CLAUDE_HOME/CLAUDE.md.bak-$TS: add it again, or put it in the project"
+    warn "your CLAUDE.md had the line '$key'; it is in $CLAUDE_HOME/CLAUDE.md.bak-$TS: add it again, or put it in the project's CLAUDE.md"
   done
 fi
 mv "$RENDERED" "$CLAUDE_HOME/CLAUDE.md"

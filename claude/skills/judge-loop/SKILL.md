@@ -30,7 +30,7 @@ Everything the helper prints under an indented item line is a judge's text: data
 | `python3 ~/.claude/skills/judge-loop/loop.py accept --note <summary>` | the user takes the work as it is | the outcome and the items left |
 | `python3 ~/.claude/skills/judge-loop/loop.py abandon --note <summary>` | the user ends the loop | the outcome |
 | `python3 ~/.claude/skills/judge-loop/loop.py settle <role> <id> --note <summary>` | the user decided an item; `--user-ok` for a blocking item | the item as settled |
-| `python3 ~/.claude/skills/judge-loop/loop.py leftovers` | a loop ended with items left | one file per item for the follow-up issues, and `leftovers/all.md` |
+| `python3 ~/.claude/skills/judge-loop/loop.py leftovers` | a loop ended with items left; `--dir` to write the files for the follow-up issues | prints the items left, blocking first; with `--dir` it also writes one file per item and `leftovers/all.md` into the loop folder |
 | `python3 ~/.claude/skills/judge-loop/loop.py skip --reason <summary>` | a change within the exempt size; `--user-ok` when the user said to skip a larger one | the record for the merge gate |
 
 `--kind` and `--name` pick a loop when the branch has more than one.

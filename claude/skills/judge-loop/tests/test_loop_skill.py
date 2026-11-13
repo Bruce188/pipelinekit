@@ -442,3 +442,66 @@ def test_the_record_is_judged_again_where_the_work_ships(rel):
         assert flat(JUDGED_AGAIN.replace("`", "")) in flat(text)
     else:
         assert JUDGED_AGAIN in flat(text)
+
+
+def test_the_leftovers_row_names_the_flag():
+    row = next(
+        line
+        for line in skill().splitlines()
+        if line.startswith(f"| `{LOOP} leftovers`")
+    )
+    assert "prints the items left" in row
+    assert "`--dir`" in row
+    assert "`leftovers/all.md`" in row
+
+
+def plain(rel):
+    text = repo_text(rel)
+    if rel.endswith(".html"):
+        text = html.unescape(re.sub(r"<[^>]+>", "", text))
+    return flat(text.replace("`", ""))
+
+
+@pytest.mark.parametrize(
+    "rel", ("docs-source/installation.md", "documentation/installation.html")
+)
+def test_the_switch_line_goes_into_the_projects_claude_md(rel):
+    assert "add it again, or put it in the project's CLAUDE.md." in plain(rel)
+
+
+UPGRADE = (
+    "kit-planner",
+    "kit-builder",
+    "kit-judge",
+    "~/.claude/agents/",
+    "other files in that folder are left alone",
+    "Judge loop:",
+    "Judge rounds:",
+    "Judges:",
+    "names the backup",
+    "Keep such a line in the project's CLAUDE.md",
+)
+
+
+@pytest.mark.parametrize(
+    "rel", ("docs-source/upgrading.md", "documentation/upgrading.html")
+)
+def test_the_upgrade_steps_name_the_agents_and_the_switch_lines(rel):
+    text = plain(rel)
+    steps = text[text.rindex("Upgrade steps") : text.rindex("Rolling back")]
+    for words in UPGRADE:
+        assert words in steps, words
+
+
+def test_the_components_entry_links_the_record():
+    row = next(
+        line
+        for line in repo_text("docs-source/components.md").splitlines()
+        if line.startswith("| `judge-loop` |")
+    )
+    assert "`docs/loops/`" in row
+    assert "never committed" in row
+    assert "](installation.html#the-judge-loop)" in row
+    page = repo_text("documentation/components.html")
+    assert 'href="installation.html#the-judge-loop"' in page
+    assert 'id="the-judge-loop"' in repo_text("documentation/installation.html")

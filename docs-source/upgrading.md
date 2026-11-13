@@ -82,6 +82,13 @@ Old `skills/simplify` and `skills/review` folders can shadow the built-in
 you just deleted, removes the old guard hooks and skills it replaced (only
 unmodified copies), and asks whether to enable the global git hooks.
 
+It installs the judge loop's three agents, `kit-planner`, `kit-builder` and
+`kit-judge`, into `~/.claude/agents/`; other files in that folder are left
+alone. It replaces `~/.claude/CLAUDE.md` with the kit's own, so a
+`Judge loop:`, `Judge rounds:` or `Judges:` line you kept there is dropped:
+the installer warns and names the backup that holds it. Keep such a line in
+the project's `CLAUDE.md` instead.
+
 ```bash
 cd pipelinekit && git pull && bash scripts/install.sh
 ```

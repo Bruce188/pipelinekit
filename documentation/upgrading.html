@@ -737,6 +737,12 @@ rm<span class="w"> </span>-f<span class="w"> </span>hooks/<span class="o">{</spa
 <code>rules/</code> or <code>modes/</code>. It also prunes <code>settings.json</code> hook entries whose script
 you just deleted, removes the old guard hooks and skills it replaced (only
 unmodified copies), and asks whether to enable the global git hooks.</p>
+<p>It installs the judge loop's three agents, <code>kit-planner</code>, <code>kit-builder</code> and
+<code>kit-judge</code>, into <code>~/.claude/agents/</code>; other files in that folder are left
+alone. It replaces <code>~/.claude/CLAUDE.md</code> with the kit's own, so a
+<code>Judge loop:</code>, <code>Judge rounds:</code> or <code>Judges:</code> line you kept there is dropped:
+the installer warns and names the backup that holds it. Keep such a line in
+the project's <code>CLAUDE.md</code> instead.</p>
 <div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>pipelinekit<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>pull<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>bash<span class="w"> </span>scripts/install.sh
 </code></pre></div>
 

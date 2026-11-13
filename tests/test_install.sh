@@ -178,7 +178,7 @@ set -- "${CLAUDE_HOME}"/pipelinekit/backup/agents-*
 # names it, in the kit's spelling, and the backup that holds it.
 printf '# mine\n\n- judge rounds: 3\n' > "$CLAUDE_HOME/CLAUDE.md"
 bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$T/install4.out" 2>&1
-grep -E "^\[install\]\[warn\] your CLAUDE.md had the line 'Judge rounds:'; it is in .*/CLAUDE.md.bak-[0-9]{8}-[0-9]{6}: add it again, or put it in the project$" \
+grep -E "^\[install\]\[warn\] your CLAUDE.md had the line 'Judge rounds:'; it is in .*/CLAUDE.md.bak-[0-9]{8}-[0-9]{6}: add it again, or put it in the project's CLAUDE.md$" \
   "$T/install4.out" >/dev/null ||
   { echo "test_install: no warning for the replaced switch line" >&2; exit 1; }
 if grep -qF 'had the line' "$T/install2.out"; then
