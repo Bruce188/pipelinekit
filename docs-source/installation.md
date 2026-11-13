@@ -73,7 +73,7 @@ The `judge-loop` skill plans a change on Fable, builds it on Opus and has fresh 
 - **Switch lines.** `Judge loop: off`, `Judge rounds: N` and `Judges: ...` belong in the project's `CLAUDE.md` (or `.claude/CLAUDE.md`) on its base branch. The same lines in `~/.claude/CLAUDE.md` work only until the next install replaces that file.
 - **Another `CLAUDE_HOME`.** The skill names `loop.py` by its path. With `CLAUDE_HOME` set to another folder, the installer writes that folder into the installed `SKILL.md`, as long as its path holds only letters, digits and `. _ / @ + -`; otherwise it warns, and the skill keeps `~/.claude`.
 - **Permissions.** The session writes one answer file per judge with the Write tool. In the default permission mode each write may ask; "allow edits for this session" avoids one prompt per file.
-- **The record.** A loop keeps its record in `docs/loops/` of the checkout or worktree it runs in. A build in another worktree needs the plan loop's folder (`docs/loops/<name>/plan/`) copied there first. Nothing removes old loop folders: delete one once its work is merged.
+- **The record.** A loop keeps its record in `docs/loops/` of the checkout or worktree it runs in. A build in another worktree needs the plan loop's folder (`docs/loops/<name>/plan/`) copied there first. `docs/loops/` is not committed, so work judged in one checkout and shipped from another must be judged again there, or recorded there with `loop.py skip --reason ...`. Nothing removes old loop folders: delete one once its work is merged.
 - **Agents load at session start.** After an install, start a new session so `kit-planner`, `kit-builder` and `kit-judge` show in the agent list.
 ## Optional: context7
 
