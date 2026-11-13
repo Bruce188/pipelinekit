@@ -407,6 +407,16 @@ def test_a_changed_plan_gets_a_delta(sb):
     assert "+step two\n" in delta
 
 
+def test_an_unchanged_plan_ends_without_a_final_round(sb):
+    which = ten_and_nine(sb, "plan")
+    run = sb.judge({"tests": 10}, *which)
+    assert run.code == 0, run
+    assert sb.stored("tests", *which, n=2, ext="delta.diff").read_bytes() == b""
+    st = sb.state(*which)
+    assert (st["outcome"], st["final"]) == ("done", False)
+    assert st["rounds"][1]["skipped"] == {"general": 1}
+
+
 def test_a_ten_outside_the_changed_area_is_skipped(sb):
     which = ten_and_nine(sb, "build")
     (sb.loopdir(*which) / "map.md").write_text("code | app.py | tests\n")
@@ -776,6 +786,27 @@ def test_skip_after_done(sb):
         ]
         == "done"
     )
+
+
+@pytest.mark.parametrize("outcome", ["accepted", "budget"])
+def test_skip_after_accepted_or_budget(sb, outcome):
+    if outcome == "accepted":
+        one_round(sb)
+        assert sb.run("accept", "--note", "ok").code == 0
+    else:
+        play(sb, "build", 1, [9])
+    assert sb.state()["outcome"] == outcome
+    refused = (
+        2,
+        f"Refused: this branch is already judged ({outcome}). "
+        "Next: the acceptance test.",
+    )
+    run = sb.run("skip", "--reason", "x")
+    assert (run.code, run.last) == refused
+    sb.change("more.py", 1)
+    run = sb.run("skip", "--reason", "x")
+    assert (run.code, run.last) == refused
+    assert sb.state()["outcome"] == outcome
 
 
 def test_skip_replaces_a_skip(sb):

@@ -699,6 +699,7 @@ def cmd_start(args):
         )
     loop = Loop(ctx, kind, name)
     others = [lp for lp in scan(ctx, load=False) if (lp.kind, lp.name) != (kind, name)]
+    left_out([lp for lp in others if lenient(lp) is None], args)
     old = existing(loop)
     if old and old["outcome"] in UNFINISHED:
         raise Exit(

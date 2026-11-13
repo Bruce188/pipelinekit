@@ -462,6 +462,16 @@ def round_two(sb):
     return sb.stored("general", ext="meta")
 
 
+@pytest.mark.parametrize("data", [d for _, d in ACCEPTED], ids=[n for n, _ in ACCEPTED])
+def test_accepted_results_through_round(sb, data):
+    round_two(sb)
+    assert sb.save("general", data).code == 0
+    run = sb.run("round")
+    assert run.code in (0, 1), run
+    assert sb.rounds() == 2
+    assert sb.state()["rounds"][1]["scores"] == {"general": json.loads(data)["overall"]}
+
+
 def test_results_through_save_and_round(sb):
     meta = round_two(sb)
     for name, data, reason in REJECTED:
@@ -589,6 +599,52 @@ def test_save_counts_the_misses(sb):
     assert run.last.startswith(
         "STOP: miss 3 from general (json: not one JSON object). Next: ask the user"
     )
+
+
+def briefed(st):
+    return st["pending"]["commit"]
+
+
+MISS_METAS = {
+    "of other work": lambda st: {"round": 1, "briefed": SHA_A, "misses": 1},
+    "of another round": lambda st: {"round": 2, "briefed": briefed(st), "misses": 1},
+    "with misses as text": lambda st: {
+        "round": 1,
+        "briefed": briefed(st),
+        "misses": "1",
+    },
+    "with misses below 0": lambda st: {
+        "round": 1,
+        "briefed": briefed(st),
+        "misses": -1,
+    },
+}
+FIRST_MISS = "STOP: not a score from general (json: not one JSON object). Next: ask"
+
+
+@pytest.mark.parametrize("make", MISS_METAS.values(), ids=MISS_METAS.keys())
+def test_a_meta_that_does_not_carry_the_misses(sb, make):
+    sb.start_build()
+    assert sb.run("brief").code == 0
+    sb.stored("general", ext="meta").write_text(json.dumps(make(sb.state())))
+    sb.answer("general", b"no")
+    run = sb.run("save", "general")
+    assert run.code == 3
+    assert run.last.startswith(FIRST_MISS), run
+    assert json.loads(sb.stored("general", ext="meta").read_text())["misses"] == 1
+
+
+def test_a_new_brief_after_a_miss_counts_again(sb):
+    sb.start_build()
+    assert sb.run("brief").code == 0
+    sb.answer("general", b"no")
+    assert sb.run("save", "general").last.startswith(FIRST_MISS)
+    sb.change("app.py", 5, tag="r2")
+    assert sb.run("brief").code == 0
+    sb.answer("general", b"no")
+    run = sb.run("save", "general")
+    assert run.code == 3
+    assert run.last.startswith(FIRST_MISS), run
 
 
 def test_two_saves_at_the_same_time(sb):

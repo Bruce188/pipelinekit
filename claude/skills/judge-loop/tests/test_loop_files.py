@@ -328,6 +328,29 @@ def test_a_meta_whose_commit_is_not_a_sha(sb):
     )
 
 
+OTHER_WORK_STOP = (
+    "STOP: no score from general (general's result is for other work). Next: do not "
+    "fix; judge again for that role and loop.py save general, else tell the user."
+)
+BAD_METAS = {
+    "not JSON": lambda data: "not json",
+    "a list": lambda data: "[1]",
+    "another round": lambda data: json.dumps({**data, "round": 2}),
+}
+
+
+@pytest.mark.parametrize("spoil", BAD_METAS.values(), ids=BAD_METAS.keys())
+def test_a_meta_that_is_not_json_or_of_another_round(sb, spoil):
+    sb.start_build()
+    sb.run("brief")
+    assert sb.save("general", 9).code == 0
+    meta = sb.stored("general", n=1, ext="meta")
+    meta.write_text(spoil(json.loads(meta.read_text())))
+    run = sb.run("round")
+    assert (run.code, run.last) == (3, OTHER_WORK_STOP)
+    assert sb.rounds() == 0
+
+
 # Which loop -------------------------------------------------------------------
 
 
@@ -869,6 +892,49 @@ def test_a_state_of_another_schema_is_kept(sb):
         )
     assert (sb.loopdir() / "state.json").read_bytes() == before
     assert st["schema"] == 2
+
+
+def damaged_notice(rel):
+    return (
+        f"note: {rel}/state.json is not a readable loop state and is left out. "
+        f"Next: move the folder {rel} away."
+    )
+
+
+def test_a_damaged_state_of_another_loop_is_left_out(sb):
+    plan_stage(sb, "p1")
+    path = sb.loopdir("plan", "p1") / "state.json"
+    path.write_text("{")
+    notice = damaged_notice("docs/loops/p1/plan")
+    sb.change()
+    start = sb.run("start", "build")
+    assert start.code == 0, start
+    assert notice in start.lines
+    sb.criteria()
+    brief = sb.run("brief")
+    assert brief.code == 0, brief
+    assert brief.lines[0] == notice
+    status = sb.run("status")
+    assert status.code == 0, status
+    assert status.lines[:2] == [notice, f"Loop: build {NAME} in {FOLDER}/"]
+    data = sb.run("status", "--json")
+    assert json.loads(data.out)["name"] == NAME
+    assert data.err.splitlines() == [notice]
+    assert path.read_text() == "{"
+
+
+@pytest.mark.parametrize("which", [(), ("--kind", "build", "--name", NAME)])
+def test_a_damaged_chosen_loop_is_still_refused(sb, which):
+    plan_stage(sb, "p1")
+    sb.start_build()
+    (sb.loopdir() / "state.json").write_text("{")
+    run = sb.run("brief", *which)
+    assert (run.code, run.last) == (
+        2,
+        f"Error: {FOLDER}/state.json is not a readable loop state. "
+        f"Next: move the folder {FOLDER} away, then loop.py start again.",
+    )
+    assert damaged_notice(FOLDER) not in run.lines
 
 
 def test_a_second_start(sb):

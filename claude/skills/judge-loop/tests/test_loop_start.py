@@ -92,6 +92,30 @@ def test_a_diff_over_2_mb_is_cut(sb):
     ]
 
 
+def test_git_output_is_read_up_to_its_limit(sb):
+    sb.write("big.txt", "y" * 100_000)
+    sb.commit()
+    git = loop.loop_state.Git(sb.root)
+    assert git.capped("show", "HEAD:big.txt", limit=1000) == b"y" * 1001
+    assert git.capped("show", "HEAD:big.txt", limit=200_000) == b"y" * 100_000
+    with pytest.raises(loop.GitFailed):
+        git.capped("show", "HEAD:nosuch.txt", limit=1000)
+
+
+def test_the_diff_is_read_through_the_limit(sb, monkeypatch):
+    calls = []
+    real = loop.loop_state.Git.capped
+
+    def spy(self, *args, limit):
+        calls.append((args[0], limit))
+        return real(self, *args, limit=limit)
+
+    monkeypatch.setattr(loop.loop_state.Git, "capped", spy)
+    sb.start_build()
+    assert sb.run("brief").code == 0
+    assert calls == [("diff", loop.MAX_DIFF)]
+
+
 def moved_base(sb, how):
     """Two judges; general 10 twice, tests rising; the base moves; round 3 is
     briefed."""
@@ -752,6 +776,22 @@ def test_a_user_file_that_is_not_read(sb, how):
     assert run.code == 0, run
     assert "$CLAUDE_HOME/CLAUDE.md is a link or over 1 MB: not used" in run.lines
     assert "Panel: tests (Judges line)" not in run.lines
+
+
+@pytest.mark.parametrize("how", ["unset", "empty"])
+def test_the_user_file_without_claude_home(sb, how):
+    if how == "unset":
+        sb.mp.delenv("CLAUDE_HOME")
+    else:
+        sb.mp.setenv("CLAUDE_HOME", "")
+    path = sb.home / ".claude" / "CLAUDE.md"
+    path.parent.mkdir(parents=True)
+    path.write_text("Judges: tests\n")
+    sb.change()
+    run = sb.run("start", "build")
+    assert run.code == 0, run
+    assert "switch used: Judges: tests (~/.claude/CLAUDE.md:1)" in run.lines
+    assert sb.state()["panel"] == ["tests"]
 
 
 def on_local_main(sb, text):

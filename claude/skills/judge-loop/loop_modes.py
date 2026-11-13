@@ -247,7 +247,7 @@ def diff_text(ctx, base, head):
         counts = f"{added} {deleted}" if added is not None else "- -"
         out.append(f"{counts} {shown}{mark}")
     out.append("")
-    body = ctx.git.run("diff", *DIFF_FLAGS, base, head).stdout
+    body = ctx.git.capped("diff", *DIFF_FLAGS, base, head, limit=MAX_DIFF)
     return "\n".join(out).encode() + b"\n" + cut_diff(body)
 
 

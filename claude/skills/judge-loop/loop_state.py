@@ -11,6 +11,8 @@ import os
 import re
 import stat
 import subprocess
+import sys
+import tempfile
 from pathlib import Path
 
 from loop_text import *
@@ -40,6 +42,24 @@ class Git:
             err = proc.stderr.decode("utf-8", "replace")
             raise GitFailed(args[0], proc.returncode, git_said(err, proc.returncode))
         return proc
+
+    def capped(self, *args, limit):
+        """At most limit + 1 bytes of a command's output, read through a pipe;
+        git is stopped there, so a huge output is never held whole."""
+        with (
+            tempfile.TemporaryFile() as err,
+            subprocess.Popen(
+                ["git", *args], cwd=self.root, stdout=subprocess.PIPE, stderr=err
+            ) as proc,
+        ):
+            data = proc.stdout.read(limit + 1)
+            if len(data) > limit:
+                proc.kill()
+            elif proc.wait():
+                err.seek(0)
+                said = git_said(err.read().decode("utf-8", "replace"), proc.returncode)
+                raise GitFailed(args[0], proc.returncode, said)
+        return data
 
     def out(self, *args, ok=(0,)):
         return os.fsdecode(self.run(*args, ok=ok).stdout).strip()
@@ -549,9 +569,40 @@ NO_LOOP = "Open: no loop here. Next: loop.py start plan or loop.py start build."
 NO_SUCH = "Refused: no such loop here. Next: loop.py status."
 
 
+def lenient(loop):
+    """The outcome and branch of a state, read without the full check; None
+    when they cannot be read."""
+    try:
+        data = read_plain(loop.path("state.json"), MAX_STATE)
+        st = json.loads(data.decode("utf-8")) if data else None
+    except (Exit, OSError, UnicodeDecodeError, ValueError, RecursionError):
+        return None
+    if not isinstance(st, dict):
+        return None
+    outcome, branch = st.get("outcome"), st.get("branch")
+    if not (is_type(outcome, str) and outcome in OUTCOMES and is_type(branch, str)):
+        return None
+    return {"outcome": outcome, "branch": branch}
+
+
+def left_out(loops, args):
+    """One notice per other loop whose state cannot be read; stderr beside --json."""
+    out = sys.stderr if getattr(args, "json", False) else sys.stdout
+    for lp in loops:
+        rel = show_path(lp.rel)
+        print(
+            f"note: {rel}/state.json is not a readable loop state and is left out. "
+            f"Next: move the folder {rel} away.",
+            file=out,
+            flush=True,
+        )
+
+
 def pick(ctx, args, command):
-    """The loop a command means."""
-    found = scan(ctx)
+    """The loop a command means. Only that loop's state is checked in full; the
+    others are read for their outcome and branch, and one that cannot be read
+    is left out with a notice."""
+    found = scan(ctx, load=False)
     if len(found) > 1:
         QUALIFY.append(True)
     kind, name = getattr(args, "kind", None), getattr(args, "name", None)
@@ -565,30 +616,41 @@ def pick(ctx, args, command):
             raise Exit(2, NO_SUCH)
         if len(found) == 1:
             return chosen(found[0])
+    seen = {lp: lenient(lp) for lp in found}
+    damaged = [lp for lp in found if seen[lp] is None]
+    found = [lp for lp in found if seen[lp]]
     if ctx.branch and any(
-        lp.kind == "build" and lp.st["branch"] == ctx.branch for lp in found
+        lp.kind == "build" and seen[lp]["branch"] == ctx.branch for lp in found
     ):
         found = [
-            lp for lp in found if lp.kind == "plan" or lp.st["branch"] == ctx.branch
+            lp for lp in found if lp.kind == "plan" or seen[lp]["branch"] == ctx.branch
         ]
-    unfinished = [lp for lp in found if lp.st["outcome"] in UNFINISHED]
+    unfinished = [lp for lp in found if seen[lp]["outcome"] in UNFINISHED]
+    loop = None
     if len(unfinished) == 1:
-        return chosen(unfinished[0])
-    if len(unfinished) > 1:
+        loop = unfinished[0]
+    elif len(unfinished) > 1:
+        left_out(damaged, args)
         names = ", ".join(f"{lp.kind} {lp.name}" for lp in unfinished)
         raise Exit(
             2,
             f"Refused: more than one loop is open ({names}). "
             "Next: the same command with --kind and --name.",
         )
-    if command in ("status", "leftovers"):
-        if not found:
-            raise Exit(0, NO_LOOP)
-        return chosen(max(found, key=lambda lp: lp.mtime()))
-    raise Exit(2, NO_OPEN)
+    elif command in ("status", "leftovers") and found:
+        loop = max(found, key=lambda lp: lp.mtime())
+    if loop is None:
+        for lp in damaged:
+            lp.load()  # nothing else is meant: the damaged loop may be the one
+        raise (
+            Exit(0, NO_LOOP) if command in ("status", "leftovers") else Exit(2, NO_OPEN)
+        )
+    left_out(damaged, args)
+    return chosen(loop)
 
 
 def chosen(loop):
+    loop.load()
     if QUALIFY:
         QUALIFY.append((loop.kind, loop.name))
     return loop
