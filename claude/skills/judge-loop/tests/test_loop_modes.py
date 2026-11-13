@@ -231,7 +231,10 @@ def test_the_rows_that_count_for_each_judge(sb):
     counted.write_bytes(data)
     run = sb.run("brief")
     assert run.code == 0, run
-    assert "note: no changes.md row for [tests T1]" in run.lines
+    assert (
+        "note: no changes.md row for [tests T1] (a row reads: - r2 [tests T1] "
+        "fixed|answered|owner: <text>)"
+    ) in run.lines
     assert "note: no changes.md row for [general G1]" not in run.lines
     assert WAIT_ONE in run.lines
     general = brief_of(run, "general", 3)[1]
@@ -259,7 +262,10 @@ def test_a_missing_row_and_a_settled_item(sb, settle):
     sb.change("app.py", 5, tag="r2")
     run = sb.run("brief")
     assert run.code == 0, run
-    note = "note: no changes.md row for [general I1]"
+    note = (
+        "note: no changes.md row for [general I1] (a row reads: - r1 [general I1] "
+        "fixed|answered|owner: <text>)"
+    )
     assert (note in run.lines) is not settle
     again = sb.run("brief")
     assert not [line for line in again.lines if line.startswith("note:")]

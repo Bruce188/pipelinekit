@@ -93,7 +93,7 @@ def test_the_outcome_rows(sb):
     run = sb.judge({"general": result(10)})
     assert run.code == 0
     assert run.lines[0] == (
-        "Round 2 of 5: average 10.0 (round before: 9.0); general 10 changes"
+        "Round 2 of 5: average 10.0 (round before: 9.0); general 10 changes, read full"
     )
     assert (
         run.last == "Done: 10 from every judge in 2 rounds. Next: the acceptance test."
@@ -243,8 +243,9 @@ def test_a_command_that_does_not_fit_the_state(sb, command, args, outcome, fits)
     sb.set_state(outcome=outcome)
     run = sb.run(command, *args, "--kind", "build", "--name", NAME)
     assert run.code == 2
+    words = loop.outcome_words(outcome)
     assert run.last.startswith(
-        f"Refused: the loop is {outcome}; {command} does not apply. Next: {fits}"
+        f"Refused: the loop is {words}; {command} does not apply. Next: {fits}"
     ), run
 
 
@@ -788,8 +789,11 @@ def test_skip_after_done(sb):
     )
 
 
-@pytest.mark.parametrize("outcome", ["accepted", "budget"])
-def test_skip_after_accepted_or_budget(sb, outcome):
+@pytest.mark.parametrize(
+    "outcome, words",
+    [("accepted", "accepted by the user"), ("budget", "out of rounds")],
+)
+def test_skip_after_accepted_or_budget(sb, outcome, words):
     if outcome == "accepted":
         one_round(sb)
         assert sb.run("accept", "--note", "ok").code == 0
@@ -798,8 +802,7 @@ def test_skip_after_accepted_or_budget(sb, outcome):
     assert sb.state()["outcome"] == outcome
     refused = (
         2,
-        f"Refused: this branch is already judged ({outcome}). "
-        "Next: the acceptance test.",
+        f"Refused: this branch is already judged ({words}). Next: the acceptance test.",
     )
     run = sb.run("skip", "--reason", "x")
     assert (run.code, run.last) == refused

@@ -403,6 +403,10 @@ def cmd_save(args):
     )
     if not is_type(misses, int) or misses < 0:
         misses = 0
+    same = old.get("briefed") == briefed and old.get("round") == n
+    if tokens is None and same and old.get("sha256") == sha256(data):
+        kept = old.get("tokens")
+        tokens = kept if is_type(kept, int) else None
     try:
         result = check_result(data, role, open_ids(st, role), mode)
         reason = why = ""

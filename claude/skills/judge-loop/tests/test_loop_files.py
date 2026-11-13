@@ -279,7 +279,10 @@ def test_a_project_agent_that_appears_after_round_one(sb):
     assert (run.code, run.last) == (3, OWN_AGENT.format(rel=rel, again="brief"))
     run = sb.run("brief", "--agents", "fallback")
     assert run.code == 0, run
-    assert run.lines[0] == "note: no changes.md row for [general I1]"
+    assert run.lines[0] == (
+        "note: no changes.md row for [general I1] (a row reads: - r1 [general I1] "
+        "fixed|answered|owner: <text>)"
+    )
     assert run.lines[1] == "Agents: fallback"
     assert loop.FALLBACK_SENTENCE in run.lines
     st = sb.state()

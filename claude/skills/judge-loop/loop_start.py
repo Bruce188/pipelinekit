@@ -558,6 +558,12 @@ def prepare(args):
             0,
             f"Off: judge loop switched off by {entry['where']}. Next: work without it.",
         )
+    if kind == "build" and not base_ref and source == "--base":
+        raise Exit(
+            2,
+            f"Refused: no base branch {show_branch(base)} found. "
+            "Next: the same command with --base <branch>.",
+        )
     if kind == "build" and not base_ref:
         raise Exit(
             2,
@@ -642,7 +648,7 @@ def judged_plan(ctx, name):
     why = ""
     data = None
     if st["outcome"] not in ("done", "budget", "accepted") or not st["rounds"]:
-        why = f"that loop is {st['outcome']}"
+        why = f"that loop is {outcome_words(st['outcome'])}"
     else:
         n = st["rounds"][-1]["n"]
         data = plan.read(f"plan.r{n}.md")
@@ -704,8 +710,8 @@ def cmd_start(args):
     if old and old["outcome"] in UNFINISHED:
         raise Exit(
             2,
-            f"Refused: this loop is not finished ({old['outcome']}, round "
-            f"{current_round(old)} of {old['budget']}). "
+            f"Refused: this loop is not finished ({outcome_words(old['outcome'])}, "
+            f"round {current_round(old)} of {old['budget']}). "
             "Next: loop.py status; loop.py accept or abandon ends it.",
         )
     plan = None

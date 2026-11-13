@@ -138,7 +138,8 @@ COMMANDS["status"] = (configure_status, cmd_status)
 def not_apply(loop, command):
     return Exit(
         2,
-        f"Refused: the loop is {loop.st['outcome']}; {command} does not apply. "
+        f"Refused: the loop is {outcome_words(loop.st['outcome'])}; {command} does "
+        "not apply. "
         f"Next: {next_text(loop)}",
     )
 
@@ -415,7 +416,8 @@ def cmd_skip(args):
     if judged and (old["commit"] == head or ctx.is_ancestor(old["commit"], head)):
         raise Exit(
             2,
-            f"Refused: this branch is already judged ({old['outcome']}). "
+            "Refused: this branch is already judged "
+            f"({outcome_words(old['outcome'])}). "
             "Next: the acceptance test.",
         )
     if not size.exempt and not args.user_ok:
@@ -571,6 +573,17 @@ def where_failed(err):
 
 
 def main(argv=None):
+    """Run one command; a reader of stdout that went away ends it quietly."""
+    code = 0
+    try:
+        code = dispatch(argv)
+        sys.stdout.flush()
+    except BrokenPipeError:
+        quiet_stdout()
+    return code
+
+
+def dispatch(argv):
     QUALIFY.clear()
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="backslashreplace")
@@ -606,6 +619,8 @@ def main(argv=None):
             "Next: fix the repository, then the same command."
         )
         return 2
+    except BrokenPipeError:
+        raise
     except OSError as err:
         why = clean(err.strerror or "no reason", 80)
         where = error_path(err)
