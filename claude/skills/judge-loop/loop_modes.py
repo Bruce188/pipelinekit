@@ -339,9 +339,11 @@ def scorecard_line(st, rnd):
         before = st["rounds"][rnd["n"] - 2]
         gain = gain_text(doubled(rnd), doubled(before), len(rnd["scores"]))
         head += f" (gain {gain})"
+    scores = rnd["scores"]
+    roles = [r for r in st.get("panel", ()) if r in scores]
+    roles += [r for r in scores if r not in roles]
     judges = ", ".join(
-        f"{role} {score_text(score)} {judge_mode(rnd, role)}"
-        for role, score in rnd["scores"].items()
+        f"{role} {score_text(scores[role])} {judge_mode(rnd, role)}" for role in roles
     )
     counts = rnd.get("items", {"open": 0, "closed": 0, "new": 0})
     fix = rnd.get("fix_tokens")

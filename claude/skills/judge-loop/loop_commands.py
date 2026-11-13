@@ -558,6 +558,26 @@ def error_path(err):
     return show_path(rel)
 
 
+def folder_line(err):
+    """The refusal for a folder that stands where the helper reads or writes a
+    file."""
+    where = error_path(err)
+    if where.startswith("../"):
+        name = os.path.realpath(os.fsdecode(err.filename))
+        home = os.path.realpath(os.path.expanduser("~"))
+        shown = show_path(os.path.relpath(name, home))
+        where = f"~/{shown}" if not shown.startswith(("../", "a file")) else ""
+    if not where or where == "a file":
+        return (
+            "Refused: a folder stands where a file was expected. "
+            "Next: move or remove that folder, then the same command."
+        )
+    return (
+        f"Refused: {where} is a folder where a file was expected. "
+        "Next: move or remove that folder, then the same command."
+    )
+
+
 def where_failed(err):
     """The function and line of the helper where an error came from."""
     frames = [
@@ -577,7 +597,8 @@ def main(argv=None):
     code = 0
     try:
         code = dispatch(argv)
-        sys.stdout.flush()
+        if sys.stdout is not None:
+            sys.stdout.flush()
     except BrokenPipeError:
         quiet_stdout()
     return code
@@ -621,6 +642,9 @@ def dispatch(argv):
         return 2
     except BrokenPipeError:
         raise
+    except IsADirectoryError as err:
+        say(folder_line(err))
+        return 2
     except OSError as err:
         why = clean(err.strerror or "no reason", 80)
         where = error_path(err)

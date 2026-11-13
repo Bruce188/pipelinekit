@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import contextlib
 import datetime
+import errno
 import json
 import math
 import os
@@ -158,10 +159,15 @@ def check_contained(root, rel, folder=None):
     return root / rel
 
 
+def folder_error(path):
+    return IsADirectoryError(errno.EISDIR, os.strerror(errno.EISDIR), os.fspath(path))
+
+
 def read_plain(path, limit):
     """The bytes of a regular file of at most `limit` bytes; None when missing.
 
-    A link, a file of another type or a larger file gives False.
+    A link, a file of another type or a larger file gives False; a folder
+    raises IsADirectoryError with its path.
     """
     if not hasattr(os, "O_NOFOLLOW") and os.path.islink(path):
         return False
@@ -173,6 +179,14 @@ def read_plain(path, limit):
         if os.path.islink(path):
             return False
         raise err
+    try:
+        is_folder = stat.S_ISDIR(os.fstat(fd).st_mode)
+    except OSError:
+        os.close(fd)
+        raise
+    if is_folder:
+        os.close(fd)
+        raise folder_error(path)
     with os.fdopen(fd, "rb") as fh:
         st = os.fstat(fh.fileno())
         if not stat.S_ISREG(st.st_mode) or st.st_size > limit:
@@ -183,6 +197,8 @@ def read_plain(path, limit):
 
 def write_atomic(path, data: bytes):
     path = Path(path)
+    if path.is_dir() and not path.is_symlink():
+        raise folder_error(path)
     tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
     fd = os.open(tmp, flags, 0o644)
