@@ -267,7 +267,7 @@ def print_items(loop, questions_since=None):
     lines += [item_line(k, it) for k, it in items]
     if lines:
         finished = st["outcome"] not in UNFINISHED
-        say("Items left:" if finished else "Items to fix, in this order:")
+        say("Items left:" if finished else "Items to fix:")
         for line in lines:
             say(line)
     for key, it in items:
@@ -279,8 +279,8 @@ def print_items(loop, questions_since=None):
 
 def fix_next(kind):
     if kind == "plan":
-        return "have kit-planner fix in this order, then loop.py brief."
-    return "have kit-builder fix in this order and commit, then loop.py brief."
+        return "have kit-planner fix these items, then loop.py brief."
+    return "have kit-builder fix these items and commit, then loop.py brief."
 
 
 def plan_handover(st):

@@ -243,6 +243,8 @@ def cmd_brief(args):
             pending = {}
     if moved:
         say(f"base moved: {short(round_base(st))} -> {short(work['base_sha'])}")
+    for note in missing_area_notes(loop):
+        say(note)
     kept = bool(pending)
     if kept:
         modes = {

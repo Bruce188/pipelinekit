@@ -20,6 +20,10 @@ NOT_PLAIN = (
 )
 PATTERN = re.compile(r"[*?\[]")
 ROW_FORM = " (a row reads: - r{n} [{key}] fixed|answered|owner: <text>)"
+AREA_NOTE = (
+    "note: area {name} in map.md has no notes file ({path}); write it before the "
+    "next round"
+)
 WAIT_NOTE = (
     "note: {items} {verb} for the user. Ask in one batch and record the answers "
     "(questions.md, loop.py settle) before the judges run."
@@ -141,6 +145,47 @@ def read_areas(loop):
             )
         areas.append((paths, set(ROLES) if "all" in roles else set(roles)))
     return areas
+
+
+def area_names(loop):
+    """The names of the area lines of map.md, once each; [] without a readable map."""
+    try:
+        if not os.path.lexists(loop.path("map.md")):
+            return []
+        text = loop_file(loop, "map.md")
+    except (Exit, OSError):
+        return []
+    names = []
+    for line in text.split("\n"):
+        line = line.removesuffix("\r")
+        if not line.strip() or line.lstrip().startswith("#") or line.count("|") != 2:
+            continue
+        name = line.split("|")[0].strip()
+        if name and name not in names:
+            names.append(name)
+    return names
+
+
+def missing_area_notes(loop):
+    """One note per area of map.md without its areas/<name>.md, while unfinished.
+
+    A warning only: it never refuses and changes no exit code.
+    """
+    if loop.st["outcome"] not in UNFINISHED:
+        return []
+    notes = []
+    for name in area_names(loop):
+        shown = clean(name, 80)
+        rel = f"areas/{name}.md"
+        usable = shown == name and not any(c in name for c in "/\\") and len(name) <= 80
+        try:
+            found = usable and os.path.isfile(loop.path(rel))
+        except (Exit, OSError):
+            found = False
+        if not found:
+            path = f"{loop.rel}/areas/{shown}.md"
+            notes.append(AREA_NOTE.format(name=shown, path=path))
+    return notes
 
 
 def roles_of(path, areas):

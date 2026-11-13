@@ -45,7 +45,9 @@ EVERY_AGENT = (
 FIXER = (
     "Read every line, and the judge results they come from, before you change "
     "anything. Items that say the same thing are one fix.",
-    "Keep blocking items first; within the rest, fix first what gains the most points.",
+    "Blocking items always come first, in the printed order; among the rest "
+    "the printed order is the default, and you may fix first what gains the "
+    "most points.",
     "Fix the whole list in this pass: each item ends fixed, answered with "
     "evidence, or written down for the user.",
     "`changes.md`",

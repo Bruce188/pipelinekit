@@ -4,6 +4,7 @@ sentences of a brief, the size limit and the layout of the modules."""
 from __future__ import annotations
 
 import ast
+import json
 import os
 import subprocess
 import sys
@@ -114,6 +115,69 @@ def test_an_area_file_at_the_size_limit(sb, sub, extra, code):
             "Next: shorten it, then loop.py brief."
         )
         assert not sb.state()["pending"]
+
+
+# Area notes -------------------------------------------------------------------
+
+AREA_NOTE = (
+    "note: area {name} in map.md has no notes file ({path}); write it before the "
+    "next round"
+)
+
+
+def area_note(name):
+    return AREA_NOTE.format(name=name, path=f"{FOLDER}/areas/{name}.md")
+
+
+def area_notes(run):
+    return [line for line in run.lines if line.startswith("note: area ")]
+
+
+def test_status_warns_of_an_area_without_its_notes_file(sb):
+    sb.start_build()
+    write_map(sb, "code | app.py | tests\nhooks | claude/hooks/ | all\n")
+    (sb.loopdir() / "areas").mkdir()
+    (sb.loopdir() / "areas" / "hooks.md").write_text("what the hooks need\n")
+    run = sb.run("status")
+    assert run.code == 0, run
+    assert area_notes(run) == [area_note("code")]
+    assert run.last.startswith("Open: ")
+    run = sb.run("status", "--json")
+    assert run.code == 0, run
+    assert json.loads(run.out)["warnings"] == [area_note("code")]
+
+
+def test_brief_prints_the_area_note_once(sb):
+    sb.start_build()
+    write_map(sb, "code | app.py | tests\ncode | app.py | general\n")
+    run = sb.run("brief")
+    assert run.code == 0, run
+    assert area_notes(run) == [area_note("code")]
+    assert sb.state()["pending"]
+
+
+def test_no_area_note_without_a_map_or_with_every_notes_file(sb):
+    sb.start_build()
+    assert not area_notes(sb.run("status"))
+    assert json.loads(sb.run("status", "--json").out)["warnings"] == []
+    write_map(sb, "# areas\ncode | app.py | tests\n")
+    (sb.loopdir() / "areas").mkdir()
+    (sb.loopdir() / "areas" / "code.md").write_text("what app.py needs\n")
+    assert not area_notes(sb.run("status"))
+    assert not area_notes(sb.run("brief"))
+
+
+def test_a_map_status_cannot_read_gives_no_note_and_no_refusal(sb):
+    sb.start_build()
+    write_map(sb, "a | ../b | all\n")
+    run = sb.run("status")
+    assert run.code == 0, run
+    assert area_notes(run) == [area_note("a")]
+    (sb.loopdir() / "map.md").unlink()
+    (sb.loopdir() / "map.md").mkdir()
+    run = sb.run("status")
+    assert run.code == 0, run
+    assert not area_notes(run)
 
 
 # Skipped judges ---------------------------------------------------------------

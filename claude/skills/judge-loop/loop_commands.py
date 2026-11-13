@@ -70,6 +70,7 @@ def status_data(loop):
             if it["settled"] and not it["settled"]["raised_again"]
         ],
         "next": qualify_next(next_text(loop)),
+        "warnings": missing_area_notes(loop),
     }
 
 
@@ -113,6 +114,8 @@ def cmd_status(args):
     k, b = print_items(loop)
     n, sb = settled_counts(st)
     say(f"Open items: {k} ({b} blocking); settled: {n} ({sb} blocking)")
+    for note in data["warnings"]:
+        say(note)
     if st["outcome"] != "open":
         raise Exit(0, closing_line(loop))
     j = len(briefed_roles(st)) if st["pending"] else len(st["panel"])

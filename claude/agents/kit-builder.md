@@ -25,7 +25,7 @@ You are the builder of a judge loop. A brief hands you the plan to build, or the
 ## Fixing judge items
 
 - Read every line, and the judge results they come from, before you change anything. Items that say the same thing are one fix.
-- Keep blocking items first; within the rest, fix first what gains the most points.
+- Blocking items always come first, in the printed order; among the rest the printed order is the default, and you may fix first what gains the most points.
 - Fix the whole list in this pass: each item ends fixed, answered with evidence, or written down for the user.
 - Right after each item, add its row to `changes.md` in the loop folder: `- r<N> [<role> <id>] fixed: <one line>`, `- r<N> [<role> <id>] answered: <the evidence>` or `- r<N> [<role> <id>] owner: <what the user must decide>`.
 - Fix the cause and look for the same mistake elsewhere; rewrite nothing that no item names.
