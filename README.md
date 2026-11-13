@@ -4,8 +4,8 @@
 [![CI](https://github.com/Bruce188/pipelinekit/actions/workflows/ci.yml/badge.svg)](https://github.com/Bruce188/pipelinekit/actions/workflows/ci.yml)
 
 A small Claude Code config kit. It contains guard hooks, permission rules,
-global git hooks, a few skills, a short `CLAUDE.md` template, and an installer
-that copies them into `~/.claude` while leaving everything else in that
+global git hooks, a few skills, three agents, a short `CLAUDE.md` template, and
+an installer that copies them into `~/.claude` while leaving everything else in that
 directory alone.
 
 Up to 0.0.1, pipelinekit was a full multi-agent pipeline kit with its own
@@ -13,6 +13,12 @@ orchestrator, review panel, persona agents and memory stack. Current Claude
 Code covers most of that natively, so v0.1.0 drops those parts and keeps only
 what Claude Code does not ship. See [What was removed](#what-was-removed) and
 the [CHANGELOG](CHANGELOG.md).
+
+One thing it adds is the judge loop: a change that is more than a small fix is
+planned on Fable (`kit-planner`), built on Opus (`kit-builder`) and scored by
+fresh Fable judges (`kit-judge`) until it reaches 10 out of 10. The
+`judge-loop` skill runs it, and the "Plan, build, judge" section of the
+`CLAUDE.md` template makes it the rule. See [Plan, build, judge](#plan-build-judge).
 
 > **Status:** the hooks and skills are still being reviewed, so details may
 > change in later releases. The hooks are guardrails that catch common
@@ -64,18 +70,40 @@ off. Every rule id is in
 | `mobile` | Android (Kotlin/Compose) builds and device access from WSL2, iPhone home-screen web apps, Expo/EAS cloud builds for iOS, release and security checklist |
 | `kit` | Self-check, run as `/kit`: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, environment conflicts, what the hooks blocked or failed on in the last days, and whether a newer kit is available. `/kit update` applies it after asking |
 | `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then `ship.py` merges once every gate holds (own pull request, not a release, no required review, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
+| `judge-loop` | Run as `/judge-loop`: plans a change on Fable, builds it on Opus, and has fresh Fable judges score the plan and the build until each gets 10 out of 10, within a round budget. `loop.py` keeps the state under `docs/loops/` (local, on the never-stage list) and says what comes next |
 
 ### CLAUDE.md template
 
-`claude/CLAUDE.md.template` is 67 lines long. It covers your identity,
+`claude/CLAUDE.md.template` is 79 lines long. It covers your identity,
 git rules (conventional commits, no AI attribution, never-stage list, no
 direct pushes to `main`), the `docs/` and `documentation/` split, base-branch
 detection, serena vs Grep, a design rule (load `frontend-design` before visual
 work; a project's own design system and the host's rules for the output come
-first; skip it for small fixes inside an existing design), GitHub issue/PR
+first; skip it for small fixes inside an existing design), the plan, build,
+judge rule and how the agents it starts read files and answer, GitHub issue/PR
 habits with `gh` (Claude tests and merges the pull requests it opens; releases
 stay yours), and the deploy CLIs.
 The installer renders it to `~/.claude/CLAUDE.md`.
+
+### Plan, build, judge
+
+The template's "Plan, build, judge" section makes the judge loop the rule for
+every change that is more than a small fix (one file with at most ten changed
+lines, documentation only, or a question). A project sets its own terms with
+one of these lines, on a line of its own, in its `CLAUDE.md`:
+
+| Line | Effect |
+|------|--------|
+| `Judge loop: off` | No loop for this project |
+| `Judge rounds: N` | The round budget of a plan and of a build (5 by default) |
+| `Judges: correctness, tests` | The judges of the panel |
+
+A line counts once it is on the branch pull requests go to. The same lines in
+`~/.claude/CLAUDE.md` count too, but the installer replaces that file (after a
+backup), so put them in the project; the installer warns when the file it
+replaces held one. The loop needs both a Fable and an Opus model; an account
+without one sets `Judge loop: off`. See
+[Components](documentation/components.html#plan-build-judge).
 
 ### MCP servers
 
@@ -113,7 +141,9 @@ You can safely run the installer again to update. It:
    hooks, `agents/docs-writer.md`), but only if they are unmodified kit copies;
    edited ones are kept with a warning;
 3. renders `~/.claude/CLAUDE.md` from the template, first backing up an existing
-   one to `CLAUDE.md.bak-<timestamp>`;
+   one to `CLAUDE.md.bak-<timestamp>`. When that file held a `Judge loop:`,
+   `Judge rounds:` or `Judges:` line, it names the line: add it again, or put
+   it in the project;
 4. backs up `settings.json` to `settings.json.bak-<timestamp>`, then merges in
    `claude/config/settings.template.json`: the kit's hook wiring replaces its
    old entries, hook entries whose script no longer exists are removed, the
@@ -132,7 +162,7 @@ starts.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `CLAUDE_HOME` | `~/.claude` | Install target |
+| `CLAUDE_HOME` | `~/.claude` | Install target. Another target is written into the `judge-loop` skill so that it finds `loop.py`; use a path of letters, digits and `._/@+-` |
 | `USER_NAME` / `USER_EMAIL` | git config | Identity written into `CLAUDE.md` |
 | `SERENA_REF` | pinned SHA | serena commit to install |
 | `CLAUDE_INSTALL_SKIP_SERENA=1` | unset | Same as `--no-serena` |
@@ -147,8 +177,8 @@ Each of these was dropped because a built-in Claude Code feature covers it.
 
 | Removed in 0.1.0 | Use instead |
 |------------------|-------------|
-| `/pipeline` orchestrator, planner and goal-setter agents, TDD gates | Plan mode, the Workflow tool, built-in Plan agent |
-| Review panel (code-reviewer, security-auditor and similar agents), `simplify` skill | `/code-review`, `/security-review`, `/simplify` |
+| `/pipeline` orchestrator, planner and goal-setter agents, TDD gates | Plan mode, the Workflow tool, built-in Plan agent; for a change judged to 10, the kit's `judge-loop` |
+| Review panel (code-reviewer, security-auditor and similar agents), `simplify` skill | `/code-review`, `/security-review`, `/simplify`; the judges of `judge-loop` |
 | Persona agents and `persona` | Built-in Explore and Plan agents |
 | agentmemory, `memory-journal` hook, memory migration script | Native auto-memory |
 | codegraph, graphify, local-rag, sequential-thinking | Explore agent, plus serena for symbol navigation |
@@ -159,6 +189,8 @@ Each of these was dropped because a built-in Claude Code feature covers it.
 | `claude-md-enhancer`, `write-a-skill`, `build-hook`/`test-hooks` | `/init`, `skill-creator`, `update-config` |
 | `vercel-ops`, `railway-ops`, `render-ops`, `digitalocean-ops`, `azure-ops` and the per-provider deployment agents | The `deploy` skill |
 | caveman, model overlays, `modes/`, `rules/`, host adapters | Dropped with no replacement |
+
+The judge loop is not the old pipeline back. It is one helper, three agents and a rule, and the kit keeps it because Claude Code ships no judge on a second model that scores a plan or a build, within a round budget, until it reaches 10.
 
 The [CHANGELOG](CHANGELOG.md) lists every removed file.
 
@@ -253,7 +285,8 @@ python3 claude/skills/docs-writer/render.py   # renders every docs-source/*.md; 
 
 ```bash
 for t in claude/hooks/tests/test_*.sh; do bash "$t"; done   # git hooks
-python3 -m pytest claude/hooks/tests claude/skills/kit/tests claude/skills/ship/tests
+python3 -m pytest claude/hooks/tests claude/skills/kit/tests claude/skills/ship/tests \
+  claude/skills/judge-loop/tests
 bash tests/test_install.sh
 bash claude/skills/docs-writer/tests/test_render.sh
 bash claude/skills/docs-writer/tests/test_richness_threshold.sh

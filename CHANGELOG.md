@@ -125,6 +125,27 @@ kit used to ship, so those parts are gone.
 - `/kit` fails when an agent file is missing or `kit-judge.md` allows more than
   reading, and lists an edited agent file under "Changes since install".
 
+### Judge loop
+
+- `judge-loop` skill (`/judge-loop`): a change that is more than a small fix
+  is planned by `kit-planner`, built by `kit-builder` and scored from 0 to 10
+  by fresh `kit-judge` agents, one `general` judge or, for a large or
+  sensitive change, six (correctness, tests, security, scope, operations,
+  user experience), until each gives 10 within a round budget.
+  `claude/skills/judge-loop/loop.py` keeps the state under `docs/loops/` and
+  says what comes next; `docs/loops/` is on the never-stage list.
+- The `CLAUDE.md` template gains a "Plan, build, judge" section with the rules
+  for every agent it starts: read a file whole once or search first, read
+  nothing twice, keep output short, return a JSON form or at most 15 lines.
+  The agent files and the ship skill's tester brief carry the same rules.
+- A project sets its own terms in its `CLAUDE.md`: `Judge loop: off`,
+  `Judge rounds: N`, `Judges: correctness, tests`. The installer warns when
+  the user-level `CLAUDE.md` it replaces held one of these lines.
+- A judge lists a hand-written file over 1,500 lines or 50,000 bytes that the
+  work creates or makes longer as an item.
+- Installed into another `CLAUDE_HOME`, the skill names `loop.py` by that
+  path.
+
 ### Security
 
 - Native permission rules: `deny` Read/Edit of `.env*` (except

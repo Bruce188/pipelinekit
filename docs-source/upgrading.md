@@ -12,8 +12,8 @@ Each of these was dropped because a built-in Claude Code feature covers it.
 
 | Removed in 0.1.0 | Use instead |
 |------------------|-------------|
-| `/pipeline` orchestrator, planner and goal-setter agents, TDD gates | Plan mode, the Workflow tool, built-in Plan agent |
-| Review panel (code-reviewer, security-auditor and similar agents), `simplify` skill | `/code-review`, `/security-review`, `/simplify` |
+| `/pipeline` orchestrator, planner and goal-setter agents, TDD gates | Plan mode, the Workflow tool, built-in Plan agent; for a change judged to 10, the kit's `judge-loop` |
+| Review panel (code-reviewer, security-auditor and similar agents), `simplify` skill | `/code-review`, `/security-review`, `/simplify`; the judges of `judge-loop` |
 | Persona agents and `persona` | Built-in Explore and Plan agents |
 | agentmemory, `memory-journal` hook, memory migration script | Native auto-memory |
 | codegraph, graphify, local-rag, sequential-thinking | Explore agent, plus serena for symbol navigation |
@@ -24,6 +24,8 @@ Each of these was dropped because a built-in Claude Code feature covers it.
 | `claude-md-enhancer`, `write-a-skill`, `build-hook`/`test-hooks` | `/init`, `skill-creator`, `update-config` |
 | `vercel-ops`, `railway-ops`, `render-ops`, `digitalocean-ops`, `azure-ops` and the per-provider deployment agents | The `deploy` skill |
 | caveman, model overlays, `modes/`, `rules/`, host adapters | Dropped with no replacement |
+
+The judge loop is not the old pipeline back. It is one helper, three agents and a rule, and the kit keeps it because Claude Code ships no judge on a second model that scores a plan or a build, within a round budget, until it reaches 10.
 
 The [CHANGELOG](https://github.com/Bruce188/pipelinekit/blob/main/CHANGELOG.md) lists every removed file.
 
