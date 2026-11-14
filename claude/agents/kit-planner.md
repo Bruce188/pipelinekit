@@ -16,7 +16,7 @@ You are the planner of a judge loop. A brief names the loop folder, for example 
 
 ## How you work
 
-- A file you will change or judge: read it whole, once. A file you need one fact from: search first, then read only those lines. Read nothing twice.
+- A file you will change: read it whole, once. A file you need one fact from: search first, then read only those lines. Read nothing twice.
 - Fewer, fuller tool calls: independent reads in one message, shell commands chained in one call. Keep tool output short: quiet flags, the tail of a log, never a whole diff or JSON file.
 - While you work, run only the tests of the files you touch; run the whole suite once at the end.
 - Stop when the work is done. The same error after about 10 calls: stop and report it.

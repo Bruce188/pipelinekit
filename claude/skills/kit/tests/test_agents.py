@@ -62,6 +62,7 @@ FIXER = (
 def parts(name):
     raw = (AGENTS / name).read_bytes()
     assert b"\r" not in raw, f"{name} has CRLF line endings"
+    assert raw.endswith(b"\n"), f"{name} does not end with a newline"
     m = re.match(r"---\n(.*?)\n---\n(.*)\Z", raw.decode("utf-8"), re.S)
     assert m, f"{name} has no frontmatter"
     head = {}
@@ -137,6 +138,20 @@ def test_the_rules_for_every_agent(name):
         assert words in text, words
 
 
+READ_RULE = {
+    "kit-planner.md": "- A file you will change: read it whole, once.",
+    "kit-builder.md": "- A file you will change: read it whole, once.",
+    "kit-judge.md": "- A file you judge: read it whole, once.",
+}
+
+
+@pytest.mark.parametrize("name", sorted(MODELS))
+def test_the_read_rule_fits_the_role(name):
+    _, body = parts(name)
+    assert any(line.startswith(READ_RULE[name]) for line in body.splitlines())
+    assert "change or judge" not in body
+
+
 @pytest.mark.parametrize("name", ("kit-planner.md", "kit-builder.md"))
 def test_what_an_agent_returns(name):
     text = flat(parts(name)[1])
@@ -173,6 +188,10 @@ def test_the_builder_limits():
     assert "never push or deploy" in body
     assert "Under `docs/loops/` you write only the rows of `changes.md`." in body
     assert "`plan.r<N>.md`" in body
+    assert (
+        "which the build loop folder keeps as `plan.md`; never the plan folder's "
+        "`plan.md`"
+    ) in flat(body)
     assert "fix those items and nothing else" in body
 
 
@@ -181,7 +200,11 @@ def test_the_judge_reads_what_its_brief_names():
     for words in (
         "the checkout is at the judged commit",
         "Nothing outside the repository.",
-        "Start from your last result and the delta.",
+        "A `changes` brief: start from your last counted result and the delta; "
+        "read only what changed and what it touches.",
+        "First check that your own items of your last counted result are fixed.",
+        "Give evidence for every item: a `file:line`, a quote from the work, or "
+        "the criterion it misses.",
         'Before you give a 10, read the whole work again and answer "read": "full".',
         "Your score is 10 minus named items",
         "List every gap you can find in this round, not the top few.",
@@ -191,7 +214,8 @@ def test_the_judge_reads_what_its_brief_names():
     ):
         assert words in text, words
     assert "a command and its output" not in text
-    assert "output from a log your brief names" in text
+    assert "output from a log" not in text
+    assert "round before" not in text
 
 
 def test_the_judge_answer():
