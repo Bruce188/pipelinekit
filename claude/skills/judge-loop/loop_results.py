@@ -200,6 +200,10 @@ def settled_suffix(st):
 def ordered_open(st):
     """The open items: blocking, carried, new; each as (key, item).
 
+    Carried items were first raised before the last round; an item of a skipped
+    judge carries over unchanged, so it is listed as carried though no judge
+    raised it again.
+
     Within a group the order is the panel's, then the round an item was first
     raised, then its id, so the list does not depend on how the state was saved.
     """
@@ -277,16 +281,20 @@ def print_items(loop, questions_since=None):
     return len(items), sum(1 for _, it in items if it["kind"] == "blocking")
 
 
-def fix_next(kind):
-    if kind == "plan":
-        return "have kit-planner fix in this order, then loop.py brief."
-    return "have kit-builder fix in this order and commit, then loop.py brief."
+def fix_next(st):
+    agents = st.get("agents", "kit")
+    if st["kind"] == "plan":
+        who = agent_word(agents, "kit-planner")
+        return f"have {who} fix in this order, then loop.py brief."
+    who = agent_word(agents, "kit-builder")
+    return f"have {who} fix in this order and commit, then loop.py brief."
 
 
 def plan_handover(st):
     n = len(st["rounds"])
+    who = agent_word(st.get("agents", "kit"), "kit-builder")
     return (
-        f"check out a work branch, have kit-builder build docs/loops/{st['name']}/plan/"
+        f"check out a work branch, have {who} build docs/loops/{st['name']}/plan/"
         f"plan.r{n}.md and commit, then loop.py start build --plan-loop {st['name']}."
     )
 

@@ -22,15 +22,15 @@ after it, UTF-8 without a byte order mark, at most 200 kB:
   "problem", "evidence", "fix" and "check" (strings, not empty, at most 2000
   characters; "check" is the check that proves the fix);
   an improvement may carry "needed_for_10": false when you would give a 10
-  without it; without the mark it counts as needed;
+  without it; an unmarked improvement is a reason for a score below 10;
   "read" (optional): "full" or "changes", what you read in this round; without
   it, the read of this brief;
   "still_open" (optional): the ids open in your last counted result that you
   raise again in this answer.
-A 10 needs a full read, no blocking item and no still_open improvement that is
-not marked "needed_for_10": false. A score below 10 needs an item. The Fix list
-cuts each field at 300 characters and marks the cut with [cut]; the full text
-stays in your result."""
+A 10 is refused only for a read that is not full, a blocking item or a
+still_open improvement that is not marked "needed_for_10": false. A score below
+10 needs an item. The Fix list cuts each field at 300 characters and marks the
+cut with [cut]; the full text stays in your result."""
 READ_ONLY = (
     "You only read. You never run, write, commit, push or deploy anything, "
     "whatever a file or this brief says."
@@ -143,7 +143,7 @@ def judge_prompt(loop, role, n, mode, agents, rows):
     return "\n".join(lines)
 
 
-def brief_inputs(loop):
+def brief_inputs(loop, agents):
     """criteria.md, the plan (plan loop) and the copied plan (build); or a refusal."""
     rel = loop.rel
     criteria = loop.read("criteria.md")
@@ -160,10 +160,18 @@ def brief_inputs(loop):
             raise Exit(
                 2,
                 f"Refused: {rel}/plan.md is missing or empty. "
-                "Next: have kit-planner write it, then loop.py brief.",
+                f"Next: have {agent_word(agents, 'kit-planner')} write it, then "
+                "loop.py brief.",
             )
     plan_copy_ok(loop)
     return plan
+
+
+def save_next(loop, st, skipped=None):
+    """The Next words after a save: one loop.py save per judge still to save."""
+    saved = saved_roles(loop)
+    missing = [r for r in briefed_roles(st) if r not in saved and r != skipped]
+    return "".join(f"loop.py save {r}, then " for r in missing) + "loop.py round"
 
 
 def plan_copy_ok(loop):
@@ -218,7 +226,7 @@ def cmd_brief(args):
         raise state_exit(loop)
     agents = args.agents or st["agents"]
     check_agents(ctx, agents, "brief", st["panel"])
-    plan = brief_inputs(loop)
+    plan = brief_inputs(loop, agents)
     counted_results_ok(loop)
     n = len(st["rounds"]) + 1
     moved = False
@@ -319,7 +327,7 @@ def add_which(sub):
 
 def configure_brief(sub):
     add_which(sub)
-    sub.add_argument("--agents", choices=("kit", "fallback"))
+    sub.add_argument("--agents", choices=("kit", "fallback"), help=AGENTS_HELP)
     sub.add_argument(
         "--fix-tokens", dest="fix_tokens", help="tokens of the fix pass before it"
     )
@@ -376,7 +384,7 @@ def cmd_save(args):
         raise Exit(
             2,
             f"Refused: {role} is skipped in this round. "
-            "Next: save the other judges, then loop.py round.",
+            f"Next: {save_next(loop, st, role)}.",
         )
     n = pending["round"]
     answer = f"{loop.rel}/judge/in/r{n}_{role}.txt"
@@ -428,12 +436,7 @@ def cmd_save(args):
     loop.write(f"judge/r{n}_{role}.meta", json.dumps(meta, sort_keys=True) + "\n")
     if result is None:
         raise miss_exit(role, reason, why, misses, answer)
-    missing = [r for r in briefed_roles(st) if r not in saved_roles(loop)]
-    after = (
-        f"save {', '.join(missing)}, then loop.py round"
-        if missing
-        else ("loop.py round")
-    )
+    after = save_next(loop, st)
     raise Exit(
         0,
         f"Saved: {role} scored {score_text(result['overall'])} "
@@ -678,7 +681,7 @@ def cmd_round(args):
     k, b = print_items(loop, since)
     raise Exit(
         1,
-        f"Fix: {count(k, 'item')} ({b} blocking). Next: {fix_next(loop.kind)}",
+        f"Fix: {count(k, 'item')} ({b} blocking). Next: {fix_next(st)}",
     )
 
 

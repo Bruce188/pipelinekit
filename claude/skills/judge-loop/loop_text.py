@@ -32,6 +32,7 @@ OUTCOME_WORDS = {
 }
 AGENT_NAMES = ("kit-planner", "kit-builder", "kit-judge")
 FALLBACK_SENTENCE = "fallback: the judge is not limited to reading by its tools"
+AGENTS_HELP = "kit: the kit's agents; fallback: general-purpose agents"
 
 DEFAULT_BUDGET = 5
 MAX_SWITCH_ROUNDS = 20
@@ -188,7 +189,7 @@ NOT_A_REPO = (
     "Next: work without the judge loop and say so in one line."
 )
 
-# The commands, filled in by the sections below: name -> (configure, run).
+# The commands, filled in by the loop_* command modules: name -> (configure, run).
 COMMANDS: dict = {}
 
 
@@ -290,19 +291,29 @@ def outcome_words(outcome) -> str:
     return OUTCOME_WORDS.get(outcome, outcome)
 
 
-def quiet_stdout():
-    """Send the rest of the output to the null device: its reader is gone."""
+def agent_word(agents, name):
+    """The agent a Next line names: the kit's own, or a general-purpose one."""
+    return name if agents == "kit" else "a general-purpose agent"
+
+
+def quiet_stdout(stream=None):
+    """Send the rest of a stream (stdout by default) to the null device: its
+    reader is gone."""
     try:
         null = os.open(os.devnull, os.O_WRONLY)
-        os.dup2(null, sys.stdout.fileno())
+        os.dup2(null, (stream or sys.stdout).fileno())
         os.close(null)
     except (OSError, ValueError, AttributeError):
         pass
 
 
-def say(line=""):
-    """Print one line; a reader that went away does not stop the command."""
+def say(line="", err=False):
+    """Print one line, to stderr with err; a reader that went away or a closed
+    stream does not stop the command."""
+    out = sys.stderr if err else sys.stdout
+    if out is None:
+        return
     try:
-        print(line, flush=True)
+        print(line, file=out, flush=True)
     except BrokenPipeError:
-        quiet_stdout()
+        quiet_stdout(out)

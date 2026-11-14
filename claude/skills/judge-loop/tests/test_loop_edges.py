@@ -3,13 +3,24 @@ as saved, and the wording of notes and refusals."""
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
-from loop_fixtures import loop, nine, one_round, result, scored
+from loop_fixtures import (
+    NAME,
+    item,
+    loop,
+    nine,
+    one_round,
+    plan_stage,
+    result,
+    scored,
+)
 
 PATTERN = (
     "Refused: map.md line 2 has a pattern ({path}); paths are files or folders "
@@ -232,3 +243,191 @@ def test_the_missing_row_note_shows_the_row_form_once(sb):
         "fixed|answered|owner: <text>)",
         "note: no changes.md row for [general I2]",
     ]
+
+
+def test_a_ten_with_a_new_unmarked_improvement_is_a_score(sb):
+    text = " ".join(loop.SCHEMA_TEXT.split())
+    assert "without the mark it counts as needed" not in text
+    assert (
+        "A 10 is refused only for a read that is not full, a blocking item or a "
+        'still_open improvement that is not marked "needed_for_10": false.'
+    ) in text
+    sb.start_build()
+    assert sb.run("brief").code == 0
+    run = sb.save("general", result(10, improvements=[item("I1")]))
+    assert (run.code, run.last) == (
+        0,
+        "Saved: general scored 10 (0 blocking, 1 improvement). Next: loop.py round.",
+    )
+
+
+def test_every_option_has_help():
+    top = loop.parser()
+    subs = next(a for a in top._actions if isinstance(a, argparse._SubParsersAction))
+    missing = [
+        f"{name} {action.dest}"
+        for name, sub in subs.choices.items()
+        for action in sub._actions
+        if not isinstance(action, argparse._HelpAction) and not action.help
+    ]
+    assert missing == []
+
+
+def test_a_blank_reason_moves_no_folder(sb):
+    one_round(sb)
+    assert sb.run("abandon", "--note", "again").code == 0
+    run = sb.run("skip", "--reason", " ", "--user-ok")
+    assert run.code == 2, run
+    assert run.last.startswith("Refused: --reason is empty."), run
+    assert not (sb.loopdir().parent / "build.1").exists()
+    assert sb.state()["outcome"] == "abandoned"
+
+
+# Next lines with two loop folders ------------------------------------------------
+
+
+def test_save_with_two_loops_names_the_loop_in_each_save(sb):
+    plan_stage(sb)
+    sb.two_judges()
+    sb.start_build()
+    assert sb.run("brief").code == 0
+    sb.answer("general", nine("I1"))
+    run = sb.run("save", "general")
+    assert run.code == 0, run
+    which = f"--kind build --name {NAME}"
+    assert run.last.endswith(
+        f"Next: loop.py save {which} tests, then loop.py round {which}."
+    ), run
+
+
+def test_save_of_a_skipped_role_with_two_loops_names_the_loop(sb):
+    plan_stage(sb, "p0")
+    sb.two_judges()
+    sb.start_plan()
+    assert sb.judge({"general": 10, "tests": nine("T1")}, "plan", "p1").code == 1
+    assert sb.run("brief").code == 0
+    run = sb.save("general", 10, "plan", "p1")
+    which = "--kind plan --name p1"
+    assert (run.code, run.last) == (
+        2,
+        "Refused: general is skipped in this round. "
+        f"Next: loop.py save {which} tests, then loop.py round {which}.",
+    )
+
+
+# Fallback agents -------------------------------------------------------------------
+
+FALLBACK_FIX = (
+    "Next: have a general-purpose agent fix in this order and commit, then loop.py "
+    "brief."
+)
+
+
+def test_a_fallback_build_loop_names_no_kit_agent(sb):
+    sb.start_build("--agents", "fallback")
+    run = sb.judge({"general": nine("I1")})
+    assert run.code == 1, run
+    assert run.last.endswith(FALLBACK_FIX), run
+    assert "kit-builder" not in sb.run("status").last
+
+
+def test_a_fallback_plan_loop_names_no_kit_agent(sb):
+    run = sb.run("start", "plan", "--name", "p1", "--agents", "fallback")
+    assert run.code == 0, run
+    assert run.last.endswith(
+        "Next: write criteria.md, have a general-purpose agent write plan.md, then "
+        "loop.py brief."
+    ), run
+    sb.criteria("plan", "p1")
+    run = sb.run("brief")
+    assert run.code == 2 and "kit-planner" not in run.last, run
+    (sb.loopdir("plan", "p1") / "plan.md").write_text("# Plan\n\nstep one\n")
+    run = sb.judge({"general": nine("I1")}, "plan", "p1")
+    assert run.code == 1 and "kit-planner" not in run.last, run
+    run = sb.judge({"general": 10}, "plan", "p1")
+    assert run.code == 0, run
+    assert "have a general-purpose agent build" in run.last, run
+    assert "kit-builder" not in run.last
+
+
+# Carried items ---------------------------------------------------------------------
+
+
+def test_a_skipped_judges_item_is_listed_as_carried():
+    def open_item(kind, first):
+        return {"kind": kind, "first": first, "open": True, "settled": {}}
+
+    st = {
+        "panel": ["general", "tests"],
+        "rounds": [{}, {}],
+        "items": {
+            "tests:T2": open_item("improvement", 2),
+            "general:I1": open_item("improvement", 1),
+            "tests:B1": open_item("blocking", 2),
+        },
+    }
+    keys = [key for key, _ in loop.ordered_open(st)]
+    assert keys == ["tests:B1", "general:I1", "tests:T2"]
+    doc = " ".join(loop.ordered_open.__doc__.split())
+    assert "an item of a skipped judge carries over unchanged" in doc
+
+
+# A closed stderr -------------------------------------------------------------------
+
+
+def damaged_plan_and_a_build(sb):
+    plan_stage(sb)
+    (sb.loopdir("plan", "p1") / "state.json").write_text("{")
+    sb.start_build()
+
+
+def test_a_notice_with_stderr_closed_keeps_the_json(sb):
+    damaged_plan_and_a_build(sb)
+    proc = subprocess.run(
+        [
+            "sh",
+            "-c",
+            'exec "$@" 2>&-',
+            "sh",
+            sys.executable,
+            str(sb.kit()),
+            "status",
+            "--json",
+        ],
+        cwd=os.getcwd(),
+        stdout=subprocess.PIPE,
+        text=True,
+        check=False,
+        timeout=120,
+    )
+    assert json.loads(proc.stdout)["name"] == NAME, proc.stdout
+    assert proc.returncode == 0
+
+
+def test_a_notice_into_a_closed_stderr_pipe_keeps_the_json(sb):
+    damaged_plan_and_a_build(sb)
+    proc = sb.spawn("status", "--json")
+    proc.stderr.close()
+    out = proc.stdout.read()
+    proc.stdout.close()
+    assert proc.wait(timeout=120) == 0
+    assert "Traceback" not in out
+    assert json.loads(out)["name"] == NAME, out
+
+
+# The exclude line ------------------------------------------------------------------
+
+
+def test_the_exclude_line_is_added_when_another_rule_ignores_the_folder(sb):
+    ignore = sb.tmp / "ignore"
+    ignore.write_text("docs/loops/\n")
+    (sb.tmp / "gitconfig").write_text(f"[core]\n\texcludesFile = {ignore}\n")
+    sb.start_build()
+    path = Path(sb.git("rev-parse", "--git-path", "info/exclude"))
+    if not path.is_absolute():
+        path = Path(os.getcwd()) / path
+    assert path.read_text().splitlines().count("docs/loops/") == 1
+    assert sb.run("abandon", "--note", "again").code == 0
+    sb.change("app.py", 5)
+    assert sb.run("start", "build").code == 0
+    assert path.read_text().splitlines().count("docs/loops/") == 1

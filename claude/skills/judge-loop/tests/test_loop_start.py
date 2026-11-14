@@ -476,7 +476,7 @@ def test_the_start_output_of_a_plan(sb):
     assert loop.FALLBACK_SENTENCE in run.lines
     assert run.last == (
         "Started: plan loop p1, 1 judge, at most 5 rounds. Next: write criteria.md, "
-        "have kit-planner write plan.md, then loop.py brief."
+        "have a general-purpose agent write plan.md, then loop.py brief."
     )
 
 

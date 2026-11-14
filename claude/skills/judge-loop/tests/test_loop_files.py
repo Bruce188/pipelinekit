@@ -165,6 +165,11 @@ CANNOT_CHECK = (
     "Next: ask the user: make it a plain file or folder, or the same command with "
     "--agents fallback."
 )
+CANNOT_READ = (
+    "STOP: {rel} cannot be checked for an agent name (its name: line cannot be "
+    "read). Next: ask the user: write that line as name: <plain word>, or the same "
+    "command with --agents fallback."
+)
 
 
 def test_a_missing_agent_file(sb):
@@ -235,7 +240,7 @@ def test_a_project_agent_name_that_cannot_be_read(sb, text):
     sb.change("app.py", 3)
     run = sb.run("start", "build")
     rel = ".claude/agents/sub/x.md"
-    assert (run.code, run.last) == (3, CANNOT_CHECK.format(rel=rel))
+    assert (run.code, run.last) == (3, CANNOT_READ.format(rel=rel))
 
 
 def test_a_project_agent_with_another_name_and_a_block(sb):
@@ -305,7 +310,9 @@ def test_fallback_from_the_start(sb):
     assert prompt[0] == (
         f"Read `{sb.agents / 'kit-judge.md'}` and follow it as your instructions."
     )
-    assert prompt[0].startswith(f"Read `{sb.tmp}")
+    # the temporary kit's agents folder, which is not under the temporary home
+    assert sb.agents == sb.tmp / "kit" / "agents"
+    assert sb.home not in sb.agents.parents
     assert json.loads(sb.run("status", "--json").out)["agents"] == "fallback"
 
 

@@ -163,7 +163,7 @@ def changed_names(ctx, commit):
 
 
 def decide_modes(loop, n, moved, work, areas):
-    """{role: mode} of a new round, and the work of every skipped role's round."""
+    """{role: mode} of a new round."""
     st = loop.st
     if n == 1 or moved:
         return {role: "full" for role in st["panel"]}

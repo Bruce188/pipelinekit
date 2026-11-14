@@ -443,7 +443,8 @@ def frontmatter_name(data):
 
 
 def project_agent(root):
-    """None, or (name, path) of a project agent with a kit name, or ('', path)."""
+    """None, or (name, path) of a project agent with a kit name; ('', path) for
+    a link or a file over the size limit, (None, path) for an unreadable name."""
     here = root
     for part in (".claude", "agents"):
         here = here / part
@@ -474,7 +475,7 @@ def project_agent(root):
                     return "", rel
                 name = frontmatter_name(data or b"")
                 if name is None:
-                    return "", rel
+                    return None, rel
                 if name in AGENT_NAMES:
                     return name, rel
     return None
@@ -496,6 +497,13 @@ def check_agents(ctx, agents, command, panel=()):
     if hit is None:
         return
     name, rel = hit
+    if name is None:
+        raise Exit(
+            3,
+            f"STOP: {show_path(rel)} cannot be checked for an agent name (its name: "
+            "line cannot be read). Next: ask the user: write that line as name: "
+            "<plain word>, or the same command with --agents fallback.",
+        )
     if not name:
         raise Exit(
             3,
@@ -810,14 +818,17 @@ def cmd_start(args):
     if kind == "plan":
         raise Exit(
             0,
-            f"{head} Next: write criteria.md, have kit-planner write plan.md, "
-            "then loop.py brief.",
+            f"{head} Next: write criteria.md, have "
+            f"{agent_word(args.agents, 'kit-planner')} write plan.md, then loop.py "
+            "brief.",
         )
     raise Exit(0, f"{head} Next: write criteria.md, then loop.py brief.")
 
 
 def configure_start(sub):
-    sub.add_argument("loop_kind", choices=KINDS, metavar="plan|build")
+    sub.add_argument(
+        "loop_kind", choices=KINDS, metavar="plan|build", help="the kind of loop"
+    )
     sub.add_argument("--name", help="the loop's name (default: from the branch)")
     sub.add_argument(
         "--panel",
@@ -829,7 +840,9 @@ def configure_start(sub):
     sub.add_argument(
         "--plan-loop", dest="plan_loop", help="the plan loop this build follows"
     )
-    sub.add_argument("--agents", choices=("kit", "fallback"), default="kit")
+    sub.add_argument(
+        "--agents", choices=("kit", "fallback"), default="kit", help=AGENTS_HELP
+    )
 
 
 COMMANDS["start"] = (configure_start, cmd_start)

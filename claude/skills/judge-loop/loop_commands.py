@@ -29,7 +29,7 @@ def next_text(loop):
             )
         return "loop.py round."
     if st["rounds"] and open_counts(st)[0]:
-        return fix_next(loop.kind)
+        return fix_next(loop.st)
     return "loop.py brief."
 
 
@@ -164,7 +164,7 @@ def add_note(st, action, text):
 
 def open_next(loop):
     k, _ = print_items(loop)
-    return fix_next(loop.kind) if k else "loop.py brief."
+    return fix_next(loop.st) if k else "loop.py brief."
 
 
 def cmd_diagnosed(args):
@@ -313,8 +313,8 @@ def cmd_settle(args):
 
 
 def configure_settle(sub):
-    sub.add_argument("role")
-    sub.add_argument("id")
+    sub.add_argument("role", help="the judge's role")
+    sub.add_argument("id", help="the item's id")
     add_which(sub)
     sub.add_argument("--note", required=True, help=NOTE_HELP)
     sub.add_argument("--user-ok", dest="user_ok", action="store_true", help=OK_HELP)
@@ -429,9 +429,9 @@ def cmd_skip(args):
             "the "
             "judge; with their yes, the same command with --user-ok.",
         )
+    reason = given(args.reason, "--reason")
     if old and old["outcome"] != "skip":
         say(f"Earlier loop moved to {show_path(move_aside(loop))}")
-    reason = given(args.reason, "--reason")
     loop.st = new_state(
         kind=kind,
         name=name,
