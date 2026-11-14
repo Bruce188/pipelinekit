@@ -1,6 +1,5 @@
-"""Tests of loop.py, the judge loop helper.
+"""Shared fixtures and helpers of the loop.py tests.
 
-The helper is imported in the test process; a few tests run it as a command.
 Every test works in a throwaway repository with a bare remote, under a
 temporary HOME, with a fake gh: nothing reaches the network or the real gh.
 """
