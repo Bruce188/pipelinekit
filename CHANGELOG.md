@@ -112,7 +112,7 @@ kit used to ship, so those parts are gone.
 ### Agents
 
 - Three agents in `claude/agents/`, installed to `~/.claude/agents/`:
-  `kit-planner` (model `fable`) writes a plan, `kit-builder` (model `opus`)
+  `kit-planner` (model `opus`) writes a plan, `kit-builder` (model `opus`)
   builds it failing test first and commits on the work branch, `kit-judge`
   (model `fable`, tools `Read, Grep, Glob`) scores a plan or a build with one
   JSON object.

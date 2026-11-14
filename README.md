@@ -15,7 +15,7 @@ what Claude Code does not ship. See [What was removed](#what-was-removed) and
 the [CHANGELOG](CHANGELOG.md).
 
 One thing it adds is the judge loop: a change that is more than a small fix is
-planned on Fable (`kit-planner`), built on Opus (`kit-builder`) and scored by
+planned and built on Opus (`kit-planner`, `kit-builder`) and scored by
 fresh Fable judges (`kit-judge`) until it reaches 10 out of 10. The
 `judge-loop` skill runs it, and the "Plan, build, judge" section of the
 `CLAUDE.md` template makes it the rule. See [Plan, build, judge](#plan-build-judge).
@@ -70,7 +70,7 @@ off. Every rule id is in
 | `mobile` | Android (Kotlin/Compose) builds and device access from WSL2, iPhone home-screen web apps, Expo/EAS cloud builds for iOS, release and security checklist |
 | `kit` | Self-check, run as `/kit`: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, environment conflicts, what the hooks blocked or failed on in the last days, and whether a newer kit is available. `/kit update` applies it after asking |
 | `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then `ship.py` merges once every gate holds (own pull request, not a release, no required review, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
-| `judge-loop` | Run as `/judge-loop`: plans a change on Fable, builds it on Opus, and has fresh Fable judges score the plan and the build until each gets 10 out of 10, within a round budget. `loop.py` keeps the state under `docs/loops/` (local, on the never-stage list) and says what comes next |
+| `judge-loop` | Run as `/judge-loop`: plans and builds a change on Opus, and has fresh Fable judges score the plan and the build until each gets 10 out of 10, within a round budget. `loop.py` keeps the state under `docs/loops/` (local, on the never-stage list) and says what comes next |
 
 ### CLAUDE.md template
 
@@ -128,7 +128,7 @@ bash scripts/install.sh            # add --no-serena to skip serena, --git-hooks
 
 You can safely run the installer again to update. It:
 
-1. copies the hooks, git hooks, skills, the agents `kit-planner` (Fable),
+1. copies the hooks, git hooks, skills, the agents `kit-planner` (Opus),
    `kit-builder` (Opus) and `kit-judge` (Fable, read-only) and
    `config/never-stage.txt` into `~/.claude`, overwriting them in place without
    moving the directory. A copy of your own under

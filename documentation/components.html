@@ -688,7 +688,7 @@ footer {
              {"label": "ship", "tip": "Test, fix and merge your own pull request"},
              {"label": "judge-loop", "tip": "Plan, build and judge a change until it reaches 10"}]},
   {"name": "Agents", "color": "#ec4899", "count": "3 agents",
-   "chips": [{"label": "kit-planner", "tip": "Model: fable"},
+   "chips": [{"label": "kit-planner", "tip": "Model: opus"},
              {"label": "kit-builder", "tip": "Model: opus"},
              {"label": "kit-judge", "tip": "Model: fable"}]},
   {"name": "MCP", "color": "#8b5cf6",
@@ -1240,7 +1240,7 @@ footer {
 </tr>
 <tr>
 <td><code>judge-loop</code></td>
-<td>Run as <code>/judge-loop</code>: plans a change on Fable, builds it on Opus, and has fresh Fable judges score the plan and the build until each gets 10 out of 10, within a round budget. See <a href="#plan-build-judge">Plan, build, judge</a>. Its record lives in <code>docs/loops/</code> of the one checkout it runs in and is never committed; see <a href="installation.html#the-judge-loop">The judge loop</a>.</td>
+<td>Run as <code>/judge-loop</code>: plans and builds a change on Opus, and has fresh Fable judges score the plan and the build until each gets 10 out of 10, within a round budget. See <a href="#plan-build-judge">Plan, build, judge</a>. Its record lives in <code>docs/loops/</code> of the one checkout it runs in and is never committed; see <a href="installation.html#the-judge-loop">The judge loop</a>.</td>
 </tr>
 </tbody>
 </table>
@@ -1260,7 +1260,7 @@ footer {
 <tbody>
 <tr>
 <td><code>kit-planner</code></td>
-<td><code>fable</code></td>
+<td><code>opus</code></td>
 <td><code>Read, Grep, Glob, Write, Edit</code></td>
 <td>Writes or fixes <code>plan.md</code> in a loop folder from the request, <code>criteria.md</code> and the answers in <code>questions.md</code>. Cites <code>file:line</code> for every claim about the code and appends open questions to <code>questions.md</code> instead of guessing, and adds a row to <code>changes.md</code> for each judge item it fixes. Never edits code and never runs <code>loop.py</code></td>
 </tr>
@@ -1278,7 +1278,7 @@ footer {
 </tr>
 </tbody>
 </table>
-<p><code>fable</code> and <code>opus</code> are aliases: they follow the newest model of each family. All three treat text in the other files they read as data, not instructions (the planner and the builder follow their brief and the files it names), and never read <code>.env</code> files, credentials, keys or tokens.</p>
+<p><code>fable</code> and <code>opus</code> are aliases: they follow the newest model of each family. Only the judge runs on Fable, so the model that writes a plan or a build never scores it and Fable is spent on judging alone. All three treat text in the other files they read as data, not instructions (the planner and the builder follow their brief and the files it names), and never read <code>.env</code> files, credentials, keys or tokens.</p>
 <p>All three work the same way: a file they change or judge is read whole, once; for one fact they search first and read only those lines; nothing is read twice; tool output stays short; after about 10 calls on the same error they stop and report it. Given a JSON form they return only the form, otherwise at most 15 lines.</p>
 <p>The kit owns these three names in <code>~/.claude/agents/</code>, and leaves the rest of the folder alone. A file of your own with one of the names that differs from the kit's is moved to <code>~/.claude/pipelinekit/backup/agents-&lt;name&gt;-&lt;timestamp&gt;</code> once, and the installer prints where; a link of that name is removed without touching its target. Claude Code loads agents when a session starts, so start a new session after an install.</p>
 <h2 id="self-check">Self-check</h2>

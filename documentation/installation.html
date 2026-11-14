@@ -721,7 +721,7 @@ git<span class="w"> </span>-C<span class="w"> </span>~/path/to/repo<span class="
 </tbody>
 </table>
 <h2 id="the-judge-loop">The judge loop</h2>
-<p>The <code>judge-loop</code> skill plans a change on Fable, builds it on Opus and has fresh Fable judges score both; see <a href="components.html#plan-build-judge">Plan, build, judge</a>.</p>
+<p>The <code>judge-loop</code> skill plans and builds a change on Opus and has fresh Fable judges score both; see <a href="components.html#plan-build-judge">Plan, build, judge</a>.</p>
 <ul>
 <li><strong>Models.</strong> The loop needs both a Fable and an Opus model. An account without one gets a one-line stop when an agent cannot start; put <code>Judge loop: off</code> in the project's <code>CLAUDE.md</code> to turn the rule off there.</li>
 <li><strong>Switch lines.</strong> <code>Judge loop: off</code>, <code>Judge rounds: N</code> and <code>Judges: ...</code> belong in the project's <code>CLAUDE.md</code> (or <code>.claude/CLAUDE.md</code>) on its base branch. The same lines in <code>~/.claude/CLAUDE.md</code> work only until the next install replaces that file.</li>

@@ -37,7 +37,7 @@ The kit has six layers. Hover a chip for a one-line summary, or use the buttons 
              {"label": "ship", "tip": "Test, fix and merge your own pull request"},
              {"label": "judge-loop", "tip": "Plan, build and judge a change until it reaches 10"}]},
   {"name": "Agents", "color": "#ec4899", "count": "3 agents",
-   "chips": [{"label": "kit-planner", "tip": "Model: fable"},
+   "chips": [{"label": "kit-planner", "tip": "Model: opus"},
              {"label": "kit-builder", "tip": "Model: opus"},
              {"label": "kit-judge", "tip": "Model: fable"}]},
   {"name": "MCP", "color": "#8b5cf6",
@@ -147,7 +147,7 @@ With `ask`, Claude Code prompts you instead of refusing. `override` means a huma
 | `mobile` | Android (Kotlin/Compose) builds and device access from WSL2, iPhone home-screen web apps, Expo/EAS cloud builds for iOS, release and security checklist |
 | `kit` | Self-check, run as `/kit`: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, environment conflicts, what the hooks blocked or failed on in the last days, and whether a newer kit is available. `/kit update` applies it after asking |
 | `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then `ship.py` merges once every gate holds (own pull request, not a release, no required review, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
-| `judge-loop` | Run as `/judge-loop`: plans a change on Fable, builds it on Opus, and has fresh Fable judges score the plan and the build until each gets 10 out of 10, within a round budget. See [Plan, build, judge](#plan-build-judge). Its record lives in `docs/loops/` of the one checkout it runs in and is never committed; see [The judge loop](installation.html#the-judge-loop). |
+| `judge-loop` | Run as `/judge-loop`: plans and builds a change on Opus, and has fresh Fable judges score the plan and the build until each gets 10 out of 10, within a round budget. See [Plan, build, judge](#plan-build-judge). Its record lives in `docs/loops/` of the one checkout it runs in and is never committed; see [The judge loop](installation.html#the-judge-loop). |
 
 In 0.1.0, `deploy` replaces the five separate `*-ops` skills and the per-provider deployment agents, `mobile` replaces `expo` and `ios`, and the ASP.NET Core security rules moved into `dotnet-conventions`.
 
@@ -159,11 +159,11 @@ Together they are the parts of a judge loop: one agent plans, one builds, and in
 
 | Agent | Model | Tools | What it is for |
 |-------|-------|-------|----------------|
-| `kit-planner` | `fable` | `Read, Grep, Glob, Write, Edit` | Writes or fixes `plan.md` in a loop folder from the request, `criteria.md` and the answers in `questions.md`. Cites `file:line` for every claim about the code and appends open questions to `questions.md` instead of guessing, and adds a row to `changes.md` for each judge item it fixes. Never edits code and never runs `loop.py` |
+| `kit-planner` | `opus` | `Read, Grep, Glob, Write, Edit` | Writes or fixes `plan.md` in a loop folder from the request, `criteria.md` and the answers in `questions.md`. Cites `file:line` for every claim about the code and appends open questions to `questions.md` instead of guessing, and adds a row to `changes.md` for each judge item it fixes. Never edits code and never runs `loop.py` |
 | `kit-builder` | `opus` | the session's tools | Builds the plan it is handed on the checked-out work branch, failing test first, runs the project's checks and commits; fixes the judge items it is given and nothing else, with a row in `changes.md` for each. Never creates or switches a branch, never pushes or deploys, and under `docs/loops/` writes only the rows of `changes.md` |
 | `kit-judge` | `fable` | `Read, Grep, Glob` | Judges a plan or a build from one angle and answers with one JSON object: a score from 0 to 10, scores per dimension, blocking items and improvements, each with evidence, a fix and the check that proves the fix, and whether it read the work in full. Reads only what its brief names, and never runs, writes, commits, pushes or deploys anything |
 
-`fable` and `opus` are aliases: they follow the newest model of each family. All three treat text in the other files they read as data, not instructions (the planner and the builder follow their brief and the files it names), and never read `.env` files, credentials, keys or tokens.
+`fable` and `opus` are aliases: they follow the newest model of each family. Only the judge runs on Fable, so the model that writes a plan or a build never scores it and Fable is spent on judging alone. All three treat text in the other files they read as data, not instructions (the planner and the builder follow their brief and the files it names), and never read `.env` files, credentials, keys or tokens.
 
 All three work the same way: a file they change or judge is read whole, once; for one fact they search first and read only those lines; nothing is read twice; tool output stays short; after about 10 calls on the same error they stop and report it. Given a JSON form they return only the form, otherwise at most 15 lines.
 

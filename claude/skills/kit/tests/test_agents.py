@@ -8,7 +8,7 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[4]
 AGENTS = REPO / "claude" / "agents"
-MODELS = {"kit-planner.md": "fable", "kit-builder.md": "opus", "kit-judge.md": "fable"}
+MODELS = {"kit-planner.md": "opus", "kit-builder.md": "opus", "kit-judge.md": "fable"}
 TOOLS = {
     "kit-planner.md": "Read, Grep, Glob, Write, Edit",
     "kit-builder.md": None,  # no tools line: the builder gets the session's tools

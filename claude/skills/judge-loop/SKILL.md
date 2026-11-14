@@ -1,6 +1,6 @@
 ---
 name: judge-loop
-description: "Plan on Fable, build on Opus, and have a fresh Fable judge score each until 10 out of 10. Use for any change that is more than a small fix."
+description: "Plan and build on Opus, and have a fresh Fable judge score each until 10 out of 10. Use for any change that is more than a small fix."
 argument-hint: "[plan|build|status]"
 allowed-tools: Bash(python3 ~/.claude/skills/judge-loop/loop.py *)
 ---
@@ -92,7 +92,7 @@ Plan, when there is one: <loop>/plan.md. Criteria: <loop>/criteria.md. Settled, 
 ```
 
 - The printed fix list puts blocking items first, then the items carried from earlier rounds, then the new ones. The fix prompts above and the fixer rules in the agent files give one rule for the order, in the same words: "Blocking items always come first, in the printed order; among the rest the printed order is the default, and you may fix first what gains the most points."
-- With `--agents fallback` the planner starts as "Start: general-purpose, model fable" and the builder as "Start: general-purpose, model opus", and each prompt begins with "Read `<path of the installed agent file>` and follow it as your instructions.", then the lines above. Where a helper line says `kit-planner` or `kit-builder`, the fallback agent of that role is meant too.
+- With `--agents fallback` the planner and the builder start as "Start: general-purpose, model opus" (a judge's brief says "Start: general-purpose, model fable"), and each prompt begins with "Read `<path of the installed agent file>` and follow it as your instructions.", then the lines above. Where a helper line says `kit-planner` or `kit-builder`, the fallback agent of that role is meant too.
 - A build without a plan loop: the builder's first prompt holds, after the `Repository:` line, `Build this request on the checked-out work branch: <the user's request>. Run the project's checks and commit. Do not push.`
 - A prompt may add the notes file of the area the work is in (`<loop>/areas/<name>.md`), and nothing else.
 
@@ -138,7 +138,7 @@ The table is read twice: by the expected change when the work starts, and by the
 `start` checks that the three agent files and the role files are installed, else exits 2 (`Next: run /kit.`).
 
 - `--agents kit` (the default): start `kit-planner`, `kit-builder` and `kit-judge` by name. An agent file in the project wins over the user's of the same name, so `start` and every `brief` stop (exit 3) when a file under the project's `.claude/agents/` has a kit agent's name, or cannot be checked (a link, or over 64 kB).
-- `--agents fallback`: for a session whose agent list does not show the `kit-*` agents. Planner and judge: the general agent with model `fable`; builder: the general agent with model `opus`. Each prompt starts with the line that names the installed agent file; `brief` writes it into the judges' prompts itself.
+- `--agents fallback`: for a session whose agent list does not show the `kit-*` agents. Judge: the general agent with model `fable`; planner and builder: the general agent with model `opus`. Each prompt starts with the line that names the installed agent file; `brief` writes it into the judges' prompts itself.
 
 The choice is stored and shown by `status`; `brief --agents kit` or `brief --agents fallback` changes it on a running loop. Agents load when a session starts: after an install, start a new session.
 

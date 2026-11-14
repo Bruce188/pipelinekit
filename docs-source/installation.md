@@ -67,7 +67,7 @@ Repo-specific hooks go in `<repo>/.git/hooks/<name>` (local) or `<repo>/.githook
 
 ## The judge loop
 
-The `judge-loop` skill plans a change on Fable, builds it on Opus and has fresh Fable judges score both; see [Plan, build, judge](components.html#plan-build-judge).
+The `judge-loop` skill plans and builds a change on Opus and has fresh Fable judges score both; see [Plan, build, judge](components.html#plan-build-judge).
 
 - **Models.** The loop needs both a Fable and an Opus model. An account without one gets a one-line stop when an agent cannot start; put `Judge loop: off` in the project's `CLAUDE.md` to turn the rule off there.
 - **Switch lines.** `Judge loop: off`, `Judge rounds: N` and `Judges: ...` belong in the project's `CLAUDE.md` (or `.claude/CLAUDE.md`) on its base branch. The same lines in `~/.claude/CLAUDE.md` work only until the next install replaces that file.

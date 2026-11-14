@@ -73,7 +73,7 @@ def test_the_skill_frontmatter():
     assert head == {
         "name": "judge-loop",
         "description": (
-            '"Plan on Fable, build on Opus, and have a fresh Fable judge score each '
+            '"Plan and build on Opus, and have a fresh Fable judge score each '
             "until 10 out of 10. Use for any change that is more than a small "
             'fix."'
         ),
@@ -344,7 +344,7 @@ def test_the_stated_limits():
 # The template rule ------------------------------------------------------------
 
 CRITERION_3 = (
-    "plan it on Fable (`kit-planner`)",
+    "plan it on Opus (`kit-planner`)",
     "build it on Opus (`kit-builder`)",
     "judged by a fresh Fable agent that did not write it (`kit-judge`)",
     "10 out of 10 with nothing blocking",

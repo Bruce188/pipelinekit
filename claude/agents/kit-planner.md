@@ -1,7 +1,7 @@
 ---
 name: kit-planner
 description: Writes or fixes the plan of a judge loop (plan.md in the loop folder) from the request, criteria.md and the answers in questions.md. Use it to plan a change before kit-builder builds it.
-model: fable
+model: opus
 tools: Read, Grep, Glob, Write, Edit
 ---
 

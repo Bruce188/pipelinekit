@@ -43,7 +43,7 @@ git rev-parse --verify "$BASE" 2>/dev/null || echo "ERROR: Base branch '$BASE' n
 
 ## Plan, build, judge
 
-- A change that is more than a small fix: plan it on Fable (`kit-planner`), build it on Opus (`kit-builder`), and have each judged by a fresh Fable agent that did not write it (`kit-judge`). Follow the `judge-loop` skill; its helper keeps the state and says what comes next.
+- A change that is more than a small fix: plan it on Opus (`kit-planner`), build it on Opus (`kit-builder`), and have each judged by a fresh Fable agent that did not write it (`kit-judge`); only the judges run on Fable. Follow the `judge-loop` skill; its helper keeps the state and says what comes next.
 - The target is 10 out of 10 with nothing blocking, in at most five judge rounds for a plan and five for a build. What is left after the last round becomes follow-up issues; with a blocking item left, stop and ask.
 - Before the first round, ask the user every open question in one batch, and say in one line what the loop is expected to cost.
 - No score back from a judge: stop. Never fix without a score.
