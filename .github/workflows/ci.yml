@@ -47,7 +47,7 @@ jobs:
         run: pip install --user ruff
       - name: Run ruff
         if: hashFiles('pyproject.toml') != ''
-        run: ruff check claude/hooks/ claude/skills/kit/ claude/skills/ship/
+        run: ruff check claude/hooks/ claude/skills/kit/ claude/skills/ship/ claude/skills/judge-loop/
 
   selftests:
     name: selftests
@@ -76,8 +76,8 @@ jobs:
           for t in claude/hooks/tests/test_*.sh tests/test_*.sh; do
             bash "$t"
           done
-      - name: Run python hook, self-check and ship tests
-        run: python -m pip install --user pytest && python -m pytest -q claude/hooks/tests claude/skills/kit/tests claude/skills/ship/tests
+      - name: Run python hook, self-check, ship and judge loop tests
+        run: python -m pip install --user pytest && python -m pytest -q claude/hooks/tests claude/skills/kit/tests claude/skills/ship/tests claude/skills/judge-loop/tests
       - name: Run docs-writer tests
         run: |
           python -m pip install --user markdown pygments playwright
