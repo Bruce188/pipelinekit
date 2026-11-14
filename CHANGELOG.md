@@ -149,8 +149,9 @@ kit used to ship, so those parts are gone.
   items first, then the printed order) is in the fix prompts and the agent
   files.
 - `status` and `brief` print a note for each area of a loop's `map.md` that
-  has no notes file `areas/<name>.md` yet, and `status --json` lists the same
-  notes under `warnings`.
+  has no notes file `areas/<name>.md` yet, or a note to rename an area whose
+  name cannot be a file name, and `status --json` lists the same notes under
+  `warnings`.
 
 ### Security
 

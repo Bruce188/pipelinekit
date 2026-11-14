@@ -24,6 +24,10 @@ AREA_NOTE = (
     "note: area {name} in map.md has no notes file ({path}); write it before the "
     "next round"
 )
+NAME_NOTE = (
+    "note: area {name} in map.md cannot be a file name (no / or \\, at most 80 "
+    "characters). Next: rename it in map.md, then write areas/<new name>.md."
+)
 WAIT_NOTE = (
     "note: {items} {verb} for the user. Ask in one batch and record the answers "
     "(questions.md, loop.py settle) before the judges run."
@@ -169,6 +173,7 @@ def area_names(loop):
 def missing_area_notes(loop):
     """One note per area of map.md without its areas/<name>.md, while unfinished.
 
+    An area whose name cannot be a file name gets a note to rename it instead.
     A warning only: it never refuses and changes no exit code.
     """
     if loop.st["outcome"] not in UNFINISHED:
@@ -178,8 +183,11 @@ def missing_area_notes(loop):
         shown = clean(name, 80)
         rel = f"areas/{name}.md"
         usable = shown == name and not any(c in name for c in "/\\") and len(name) <= 80
+        if not usable:
+            notes.append(NAME_NOTE.format(name=shown))
+            continue
         try:
-            found = usable and os.path.isfile(loop.path(rel))
+            found = os.path.isfile(loop.path(rel))
         except (Exit, OSError):
             found = False
         if not found:

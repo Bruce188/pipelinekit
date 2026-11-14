@@ -180,6 +180,27 @@ def test_a_map_status_cannot_read_gives_no_note_and_no_refusal(sb):
     assert not area_notes(run)
 
 
+NAME_NOTE = (
+    "note: area {name} in map.md cannot be a file name (no / or \\, at most 80 "
+    "characters). Next: rename it in map.md, then write areas/<new name>.md."
+)
+
+
+@pytest.mark.parametrize(
+    "name", ["a/b", "a\\b", "n" * 81], ids=["slash", "back", "long"]
+)
+def test_an_area_name_that_cannot_be_a_file_name(sb, name):
+    sb.start_build()
+    write_map(sb, f"{name} | app.py | tests\n")
+    note = NAME_NOTE.format(name=loop.clean(name, 80))
+    run = sb.run("status")
+    assert run.code == 0, run
+    assert area_notes(run) == [note]
+    assert run.last.startswith("Open: ")
+    assert json.loads(sb.run("status", "--json").out)["warnings"] == [note]
+    assert area_notes(sb.run("brief")) == [note]
+
+
 # Skipped judges ---------------------------------------------------------------
 
 
