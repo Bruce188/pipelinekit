@@ -88,9 +88,9 @@ The installer renders it to `~/.claude/CLAUDE.md`.
 ### Plan, build, judge
 
 The template's "Plan, build, judge" section makes the judge loop the rule for
-every change that is more than a small fix (one file with at most ten changed
-lines, documentation only, or a question). A project sets its own terms with
-one of these lines, on a line of its own, in its `CLAUDE.md`:
+every change that is more than a small fix (no sensitive path, and one file
+with at most ten changed lines, documentation only, or a question). A project
+sets its own terms with one of these lines, on a line of its own, in its `CLAUDE.md`:
 
 | Line | Effect |
 |------|--------|
@@ -143,7 +143,7 @@ You can safely run the installer again to update. It:
 3. renders `~/.claude/CLAUDE.md` from the template, first backing up an existing
    one to `CLAUDE.md.bak-<timestamp>`. When that file held a `Judge loop:`,
    `Judge rounds:` or `Judges:` line, it names the line: add it again, or put
-   it in the project;
+   it in the project's `CLAUDE.md`;
 4. backs up `settings.json` to `settings.json.bak-<timestamp>`, then merges in
    `claude/config/settings.template.json`: the kit's hook wiring replaces its
    old entries, hook entries whose script no longer exists are removed, the

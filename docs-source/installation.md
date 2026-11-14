@@ -75,6 +75,7 @@ The `judge-loop` skill plans and builds a change on Opus and has fresh Fable jud
 - **Permissions.** The session writes one answer file per judge with the Write tool. In the default permission mode each write may ask; "allow edits for this session" avoids one prompt per file.
 - **The record.** A loop keeps its record in `docs/loops/` of the checkout or worktree it runs in. A build in another worktree needs the plan loop's folder (`docs/loops/<name>/plan/`) copied there first. `docs/loops/` is not committed, so work judged in one checkout and shipped from another must be judged again there, or recorded there with `loop.py skip --reason ...`. Nothing removes old loop folders: delete one once its work is merged.
 - **Agents load at session start.** After an install, start a new session so `kit-planner`, `kit-builder` and `kit-judge` show in the agent list.
+
 ## Optional: context7
 
 context7 is not installed by default. To use it in a project, copy its entry from `.mcp.json.template` into that project's `.mcp.json`. The template also shows how to pin serena for a single project, and it includes optional iOS MCP servers.

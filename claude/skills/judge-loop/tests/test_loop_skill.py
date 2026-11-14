@@ -201,6 +201,22 @@ def test_asking_the_user_says_how_to_ask():
         assert words in text, words
 
 
+def skip_row():
+    return next(
+        line for line in skill().splitlines() if line.startswith(f"| `{LOOP} skip ")
+    )
+
+
+def test_the_skip_record_lies_in_the_loop_folder():
+    assert "merge gate" not in skill()
+    assert "the skip record, written to the loop folder" in skip_row()
+    assert "records it in the loop folder" in flat(skill())
+
+
+def test_the_skip_row_names_the_base():
+    assert "`--base <branch>` when the base is not found" in skip_row()
+
+
 def test_the_hand_over():
     text = flat(skill())
     for words in (
@@ -463,10 +479,79 @@ def plain(rel):
 
 
 @pytest.mark.parametrize(
-    "rel", ("docs-source/installation.md", "documentation/installation.html")
+    "rel",
+    ("README.md", "docs-source/installation.md", "documentation/installation.html"),
 )
 def test_the_switch_line_goes_into_the_projects_claude_md(rel):
-    assert "add it again, or put it in the project's CLAUDE.md." in plain(rel)
+    assert "add it again, or put it in the project's CLAUDE.md" in plain(rel)
+
+
+def test_the_readme_exempt_size_names_sensitive_paths():
+    assert (
+        "more than a small fix (no sensitive path, and one file with at most ten "
+        "changed lines, documentation only, or a question)"
+    ) in plain("README.md")
+
+
+def test_the_components_record_lists_every_file():
+    text = plain("docs-source/components.md")
+    for words in (
+        "changes.md (one row per item: fixed, answered or owner)",
+        "map.md",
+        "areas/<name>.md",
+        "leftovers/all.md",
+    ):
+        assert words in text, words
+
+
+def test_the_changelog_names_the_notes_and_the_fix_list():
+    text = plain("CHANGELOG.md")
+    for words in ("Items to fix:", "areas/<name>.md", "status --json", "warnings"):
+        assert words in text, words
+
+
+@pytest.mark.parametrize(
+    "rel", ("docs-source/components.md", "docs-source/installation.md")
+)
+def test_every_heading_follows_a_blank_line(rel):
+    lines = repo_text(rel).splitlines()
+    for i, line in enumerate(lines):
+        heading = line.startswith("#") and re.match(r"#+ ", line)
+        if heading and i and not _in_fence(lines, i):
+            assert lines[i - 1] == "", line
+
+
+def _in_fence(lines, i):
+    return sum(line.startswith("```") for line in lines[:i]) % 2 == 1
+
+
+PLANNER_ON_FABLE = (
+    r"planner[^.;)\n]{0,40}?\bfable\b",
+    r"\bplan(ned)?( it)? (on|by) fable\b",
+)
+
+
+def planner_on_fable(text):
+    text = flat(text)
+    return [m.group(0) for p in PLANNER_ON_FABLE for m in re.finditer(p, text, re.I)]
+
+
+def test_no_text_pairs_the_planner_with_fable():
+    rels = [
+        "README.md",
+        "CHANGELOG.md",
+        "claude/CLAUDE.md.template",
+        "claude/agents/kit-planner.md",
+        "claude/agents/kit-builder.md",
+        "claude/agents/kit-judge.md",
+    ]
+    sources = sorted((REPO / "docs-source").glob("*.md"))
+    rels += [f"docs-source/{p.name}" for p in sources]
+    found = {rel: planner_on_fable(repo_text(rel)) for rel in rels}
+    found["SKILL.md"] = planner_on_fable(skill())
+    assert not {rel: hits for rel, hits in found.items() if hits}
+    assert planner_on_fable("the agents `kit-planner` (fable), `kit-builder`")
+    assert planner_on_fable("Work should be planned by Fable.")
 
 
 UPGRADE = (

@@ -325,9 +325,10 @@ A project sets its own terms with one of these lines, on a line of its own:
 
 A line counts in the project's `CLAUDE.md` or `.claude/CLAUDE.md` once it is on the base branch (the branch pull requests go to), and in `~/.claude/CLAUDE.md`; the first one found wins, in that order. A line only in your checkout is named and not used. The installer replaces `~/.claude/CLAUDE.md` after a backup, so a line there lasts until the next install; when the file it replaces held one, the installer names the line and the backup.
 
-The record of a loop lies in `docs/loops/<name>/plan/` and `docs/loops/<name>/build/` of the checkout it runs in: `criteria.md`, `plan.md` and its judged copies, `questions.md`, the judges' answers, `scorecard.md` (one line per round, with the scores and the tokens), `changes.md` (one row per fixed item) and `settled.md`. `docs/loops/` is on the never-stage list. A build in another worktree needs the plan loop's folder copied there first. Nothing removes old loop folders: delete one once its work is merged.
+The record of a loop lies in `docs/loops/<name>/plan/` and `docs/loops/<name>/build/` of the checkout it runs in: `criteria.md`, `plan.md` and its judged copies, `questions.md`, the judges' answers, `scorecard.md` (one line per round, with the scores and the tokens), `changes.md` (one row per item: fixed, answered or owner), `settled.md`, `map.md` with one notes file per area in `areas/<name>.md`, and the files `loop.py leftovers --dir` writes to `leftovers/` (one per item, and `leftovers/all.md`). `docs/loops/` is on the never-stage list. A build in another worktree needs the plan loop's folder copied there first. Nothing removes old loop folders: delete one once its work is merged.
 
 Limits: the record says that results were saved, not that a judge ran or judged well; it is a local file the session can write or remove. `accept`, `settle` and `skip` rest on the session's word. A judge's full read cannot be proven, only stated. The panel and the size are taken once, when the loop starts. The loop needs both a Fable and an Opus model; an account without one sets `Judge loop: off`.
+
 ## CLAUDE.md template
 
 `claude/CLAUDE.md.template` is 79 lines of English with no imported rule files. The installer fills in `${USER_NAME}`, `${USER_EMAIL}` and `${CLAUDE_HOME}` and writes the result to `~/.claude/CLAUDE.md`. It covers:
