@@ -443,7 +443,8 @@ def frontmatter_name(data):
 
 
 def project_agent(root):
-    """None, or (name, path) of a project agent with a kit name, or ('', path)."""
+    """None, or (name, path) of a project agent with a kit name; ('', path) for
+    a link or a file over the size limit, (None, path) for an unreadable name."""
     here = root
     for part in (".claude", "agents"):
         here = here / part
@@ -474,7 +475,7 @@ def project_agent(root):
                     return "", rel
                 name = frontmatter_name(data or b"")
                 if name is None:
-                    return "", rel
+                    return None, rel
                 if name in AGENT_NAMES:
                     return name, rel
     return None
@@ -496,6 +497,13 @@ def check_agents(ctx, agents, command, panel=()):
     if hit is None:
         return
     name, rel = hit
+    if name is None:
+        raise Exit(
+            3,
+            f"STOP: {show_path(rel)} cannot be checked for an agent name (its name: "
+            "line cannot be read). Next: ask the user: write that line as name: "
+            "<plain word>, or the same command with --agents fallback.",
+        )
     if not name:
         raise Exit(
             3,
@@ -539,7 +547,7 @@ def prepare(args):
     if kind == "build" and getattr(args, "name", None) is not None:
         raise Exit(
             2,
-            "Refused: a build loop is named after its branch. "
+            "Refused: a build loop is named after its plan loop, or else its branch. "
             "Next: loop.py start build without --name.",
         )
     if kind == "plan" and getattr(args, "plan_loop", None) is not None:
@@ -580,24 +588,22 @@ def prepare(args):
             f"Refused: {show_branch(base)} is the base branch. "
             "Next: git switch -c <work branch>, then the same command.",
         )
-    if kind == "build" or args.name is None:
-        name = slug(ctx.branch)
-        if not NAME.fullmatch(name):
-            raise Exit(
-                2,
-                "Refused: the branch name cannot name a judge record. Next: rename the "
-                "branch.",
-            )
-    else:
-        name = args.name
-        if not NAME.fullmatch(name):
-            raise bad_name(name, "the same command with another --name")
     plan_loop = getattr(args, "plan_loop", None)
     if plan_loop is not None and not NAME.fullmatch(plan_loop):
         raise bad_name(
             plan_loop,
             "the same command with the name of the plan loop, see loop.py status",
         )
+    if kind == "build" and plan_loop is not None:
+        name = plan_loop
+    elif kind == "build":
+        name = branch_build(ctx)
+    elif args.name is None:
+        name = branch_name(ctx)
+    else:
+        name = args.name
+        if not NAME.fullmatch(name):
+            raise bad_name(name, "the same command with another --name")
     base_sha = ctx.resolve(base_ref)
     size = None
     if kind == "build":
@@ -609,6 +615,34 @@ def prepare(args):
         base_sha = merge
         size = Size(*changed_rows(ctx, merge))
     return ctx, kind, name, base, base_ref, base_sha, source, switches, said, size
+
+
+def branch_name(ctx):
+    """The loop name the checked-out branch gives, or the refusal."""
+    name = slug(ctx.branch)
+    if not NAME.fullmatch(name):
+        raise Exit(
+            2,
+            "Refused: the branch name cannot name a judge record. Next: rename the "
+            "branch.",
+        )
+    return name
+
+
+def branch_build(ctx):
+    """The name of this branch's build loop: the folder named after the branch,
+    else the newest build loop started on it from a plan loop, else the branch."""
+    name = slug(ctx.branch)
+    if NAME.fullmatch(name) and os.path.lexists(Loop(ctx, "build", name).path()):
+        return name
+    mine = [
+        lp
+        for lp in scan(ctx, load=False)
+        if lp.kind == "build" and (lenient(lp) or {}).get("branch") == ctx.branch
+    ]
+    if mine:
+        return max(mine, key=lambda lp: lp.mtime()).name
+    return branch_name(ctx)
 
 
 def move_aside(loop):
@@ -810,15 +844,18 @@ def cmd_start(args):
     if kind == "plan":
         raise Exit(
             0,
-            f"{head} Next: write criteria.md, have kit-planner write plan.md, "
-            "then loop.py brief.",
+            f"{head} Next: write criteria.md, have "
+            f"{agent_word(args.agents, 'kit-planner')} write plan.md, then loop.py "
+            "brief.",
         )
     raise Exit(0, f"{head} Next: write criteria.md, then loop.py brief.")
 
 
 def configure_start(sub):
-    sub.add_argument("loop_kind", choices=KINDS, metavar="plan|build")
-    sub.add_argument("--name", help="the loop's name (default: from the branch)")
+    sub.add_argument(
+        "loop_kind", choices=KINDS, metavar="plan|build", help="the kind of loop"
+    )
+    sub.add_argument("--name", help="a plan loop's name (default: from the branch)")
     sub.add_argument(
         "--panel",
         choices=("auto", "single", "full"),
@@ -827,9 +864,13 @@ def configure_start(sub):
     )
     sub.add_argument("--base", help="the branch the work is compared with")
     sub.add_argument(
-        "--plan-loop", dest="plan_loop", help="the plan loop this build follows"
+        "--plan-loop",
+        dest="plan_loop",
+        help="the plan loop this build follows; the build loop takes its name",
     )
-    sub.add_argument("--agents", choices=("kit", "fallback"), default="kit")
+    sub.add_argument(
+        "--agents", choices=("kit", "fallback"), default="kit", help=AGENTS_HELP
+    )
 
 
 COMMANDS["start"] = (configure_start, cmd_start)

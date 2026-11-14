@@ -1,6 +1,5 @@
-"""Tests of loop.py, the judge loop helper.
+"""Shared fixtures and helpers of the loop.py tests.
 
-The helper is imported in the test process; a few tests run it as a command.
 Every test works in a throwaway repository with a bare remote, under a
 temporary HOME, with a fake gh: nothing reaches the network or the real gh.
 """
@@ -323,7 +322,11 @@ class Sandbox:
         run = self.run("start", "build", *flags)
         assert run.code == 0, run
         if criteria:
-            self.criteria()
+            plan = list(flags)
+            name = (
+                plan[plan.index("--plan-loop") + 1] if "--plan-loop" in plan else None
+            )
+            self.criteria("build", name)
         return run
 
     def start_plan(self, name="p1", *flags, plan="# Plan\n\nstep one\n"):

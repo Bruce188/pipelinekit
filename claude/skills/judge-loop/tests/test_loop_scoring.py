@@ -97,7 +97,7 @@ def test_save_of_a_skipped_role(sb):
     assert (run.code, run.last) == (
         2,
         "Refused: general is skipped in this round. "
-        "Next: save the other judges, then loop.py round.",
+        "Next: loop.py save tests, then loop.py round.",
     )
 
 

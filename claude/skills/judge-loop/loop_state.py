@@ -12,7 +12,6 @@ import os
 import re
 import stat
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
@@ -213,9 +212,8 @@ def write_atomic(path, data: bytes):
 
 
 def ensure_ignored(ctx):
-    """docs/loops/ is ignored, by the checkout's own rules or the exclude file."""
-    if ctx.git.code("check-ignore", "-q", "docs/loops/x") == 0:
-        return
+    """docs/loops/ is in the exclude file once, so it stays ignored when other
+    rules that ignore it change."""
     path = Path(ctx.git.out("rev-parse", "--git-path", "info/exclude"))
     if not path.is_absolute():
         path = ctx.root / path
@@ -603,14 +601,12 @@ def lenient(loop):
 
 def left_out(loops, args):
     """One notice per other loop whose state cannot be read; stderr beside --json."""
-    out = sys.stderr if getattr(args, "json", False) else sys.stdout
     for lp in loops:
         rel = show_path(lp.rel)
-        print(
+        say(
             f"note: {rel}/state.json is not a readable loop state and is left out. "
             f"Next: move the folder {rel} away.",
-            file=out,
-            flush=True,
+            err=getattr(args, "json", False),
         )
 
 
