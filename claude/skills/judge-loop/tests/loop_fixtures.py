@@ -322,7 +322,11 @@ class Sandbox:
         run = self.run("start", "build", *flags)
         assert run.code == 0, run
         if criteria:
-            self.criteria()
+            plan = list(flags)
+            name = (
+                plan[plan.index("--plan-loop") + 1] if "--plan-loop" in plan else None
+            )
+            self.criteria("build", name)
         return run
 
     def start_plan(self, name="p1", *flags, plan="# Plan\n\nstep one\n"):

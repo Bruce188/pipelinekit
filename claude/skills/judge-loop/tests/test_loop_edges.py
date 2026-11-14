@@ -431,3 +431,39 @@ def test_the_exclude_line_is_added_when_another_rule_ignores_the_folder(sb):
     sb.change("app.py", 5)
     assert sb.run("start", "build").code == 0
     assert path.read_text().splitlines().count("docs/loops/") == 1
+
+
+# A build that follows a plan loop -------------------------------------------------
+
+
+def test_a_build_from_a_plan_loop_shares_the_plan_folder(sb):
+    plan_stage(sb)
+    sb.start_build("--plan-loop", "p1")
+    assert (sb.loopdir("build", "p1") / "state.json").is_file()
+    assert not sb.loopdir().exists()
+    data = json.loads(sb.run("status", "--json", "--kind", "build").out)
+    assert (data["kind"], data["name"]) == ("build", "p1")
+
+
+def test_skip_sees_the_open_build_of_a_plan_loop(sb):
+    plan_stage(sb)
+    sb.start_build("--plan-loop", "p1")
+    run = sb.run("skip", "--reason", "small", "--user-ok")
+    assert (run.code, run.last) == (
+        2,
+        "Refused: a judge loop is open on this branch. "
+        "Next: finish it, or loop.py accept or abandon.",
+    )
+    assert not sb.loopdir().exists()
+
+
+def test_a_new_start_without_the_plan_loop_reuses_its_folder(sb):
+    plan_stage(sb)
+    sb.start_build("--plan-loop", "p1")
+    assert sb.run("abandon", "--note", "again").code == 0
+    sb.change("app.py", 5)
+    run = sb.run("start", "build")
+    assert run.code == 0, run
+    assert "Earlier loop moved to docs/loops/p1/build.1" in run.lines
+    assert sb.state("build", "p1")["outcome"] == "open"
+    assert not sb.loopdir().exists()

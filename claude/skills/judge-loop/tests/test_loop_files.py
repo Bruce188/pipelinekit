@@ -524,7 +524,7 @@ def blocked_with_rounds(sb):
 
 
 BUILD_NAME = (
-    "Refused: a build loop is named after its branch. "
+    "Refused: a build loop is named after its plan loop, or else its branch. "
     "Next: loop.py start build without --name."
 )
 NO_BRANCH = "Refused: no branch is checked out. Next: check out the work branch."
@@ -767,7 +767,8 @@ def test_an_accepted_plan_edited_later(sb):
     (plan / "plan.md").write_text("# Changed later\n")
     sb.change()
     assert sb.run("start", "build", "--plan-loop", "p1").code == 0
-    assert (sb.loopdir() / "plan.md").read_bytes() == (plan / "plan.r1.md").read_bytes()
+    build = sb.loopdir("build", "p1")
+    assert (build / "plan.md").read_bytes() == (plan / "plan.r1.md").read_bytes()
 
 
 def test_the_keys_of_status_json(sb):

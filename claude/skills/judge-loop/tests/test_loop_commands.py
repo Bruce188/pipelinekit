@@ -89,11 +89,12 @@ def test_reading_and_abandoning_work_from_another_branch(sb):
 def test_status_json_names_the_loop_in_next_when_there_are_two(sb):
     plan_stage(sb)
     sb.start_build("--plan-loop", "p1")
-    run = sb.run("status", "--json", *WHICH)
+    which = ("--kind", "build", "--name", "p1")
+    run = sb.run("status", "--json", *which)
     assert run.code == 0, run
-    assert json.loads(run.out)["next"] == "loop.py brief --kind build --name feat-1-x."
-    run = sb.run("status", *WHICH)
-    assert run.last.endswith(" Next: loop.py brief --kind build --name feat-1-x."), run
+    assert json.loads(run.out)["next"] == "loop.py brief --kind build --name p1."
+    run = sb.run("status", *which)
+    assert run.last.endswith(" Next: loop.py brief --kind build --name p1."), run
 
 
 @pytest.mark.parametrize("flags, asked", [((), "no"), (("--user-ok",), "yes")])
@@ -260,7 +261,7 @@ def test_the_brief_of_a_build_names_its_plan(sb):
         line for line in run.lines if line.startswith("The plan this build follows")
     ]
     assert plans and set(plans) == {
-        "The plan this build follows: docs/loops/feat-1-x/build/plan.md"
+        "The plan this build follows: docs/loops/p1/build/plan.md"
     }, run
 
 
@@ -274,6 +275,7 @@ HELPS = [
     (("start",), "fallback: general-purpose agents"),
     (("brief",), "fallback: general-purpose agents"),
     (("settle",), "the item's id"),
+    (("start",), "the build loop takes its name"),
 ]
 
 

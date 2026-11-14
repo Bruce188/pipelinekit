@@ -547,7 +547,7 @@ def prepare(args):
     if kind == "build" and getattr(args, "name", None) is not None:
         raise Exit(
             2,
-            "Refused: a build loop is named after its branch. "
+            "Refused: a build loop is named after its plan loop, or else its branch. "
             "Next: loop.py start build without --name.",
         )
     if kind == "plan" and getattr(args, "plan_loop", None) is not None:
@@ -588,24 +588,22 @@ def prepare(args):
             f"Refused: {show_branch(base)} is the base branch. "
             "Next: git switch -c <work branch>, then the same command.",
         )
-    if kind == "build" or args.name is None:
-        name = slug(ctx.branch)
-        if not NAME.fullmatch(name):
-            raise Exit(
-                2,
-                "Refused: the branch name cannot name a judge record. Next: rename the "
-                "branch.",
-            )
-    else:
-        name = args.name
-        if not NAME.fullmatch(name):
-            raise bad_name(name, "the same command with another --name")
     plan_loop = getattr(args, "plan_loop", None)
     if plan_loop is not None and not NAME.fullmatch(plan_loop):
         raise bad_name(
             plan_loop,
             "the same command with the name of the plan loop, see loop.py status",
         )
+    if kind == "build" and plan_loop is not None:
+        name = plan_loop
+    elif kind == "build":
+        name = branch_build(ctx)
+    elif args.name is None:
+        name = branch_name(ctx)
+    else:
+        name = args.name
+        if not NAME.fullmatch(name):
+            raise bad_name(name, "the same command with another --name")
     base_sha = ctx.resolve(base_ref)
     size = None
     if kind == "build":
@@ -617,6 +615,34 @@ def prepare(args):
         base_sha = merge
         size = Size(*changed_rows(ctx, merge))
     return ctx, kind, name, base, base_ref, base_sha, source, switches, said, size
+
+
+def branch_name(ctx):
+    """The loop name the checked-out branch gives, or the refusal."""
+    name = slug(ctx.branch)
+    if not NAME.fullmatch(name):
+        raise Exit(
+            2,
+            "Refused: the branch name cannot name a judge record. Next: rename the "
+            "branch.",
+        )
+    return name
+
+
+def branch_build(ctx):
+    """The name of this branch's build loop: the folder named after the branch,
+    else the newest build loop started on it from a plan loop, else the branch."""
+    name = slug(ctx.branch)
+    if NAME.fullmatch(name) and os.path.lexists(Loop(ctx, "build", name).path()):
+        return name
+    mine = [
+        lp
+        for lp in scan(ctx, load=False)
+        if lp.kind == "build" and (lenient(lp) or {}).get("branch") == ctx.branch
+    ]
+    if mine:
+        return max(mine, key=lambda lp: lp.mtime()).name
+    return branch_name(ctx)
 
 
 def move_aside(loop):
@@ -829,7 +855,7 @@ def configure_start(sub):
     sub.add_argument(
         "loop_kind", choices=KINDS, metavar="plan|build", help="the kind of loop"
     )
-    sub.add_argument("--name", help="the loop's name (default: from the branch)")
+    sub.add_argument("--name", help="a plan loop's name (default: from the branch)")
     sub.add_argument(
         "--panel",
         choices=("auto", "single", "full"),
@@ -838,7 +864,9 @@ def configure_start(sub):
     )
     sub.add_argument("--base", help="the branch the work is compared with")
     sub.add_argument(
-        "--plan-loop", dest="plan_loop", help="the plan loop this build follows"
+        "--plan-loop",
+        dest="plan_loop",
+        help="the plan loop this build follows; the build loop takes its name",
     )
     sub.add_argument(
         "--agents", choices=("kit", "fallback"), default="kit", help=AGENTS_HELP

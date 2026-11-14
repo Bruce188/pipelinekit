@@ -485,20 +485,22 @@ def test_the_start_output_with_a_plan_loop(sb):
     sb.change()
     run = sb.run("start", "build", "--plan-loop", "p1")
     assert run.code == 0, run
-    rel = "docs/loops/feat-1-x/build"
+    rel = "docs/loops/p1/build"
     assert run.lines[-2] == (
         f"plan.md and criteria.md copied from plan loop p1; add to {rel}/criteria.md "
         "before the first brief if needed"
     )
     assert run.last == (
-        "Started: build loop feat-1-x, 1 judge, at most 5 rounds. "
-        "Next: loop.py brief --kind build --name feat-1-x."
+        "Started: build loop p1, 1 judge, at most 5 rounds. "
+        "Next: loop.py brief --kind build --name p1."
     )
     plan = sb.loopdir("plan", "p1")
-    assert (sb.loopdir() / "criteria.md").read_bytes() == (
+    assert (sb.loopdir("build", "p1") / "criteria.md").read_bytes() == (
         plan / "criteria.md"
     ).read_bytes()
-    assert (sb.loopdir() / "plan.md").read_bytes() == (plan / "plan.r1.md").read_bytes()
+    assert (sb.loopdir("build", "p1") / "plan.md").read_bytes() == (
+        plan / "plan.r1.md"
+    ).read_bytes()
 
 
 # Base -------------------------------------------------------------------------
