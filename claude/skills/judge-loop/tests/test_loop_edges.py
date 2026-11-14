@@ -318,8 +318,7 @@ def test_save_of_a_skipped_role_with_two_loops_names_the_loop(sb):
 # Fallback agents -------------------------------------------------------------------
 
 FALLBACK_FIX = (
-    "Next: have a general-purpose agent fix these items and commit, then loop.py "
-    "brief."
+    "Next: have a general-purpose agent fix these items and commit, then loop.py brief."
 )
 
 
