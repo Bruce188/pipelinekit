@@ -495,7 +495,7 @@ def test_every_refusal_has_a_rule_id():
     for line, rule in rules:
         assert RULE.match(rule), f"line {line}: {rule}"
         assert rule.split(".")[0] in ("git", "docker", "fetch", "sql", "parse"), rule
-    assert len(git_hook_rules()) == 13, git_hook_rules()
+    assert len(git_hook_rules()) == 14, git_hook_rules()
 
 
 def test_every_rule_id_is_in_the_docs():

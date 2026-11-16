@@ -10,10 +10,13 @@ over it. A file that was already over the limit before the commit gets a
 warning and the commit goes through.
 
 Never counted: binary files (a NUL byte in the first 8,000 bytes, or `-diff`
-or `binary` in .gitattributes), deleted files, symlinks and submodules.
-Exempt: the default patterns below (lock, vendored, generated and data files),
-paths marked `linguist-generated` or `linguist-vendored` in .gitattributes,
-and the patterns in the repository's `.file-size-exempt`.
+or `binary` in the staged .gitattributes), deleted files, symlinks and
+submodules. Exempt: the default patterns below (lock, vendored, generated,
+IDE and data files), paths marked `linguist-generated` or `linguist-vendored`
+in the staged .gitattributes, and the patterns in the repository's
+`.file-size-exempt`. A file that passes only because an unstaged
+`.file-size-exempt` in the working tree lists it gets a note and an override
+event, so a local exemption is never silent.
 
 Exit 0 = the commit may go on, 3 = refused; anything else means the check
 itself failed, and the hook lets the commit through with a warning. A refusal
@@ -33,8 +36,11 @@ MAX_BYTES = 50_000
 REFUSED = 3
 RULE = "pre-commit.file-size"
 WARN_RULE = "pre-commit.file-size-over"
+LOCAL_RULE = "pre-commit.file-size-exempt-local"
 EXEMPT_FILE = ".file-size-exempt"
 BINARY_PEEK = 8000  # git's own rule: a NUL byte in the first 8,000 bytes
+CHUNK = 1 << 16  # a blob over MAX_BYTES is read in pieces of this size
+ALREADY_OVER = "New code goes in a new file; split this one only when asked."
 # Exempt in every repository. A pattern ending in / names a folder at any
 # depth; any other pattern without a / matches the file name.
 DEFAULT_EXEMPT = (
@@ -72,6 +78,12 @@ DEFAULT_EXEMPT = (
     "*_pb2.py",
     "*_pb2.pyi",
     "*.snap",
+    # project and designer files an IDE writes
+    "*.pbxproj",
+    "*.xcstrings",
+    "*.storyboard",
+    "*.xib",
+    "*.resx",
     # data
     "*.json",
     "*.jsonl",
@@ -98,6 +110,12 @@ def git(*args: str, data: bytes | None = None) -> bytes:
 def shown(path: str) -> str:
     """The path as one printable line."""
     return CONTROL.sub("?", path)
+
+
+def encoded(text: str) -> bytes:
+    """A path or object name as git has it; a byte that is not UTF-8 came in
+    as a surrogate escape and goes back out as that byte."""
+    return text.encode("utf-8", "surrogateescape")
 
 
 # ---------------------------------------------------------------- patterns
@@ -163,35 +181,38 @@ def exempt_list_unused(why: str) -> list[str]:
     return []
 
 
-def repo_patterns() -> list[str]:
-    """The lines of .file-size-exempt: the staged copy, else the working tree.
+def repo_patterns() -> tuple[list[str], bool]:
+    """The lines of .file-size-exempt, and whether they come from the index.
 
-    A list that is a link, a folder or not UTF-8 text is not used, with a
-    warning; a missing one is the usual case and says nothing.
+    The staged copy counts, else the one in the working tree. A list that is
+    a link, a folder or not UTF-8 text is not used, with a warning; a missing
+    one is the usual case and says nothing.
     """
     entry = git("ls-files", "-s", "-z", "--", EXEMPT_FILE).split(b"\0")[0]
     if entry:
         mode, sha = entry.split()[:2]
         if mode.decode() not in REGULAR:
-            return exempt_list_unused("is staged as a link or a submodule")
+            return exempt_list_unused("is staged as a link or a submodule"), True
         data = read_blobs([sha.decode()])[0] or b""
+        staged_list = True
     else:
+        staged_list = False
         path = os.path.join(
             git("rev-parse", "--show-toplevel").decode().strip(), EXEMPT_FILE
         )
         if not os.path.lexists(path):
-            return []
+            return [], False
         if os.path.islink(path) or not os.path.isfile(path):
-            return exempt_list_unused("is a link or a folder")
+            return exempt_list_unused("is a link or a folder"), False
         try:
             with open(path, "rb") as f:
                 data = f.read()
         except OSError as e:
-            return exempt_list_unused(f"cannot be read ({e.strerror})")
+            return exempt_list_unused(f"cannot be read ({e.strerror})"), False
     try:
-        return data.decode("utf-8").splitlines()
+        return data.decode("utf-8").splitlines(), staged_list
     except UnicodeDecodeError:
-        return exempt_list_unused("is not UTF-8 text")
+        return exempt_list_unused("is not UTF-8 text"), staged_list
 
 
 # ---------------------------------------------------------------- sizes
@@ -207,6 +228,22 @@ def measure(blob: bytes | None) -> tuple[int, int] | None:
     return lines, len(blob)
 
 
+def count(stream) -> tuple[int, int] | None:
+    """measure() for a stream read in pieces: None as soon as the first
+    BINARY_PEEK bytes show a binary, so a large binary is never read whole."""
+    head = stream.read(BINARY_PEEK)
+    if b"\0" in head:
+        return None
+    lines, size, last = head.count(b"\n"), len(head), head[-1:]
+    while chunk := stream.read(CHUNK):
+        lines += chunk.count(b"\n")
+        size += len(chunk)
+        last = chunk[-1:]
+    if size and last != b"\n":
+        lines += 1
+    return lines, size
+
+
 def over(size: tuple[int, int] | None) -> bool:
     return size is not None and (size[0] > MAX_LINES or size[1] > MAX_BYTES)
 
@@ -215,24 +252,83 @@ def describe(size: tuple[int, int]) -> str:
     return f"{size[0]:,} lines, {size[1]:,} bytes"
 
 
-def read_blobs(names: list[str]) -> list[bytes | None]:
-    """The content of each object name (a sha or rev:path); None when missing."""
+def batch_head(line: bytes) -> tuple[bytes, int] | None:
+    """(type, size) from a `git cat-file --batch` header; None when the object
+    is missing. A missing name may hold spaces, so the line is read from the
+    right: "<sha> <type> <size>" or "<name> missing"."""
+    parts = line.rsplit(b" ", 2)
+    if len(parts) != 3 or not parts[2].isdigit():
+        return None
+    return parts[1], int(parts[2])
+
+
+def batch_input(names: list[str]) -> bytes:
+    return b"".join(encoded(n) + b"\n" for n in names)
+
+
+def blob_sizes(names: list[str]) -> list[int | None]:
+    """The byte size of each object name (a sha or rev:path) that is a blob;
+    None when missing or not a blob. Nothing is read but the headers."""
     if not names:
         return []
-    out = git("cat-file", "--batch", data="".join(f"{n}\n" for n in names).encode())
+    out = git("cat-file", "--batch-check", data=batch_input(names))
+    heads = [batch_head(line) for line in out.split(b"\n")[: len(names)]]
+    return [h[1] if h and h[0] == b"blob" else None for h in heads]
+
+
+def read_blobs(names: list[str]) -> list[bytes | None]:
+    """The whole content of each object name; None when missing."""
+    if not names:
+        return []
+    out = git("cat-file", "--batch", data=batch_input(names))
     blobs: list[bytes | None] = []
     pos = 0
     for _ in names:
         end = out.index(b"\n", pos)
-        head = out[pos:end].split()
+        head = batch_head(out[pos:end])
         pos = end + 1
-        if len(head) != 3:  # "<name> missing" or "<name> ambiguous"
+        if head is None:  # "<name> missing" or "<name> ambiguous"
             blobs.append(None)
             continue
-        size = int(head[2])
-        blobs.append(out[pos : pos + size] if head[1] == b"blob" else None)
+        kind, size = head
+        blobs.append(out[pos : pos + size] if kind == b"blob" else None)
         pos += size + 1
     return blobs
+
+
+def stream_size(name: str) -> tuple[int, int] | None:
+    """count() of one blob straight from git, for a blob over MAX_BYTES."""
+    with subprocess.Popen(
+        ["git", "cat-file", "blob", name],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    ) as p:
+        size = count(p.stdout)
+        if size is None:
+            p.kill()  # a binary: the rest is never read
+            return None
+        if p.wait(timeout=60) != 0:
+            raise RuntimeError(f"git cat-file failed (exit {p.returncode})")
+    return size
+
+
+def sizes(names: list[str]) -> list[tuple[int, int] | None]:
+    """(lines, bytes) of each text blob named; None for a binary, missing or
+    empty name. Blobs up to MAX_BYTES are read whole in one batch; a larger
+    one is read in pieces and dropped once its first bytes show a binary."""
+    named = sorted({n for n in names if n})
+    known = dict(zip(named, blob_sizes(named), strict=True))
+    small = [n for n in named if known[n] is not None and known[n] <= MAX_BYTES]
+    content = dict(zip(small, read_blobs(small), strict=True))
+    out = []
+    for n in names:
+        if not n or known[n] is None:
+            out.append(None)
+        elif n in content:
+            out.append(measure(content[n]))
+        else:
+            out.append(stream_size(n))
+    return out
 
 
 # ---------------------------------------------------------------- the commit
@@ -263,7 +359,8 @@ def merge_heads() -> list[str]:
 def staged() -> list[tuple[str, str | None, str]]:
     """(path, old blob or None, new blob) for every regular file the commit
     adds or changes. Deleted files, symlinks and submodules are left out; a
-    renamed file keeps the blob it had under its old name."""
+    renamed file keeps the blob it had under its old name. The index is the
+    one git commit uses, so `commit -a` and `commit -- <path>` are checked."""
     raw = git(
         "diff-index", "--cached", "--raw", "-z", "-M", "--no-abbrev", base()
     ).split(b"\0")
@@ -282,12 +379,14 @@ def staged() -> list[tuple[str, str | None, str]]:
 
 
 def attributes(paths: list[str]) -> dict[str, dict[str, str]]:
-    """The diff and linguist attributes of each path."""
+    """The diff and linguist attributes of each path, from the staged
+    .gitattributes only: an unstaged edit there exempts nothing."""
     if not paths:
         return {}
     names = ("diff", "linguist-generated", "linguist-vendored")
-    data = "\0".join(paths).encode("utf-8", "surrogateescape") + b"\0"
-    raw = git("check-attr", "-z", "--stdin", *names, data=data).split(b"\0")
+    data = b"".join(encoded(p) + b"\0" for p in paths)
+    raw = git("check-attr", "--cached", "-z", "--stdin", *names, data=data)
+    raw = raw.split(b"\0")
     out: dict[str, dict[str, str]] = {}
     for j in range(0, len(raw) - 2, 3):
         path = raw[j].decode("utf-8", "surrogateescape")
@@ -305,45 +404,82 @@ def skipped(attrs: dict[str, str]) -> bool:
     )
 
 
-def findings() -> tuple[list[tuple], list[tuple]]:
-    """(refused, warned): (path, size, what it was before) for each file
-    over the limit; warned holds the files that were over it already."""
-    patterns = compile_patterns(DEFAULT_EXEMPT) + compile_patterns(repo_patterns())
+def findings() -> tuple[list[tuple], list[tuple], list[tuple]]:
+    """(refused, warned, local): (path, size, what it was before) for each
+    file over the limit. warned holds the files that were over it already,
+    local the ones that would be refused but for an unstaged exempt list."""
+    patterns = compile_patterns(DEFAULT_EXEMPT)
+    lines, from_index = repo_patterns()
+    listed = compile_patterns(lines)
+    if from_index:
+        patterns, listed = patterns + listed, []
     files = [f for f in staged() if not exempt(f[0], patterns)]
     attrs = attributes([f[0] for f in files])
     files = [f for f in files if not skipped(attrs.get(f[0], {}))]
-    sizes = [measure(b) for b in read_blobs([f[2] for f in files])]
-    big = [(f, s) for f, s in zip(files, sizes, strict=True) if over(s)]
+    big = [
+        (f, s)
+        for f, s in zip(files, sizes([f[2] for f in files]), strict=True)
+        if over(s)
+    ]
     if not big:
-        return [], []
+        return [], [], []
     parents = merge_heads()
     names: list[str] = []
     for (path, old, _), _ in big:
         names.append(old or "")
         names += ["" if "\n" in path else f"{p}:{path}" for p in parents]
-    before = iter(measure(b) for b in read_blobs(names))
-    refused, warned = [], []
+    before = iter(sizes(names))
+    refused, warned, local = [], [], []
     for (path, old, _), size in big:
         prior = [next(before) for _ in range(1 + len(parents))]
         if any(over(p) for p in prior):
-            warned.append((path, size, prior[0]))
+            if not exempt(path, listed):
+                warned.append((path, size, prior[0]))
+        elif exempt(path, listed):
+            local.append((path, size, ""))
         elif old is not None and prior[0] is not None:
             refused.append((path, size, f"was {describe(prior[0])}"))
         else:
             refused.append((path, size, "new file"))
-    return refused, warned
+    return refused, warned, local
 
 
-def report(refused: list[tuple], warned: list[tuple]) -> None:
+def log(kind: str, rule: str, entries: list[tuple], what: str) -> None:
+    """One event for the first entry, with a count of the rest; never the
+    content. Logging must not change what the hook decides."""
+    path, size, _ = entries[0]
+    reason = f"{shown(path)}: {size[0]} lines, {size[1]} bytes; {what}"
+    if len(entries) > 1:
+        reason += f"; {len(entries) - 1} more file(s)"
+    try:
+        sys.dont_write_bytecode = True  # leave no __pycache__ beside the hooks
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import kitlog
+
+        kitlog.log("pre-commit", kind, rule, reason)
+    except Exception:
+        pass
+
+
+def report(refused: list[tuple], warned: list[tuple], local: list[tuple]) -> None:
     limit = f"{MAX_LINES:,} lines and {MAX_BYTES:,} bytes"
     for path, size, _ in warned:
         print(
             f"pre-commit: warning: {shown(path)} is {describe(size)}, over the "
             f"file size limit of {limit}. It was over the limit before this "
-            f"commit, so the commit goes on; split it when you next work on it. "
-            f"[{WARN_RULE}]",
+            f"commit, so the commit goes on. {ALREADY_OVER} [{WARN_RULE}]",
             file=sys.stderr,
         )
+    for path, size, _ in local:
+        print(
+            f"pre-commit: note: {shown(path)} is {describe(size)}, over the file "
+            f"size limit of {limit}; the commit goes on because {EXEMPT_FILE} in "
+            f"the working tree lists it, and that list is not staged. "
+            f"[{LOCAL_RULE}]",
+            file=sys.stderr,
+        )
+    if local:
+        log("override", LOCAL_RULE, local, f"exempt only by the unstaged {EXEMPT_FILE}")
     if not refused:
         return
     print(
@@ -358,20 +494,7 @@ def report(refused: list[tuple], warned: list[tuple]) -> None:
         f"{EXEMPT_FILE}.",
         file=sys.stderr,
     )
-    path, size, _ = refused[0]
-    reason = (
-        f"{shown(path)}: {size[0]} lines, {size[1]} bytes; "
-        f"limit {MAX_LINES} lines, {MAX_BYTES} bytes"
-    )
-    if len(refused) > 1:
-        reason += f"; {len(refused) - 1} more file(s) over the limit"
-    try:
-        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-        import kitlog
-
-        kitlog.log("pre-commit", "block", RULE, reason)
-    except Exception:
-        pass  # logging must not change what the hook decides
+    log("block", RULE, refused, f"limit {MAX_LINES} lines, {MAX_BYTES} bytes")
 
 
 def main() -> int:
@@ -379,11 +502,11 @@ def main() -> int:
     # report half-way: such characters are printed as escapes instead.
     sys.stderr.reconfigure(errors="backslashreplace")
     try:
-        refused, warned = findings()
+        refused, warned, local = findings()
     except Exception as e:
         print(f"pre-commit: file size check failed: {e}", file=sys.stderr)
         return 2
-    report(refused, warned)
+    report(refused, warned, local)
     return REFUSED if refused else 0
 
 

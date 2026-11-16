@@ -169,10 +169,13 @@ kit used to ship, so those parts are gone.
 - The global `pre-commit` hook refuses a commit that adds a file over the
   limit or takes one past it (`[pre-commit.file-size]`, logged with the path
   and size, never the content). A file already over the limit only warns.
-  Binary and deleted files are not counted; lock, vendored, generated and
-  data files are exempt by default, and a project lists more in
+  Binary and deleted files are not counted; lock, vendored, generated, IDE
+  project and data files are exempt by default, and a project lists more in
   `.file-size-exempt` (a list that is a link, a folder or not UTF-8 text is
-  not used, with a warning).
+  not used, with a warning). A file that passes only through an unstaged list
+  in the working tree gets a note and an override event
+  (`[pre-commit.file-size-exempt-local]`). The upgrade page notes the new
+  refusal.
 - `/kit` warns about kit files over the limit, and its live probe checks that
   `pre-commit` refuses a new file over it.
 - The judge roles name a file the change makes longer and that ends up over

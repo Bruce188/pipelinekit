@@ -6,6 +6,7 @@ claude/git-hooks, with gitleaks stubbed out so only the size check decides.
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import shutil
@@ -91,6 +92,7 @@ def make_repo(tmp_path: Path, hooks: Path = GIT_HOOKS) -> Repo:
         "PIPELINEKIT_ALLOW_SECRET",
         "GIT_DIR",
         "GIT_INDEX_FILE",
+        "PYTHONDONTWRITEBYTECODE",
     ):
         env.pop(k, None)
     root = tmp_path / "repo"
@@ -140,9 +142,9 @@ def test_a_path_with_control_characters_is_shown_on_one_line(repo):
     assert "\x1b" not in p.stderr
 
 
-def test_a_path_that_is_not_utf8_is_refused_and_shown(repo):
-    name = b"caf\xe9.py"
-    (repo.root / os.fsdecode(name)).write_text(text(1501))
+def commit_not_utf8(repo) -> tuple[int, str]:
+    """Stage a file named caf\xe9.py over the limit and commit it."""
+    (repo.root / os.fsdecode(b"caf\xe9.py")).write_text(text(1501))
     assert repo.git("add", "-A").returncode == 0
     p = subprocess.run(
         ["git", "commit", "-q", "-m", "feat: change"],
@@ -151,9 +153,29 @@ def test_a_path_that_is_not_utf8_is_refused_and_shown(repo):
         capture_output=True,
         check=False,
     )
-    err = p.stderr.decode("utf-8", "replace")
-    assert p.returncode != 0, err
-    assert "  caf\\udce9.py: 1,501 lines, 15,022 bytes (new file)" in err
+    return p.returncode, p.stderr.decode("utf-8", "replace")
+
+
+NOT_UTF8 = "  caf\\udce9.py: 1,501 lines, 15,022 bytes (new file)"
+
+
+def test_a_path_that_is_not_utf8_is_refused_and_shown(repo):
+    rc, err = commit_not_utf8(repo)
+    assert rc != 0, err
+    assert NOT_UTF8 in err.splitlines()
+    assert "file size check failed" not in err
+    (e,) = repo.events()
+    assert (e["kind"], e["rule"]) == ("block", "pre-commit.file-size")
+
+
+def test_a_merge_with_a_path_that_is_not_utf8_is_refused(repo):
+    repo.write("base.py", text(10))
+    repo.commit_unchecked()
+    other = branch_commit(repo, "side.py", text(10))
+    (repo.root / ".git" / "MERGE_HEAD").write_text(other + "\n")
+    rc, err = commit_not_utf8(repo)
+    assert rc != 0, err
+    assert NOT_UTF8 in err.splitlines()
     assert "file size check failed" not in err
 
 
@@ -229,6 +251,70 @@ def test_a_new_copy_of_a_file_already_over_is_refused(repo):
     assert p.returncode != 0 and "copy.py" in p.stderr
 
 
+def test_a_refusal_leaves_no_bytecode_cache_beside_the_hooks(tmp_path):
+    kit = tmp_path / "kit"
+    shutil.copytree(GIT_HOOKS, kit / "git-hooks")
+    (kit / "hooks").mkdir()
+    for name in ("filesize.py", "kitlog.py"):
+        shutil.copy(HOOKS / name, kit / "hooks" / name)
+    repo = make_repo(tmp_path, kit / "git-hooks")
+    repo.write("big.py", text(2000))
+    assert repo.commit().returncode != 0
+    assert len(repo.events()) == 1
+    assert not (kit / "hooks" / "__pycache__").exists()
+
+
+@pytest.mark.parametrize("how", [["-a"], ["--", "app.py"]])
+def test_a_commit_from_a_temporary_index_is_checked(repo, how):
+    repo.write("app.py", text(10))
+    assert repo.commit().returncode == 0
+    (repo.root / "app.py").write_text(text(1501))
+    p = repo.git("commit", "-q", "-m", "feat: change", *how)
+    assert p.returncode != 0, p.stderr
+    line = "  app.py: 1,501 lines, 15,022 bytes (was 10 lines, 112 bytes)"
+    assert line in p.stderr.splitlines()
+    assert repo.git("show", "HEAD:app.py").stdout == text(10)
+
+
+def test_a_large_binary_is_never_read_whole(repo, monkeypatch):
+    repo.write("blob.bin", b"\0" + b"x" * 3_000_000)
+    repo.write("small.py", text(10))
+    big = repo.git("rev-parse", ":blob.bin").stdout.strip()
+    read = []
+    real = filesize.read_blobs
+    monkeypatch.setattr(filesize, "read_blobs", lambda n: read.extend(n) or real(n))
+    monkeypatch.chdir(repo.root)
+    for k in ("GIT_DIR", "GIT_INDEX_FILE", "GIT_WORK_TREE"):
+        monkeypatch.delenv(k, raising=False)
+    assert filesize.findings() == ([], [], [])
+    assert big not in read
+    p = repo.commit()
+    assert p.returncode == 0 and p.stderr == ""
+
+
+def test_a_large_text_file_is_counted_whole(repo):
+    repo.write("huge.md", ("y" * 99 + "\n") * 30_000)
+    p = repo.commit()
+    assert p.returncode != 0
+    line = "  huge.md: 30,000 lines, 3,000,000 bytes (new file)"
+    assert line in p.stderr.splitlines()
+
+
+def test_a_binary_stream_is_dropped_after_its_first_bytes():
+    f = io.BytesIO(b"x" * 100 + b"\0" + b"x" * 1_000_000)
+    assert filesize.count(f) is None
+    assert f.tell() == filesize.BINARY_PEEK
+
+
+@pytest.mark.parametrize(
+    "data",
+    [b"", b"a", b"a\nb", b"a\nb\n", b"y" * 100_000 + b"\nz", b"\n" * 9000],
+    ids=["empty", "one-line", "no-last-newline", "two-lines", "long", "newlines"],
+)
+def test_a_text_stream_is_counted_like_a_blob(data):
+    assert filesize.count(io.BytesIO(data)) == filesize.measure(data)
+
+
 def test_the_refusal_stands_with_the_log_switched_off(repo):
     repo.write("big.py", text(1501))
     assert repo.commit(PIPELINEKIT_LOG="0").returncode != 0
@@ -248,8 +334,8 @@ def test_a_file_already_over_the_limit_only_warns(repo):
     assert p.stderr.splitlines() == [
         f"pre-commit: warning: legacy.py is 1,700 lines, 17,012 bytes, over the "
         f"file size limit of {LIMIT}. It was over the limit before this commit, "
-        "so the commit goes on; split it when you next work on it. "
-        "[pre-commit.file-size-over]"
+        "so the commit goes on. New code goes in a new file; split this one only "
+        "when asked. [pre-commit.file-size-over]"
     ]
     assert repo.events() == []
 
@@ -272,14 +358,20 @@ def test_a_renamed_file_keeps_the_size_it_had(repo):
     assert "warning: new_name.py" in p.stderr
 
 
+def branch_commit(repo, rel: str, content: str) -> str:
+    """Commit rel on a new branch "other" and return to feat; the commit id."""
+    assert repo.git("checkout", "-q", "-b", "other").returncode == 0
+    repo.write(rel, content)
+    repo.commit_unchecked("feat: change on the other branch")
+    other = repo.git("rev-parse", "HEAD").stdout.strip()
+    assert repo.git("checkout", "-q", "feat").returncode == 0
+    return other
+
+
 def test_concluding_a_merge_warns_for_a_file_over_in_the_other_parent(repo):
     repo.write("shared.py", text(1000))
     repo.commit_unchecked()
-    assert repo.git("checkout", "-q", "-b", "other").returncode == 0
-    repo.write("shared.py", text(1600))
-    repo.commit_unchecked("feat: grow on the other branch")
-    other = repo.git("rev-parse", "HEAD").stdout.strip()
-    assert repo.git("checkout", "-q", "feat").returncode == 0
+    other = branch_commit(repo, "shared.py", text(1600))
     repo.write("shared.py", text(1650))
     (repo.root / ".git" / "MERGE_HEAD").write_text(other + "\n")
     p = repo.commit("feat: merge other")
@@ -312,12 +404,15 @@ def test_a_file_marked_binary_in_gitattributes_is_not_counted(repo):
     repo.write("raw.txt", text(2000))
     p = repo.commit()
     assert p.returncode == 0, p.stderr
+    assert "size limit" not in p.stderr
 
 
 def test_a_symlink_is_not_counted(repo):
-    (repo.root / "link.py").symlink_to("x" * 200)
+    (repo.root / "link.py").symlink_to("\n" * 1600)  # a 1,600-line target
     assert repo.git("add", "link.py").returncode == 0
-    assert repo.commit().returncode == 0
+    p = repo.commit()
+    assert p.returncode == 0, p.stderr
+    assert "size limit" not in p.stderr
 
 
 # ---------------------------------------------------------------- exempt
@@ -348,6 +443,11 @@ def test_a_symlink_is_not_counted(repo):
         "fixtures/big.json",
         "events.jsonl",
         "logo.svg",
+        "ios/App.xcodeproj/project.pbxproj",
+        "ios/App/Localizable.xcstrings",
+        "ios/App/Base.lproj/Main.storyboard",
+        "ios/App/Views/Cell.xib",
+        "src/App/Properties/Resources.resx",
     ],
 )
 def test_lock_vendored_generated_and_data_files_are_exempt(repo, rel):
@@ -364,7 +464,17 @@ def test_linguist_generated_and_vendored_paths_are_exempt(repo):
     )
     repo.write("gen/client.py", text(2000))
     repo.write("lib.py", text(2000))
-    assert repo.commit().returncode == 0
+    p = repo.commit()
+    assert p.returncode == 0, p.stderr
+    assert "size limit" not in p.stderr
+
+
+def test_an_unstaged_gitattributes_does_not_exempt(repo):
+    (repo.root / ".gitattributes").write_text("big.py linguist-generated\n")
+    repo.write("big.py", text(2000))
+    p = repo.commit()
+    assert p.returncode != 0
+    assert "  big.py: 2,000 lines, 20,012 bytes (new file)" in p.stderr.splitlines()
 
 
 def test_the_repository_exempt_list(repo):
@@ -386,10 +496,46 @@ def test_the_repository_exempt_list(repo):
     assert p.returncode != 0 and "sub/top.txt" in p.stderr
 
 
-def test_an_exempt_list_in_the_working_tree_only_counts(repo):
-    (repo.root / ".file-size-exempt").write_text("big.py\n")
+LOCAL_NOTE = (
+    "pre-commit: note: {} is {}, over the file size limit of "
+    f"{LIMIT}; the commit goes on because .file-size-exempt in the working "
+    "tree lists it, and that list is not staged. "
+    "[pre-commit.file-size-exempt-local]"
+)
+
+
+def test_an_exempt_list_in_the_working_tree_counts_with_a_note(repo):
+    (repo.root / ".file-size-exempt").write_text("big.py\nother.py\n")
     repo.write("big.py", text(2000))
-    assert repo.commit().returncode == 0
+    repo.write("other.py", text(1600))
+    p = repo.commit()
+    assert p.returncode == 0, p.stderr
+    assert p.stderr.splitlines() == [
+        LOCAL_NOTE.format("big.py", "2,000 lines, 20,012 bytes"),
+        LOCAL_NOTE.format("other.py", "1,600 lines, 16,012 bytes"),
+    ]
+    (e,) = repo.events()
+    assert (e["hook"], e["kind"], e["rule"]) == (
+        "pre-commit",
+        "override",
+        "pre-commit.file-size-exempt-local",
+    )
+    assert e["reason"] == (
+        "big.py: 2000 lines, 20012 bytes; exempt only by the unstaged "
+        ".file-size-exempt; 1 more file(s)"
+    )
+    assert MARKER not in repo.log.read_text()
+
+
+def test_a_working_tree_exempt_list_says_nothing_for_files_under_the_limit(repo):
+    (repo.root / ".file-size-exempt").write_text("small.py\nlegacy.py\n")
+    repo.write("small.py", text(10))
+    repo.write("legacy.py", text(1600))
+    repo.commit_unchecked()
+    repo.write("legacy.py", text(1700))
+    p = repo.commit()
+    assert p.returncode == 0 and p.stderr == ""
+    assert repo.events() == []
 
 
 def test_a_listed_file_is_exempt_in_the_same_commit_that_lists_it(repo):
@@ -397,7 +543,9 @@ def test_a_listed_file_is_exempt_in_the_same_commit_that_lists_it(repo):
     assert repo.commit().returncode == 0
     repo.write("report.html", text(2000))
     repo.write(".file-size-exempt", "report.html\n")
-    assert repo.commit().returncode == 0
+    p = repo.commit()
+    assert p.returncode == 0 and p.stderr == ""
+    assert repo.events() == []
 
 
 UNUSED = (
@@ -482,7 +630,7 @@ def test_a_failing_check_lets_the_commit_through_and_is_logged(tmp_path):
     assert p.returncode == 0, p.stderr
     assert (
         "pre-commit: warning: file size check failed (exit 5), file sizes NOT "
-        "checked [pre-commit.file-size-failed]"
+        "checked; run /kit to see what is broken [pre-commit.file-size-failed]"
     ) in p.stderr.splitlines()
     (e,) = repo.events()
     assert (e["kind"], e["rule"]) == ("error", "pre-commit.file-size-failed")
@@ -506,6 +654,21 @@ def test_the_docs_name_the_limit_and_every_default_pattern():
     assert f"`{filesize.EXEMPT_FILE}`" in docs
 
 
+def test_the_upgrade_page_notes_the_file_size_refusal():
+    page = (REPO / "docs-source" / "upgrading.md").read_text()
+    note = page[page.index("## File size limit") :]
+    note = note[: note.index("\n## ")]
+    for words in (
+        "refuses a commit",
+        "1,500 lines or 50,000 bytes",
+        "already over the limit only warns",
+        "`.file-size-exempt`",
+        ".git/info/exclude",
+        "components.html#file-size-limit",
+    ):
+        assert words in note, words
+
+
 # ---------------------------------------------------------------- CLAUDE.md template
 
 
@@ -514,3 +677,10 @@ def test_the_claude_md_template_states_the_limit():
     assert "at most 1,500 lines and 50,000 bytes" in text
     assert "New code that would take a file past that goes in a new file" in text
     assert "2,000 lines" not in text
+
+
+def test_the_warning_and_the_template_agree_on_splitting():
+    template = (REPO / "claude" / "CLAUDE.md.template").read_text()
+    assert "do not split an existing longer file unless asked" in template
+    assert "split this one only when asked" in filesize.ALREADY_OVER
+    assert "when you next work on it" not in filesize.ALREADY_OVER
