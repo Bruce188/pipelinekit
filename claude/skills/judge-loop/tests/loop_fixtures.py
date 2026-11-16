@@ -212,6 +212,12 @@ class Sandbox:
         return self.git("rev-parse", "HEAD")
 
     def branch(self):
+        head = self.root / ".git" / "HEAD"
+        if Path(os.getcwd()) == self.root and head.is_file():
+            ref = head.read_text().strip()
+            return (
+                ref.removeprefix("ref: refs/heads/") if ref.startswith("ref: ") else ""
+            )
         return self.git("branch", "--show-current")
 
     def on_base(self, rel, text, base="main"):
@@ -322,11 +328,7 @@ class Sandbox:
         run = self.run("start", "build", *flags)
         assert run.code == 0, run
         if criteria:
-            plan = list(flags)
-            name = (
-                plan[plan.index("--plan-loop") + 1] if "--plan-loop" in plan else None
-            )
-            self.criteria("build", name)
+            self.criteria()
         return run
 
     def start_plan(self, name="p1", *flags, plan="# Plan\n\nstep one\n"):

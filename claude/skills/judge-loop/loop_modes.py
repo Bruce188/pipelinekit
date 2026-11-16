@@ -280,7 +280,8 @@ def counting_rows(st, rows, role):
 
 
 def print_notes(st, rows):
-    """The notes before the first brief of a round: missing rows, waiting items."""
+    """The notes before the first brief of a round: missing rows, waiting items.
+    True when items wait for the user."""
     waiting = set()
     form = ROW_FORM
     for key, item in st["items"].items():
@@ -300,6 +301,7 @@ def print_notes(st, rows):
         say(
             WAIT_NOTE.format(items=count(k, "item"), verb="waits" if k == 1 else "wait")
         )
+    return bool(waiting)
 
 
 # Diffs ------------------------------------------------------------------------

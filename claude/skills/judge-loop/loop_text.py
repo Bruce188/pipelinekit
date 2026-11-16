@@ -97,8 +97,10 @@ STEERING_FILES = frozenset(
 )
 STEERING_FOLDERS = frozenset((".claude", "agents", "skills", "commands", "roles"))
 
-# Why a result is no score: a field and a phrase, all of them the helper's own
-# words. Nothing from the answer file is ever part of the reason.
+# Why a result is no score: a field and a phrase, the helper's own words. Of the
+# answer file only a dimension name of the shape DIMENSION ever shows, in the
+# field; any other name is shown by its place, as dimensions[n].
+DIMENSION = re.compile(r"[a-z][a-z_]{0,39}")
 MISSING = "missing"
 WRONG_TYPE = "wrong type"
 NOT_A_NUMBER = "not a number"
@@ -188,6 +190,11 @@ NOT_A_REPO = (
     "Refused: not in a git repository. "
     "Next: work without the judge loop and say so in one line."
 )
+NO_GIT = (
+    "Error: git could not be started. "
+    "Next: install git or fix PATH, then the same command."
+)
+FINAL_NEXT = "loop.py brief; those judges read everything once."
 
 # The commands, filled in by the loop_* command modules: name -> (configure, run).
 COMMANDS: dict = {}

@@ -485,22 +485,20 @@ def test_the_start_output_with_a_plan_loop(sb):
     sb.change()
     run = sb.run("start", "build", "--plan-loop", "p1")
     assert run.code == 0, run
-    rel = "docs/loops/p1/build"
+    rel = "docs/loops/feat-1-x/build"
     assert run.lines[-2] == (
         f"plan.md and criteria.md copied from plan loop p1; add to {rel}/criteria.md "
         "before the first brief if needed"
     )
     assert run.last == (
-        "Started: build loop p1, 1 judge, at most 5 rounds. "
-        "Next: loop.py brief --kind build --name p1."
+        "Started: build loop feat-1-x, 1 judge, at most 5 rounds. "
+        "Next: loop.py brief --kind build --name feat-1-x."
     )
     plan = sb.loopdir("plan", "p1")
-    assert (sb.loopdir("build", "p1") / "criteria.md").read_bytes() == (
+    assert (sb.loopdir() / "criteria.md").read_bytes() == (
         plan / "criteria.md"
     ).read_bytes()
-    assert (sb.loopdir("build", "p1") / "plan.md").read_bytes() == (
-        plan / "plan.r1.md"
-    ).read_bytes()
+    assert (sb.loopdir() / "plan.md").read_bytes() == (plan / "plan.r1.md").read_bytes()
 
 
 # Base -------------------------------------------------------------------------
@@ -554,6 +552,11 @@ def gh_times_out(sb):
     sb.mp.setattr(subprocess, "run", run)
 
 
+def gh_not_executable(sb):
+    sb.fake_gh('{"baseRefName": "main"}')
+    (sb.bin / "gh").chmod(0o644)
+
+
 GH_NOTES = [
     ("timeout", gh_times_out, f"gave no answer in {loop.GH_TIMEOUT} seconds"),
     ("not json", lambda sb: sb.fake_gh("a page of text"), "gave no JSON"),
@@ -563,6 +566,18 @@ GH_NOTES = [
         lambda sb: sb.fake_gh('{"baseRefName": "a b"}'),
         "gave no base branch",
     ),
+    ("gh fails", gh_fails, "failed (code 1)"),
+    (
+        "not logged in",
+        lambda sb: sb.fake_gh(code=4, err="run gh auth login"),
+        "failed (code 4)",
+    ),
+    (
+        "offline",
+        lambda sb: sb.fake_gh(code=1, err="error connecting to api.github.com"),
+        "failed (code 1)",
+    ),
+    ("not executable", gh_not_executable, "did not run"),
 ]
 
 
@@ -576,7 +591,7 @@ def test_gh_that_gives_no_base_says_so(sb, how, setup, why):
     assert sb.state()["base"] == "main"
 
 
-@pytest.mark.parametrize("setup", [no_pull_request, gh_fails, gh_develop])
+@pytest.mark.parametrize("setup", [no_pull_request, gh_develop])
 def test_gh_that_answers_gives_no_note(sb, setup):
     setup(sb)
     run = sb.start_build()

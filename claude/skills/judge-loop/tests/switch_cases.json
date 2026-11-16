@@ -40,6 +40,11 @@
     {"name": "an open tag ends at a blank line", "text": "<a name=\"top\">\n\nJudge loop: off\n", "switches": {"Judge loop": "off"}},
     {"name": "a block tag ends at a blank line", "text": "<div>\nintro\n\nJudge rounds: 3\n</div>\n", "switches": {"Judge rounds": 3}},
     {"name": "a placeholder in angle brackets", "text": "<name> is the branch\nJudge loop: off\n", "switches": {"Judge loop": "off"}},
-    {"name": "a pre block runs to its closing tag", "text": "<pre>\n\nJudge loop: off\n\n</pre>\n", "switches": {}}
+    {"name": "a pre block runs to its closing tag", "text": "<pre>\n\nJudge loop: off\n\n</pre>\n", "switches": {}},
+    {"name": "a details block with text after the tag", "text": "<details><summary>Example</summary>\nJudge loop: off\n</details>\n", "switches": {}},
+    {"name": "a div with text after the tag", "text": "<div>some text\nJudge loop: off\n</div>\n", "switches": {}},
+    {"name": "a block tag closed on its own line", "text": "<div>x</div>\nJudge loop: off\n", "switches": {}},
+    {"name": "a closing tag does not end the block", "text": "<div>\nintro\n</div>\nJudge loop: off\n", "switches": {}},
+    {"name": "a void tag alone runs to a blank line", "text": "<img src=\"a.png\">\nJudge loop: off\n", "switches": {}}
   ]
 }

@@ -68,20 +68,43 @@ class Git:
         return self.run(*args, ok=None).returncode
 
 
+def git_entry():
+    """True when the working folder or a folder above it holds a .git entry,
+    looking up as git does: not into a folder of GIT_CEILING_DIRECTORIES."""
+    try:
+        here = Path(os.getcwd())
+    except OSError:
+        return False
+    ceilings = {
+        os.path.realpath(p)
+        for p in os.environ.get("GIT_CEILING_DIRECTORIES", "").split(os.pathsep)
+        if p
+    }
+    for i, folder in enumerate((here, *here.parents)):
+        if i and str(folder) in ceilings:
+            return False
+        if os.path.lexists(folder / ".git"):
+            return True
+    return False
+
+
 class Ctx:
     """The checkout a command runs in."""
 
     def __init__(self):
-        proc = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True,
-            check=False,
-            env={**os.environ, "LC_ALL": "C"},
-        )
+        try:
+            proc = subprocess.run(
+                ["git", "rev-parse", "--show-toplevel"],
+                capture_output=True,
+                check=False,
+                env={**os.environ, "LC_ALL": "C"},
+            )
+        except OSError:
+            raise Exit(2, NO_GIT) from None
         top = os.fsdecode(proc.stdout).strip()
         if proc.returncode:
             err = os.fsdecode(proc.stderr)
-            if "not a git repository" in err:
+            if "not a git repository" in err and not git_entry():
                 raise Exit(2, NOT_A_REPO)
             raise GitFailed(
                 "rev-parse", proc.returncode, git_said(err, proc.returncode)
@@ -462,7 +485,14 @@ def state_ok(st, kind, name, git):
             and is_type(settled.get("raised_again"), int)
         ):
             return False
-    if not all(isinstance(note, dict) for note in st["notes"]):
+    if not all(
+        isinstance(note, dict)
+        and is_type(note.get("round"), int)
+        and note["round"] >= 0
+        and is_type(note.get("action"), str)
+        and is_type(note.get("text"), str)
+        for note in st["notes"]
+    ):
         return False
     return all(isinstance(entry, dict) for entry in st["switches"])
 
@@ -604,8 +634,8 @@ def left_out(loops, args):
     for lp in loops:
         rel = show_path(lp.rel)
         say(
-            f"note: {rel}/state.json is not a readable loop state and is left out. "
-            f"Next: move the folder {rel} away.",
+            f"note: {rel}/state.json is not a readable loop state and is left out; "
+            f"move the folder {rel} away when it is not needed.",
             err=getattr(args, "json", False),
         )
 

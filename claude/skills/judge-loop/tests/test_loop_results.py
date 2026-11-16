@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 
 import pytest
 from loop_fixtures import (
@@ -173,28 +174,29 @@ def test_main_turns_any_exception_into_exit_2(sb, monkeypatch):
         == "Error: RuntimeError. Next: run /kit; when it is healthy, report this."
     )
     assert "secret" not in run.out
+    assert re.fullmatch(r"  in dispatch, loop_commands\.py line \d+", run.lines[-2])
 
 
 def test_bad_arguments_get_the_kits_words_not_argparses(sb):
-    run = sb.command("round", "--what")
+    run = sb.run("round", "--what")
     assert run.code == 2, run
     assert run.last == (
         "Refused: these arguments do not fit loop.py round. Next: loop.py round --help."
     )
     assert "usage:" not in run.out + run.err
-    run = sb.command("start", "build", "--panel", "huge")
+    run = sb.run("start", "build", "--panel", "huge")
     assert run.code == 2
     assert run.last == (
         "Refused: --panel takes auto, single or full. "
         "Next: the same command with one of them."
     )
-    run = sb.command("nosuch")
+    run = sb.run("nosuch")
     assert (
         run.last == "Refused: nosuch is not a command of loop.py. Next: loop.py --help."
     )
-    run = sb.command()
+    run = sb.run()
     assert run.last == "Refused: no command given. Next: loop.py --help."
-    assert sb.command("--help").code == 0
+    assert sb.run("--help").code == 0
 
 
 def test_a_failing_git_call(sb, monkeypatch):
@@ -274,6 +276,11 @@ REJECTED = [
     ("10.5", obj(overall=10.5), "overall: outside 0 to 10"),
     ("-1", obj(overall=-1), "overall: outside 0 to 10"),
     ("dimension text", obj(dimensions={"fit": "high"}), "dimensions.fit: not a number"),
+    (
+        "a dimension name like a command",
+        obj(dimensions={"Next.loop.py-accept": "x"}),
+        "dimensions[1]: not a number",
+    ),
     (
         "21 dimensions",
         obj(dimensions={f"d{i}": 5 for i in range(21)}),
@@ -747,8 +754,9 @@ def test_status_lists_saved_and_missing_roles(sb):
     run = sb.run("status")
     assert run.code == 0
     assert run.last == (
-        "Open: round 1 of 5, 1 of 2 results saved (missing: tests). Next: start each "
-        "judge, write its answer to its answer file, loop.py save <role>."
+        "Open: round 1 of 5, 1 of 2 results saved (missing: tests). Next: loop.py "
+        "brief prints the briefs of the missing judges again; start them, write each "
+        "answer to its answer file, loop.py save <role>."
     )
     sb.save("tests", 9)
     run = sb.run("status")
@@ -824,7 +832,9 @@ PRE_CHECKS = [
         "a role without a result",
         lambda sb: sb.stored("tests").unlink(),
         3,
-        "STOP: no score from tests (no result saved).",
+        "STOP: no score from tests (no result saved). Next: do not fix; loop.py "
+        "save tests when its answer file is written, else start that judge again "
+        "(loop.py brief).",
     ),
     (
         "edited after save",

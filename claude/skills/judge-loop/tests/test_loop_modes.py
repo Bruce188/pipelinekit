@@ -484,6 +484,8 @@ def test_no_module_imports_loop():
 @pytest.mark.parametrize("safe", [False, True], ids=["plain", "PYTHONSAFEPATH"])
 def test_loop_py_finds_its_modules_from_another_folder(tmp_path, safe):
     env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+    env["GIT_CEILING_DIRECTORIES"] = str(tmp_path.parent)
+    env["HOME"] = str(tmp_path)
     if safe:
         env["PYTHONSAFEPATH"] = "1"
     proc = subprocess.run(
@@ -496,4 +498,4 @@ def test_loop_py_finds_its_modules_from_another_folder(tmp_path, safe):
     )
     assert "Traceback" not in proc.stderr, proc.stderr
     assert proc.returncode == 2, proc
-    assert proc.stdout.strip(), proc
+    assert proc.stdout.splitlines()[-1] == loop.NOT_A_REPO, proc
