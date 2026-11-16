@@ -549,7 +549,7 @@ def test_merge_gives_up_on_a_check_that_keeps_running(sb):
         ({"reviewRequests": [{"login": "owner"}]}, 3, "review requested from owner"),
         ({"reviewDecision": "REVIEW_REQUIRED"}, 3, "requires a review"),
         ({"headRefOid": "1" * 40}, 1, "pull and test again"),
-        ({"mergeStateStatus": "BEHIND"}, 1, "behind main"),
+        ({"mergeStateStatus": "BEHIND"}, 1, "behind origin/main, GitHub says"),
         ({"mergeStateStatus": "BLOCKED"}, 3, "branch protection blocks the merge"),
         ({"mergeStateStatus": "UNKNOWN"}, 1, "has not said"),
         ({"isDraft": True}, 1, "still shows #7 as a draft"),

@@ -90,12 +90,14 @@ kit used to ship, so those parts are gone.
   rules.
 - Up to date with the base: before a pull request is written up or updated,
   the branch takes in the base it targets (`origin/<base>`, not always
-  `main`): a rebase while it was never pushed, a merge once it was, never a
-  force push, and then the tests run again. The `up-to-date` gate names the
+  `main`): a rebase while it was never pushed, a merge once it counts as pushed (a
+  pull request, a remote branch or an upstream of the same name, or a judge
+  record on the branch), never a force push, and then the tests run again. The `up-to-date` gate names the
   base, the commits the branch lacks and that next command; `ship.py status`
   shows it before there is a pull request too (`--base BRANCH`, else
   `branch.<name>.gh-merge-base`, else the default branch), and
-  `ship.py record` refuses a pass while it fails. The `CLAUDE.md` template,
+  `ship.py record` refuses a pass while it fails (with no new test asked for
+  when the base could not be checked). The `CLAUDE.md` template,
   the ship and judge-loop skills and the `kit-builder` agent state the rule
   in the same words.
 - Upgrading: after the update an open branch without a record shows

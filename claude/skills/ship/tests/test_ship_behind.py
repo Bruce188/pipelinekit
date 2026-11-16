@@ -6,14 +6,21 @@ rebases, merges or pushes to bring a branch up to date.
 """
 
 import json
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
-from ship_fixtures import gates, last_line, refused
+import ship_behind
+from ship_fixtures import gates, last_line, refused, ship
 
 NEW = "feat/2-new"
 REBASE = (
     "the branch was never pushed: git rebase origin/main, "
-    "run the tests again, then push"
+    f"run the tests again, then git push -u origin {NEW}"
+)
+JUDGED = (
+    "the branch has a judge record, whose results cite its commits: git merge "
+    "origin/main (no rebase, no force push), run the tests again, then push"
 )
 MERGE = (
     "the branch is pushed: git merge origin/main (no rebase, no force push), "
@@ -179,7 +186,9 @@ def test_the_pull_request_base_wins_over_the_option(sb):
     assert lines(done)[lines(done).index(ok) + 1] == hint
 
 
-@pytest.mark.parametrize("name", ["-x", "a..b", "a b", "a:b", "x\x1b[31m", "x/", "@"])
+@pytest.mark.parametrize(
+    "name", ["-x", "a..b", "a b", "a:b", "x\x1b[31m", "x/", "@", "a/.b", "a.lock/b"]
+)
 @pytest.mark.parametrize("cmd", [("status",), ("record", "--result", "pass")])
 def test_the_base_option_takes_only_a_branch_name(sb, name, cmd):
     done = sb.ship(*cmd, f"--base={name}", "--release", "no")
@@ -245,6 +254,29 @@ def test_record_names_the_rebase_for_a_never_pushed_branch(sb):
     )
 
 
+def test_record_compares_with_the_base_option(sb):
+    dev_base(sb)
+    done = sb.ship("record", "--result", "pass", "--release", "no", "--base", "dev")
+    assert done.returncode == 1 and done.stdout == ""
+    rebase = REBASE.replace("origin/main", "origin/dev")
+    assert done.stderr == (
+        f"ship: not recorded: 1 commit behind origin/dev: {rebase}; "
+        "after that, run the acceptance test again\n"
+    )
+
+
+def test_record_asks_for_no_new_test_when_the_base_cannot_be_checked(sb):
+    unpushed(sb)
+    done = sb.ship("record", "--result", "pass", "--release", "no", "--base", "nope")
+    assert done.returncode == 1 and done.stdout == ""
+    assert done.stderr == (
+        "ship: not recorded: the base could not be checked: could not fetch nope "
+        "from origin: fatal: couldn't find remote ref refs/heads/nope; check the "
+        "base and the remote, then run ship.py status again; once it can, run "
+        "record again (the test still counts)\n"
+    )
+
+
 # ---------------------------------------------------------------- no --force
 
 
@@ -294,3 +326,226 @@ def test_conflicts_and_github_behind_are_told_to_merge(sb):
     assert line(
         "up-to-date", "FAIL", f"behind origin/main, GitHub says: {MERGE}"
     ) in lines(done)
+
+
+# ---------------------------------------------------------------- pushed or not
+
+
+def test_a_branch_pushed_from_another_clone_is_told_to_merge(sb):
+    """The remote has the branch, though this clone never fetched it."""
+    unpushed(sb)
+    sb.git("push", "-q", "origin", NEW)
+    sb.git("update-ref", "-d", f"refs/remotes/origin/{NEW}")
+    sb.advance_base()
+    done = sb.ship("status")
+    assert line("up-to-date", "FAIL", f"1 commit behind origin/main: {MERGE}") in (
+        lines(done)
+    )
+    assert sb.git("for-each-ref", f"refs/remotes/origin/{NEW}") == ""
+
+
+def test_a_judged_branch_that_was_never_pushed_is_told_to_merge(sb):
+    """The judge results cite the branch's commits: a rebase would void them."""
+    unpushed(sb)
+    sb.judged()
+    judged_at = sb.head()
+    sb.advance_base()
+    done = sb.ship("status")
+    assert line("up-to-date", "FAIL", f"1 commit behind origin/main: {JUDGED}") in (
+        lines(done)
+    )
+    assert "git rebase" not in done.stdout
+    sb.git("merge", "-q", "--no-edit", "origin/main")
+    done = sb.ship("status")
+    assert line("up-to-date", "ok", "contains the tip of origin/main") in lines(done)
+    assert line(
+        "judged",
+        "ok",
+        f"done, 10 from 1 judge in 1 round on {judged_at[:7]} (2 commits before "
+        "the head); 0 files, 0 lines since",
+    ) in lines(done)
+
+
+@pytest.mark.parametrize(
+    "over",
+    [
+        {"commit": "0" * 40, "rounds": []},
+        {"branch": "feat/other"},
+        {"kind": "plan"},
+    ],
+)
+def test_a_record_that_cites_no_commit_of_the_branch_is_no_push(sb, over):
+    unpushed(sb)
+    sb.judged(**over)
+    sb.advance_base()
+    done = sb.ship("status")
+    assert line("up-to-date", "FAIL", f"1 commit behind origin/main: {REBASE}") in (
+        lines(done)
+    )
+
+
+def test_a_pending_round_counts_as_a_judge_record(sb):
+    unpushed(sb)
+    sb.judged("open", commit="", rounds=[], pending={"commit": sb.head()})
+    sb.advance_base()
+    done = sb.ship("status")
+    assert line("up-to-date", "FAIL", f"1 commit behind origin/main: {JUDGED}") in (
+        lines(done)
+    )
+
+
+def test_a_skip_is_recorded_again_after_a_merge(sb):
+    sb.judged("skip")
+    sb.advance_base()
+    sb.git("fetch", "-q")
+    sb.git("merge", "-q", "--no-edit", "origin/main")
+    sb.git("push", "-q")
+    sb.state()
+    done = sb.ship("status")
+    assert line(
+        "judged",
+        "FAIL",
+        "new commits since the skip: judge them with /judge-loop (loop.py start "
+        "build), or skip again if there is still nothing to judge",
+    ) in lines(done)
+
+
+# ---------------------------------------------------------------- the base
+
+
+def test_a_bad_gh_merge_base_is_named_and_ignored(sb):
+    unpushed(sb)
+    sb.git("config", f"branch.{NEW}.gh-merge-base", "a..b")
+    done = sb.ship("status")
+    ok = line("up-to-date", "ok", "contains the tip of origin/main")
+    found = lines(done)[lines(done).index(ok) + 1 :][:2]
+    assert found == [
+        f"{'':19}branch.{NEW}.gh-merge-base holds 'a..b', not a branch name: ignored",
+        DEFAULT,
+    ]
+
+
+def test_no_default_branch_from_github_asks_for_the_base(sb):
+    unpushed(sb)
+    repo = sb.repo()
+    del repo["defaultBranchRef"]
+    sb.state(pr=None, repo=repo)
+    done = sb.ship("status")
+    assert line(
+        "up-to-date",
+        "FAIL",
+        "could not tell the base branch (gh repo view names no default branch): "
+        "name it with ship.py status --base BRANCH",
+    ) in lines(done)
+
+
+def stub(pr=None, info=None, default="", **answers):
+    """A checkout without git: `answers` maps a git command (or a config key's
+    last part) to its (exit code, output, error); the rest succeed quietly."""
+
+    def try_git(*args):
+        key = args[-1].rsplit(".", 1)[-1] if args[0] == "config" else args[0]
+        return answers.get(
+            key, (1, "", "") if args[0] in ("config", "rev-parse") else (0, "", "")
+        )
+
+    def view():
+        if isinstance(info, Exception):
+            raise info
+        return info if info is not None else {"defaultBranchRef": {"name": "main"}}
+
+    return SimpleNamespace(
+        branch="feat/x",
+        remote="origin",
+        root=Path("/nonexistent/checkout"),
+        try_git=try_git,
+        info=view,
+        default_branch=lambda: default,
+        pr=lambda: pr,
+    )
+
+
+FATAL = (128, "", "hint: try again\nfatal: bad object\n")
+DOWN = ship.ToolError("gh repo view: HTTP 502")
+
+
+@pytest.mark.parametrize(
+    "repo, detail",
+    [
+        (
+            stub(info=DOWN),
+            "could not tell the base branch (gh repo view: HTTP 502): name it with "
+            "ship.py status --base BRANCH",
+        ),
+        (
+            stub(**{"gh-merge-base": FATAL}),
+            "could not read branch.feat/x.gh-merge-base: fatal: bad object",
+        ),
+        (
+            stub(**{"rev-parse": FATAL}),
+            "could not tell whether feat/x was pushed: fatal: bad object",
+        ),
+        (
+            stub(**{"merge": FATAL}),
+            "could not tell whether feat/x was pushed: fatal: bad object",
+        ),
+        (
+            stub(**{"ls-remote": FATAL}),
+            "could not tell whether feat/x was pushed: git ls-remote origin: "
+            "fatal: bad object",
+        ),
+        (
+            stub(**{"merge-base": FATAL}),
+            "could not compare with origin/main: fatal: bad object",
+        ),
+    ],
+)
+def test_a_base_that_cannot_be_checked_is_not_a_reason_to_test_again(repo, detail):
+    found, behind = ship_behind.check_base(repo, None)
+    assert (found["state"], found["detail"], behind) == ("fail", detail, False)
+    assert ship_behind.behind_refusal(repo) == (
+        f"the base could not be checked: {detail}; once it can, run record again "
+        "(the test still counts)"
+    )
+
+
+def test_a_count_that_fails_still_says_behind(sb):
+    repo = stub(**{"merge-base": (1, "", ""), "rev-list": FATAL})
+    found, behind = ship_behind.check_base(repo, None)
+    assert found["detail"] == (
+        "behind origin/main, could not count the commits: fatal: bad object"
+    )
+    assert behind
+
+
+def test_the_default_branch_comes_from_git_when_github_cannot_say():
+    found = ship_behind.base_gate(stub(info=DOWN, default="main"), None)
+    assert (found["state"], found["hints"]) == (
+        "pass",
+        [
+            "no pull request yet: compared with main, the default branch; "
+            "another base: ship.py status --base BRANCH"
+        ],
+    )
+
+
+# ---------------------------------------------------------------- after marking ready
+
+
+@pytest.mark.parametrize(
+    "later, detail",
+    [
+        ({"mergeStateStatus": "BEHIND"}, f"behind origin/main, GitHub says: {MERGE}"),
+        (
+            {"mergeStateStatus": "DIRTY"},
+            "conflicts with origin/main: git merge origin/main, resolve the "
+            "conflicts and say so in the pull request, run the tests again, then push",
+        ),
+    ],
+)
+def test_a_pull_request_behind_after_marking_ready_is_told_to_merge(sb, later, detail):
+    sb.passed()
+    sb.state(after_ready_sequence=[{}, later])
+    done = sb.ship("merge", "--settle", "20")
+    assert done.returncode == 1 and sb.calls("pr merge") == []
+    assert last_line(done) == f"Not merged: {detail}. #7 is no longer a draft."

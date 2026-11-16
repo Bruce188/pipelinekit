@@ -10,10 +10,25 @@ JUDGE_LOOP = Path(__file__).resolve().parents[2] / "judge-loop" / "SKILL.md"
 RULE = (
     "Before a PR is written up or updated: fetch, then bring the branch up to date "
     "with the base branch the PR targets (`origin/<base>`, not always `main`). "
-    "Rebase onto it while the branch was never pushed; once it was pushed (a remote "
-    "branch of that name exists), merge it in. Never force push. Then run the tests "
-    "again."
+    "Rebase onto it while the branch was never pushed; once it counts as pushed (a "
+    "pull request, a remote branch or an upstream of the same name, or a judge record "
+    "on the branch), merge it in. Never force push. Then run the tests again."
 )
+FIX_PASSES = (
+    "After the first judge round the branch has a judge record, so fix passes and "
+    "later updates merge the base in, never rebase: the round results cite its commits."
+)
+PUSHED = (
+    "A branch counts as pushed when it has a pull request, a remote branch of the same "
+    "name (fetched here or only on the remote), an upstream of the same name, or a "
+    "judge record on the branch (a build loop record that names one of its commits); "
+    "an upstream on another branch does not count."
+)
+SKIP_AGAIN = (
+    "A judge-loop result stays valid across a merge; a skip names one commit, so after "
+    "a merge or a rebase record the skip again with `loop.py skip`."
+)
+INSTALLATION = Path(__file__).resolve().parents[4] / "docs-source" / "installation.md"
 # The rules for every agent, with the two file-reading rules, and the answer limit.
 EVERY_AGENT = (
     "read it whole, once.",
@@ -73,3 +88,21 @@ def test_the_skill_holds_the_test_until_the_branch_is_up_to_date():
         "not start; bring the branch up to date as its line says."
     ) in skill
     assert "`record --result pass` refuses while the gate fails" in skill
+
+
+def flat(path):
+    return " ".join(path.read_text(encoding="utf-8").split())
+
+
+def test_fix_passes_after_the_first_judge_round_merge():
+    assert FIX_PASSES in flat(BUILDER)
+    hand_over = JUDGE_LOOP.read_text(encoding="utf-8").split("**Hand-over.**", 1)[1]
+    assert FIX_PASSES in hand_over.split("\n", 1)[0]
+
+
+def test_one_meaning_of_pushed_and_of_a_skip_after_an_update():
+    for path in (SKILL, INSTALLATION):
+        text = flat(path)
+        assert PUSHED in text and SKIP_AGAIN in text, path.name
+        assert "counts as never pushed" not in text, path.name
+    assert "`git push -u <remote> <branch>`" in flat(SKILL)

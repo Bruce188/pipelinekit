@@ -268,7 +268,7 @@ With the kit installed, Claude finishes the pull requests it opens instead of ha
 | `linked` | GitHub closes every issue named on this merge, or another branch is the base: [Issue links](installation.html#issue-links) |
 | `review` | No review is required, requested or asking for changes |
 | `current` | The local commit is the pull request's head and nothing tracked is uncommitted |
-| `up-to-date` | The branch contains its [base](installation.html#up-to-date-with-the-base) and does not conflict with it |
+| `up-to-date` | The branch holds its [base](installation.html#up-to-date-with-the-base), with no conflict |
 | `judged` | The branch's build loop ended in 10, a used budget or your accept on this commit or an earlier one, or `loop.py skip` recorded this commit; a loop waiting for you stops and asks; `Judge loop: off` on the base branch or in your user-level `CLAUDE.md` passes and is named in the reason. Limits: [The judge loop](installation.html#the-judge-loop) |
 | `tested` | The last test record is a pass for exactly this commit, and the loop is not stuck |
 | `ci` | Every check has finished and passed. A pull request with no check at all passes only where no workflow runs on pull requests, or with `--allow-no-checks` |
@@ -356,7 +356,7 @@ Limits: the record says that results were saved, not that a judge ran or judged 
 - the `docs/` (local, never committed) and `documentation/` (committed) split;
 - a base-branch detection snippet;
 - serena for symbol navigation, Grep/Glob for text;
-- the file size limit: at most 1,500 lines and 50,000 bytes per hand-written file; new code that would pass it goes in a new file;
+- the file size limit: at most 1,500 lines and 50,000 bytes for a hand-written file, and new code that would take a file past it goes in a new file;
 - decisions that are yours to make, asked as interactive questions: two to four options, each with its upside and downside, the recommended one first;
 - design: load `frontend-design` before building or reshaping anything a person looks at; the project's own design system or brand comes first, then the host's rules for the output, then the skill; the `dataviz` skill, when the session has it, decides chart form; `docs-writer` pages keep the template's CSS variables; skip it for work with no visual output and for small fixes inside an existing design;
 - plan, build, judge: a change that is more than a small fix is planned, built and judged with the `judge-loop` skill, to 10 out of 10 in at most five rounds each; the three switch lines; and how every agent it starts reads files and answers (only the form when given a JSON form, else at most 15 lines);

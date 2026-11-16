@@ -29,7 +29,7 @@ import time
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from ship_behind import behind_refusal, branch_name
+from ship_behind import behind_refusal, branch_name, conflict_detail, github_behind
 from ship_gates import *
 from ship_links import after_merge
 
@@ -268,13 +268,11 @@ def watch(repo, number, timeout, settle=0, marked=False, expected=False):
             detail = f"checks failed: {check_names(failed)}"
             return gate("ci", "fail", detail, hints=log_hints(failed))
         merge_state = pr.get("mergeStateStatus") or "UNKNOWN"
-        if merge_state in ("BEHIND", "DIRTY") or pr.get("mergeable") == "CONFLICTING":
-            word = "behind" if merge_state == "BEHIND" else "in conflict with"
-            detail = (
-                f"#{number} is {word} {base}: merge {repo.remote}/{base} into "
-                "the branch and test again"
-            )
-            return gate("up-to-date", "fail", detail)
+        target = f"{repo.remote}/{base}"
+        if merge_state == "DIRTY" or pr.get("mergeable") == "CONFLICTING":
+            return gate("up-to-date", "fail", conflict_detail(target))
+        if merge_state == "BEHIND":
+            return gate("up-to-date", "fail", github_behind(repo, target))
         draft = bool(pr.get("isDraft")) or merge_state == "DRAFT"
         if draft and not marked:
             return gate("draft", "fail", f"#{number} was turned into a draft")
