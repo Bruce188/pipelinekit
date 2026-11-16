@@ -15,12 +15,12 @@ EVERY_AGENT = (
 )
 
 
-def tester_brief() -> str:
+def read_tester_brief() -> str:
     text = SKILL.read_text(encoding="utf-8")
     return text.split("\n## Tester brief\n", 1)[1].split("\n## ", 1)[0]
 
 
 def test_the_tester_brief_gives_the_rules_for_every_agent():
-    brief = tester_brief()
+    brief = read_tester_brief()
     for words in EVERY_AGENT:
         assert words in brief, words
