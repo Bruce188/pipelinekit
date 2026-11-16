@@ -436,13 +436,14 @@ def test_the_exclude_line_is_added_when_another_rule_ignores_the_folder(sb):
 # A build that follows a plan loop -------------------------------------------------
 
 
-def test_a_build_from_a_plan_loop_shares_the_plan_folder(sb):
+def test_a_build_from_a_plan_loop_is_named_after_its_branch(sb):
     plan_stage(sb)
     sb.start_build("--plan-loop", "p1")
-    assert (sb.loopdir("build", "p1") / "state.json").is_file()
-    assert not sb.loopdir().exists()
+    assert sb.state()["plan_loop"]["name"] == "p1"
+    assert (sb.loopdir() / "plan.md").is_file()
+    assert not sb.loopdir("build", "p1").exists()
     data = json.loads(sb.run("status", "--json", "--kind", "build").out)
-    assert (data["kind"], data["name"]) == ("build", "p1")
+    assert (data["kind"], data["name"]) == ("build", "feat-1-x")
 
 
 def test_skip_sees_the_open_build_of_a_plan_loop(sb):
@@ -454,16 +455,47 @@ def test_skip_sees_the_open_build_of_a_plan_loop(sb):
         "Refused: a judge loop is open on this branch. "
         "Next: finish it, or loop.py accept or abandon.",
     )
-    assert not sb.loopdir().exists()
 
 
-def test_a_new_start_without_the_plan_loop_reuses_its_folder(sb):
+def test_a_loop_started_again_with_the_plan_loop_stays_with_its_branch(sb):
+    sb.start_build()
+    assert sb.run("abandon", "--note", "forgot the plan loop").code == 0
+    plan_stage(sb)
+    sb.change("app.py", 5)
+    run = sb.run("start", "build", "--plan-loop", "p1")
+    assert run.code == 0, run
+    assert "Earlier loop moved to docs/loops/feat-1-x/build.1" in run.lines
+    run = sb.run("skip", "--reason", "small", "--user-ok")
+    assert (run.code, run.last.split(" Next:")[0]) == (
+        2,
+        "Refused: a judge loop is open on this branch.",
+    )
+    run = sb.run("start", "build")
+    assert run.code == 2
+    assert run.last.startswith("Refused: this loop is not finished")
+
+
+@pytest.mark.parametrize("first_done", [True, False], ids=["done", "open"])
+def test_two_branches_build_from_one_plan_loop(sb, first_done):
     plan_stage(sb)
     sb.start_build("--plan-loop", "p1")
-    assert sb.run("abandon", "--note", "again").code == 0
-    sb.change("app.py", 5)
-    run = sb.run("start", "build")
-    assert run.code == 0, run
-    assert "Earlier loop moved to docs/loops/p1/build.1" in run.lines
-    assert sb.state("build", "p1")["outcome"] == "open"
-    assert not sb.loopdir().exists()
+    if first_done:
+        assert sb.judge({"general": 10}).code == 0
+    sb.git("checkout", "-q", "-b", "feat/2-y")
+    run = sb.start_build("--plan-loop", "p1")
+    assert "accept or abandon" not in run.out
+    assert sb.state()["plan_loop"]["name"] == "p1"
+    first = sb.state("build", "feat-1-x")
+    assert first["outcome"] == ("done" if first_done else "open")
+    assert not list((sb.root / "docs" / "loops").glob("*/build.*"))
+    data = json.loads(sb.run("status", "--json").out)
+    assert data["name"] == "feat-2-y"
+    sb.git("checkout", "-q", "feat/1-x")
+    data = json.loads(sb.run("status", "--json").out)
+    assert (data["name"], data["outcome"]) == ("feat-1-x", first["outcome"])
+    run = sb.run("skip", "--reason", "small", "--user-ok")
+    assert run.code == 2
+    if first_done:
+        assert run.last.startswith("Refused: this branch is already judged (")
+    else:
+        assert run.last.startswith("Refused: a judge loop is open on this branch.")
