@@ -578,6 +578,12 @@ def project_agent(root):
     return None
 
 
+def check_roles(panel):
+    for role in panel:
+        if not (skill_dir() / "roles" / f"{role}.md").is_file():
+            raise Exit(2, f"Refused: roles/{role}.md is not installed. Next: run /kit.")
+
+
 def check_agents(ctx, agents, command, panel=()):
     folder = loop_state.agents_dir()
     for name in AGENT_NAMES:
@@ -585,9 +591,7 @@ def check_agents(ctx, agents, command, panel=()):
             raise Exit(
                 2, f"Refused: agents/{name}.md is not installed. Next: run /kit."
             )
-    for role in panel:
-        if not (skill_dir() / "roles" / f"{role}.md").is_file():
-            raise Exit(2, f"Refused: roles/{role}.md is not installed. Next: run /kit.")
+    check_roles(panel)
     if agents != "kit":
         rel = general_purpose_agent(ctx.root)
         if rel:
@@ -835,7 +839,8 @@ def cmd_start(args):
     check_agents(ctx, args.agents, "start")
     forced = "" if args.panel == "auto" else args.panel
     panel, reason = choose_panel(kind, forced, switches, size)
-    check_agents(ctx, args.agents, "start", panel)
+    # the project's agents were looked at above; once, so each note shows once
+    check_roles(panel)
     budget = (
         switches["Judge rounds"]["value"]
         if "Judge rounds" in switches
