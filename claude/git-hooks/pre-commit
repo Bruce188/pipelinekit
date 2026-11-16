@@ -1,13 +1,18 @@
 #!/usr/bin/env bash
 # Global git pre-commit hook (core.hooksPath = ~/.claude/git-hooks).
-# Scans staged content with gitleaks, then runs the repo's own pre-commit hook
-# (.git/hooks/pre-commit or .githooks/pre-commit) if there is one.
+# Scans staged content with gitleaks, checks the file size limit, then runs the
+# repo's own pre-commit hook (.git/hooks/pre-commit or .githooks/pre-commit) if
+# there is one.
 #   - gitleaks missing: warn and allow.
 #   - PIPELINEKIT_ALLOW_SECRET=1: skip the scan for one commit (humans only;
 #     the Claude bash-guard hook refuses that assignment).
 #   - gitleaks >= 8.19: `gitleaks git --staged`; older: `gitleaks protect --staged`.
 #   - A finding, a gitleaks failure and a use of the override each leave one
 #     line in the kit's event log.
+#   - File size limit (../hooks/filesize.py): a commit that adds a hand-written
+#     file over 1,500 lines or 50,000 bytes, or takes one past that, is refused;
+#     a file that was over before only warns. A check that fails warns and
+#     lets the commit through.
 set -u
 
 chain() {
@@ -50,6 +55,19 @@ scan() {
   return 1
 }
 
+size_check() {
+  local rc=0
+  python3 "$(dirname "$(realpath "$0")")/../hooks/filesize.py" || rc=$?
+  case $rc in
+    0) return 0 ;;
+    3) return 1 ;;
+  esac
+  echo "pre-commit: warning: file size check failed (exit $rc), file sizes NOT checked [pre-commit.file-size-failed]" >&2
+  kitlog error pre-commit.file-size-failed "file size check failed (exit $rc)"
+  return 0
+}
+
 scan || exit 1
+size_check || exit 1
 chain pre-commit "$@" || exit $?
 exit 0

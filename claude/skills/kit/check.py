@@ -44,7 +44,12 @@ HOOKS = (
     "session-check.py",
 )
 # Imported or called by the hooks; not wired into settings.json themselves.
-HELPERS = ("kitlog.py",)
+# Each with what goes missing without it.
+HELPERS = ("kitlog.py", "filesize.py")
+HELPER_LOSS = {
+    "kitlog.py": "the hooks still decide, but nothing is recorded",
+    "filesize.py": "pre-commit lets commits through without the file size limit",
+}
 GIT_HOOKS = ("commit-msg", "pre-commit", "pre-push")
 # Used when there is no manifest; a test keeps it equal to claude/skills/.
 KIT_SKILLS = (
@@ -556,8 +561,7 @@ def check_install(c: Check) -> None:
             c.add(
                 "install",
                 "fail",
-                f"hook helper missing: {h} "
-                "(the hooks still decide, but nothing is recorded)",
+                f"hook helper missing: {h} ({HELPER_LOSS[h]})",
             )
     for g in GIT_HOOKS:
         check_script(c, "git hook", f"git-hooks/{g}")
