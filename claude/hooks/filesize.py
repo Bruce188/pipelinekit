@@ -154,21 +154,44 @@ def exempt(path: str, patterns: list[re.Pattern]) -> bool:
     return any(p.fullmatch(path) for p in patterns)
 
 
-def repo_patterns() -> list[str]:
-    """The lines of .file-size-exempt: the staged copy, else the working tree."""
-    p = subprocess.run(
-        ["git", "cat-file", "blob", f":{EXEMPT_FILE}"],
-        capture_output=True,
-        check=False,
+def exempt_list_unused(why: str) -> list[str]:
+    print(
+        f"pre-commit: warning: {EXEMPT_FILE} at the top of the repository {why}, "
+        "so its patterns are not used. Make it a plain UTF-8 text file.",
+        file=sys.stderr,
     )
-    if p.returncode == 0:
-        return p.stdout.decode("utf-8", "replace").splitlines()
-    top = git("rev-parse", "--show-toplevel").decode().strip()
+    return []
+
+
+def repo_patterns() -> list[str]:
+    """The lines of .file-size-exempt: the staged copy, else the working tree.
+
+    A list that is a link, a folder or not UTF-8 text is not used, with a
+    warning; a missing one is the usual case and says nothing.
+    """
+    entry = git("ls-files", "-s", "-z", "--", EXEMPT_FILE).split(b"\0")[0]
+    if entry:
+        mode, sha = entry.split()[:2]
+        if mode.decode() not in REGULAR:
+            return exempt_list_unused("is staged as a link or a submodule")
+        data = read_blobs([sha.decode()])[0] or b""
+    else:
+        path = os.path.join(
+            git("rev-parse", "--show-toplevel").decode().strip(), EXEMPT_FILE
+        )
+        if not os.path.lexists(path):
+            return []
+        if os.path.islink(path) or not os.path.isfile(path):
+            return exempt_list_unused("is a link or a folder")
+        try:
+            with open(path, "rb") as f:
+                data = f.read()
+        except OSError as e:
+            return exempt_list_unused(f"cannot be read ({e.strerror})")
     try:
-        with open(os.path.join(top, EXEMPT_FILE), encoding="utf-8") as f:
-            return f.read().splitlines()
-    except (OSError, UnicodeDecodeError):
-        return []
+        return data.decode("utf-8").splitlines()
+    except UnicodeDecodeError:
+        return exempt_list_unused("is not UTF-8 text")
 
 
 # ---------------------------------------------------------------- sizes
@@ -352,6 +375,9 @@ def report(refused: list[tuple], warned: list[tuple]) -> None:
 
 
 def main() -> int:
+    # A path that is not UTF-8, or a terminal that is not, must not stop the
+    # report half-way: such characters are printed as escapes instead.
+    sys.stderr.reconfigure(errors="backslashreplace")
     try:
         refused, warned = findings()
     except Exception as e:

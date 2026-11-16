@@ -118,6 +118,52 @@ def test_a_new_file_over_the_line_limit_is_refused(repo):
     assert LIMIT in p.stderr and "[pre-commit.file-size]" in p.stderr
 
 
+def test_the_whole_refusal(repo):
+    repo.write("src/big.py", text(1501))
+    p = repo.commit()
+    assert p.returncode != 0
+    assert p.stderr.splitlines() == [
+        f"pre-commit: commit refused, over the file size limit of {LIMIT}: "
+        "[pre-commit.file-size]",
+        "  src/big.py: 1,501 lines, 15,022 bytes (new file)",
+        "Split the file: new code that would take a file past the limit goes in "
+        "a new file. A generated, vendored or data file can be listed in "
+        ".file-size-exempt.",
+    ]
+
+
+def test_a_path_with_control_characters_is_shown_on_one_line(repo):
+    repo.write("odd\nname\x1b[31m.py", text(1501))
+    p = repo.commit()
+    assert p.returncode != 0
+    assert "  odd?name?[31m.py: 1,501 lines, 15,022 bytes (new file)" in p.stderr
+    assert "\x1b" not in p.stderr
+
+
+def test_a_path_that_is_not_utf8_is_refused_and_shown(repo):
+    name = b"caf\xe9.py"
+    (repo.root / os.fsdecode(name)).write_text(text(1501))
+    assert repo.git("add", "-A").returncode == 0
+    p = subprocess.run(
+        ["git", "commit", "-q", "-m", "feat: change"],
+        cwd=repo.root,
+        env=repo.env,
+        capture_output=True,
+        check=False,
+    )
+    err = p.stderr.decode("utf-8", "replace")
+    assert p.returncode != 0, err
+    assert "  caf\\udce9.py: 1,501 lines, 15,022 bytes (new file)" in err
+    assert "file size check failed" not in err
+
+
+def test_a_unicode_path_on_an_ascii_terminal_is_refused(repo):
+    repo.write("café.py", text(1501))
+    p = repo.commit(PYTHONIOENCODING="ascii")
+    assert p.returncode != 0, p.stderr
+    assert "  caf\\xe9.py: 1,501 lines, 15,022 bytes (new file)" in p.stderr
+
+
 def test_a_new_file_over_the_byte_limit_is_refused(repo):
     repo.write("wide.md", text(20, "y" * 2999 + "\n"))
     p = repo.commit()
@@ -199,8 +245,12 @@ def test_a_file_already_over_the_limit_only_warns(repo):
     p = repo.commit()
     assert p.returncode == 0, p.stderr
     assert repo.git("show", "HEAD:legacy.py").stdout.count("\n") == 1700
-    assert "warning: legacy.py is 1,700 lines, 17,012 bytes" in p.stderr
-    assert LIMIT in p.stderr and "[pre-commit.file-size-over]" in p.stderr
+    assert p.stderr.splitlines() == [
+        f"pre-commit: warning: legacy.py is 1,700 lines, 17,012 bytes, over the "
+        f"file size limit of {LIMIT}. It was over the limit before this commit, "
+        "so the commit goes on; split it when you next work on it. "
+        "[pre-commit.file-size-over]"
+    ]
     assert repo.events() == []
 
 
@@ -350,6 +400,51 @@ def test_a_listed_file_is_exempt_in_the_same_commit_that_lists_it(repo):
     assert repo.commit().returncode == 0
 
 
+UNUSED = (
+    "pre-commit: warning: .file-size-exempt at the top of the repository {}, "
+    "so its patterns are not used. Make it a plain UTF-8 text file."
+)
+
+
+def test_an_exempt_list_that_is_not_utf8_is_not_used(repo):
+    repo.write(".file-size-exempt", b"big.py\n\xff\n")
+    repo.write("big.py", text(2000))
+    p = repo.commit()
+    assert p.returncode != 0
+    assert UNUSED.format("is not UTF-8 text") in p.stderr.splitlines()
+
+
+def test_an_exempt_list_staged_as_a_link_is_not_used(repo):
+    (repo.root / "list.txt").write_text("big.py\n")
+    (repo.root / ".file-size-exempt").symlink_to("list.txt")
+    repo.write("big.py", text(2000))
+    assert repo.git("add", ".file-size-exempt").returncode == 0
+    p = repo.commit()
+    assert p.returncode != 0
+    line = UNUSED.format("is staged as a link or a submodule")
+    assert line in p.stderr.splitlines()
+
+
+@pytest.mark.parametrize("kind", ["link", "folder"])
+def test_an_exempt_list_in_the_working_tree_that_is_no_file_is_not_used(repo, kind):
+    target = repo.root / ".file-size-exempt"
+    if kind == "link":
+        (repo.root / "list.txt").write_text("big.py\n")
+        target.symlink_to("list.txt")
+    else:
+        target.mkdir()
+    repo.write("big.py", text(2000))
+    p = repo.commit()
+    assert p.returncode != 0
+    assert UNUSED.format("is a link or a folder") in p.stderr.splitlines()
+
+
+def test_a_missing_exempt_list_says_nothing(repo):
+    repo.write("small.py", text(10))
+    p = repo.commit()
+    assert p.returncode == 0 and p.stderr == ""
+
+
 @pytest.mark.parametrize(
     "pattern, yes, no",
     [
@@ -385,8 +480,10 @@ def test_a_failing_check_lets_the_commit_through_and_is_logged(tmp_path):
     repo.write("big.py", text(2000))
     p = repo.commit()
     assert p.returncode == 0, p.stderr
-    assert "file size check failed (exit 5)" in p.stderr
-    assert "[pre-commit.file-size-failed]" in p.stderr
+    assert (
+        "pre-commit: warning: file size check failed (exit 5), file sizes NOT "
+        "checked [pre-commit.file-size-failed]"
+    ) in p.stderr.splitlines()
     (e,) = repo.events()
     assert (e["kind"], e["rule"]) == ("error", "pre-commit.file-size-failed")
 
