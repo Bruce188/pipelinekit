@@ -619,6 +619,7 @@ footer {
     <ul>
       <li class="lvl-2"><a href="#what-was-removed">What was removed</a></li>
       <li class="lvl-2"><a href="#upgrade-steps">Upgrade steps</a></li>
+      <li class="lvl-2"><a href="#file-size-limit">File size limit</a></li>
       <li class="lvl-2"><a href="#rolling-back">Rolling back</a></li>
     </ul>
   </aside>
@@ -765,6 +766,23 @@ are left.</p>
 </code></pre></div>
 
 <p>In a Claude Code session, <code>/kit</code> gives the same report.</p>
+<h2 id="file-size-limit">File size limit</h2>
+<p>The global <code>pre-commit</code> hook now refuses a commit that adds a hand-written
+file over 1,500 lines or 50,000 bytes, or that takes a file past that, in
+every repository whose commits run the kit's global git hooks. A file that is
+already over the limit only warns when it changes, so existing repositories
+keep working. Lock, vendored, generated, IDE and data files are exempt by
+default.</p>
+<p>To exempt more paths:</p>
+<ul>
+<li>For a project, commit a <code>.file-size-exempt</code> at the repository root, one
+  pattern per line.</li>
+<li>For your clone only, keep that list untracked and name it in
+  <code>.git/info/exclude</code>. A commit that passes only through such a list prints a
+  note and records an override in the event log.</li>
+</ul>
+<p><a href="components.html#file-size-limit">Components</a> lists the default exemptions
+and how the patterns match.</p>
 <h2 id="rolling-back">Rolling back</h2>
 <p>Your 0.0.1 setup is still in the backups from step 1. To go back, move the current directory aside rather than deleting it, so sessions and memory created since the upgrade are not lost:</p>
 <div class="codehilite"><pre><span></span><code>mv<span class="w"> </span>~/.claude<span class="w"> </span>~/.claude.0.1.0
