@@ -9,7 +9,10 @@ The issues of a pull request are the number in its branch name
 (`<type>/<issue#>-<slug>`) and every issue its body names after a closing
 keyword (`Closes`, `Fixes`, `Resolves` and their other forms) or after a word
 that looks like a misspelt one. GitHub's own list, `closingIssuesReferences`,
-decides whether a pull request into the default branch closes them.
+decides whether a pull request into the default branch closes them. Keywords in
+HTML comments and in code do not count, as on GitHub. A body that says
+`Part of #N` or `Refs #N` of the branch's issue does only part of its work, and
+the merge does not close it.
 """
 
 # ruff: noqa: F403, F405
@@ -50,12 +53,26 @@ CLOSING = re.compile(
 # Any word right before an issue, to find a keyword that is misspelt.
 WORD_ISSUE = re.compile(r"(?<![\w-])(?P<word>[A-Za-z]{3,12})(?:[ \t]*:)?[ \t]+" + ISSUE)
 BRANCH_ISSUE = re.compile(r"[A-Za-z]+/(\d{1,9})(?:[-_]|$)")
-COMMENT = re.compile(r"<!--.*?(?:-->|$)", re.S)
+# `Part of #4`, `Refs #4`: the pull request does part of the issue's work.
+PART = re.compile(r"(?<![\w-])(?:part[ \t]+of|refs?)(?:[ \t]*:)?[ \t]+" + ISSUE, re.I)
+# Text where GitHub acts on no keyword, whichever starts first: a fenced code
+# block (to its closing fence, or to the end when it has none), an HTML
+# comment, an inline code span (within one paragraph).
+HIDDEN = re.compile(
+    r"^ {0,3}(?P<ticks>`{3,})[^`\n]*$(?:.*?^ {0,3}(?P=ticks)`*[ \t]*$|.*)"
+    r"|^ {0,3}(?P<tildes>~{3,})[^\n]*$(?:.*?^ {0,3}(?P=tildes)~*[ \t]*$|.*)"
+    r"|<!--.*?(?:-->|\Z)"
+    r"|(?<!`)(?P<span>`+)(?!`)(?:(?!\n[ \t]*\n).)*?(?<!`)(?P=span)(?!`)",
+    re.M | re.S,
+)
 NONE_NAMED = (
     "no issue named: the branch name has no issue number "
     "(<type>/<issue#>-<slug>) and the body no `Closes #N` line"
 )
-CLOSE_LOOKS = 3  # reads of an issue after the merge before it counts as open
+# Seconds between reads of an issue still open after the merge, at the default
+# SHIP_POLL_SECONDS of 15 and in proportion to it: GitHub closes issues in a
+# background job.
+CLOSE_WAITS = (1, 2, 4, 8)
 
 
 def answer(text, rc):
@@ -78,13 +95,19 @@ def numbers(issues):
     return f"{', '.join(names[:-1])} and {names[-1]}"
 
 
+def prose(body):
+    """The body without its code and HTML comments, where GitHub sees no keyword."""
+    text = (body or "").replace("\r\n", "\n").replace("\r", "\n")
+    return HIDDEN.sub(" ", text)
+
+
 def named(body):
     """{issue: how the body names it}, in the order the body names them.
 
     ('closes', word): right after a keyword; ('only', word, first): listed
     after the issue a keyword closes; ('word', text): after a misspelt keyword.
     """
-    text = COMMENT.sub(" ", body or "")
+    text = prose(body)
     found = {}
     for m in CLOSING.finditer(text):
         first = int(m["n"])
@@ -99,14 +122,19 @@ def named(body):
 
 
 def wanted(head, body):
-    """(issues, how): the issues a pull request is for, and how its body names them."""
-    how = named(body)
-    issues = []
+    """(issues, how, part): the issues a pull request is for, how its body names
+    them, and the branch's issue when the body says it does only part of it."""
+    how, part, issues = named(body), None, []
     m = BRANCH_ISSUE.match(head or "")
     if m:
-        issues.append(int(m.group(1)))
+        n = int(m.group(1))
+        parts = {int(p["n"]) for p in PART.finditer(prose(body))}
+        if n not in how and n in parts:
+            part = n
+        else:
+            issues.append(n)
     issues += [n for n in how if n not in issues]
-    return issues, how
+    return issues, how, part
 
 
 def closed_by(body):
@@ -198,6 +226,40 @@ def pair(base, default):
     return f"({clean(base)} -> {clean(default)})"
 
 
+def with_part(detail, part):
+    """`detail`, then a word on the branch's issue the merge does only part of."""
+    note = "" if part is None else f"part of #{part}: this merge does not close it"
+    return "; ".join(x for x in (detail, note) if x) or NONE_NAMED
+
+
+def release_note(repo, base, default, issues):
+    """(state, detail): the release pull request that will close `issues`."""
+    lead = f"GitHub does not close {numbers(issues)} on a merge into {clean(base)}"
+    other, error = release_pr(repo, base, default)
+    if error:
+        return "fail", (
+            f"{lead}, and cannot find the release pull request "
+            f"{pair(base, default)}: {error}"
+        )
+    if other is None:
+        return "pass", (
+            f"{lead}; no release pull request {pair(base, default)} is open: "
+            "give it one `Closes #N` line per issue when you open it"
+        )
+    them = f"the release pull request #{other['number']} {pair(base, default)}"
+    if set(issues) <= closed_by(other.get("body")):
+        return "pass", f"{lead}; {them} already closes {numbers(issues)}"
+    author = clean((other.get("author") or {}).get("login") or "")
+    if author and author.lower() == repo.user().lower():
+        return "pass", (
+            f"{lead}; {them} will: ship adds the `Closes` lines to it after the merge"
+        )
+    return "pass", (
+        f"{lead}; {them} will: it was opened by {author or 'someone else'}, so "
+        "ship prints the `Closes` lines to add after the merge"
+    )
+
+
 def linked_gate(repo, pr):
     """The pull request closes its issues when it merges, or says what will."""
     number = pr.get("number")
@@ -209,54 +271,26 @@ def linked_gate(repo, pr):
         return gate(
             "linked", "fail", f"cannot read the issues #{number} closes: {error}"
         )
-    issues, how = wanted(pr.get("headRefName"), data.get("body"))
+    issues, how, part = wanted(pr.get("headRefName"), data.get("body"))
     if base == default:
         closes = github_closes(data, repo.info().get("nameWithOwner") or "")
         missing = [n for n in issues if n not in closes]
         if missing:
             why = "; ".join(why_not(n, how.get(n)) for n in missing)
             return gate("linked", "fail", why)
-        if not closes:
-            return gate("linked", "pass", NONE_NAMED)
-        return gate(
-            "linked", "pass", f"closes {numbers(closes)} on the merge into {default}"
-        )
+        part = None if part in closes else part
+        done = f"closes {numbers(closes)} on the merge into {clean(default)}"
+        return gate("linked", "pass", with_part(done if closes else "", part))
+    # A word that only looks like a keyword fails here as well, so that the
+    # release pull request gets no `Closes` line the body did not ask for.
+    misspelt = [n for n in issues if how.get(n, ("",))[0] == "word"]
+    if misspelt:
+        why = "; ".join(why_not(n, how[n]) for n in misspelt)
+        return gate("linked", "fail", why)
     if not issues:
-        return gate("linked", "pass", NONE_NAMED)
-    lead = f"GitHub does not close {numbers(issues)} on a merge into {clean(base)}"
-    other, error = release_pr(repo, base, default)
-    if error:
-        return gate(
-            "linked",
-            "fail",
-            f"{lead}, and cannot find the release pull request "
-            f"{pair(base, default)}: {error}",
-        )
-    if other is None:
-        return gate(
-            "linked",
-            "pass",
-            f"{lead}; no release pull request {pair(base, default)} is open: "
-            "give it one `Closes #N` line per issue when you open it",
-        )
-    them = f"the release pull request #{other['number']} {pair(base, default)}"
-    if set(issues) <= closed_by(other.get("body")):
-        return gate(
-            "linked", "pass", f"{lead}; {them} already closes {numbers(issues)}"
-        )
-    author = clean((other.get("author") or {}).get("login") or "")
-    if author and author.lower() == repo.user().lower():
-        return gate(
-            "linked",
-            "pass",
-            f"{lead}; {them} will: ship adds the `Closes` lines to it after the merge",
-        )
-    return gate(
-        "linked",
-        "pass",
-        f"{lead}; {them} will: it was opened by {author or 'someone else'}, so "
-        "ship prints the `Closes` lines to add after the merge",
-    )
+        return gate("linked", "pass", with_part("", part))
+    state, detail = release_note(repo, base, default, issues)
+    return gate("linked", state, with_part(detail, part))
 
 
 # ---------------------------------------------------------------- after the merge
@@ -279,12 +313,14 @@ def issue_open(repo, n):
 def check_closed(repo, issues):
     """Lines on the issues a merge into the default branch should have closed.
 
-    GitHub can take a moment to close an issue, so an open one is read again.
+    GitHub closes them in a background job, so an open one is read again after
+    each pause of CLOSE_WAITS.
     """
+    waits = [w * poll_seconds() / 15 for w in CLOSE_WAITS]
     left, failed = list(issues), {}
-    for look in range(CLOSE_LOOKS):
-        if look:
-            time.sleep(min(poll_seconds(), 2))
+    for wait in (0, *waits):
+        if wait:
+            time.sleep(wait)
         now = []
         for n in left:
             is_open, error = issue_open(repo, n)
@@ -298,8 +334,8 @@ def check_closed(repo, issues):
     closed = [n for n in issues if n not in left and n not in failed]
     lines = [f"Closed: {numbers(closed)}."] if closed else []
     lines += [
-        f"#{n} is still open after the merge: GitHub did not close it. Close it "
-        f"with gh issue close {n} once its work is done."
+        f"#{n} was not closed within {sum(waits):g} s of the merge; check again with "
+        f"gh issue view {n}, and close it with gh issue close {n} if GitHub does not."
         for n in left
     ]
     lines += [f"Could not read #{n}: {why}." for n, why in failed.items()]
@@ -376,7 +412,7 @@ def after_merge(repo, pr):
         data, error = links(repo, number)
         if error:
             return [f"Could not read the issues #{number} closes: {error}."]
-        issues, _ = wanted(pr.get("headRefName"), data.get("body"))
+        issues, _, _ = wanted(pr.get("headRefName"), data.get("body"))
         if default and base == default:
             closes = github_closes(data, repo.info().get("nameWithOwner") or "")
             issues = closes + [n for n in issues if n not in closes]

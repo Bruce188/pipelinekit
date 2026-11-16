@@ -38,3 +38,8 @@ def test_the_skill_and_the_template_state_the_issue_link_rules():
     issue_links = skill.split("\n## Issue links\n", 1)[1].split("\n## ", 1)[0]
     assert "the number in its branch name (`<type>/<issue#>-<slug>`)" in issue_links
     assert "(`Closes`, `Fixes`, `Resolves` and their other forms)" in issue_links
+    assert (
+        "A keyword in an HTML comment or in code, inline or fenced, does not count."
+        in (issue_links)
+    )
+    assert "says `Part of #N` (or `Refs #N`) instead of `Closes #N`" in issue_links

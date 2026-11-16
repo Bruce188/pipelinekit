@@ -91,7 +91,7 @@ Exit code: 0 done, 1 a gate or a check failed (fix it and run again), 2 the help
 | `own` | you opened it, and it is not from a fork |
 | `policy` | the project has not opted out |
 | `release` | it is not a release (see "What stays with the user") |
-| `linked` | into the default branch: GitHub lists every issue the pull request names among those it closes; into another branch: names the release pull request that will close them; fails when `gh` cannot answer |
+| `linked` | into the default branch: GitHub lists every issue the pull request names among those it closes; into another branch: no misspelt keyword, and names the release pull request that will close them; fails when `gh` cannot answer |
 | `review` | no review is required, requested or asking for changes |
 | `current` | the local commit is the pull request's head and nothing tracked is uncommitted |
 | `up-to-date` | the branch contains its base branch and does not conflict with it |
@@ -101,13 +101,14 @@ Exit code: 0 done, 1 a gate or a check failed (fix it and run again), 2 the help
 
 ## Issue links
 
-The issues of a pull request are the number in its branch name (`<type>/<issue#>-<slug>`) and every issue its body names after a closing keyword (`Closes`, `Fixes`, `Resolves` and their other forms) or after a word that looks like a misspelt one (`Closing #4`). The rules:
+The issues of a pull request are the number in its branch name (`<type>/<issue#>-<slug>`) and every issue its body names after a closing keyword (`Closes`, `Fixes`, `Resolves` and their other forms) or after a word that looks like a misspelt one (`Closing #4`). A keyword in an HTML comment or in code, inline or fenced, does not count. The rules:
 
 - One keyword per issue, each on its own line: `Closes #1, #2` closes only #1.
 - A pull request into a branch other than the default one does not close its issue when it merges. GitHub closes issues only on a merge into the default branch.
 - The release pull request, from that branch into the default one, carries the `Closes` lines.
+- A pull request that does only part of its branch's issue says `Part of #N` (or `Refs #N`) instead of `Closes #N`. The `linked` gate passes and says the merge does not close it, and the helper carries no `Closes` line for it.
 
-Into the default branch, the `linked` gate fails until GitHub lists every issue named, and says why for each one; after the merge the helper checks that each one is closed and names those still open. Into another branch, after the merge the helper adds the missing `Closes` lines to the open release pull request when you opened it, and prints them for the user to add when someone else did or when none is open. It never merges, approves or marks that pull request ready.
+Into the default branch, the `linked` gate fails until GitHub lists every issue named, and says why for each one; after the merge the helper reads each one again for up to 15 seconds and names those still open. Into another branch, a misspelt keyword fails the gate too; after the merge the helper adds the missing `Closes` lines to the open release pull request when you opened it, and prints them for the user to add when someone else did or when none is open. It never merges, approves or marks that pull request ready.
 
 ## Limits
 
