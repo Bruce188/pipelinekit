@@ -563,17 +563,34 @@ def test_fallback_agents_pass_over_a_file_that_cannot_be_read(sb):
     assert UNCHECKED.format(rel=rel) in run.lines
 
 
-@pytest.mark.parametrize("how", ["an unreadable name", "a link"])
-def test_fallback_agents_note_a_file_they_cannot_check(sb, how):
+UNCHECKED_AGENTS = [
+    "an unreadable name",
+    "a link",
+    "a linked folder",
+    "a linked agents folder",
+]
+
+
+@pytest.mark.parametrize("how", UNCHECKED_AGENTS)
+def test_fallback_agents_note_what_they_cannot_check(sb, how):
+    agents = sb.root / ".claude" / "agents"
+    outside = sb.tmp / "outside"
+    outside.mkdir()
+    (outside / "general-purpose.md").write_text("---\nname: general-purpose\n---\n")
     rel = ".claude/agents/x.md"
-    if how == "a link":
-        target = sb.tmp / "outside.md"
-        target.write_text("---\nname: general-purpose\n---\n")
-        (sb.root / rel).parent.mkdir(parents=True)
-        (sb.root / rel).symlink_to(target)
-    else:
+    if how == "an unreadable name":
         sb.write(rel, "---\n&a name: general-purpose\n---\n")
-    sb.commit("chore: an agent")
+    elif how == "a link":
+        agents.mkdir(parents=True)
+        (sb.root / rel).symlink_to(outside / "general-purpose.md")
+    elif how == "a linked folder":
+        agents.mkdir(parents=True)
+        (agents / "sub").symlink_to(outside)
+        rel = ".claude/agents/sub"
+    else:
+        agents.parent.mkdir(parents=True)
+        agents.symlink_to(outside)
+        rel = ".claude/agents"
     sb.change()
     run = sb.run("start", "build", "--agents", "fallback")
     assert run.code == 0, run
