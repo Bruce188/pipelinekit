@@ -181,7 +181,7 @@ starts.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `CLAUDE_HOME` | `~/.claude` | Install target. Another target is written into the `judge-loop` skill so that it finds `loop.py`; use an absolute path of letters, digits and `._/@+-` |
+| `CLAUDE_HOME` | `~/.claude` | Install target. Another target is written into the `judge-loop` and `ship` skills so that they find `loop.py`; use an absolute path of letters, digits and `._/@+-` |
 | `USER_NAME` / `USER_EMAIL` | git config | Identity written into `CLAUDE.md` |
 | `SERENA_REF` | pinned SHA | serena commit to install |
 | `CLAUDE_INSTALL_SKIP_SERENA=1` | unset | Same as `--no-serena` |

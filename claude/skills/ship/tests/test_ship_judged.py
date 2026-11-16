@@ -654,18 +654,18 @@ LIMITS = (
     "not that a judge ran or judged well",
     "the session can write or remove",
     "rest on the session's word, like",
-    "A build needs no plan loop.",
-    "Commits after the judged one are covered by the acceptance test",
+    "a build needs no plan loop",
+    "commits after the judged one are covered by the acceptance test",
     "the pass reason shows the size since the judged commit",
-    "the pass reason names where the",
-    'under "Changes since install"',
+    "the pass reason names where the line stands",
+    'under "changes since install"',
 )
 
 
 @pytest.mark.parametrize(
-    "rel", ["claude/skills/ship/SKILL.md", "docs-source/components.md"]
+    "rel", ["claude/skills/ship/SKILL.md", "docs-source/installation.md"]
 )
 def test_the_docs_state_the_limits_of_the_judge_record(rel):
-    text = repo_text(rel)
+    text = repo_text(rel).lower()
     for words in LIMITS:
         assert words in text, (rel, words)

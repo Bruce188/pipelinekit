@@ -252,7 +252,7 @@ With the kit installed, Claude finishes the pull requests it opens instead of ha
 
 1. The issue lists acceptance criteria as a checklist.
 2. Claude builds the change, runs the project's tests and opens a draft pull request.
-3. Before the acceptance test, the build is judged with the judge loop until it reaches 10 (see [Plan, build, judge](#plan-build-judge)). A small fix with nothing to judge is recorded with `loop.py skip --reason` instead.
+3. The build is judged with the judge loop until it reaches 10 (see [Plan, build, judge](#plan-build-judge)); a small fix is recorded with `loop.py skip --reason` instead.
 4. A fresh agent tests the change. It gets the criteria and the running build, not the code or the builder's notes. A web page is driven with Playwright, a command-line tool or installer runs in a throwaway directory, an API is started and called. A change with nothing user-visible gets a smoke run instead.
 5. Findings are fixed, each bug with a regression test, and the test runs again until it passes.
 6. `ship.py record` notes the result for the tested commit, and with a pass whether the pull request is a release (`--release yes` or `--release no`). `ship.py merge` waits for CI and merges.
@@ -268,7 +268,7 @@ With the kit installed, Claude finishes the pull requests it opens instead of ha
 | `review` | No review is required, requested or asking for changes |
 | `current` | The local commit is the pull request's head and nothing tracked is uncommitted |
 | `up-to-date` | The branch contains its base branch and does not conflict with it |
-| `judged` | The branch's build loop ended in 10, a used budget or your accept, on this commit or an earlier one of the branch, or `loop.py skip` recorded this commit. A loop waiting for you stops and asks. `Judge loop: off` (base branch or user-level `CLAUDE.md`) passes and names where it stands |
+| `judged` | The branch's build loop ended in 10, a used budget or your accept on this commit or an earlier one, or `loop.py skip` recorded this commit; a loop waiting for you stops and asks; `Judge loop: off` passes. Limits: [The judge loop](installation.html#the-judge-loop) |
 | `tested` | The last test record is a pass for exactly this commit, and the loop is not stuck |
 | `ci` | Every check has finished and passed. A pull request with no check at all passes only where no workflow runs on pull requests, or with `--allow-no-checks` |
 
@@ -300,8 +300,6 @@ The gate guards your own project against a slip. It is not a defence against a p
 Known working branches are: the default branch; the shared branches `develop`, `development`, `dev`, `integration`, `staging`, `stage`, `next`, `beta`, `alpha`, `canary`, `preview`, `nightly`, `edge`, `uat`, `qa`, `preprod`, `test`, `testing` and `trunk`; branches under `integration/`, `staging/`, `stage/`, `uat/`, `qa/` and `preprod/`; release lines, which is anything that starts with `release/`, `release-`, `releases/`, `rel/`, `rc/`, `hotfix/`, `support/` or `maint/`, and bare version names such as `1.x` or `v2`; topic branches such as `feat/12-base` (a stacked pull request). A pull request into any other branch (`customer-a`, `release`) is held, because the helper cannot know what that branch stands for. Name such a branch on a `Release branches:` line when it is a release branch. As the branch a pull request comes from, `hotfix/login-crash` is a fix like any other; only a hotfix branch with a version in its name (`hotfix/1.2.1`), or one that other pull requests were merged into, is held.
 
 These stay yours: release pull requests, tags, publishing and production deploys; pull requests someone else opened; anything behind a required review or branch protection. Claude also stops and asks when the same finding is still open after two fix attempts, after five failed rounds in a row, when the judge loop is waiting for you, and when a test needs a decision the criteria do not settle. A stuck loop shows in `ship.py status` and blocks `ship.py merge` until you decide.
-
-The `judged` gate reads the record in `docs/loops/<branch>/build/state.json` of the checkout; it does not run the loop. It shares the loop's limits (see [Plan, build, judge](#plan-build-judge)): the record says results were saved, not that a judge ran or judged well, and the session can write or remove it; `accept`, `settle`, `skip` and `--user-ok` rest on the session's word, like `record --tester session`. A build needs no plan loop. Commits after the judged one are covered by the acceptance test; the pass reason shows the size since the judged commit. The user-level `Judge loop: off` is a local file no permission rule of the kit guards; the pass reason names where the line stands. Agent files, role files and `loop.py` are local too: a session can edit them, and only `/kit` shows it, under "Changes since install".
 
 To turn self-merging off for a project, put this line in its `CLAUDE.md`:
 
@@ -338,7 +336,7 @@ A project sets its own terms with one of these lines, on a line of its own:
 
 | Line | Effect |
 |------|--------|
-| `Judge loop: off` | No loop, no agents, nothing recorded; the `judged` gate of `ship.py` passes |
+| `Judge loop: off` | No loop, no agents, nothing recorded |
 | `Judge rounds: N` | The round budget of a plan and of a build, 1 to 20 (5 by default) |
 | `Judges: correctness, tests` | The roles of the panel, from the seven above |
 
