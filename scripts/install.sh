@@ -116,6 +116,25 @@ done
 find "$CLAUDE_HOME/skills" -name __pycache__ -type d -prune -exec rm -rf {} +
 chmod +x "$CLAUDE_HOME/skills/kit/check.py" "$CLAUDE_HOME/skills/ship/ship.py" \
   "$CLAUDE_HOME/skills/judge-loop/loop.py"
+# judge-loop in another home: the skill names its helper as ~/.claude/...;
+# from another home that path is wrong, so the installed copy names this home
+# instead, right after the copy (an install that stops later still leaves a
+# skill that names its home) and before the manifest hashes it. Only an
+# absolute path that a permission pattern can hold is written in.
+if [[ "$CLAUDE_HOME" != "$HOME/.claude" ]]; then
+  if [[ "$CLAUDE_HOME" =~ ^/[A-Za-z0-9._/@+-]+$ ]]; then
+    python3 - "$CLAUDE_HOME/skills/judge-loop/SKILL.md" "$CLAUDE_HOME" <<'PY'
+import sys
+path, home = sys.argv[1], sys.argv[2].rstrip("/")
+with open(path, encoding="utf-8") as f:
+    s = f.read()
+with open(path, "w", encoding="utf-8") as f:
+    f.write(s.replace("~/.claude/", home + "/"))
+PY
+  else
+    warn "judge-loop: CLAUDE_HOME is not an absolute path a permission pattern can hold; the skill still names ~/.claude and will not find loop.py from this home: install into an absolute path of letters, digits and ._/@+-"
+  fi
+fi
 # agents/ is the user's folder too: only the kit's three files are touched. A
 # link is removed (never followed). A file the last install did not list in its
 # manifest and that differs from the kit's is moved to a backup once, and so is
@@ -189,7 +208,7 @@ import re, sys
 keys = {"judge loop": "Judge loop:", "judge rounds": "Judge rounds:", "judges": "Judges:"}
 pat = re.compile(r"^\s*(?:[-*+]\s+|\d+[.)]\s+)?(judge loop|judge rounds|judges)\s*:", re.I)
 seen = []
-for line in open(sys.argv[1], encoding="utf-8", errors="replace"):
+for line in open(sys.argv[1], encoding="utf-8-sig", errors="replace"):
     m = pat.match(line)
     if m and keys[m.group(1).lower()] not in seen:
         seen.append(keys[m.group(1).lower()])
@@ -364,25 +383,6 @@ if GIT_COMMON="$(git -C "$REPO_ROOT" rev-parse --git-common-dir 2>/dev/null)"; t
   fi
   if head -2 "$GIT_COMMON/hooks/pre-commit" 2>/dev/null | grep -qF '# pipelinekit pre-commit dispatcher'; then
     rm -f "$GIT_COMMON/hooks/pre-commit"
-  fi
-fi
-
-# ---------- judge-loop in another home ----------
-# The skill names its helper as ~/.claude/...; from another home that path is
-# wrong, so the installed copy names this home instead (before the manifest
-# hashes it). A path a permission pattern cannot hold is left alone.
-if [[ "$CLAUDE_HOME" != "$HOME/.claude" ]]; then
-  if [[ "$CLAUDE_HOME" =~ ^[A-Za-z0-9._/@+-]+$ ]]; then
-    python3 - "$CLAUDE_HOME/skills/judge-loop/SKILL.md" "$CLAUDE_HOME" <<'PY'
-import sys
-path, home = sys.argv[1], sys.argv[2].rstrip("/")
-with open(path, encoding="utf-8") as f:
-    s = f.read()
-with open(path, "w", encoding="utf-8") as f:
-    f.write(s.replace("~/.claude/", home + "/"))
-PY
-  else
-    warn "judge-loop: CLAUDE_HOME cannot stand in a permission pattern; the skill still names ~/.claude and will not find loop.py from this home: install into a path of letters, digits and ._/@+-"
   fi
 fi
 

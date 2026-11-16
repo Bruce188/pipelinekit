@@ -143,8 +143,9 @@ kit used to ship, so those parts are gone.
   the user-level `CLAUDE.md` it replaces held one of these lines.
 - A judge lists a hand-written file over 1,500 lines or 50,000 bytes that the
   work creates or makes longer as an item.
-- Installed into another `CLAUDE_HOME`, the skill names `loop.py` by that
-  path.
+- Installed into another `CLAUDE_HOME` that is an absolute path of letters,
+  digits and `._/@+-`, the skill names `loop.py` by that path, right after the
+  copy; for any other home the installer warns and leaves the skill as it is.
 - `round` heads the fix list `Items to fix:`; the order to fix in (blocking
   items first, then the printed order) is in the fix prompts and the agent
   files.
