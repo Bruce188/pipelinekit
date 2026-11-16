@@ -212,6 +212,12 @@ class Sandbox:
         return self.git("rev-parse", "HEAD")
 
     def branch(self):
+        head = self.root / ".git" / "HEAD"
+        if Path(os.getcwd()) == self.root and head.is_file():
+            ref = head.read_text().strip()
+            return (
+                ref.removeprefix("ref: refs/heads/") if ref.startswith("ref: ") else ""
+            )
         return self.git("branch", "--show-current")
 
     def on_base(self, rel, text, base="main"):
