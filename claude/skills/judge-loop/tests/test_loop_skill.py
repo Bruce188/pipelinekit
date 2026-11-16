@@ -527,6 +527,20 @@ def test_the_leftovers_row_names_the_flag():
     assert "`leftovers/all.md`" in row
 
 
+def test_what_you_get_names_the_agents():
+    text = repo_text("README.md")
+    start = re.search(r"^## What you get$", text, re.M).end()
+    end = re.search(r"^## Install$", text, re.M).start()
+    part = text[start:end]
+    for words in (
+        "### Agents",
+        "`kit-planner` | Opus",
+        "`kit-builder` | Opus",
+        "`kit-judge` | Fable",
+    ):
+        assert words in part, words
+
+
 def plain(rel):
     text = repo_text(rel)
     if rel.endswith(".html"):
@@ -584,6 +598,50 @@ def test_every_heading_follows_a_blank_line(rel):
 
 def _in_fence(lines, i):
     return sum(line.startswith("```") for line in lines[:i]) % 2 == 1
+
+
+@pytest.mark.parametrize(
+    "rel",
+    (
+        "docs-source/components.md",
+        "documentation/components.html",
+        "docs-source/installation.md",
+        "documentation/installation.html",
+    ),
+)
+def test_the_docs_name_the_fallback_agents(rel):
+    text = plain(rel)
+    assert FALLBACK in text
+    assert (
+        "the skill starts general-purpose agents with the same models and the "
+        "installed agent text (--agents fallback)"
+    ) in text
+
+
+@pytest.mark.parametrize(
+    "rel", ("docs-source/installation.md", "documentation/installation.html")
+)
+def test_another_home_is_absolute_and_stays_set(rel):
+    text = plain(rel)
+    assert "as long as it is an absolute path" in text
+    assert (
+        "Keep CLAUDE_HOME set in the environment the session runs in; the helper "
+        "reads the user-level switch lines from $CLAUDE_HOME/CLAUDE.md, else from "
+        "~/.claude/CLAUDE.md."
+    ) in text
+
+
+@pytest.mark.parametrize(
+    "rel", ("docs-source/components.md", "documentation/components.html")
+)
+def test_the_components_say_how_a_loop_ends(rel):
+    text = plain(rel)
+    for words in (
+        "What is left after the last round becomes follow-up issues",
+        "Claude stops and asks you, with options",
+        "You can say at any time to take the work as it is or to end the loop.",
+    ):
+        assert words in text, words
 
 
 PLANNER_ON_FABLE = (

@@ -105,6 +105,17 @@ replaces held one. The loop needs both a Fable and an Opus model; an account
 without one sets `Judge loop: off`. See
 [Components](documentation/components.html#plan-build-judge).
 
+### Agents
+
+The installer puts three agents into `~/.claude/agents/`, and the `judge-loop`
+skill starts them:
+
+| Agent | Model | What it does |
+|-------|-------|--------------|
+| `kit-planner` | Opus | Writes the plan of a change and fixes the judges' items in it; it reads and writes files and runs nothing |
+| `kit-builder` | Opus | Builds the judged plan on the work branch, failing test first, runs the checks, commits, and fixes the judges' items |
+| `kit-judge` | Fable | Scores a plan or a build from one angle; its tools are `Read`, `Grep` and `Glob` only |
+
 ### MCP servers
 
 - **serena** (symbol-level code navigation) is installed with `uv` at a pinned
@@ -162,7 +173,7 @@ starts.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `CLAUDE_HOME` | `~/.claude` | Install target. Another target is written into the `judge-loop` skill so that it finds `loop.py`; use a path of letters, digits and `._/@+-` |
+| `CLAUDE_HOME` | `~/.claude` | Install target. Another target is written into the `judge-loop` skill so that it finds `loop.py`; use an absolute path of letters, digits and `._/@+-` |
 | `USER_NAME` / `USER_EMAIL` | git config | Identity written into `CLAUDE.md` |
 | `SERENA_REF` | pinned SHA | serena commit to install |
 | `CLAUDE_INSTALL_SKIP_SERENA=1` | unset | Same as `--no-serena` |
