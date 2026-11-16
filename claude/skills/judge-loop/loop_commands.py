@@ -659,9 +659,14 @@ def dispatch(argv):
         why = clean(err.strerror or "no reason", 80)
         where = error_path(err)
         detail = f"{why}: {where}" if where else why
+        fix = (
+            "fix the permissions"
+            if isinstance(err, PermissionError)
+            else "free space or fix the permissions"
+        )
         say(
             f"Error: {type(err).__name__} ({detail}). "
-            "Next: free space or fix the permissions, then the same command."
+            f"Next: {fix}, then the same command."
         )
         return 2
     except Exception as err:

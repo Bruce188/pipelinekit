@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 from loop_fixtures import (
+    CANNOT_CHECK,
     FULL,
     HOSTILE,
     NAME,
@@ -159,11 +160,6 @@ def project_agent(
 OWN_AGENT = (
     "STOP: this project has its own agent named kit-judge ({rel}). "
     "Next: ask the user: rename it, or loop.py {again} --agents fallback."
-)
-CANNOT_CHECK = (
-    "STOP: {rel} cannot be checked for an agent name (a link, over 64 kB or not "
-    "readable). Next: ask the user: make it a plain, readable file or folder, or "
-    "the same command with --agents fallback."
 )
 CANNOT_READ = (
     "STOP: {rel} cannot be checked for an agent name (its name: line cannot be "

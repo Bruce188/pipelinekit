@@ -273,6 +273,7 @@ HELPS = [
     (("skip",), "only after the user said yes"),
     (("resume",), "1 to 5 more rounds"),
     (("start",), "the branch the work is compared with"),
+    (("start",), "start plan only: the loop's name (default: from the branch)"),
     (("start",), "fallback: general-purpose agents"),
     (("brief",), "fallback: general-purpose agents"),
     (("settle",), "the item's id"),

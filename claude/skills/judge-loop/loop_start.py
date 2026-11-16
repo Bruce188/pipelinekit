@@ -932,7 +932,11 @@ def configure_start(sub):
     sub.add_argument(
         "loop_kind", choices=KINDS, metavar="plan|build", help="the kind of loop"
     )
-    sub.add_argument("--name", help="the loop's name (default: from the branch)")
+    sub.add_argument(
+        "--name",
+        help="start plan only: the loop's name (default: from the branch); a build "
+        "loop is named after its branch",
+    )
     sub.add_argument(
         "--panel",
         choices=("auto", "single", "full"),
