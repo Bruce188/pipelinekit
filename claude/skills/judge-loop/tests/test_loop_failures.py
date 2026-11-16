@@ -574,7 +574,7 @@ def test_fallback_agents_pass_over_a_file_that_cannot_be_read(sb, how):
     finally:
         (sb.root / rel).chmod(0o755)
     assert run.code == 0, run
-    assert UNCHECKED.format(rel=rel) in run.lines
+    assert run.lines.count(UNCHECKED.format(rel=rel)) == 1, run
 
 
 @NOT_ROOT
@@ -612,7 +612,7 @@ def test_an_agents_folder_that_cannot_be_looked_at(sb, mode):
     sb.mp.setattr(os, "lstat", real)
     if mode == "fallback":
         assert run.code == 0, run
-        assert UNCHECKED.format(rel=".claude/agents") in run.lines
+        assert run.lines.count(UNCHECKED.format(rel=".claude/agents")) == 1, run
     else:
         assert run.code == 3, run
         assert run.last.startswith(
@@ -651,5 +651,10 @@ def test_fallback_agents_note_what_they_cannot_check(sb, how):
         rel = ".claude/agents"
     sb.change()
     run = sb.run("start", "build", "--agents", "fallback")
+    note = UNCHECKED.format(rel=rel)
     assert run.code == 0, run
-    assert UNCHECKED.format(rel=rel) in run.lines
+    assert run.lines.count(note) == 1, run
+    sb.criteria()
+    run = sb.run("brief", "--agents", "fallback")
+    assert run.code == 0, run
+    assert run.lines.count(note) == 1, run
