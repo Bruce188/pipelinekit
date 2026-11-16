@@ -396,18 +396,34 @@ PROBE_BIG = "kit-probe-big.txt"
 PROBE_BIG_TEXT = "x = 1  # a line of the kit's file size probe\n" * 2000
 
 
+SIZE_CHECK = "hooks/filesize.py"
+
+
+def sizes_not_checked(c: Check, what: str, e: BaseException) -> None:
+    why = clean(f"{type(e).__name__}: {e}", 160)
+    c.add(
+        "install",
+        "warn",
+        f"kit file sizes not checked: {SIZE_CHECK} {what} ({why})",
+        fix="install the kit again",
+    )
+
+
 def size_rules(c: Check):
-    """The installed filesize.py as a module, or None when it does not load."""
-    rel = "hooks/filesize.py"
-    if rel in c.broken:
+    """The installed filesize.py as a module; None when it is missing, which
+    is reported as missing, or does not load, which gets a warning."""
+    if SIZE_CHECK in c.broken:
         return None
     try:
-        spec = importlib.util.spec_from_file_location("kit_filesize", c.path(rel))
+        spec = importlib.util.spec_from_file_location(
+            "kit_filesize", c.path(SIZE_CHECK)
+        )
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         int(mod.MAX_LINES), int(mod.MAX_BYTES), tuple(mod.DEFAULT_EXEMPT)
-    except (Exception, SystemExit):
-        return None  # the live probe reports a size check that does not work
+    except (Exception, SystemExit) as e:
+        sizes_not_checked(c, "does not load", e)
+        return None
     return mod
 
 
@@ -439,7 +455,8 @@ def check_file_sizes(c: Check, files: dict) -> None:
             counted += 1
             if fs.over(size):
                 big.append(rel)
-    except (Exception, SystemExit):
+    except (Exception, SystemExit) as e:
+        sizes_not_checked(c, "failed", e)
         return
     if big:
         c.add(
@@ -447,7 +464,8 @@ def check_file_sizes(c: Check, files: dict) -> None:
             "warn",
             f"{plural(len(big), 'kit file')} over the file size limit of {limit}: "
             f"{names(big)}",
-            fix="split the file, or install the kit again for its own copy",
+            fix="install the kit again; if the kit's own copy is over the limit, "
+            "report it",
         )
     elif counted:
         c.add("install", "pass", f"kit files within the file size limit of {limit}")

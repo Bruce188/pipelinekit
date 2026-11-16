@@ -151,8 +151,32 @@ def test_kit_file_over_the_size_limit_warns(kit):
     oversize(kit["home"] / "skills" / "deploy" / "SKILL.md")
     rc, out = check(kit)
     assert rc == 0, out
+    lines = out.splitlines()
     assert f"[warn] 1 kit file over the {LIMIT}: skills/deploy/SKILL.md" in out, out
+    i = next(n for n, line in enumerate(lines) if f"over the {LIMIT}" in line)
+    assert lines[i + 1] == (
+        "         fix: install the kit again; if the kit's own copy is over the "
+        "limit, report it"
+    )
     assert "Result: working, 2 warnings" in out
+
+
+NOT_CHECKED = "[warn] kit file sizes not checked: hooks/filesize.py "
+
+
+def test_a_size_check_that_does_not_load_says_so(kit):
+    (kit["home"] / "hooks" / "filesize.py").write_text("raise SystemExit(5)\n")
+    rc, out = check(kit)
+    assert f"{NOT_CHECKED}does not load (SystemExit: 5)" in out, out
+    assert LIMIT not in out
+
+
+def test_a_size_check_that_fails_says_so(kit):
+    with open(kit["home"] / "hooks" / "filesize.py", "a") as f:
+        f.write("\n\ndef measure(blob):\n    raise ValueError('cannot measure')\n")
+    rc, out = check(kit)
+    assert f"{NOT_CHECKED}failed (ValueError: cannot measure)" in out, out
+    assert f"[pass] kit files within the {LIMIT}" not in out
 
 
 def test_vendored_and_data_files_are_not_counted(kit):
