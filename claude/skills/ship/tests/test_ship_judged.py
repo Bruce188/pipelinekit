@@ -1,6 +1,7 @@
 """The judged gate: the build was judged before the acceptance test."""
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -256,6 +257,43 @@ def test_a_record_over_five_megabytes_is_unreadable(sb):
     with path.open("a") as fh:
         fh.write(" " * (5 * 1024 * 1024))
     assert detail(sb) == UNREADABLE
+
+
+needs_fifo = pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="no named pipes")
+
+
+def quick_detail(sb):
+    """The gate's detail; a ship.py that waits on a pipe fails the test."""
+    return gates(sb.ship("status", "--json", timeout=20))["judged"]["detail"]
+
+
+@needs_fifo
+def test_a_named_pipe_where_the_record_should_be_is_unreadable(sb):
+    path = sb.judged()
+    path.unlink()
+    os.mkfifo(path)
+    assert quick_detail(sb) == UNREADABLE
+
+
+@needs_fifo
+def test_a_named_pipe_as_the_user_file_is_not_read(sb):
+    home = Path(sb.env["CLAUDE_HOME"])
+    home.mkdir()
+    os.mkfifo(home / "CLAUDE.md")
+    code = (
+        "from types import SimpleNamespace; import ship_judged; "
+        "print(repr(ship_judged.off_line(SimpleNamespace(), '')))"
+    )
+    done = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=SHIP.parent,
+        env=sb.env,
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+    assert done.stdout == "''\n", done.stderr
 
 
 BAD_FIELDS = {

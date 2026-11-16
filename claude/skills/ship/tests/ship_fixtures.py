@@ -184,7 +184,7 @@ class Sandbox:
         state.update(over)
         (self.fake / "state.json").write_text(json.dumps(state))
 
-    def ship(self, *args, **env):
+    def ship(self, *args, timeout=300, **env):
         """Run ship.py; a merge settles in 0.2 s here unless the test says more."""
         if args[:1] == ("merge",) and not {"--dry-run", "--settle"} & set(args):
             args = (*args, "--settle", "0.2")
@@ -194,6 +194,7 @@ class Sandbox:
             env={**self.env, **env},
             capture_output=True,
             text=True,
+            timeout=timeout,
             check=False,
         )
 

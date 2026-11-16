@@ -203,12 +203,14 @@ def first_switches(text):
 def read_plain(path, limit):
     """The bytes of a regular file of at most `limit` bytes; None when missing.
 
-    A link, a folder, a file of another type or a larger file gives False.
+    A link, a folder, a file of another type or a larger file gives False. The
+    file is opened without waiting, so a named pipe cannot hold the gate up.
     """
     if not hasattr(os, "O_NOFOLLOW") and os.path.islink(path):
         return False
     try:
-        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        flags = getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+        fd = os.open(path, os.O_RDONLY | flags)
     except FileNotFoundError:
         return None
     except OSError:
