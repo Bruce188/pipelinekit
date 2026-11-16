@@ -32,7 +32,6 @@ ROLES = (
 UNFINISHED = ("open", "stalled", "ask", "blocked")
 FINISHED = ("done", "budget", "accepted", "abandoned", "skip")
 OUTCOMES = UNFINISHED + FINISHED
-JUDGED = ("done", "budget", "accepted")
 MAX_SWITCH_ROUNDS = 20
 MAX_STATE = 5 * 1024 * 1024
 MAX_TEXT_FILE = 1024 * 1024
