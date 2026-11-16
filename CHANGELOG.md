@@ -161,6 +161,28 @@ kit used to ship, so those parts are gone.
   name cannot be a file name, and `status --json` lists the same notes under
   `warnings`.
 
+### Gardening
+
+- `garden` skill (`/garden`): audits the project in the current directory and
+  reports ranked findings, each with an id, its evidence, the change and a
+  size, in four sections: Friction (median, longest and failed share of the
+  last 20 finished CI runs on the default branch, read with `gh`; commands
+  timed with `garden.py time`), Checks (lint, format, types, tests, CI, commit
+  hooks and secret scan for Node, Python, .NET, Go and Rust, with the file that
+  shows each), Pruning (Python tests that assert nothing, skipped tests, the
+  dead-code tools found) and Guidance (`CLAUDE.md` and the findings of the last
+  run that are still open). It asks before it changes anything and fixes each
+  picked finding as its own issue and pull request through `ship`;
+  `/garden report` stops after the report. The scan runs nothing from the
+  project. `garden.py record` keeps the run in `docs/garden/`, which goes into
+  `.git/info/exclude` and onto the never-stage list.
+- `ship` gains a root cause step: a finding that comes from a pattern gets the
+  rule, hook, check or test that would have stopped it.
+- The session-start hook gives a one-line `/garden` reminder in a project whose
+  last run is more than 30 days old, at most once in 7 days; `Garden reminder:
+  off` in the project's `CLAUDE.md` or `PIPELINEKIT_GARDEN=0` turns it off.
+- The `CLAUDE.md` template gains a "Gardening" section.
+
 ### Security
 
 - Native permission rules: `deny` Read/Edit of `.env*` (except
