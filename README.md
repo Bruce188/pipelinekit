@@ -46,7 +46,7 @@ The installer merges `claude/config/settings.template.json` into `~/.claude/sett
 | Hook | What it does |
 |------|--------------|
 | `commit-msg` | Conventional commits (`feat fix refactor docs test chore perf style build ci revert`, scopes, `!`). Rejects wip (outside `.claude/worktrees/`), AI attribution and emoji. Lets `Merge`, `Revert "`, `fixup!`/`squash!`/`amend!` through |
-| `pre-commit` | `gitleaks` scan of staged changes. Warns and allows if gitleaks is missing. `PIPELINEKIT_ALLOW_SECRET=1` skips one commit |
+| `pre-commit` | `gitleaks` scan of staged changes. Warns and allows if gitleaks is missing. `PIPELINEKIT_ALLOW_SECRET=1` skips one commit. Refuses a commit that adds a hand-written file over 1,500 lines or 50,000 bytes or takes one past that; a file already over only warns. A project exempts paths in `.file-size-exempt` |
 | `pre-push` | Refuses pushes to `main`/`master`. `ALLOW_MAIN_PUSH=1` overrides (humans only; bash-guard refuses it for Claude) |
 
 A repo with its own local `core.hooksPath` (husky, pre-commit framework, or a manual setting) bypasses these. Run `git config --show-origin core.hooksPath` inside it to check.
@@ -74,10 +74,10 @@ off. Every rule id is in
 
 ### CLAUDE.md template
 
-`claude/CLAUDE.md.template` is 79 lines long. It covers your identity,
+`claude/CLAUDE.md.template` is 80 lines long. It covers your identity,
 git rules (conventional commits, no AI attribution, never-stage list, no
 direct pushes to `main`), the `docs/` and `documentation/` split, base-branch
-detection, serena vs Grep, a design rule (load `frontend-design` before visual
+detection, serena vs Grep, the file size limit, a design rule (load `frontend-design` before visual
 work; a project's own design system and the host's rules for the output come
 first; skip it for small fixes inside an existing design), the plan, build,
 judge rule and how the agents it starts read files and answer, GitHub issue/PR

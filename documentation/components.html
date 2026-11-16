@@ -621,6 +621,7 @@ footer {
       <li class="lvl-2"><a href="#guard-hooks-and-permissions">Guard hooks and permissions</a></li>
       <li class="lvl-3"><a href="#the-never-stage-list">The never-stage list</a></li>
       <li class="lvl-2"><a href="#git-hooks">Git hooks</a></li>
+      <li class="lvl-3"><a href="#file-size-limit">File size limit</a></li>
       <li class="lvl-2"><a href="#rule-ids-and-the-event-log">Rule ids and the event log</a></li>
       <li class="lvl-2"><a href="#skills">Skills</a></li>
       <li class="lvl-2"><a href="#agents">Agents</a></li>
@@ -677,7 +678,7 @@ footer {
              {"label": "session-check.py", "tip": "SessionStart: quick self-check, silent when healthy"}]},
   {"name": "Git hooks", "color": "#3b82f6", "count": "global core.hooksPath",
    "chips": [{"label": "commit-msg", "tip": "Conventional commits, no attribution or emoji"},
-             {"label": "pre-commit", "tip": "gitleaks on staged changes"},
+             {"label": "pre-commit", "tip": "gitleaks on staged changes, file size limit"},
              {"label": "pre-push", "tip": "No pushes to main or master"}]},
   {"name": "Skills", "color": "#10b981", "count": "9 skills",
    "chips": [{"label": "dotnet-conventions"}, {"label": "deploy"}, {"label": "exchange-api-keys"},
@@ -950,7 +951,7 @@ footer {
 </tr>
 <tr>
 <td><code>pre-commit</code></td>
-<td><code>gitleaks</code> scan of staged changes. Warns and allows if gitleaks is missing. <code>PIPELINEKIT_ALLOW_SECRET=1</code> skips one commit</td>
+<td><code>gitleaks</code> scan of staged changes. Warns and allows if gitleaks is missing. <code>PIPELINEKIT_ALLOW_SECRET=1</code> skips one commit. Then the <a href="#file-size-limit">file size limit</a></td>
 </tr>
 <tr>
 <td><code>pre-push</code></td>
@@ -959,6 +960,16 @@ footer {
 </tbody>
 </table>
 <p>A repo with its own local <code>core.hooksPath</code> (husky, the pre-commit framework, or a manual setting) bypasses these. Run <code>git config --show-origin core.hooksPath</code> inside it to check.</p>
+<h3 id="file-size-limit">File size limit</h3>
+<p>A hand-written text file (code, tests, markdown) has at most 1,500 lines and 50,000 bytes. Claude Code's Read tool returns a text file whole only up to 25,000 tokens and past that a first page, so a longer file is read in pieces or only in part. <code>pre-commit</code> runs <code>~/.claude/hooks/filesize.py</code> on the staged files:</p>
+<ul>
+<li>A commit that adds a file over the limit, or takes a file from under the limit to over it, is refused with <code>[pre-commit.file-size]</code>. The refusal names each file, its lines and bytes, and what it was before. The event log gets the first path and its size, never the content.</li>
+<li>A file that was already over the limit before the commit gets a warning with <code>[pre-commit.file-size-over]</code>, and the commit goes through. A renamed file keeps the size it had under its old name; when a commit concludes a merge, a file over the limit in either parent counts as already over.</li>
+<li>Binary files (a NUL byte in the first 8,000 bytes, or <code>binary</code> or <code>-diff</code> in <code>.gitattributes</code>), deleted files, symlinks and submodules are never counted.</li>
+<li>Generated, vendored, lock and data files are exempt. By default that is: lock files <code>*.lock</code>, <code>*.lockb</code>, <code>*.lockfile</code>, <code>*-lock.json</code>, <code>*-lock.yaml</code>, <code>npm-shrinkwrap.json</code>, <code>packages.lock.json</code>, <code>Package.resolved</code>, <code>go.sum</code>; vendored folders <code>vendor/</code>, <code>vendored/</code>, <code>third_party/</code>, <code>third-party/</code>, <code>node_modules/</code>; generated files and folders <code>generated/</code>, <code>__generated__/</code>, <code>dist/</code>, <code>*.min.js</code>, <code>*.min.css</code>, <code>*.map</code>, <code>*.generated.*</code>, <code>*.g.cs</code>, <code>*.g.dart</code>, <code>*.freezed.dart</code>, <code>*.designer.cs</code>, <code>*.Designer.cs</code>, <code>*ModelSnapshot.cs</code>, <code>*.pb.go</code>, <code>*_pb2.py</code>, <code>*_pb2.pyi</code>, <code>*.snap</code>; data files <code>*.json</code>, <code>*.jsonl</code>, <code>*.ndjson</code>, <code>*.geojson</code>, <code>*.csv</code>, <code>*.tsv</code>, <code>*.ipynb</code>, <code>*.svg</code>. A path marked <code>linguist-generated</code> or <code>linguist-vendored</code> in <code>.gitattributes</code> is exempt too.</li>
+<li>A project exempts more paths in <code>.file-size-exempt</code> at the repository root, one pattern per line, gitignore style: <code>name</code> matches a file or folder of that name at any depth, <code>name/</code> only a folder and everything in it, a pattern with a <code>/</code> in front or in the middle is anchored to the root, <code>*</code> and <code>?</code> stay inside one folder and <code>**</code> crosses folders. <code>#</code> starts a comment; <code>!</code> lines are skipped. The staged copy of the file counts, else the one in the working tree. This repository lists <code>documentation/</code>, the rendered pages.</li>
+<li>A check that fails to run warns with <code>[pre-commit.file-size-failed]</code>, records an error and lets the commit through.</li>
+</ul>
 <h2 id="rule-ids-and-the-event-log">Rule ids and the event log</h2>
 <p>Every refusal ends with the id of its rule in square brackets, for example <code>BLOCKED: git commit --no-verify skips the git hooks [git.no-verify]</code>. The hooks also record each block, ask, override and error in an event log, and <code>/kit</code> reads it back under Activity (see <a href="#self-check">Self-check</a>).</p>
 <p>The log is <code>~/.local/state/pipelinekit/events.jsonl</code>. <code>$XDG_STATE_HOME</code> moves it as usual, and <code>PIPELINEKIT_STATE_DIR</code> names the directory outright. One line per event holds the time, the hook, the kind, the rule id, the hook's reason and, when known, the session and the working directory. The command text is never written. A reason can name the path, the branch or the name of the remote it is about. A push to a URL is recorded without the URL, and what a URL in any other reason can carry as a secret (a user and password, a query string, a fragment) is removed first, and so are control and direction characters. Only you can read the file (mode 600). At 1 MB it moves to <code>events.jsonl.1</code>, so there are never more than two files. <code>PIPELINEKIT_LOG=0</code> switches the log off. A log that cannot be written never changes what a hook decides.</p>
@@ -1183,6 +1194,24 @@ footer {
 <td><code>PIPELINEKIT_ALLOW_SECRET=1</code> skipped the scan</td>
 </tr>
 <tr>
+<td><code>pre-commit.file-size</code></td>
+<td><code>pre-commit</code></td>
+<td>block</td>
+<td>The commit adds a file over the <a href="#file-size-limit">file size limit</a> or takes one past it</td>
+</tr>
+<tr>
+<td><code>pre-commit.file-size-over</code></td>
+<td><code>pre-commit</code></td>
+<td>warning, not logged</td>
+<td>A file already over the limit changed; the commit goes on</td>
+</tr>
+<tr>
+<td><code>pre-commit.file-size-failed</code></td>
+<td><code>pre-commit</code></td>
+<td>error</td>
+<td>The file size check failed, so file sizes were not checked</td>
+</tr>
+<tr>
 <td><code>pre-push.protected-branch</code></td>
 <td><code>pre-push</code></td>
 <td>block</td>
@@ -1293,7 +1322,7 @@ footer {
 <tbody>
 <tr>
 <td>Install</td>
-<td>Every hook, the event-log helper, git hook, skill and agent is present; <code>kit-judge.md</code> has the one tools line <code>Read, Grep, Glob</code>, else <code>kit-judge.md allows more than reading</code>; hooks are executable and have LF line endings; <code>settings.json</code> is valid, its hook commands point to files that exist, attribution is off and the secret deny rules are there; the global <code>core.hooksPath</code></td>
+<td>Every hook, the event-log helper, the file size check, git hook, skill and agent is present; <code>kit-judge.md</code> has the one tools line <code>Read, Grep, Glob</code>, else <code>kit-judge.md allows more than reading</code>; hooks are executable and have LF line endings; <code>settings.json</code> is valid, its hook commands point to files that exist, attribution is off and the secret deny rules are there; the global <code>core.hooksPath</code></td>
 </tr>
 <tr>
 <td>Changes since install</td>
@@ -1496,13 +1525,14 @@ python3<span class="w"> </span>~/.claude/skills/ship/ship.py<span class="w"> </s
 <p>The record of a loop lies in <code>docs/loops/&lt;name&gt;/plan/</code> and <code>docs/loops/&lt;branch&gt;/build/</code> of the checkout it runs in (a build loop is always named after its branch, with <code>/</code> turned into <code>-</code>, and its state names the plan loop it came from): <code>criteria.md</code>, <code>plan.md</code> and its judged copies, <code>questions.md</code>, the judges' answers, <code>scorecard.md</code> (one line per round, with the scores and the tokens), <code>changes.md</code> (one row per item: fixed, answered or owner), <code>settled.md</code>, <code>map.md</code> with one notes file per area in <code>areas/&lt;name&gt;.md</code>, and the files <code>loop.py leftovers --dir</code> writes to <code>leftovers/</code> (one per item, and <code>leftovers/all.md</code>). <code>docs/loops/</code> is on the never-stage list. A build in another worktree needs the plan loop's folder copied there first. Nothing removes old loop folders: delete one once its work is merged.</p>
 <p>Limits: the record says that results were saved, not that a judge ran or judged well; it is a local file the session can write or remove. <code>accept</code>, <code>settle</code> and <code>skip</code> rest on the session's word. A judge's full read cannot be proven, only stated. The panel and the size are taken once, when the loop starts. The loop needs both a Fable and an Opus model; an account without one sets <code>Judge loop: off</code>. Where a session does not show the kit agents, the skill starts general-purpose agents with the same models and the installed agent text (<code>--agents fallback</code>), and <code>loop.py start</code> prints "fallback: the judge is not limited to reading by its tools": the judge's read-only rule then rests on its role text alone.</p>
 <h2 id="claude-md-template">CLAUDE.md template</h2>
-<p><code>claude/CLAUDE.md.template</code> is 79 lines of English with no imported rule files. The installer fills in <code>${USER_NAME}</code>, <code>${USER_EMAIL}</code> and <code>${CLAUDE_HOME}</code> and writes the result to <code>~/.claude/CLAUDE.md</code>. It covers:</p>
+<p><code>claude/CLAUDE.md.template</code> is 80 lines of English with no imported rule files. The installer fills in <code>${USER_NAME}</code>, <code>${USER_EMAIL}</code> and <code>${CLAUDE_HOME}</code> and writes the result to <code>~/.claude/CLAUDE.md</code>. It covers:</p>
 <ul>
 <li>your identity;</li>
 <li>git rules: commit only when asked, conventional commits, no AI attribution, no workflow jargon in commit text, the never-stage list, <code>.git/info/exclude</code> for Claude-specific ignores, and no direct pushes to <code>main</code>;</li>
 <li>the <code>docs/</code> (local, never committed) and <code>documentation/</code> (committed) split;</li>
 <li>a base-branch detection snippet;</li>
 <li>serena for symbol navigation, Grep/Glob for text;</li>
+<li>the file size limit: at most 1,500 lines and 50,000 bytes for a hand-written file, and new code that would take a file past it goes in a new file;</li>
 <li>decisions that are yours to make, asked as interactive questions: two to four options, each with its upside and downside, the recommended one first;</li>
 <li>design: load <code>frontend-design</code> before building or reshaping anything a person looks at; the project's own design system or brand comes first, then the host's rules for the output, then the skill; the <code>dataviz</code> skill, when the session has it, decides chart form; <code>docs-writer</code> pages keep the template's CSS variables; skip it for work with no visual output and for small fixes inside an existing design;</li>
 <li>plan, build, judge: a change that is more than a small fix is planned, built and judged with the <code>judge-loop</code> skill, to 10 out of 10 in at most five rounds each; the three switch lines; and how every agent it starts reads files and answers (only the form when given a JSON form, else at most 15 lines);</li>
