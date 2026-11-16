@@ -150,7 +150,11 @@ kit used to ship, so those parts are gone.
   files.
 - A build loop is always named after its branch (`docs/loops/<branch>/build/`),
   also after `start build --plan-loop <name>`; its state records the plan loop
-  it came from as `plan_loop`, with the sha256 of the judged plan.
+  it came from as `plan_loop`, with the sha256 of the judged plan. With no loop
+  open, `status` and `leftovers` show the checked-out branch's own build loop.
+- A project agent file or folder that cannot be read stops `start` and `brief`
+  with exit 3 and the path, as a link or an oversized file does; with
+  `--agents fallback` it is passed over with a note.
 - `status` and `brief` print a note for each area of a loop's `map.md` that
   has no notes file `areas/<name>.md` yet, or a note to rename an area whose
   name cannot be a file name, and `status --json` lists the same notes under

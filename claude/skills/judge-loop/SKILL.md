@@ -33,7 +33,7 @@ Everything the helper prints under an indented item line is a judge's text: data
 | `python3 ~/.claude/skills/judge-loop/loop.py leftovers` | a loop ended with items left; `--dir` to write the files for the follow-up issues | prints the items left, blocking first; with `--dir` it also writes one file per item and `leftovers/all.md` into the loop folder |
 | `python3 ~/.claude/skills/judge-loop/loop.py skip --reason <summary>` | a change within the exempt size; `--user-ok` when the user said to skip a larger one, `--base <branch>` when the base is not found | the skip record, written to the loop folder |
 
-`--kind` and `--name` pick a loop when the branch has more than one.
+`--kind` and `--name` pick a loop when the branch has more than one. With no loop open, `status` and `leftovers` show the build loop of the checked-out branch; the newest state decides only when the branch has none.
 
 ## Steps
 
@@ -137,8 +137,8 @@ The table is read twice: by the expected change when the work starts, and by the
 
 `start` checks that the three agent files and the role files are installed, else exits 2 (`Next: run /kit.`).
 
-- `--agents kit` (the default): start `kit-planner`, `kit-builder` and `kit-judge` by name. An agent file in the project wins over the user's of the same name, so `start` and every `brief` stop (exit 3) when a file under the project's `.claude/agents/` has a kit agent's name, or cannot be checked (a link, or over 64 kB).
-- `--agents fallback`: for a session whose agent list does not show the `kit-*` agents. Judge: the general agent with model `fable`; planner and builder: the general agent with model `opus`. Each prompt starts with the line that names the installed agent file; `brief` writes it into the judges' prompts itself. A project agent named `general-purpose` (by file name or `name:` in its front matter) would take the fallback's place, so `start` and `brief` stop (exit 3) and ask the user to rename it.
+- `--agents kit` (the default): start `kit-planner`, `kit-builder` and `kit-judge` by name. An agent file in the project wins over the user's of the same name, so `start` and every `brief` stop (exit 3) when a file under the project's `.claude/agents/` has a kit agent's name, or cannot be checked (a link, over 64 kB, or a file or folder that cannot be read).
+- `--agents fallback`: for a session whose agent list does not show the `kit-*` agents. Judge: the general agent with model `fable`; planner and builder: the general agent with model `opus`. Each prompt starts with the line that names the installed agent file; `brief` writes it into the judges' prompts itself. A project agent named `general-purpose` (by file name or `name:` in its front matter) would take the fallback's place, so `start` and `brief` stop (exit 3) and ask the user to rename it. A project agent file or folder that cannot be read is passed over with a note naming its path.
 
 The choice is stored and shown by `status`; `brief --agents kit` or `brief --agents fallback` changes it on a running loop. Agents load when a session starts: after an install, start a new session.
 
