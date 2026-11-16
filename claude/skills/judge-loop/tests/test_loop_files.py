@@ -1037,6 +1037,7 @@ def test_a_role_file_names_its_dimensions_and_the_output(role):
     ):
         assert words in output, words
     assert "a command and its output" not in output
+    assert "1,500 lines or 50,000 bytes" in output
     assert parts["A 10 means"].strip()
     assert len(text.splitlines()) <= 40
 

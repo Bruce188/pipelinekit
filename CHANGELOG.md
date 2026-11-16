@@ -112,7 +112,7 @@ kit used to ship, so those parts are gone.
 ### Agents
 
 - Three agents in `claude/agents/`, installed to `~/.claude/agents/`:
-  `kit-planner` (model `fable`) writes a plan, `kit-builder` (model `opus`)
+  `kit-planner` (model `opus`) writes a plan, `kit-builder` (model `opus`)
   builds it failing test first and commits on the work branch, `kit-judge`
   (model `fable`, tools `Read, Grep, Glob`) scores a plan or a build with one
   JSON object.
@@ -124,6 +124,42 @@ kit used to ship, so those parts are gone.
   as it was.
 - `/kit` fails when an agent file is missing or `kit-judge.md` allows more than
   reading, and lists an edited agent file under "Changes since install".
+
+### Judge loop
+
+- `judge-loop` skill (`/judge-loop`): a change that is more than a small fix
+  is planned by `kit-planner`, built by `kit-builder` and scored from 0 to 10
+  by fresh `kit-judge` agents, one `general` judge or, for a large or
+  sensitive change, six (correctness, tests, security, scope, operations,
+  user experience), until each gives 10 within a round budget.
+  `claude/skills/judge-loop/loop.py` keeps the state under `docs/loops/` and
+  says what comes next; `docs/loops/` is on the never-stage list.
+- The `CLAUDE.md` template gains a "Plan, build, judge" section with the rules
+  for every agent it starts: read a file whole once or search first, read
+  nothing twice, keep output short, return a JSON form or at most 15 lines.
+  The agent files and the ship skill's tester brief carry the same rules.
+- A project sets its own terms in its `CLAUDE.md`: `Judge loop: off`,
+  `Judge rounds: N`, `Judges: correctness, tests`. The installer warns when
+  the user-level `CLAUDE.md` it replaces held one of these lines.
+- A judge lists a hand-written file over 1,500 lines or 50,000 bytes that the
+  work creates or makes longer as an item.
+- Installed into another `CLAUDE_HOME` that is an absolute path of letters,
+  digits and `._/@+-`, the skill names `loop.py` by that path, right after the
+  copy; for any other home the installer warns and leaves the skill as it is.
+- `round` heads the fix list `Items to fix:`; the order to fix in (blocking
+  items first, then the printed order) is in the fix prompts and the agent
+  files.
+- A build loop is always named after its branch (`docs/loops/<branch>/build/`),
+  also after `start build --plan-loop <name>`; its state records the plan loop
+  it came from as `plan_loop`, with the sha256 of the judged plan. With no loop
+  open, `status` and `leftovers` show the checked-out branch's own build loop.
+- A project agent file or folder that cannot be read stops `start` and `brief`
+  with exit 3 and the path, as a link or an oversized file does; with
+  `--agents fallback` it is passed over with a note.
+- `status` and `brief` print a note for each area of a loop's `map.md` that
+  has no notes file `areas/<name>.md` yet, or a note to rename an area whose
+  name cannot be a file name, and `status --json` lists the same notes under
+  `warnings`.
 
 ### Security
 

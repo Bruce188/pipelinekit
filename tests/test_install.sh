@@ -65,7 +65,7 @@ done
 
 bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$T/install1.out" 2>&1
 bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$T/install2.out" 2>&1
-grep -qF '[install] copied 8 skills' "$T/install2.out"
+grep -qF '[install] copied 9 skills' "$T/install2.out"
 n_skills="$(sed -n 's/^KIT_SKILLS=(\(.*\))$/\1/p' "$REPO_ROOT/scripts/install.sh" | wc -w | tr -d ' ')"
 grep -qF "[install] copied $n_skills skills, 3 agents, " "$T/install2.out"
 # The closing line names the agents and says how to load them.
@@ -100,15 +100,22 @@ PY
 grep -q 'Test User <test@example.com>' "$CLAUDE_HOME/CLAUDE.md"
 ls "$CLAUDE_HOME"/settings.json.bak-* >/dev/null
 test -f "$CLAUDE_HOME/projects/keep/f"
-for s in dotnet-conventions deploy exchange-api-keys docs-writer frontend-design mobile kit ship; do
+for s in dotnet-conventions deploy exchange-api-keys docs-writer frontend-design mobile kit ship \
+         judge-loop; do
   test -f "$CLAUDE_HOME/skills/$s/SKILL.md"
 done
 test -x "$CLAUDE_HOME/skills/ship/ship.py"
+test -x "$CLAUDE_HOME/skills/judge-loop/loop.py"
+# Outside a git repository the judge-loop helper refuses (exit 2).
+rc=0
+(cd "$T" && python3 "$CLAUDE_HOME/skills/judge-loop/loop.py" status) >/dev/null 2>&1 || rc=$?
+[ "$rc" -eq 2 ] || { echo "test_install: loop.py status outside a repository exited $rc" >&2; exit 1; }
 for f in SKILL.md LICENSE.txt SOURCE.md; do
   cmp "$REPO_ROOT/claude/skills/frontend-design/$f" "$CLAUDE_HOME/skills/frontend-design/$f"
 done
 grep -q 'Merges: ask first' "$CLAUDE_HOME/CLAUDE.md"
 grep -qx '## Design' "$CLAUDE_HOME/CLAUDE.md"
+grep -qx '## Plan, build, judge' "$CLAUDE_HOME/CLAUDE.md"
 # The helper starts from its installed place and says why it cannot go on.
 (cd "$T" && python3 "$CLAUDE_HOME/skills/ship/ship.py" status --exit-zero | grep -q 'not inside a git repository')
 test ! -e "$CLAUDE_HOME/skills/commit-conventions"
@@ -167,6 +174,35 @@ set -- "${CLAUDE_HOME}"/pipelinekit/backup/agents-*
 [ "$#" -eq 1 ]
 [ -f "$1" ]
 
+# A switch line in the user-level CLAUDE.md is lost on a reinstall: the installer
+# names it, in the kit's spelling, and the backup that holds it.
+printf '# mine\n\n- judge rounds: 3\n' > "$CLAUDE_HOME/CLAUDE.md"
+bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$T/install4.out" 2>&1
+grep -E "^\[install\]\[warn\] your CLAUDE.md had the line 'Judge rounds:'; it is in .*/CLAUDE.md.bak-[0-9]{8}-[0-9]{6}: add it again, or put it in the project's CLAUDE.md$" \
+  "$T/install4.out" >/dev/null ||
+  { echo "test_install: no warning for the replaced switch line" >&2; exit 1; }
+if grep -qF 'had the line' "$T/install2.out"; then
+  echo "test_install: a switch-line warning without a switch line" >&2; exit 1
+fi
+[ "$(grep -c 'had the line' "$T/install4.out")" -eq 1 ] ||
+  { echo "test_install: more than one warning for one switch line" >&2; exit 1; }
+# A replaced CLAUDE.md with "judges:" in the middle of a sentence: no warning.
+printf '# mine\n\nAsk the judges: see below.\n' > "$CLAUDE_HOME/CLAUDE.md"
+bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$T/install5.out" 2>&1
+grep -qF 'backed up CLAUDE.md' "$T/install5.out"
+if grep -qF 'had the line' "$T/install5.out"; then
+  echo "test_install: a switch-line warning for judges: mid-sentence" >&2; exit 1
+fi
+# The two other keys: the first behind a byte order mark, the second numbered.
+printf '\xef\xbb\xbfJudge loop: off\n\n1. Judges: tests\n' > "$CLAUDE_HOME/CLAUDE.md"
+bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$T/install6.out" 2>&1
+for key in 'Judge loop:' 'Judges:'; do
+  grep -qF "had the line '$key'" "$T/install6.out" ||
+    { echo "test_install: no warning for the line '$key'" >&2; exit 1; }
+done
+[ "$(grep -c 'had the line' "$T/install6.out")" -eq 2 ] ||
+  { echo "test_install: a warning for a key the file did not hold" >&2; exit 1; }
+
 # verify notices a hook that is present but cannot start (CRLF checkout).
 G="$CLAUDE_HOME/hooks/bash-guard.py"
 sed $'s/$/\r/' "$G" > "$T/crlf" && cat "$T/crlf" > "$G"
@@ -175,6 +211,46 @@ if CLAUDE_HOME="$CLAUDE_HOME" bash "$REPO_ROOT/scripts/verify.sh" >/dev/null 2>&
 fi
 # The session-start check names /kit once a hook is broken.
 echo '{}' | "$CLAUDE_HOME/hooks/session-check.py" | grep -q 'Run /kit for the report'
+
+# Another CLAUDE_HOME: the judge-loop skill names the helper by that home's path,
+# and the self-check sees the rewritten file as the installed one.
+KH="$HOME/kit-home"
+CLAUDE_HOME="$KH" PIPELINEKIT_GIT_HOOKS=0 bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$T/kit-home.out" 2>&1
+grep -qxF "allowed-tools: Bash(python3 $KH/skills/judge-loop/loop.py *)" "$KH/skills/judge-loop/SKILL.md"
+if grep -qF '.claude/skills/judge-loop' "$KH/skills/judge-loop/SKILL.md"; then
+  echo "test_install: the skill still names the default home" >&2; exit 1
+fi
+report="$(CLAUDE_HOME="$KH" python3 "$KH/skills/kit/check.py" --no-remote || true)"
+if grep -qF 'changed since install' <<<"$report"; then
+  echo "test_install: the rewritten skill shows as changed since install" >&2; exit 1
+fi
+[ "$(git config --global core.hooksPath)" = "$CLAUDE_HOME/git-hooks" ]
+
+# A home a permission pattern cannot hold (a space), or a relative one: a
+# warning, and the installed skill is the kit's own, naming ~/.claude.
+# Neither home passes verify (the hooks do not start from it), so the install
+# is checked to run to its end instead.
+odd_home() { # odd_home <CLAUDE_HOME> <its absolute path> <case>
+  (cd "$T" && CLAUDE_HOME="$1" PIPELINEKIT_GIT_HOOKS=0 bash "$REPO_ROOT/scripts/install.sh" --no-serena) >"$T/$3.out" 2>&1 || true
+  grep -qF "[install] manifest: $1/pipelinekit/manifest.json" "$T/$3.out" ||
+    { echo "test_install: the install into the $3 home stopped early" >&2; exit 1; }
+  grep -qF '[install][warn] judge-loop: CLAUDE_HOME is not an absolute path a permission pattern can hold' "$T/$3.out" ||
+    { echo "test_install: no warning for the $3 home" >&2; exit 1; }
+  cmp -s "$REPO_ROOT/claude/skills/judge-loop/SKILL.md" "$2/skills/judge-loop/SKILL.md" ||
+    { echo "test_install: the skill was rewritten for the $3 home" >&2; exit 1; }
+}
+odd_home "$HOME/kit home" "$HOME/kit home" space
+odd_home rel-home "$T/rel-home" relative
+
+# The rewrite follows the copy at once: an install that stops later (here on a
+# settings.json that is not JSON) leaves a skill that already names its home.
+KB="$HOME/kit-broken"
+mkdir -p "$KB" && printf '{' >"$KB/settings.json"
+if CLAUDE_HOME="$KB" PIPELINEKIT_GIT_HOOKS=0 bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$T/kit-broken.out" 2>&1; then
+  echo "test_install: an install over a broken settings.json passed" >&2; exit 1
+fi
+grep -qxF "allowed-tools: Bash(python3 $KB/skills/judge-loop/loop.py *)" "$KB/skills/judge-loop/SKILL.md" ||
+  { echo "test_install: the stopped install left the skill naming ~/.claude" >&2; exit 1; }
 
 # frontend-design: a folder of that name that the kit did not install. Each case
 # runs in its own throwaway home below $T.

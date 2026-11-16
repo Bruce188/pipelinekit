@@ -123,8 +123,8 @@ def ends(run, code, first, tail=None):
         assert run.last.endswith(tail), run
 
 
-FIX_BUILD = "Next: have kit-builder fix in this order and commit, then loop.py brief."
-FIX_PLAN = "Next: have kit-planner fix in this order, then loop.py brief."
+FIX_BUILD = "Next: have kit-builder fix these items and commit, then loop.py brief."
+FIX_PLAN = "Next: have kit-planner fix these items, then loop.py brief."
 
 
 class Sandbox:

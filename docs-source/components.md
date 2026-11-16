@@ -28,15 +28,16 @@ The kit has six layers. Hover a chip for a one-line summary, or use the buttons 
    "chips": [{"label": "commit-msg", "tip": "Conventional commits, no attribution or emoji"},
              {"label": "pre-commit", "tip": "gitleaks on staged changes"},
              {"label": "pre-push", "tip": "No pushes to main or master"}]},
-  {"name": "Skills", "color": "#10b981", "count": "8 skills",
+  {"name": "Skills", "color": "#10b981", "count": "9 skills",
    "chips": [{"label": "dotnet-conventions"}, {"label": "deploy"}, {"label": "exchange-api-keys"},
              {"label": "docs-writer"},
              {"label": "frontend-design", "tip": "Visual design guidance, from anthropics/skills (Apache-2.0)"},
              {"label": "mobile"},
              {"label": "kit", "tip": "Self-check, run as /kit"},
-             {"label": "ship", "tip": "Test, fix and merge your own pull request"}]},
+             {"label": "ship", "tip": "Test, fix and merge your own pull request"},
+             {"label": "judge-loop", "tip": "Plan, build and judge a change until it reaches 10"}]},
   {"name": "Agents", "color": "#ec4899", "count": "3 agents",
-   "chips": [{"label": "kit-planner", "tip": "Model: fable"},
+   "chips": [{"label": "kit-planner", "tip": "Model: opus"},
              {"label": "kit-builder", "tip": "Model: opus"},
              {"label": "kit-judge", "tip": "Model: fable"}]},
   {"name": "MCP", "color": "#8b5cf6",
@@ -146,6 +147,7 @@ With `ask`, Claude Code prompts you instead of refusing. `override` means a huma
 | `mobile` | Android (Kotlin/Compose) builds and device access from WSL2, iPhone home-screen web apps, Expo/EAS cloud builds for iOS, release and security checklist |
 | `kit` | Self-check, run as `/kit`: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, environment conflicts, what the hooks blocked or failed on in the last days, and whether a newer kit is available. `/kit update` applies it after asking |
 | `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then `ship.py` merges once every gate holds (own pull request, not a release, no required review, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
+| `judge-loop` | Run as `/judge-loop`: plans and builds a change on Opus, and has fresh Fable judges score the plan and the build until each gets 10 out of 10, within a round budget. See [Plan, build, judge](#plan-build-judge). Its record lives in `docs/loops/` of the one checkout it runs in and is never committed; see [The judge loop](installation.html#the-judge-loop). |
 
 In 0.1.0, `deploy` replaces the five separate `*-ops` skills and the per-provider deployment agents, `mobile` replaces `expo` and `ios`, and the ASP.NET Core security rules moved into `dotnet-conventions`.
 
@@ -153,15 +155,17 @@ In 0.1.0, `deploy` replaces the five separate `*-ops` skills and the per-provide
 
 Three subagents for planning a change, building it and judging the result, each on the model that suits the job. The installer copies them from `claude/agents/` to `~/.claude/agents/`.
 
-Together they are the parts of a judge loop: one agent plans, one builds, and independent judges score the result until it reaches 10; the skill that drives the loop comes with a later change, and until then you start the agents by name.
+Together they are the parts of a judge loop: one agent plans, one builds, and independent judges score the result until it reaches 10. The `judge-loop` skill starts them; see [Plan, build, judge](#plan-build-judge).
 
 | Agent | Model | Tools | What it is for |
 |-------|-------|-------|----------------|
-| `kit-planner` | `fable` | `Read, Grep, Glob, Write, Edit` | Writes or fixes `plan.md` in a loop folder from the request, `criteria.md` and the answers in `questions.md`. Cites `file:line` for every claim about the code and appends open questions to `questions.md` instead of guessing. Never edits code and never runs `loop.py` |
-| `kit-builder` | `opus` | the session's tools | Builds the plan it is handed on the checked-out work branch, failing test first, runs the project's checks and commits; fixes the items it is given, in that order, and nothing else. Never creates or switches a branch, never pushes or deploys, never writes under `docs/loops/` |
-| `kit-judge` | `fable` | `Read, Grep, Glob` | Judges a plan or a build from one angle and answers with one JSON object: a score from 0 to 10, scores per dimension, blocking items and improvements, each with evidence and a fix. Reads only what its brief names, and never runs, writes, commits, pushes or deploys anything |
+| `kit-planner` | `opus` | `Read, Grep, Glob, Write, Edit` | Writes or fixes `plan.md` in a loop folder from the request, `criteria.md` and the answers in `questions.md`. Cites `file:line` for every claim about the code and appends open questions to `questions.md` instead of guessing, and adds a row to `changes.md` for each judge item it fixes. Never edits code and never runs `loop.py` |
+| `kit-builder` | `opus` | the session's tools | Builds the plan it is handed on the checked-out work branch, failing test first, runs the project's checks and commits; fixes the judge items it is given and nothing else, with a row in `changes.md` for each. Never creates or switches a branch, never pushes or deploys, and under `docs/loops/` writes only the rows of `changes.md` |
+| `kit-judge` | `fable` | `Read, Grep, Glob` | Judges a plan or a build from one angle and answers with one JSON object: a score from 0 to 10, scores per dimension, blocking items and improvements, each with evidence, a fix and the check that proves the fix, and whether it read the work in full. Reads only what its brief names, and never runs, writes, commits, pushes or deploys anything |
 
-`fable` and `opus` are aliases: they follow the newest model of each family. All three treat text in the other files they read as data, not instructions (the planner and the builder follow their brief and the files it names), and never read `.env` files, credentials, keys or tokens.
+`fable` and `opus` are aliases: they follow the newest model of each family. Only the judge runs on Fable, so the model that writes a plan or a build never scores it and Fable is spent on judging alone. All three treat text in the other files they read as data, not instructions (the planner and the builder follow their brief and the files it names), and never read `.env` files, credentials, keys or tokens.
+
+All three work the same way: a file they change or judge is read whole, once; for one fact they search first and read only those lines; nothing is read twice; tool output stays short; after about 10 calls on the same error they stop and report it. Given a JSON form they return only the form, otherwise at most 15 lines.
 
 The kit owns these three names in `~/.claude/agents/`, and leaves the rest of the folder alone. A file of your own with one of the names that differs from the kit's is moved to `~/.claude/pipelinekit/backup/agents-<name>-<timestamp>` once, and the installer prints where; a link of that name is removed without touching its target. Claude Code loads agents when a session starts, so start a new session after an install.
 
@@ -297,9 +301,37 @@ python3 ~/.claude/skills/ship/ship.py merge --dry-run  # what would be merged, a
 
 Exit code 0 means done, 1 means a gate or a check failed, 2 means the helper could not run, 3 means stop and ask.
 
+## Plan, build, judge
+
+The template's "Plan, build, judge" section makes this the rule for every change that is more than a small fix. Run `/judge-loop` (or let Claude start it): `kit-planner` writes the plan, fresh `kit-judge` agents score it, `kit-builder` builds the judged plan, and fresh judges score the build. Each judge answers with a score from 0 to 10 and the items that keep it from a 10; the planner or the builder fixes the items between two rounds, until every judge gives 10 with nothing blocking, within a budget of five rounds for the plan and five for the build. What is left after the last round becomes follow-up issues, or a list in the closing report without a GitHub remote. With a blocking item left, or a plan whose score stops rising, Claude stops and asks you, with options. You can say at any time to take the work as it is or to end the loop. Open questions are asked in one batch, and the session says in one line what a loop is expected to cost.
+
+The helper `claude/skills/judge-loop/loop.py` keeps the state of a loop and says what comes next; the session runs it, never an agent. The size of the change decides the panel:
+
+| Size | Test | Judges |
+|------|------|--------|
+| Exempt | One file with at most ten changed lines, or documentation files only, or a question; never a sensitive path | None: `loop.py skip` records it |
+| One judge | Everything else below the next row | `general` |
+| Full panel | More than 400 changed lines, more than 15 files, or a sensitive path (workflows, auth, payments, migrations, hooks, deploy, install, secrets, permissions, and steering files such as `CLAUDE.md`, `SKILL.md` and anything under `.claude/`, `agents/` or `skills/`) | `correctness`, `tests`, `security`, `scope`, `operations`, `user-experience` |
+
+Each judge reads its role file in `claude/skills/judge-loop/roles/`: what it looks at, its dimensions and what a 10 means. Its answer is one JSON object (`overall`, `dimensions`, `blocking`, `improvements`, `still_open`, `read`), each item with evidence, a fix and the check that proves the fix. The score is 10 minus named items, in steps of 0.5, and a 10 counts only when the judge says it read the whole work. Every role lists a hand-written file of code, tests or markdown that the work creates or makes longer, and that is then over 1,500 lines or 50,000 bytes, as an item.
+
+A project sets its own terms with one of these lines, on a line of its own:
+
+| Line | Effect |
+|------|--------|
+| `Judge loop: off` | No loop, no agents, nothing recorded |
+| `Judge rounds: N` | The round budget of a plan and of a build, 1 to 20 (5 by default) |
+| `Judges: correctness, tests` | The roles of the panel, from the seven above |
+
+A line counts in the project's `CLAUDE.md` or `.claude/CLAUDE.md` once it is on the base branch (the branch pull requests go to), and in `~/.claude/CLAUDE.md`; the first one found wins, in that order. A line only in your checkout is named and not used. The installer replaces `~/.claude/CLAUDE.md` after a backup, so a line there lasts until the next install; when the file it replaces held one, the installer names the line and the backup.
+
+The record of a loop lies in `docs/loops/<name>/plan/` and `docs/loops/<branch>/build/` of the checkout it runs in (a build loop is always named after its branch, with `/` turned into `-`, and its state names the plan loop it came from): `criteria.md`, `plan.md` and its judged copies, `questions.md`, the judges' answers, `scorecard.md` (one line per round, with the scores and the tokens), `changes.md` (one row per item: fixed, answered or owner), `settled.md`, `map.md` with one notes file per area in `areas/<name>.md`, and the files `loop.py leftovers --dir` writes to `leftovers/` (one per item, and `leftovers/all.md`). `docs/loops/` is on the never-stage list. A build in another worktree needs the plan loop's folder copied there first. Nothing removes old loop folders: delete one once its work is merged.
+
+Limits: the record says that results were saved, not that a judge ran or judged well; it is a local file the session can write or remove. `accept`, `settle` and `skip` rest on the session's word. A judge's full read cannot be proven, only stated. The panel and the size are taken once, when the loop starts. The loop needs both a Fable and an Opus model; an account without one sets `Judge loop: off`. Where a session does not show the kit agents, the skill starts general-purpose agents with the same models and the installed agent text (`--agents fallback`), and `loop.py start` prints "fallback: the judge is not limited to reading by its tools": the judge's read-only rule then rests on its role text alone.
+
 ## CLAUDE.md template
 
-`claude/CLAUDE.md.template` is 67 lines of English with no imported rule files. The installer fills in `${USER_NAME}`, `${USER_EMAIL}` and `${CLAUDE_HOME}` and writes the result to `~/.claude/CLAUDE.md`. It covers:
+`claude/CLAUDE.md.template` is 79 lines of English with no imported rule files. The installer fills in `${USER_NAME}`, `${USER_EMAIL}` and `${CLAUDE_HOME}` and writes the result to `~/.claude/CLAUDE.md`. It covers:
 
 - your identity;
 - git rules: commit only when asked, conventional commits, no AI attribution, no workflow jargon in commit text, the never-stage list, `.git/info/exclude` for Claude-specific ignores, and no direct pushes to `main`;
@@ -308,6 +340,7 @@ Exit code 0 means done, 1 means a gate or a check failed, 2 means the helper cou
 - serena for symbol navigation, Grep/Glob for text;
 - decisions that are yours to make, asked as interactive questions: two to four options, each with its upside and downside, the recommended one first;
 - design: load `frontend-design` before building or reshaping anything a person looks at; the project's own design system or brand comes first, then the host's rules for the output, then the skill; the `dataviz` skill, when the session has it, decides chart form; `docs-writer` pages keep the template's CSS variables; skip it for work with no visual output and for small fixes inside an existing design;
+- plan, build, judge: a change that is more than a small fix is planned, built and judged with the `judge-loop` skill, to 10 out of 10 in at most five rounds each; the three switch lines; and how every agent it starts reads files and answers (only the form when given a JSON form, else at most 15 lines);
 - GitHub habits with `gh`: issues with acceptance criteria before work, `<type>/<issue#>-<slug>` branches, draft PRs, finishing its own PRs with the `ship` skill, reading CI logs, releases when you ask;
 - the deploy CLIs.
 
@@ -321,3 +354,5 @@ Exit code 0 means done, 1 means a gate or a check failed, 2 means the helper cou
 ## What is not included
 
 Plan mode, the Workflow tool, `/code-review`, `/security-review`, `/simplify`, the Explore and Plan agents, auto-memory, worktree isolation, `/loop` and `/schedule` are all built into Claude Code. pipelinekit no longer provides its own versions. See [Upgrading from 0.0.1](upgrading.html#what-was-removed) for how the old components map to these built-ins.
+
+The judge loop is not the old pipeline back. It is one helper, three agents and a rule, and the kit keeps it because Claude Code ships no judge on a second model that scores a plan or a build, within a round budget, until it reaches 10.

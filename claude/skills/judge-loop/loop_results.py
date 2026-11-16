@@ -272,7 +272,7 @@ def print_items(loop, questions_since=None):
     if lines:
         final = st.get("final") and not st["pending"]
         finished = st["outcome"] not in UNFINISHED or final
-        say("Items left:" if finished else "Items to fix, in this order:")
+        say("Items left:" if finished else "Items to fix:")
         for line in lines:
             say(line)
     files = []
@@ -289,9 +289,9 @@ def fix_next(st):
     agents = st.get("agents", "kit")
     if st["kind"] == "plan":
         who = agent_word(agents, "kit-planner")
-        return f"have {who} fix in this order, then loop.py brief."
+        return f"have {who} fix these items, then loop.py brief."
     who = agent_word(agents, "kit-builder")
-    return f"have {who} fix in this order and commit, then loop.py brief."
+    return f"have {who} fix these items and commit, then loop.py brief."
 
 
 def plan_handover(st):

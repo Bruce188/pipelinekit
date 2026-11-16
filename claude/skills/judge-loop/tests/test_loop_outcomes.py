@@ -266,8 +266,8 @@ RAISED_AGAIN = (
 
 
 def items_block(run):
-    """The lines under 'Items to fix, in this order:', without the last line."""
-    i = run.lines.index("Items to fix, in this order:")
+    """The lines under 'Items to fix:', without the last line."""
+    i = run.lines.index("Items to fix:")
     return run.lines[i + 1 : -1]
 
 
@@ -337,7 +337,7 @@ def test_nothing_open_after_a_stop(sb, command, outcome):
     assert sb.run("settle", "general", "I1", "--note", "fine as it is").code == 0
     run = sb.run(command, "--note", "go on")
     assert run.code == 0
-    assert "Items to fix, in this order:" not in run.out
+    assert "Items to fix:" not in run.out
     assert run.last.endswith(". Next: loop.py brief.")
 
 
