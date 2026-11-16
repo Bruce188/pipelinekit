@@ -2,8 +2,10 @@
 
 ship.py never brings a branch up to date itself: no rebase, no merge, no push.
 It names the base, how many commits the branch lacks and the next command: a
-rebase for a branch that was never pushed, a merge for one that counts as
-pushed, and never a force push.
+rebase for a branch that is not shared, a merge for a shared one, with the
+reason it is shared, and never a force push. A branch is shared once it is on
+the remote, has an open pull request, or has a judge result on one of its
+commits; an upstream on another branch does not count.
 """
 
 # ruff: noqa: F403, F405
@@ -24,8 +26,6 @@ BAD_NAME = re.compile(
 )
 CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 ANOTHER = "another base: ship.py status --base BRANCH"
-PUSHED = "the branch is pushed"
-JUDGED = "the branch has a judge record, whose results cite its commits"
 
 
 def is_branch_name(text):
@@ -104,91 +104,104 @@ def pick_base(repo, pr, asked):
     return base, hints, ""
 
 
-def judge_record(repo):
-    """True when the branch's build loop record names a commit of the branch.
+def judged_at(repo):
+    """The first commit of the branch its build loop record names, short, or ''.
 
     The judge results cite that commit, so a rebase would void them."""
     name = slug(repo.branch)
     if linked(repo.root, name):
-        return False
+        return ""
     path = repo.root / "docs" / "loops" / name / "build" / "state.json"
     data = read_plain(path, MAX_STATE)
     if not data:
-        return False
+        return ""
     try:
         st = json.loads(data.decode("utf-8"))
     except (UnicodeDecodeError, ValueError, RecursionError):
-        return False
+        return ""
     if not isinstance(st, dict) or st.get("kind") != "build":
-        return False
+        return ""
     if st.get("branch") != repo.branch:
-        return False
+        return ""
     rounds = st.get("rounds") if isinstance(st.get("rounds"), list) else []
     pending = st.get("pending") if isinstance(st.get("pending"), dict) else {}
     cited = [st.get("commit"), pending.get("commit")]
     cited += [rnd.get("commit") for rnd in rounds if isinstance(rnd, dict)]
     shas = [c for c in cited if isinstance(c, str) and COMMIT.fullmatch(c)]
-    return any(
-        repo.try_git("merge-base", "--is-ancestor", sha, "HEAD")[0] == 0
-        for sha in dict.fromkeys(shas)
+    return next(
+        (
+            sha[:7]
+            for sha in dict.fromkeys(shas)
+            if repo.try_git("merge-base", "--is-ancestor", sha, "HEAD")[0] == 0
+        ),
+        "",
     )
 
 
-def pushed(repo, pr):
-    """(why the branch counts as pushed, '' when it was never pushed; error).
+def open_pr(number):
+    return f"open pull request #{number}"
 
-    It counts as pushed with a pull request, a remote branch of the same name
-    (fetched here or only on the remote), an upstream of the same name, or a
-    judge record on the branch. An upstream on another branch is not enough:
-    `git switch -c feat origin/main` sets origin/main as the upstream."""
-    if pr:
-        return PUSHED, ""
+
+def shared(repo, pr):
+    """(why the branch is shared, '' when it is not; error).
+
+    A branch is shared once it is on the remote, has an open pull request, or
+    has a judge result on one of its commits; an upstream on another branch
+    does not count: `git switch -c feat origin/main` sets origin/main as the
+    upstream. On the remote: a remote branch of the same name, fetched here or
+    only on the remote, or an upstream of the same name."""
+    if pr and (pr.get("state") or "OPEN") == "OPEN":
+        return open_pr(pr.get("number")), ""
+    on_remote = f"pushed to {repo.remote}"
     rc, _, err = repo.try_git(
         "rev-parse", "--verify", "-q", f"refs/remotes/{repo.remote}/{repo.branch}"
     )
     if rc == 0:
-        return PUSHED, ""
+        return on_remote, ""
     if rc != 1:
         return "", why(err, rc)
     rc, out, err = repo.try_git("config", "--get", f"branch.{repo.branch}.merge")
     if rc not in (0, 1):
         return "", why(err, rc)
     if rc == 0 and out == f"refs/heads/{repo.branch}":
-        return PUSHED, ""
-    if judge_record(repo):
-        return JUDGED, ""
+        return on_remote, ""
+    sha = judged_at(repo)
+    if sha:
+        return f"judged at {sha}", ""
     ref = f"refs/heads/{repo.branch}"
     rc, out, err = repo.try_git("ls-remote", "--heads", repo.remote, ref)
     if rc:
         return "", f"git ls-remote {repo.remote}: {why(err, rc)}"
     found = any(row.split("\t", 1)[-1] == ref for row in out.splitlines())
-    return (PUSHED if found else ""), ""
+    return (on_remote if found else ""), ""
 
 
-def next_step(repo, target, was_pushed):
+def next_step(repo, target, reason):
     """The command that brings the branch up to date; never a force push.
 
-    `was_pushed`: why the branch counts as pushed, or '' when it never was."""
-    if was_pushed:
+    `reason`: why the branch is shared, or '' when it is not."""
+    if reason:
         return (
-            f"{was_pushed}: git merge {target} (no rebase, no force push), "
-            "run the tests again, then push"
+            f"the branch is shared ({reason}): git merge {target} (no rebase, "
+            "no force push), run the tests again, then push"
         )
     return (
-        f"the branch was never pushed: git rebase {target}, run the tests again, "
+        f"the branch is not shared: git rebase {target}, run the tests again, "
         f"then git push -u {repo.remote} {repo.branch}"
     )
 
 
-def conflict_detail(target):
+def conflict_detail(target, reason):
+    """A conflict GitHub reports: merge, with why the branch is shared."""
+    because = f"the branch is shared ({reason}): " if reason else ""
     return (
-        f"conflicts with {target}: git merge {target}, resolve the conflicts "
-        "and say so in the pull request, run the tests again, then push"
+        f"conflicts with {target}: {because}git merge {target}, resolve the "
+        "conflicts and say so in the pull request, run the tests again, then push"
     )
 
 
-def github_behind(repo, target):
-    return f"behind {target}, GitHub says: {next_step(repo, target, PUSHED)}"
+def github_behind(repo, target, reason):
+    return f"behind {target}, GitHub says: {next_step(repo, target, reason)}"
 
 
 def check_base(repo, pr, asked=""):
@@ -211,12 +224,12 @@ def check_base(repo, pr, asked=""):
             f"could not fetch {base} from {repo.remote}: {why(err, rc)}; check the "
             "base and the remote, then run ship.py status again"
         )
-    was_pushed, error = pushed(repo, pr)
+    reason, error = shared(repo, pr)
     if error:
-        return failed(f"could not tell whether {repo.branch} was pushed: {error}")
+        return failed(f"could not tell whether {repo.branch} is shared: {error}")
     state = (pr or {}).get("mergeStateStatus") or ""
     if pr and (pr.get("mergeable") == "CONFLICTING" or state == "DIRTY"):
-        return failed(conflict_detail(target), True)
+        return failed(conflict_detail(target, reason), True)
     rc, _, err = repo.try_git("merge-base", "--is-ancestor", ref, "HEAD")
     if rc == 1:
         rc, n, err = repo.try_git("rev-list", "--count", f"HEAD..{ref}")
@@ -224,12 +237,12 @@ def check_base(repo, pr, asked=""):
             detail = f"behind {target}, could not count the commits: {why(err, rc)}"
             return failed(detail, True)
         behind = count(int(n), "commit")
-        step = next_step(repo, target, was_pushed)
+        step = next_step(repo, target, reason)
         return failed(f"{behind} behind {target}: {step}", True)
     if rc:
         return failed(f"could not compare with {target}: {why(err, rc)}")
     if state == "BEHIND":
-        return failed(github_behind(repo, target), True)
+        return failed(github_behind(repo, target, reason), True)
     return gate(NAME, "pass", f"contains the tip of {target}", hints=hints), False
 
 

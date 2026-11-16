@@ -10,20 +10,21 @@ JUDGE_LOOP = Path(__file__).resolve().parents[2] / "judge-loop" / "SKILL.md"
 RULE = (
     "Before a PR is written up or updated: fetch, then bring the branch up to date "
     "with the base branch the PR targets (`origin/<base>`, not always `main`). "
-    "Rebase onto it while the branch was never pushed; once it counts as pushed (a "
-    "pull request, a remote branch or an upstream of the same name, or a judge record "
-    "on the branch), merge it in. Never force push. Then run the tests again."
+    "Rebase onto it while the branch is not shared; once it is shared, merge it in. "
+    "A branch is shared once it is on the remote, has an open pull request, or has a "
+    "judge result on one of its commits; an upstream on another branch does not "
+    "count. Never force push. Then run the tests again."
 )
 FIX_PASSES = (
-    "After the first judge round the branch has a judge record, so fix passes and "
-    "later updates merge the base in, never rebase: the round results cite its commits."
+    "After the first judge round the branch is shared (judged at one of its commits), "
+    "so fix passes and later updates merge the base in, never rebase: the round "
+    "results cite its commits."
 )
-PUSHED = (
-    "A branch counts as pushed when it has a pull request, a remote branch of the same "
-    "name (fetched here or only on the remote), an upstream of the same name, or a "
-    "judge record on the branch (a build loop record that names one of its commits); "
-    "an upstream on another branch does not count."
+SHARED = (
+    "A branch is shared once it is on the remote, has an open pull request, or has a "
+    "judge result on one of its commits; an upstream on another branch does not count."
 )
+REASONS = "(`pushed to origin`, `open pull request #N` or `judged at <commit>`)"
 SKIP_AGAIN = (
     "A judge-loop result stays valid across a merge; a skip names one commit, so after "
     "a merge or a rebase record the skip again with `loop.py skip`."
@@ -100,9 +101,12 @@ def test_fix_passes_after_the_first_judge_round_merge():
     assert FIX_PASSES in hand_over.split("\n", 1)[0]
 
 
-def test_one_meaning_of_pushed_and_of_a_skip_after_an_update():
-    for path in (SKILL, INSTALLATION):
+def test_one_meaning_of_shared_and_of_a_skip_after_an_update():
+    for path in (SKILL, INSTALLATION, TEMPLATE, BUILDER, JUDGE_LOOP):
         text = flat(path)
-        assert PUSHED in text and SKIP_AGAIN in text, path.name
-        assert "counts as never pushed" not in text, path.name
+        assert SHARED in text, path.name
+        for old in ("never pushed", "counts as pushed", "judge record on the branch"):
+            assert old not in text, (path.name, old)
+    for path in (SKILL, INSTALLATION):
+        assert SKIP_AGAIN in flat(path) and REASONS in flat(path), path.name
     assert "`git push -u <remote> <branch>`" in flat(SKILL)

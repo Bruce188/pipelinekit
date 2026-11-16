@@ -1,8 +1,8 @@
 """The up-to-date gate: a branch behind the base its pull request targets.
 
-The next step is a rebase for a branch that was never pushed and a merge for a
-pushed one; no command ship.py prints holds --force, and ship.py itself never
-rebases, merges or pushes to bring a branch up to date.
+The next step is a rebase for a branch that is not shared and a merge, with the
+reason it is shared, for a shared one; no command ship.py prints holds --force,
+and ship.py itself never rebases, merges or pushes to bring a branch up to date.
 """
 
 import json
@@ -15,15 +15,17 @@ from ship_fixtures import gates, last_line, refused, ship
 
 NEW = "feat/2-new"
 REBASE = (
-    "the branch was never pushed: git rebase origin/main, "
+    "the branch is not shared: git rebase origin/main, "
     f"run the tests again, then git push -u origin {NEW}"
 )
-JUDGED = (
-    "the branch has a judge record, whose results cite its commits: git merge "
-    "origin/main (no rebase, no force push), run the tests again, then push"
+STEP = (
+    "git merge origin/main (no rebase, no force push), run the tests again, then push"
 )
-MERGE = (
-    "the branch is pushed: git merge origin/main (no rebase, no force push), "
+MERGE = f"the branch is shared (pushed to origin): {STEP}"
+PR_MERGE = f"the branch is shared (open pull request #7): {STEP}"
+CONFLICT = (
+    "conflicts with origin/main: the branch is shared (open pull request #7): "
+    "git merge origin/main, resolve the conflicts and say so in the pull request, "
     "run the tests again, then push"
 )
 DEFAULT = (
@@ -40,8 +42,12 @@ def lines(done):
     return done.stdout.splitlines()
 
 
-def unpushed(sb, *start):
-    """A new branch that was never pushed, and no pull request."""
+def judged_step(sha):
+    return f"the branch is shared (judged at {sha[:7]}): {STEP}"
+
+
+def unshared(sb, *start):
+    """A new branch that is not shared: never pushed, no pull request."""
     sb.git("switch", "-q", "-c", NEW, *(start or ("main",)))
     sb.commit("feat: new")
     sb.state(pr=None)
@@ -54,8 +60,8 @@ def other_clone(sb):
     return other
 
 
-def test_a_never_pushed_branch_behind_its_base_is_told_to_rebase(sb):
-    unpushed(sb)
+def test_a_branch_that_is_not_shared_behind_its_base_is_told_to_rebase(sb):
+    unshared(sb)
     sb.advance_base()
     head = sb.head()
     done = sb.ship("status")
@@ -73,7 +79,7 @@ def test_a_never_pushed_branch_behind_its_base_is_told_to_rebase(sb):
     assert sb.head() == head and sb.git("status", "--porcelain") == ""
 
 
-def test_a_pushed_branch_behind_its_base_is_told_to_merge(sb):
+def test_a_branch_pushed_to_origin_behind_its_base_is_told_to_merge(sb):
     sb.state(pr=None)
     sb.advance_base()
     done = sb.ship("status")
@@ -87,17 +93,13 @@ def test_a_pull_request_behind_its_base_is_told_to_merge(sb):
     sb.passed()
     sb.advance_base()
     done = refused(sb, "up-to-date", 1)
-    assert line("up-to-date", "FAIL", f"1 commit behind origin/main: {MERGE}") in (
-        lines(done)
-    )
-    assert (
-        last_line(done)
-        == f"Not merged: up-to-date: 1 commit behind origin/main: {MERGE}."
-    )
+    behind = f"1 commit behind origin/main: {PR_MERGE}"
+    assert line("up-to-date", "FAIL", behind) in lines(done)
+    assert last_line(done) == f"Not merged: up-to-date: {behind}."
 
 
 def test_the_count_names_every_missing_commit(sb):
-    unpushed(sb)
+    unshared(sb)
     sb.advance_base()
     other = other_clone(sb)
     sb.git("pull", "-q", "origin", "main", cwd=other)
@@ -112,14 +114,14 @@ def test_the_count_names_every_missing_commit(sb):
 @pytest.mark.parametrize("pull_request", [True, False])
 def test_an_up_to_date_branch_passes(sb, pull_request):
     if not pull_request:
-        unpushed(sb)
+        unshared(sb)
     done = sb.ship("status")
     assert line("up-to-date", "ok", "contains the tip of origin/main") in lines(done)
 
 
-def test_an_upstream_on_the_base_is_not_a_push(sb):
+def test_an_upstream_on_the_base_does_not_share_the_branch(sb):
     """`git switch -c feat origin/main` sets origin/main as the upstream."""
-    unpushed(sb, "--track", "origin/main")
+    unshared(sb, "--track", "origin/main")
     assert sb.git("config", "--get", f"branch.{NEW}.merge") == "refs/heads/main"
     sb.advance_base()
     done = sb.ship("status")
@@ -128,8 +130,8 @@ def test_an_upstream_on_the_base_is_not_a_push(sb):
     )
 
 
-def test_an_upstream_of_the_same_name_counts_as_pushed(sb):
-    unpushed(sb)
+def test_an_upstream_of_the_same_name_shares_the_branch(sb):
+    unshared(sb)
     sb.git("config", f"branch.{NEW}.remote", "origin")
     sb.git("config", f"branch.{NEW}.merge", f"refs/heads/{NEW}")
     sb.advance_base()
@@ -141,13 +143,13 @@ def test_an_upstream_of_the_same_name_counts_as_pushed(sb):
 
 def dev_base(sb):
     """A `dev` branch on the remote, one commit past main, then a branch from it
-    that was never pushed, and one more commit on `dev` the branch lacks."""
+    that is not shared, and one more commit on `dev` the branch lacks."""
     other = other_clone(sb)
     sb.git("switch", "-q", "-c", "dev", cwd=other)
     sb.git("commit", "-q", "--allow-empty", "-m", "feat: dev", cwd=other)
     sb.git("push", "-q", "origin", "dev", cwd=other)
     sb.git("fetch", "-q", "origin")
-    unpushed(sb, "origin/dev", "--no-track")
+    unshared(sb, "origin/dev", "--no-track")
     sb.git("commit", "-q", "--allow-empty", "-m", "fix: on dev", cwd=other)
     sb.git("push", "-q", "origin", "dev", cwd=other)
 
@@ -202,7 +204,7 @@ def test_the_base_option_takes_only_a_branch_name(sb, name, cmd):
 
 
 def test_a_base_that_cannot_be_fetched(sb):
-    unpushed(sb)
+    unshared(sb)
     done = sb.ship("status", "--base", "nope")
     assert done.returncode == 1
     (found,) = [x for x in lines(done) if x.startswith("  FAIL  up-to-date  ")]
@@ -231,7 +233,7 @@ def test_record_refuses_a_pass_while_behind(sb):
     done = sb.ship("record", "--result", "pass", "--release", "no")
     assert done.returncode == 1 and done.stdout == ""
     assert done.stderr == (
-        f"ship: not recorded: 1 commit behind origin/main: {MERGE}; "
+        f"ship: not recorded: 1 commit behind origin/main: {PR_MERGE}; "
         "after that, run the acceptance test again\n"
     )
     assert "no test record" in sb.ship("status").stdout
@@ -243,8 +245,8 @@ def test_record_refuses_a_pass_while_behind(sb):
     assert done.returncode == 0, done.stderr
 
 
-def test_record_names_the_rebase_for_a_never_pushed_branch(sb):
-    unpushed(sb)
+def test_record_names_the_rebase_for_a_branch_that_is_not_shared(sb):
+    unshared(sb)
     sb.advance_base()
     done = sb.ship("record", "--result", "pass", "--release", "no")
     assert done.returncode == 1
@@ -266,7 +268,7 @@ def test_record_compares_with_the_base_option(sb):
 
 
 def test_record_asks_for_no_new_test_when_the_base_cannot_be_checked(sb):
-    unpushed(sb)
+    unshared(sb)
     done = sb.ship("record", "--result", "pass", "--release", "no", "--base", "nope")
     assert done.returncode == 1 and done.stdout == ""
     assert done.stderr == (
@@ -281,8 +283,8 @@ def test_record_asks_for_no_new_test_when_the_base_cannot_be_checked(sb):
 
 
 SCENARIOS = {
-    "never pushed": lambda sb: (unpushed(sb), sb.advance_base()),
-    "pushed": lambda sb: (sb.state(pr=None), sb.advance_base()),
+    "not shared": lambda sb: (unshared(sb), sb.advance_base()),
+    "pushed to origin": lambda sb: (sb.state(pr=None), sb.advance_base()),
     "pull request": lambda sb: sb.advance_base(),
     "conflict": lambda sb: sb.state(pr=sb.pr(mergeable="CONFLICTING")),
     "GitHub behind": lambda sb: sb.state(pr=sb.pr(mergeStateStatus="BEHIND")),
@@ -307,7 +309,7 @@ def test_no_suggested_command_holds_force(sb, scenario):
         assert "push --force" not in text and "force-with-lease" not in text
     detail = json.loads(outputs[1].stdout)["gates"]
     (found,) = [g for g in detail if g["gate"] == "up-to-date"]
-    assert ("never pushed" in found["detail"]) == (scenario == "never pushed")
+    assert ("not shared" in found["detail"]) == (scenario == "not shared")
     assert sb.head() == head
     assert sb.git("for-each-ref", cwd=sb.tmp / "origin.git") == origin
 
@@ -315,25 +317,20 @@ def test_no_suggested_command_holds_force(sb, scenario):
 def test_conflicts_and_github_behind_are_told_to_merge(sb):
     sb.state(pr=sb.pr(mergeable="CONFLICTING"))
     done = sb.ship("status")
-    assert line(
-        "up-to-date",
-        "FAIL",
-        "conflicts with origin/main: git merge origin/main, resolve the conflicts "
-        "and say so in the pull request, run the tests again, then push",
-    ) in lines(done)
+    assert line("up-to-date", "FAIL", CONFLICT) in lines(done)
     sb.state(pr=sb.pr(mergeStateStatus="BEHIND"))
     done = sb.ship("status")
     assert line(
-        "up-to-date", "FAIL", f"behind origin/main, GitHub says: {MERGE}"
+        "up-to-date", "FAIL", f"behind origin/main, GitHub says: {PR_MERGE}"
     ) in lines(done)
 
 
-# ---------------------------------------------------------------- pushed or not
+# ---------------------------------------------------------------- shared or not
 
 
 def test_a_branch_pushed_from_another_clone_is_told_to_merge(sb):
     """The remote has the branch, though this clone never fetched it."""
-    unpushed(sb)
+    unshared(sb)
     sb.git("push", "-q", "origin", NEW)
     sb.git("update-ref", "-d", f"refs/remotes/origin/{NEW}")
     sb.advance_base()
@@ -344,16 +341,15 @@ def test_a_branch_pushed_from_another_clone_is_told_to_merge(sb):
     assert sb.git("for-each-ref", f"refs/remotes/origin/{NEW}") == ""
 
 
-def test_a_judged_branch_that_was_never_pushed_is_told_to_merge(sb):
+def test_a_judged_branch_is_shared_and_told_to_merge(sb):
     """The judge results cite the branch's commits: a rebase would void them."""
-    unpushed(sb)
+    unshared(sb)
     sb.judged()
     judged_at = sb.head()
     sb.advance_base()
     done = sb.ship("status")
-    assert line("up-to-date", "FAIL", f"1 commit behind origin/main: {JUDGED}") in (
-        lines(done)
-    )
+    behind = f"1 commit behind origin/main: {judged_step(judged_at)}"
+    assert line("up-to-date", "FAIL", behind) in lines(done)
     assert "git rebase" not in done.stdout
     sb.git("merge", "-q", "--no-edit", "origin/main")
     done = sb.ship("status")
@@ -374,8 +370,8 @@ def test_a_judged_branch_that_was_never_pushed_is_told_to_merge(sb):
         {"kind": "plan"},
     ],
 )
-def test_a_record_that_cites_no_commit_of_the_branch_is_no_push(sb, over):
-    unpushed(sb)
+def test_a_record_that_cites_no_commit_of_the_branch_does_not_share_it(sb, over):
+    unshared(sb)
     sb.judged(**over)
     sb.advance_base()
     done = sb.ship("status")
@@ -384,14 +380,14 @@ def test_a_record_that_cites_no_commit_of_the_branch_is_no_push(sb, over):
     )
 
 
-def test_a_pending_round_counts_as_a_judge_record(sb):
-    unpushed(sb)
-    sb.judged("open", commit="", rounds=[], pending={"commit": sb.head()})
+def test_a_pending_round_shares_the_branch(sb):
+    unshared(sb)
+    head = sb.head()
+    sb.judged("open", commit="", rounds=[], pending={"commit": head})
     sb.advance_base()
     done = sb.ship("status")
-    assert line("up-to-date", "FAIL", f"1 commit behind origin/main: {JUDGED}") in (
-        lines(done)
-    )
+    behind = f"1 commit behind origin/main: {judged_step(head)}"
+    assert line("up-to-date", "FAIL", behind) in lines(done)
 
 
 def test_a_skip_is_recorded_again_after_a_merge(sb):
@@ -414,7 +410,7 @@ def test_a_skip_is_recorded_again_after_a_merge(sb):
 
 
 def test_a_bad_gh_merge_base_is_named_and_ignored(sb):
-    unpushed(sb)
+    unshared(sb)
     sb.git("config", f"branch.{NEW}.gh-merge-base", "a..b")
     done = sb.ship("status")
     ok = line("up-to-date", "ok", "contains the tip of origin/main")
@@ -426,7 +422,7 @@ def test_a_bad_gh_merge_base_is_named_and_ignored(sb):
 
 
 def test_no_default_branch_from_github_asks_for_the_base(sb):
-    unpushed(sb)
+    unshared(sb)
     repo = sb.repo()
     del repo["defaultBranchRef"]
     sb.state(pr=None, repo=repo)
@@ -483,15 +479,15 @@ DOWN = ship.ToolError("gh repo view: HTTP 502")
         ),
         (
             stub(**{"rev-parse": FATAL}),
-            "could not tell whether feat/x was pushed: fatal: bad object",
+            "could not tell whether feat/x is shared: fatal: bad object",
         ),
         (
             stub(**{"merge": FATAL}),
-            "could not tell whether feat/x was pushed: fatal: bad object",
+            "could not tell whether feat/x is shared: fatal: bad object",
         ),
         (
             stub(**{"ls-remote": FATAL}),
-            "could not tell whether feat/x was pushed: git ls-remote origin: "
+            "could not tell whether feat/x is shared: git ls-remote origin: "
             "fatal: bad object",
         ),
         (
@@ -507,6 +503,17 @@ def test_a_base_that_cannot_be_checked_is_not_a_reason_to_test_again(repo, detai
         f"the base could not be checked: {detail}; once it can, run record again "
         "(the test still counts)"
     )
+
+
+def test_a_closed_pull_request_does_not_share_the_branch():
+    repo = stub(**{"merge-base": (1, "", ""), "rev-list": (0, "1", "")})
+    closed = {"number": 7, "state": "CLOSED", "baseRefName": "main"}
+    found, behind = ship_behind.check_base(repo, closed)
+    assert found["detail"] == (
+        "1 commit behind origin/main: the branch is not shared: git rebase "
+        "origin/main, run the tests again, then git push -u origin feat/x"
+    )
+    assert behind
 
 
 def test_a_count_that_fails_still_says_behind(sb):
@@ -535,12 +542,11 @@ def test_the_default_branch_comes_from_git_when_github_cannot_say():
 @pytest.mark.parametrize(
     "later, detail",
     [
-        ({"mergeStateStatus": "BEHIND"}, f"behind origin/main, GitHub says: {MERGE}"),
         (
-            {"mergeStateStatus": "DIRTY"},
-            "conflicts with origin/main: git merge origin/main, resolve the "
-            "conflicts and say so in the pull request, run the tests again, then push",
+            {"mergeStateStatus": "BEHIND"},
+            f"behind origin/main, GitHub says: {PR_MERGE}",
         ),
+        ({"mergeStateStatus": "DIRTY"}, CONFLICT),
     ],
 )
 def test_a_pull_request_behind_after_marking_ready_is_told_to_merge(sb, later, detail):
