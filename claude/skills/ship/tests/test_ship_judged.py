@@ -1,6 +1,7 @@
 """The judged gate: the build was judged before the acceptance test."""
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -15,7 +16,7 @@ RECORD = f"docs/loops/{SLUG}/build/state.json"
 MOVE = f"move the folder docs/loops/{SLUG}/build away and judge again"
 UNREADABLE = f"not a readable judge record ({RECORD}): {MOVE}"
 NO_RECORD = (
-    f"no judge record ({RECORD}, in this checkout): run the judge loop "
+    f"no judge record ({RECORD}, in this checkout): run /judge-loop "
     "(loop.py start build), or loop.py skip --reason for a change with nothing "
     "to judge"
 )
@@ -326,13 +327,13 @@ def test_a_record_for_another_branch(sb, branch, shown):
         ),
         (
             "done",
-            "judged against develop, the pull request goes to main: loop.py "
-            "start build --base main",
+            "judged against develop, the pull request goes to main: /judge-loop "
+            "(loop.py start build --base main)",
         ),
         (
             "open",
-            "judged against develop, the pull request goes to main: loop.py "
-            "abandon, then loop.py start build --base main",
+            "judged against develop, the pull request goes to main: /judge-loop "
+            "(loop.py abandon, then loop.py start build --base main)",
         ),
     ],
 )
@@ -364,7 +365,7 @@ def test_a_loop_waiting_for_the_user_stops_the_merge(sb, outcome):
 
 def test_an_abandoned_loop(sb):
     sb.judged(outcome="abandoned")
-    assert detail(sb) == "abandoned: loop.py start build"
+    assert detail(sb) == "abandoned: /judge-loop (loop.py start build)"
 
 
 def test_a_skip_on_the_head_passes(sb):
@@ -388,8 +389,8 @@ def test_a_skip_before_new_commits_fails(sb):
     sb.git("push", "-q", "origin", BRANCH)
     sb.state()
     assert detail(sb) == (
-        "new commits since the skip: judge them (loop.py start build), or skip "
-        "again if there is still nothing to judge"
+        "new commits since the skip: judge them with /judge-loop (loop.py start "
+        "build), or skip again if there is still nothing to judge"
     )
 
 
@@ -470,7 +471,7 @@ def test_a_judged_commit_already_on_the_base(sb):
     sb.judged(commit=sb.git("rev-parse", "origin/main"))
     assert detail(sb) == (
         f"the judged commit {short(sb, 'origin/main')} is already on main: judge "
-        "the branch's own commits (loop.py start build)"
+        "the branch's own commits with /judge-loop (loop.py start build)"
     )
 
 
@@ -687,7 +688,7 @@ def test_the_skip_and_the_abandon_the_judge_loop_writes(real):
     assert done.returncode == 0, done.stdout + done.stderr
     done = loop(sb, "abandon", "--note", "not needed")
     assert done.returncode == 0, done.stdout + done.stderr
-    assert detail(sb) == "abandoned: loop.py start build"
+    assert detail(sb) == "abandoned: /judge-loop (loop.py start build)"
 
 
 # ---------------------------------------------------------------- the docs
@@ -726,6 +727,17 @@ def test_the_ship_skill_judges_the_build_before_the_acceptance_test():
     assert ", Bash(python3 ~/.claude/skills/judge-loop/loop.py *)\n" in text
     assert "`python3 ~/.claude/skills/judge-loop/loop.py <command>`" in text
     assert "\n- The branch's judge loop is waiting for the user." in text
+
+
+def test_the_gate_names_start_and_abandon_with_the_judge_loop_skill():
+    source = (SHIP.parent / "ship_judged.py").read_text()
+    assert {"start", "abandon", "status", "skip"} <= set(
+        re.findall(r"loop\.py ([a-z]+)", source)
+    )
+    for m in re.finditer(r"loop\.py (?!status\b|skip\b)[a-z]+", source):
+        assert "/judge-loop (" in source[max(0, m.start() - 60) : m.start()], m[0]
+    text = repo_text("claude/skills/ship/SKILL.md")
+    assert "; `start`, `abandon` and the rounds go through `/judge-loop`" in text
 
 
 def test_the_template_judges_the_build_before_the_acceptance_test():

@@ -461,8 +461,11 @@ def base_mismatch(st, base):
         )
     head = f"judged against {was}, the pull request goes to {now}"
     if st["outcome"] in UNFINISHED:
-        return f"{head}: loop.py abandon, then loop.py start build --base {now}"
-    return f"{head}: loop.py start build --base {now}"
+        return (
+            f"{head}: /judge-loop (loop.py abandon, then loop.py start build "
+            f"--base {now})"
+        )
+    return f"{head}: /judge-loop (loop.py start build --base {now})"
 
 
 def judged_gate(repo, head, base):
@@ -502,9 +505,9 @@ def judged_gate(repo, head, base):
     if data is None:
         return judged(
             "fail",
-            f"no judge record ({record}, in this checkout): run the judge loop "
-            "(loop.py start build), or loop.py skip --reason for a change with "
-            "nothing to judge",
+            f"no judge record ({record}, in this checkout): run "
+            "/judge-loop (loop.py start build), or loop.py skip --reason for a "
+            "change with nothing to judge",
         )
     unreadable = f"not a readable judge record ({record}): {move}"
     try:
@@ -545,18 +548,18 @@ def outcome_gate(repo, st, head, base, unreadable):
             "fail", "the judge loop is waiting for the user: loop.py status", stop=True
         )
     if outcome == "abandoned":
-        return judged("fail", "abandoned: loop.py start build")
+        return judged("fail", "abandoned: /judge-loop (loop.py start build)")
     if outcome not in OUTCOMES or not COMMIT.fullmatch(st["commit"]):
         return judged("fail", unreadable)
     if outcome in ("done", "budget") and open_counts(st)[1]:
-        return judged("fail", unreadable)  # loop.py ends such a loop as blocked
+        return judged("fail", unreadable)  # the loop ends as blocked then
     sha = st["commit"]
     if outcome == "skip":
         if sha != head:
             return judged(
                 "fail",
-                "new commits since the skip: judge them (loop.py start build), or "
-                "skip again if there is still nothing to judge",
+                "new commits since the skip: judge them with /judge-loop (loop.py "
+                "start build), or skip again if there is still nothing to judge",
             )
         return judged("pass", pass_reason(st, sha, 0))
     gone = (
@@ -576,7 +579,8 @@ def outcome_gate(repo, st, head, base, unreadable):
             return judged(
                 "fail",
                 f"the judged commit {short(sha)} is already on {show_branch(base)}: "
-                "judge the branch's own commits (loop.py start build)",
+                "judge the branch's own commits with /judge-loop (loop.py start "
+                "build)",
             )
         if rc != 1:
             return judged(

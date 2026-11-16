@@ -79,7 +79,7 @@ Run it through Bash in these forms only. The only text you add is finding ids an
 | `python3 ${CLAUDE_SKILL_DIR}/ship.py wait` | wait until every CI check has a conclusion |
 | `python3 ${CLAUDE_SKILL_DIR}/ship.py merge` | check every gate, wait for CI, merge; `--dry-run` checks the same and shows the command instead of running it |
 
-The judge loop has its own skill and helper. From here run the helper only in the form `python3 ~/.claude/skills/judge-loop/loop.py <command>`, for `status` and `skip --reason "..."`.
+The judge loop has its own skill and helper. From here run the helper only in the form `python3 ~/.claude/skills/judge-loop/loop.py <command>`, for `status` and `skip --reason "..."`; `start`, `abandon` and the rounds go through `/judge-loop`, which is how the `judged` gate names them: `/judge-loop (loop.py start build)`.
 
 A pull request with no check at all is not green where a workflow runs on pull requests: the helper waits for the first check (`--grace`, 90 seconds by default) and then fails. After a draft is marked ready a check must really have run: one that was skipped on the draft does not count. Add `--allow-no-checks` to `wait` or `merge` only after the Actions tab showed that no workflow runs for this change.
 
