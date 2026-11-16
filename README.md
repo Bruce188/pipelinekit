@@ -1,266 +1,268 @@
 # pipelinekit
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Latest tag](https://img.shields.io/github/v/tag/Bruce188/pipelinekit?label=tag&color=blue)](https://github.com/Bruce188/pipelinekit/releases)
 [![CI](https://github.com/Bruce188/pipelinekit/actions/workflows/ci.yml/badge.svg)](https://github.com/Bruce188/pipelinekit/actions/workflows/ci.yml)
 
-> **Autonomous orchestrator for Claude Code.** Write a one-line feature description; pipelinekit ships a merged PR. Charter → Analyze → Plan → Implement → Review → Merge, all driven by multi-agent dispatch with no human in the loop unless you opt in.
+A small Claude Code config kit. It contains guard hooks, permission rules,
+global git hooks, a few skills, a short `CLAUDE.md` template, and an installer
+that copies them into `~/.claude` while leaving everything else in that
+directory alone.
 
-> ⚠️ **v0.0.1 — pre-release.** Actively developed; API not yet stable. Pin to a specific commit SHA when integrating into your own workflows.
+Up to 0.0.1, pipelinekit was a full multi-agent pipeline kit with its own
+orchestrator, review panel, persona agents and memory stack. Current Claude
+Code covers most of that natively, so v0.1.0 drops those parts and keeps only
+what Claude Code does not ship. See [What was removed](#what-was-removed) and
+the [CHANGELOG](CHANGELOG.md).
 
-### Troubleshooting
+> **Status:** the hooks and skills are still being reviewed, so details may
+> change in later releases. The hooks are guardrails that catch common
+> mistakes. They are not a security boundary.
 
-Stuck on install or a first run? See [documentation/getting-started.html#troubleshooting](documentation/getting-started.html#troubleshooting) for the most common failure modes (`/pipeline` not found after install, cloud-provider CLI auth halts, review cycles not converging, a skill not firing).
+## What you get
 
----
+### Guard hooks and permissions
 
-## Read the docs
+The installer merges `claude/config/settings.template.json` into `~/.claude/settings.json`.
 
-The complete documentation lives in [`documentation/`](documentation/). **Every page is a single self-contained HTML file** — no CDN, no remote assets, no build step. After cloning, open any page directly via `file://` URL:
+| Piece | Where | What it does |
+|------|-------|--------------|
+| `permissions.deny` | settings | Claude can't read or edit `.env*` (not `.env.example`), keys, `~/.ssh`, `~/.aws`, `~/.kube/config`, `~/.config/gh/hosts.yml`, credentials files. Holds in bypass mode |
+| `permissions.ask` | settings | Prompts before editing Claude settings/hooks or `~/.gitconfig`, and before `reset --hard`, `clean -f`, force push, `branch -D`, `checkout/restore .`, `gh pr merge --admin`. Prompts in bypass mode too |
+| `bash-guard.py` | PreToolUse `Bash` (`if`: git, docker, podman, curl, wget, psql, mysql, mariadb, sqlite3) | Blocks pushes to other remotes or main, remote changes, global git config writes, hook bypasses (`--no-verify`, `core.hooksPath`), staging `config/never-stage.txt` paths or bulk staging, sensitive docker mounts, and `curl \| sh`. Asks before `docker --privileged` and DROP/TRUNCATE |
+| `block-bare-repo-markers.py` | PreToolUse `Edit`/`Write` | Blocks assembling a bare git repo (HEAD + config/objects/refs) in the working directory or one level down |
+| `post-edit-format.sh` | PostToolUse `Edit`/`Write` | Runs the project's own prettier on ts/js/json/yaml |
+| `session-check.py` | SessionStart `startup` | Quick self-check when a session starts: silent when the install is healthy, one line naming `/kit` when something is broken. Never blocks. `PIPELINEKIT_SESSION_CHECK=0` switches it off |
 
-```bash
-xdg-open documentation/index.html    # Linux
-open documentation/index.html         # macOS
-start documentation/index.html        # Windows / WSL
-```
+### Git hooks
 
-Or download just the `documentation/` folder as a zip and open `index.html` — same result, no clone needed.
+`claude/git-hooks/` is installed to `~/.claude/git-hooks` and, if you agree, set as the global `core.hooksPath`. Each hook runs the repository's own `.git/hooks/<name>` or `.githooks/<name>` afterwards.
 
-**Start with the master guide:** [documentation/getting-started.html](documentation/getting-started.html) — install + 4 worked tutorials (hello-world, TDD, Vercel deploy, meta-walkthrough).
+| Hook | What it does |
+|------|--------------|
+| `commit-msg` | Conventional commits (`feat fix refactor docs test chore perf style build ci revert`, scopes, `!`). Rejects wip (outside `.claude/worktrees/`), AI attribution and emoji. Lets `Merge`, `Revert "`, `fixup!`/`squash!`/`amend!` through |
+| `pre-commit` | `gitleaks` scan of staged changes. Warns and allows if gitleaks is missing. `PIPELINEKIT_ALLOW_SECRET=1` skips one commit |
+| `pre-push` | Refuses pushes to `main`/`master`. `ALLOW_MAIN_PUSH=1` overrides (humans only; bash-guard refuses it for Claude) |
 
----
+A repo with its own local `core.hooksPath` (husky, pre-commit framework, or a manual setting) bypasses these. Run `git config --show-origin core.hooksPath` inside it to check.
 
-## What pipelinekit gives you
+Every refusal names its rule in square brackets, for example `[git.no-verify]`,
+and is recorded without the command text in
+`~/.local/state/pipelinekit/events.jsonl`. `/kit` lists what the hooks blocked,
+asked about or failed on in the last days. `PIPELINEKIT_LOG=0` switches the log
+off. Every rule id is in
+[Components](documentation/components.html#rule-ids-and-the-event-log).
 
-- **45 skills + 22 agents + 32 hooks** wired together so `/pipeline` can take a feature from charter to merged PR without intervention.
-- **5 cloud deployment providers** (Azure, Vercel, Railway, Render, DigitalOcean) on a shared `deployment-engineer.md` base. Your charter selects one; /pipeline routes deployment automatically.
-- **Sandbox-isolated execution (default-on)** — every subprocess in a podman/docker/worktree sandbox with auto-detected provider chain. Engine-when-present: prefer `podman`, else `docker`, else graceful fallback to worktree-only with a one-line stderr log. Opt out per run via `SANDBOX_PROVIDER=worktree-only` or `PIPELINE_NO_SANDBOX=1`.
-- **TDD doctrine baked in** — `dev`-class features auto-route through `tdd-test-writer` → `tdd-implementer` for red/green pairing, enforced by `tdd-red-phase-gate.sh` hook.
-- **Multi-agent /pipeline-review** — 2–6 specialized review agents (code-reviewer, security-auditor, test-engineer, performance-tuner, spec-tracer, symbol-verifier) with charter-aware finding classification + Path A/B/M/N routing.
-- **Research loop** — Karpathy-style autoresearch via `/research`: hypothesize → mutate → benchmark → keep-or-reset, with optional auto-publish to a branch via `/ppr --research`.
-- **GitHub-native** — `--issues` mode pulls features from open issues; PR bodies auto-include `Closes #N`; squash-merge via `gh pr merge --squash --auto`.
+### Skills
 
----
+| Skill | Use it for |
+|-------|------------|
+| `dotnet-conventions` | .NET layering, DI, EF Core migrations, testing (FluentAssertions 7.x pin), BackgroundService rules, target-framework support dates, plus ASP.NET Core security in `references/security.md` |
+| `deploy` | Router for Vercel, Railway, Render, DigitalOcean App Platform and Azure (Container Apps, App Service): auth check, deploy, secrets without argv, verify, logs, rollback, and trading-bot overlap. Per-provider detail in `references/` |
+| `exchange-api-keys` | Exchange API keys for CryptoBargain and FundingRateArb: where they load from, never logging them, testnet vs mainnet, withdrawal-disabled and IP-restricted scopes, storage, rotation, leak runbook |
+| `docs-writer` | Render `docs-source/*.md` into self-contained HTML pages under `documentation/`, with optional data-driven interactive snippets |
+| `frontend-design` | Visual design guidance, loaded before building or reshaping anything a person looks at: app or site UI, HTML pages and Artifacts, `docs-writer` snippets, charts and dashboards. From [`anthropics/skills`](https://github.com/anthropics/skills), unchanged, under Apache-2.0 (see its `SOURCE.md`) |
+| `mobile` | Android (Kotlin/Compose) builds and device access from WSL2, iPhone home-screen web apps, Expo/EAS cloud builds for iOS, release and security checklist |
+| `kit` | Self-check, run as `/kit`: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, environment conflicts, what the hooks blocked or failed on in the last days, and whether a newer kit is available. `/kit update` applies it after asking |
+| `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then `ship.py` merges once every gate holds (own pull request, not a release, no required review, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
 
-## Quick install
+### CLAUDE.md template
 
-### Local (any Linux / WSL / macOS bash)
+`claude/CLAUDE.md.template` is 67 lines long. It covers your identity,
+git rules (conventional commits, no AI attribution, never-stage list, no
+direct pushes to `main`), the `docs/` and `documentation/` split, base-branch
+detection, serena vs Grep, a design rule (load `frontend-design` before visual
+work; a project's own design system and the host's rules for the output come
+first; skip it for small fixes inside an existing design), GitHub issue/PR
+habits with `gh` (Claude tests and merges the pull requests it opens; releases
+stay yours), and the deploy CLIs.
+The installer renders it to `~/.claude/CLAUDE.md`.
+
+### MCP servers
+
+- **serena** (symbol-level code navigation) is installed with `uv` at a pinned
+  commit and registered at user scope in `~/.claude.json`. Skip it with
+  `--no-serena`.
+- **context7** (library docs) is optional. Copy its entry from
+  `.mcp.json.template` into a project's `.mcp.json` if you want it.
+
+## Install
+
+Requirements: `bash`, `git` and `python3` on Linux, macOS or WSL 2. `uv` is
+needed only for serena. On Windows, install inside WSL and start Claude Code
+Desktop sessions in the WSL environment; a Local Windows session cannot run
+the hooks. See [Claude Code Desktop](documentation/installation.html#claude-code-desktop).
 
 ```bash
 git clone https://github.com/Bruce188/pipelinekit.git
 cd pipelinekit
-./scripts/install.sh
+bash scripts/install.sh            # add --no-serena to skip serena, --git-hooks / --no-git-hooks to answer the git prompt
 ```
 
-`install.sh` is idempotent. Re-run to update.
+You can safely run the installer again to update. It:
 
-### Cloud cold-start (Oracle / Hetzner)
+1. copies the hooks, git hooks, skills, the agents `kit-planner` (Fable),
+   `kit-builder` (Opus) and `kit-judge` (Fable, read-only) and
+   `config/never-stage.txt` into `~/.claude`, overwriting them in place without
+   moving the directory. A copy of your own under
+   `~/.claude/skills/frontend-design`, or an agent file of your own with one of
+   the three names, that differs from the kit's is moved to
+   `~/.claude/pipelinekit/backup/` once; other files in `~/.claude/agents/` are
+   left alone;
+2. removes skills, hooks and the agent that earlier 0.1.0 builds installed
+   (`commit-conventions`, `security-conventions`, `expo`, `ios`, the old guard
+   hooks, `agents/docs-writer.md`), but only if they are unmodified kit copies;
+   edited ones are kept with a warning;
+3. renders `~/.claude/CLAUDE.md` from the template, first backing up an existing
+   one to `CLAUDE.md.bak-<timestamp>`;
+4. backs up `settings.json` to `settings.json.bak-<timestamp>`, then merges in
+   `claude/config/settings.template.json`: the kit's hook wiring replaces its
+   old entries, hook entries whose script no longer exists are removed, the
+   deny/ask rules are added after yours, and
+   commit/PR attribution is turned off. Other settings stay as they are;
+5. asks whether to set the global `core.hooksPath` to `~/.claude/git-hooks`
+   (never changes an existing value);
+6. installs serena and registers it in `~/.claude.json`, backing that file up
+   first;
+7. records what it installed in `~/.claude/pipelinekit/manifest.json` and runs
+   `scripts/verify.sh`. Later, `/kit` in a session repeats that check, and `/kit update`
+   brings in a newer kit after asking.
+
+Start a new session after the install: Claude Code loads agents when a session
+starts.
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `CLAUDE_HOME` | `~/.claude` | Install target |
+| `USER_NAME` / `USER_EMAIL` | git config | Identity written into `CLAUDE.md` |
+| `SERENA_REF` | pinned SHA | serena commit to install |
+| `CLAUDE_INSTALL_SKIP_SERENA=1` | unset | Same as `--no-serena` |
+| `PIPELINEKIT_GIT_HOOKS=1` / `0` | ask (no if not a terminal) | Same as `--git-hooks` / `--no-git-hooks` |
+
+The devcontainer runs the installer when the container is created. Bootstrap
+scripts for Oracle and Hetzner VMs are in `scripts/cloud/`.
+
+## What was removed
+
+Each of these was dropped because a built-in Claude Code feature covers it.
+
+| Removed in 0.1.0 | Use instead |
+|------------------|-------------|
+| `/pipeline` orchestrator, planner and goal-setter agents, TDD gates | Plan mode, the Workflow tool, built-in Plan agent |
+| Review panel (code-reviewer, security-auditor and similar agents), `simplify` skill | `/code-review`, `/security-review`, `/simplify` |
+| Persona agents and `persona` | Built-in Explore and Plan agents |
+| agentmemory, `memory-journal` hook, memory migration script | Native auto-memory |
+| codegraph, graphify, local-rag, sequential-thinking | Explore agent, plus serena for symbol navigation |
+| Worktree agent rules and `verify-worktree-commit` hook | Built-in worktree isolation |
+| `research` skill, overnight/loop machinery | `/loop`, `/schedule` |
+| Context and compaction hooks (`context-warning`, `post-compact-context`, `session-start-*`, ...) | Built-in auto-compact |
+| `strip-ai-attribution` hook | The `attribution` setting (the installer turns it off) |
+| `claude-md-enhancer`, `write-a-skill`, `build-hook`/`test-hooks` | `/init`, `skill-creator`, `update-config` |
+| `vercel-ops`, `railway-ops`, `render-ops`, `digitalocean-ops`, `azure-ops` and the per-provider deployment agents | The `deploy` skill |
+| caveman, model overlays, `modes/`, `rules/`, host adapters | Dropped with no replacement |
+
+The [CHANGELOG](CHANGELOG.md) lists every removed file.
+
+## Upgrading from 0.0.1
+
+The 0.0.1 installer copied the whole kit into `~/.claude`. The new installer
+only adds and overwrites files. It does not delete the old ones, and it does
+not touch MCP servers other than serena. To upgrade cleanly:
+
+**1. Back up.**
 
 ```bash
-# Oracle Cloud Free Tier ARM A1 (aarch64, 24 GB RAM):
-curl -fsSL https://raw.githubusercontent.com/Bruce188/pipelinekit/main/scripts/cloud/oracle-bootstrap.sh | bash
-
-# Hetzner CX22 (x86_64, 4 GB RAM — swap auto-created):
-curl -fsSL https://raw.githubusercontent.com/Bruce188/pipelinekit/main/scripts/cloud/hetzner-bootstrap.sh | bash
+cp -a ~/.claude ~/.claude.bak-0.0.1
+cp -p ~/.claude.json ~/.claude.json.bak-0.0.1
 ```
 
-Both scripts are idempotent. Secrets read from env, never baked in. Full walkthrough: [documentation/cloud-setup.html](documentation/cloud-setup.html).
-
-### GitHub Codespaces
-
-Open the repo in Codespaces — the devcontainer post-create runs `install.sh` automatically. Then `claude` in the terminal to start.
-
-### Add to an existing Claude Code session
-
-```
-"Clone https://github.com/Bruce188/pipelinekit.git into ~/work,
- cd into it, and run ./scripts/install.sh non-interactively."
-```
-
-Full install variants (local, cloud cold-start, Codespaces / devcontainer, non-interactive): [documentation/installation.html](documentation/installation.html).
-
----
-
-## First run
-
-After install, drop a feature file in a target repo:
+**2. Remove the old kit files.** If you edited `rules/` or `modes/`, or stored
+anything in `memory/`, check those directories first and keep what you need.
 
 ```bash
-mkdir -p docs
-cat > docs/features.md <<'EOF'
-## fix/readme-typo
-
-**Description:** Fix the typo in README.md where "occured" should be "occurred".
-
-**Constraints:** Single-file edit. No new tests. Non-dev feature class.
-
-### Run Log
-EOF
-
-claude
+cd ~/.claude
+rm -rf commands host-adapters lib memory model-overlays modes rules snippets tresor-resources
+rm -rf agents/personas agents/tests
+rm -f agents/{CLAUDE,INDEX,NOTICE,README}.md \
+  agents/{azure,digitalocean,railway,render,vercel}-deployment-engineer.md \
+  agents/{claude-md-guardian,code-reviewer,debugger,deployment-engineer,incident-responder}.md \
+  agents/{mobile-dev,performance-tuner,production-probe,refactor-expert,security-auditor}.md \
+  agents/{spec-tracer,symbol-verifier,tdd-implementer,tdd-test-writer,test-engineer,uat-runner}.md
+rm -f skills/{CLAUDE,INDEX}.md
+rm -rf skills/{analyze,ascii-diagram,azure-ops,build-hook,caveman-mode,claude-md-enhancer,code-health} \
+  skills/{codegraph-init,context-dump,create-plan,dependency-auditor,digest-memories,digitalocean-ops} \
+  skills/{document-release,financial-data-analyst,fix-issue,graphify-init,handoff-create,implement-plan} \
+  skills/{incident,landing-report,learn,new-branch,pipeline,playwright,post-merge,ppr,railway-ops} \
+  skills/{render-ops,research,review,secret-scanner,simplify,tdd,test-hooks,uat,vercel-ops} \
+  skills/{write-a-skill,zoom-out}
+rm -f hooks/{CLAUDE.md,agent-caveman-gate.sh,claude-md-guard.py,context-budget-advisor.py} \
+  hooks/{context-warning.py,cost_log.py,kill-rogue-mcp-daemon.sh,mcp-rss-cap.sh,memory-journal.sh} \
+  hooks/{notify-emit.sh,post-compact-context.sh,session-start-caveman.sh,session-start-context.sh} \
+  hooks/{skill_budget.py,stop-completion-gate.sh,strip-ai-attribution.sh,subagent-first-nudge.sh} \
+  hooks/{tdd-order-check.sh,tdd-red-phase-gate.sh,test-logger.sh,validate-task-spec.py} \
+  hooks/verify-worktree-commit.sh
 ```
 
-In the Claude session:
+Old `skills/simplify` and `skills/review` folders can shadow the built-in
+`/simplify` and `/review`, so make sure they are gone.
 
-```
-/pipeline docs/features.md --no-charter
-```
-
-That's it. The orchestrator handles the rest: analyze → plan → branch → implement → review → push → PR → squash-merge. Watch state transitions in real time. Total runtime: ~3–5 minutes for a typo fix; ~15–30 minutes for a real feature.
-
-Full tutorial set: [documentation/getting-started.html](documentation/getting-started.html).
-
----
-
-## Pipeline modes
-
-`/pipeline` routes per feature based on `<type>/<name>` prefix in `docs/features.md`:
-
-| Prefix | Mode | TDD |
-|--------|------|-----|
-| `feat`, `fix`, `refactor`, `perf`, `test` | dev | yes — tdd-test-writer → tdd-implementer |
-| `docs`, `chore`, `style`, `build`, `ci`, `content`, `ops`, `research` | non-dev | skipped |
-
-Override with `**Type:** dev|non-dev` per-feature.
-
----
-
-## What's inside
-
-| Layer | Contents |
-|-------|----------|
-| **Rules** | `claude/CLAUDE.md.template`, `claude/rules/workflow.md`, `claude/rules/agents-worktrees.md` |
-| **Skills** (45) | `pipeline`, `analyze`, `create-plan`, `implement-plan`, `pipeline-review`, `ppr`, `research`, `tdd`, `incident`, `landing-report`, `learn`, `azure-ops`, `vercel-ops`, `railway-ops`, `render-ops`, `digitalocean-ops`, `expo`, `ios`, `docs-writer`, `document-release`, `claude-md-enhancer`, `write-a-skill`, `zoom-out`, `simplify`, `caveman-mode`, ... |
-| **Agents** (22) | `code-reviewer`, `security-auditor`, `symbol-verifier`, `spec-tracer`, `tdd-test-writer`, `tdd-implementer`, `mobile-dev`, `deployment-engineer` (base), `azure-deployment-engineer`, `vercel-deployment-engineer`, `railway-deployment-engineer`, `render-deployment-engineer`, `digitalocean-deployment-engineer`, `incident-responder`, `claude-md-guardian`, ... |
-| **Hooks** (32) | `validate-commit-msg`, `strip-ai-attribution`, `block-push-main`, `block-stage-sensitive`, `block-dangerous-commands`, `tdd-order-check`, `tdd-red-phase-gate`, `claude-md-guard`, `env-scrub`, `notify-emit`, `context-warning`, `context-budget-advisor`, `verify-worktree-commit`, ... |
-| **MCP** | `context7`, `serena`, `sequential-thinking`, `agentmemory`, `codegraph`, `graphify`, optional `local-rag` + `claude-context` |
-| **LSP** | pyright, typescript, csharp, gopls, rust-analyzer |
-| **Model overlays** | Per-model tuning for opus-4-7, sonnet-4-6, haiku-4-5 (consumed by phase skills) |
-| **Host adapters** | claude + codex (concrete), cursor/gemini (stubs) — interface scaffold for multi-host dispatch |
-| **Sandbox** | Pluggable `SandboxProvider.sh` (`auto` default: podman → docker → worktree-only) with `sandbox_wrap` shared helper |
-
----
-
-## Cloud deployment
-
-Five providers, all driven from Charter Topic 10:
-
-| Agent | Skill | Provider | Guide |
-|-------|-------|----------|-------|
-| `@azure-deployment-engineer` | `azure-ops` | Azure App Service / Container Apps / Function Apps / AKS | [docs](documentation/deployment-azure.html) |
-| `@vercel-deployment-engineer` | `vercel-ops` | Vercel (Next.js / SvelteKit / Astro / Remix) | [docs](documentation/deployment-vercel.html) |
-| `@railway-deployment-engineer` | `railway-ops` | Railway (zero-Dockerfile container PaaS) | [docs](documentation/deployment-railway.html) |
-| `@render-deployment-engineer` | `render-ops` | Render (managed container PaaS) | [docs](documentation/deployment-render.html) |
-| `@digitalocean-deployment-engineer` | `digitalocean-ops` | DigitalOcean App Platform | [docs](documentation/deployment-digitalocean.html) |
-
-`claude/agents/deployment-engineer.md` is the shared base agent (dispatch with `provider: <name>`) describing the shared contract (auth posture, secret hygiene, health-check polling, no-direct-REST). Each named agent extends it for its provider.
-
----
-
-## `/ppr --research`
-
-Publish research keep-rows from a TSV to a dedicated branch. Dry-run by default; pass `--no-dry-run` to publish:
+**3. Re-run the installer.** It rewrites `CLAUDE.md`, which no longer imports
+`rules/` or `modes/`. It also prunes `settings.json` hook entries whose script
+you just deleted, removes the old guard hooks and skills it replaced (only
+unmodified copies), and asks whether to enable the global git hooks.
 
 ```bash
-/ppr --research                          # dry-run (default)
-/ppr --research --no-dry-run --research-tag my-experiment
+cd pipelinekit && git pull && bash scripts/install.sh
 ```
 
-Reference: [documentation/ppr-research-flag.html](documentation/ppr-research-flag.html).
+**4. Clean up `settings.json`.** The installer replaces its own hook entries
+and prunes the ones that point to scripts missing from `~/.claude/hooks/`. Open
+`~/.claude/settings.json` and remove anything else you no longer want from the
+old kit. For example, 0.0.1 set `env.CLAUDE_CODE_DISABLE_1M_CONTEXT` to `"1"`
+by default. A backup from step 3 is at `settings.json.bak-<timestamp>`.
 
----
+**5. Remove the old MCP servers.** At user scope:
 
-## Layout
-
-```
-pipelinekit/
-├── .devcontainer/         # Codespaces / VS Code devcontainer
-├── claude/                # Overlay installed to ~/.claude/
-│   ├── CLAUDE.md.template
-│   ├── rules/
-│   ├── skills/            # 45 native skills
-│   │   ├── pipeline/      # The autonomous orchestrator
-│   │   ├── docs-writer/   # template.html + render.py (rich-template HTML)
-│   │   ├── research/      # Karpathy autoresearch loop + tsv-viewer.sh
-│   │   ├── {railway,render,digitalocean}-ops/  # Cloud provider ops skills
-│   │   └── ...
-│   ├── agents/            # 22 specialized agents (incl. deployment-engineer base)
-│   ├── hooks/             # 32 production hooks (29 harness + 3 git)
-│   ├── lib/
-│   │   ├── pipeline/      # ac_lint, charter_revalidate, decomposition_check, ...
-│   │   └── sandbox/       # SandboxProvider.sh + providers/ + sandbox_wrap.sh
-│   ├── model-overlays/    # opus-4-7.md, sonnet-4-6.md, haiku-4-5.md, claude.md
-│   ├── host-adapters/     # claude.sh + codex.sh (concrete), cursor.sh / gemini.sh (stubs)
-│   ├── memory/            # MEMORY.md scaffold (empty by design; populated per project)
-│   └── config/            # never-stage.txt, etc.
-├── scripts/
-│   ├── install.sh         # Idempotent installer
-│   ├── sandbox/           # Container base image (Containerfile + build.sh)
-│   └── cloud/             # Oracle + Hetzner bootstrap scripts
-├── documentation/         # User-facing docs — all self-contained HTML
-│   ├── index.html         # Landing page
-│   ├── getting-started.html  # Master guide (start here)
-│   ├── changelog.html     # v0.0.1 dev log
-│   ├── installation.html, pipeline.html, cloud-setup.html
-│   ├── deployment-{azure,vercel,railway,render,digitalocean}.html
-│   └── SKILL-AUTHORING-STANDARD.html, SKILL_PIPELINE.html, NOTICE.html  # Vendored reference standards + attribution
-├── .mcp.json.template     # MCP server config (copy to project root on install)
-├── LICENSE                # MIT
-└── README.md
+```bash
+for s in agentmemory codegraph graphify local-rag sequential-thinking; do
+  claude mcp remove "$s" -s user 2>/dev/null
+done
 ```
 
-**Note:** `docs/` is intentionally NOT in the repo tree above — it's gitignored and exclusively for AI-workflow artifacts (`analysis-vN.md`, `plan-vN.md`, `prompts-vN.md`, `review-vN.md`, `charter.md`, `progress.md`, `pipeline-state.md`, `features-vN.md`, etc.). User-facing docs live in `documentation/` and are committed as HTML.
+Also delete those entries from any project `.mcp.json` the old installer
+wrote. Then run `claude mcp list` to confirm that only the servers you want
+are left.
 
----
+**6. Verify.**
 
-## Caveman mode (wenyan-ultra)
-
-Default verbosity in pipelinekit sessions: caveman wenyan-ultra. Drops articles, filler, hedging. Code, commits, and security-critical text remain normal English.
-
-```
-/caveman lite | full | ultra
-stop caveman     # revert to normal
+```bash
+bash scripts/verify.sh
 ```
 
----
+In a Claude Code session, `/kit` gives the same report.
 
-## Memory
+## Documentation
 
-Memory ships as an empty scaffold. After install, the `agentmemory` MCP (registered by `install.sh`) is the canonical memory store; legacy flat files under `~/.claude/projects/<project-slug>/memory/` stay read-only as a rollback window (dual-write via `PIPELINE_KEEP_FLAT_FILE_MEMORY=1`). See [`claude/memory/MEMORY.md`](claude/memory/MEMORY.md) for the flat-file schema reference (recency-weighted confidence decay, four memory types: user / feedback / project / reference).
+The HTML docs are in [`documentation/`](documentation/index.html) and are
+rendered from the markdown in `docs-source/`:
 
----
+```bash
+python3 claude/skills/docs-writer/render.py   # renders every docs-source/*.md; or: --root /path/to/repo
+```
 
-## Reference
+## Tests
 
-- **[Master guide](documentation/getting-started.html)** — install + 4 worked tutorials (start here)
-- [Documentation index](documentation/index.html) — every reader-facing page
-- [Changelog v0.0.1](documentation/changelog.html) — every PR organized by theme
-- [Pipeline workflow](documentation/pipeline.html) — /pipeline phase-by-phase reference
-- [SKILL authoring standard](documentation/SKILL-AUTHORING-STANDARD.html) — vendored standard (10-pattern skill DNA)
-- [SKILL pipeline lifecycle](documentation/SKILL_PIPELINE.html) — Intent → ... → Verify
-
----
-
-## Credits
-
-Pipelinekit stands on the shoulders of several upstream projects, plus inspiration from individual researchers and the Claude platform itself.
-
-**Inspirational-but-not-vendored:**
-
-- **[Andrej Karpathy](https://karpathy.ai/)** — the autoresearch-loop pattern (hypothesize → mutate one file → benchmark → keep-or-reset → append row → repeat) is the design behind `/research`. The `symbol-verifier` anti-hallucination agent (Agent 6 of `/pipeline-review` on medium+ diffs) is inspired by the same first-principles verification ethos.
-- **[Anthropic](https://www.anthropic.com/)** — the entire runtime: Claude Code, the Agent SDK, multi-agent dispatch, Skills, Hooks, MCP, `PushNotification`, and the underlying Claude models that every pipelinekit phase calls. Pipelinekit is a workflow overlay on Claude Code — without Anthropic's platform, there's no pipelinekit.
-
-**Vendored upstreams** (full table with pinned SHAs + licenses + scope + re-vendor procedures at [documentation/credits.html](documentation/credits.html)):
-
-- [wshobson/agents](https://github.com/wshobson/agents) — 2 specialist agents: deployment-engineer, incident-responder (MIT, © 2024 Seth Hobson)
-- [alirezarezvani/claude-skills](https://github.com/alirezarezvani/claude-skills) — skill-authoring DNA + lifecycle reference + personas (MIT, © 2025 Alireza Rezvani)
-- [alirezarezvani/ClaudeForge](https://github.com/alirezarezvani/ClaudeForge) — claude-md-guardian + claude-md-enhancer (MIT, © 2025 Alireza Rezvani)
-- [mattpocock/skills](https://github.com/mattpocock/skills) — TDD doctrine pack + write-a-skill + zoom-out (MIT, © Matt Pocock)
-
-Per-directory `NOTICE.md` files carry the full upstream license text and re-vendor procedures.
-
----
+```bash
+for t in claude/hooks/tests/test_*.sh; do bash "$t"; done   # git hooks
+python3 -m pytest claude/hooks/tests claude/skills/kit/tests claude/skills/ship/tests
+bash tests/test_install.sh
+bash claude/skills/docs-writer/tests/test_render.sh
+bash claude/skills/docs-writer/tests/test_richness_threshold.sh
+```
 
 ## License
 
-MIT. See [LICENSE](LICENSE). Pipelinekit's own original code (orchestrator, hooks, docs-writer, install scripts, documentation) is MIT-licensed; vendored upstream files retain their original licenses linked above.
+MIT, see [LICENSE](LICENSE).
+
+### Third-party
+
+The files under `claude/skills/frontend-design/` other than `SOURCE.md` are Anthropic's, unchanged, under the Apache License 2.0 (`LICENSE.txt` in that folder). The MIT licence covers the rest.

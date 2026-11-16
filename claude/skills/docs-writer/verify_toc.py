@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""docs-writer/2 ToC integrity checker.
+"""docs-writer ToC integrity checker.
 
-Audits every documentation/*.html (recursive) for:
+Audits every documentation/**/*.html under the current directory (recursive) for:
   1. Sidebar ToC `href="#xxx"` links that don't resolve to a heading id in the body.
   2. Duplicate heading ids (two `<h2 id="X">` is a bug).
 
@@ -12,7 +12,7 @@ inside embedded snippets and never appear in the sidebar.
 Exits 0 if every page is clean; exits 1 with a per-page report on any failure.
 
 Usage:
-    verify_toc.py            # scan documentation/ in the repo root
+    verify_toc.py            # scan ./documentation/ (run from the project root)
     verify_toc.py path...    # scan specific .html files
 """
 from __future__ import annotations
@@ -20,9 +20,6 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-DOCUMENTATION_DIR = REPO_ROOT / "documentation"
 
 _TOC_ASIDE_RE = re.compile(
     r'<aside[^>]*class="toc"[^>]*>(.+?)</aside>', re.DOTALL
@@ -53,7 +50,11 @@ def main() -> int:
     if len(sys.argv) > 1:
         targets = [Path(p).resolve() for p in sys.argv[1:]]
     else:
-        targets = sorted(DOCUMENTATION_DIR.rglob("*.html"))
+        doc_dir = Path.cwd() / "documentation"
+        if not doc_dir.is_dir():
+            print(f"error: {doc_dir} not found (run from the project root or pass files)", file=sys.stderr)
+            return 2
+        targets = sorted(doc_dir.rglob("*.html"))
 
     total_pages = 0
     total_links = 0
@@ -69,7 +70,7 @@ def main() -> int:
         total_broken += len(broken)
         if broken or dups:
             try:
-                rel = path.relative_to(REPO_ROOT)
+                rel = path.relative_to(Path.cwd())
             except ValueError:
                 rel = path
             issues.append((rel, n_links, broken, dups))

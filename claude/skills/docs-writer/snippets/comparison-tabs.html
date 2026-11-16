@@ -1,13 +1,19 @@
 <!-- snippet:comparison-tabs
-     Tabbed side-by-side comparison of the 5 cloud deployment providers.
-     Click a tab to compare against the page's "home" provider on:
-     pricing model, build system, DB story, region story, scaling story.
+     Side-by-side comparison. The "home" item stays in the left column; tabs
+     pick which other item fills the right column.
 
-     The "home" provider is auto-detected from <title> if it contains
-     "Vercel", "Azure", "Railway", "Render", or "DigitalOcean".
-
-     Placeholder usage:
-       <div data-snippet="comparison-tabs"></div>
+     The page supplies the data as a JSON child of the placeholder. Values may
+     contain inline HTML (e.g. <code>).
+       <div data-snippet="comparison-tabs">
+       <script type="application/json">
+       {"home": "a",
+        "items": {
+          "a": {"name": "Option A", "icon": "A", "rows": {"Pricing": "...", "Setup": "..."}},
+          "b": {"name": "Option B", "icon": "B", "rows": {"Pricing": "...", "Setup": "..."}}}}
+       </script>
+       </div>
+     "home" is optional (default: the first item). Optional data-home-label on
+     the placeholder sets the left column badge (default "this page").
 -->
 <div class="pkit-cmp" data-snippet-mount="comparison-tabs">
   <style>
@@ -33,64 +39,7 @@
 
   <div class="pkit-cmp-tabs" data-cmp-tabs></div>
   <div class="pkit-cmp-grid" data-cmp-grid></div>
-  <p class="pkit-cmp-note">Click any tab to compare this page's provider against another. Compare against → switches the right column.</p>
-
-  <script type="application/json" data-cmp-data>
-{
-  "providers": {
-    "vercel": {
-      "name": "Vercel", "icon": "▲", "color": "#000",
-      "rows": {
-        "Pricing model": "Per-invocation (Hobby free / Pro $20/mo + usage). Free tier generous for static + low-traffic SSR.",
-        "Build system": "Auto-detect framework presets (Next.js, SvelteKit, Astro, Remix, Vite). Zero <code>vercel.json</code> needed for the common case.",
-        "Database story": "No first-party. Use Vercel Postgres (Neon-managed) or external (Supabase / Neon direct / PlanetScale).",
-        "Region story": "Global edge by default. Pin functions to specific regions via <code>vercel.json</code>.",
-        "Scaling": "Auto-scale per-function. Cold-start ~50-200ms on warm functions; up to ~1s on rarely-hit ones."
-      }
-    },
-    "azure": {
-      "name": "Azure", "icon": "☁", "color": "#0078d4",
-      "rows": {
-        "Pricing model": "Per-resource (App Service plan, Container Apps consumption, Function Apps Y1/EP). Free tier exists but limited.",
-        "Build system": "Multiple options: App Service auto-build, Container Apps Dockerfile, Bicep IaC for full control.",
-        "Database story": "First-party: Azure SQL, Cosmos DB, PostgreSQL Flexible Server, Redis Cache. Tight integration via Managed Identity.",
-        "Region story": "60+ regions globally. Availability zones for HA. Region pairs for DR.",
-        "Scaling": "Granular: App Service plan instances, Container Apps replicas, Function consumption-plan auto-scale. Some resources scale to zero."
-      }
-    },
-    "railway": {
-      "name": "Railway", "icon": "⚡", "color": "#7c3aed",
-      "rows": {
-        "Pricing model": "Usage-based (~$5 credit/mo free, then $0.000463/GB-hour). Predictable for small projects.",
-        "Build system": "Nixpacks (zero Dockerfile for most runtimes — Node, Python, Go, Ruby). Falls back to Dockerfile if present.",
-        "Database story": "First-party managed Postgres, MySQL, Redis, MongoDB. One-click provisioning inside the same project.",
-        "Region story": "Limited regions (US-West / EU-West / Singapore). Not edge.",
-        "Scaling": "Vertical (CPU/RAM) by default. Horizontal replicas require config. Cron + workers natively supported."
-      }
-    },
-    "render": {
-      "name": "Render", "icon": "🎨", "color": "#46e3b7",
-      "rows": {
-        "Pricing model": "Per-service tier ($7/mo Standard, $25/mo Pro). Free tier for static + cron only — web services don't have a real free tier (spin-down after inactivity).",
-        "Build system": "Native runtime detection (Node, Python, Ruby, Go, Rust, Elixir, Docker). <code>render.yaml</code> for IaC.",
-        "Database story": "First-party managed Postgres + Redis. External: any.",
-        "Region story": "5 regions (Oregon, Ohio, Virginia, Frankfurt, Singapore).",
-        "Scaling": "Manual horizontal scaling on Pro+. Auto-scaling in beta. Predictable instance pricing."
-      }
-    },
-    "digitalocean": {
-      "name": "DigitalOcean App Platform", "icon": "🌊", "color": "#0080ff",
-      "rows": {
-        "Pricing model": "Per-service tier ($5/mo Basic, $12/mo Pro per instance). Predictable. No free tier for App Platform itself.",
-        "Build system": "Buildpacks (Heroku-style) or Dockerfile. Component-based deploy.",
-        "Database story": "First-party DO Managed Databases (Postgres, MySQL, Redis, MongoDB, Kafka). Separate billing from App Platform.",
-        "Region story": "12+ regions. App Platform availability varies per region; check before commit.",
-        "Scaling": "Vertical resize + horizontal scaling. App Platform handles routing automatically."
-      }
-    }
-  }
-}
-  </script>
+  <p class="pkit-cmp-note">Pick a tab to change the right-hand column.</p>
 </div>
 
 <script>
@@ -100,36 +49,51 @@
     if (cmp.dataset.pkitInit) return;
     cmp.dataset.pkitInit = '1';
 
-    const dataEl = cmp.querySelector('script[data-cmp-data]');
+    const dataEl = cmp.querySelector('script[type="application/json"]');
     const tabsEl = cmp.querySelector('[data-cmp-tabs]');
     const gridEl = cmp.querySelector('[data-cmp-grid]');
     if (!dataEl || !tabsEl || !gridEl) return;
     const data = JSON.parse(dataEl.textContent);
 
-  // Detect "home" provider from <title>
-  const title = (document.title || '').toLowerCase();
-  let home = 'vercel';
-  for (const key of Object.keys(data.providers)) {
-    if (title.includes(key)) { home = key; break; }
-  }
-  // Default "other" = first non-home
-  const others = Object.keys(data.providers).filter(k => k !== home);
+  const items = data.items || {};
+  const home = data.home in items ? data.home : Object.keys(items)[0];
+  const others = Object.keys(items).filter(k => k !== home);
+  if (!home || !others.length) return;
   let compareKey = others[0];
+  tabsEl.setAttribute('role', 'tablist');
+  gridEl.setAttribute('role', 'tabpanel');
+  // Arrow keys / Home / End move between tabs (WAI-ARIA tabs pattern).
+  tabsEl.addEventListener('keydown', e => {
+    const i = others.indexOf(compareKey);
+    const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: others.length - 1 }[e.key];
+    if (next === undefined) return;
+    e.preventDefault();
+    compareKey = others[(next + others.length) % others.length];
+    render();
+  });
 
   function render() {
+    // The tabs are rebuilt below; keep keyboard focus on the selected one.
+    const hadFocus = tabsEl.contains(document.activeElement);
     tabsEl.innerHTML = '';
-    Object.entries(data.providers).forEach(([key, prov]) => {
-      if (key === home) return;
+    others.forEach(key => {
+      const prov = items[key];
+      const on = key === compareKey;
       const b = document.createElement('button');
-      b.className = 'pkit-cmp-tab' + (key === compareKey ? ' active' : '');
+      b.type = 'button';
+      b.className = 'pkit-cmp-tab' + (on ? ' active' : '');
       b.dataset.key = key;
-      b.innerHTML = `<span class="icon">${prov.icon}</span>${prov.name}`;
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-selected', String(on));
+      b.tabIndex = on ? 0 : -1;
+      b.innerHTML = (prov.icon ? `<span class="icon">${prov.icon}</span>` : '') + prov.name;
       b.addEventListener('click', () => { compareKey = key; render(); });
       tabsEl.appendChild(b);
+      if (on && hadFocus) b.focus();
     });
 
-    const homeProv = data.providers[home];
-    const otherProv = data.providers[compareKey];
+    const homeProv = items[home];
+    const otherProv = items[compareKey];
 
     function colHtml(prov, isHome) {
       const rows = Object.entries(prov.rows).map(([k, v]) =>
@@ -137,9 +101,9 @@
            <div class="pkit-cmp-key">${k}</div>
            <div class="pkit-cmp-val">${v}</div>
          </div>`).join('');
-      const badge = isHome ? ' <span class="badge">this page</span>' : '';
+      const badge = isHome ? ` <span class="badge">${cmp.dataset.homeLabel || 'this page'}</span>` : '';
       return `<div class="pkit-cmp-col ${isHome ? 'home' : ''}">
-                <h4>${prov.icon} ${prov.name}${badge}</h4>
+                <h4>${prov.icon || ''} ${prov.name}${badge}</h4>
                 ${rows}
               </div>`;
     }

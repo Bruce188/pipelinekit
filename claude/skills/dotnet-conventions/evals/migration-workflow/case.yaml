@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: migration-workflow
+expected_outcome: |
+  Adds the property in Domain, uses `dotnet tool restore` (local manifest) or explains installing dotnet-ef, runs `dotnet ef migrations add` with --project Infrastructure and --startup-project Web, reviews Up/Down, and does not add MigrateAsync at production startup.

@@ -1,14 +1,20 @@
 <!-- snippet:terminal-simulator
-     Simulated terminal session. Plays back a scripted sequence of
-     commands + outputs at a configurable speed. Pause / play / step /
-     restart controls. Used on ppr-research-flag.html for a dry-run
-     preview without requiring the user to actually run /ppr --research.
+     Simulated terminal session: plays back a scripted sequence of commands
+     and outputs with play / pause / step / restart / speed controls. Commands
+     are typed character by character; output appears at once. Auto-plays when
+     scrolled into view.
 
-     The scripted session is JSON-embedded inline. Lines are typed
-     character-by-character for commands; output is dumped instantly.
-
-     Placeholder usage:
-       <div data-snippet="terminal-simulator"></div>
+     The page supplies the script as a JSON child of the placeholder. Step
+     types: ps1 (prompt), cmd (typed), out-stdout, out-stderr, out-info,
+     out-success, and pause ({"type": "pause", "ms": 400}). Text is escaped.
+       <div data-snippet="terminal-simulator" data-title="install walkthrough">
+       <script type="application/json">
+       [{"type": "ps1", "text": "$ "},
+        {"type": "cmd", "text": "pip install mytool\n"},
+        {"type": "out-success", "text": "Successfully installed mytool\n"}]
+       </script>
+       </div>
+     Optional data-title sets the window title (default "terminal").
 -->
 <div class="pkit-term" data-snippet-mount="terminal-simulator">
   <style>
@@ -42,7 +48,7 @@
     <div class="pkit-tm-dots">
       <span class="pkit-tm-dot"></span><span class="pkit-tm-dot"></span><span class="pkit-tm-dot"></span>
     </div>
-    <div class="pkit-tm-title">/ppr --research — simulated</div>
+    <div class="pkit-tm-title" data-tm-title>terminal</div>
     <div class="pkit-tm-controls">
       <button class="pkit-tm-btn" data-act="play">▶ Play</button>
       <button class="pkit-tm-btn" data-act="pause" disabled>⏸ Pause</button>
@@ -53,46 +59,6 @@
   </div>
   <div class="pkit-tm-progress"><div class="pkit-tm-progress-fill" data-tm-progress></div></div>
   <pre class="pkit-tm-screen" data-tm-screen></pre>
-
-  <script type="application/json" data-tm-script>
-[
-  {"type": "ps1", "text": "$ "},
-  {"type": "cmd", "text": "claude\n"},
-  {"type": "out-info", "text": "Claude Code 2.1.144  (interactive)\n"},
-  {"type": "pause", "ms": 400},
-  {"type": "ps1", "text": "> "},
-  {"type": "cmd", "text": "/ppr --research\n"},
-  {"type": "out-info", "text": "[ppr] --research mode active. Default: --dry-run.\n"},
-  {"type": "out-info", "text": "[ppr] Reading docs/research-results.tsv...\n"},
-  {"type": "pause", "ms": 400},
-  {"type": "out-stdout", "text": "[ppr] Found 12 keep-rows in TSV.\n"},
-  {"type": "out-stdout", "text": "[ppr] Branch name would be: research/temp-2026-05-19\n"},
-  {"type": "pause", "ms": 300},
-  {"type": "out-stdout", "text": "[ppr] Planned actions (dry-run):\n"},
-  {"type": "out-stdout", "text": "         git checkout -b research/temp-2026-05-19\n"},
-  {"type": "out-stdout", "text": "         (filter 12 keep-rows from research-results.tsv into research-keep.tsv)\n"},
-  {"type": "out-stdout", "text": "         git add research-keep.tsv\n"},
-  {"type": "out-stdout", "text": "         git commit -m 'chore: publish research keeps for temp (12 rows)'\n"},
-  {"type": "out-stdout", "text": "         git push -u origin research/temp-2026-05-19\n"},
-  {"type": "pause", "ms": 500},
-  {"type": "out-info", "text": "[ppr] No PR opened — research branches are user-reviewed before merge.\n"},
-  {"type": "out-success", "text": "[ppr] OK. Dry-run complete. Pass --no-dry-run --research-tag <slug> to publish.\n"},
-  {"type": "pause", "ms": 400},
-  {"type": "ps1", "text": "> "},
-  {"type": "cmd", "text": "/ppr --research --no-dry-run --research-tag temp\n"},
-  {"type": "out-info", "text": "[ppr] --no-dry-run + --research-tag=temp. Publishing.\n"},
-  {"type": "pause", "ms": 300},
-  {"type": "out-stdout", "text": "[ppr] Creating branch research/temp-2026-05-19...\n"},
-  {"type": "out-stdout", "text": "Switched to a new branch 'research/temp-2026-05-19'\n"},
-  {"type": "out-stdout", "text": "[ppr] Filtering 12 keep-rows...\n"},
-  {"type": "out-stdout", "text": "[ppr] Committing...\n"},
-  {"type": "out-stdout", "text": "[ppr] Pushing to origin...\n"},
-  {"type": "pause", "ms": 600},
-  {"type": "out-success", "text": "[ppr] OK. Branch research/temp-2026-05-19 published.\n"},
-  {"type": "out-success", "text": "[ppr] URL: https://github.com/Bruce188/pipelinekit/tree/research/temp-2026-05-19\n"},
-  {"type": "out-info", "text": "[ppr] Review the branch and decide whether to merge.\n"}
-]
-  </script>
 </div>
 
 <script>
@@ -102,7 +68,8 @@
   if (term.dataset.pkitInit) return;
   term.dataset.pkitInit = '1';
 
-  const dataEl = term.querySelector('script[data-tm-script]');
+  const dataEl = term.querySelector('script[type="application/json"]');
+  if (term.dataset.title) term.querySelector('[data-tm-title]').textContent = term.dataset.title;
   if (!dataEl) return;
   const script = JSON.parse(dataEl.textContent);
   const screen = term.querySelector('[data-tm-screen]');
@@ -116,7 +83,9 @@
 
   let idx = 0;
   let playing = false;
-  let abort = false;
+  // Every play / step / pause / restart bumps `run`; a playback whose token is
+  // stale stops, so two loops never write to the screen at once.
+  let run = 0;
   let speed = 1;
   const speeds = [1, 2, 4, 0.5];
   const cursor = '<span class="cursor"></span>';
@@ -127,34 +96,31 @@
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  function appendChunk(item) {
-    const html = `<span class="${item.type}">${escape(item.text)}</span>`;
-    if (screen.querySelector('.cursor')) {
-      screen.querySelector('.cursor').remove();
-    }
-    screen.insertAdjacentHTML('beforeend', html);
+  function moveCursorToEnd() {
+    const c = screen.querySelector('.cursor');
+    if (c) c.remove();
     screen.insertAdjacentHTML('beforeend', cursor);
     screen.scrollTop = screen.scrollHeight;
   }
 
-  async function typeChunk(item) {
+  async function typeChunk(item, token) {
     if (item.type === 'cmd') {
-      // Type char by char
-      if (screen.querySelector('.cursor')) screen.querySelector('.cursor').remove();
+      // Type char by char; if interrupted, finish the line at once so a
+      // pause or step never loses characters.
       const span = document.createElement('span');
       span.className = 'cmd';
-      screen.appendChild(span);
+      screen.insertBefore(span, screen.querySelector('.cursor'));
       for (const ch of item.text) {
-        if (abort) return;
+        if (token !== run) { span.textContent = item.text; return; }
         span.textContent += ch;
         screen.scrollTop = screen.scrollHeight;
         await sleep(40);
       }
-      screen.insertAdjacentHTML('beforeend', cursor);
     } else if (item.type === 'pause') {
       await sleep(item.ms || 200);
     } else {
-      appendChunk(item);
+      screen.insertAdjacentHTML('beforeend', `<span class="${item.type}">${escape(item.text)}</span>`);
+      moveCursorToEnd();
       await sleep(60);
     }
   }
@@ -166,30 +132,32 @@
     playBtn.disabled = p;
   }
 
+  function next(token) {
+    const item = script[idx];
+    idx++;
+    progressFill.style.width = (idx / script.length * 100) + '%';
+    return typeChunk(item, token);
+  }
+
   async function play() {
+    const token = ++run;
     setPlaying(true);
-    abort = false;
-    while (idx < script.length && playing && !abort) {
-      const item = script[idx];
-      idx++;
-      progressFill.style.width = (idx / script.length * 100) + '%';
-      await typeChunk(item);
-    }
-    if (idx >= script.length) setPlaying(false);
+    while (idx < script.length && token === run) await next(token);
+    if (token === run) setPlaying(false);
   }
 
   playBtn.addEventListener('click', () => { if (!playing) play(); });
-  pauseBtn.addEventListener('click', () => { setPlaying(false); abort = true; });
+  pauseBtn.addEventListener('click', () => { run++; setPlaying(false); });
   stepBtn.addEventListener('click', async () => {
     if (idx >= script.length) return;
-    const wasPlaying = playing; setPlaying(false); abort = true;
-    await new Promise(r => setTimeout(r, 50));
-    const item = script[idx]; idx++; progressFill.style.width = (idx / script.length * 100) + '%';
-    await typeChunk(item);
-    if (wasPlaying && idx < script.length) play();
+    const wasPlaying = playing;
+    const token = ++run;
+    setPlaying(false);
+    await next(token);
+    if (wasPlaying && token === run && idx < script.length) play();
   });
   restartBtn.addEventListener('click', () => {
-    abort = true; setPlaying(false);
+    run++; setPlaying(false);
     idx = 0; screen.innerHTML = cursor; progressFill.style.width = '0';
   });
   speedBtn.addEventListener('click', () => {

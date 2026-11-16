@@ -1,0 +1,235 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(!.env.example)",
+      "Read(!.env.sample)",
+      "Read(!.env.template)",
+      "Read(**/credentials*)",
+      "Read(!**/credentials*.ts)",
+      "Read(!**/credentials*.tsx)",
+      "Read(!**/credentials*.js)",
+      "Read(!**/credentials*.py)",
+      "Read(!**/credentials*.cs)",
+      "Read(!**/credentials*.go)",
+      "Read(!**/credentials*.md)",
+      "Read(*.pem)",
+      "Read(*.key)",
+      "Read(*.p12)",
+      "Read(*.pfx)",
+      "Read(id_rsa)",
+      "Read(id_ed25519)",
+      "Read(id_ecdsa)",
+      "Read(id_dsa)",
+      "Read(~/**/.env)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.config/gh/hosts.yml)",
+      "Read(~/.kube/config)",
+      "Read(~/.git-credentials)",
+      "Edit(.env)",
+      "Edit(.env.*)",
+      "Edit(!.env.example)",
+      "Edit(!.env.sample)",
+      "Edit(!.env.template)",
+      "Edit(**/credentials*)",
+      "Edit(!**/credentials*.ts)",
+      "Edit(!**/credentials*.tsx)",
+      "Edit(!**/credentials*.js)",
+      "Edit(!**/credentials*.py)",
+      "Edit(!**/credentials*.cs)",
+      "Edit(!**/credentials*.go)",
+      "Edit(!**/credentials*.md)",
+      "Edit(*.pem)",
+      "Edit(*.key)",
+      "Edit(*.p12)",
+      "Edit(*.pfx)",
+      "Edit(id_rsa)",
+      "Edit(id_ed25519)",
+      "Edit(id_ecdsa)",
+      "Edit(id_dsa)",
+      "Edit(~/**/.env)",
+      "Edit(~/.ssh/**)",
+      "Edit(~/.aws/**)",
+      "Edit(~/.config/gh/hosts.yml)",
+      "Edit(~/.kube/config)",
+      "Edit(~/.git-credentials)"
+    ],
+    "ask": [
+      "Edit(~/.claude/settings.json)",
+      "Edit(~/.claude/settings.local.json)",
+      "Edit(~/.claude/hooks/**)",
+      "Edit(~/.claude/git-hooks/**)",
+      "Edit(~/.claude/config/**)",
+      "Edit(~/.gitconfig)",
+      "Edit(.git/hooks/**)",
+      "Bash(git reset *--hard*)",
+      "Bash(git clean *-*f*)",
+      "Bash(git push *--force*)",
+      "Bash(git push -f *)",
+      "Bash(git push * -f)",
+      "Bash(git push * -f *)",
+      "Bash(git push * +*)",
+      "Bash(git branch *-D*)",
+      "Bash(git branch *--delete*--force*)",
+      "Bash(git checkout .)",
+      "Bash(git checkout -- .)",
+      "Bash(git checkout *-- .)",
+      "Bash(git restore .)",
+      "Bash(git restore * .)",
+      "Bash(gh pr merge *--admin*)"
+    ]
+  },
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_HOME}/hooks/bash-guard.py",
+            "args": [
+              "git",
+              "git"
+            ],
+            "if": "Bash(git *)",
+            "timeout": 15,
+            "onFailure": "block"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_HOME}/hooks/bash-guard.py",
+            "args": [
+              "docker",
+              "docker"
+            ],
+            "if": "Bash(docker *)",
+            "timeout": 15,
+            "onFailure": "block"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_HOME}/hooks/bash-guard.py",
+            "args": [
+              "docker",
+              "podman"
+            ],
+            "if": "Bash(podman *)",
+            "timeout": 15,
+            "onFailure": "block"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_HOME}/hooks/bash-guard.py",
+            "args": [
+              "fetch",
+              "curl"
+            ],
+            "if": "Bash(curl *)",
+            "timeout": 15,
+            "onFailure": "block"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_HOME}/hooks/bash-guard.py",
+            "args": [
+              "fetch",
+              "wget"
+            ],
+            "if": "Bash(wget *)",
+            "timeout": 15,
+            "onFailure": "block"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_HOME}/hooks/bash-guard.py",
+            "args": [
+              "sql",
+              "psql"
+            ],
+            "if": "Bash(psql *)",
+            "timeout": 15,
+            "onFailure": "block"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_HOME}/hooks/bash-guard.py",
+            "args": [
+              "sql",
+              "mysql"
+            ],
+            "if": "Bash(mysql *)",
+            "timeout": 15,
+            "onFailure": "block"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_HOME}/hooks/bash-guard.py",
+            "args": [
+              "sql",
+              "mariadb"
+            ],
+            "if": "Bash(mariadb *)",
+            "timeout": 15,
+            "onFailure": "block"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_HOME}/hooks/bash-guard.py",
+            "args": [
+              "sql",
+              "sqlite3"
+            ],
+            "if": "Bash(sqlite3 *)",
+            "timeout": 15,
+            "onFailure": "block"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_HOME}/hooks/block-bare-repo-markers.py",
+            "args": [],
+            "timeout": 10,
+            "onFailure": "block"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_HOME}/hooks/post-edit-format.sh",
+            "args": [],
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_HOME}/hooks/session-check.py",
+            "args": [],
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

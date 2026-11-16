@@ -1,9 +1,10 @@
 <!-- snippet:search-widget
-     Self-contained docs-index search widget. Loads search.json from the
-     sibling documentation/ directory at runtime, builds a hand-rolled
-     prefix-trie over title + excerpt tokens, and displays the top 8 hits
-     as the user types. No CDN, no external deps. Works under file://
-     and any static HTTP origin.
+     Self-contained docs-index search widget. Builds a prefix index over
+     title + excerpt tokens of every page and shows the top 8 hits as the
+     user types. render.py inlines documentation/search.json into the widget
+     (batch mode, or a single render next to an existing search.json), so it
+     works under file://; without it the widget fetch()es search.json, which
+     needs an HTTP origin. No CDN, no external deps.
 
      Placeholder usage in markdown source:
        <div data-snippet="search-widget"></div>
@@ -68,7 +69,9 @@
       results.appendChild(li);
     });
   }
-  fetch('search.json').then(function(r){ return r.json(); }).then(buildIndex).catch(function(){
+  var inline = input.closest('[data-snippet-mount]').querySelector('script[data-search-index]');
+  if (inline) buildIndex(JSON.parse(inline.textContent));
+  else fetch('search.json').then(function(r){ return r.json(); }).then(buildIndex).catch(function(){
     clearResults();
     var li = document.createElement('li');
     li.textContent = 'Search index unavailable.';

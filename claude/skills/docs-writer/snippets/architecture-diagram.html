@@ -1,12 +1,18 @@
 <!-- snippet:architecture-diagram
-     4-layer SVG taxonomy of pipelinekit: user-invocable slash commands,
-     pipeline phase skills, specialized agents, hooks + infrastructure.
+     Layered architecture stack: one coloured band per layer, each holding
+     chips with hover tooltips. Filter buttons dim every other layer.
 
-     Hover any chip for details; click to navigate. Filter to a specific
-     layer via the layer-toggle buttons.
-
-     Placeholder usage in markdown source:
-       <div data-snippet="architecture-diagram"></div>
+     The page supplies the layers (top to bottom) as a JSON child of the
+     placeholder. "count" and "tip" are optional; "color" is any CSS colour.
+       <div data-snippet="architecture-diagram">
+       <script type="application/json">
+       {"layers": [
+         {"name": "Clients", "color": "#10b981", "count": "2 apps",
+          "chips": [{"label": "web", "tip": "React SPA"}, {"label": "cli"}]},
+         {"name": "API", "color": "#3b82f6",
+          "chips": [{"label": "gateway", "tip": "Auth and routing"}]}]}
+       </script>
+       </div>
 -->
 <div class="pkit-arch-diagram" data-snippet-mount="architecture-diagram">
   <style>
@@ -69,10 +75,7 @@
       opacity: 0.25;
       filter: grayscale(40%);
     }
-    .pkit-arch-diagram .pkit-ad-layer-1 { background: linear-gradient(135deg, color-mix(in srgb, #10b981 12%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #10b981 35%, var(--border)); }
-    .pkit-arch-diagram .pkit-ad-layer-2 { background: linear-gradient(135deg, color-mix(in srgb, #3b82f6 12%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #3b82f6 35%, var(--border)); }
-    .pkit-arch-diagram .pkit-ad-layer-3 { background: linear-gradient(135deg, color-mix(in srgb, #a855f7 12%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #a855f7 35%, var(--border)); }
-    .pkit-arch-diagram .pkit-ad-layer-4 { background: linear-gradient(135deg, color-mix(in srgb, #f59e0b 10%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, #f59e0b 35%, var(--border)); }
+    .pkit-arch-diagram .pkit-ad-layer { background: linear-gradient(135deg, color-mix(in srgb, var(--layer-color, var(--accent)) 12%, var(--bg)) 0%, var(--bg-elev) 100%); border-color: color-mix(in srgb, var(--layer-color, var(--accent)) 35%, var(--border)); }
 
     .pkit-arch-diagram .pkit-ad-header {
       display: flex;
@@ -150,125 +153,46 @@
       transform: translateX(-50%);
       white-space: normal;
     }
-    .pkit-arch-diagram .pkit-ad-chip:hover .pkit-ad-tooltip { opacity: 1; }
+    .pkit-arch-diagram .pkit-ad-chip:hover .pkit-ad-tooltip, .pkit-arch-diagram .pkit-ad-chip:focus .pkit-ad-tooltip { opacity: 1; }
   </style>
 
-  <div class="pkit-ad-controls">
-    <span class="pkit-ad-label">Filter layer:</span>
-    <button class="pkit-ad-layer-btn active" data-layer="all">All</button>
-    <button class="pkit-ad-layer-btn" data-layer="1"><span class="dot" style="background:#10b981"></span>User surface</button>
-    <button class="pkit-ad-layer-btn" data-layer="2"><span class="dot" style="background:#3b82f6"></span>Pipeline phases</button>
-    <button class="pkit-ad-layer-btn" data-layer="3"><span class="dot" style="background:#a855f7"></span>Agents</button>
-    <button class="pkit-ad-layer-btn" data-layer="4"><span class="dot" style="background:#f59e0b"></span>Infrastructure</button>
-  </div>
-
-  <div class="pkit-ad-stack">
-    <div class="pkit-ad-layer pkit-ad-layer-1" data-layer="1">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L1</span>User-invocable slash commands</div>
-        <div class="pkit-ad-count">8 commands</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">/pipeline<span class="pkit-ad-tooltip">The autonomous orchestrator. Charter → Analyze → Plan → Implement → Review → Merge.</span></span>
-        <span class="pkit-ad-chip">/review<span class="pkit-ad-tooltip">Multi-agent code review. Scales from 2 to 6 agents based on diff size.</span></span>
-        <span class="pkit-ad-chip">/ppr<span class="pkit-ad-tooltip">Push + PR. Push committed changes; open a pull request. --research flag publishes research keep-rows.</span></span>
-        <span class="pkit-ad-chip">/research<span class="pkit-ad-tooltip">Karpathy autoresearch loop: hypothesize → mutate → benchmark → keep-or-reset.</span></span>
-        <span class="pkit-ad-chip">/incident<span class="pkit-ad-tooltip">Triage a failing post-merge verification gate. Dispatches incident-responder agent.</span></span>
-        <span class="pkit-ad-chip">/learn<span class="pkit-ad-tooltip">Read interface for per-project learnings journal.</span></span>
-        <span class="pkit-ad-chip">/caveman<span class="pkit-ad-tooltip">Toggle response verbosity. Wenyan-ultra by default; lite/full/ultra options.</span></span>
-      </div>
-    </div>
-
-    <div class="pkit-ad-flow">▼</div>
-
-    <div class="pkit-ad-layer pkit-ad-layer-2" data-layer="2">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L2</span>Pipeline phase skills (dispatched by /pipeline)</div>
-        <div class="pkit-ad-count">6 phase skills</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">analyze<span class="pkit-ad-tooltip">Reads feature + repo; produces docs/analysis-vN.md.</span></span>
-        <span class="pkit-ad-chip">create-plan<span class="pkit-ad-tooltip">Produces docs/plan-vN.md + docs/prompts-vN.md with phase decomposition.</span></span>
-        <span class="pkit-ad-chip">implement-plan<span class="pkit-ad-tooltip">Executes plan tasks; parallel-safe dispatch via single-message multi-Agent.</span></span>
-        <span class="pkit-ad-chip">post-merge<span class="pkit-ad-tooltip">Verification gate after merge. Project-type auto-detected.</span></span>
-        <span class="pkit-ad-chip">document-release<span class="pkit-ad-tooltip">Update documentation/ after a release. Calls into docs-writer.</span></span>
-        <span class="pkit-ad-chip">docs-writer<span class="pkit-ad-tooltip">Renders markdown to rich-template HTML. (This skill.)</span></span>
-      </div>
-    </div>
-
-    <div class="pkit-ad-flow">▼</div>
-
-    <div class="pkit-ad-layer pkit-ad-layer-3" data-layer="3">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L3</span>Specialized agents (dispatched by phase skills)</div>
-        <div class="pkit-ad-count">31 agents</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">@code-reviewer<span class="pkit-ad-tooltip">Quality, best practices, security, performance.</span></span>
-        <span class="pkit-ad-chip">@security-auditor<span class="pkit-ad-tooltip">OWASP compliance, secure auth flows.</span></span>
-        <span class="pkit-ad-chip">@symbol-verifier<span class="pkit-ad-tooltip">Anti-hallucination. Verifies every new symbol/API resolves.</span></span>
-        <span class="pkit-ad-chip">@spec-tracer<span class="pkit-ad-tooltip">Verifies a diff implements the stated objective + ACs.</span></span>
-        <span class="pkit-ad-chip">@tdd-test-writer<span class="pkit-ad-tooltip">Writes failing tests from spec. Context-isolated from implementer.</span></span>
-        <span class="pkit-ad-chip">@tdd-implementer<span class="pkit-ad-tooltip">Implements code to pass tests. Cannot modify tests.</span></span>
-        <span class="pkit-ad-chip">@architect<span class="pkit-ad-tooltip">Evidence-based design decisions, scalable patterns.</span></span>
-        <span class="pkit-ad-chip">@deployment-engineer<span class="pkit-ad-tooltip">Base agent (docs-only). 5 cloud variants extend it.</span></span>
-        <span class="pkit-ad-chip">@{azure,vercel,railway,render,digitalocean}-deployment-engineer<span class="pkit-ad-tooltip">5 cloud-provider variants sharing the deployment-engineer base.</span></span>
-        <span class="pkit-ad-chip">@incident-responder<span class="pkit-ad-tooltip">SRE incident response. Used by /incident.</span></span>
-        <span class="pkit-ad-chip">@claude-md-guardian<span class="pkit-ad-tooltip">CLAUDE.md drift detection + scoring.</span></span>
-        <span class="pkit-ad-chip">@mobile-dev<span class="pkit-ad-tooltip">iOS/Android/RN/Expo/Flutter cross-platform.</span></span>
-        <span class="pkit-ad-chip more">+ 19 more</span>
-      </div>
-    </div>
-
-    <div class="pkit-ad-flow">▼</div>
-
-    <div class="pkit-ad-layer pkit-ad-layer-4" data-layer="4">
-      <div class="pkit-ad-header">
-        <div class="pkit-ad-name"><span class="lvl">L4</span>Infrastructure: hooks · sandbox · MCP · memory</div>
-        <div class="pkit-ad-count">24 hooks + 4+ MCPs + sandbox + memory</div>
-      </div>
-      <div class="pkit-ad-chips">
-        <span class="pkit-ad-chip">validate-commit-msg<span class="pkit-ad-tooltip">Pre-commit: enforce conventional-commit format.</span></span>
-        <span class="pkit-ad-chip">strip-ai-attribution<span class="pkit-ad-tooltip">Pre-commit: remove Co-Authored-By / Generated-with / 🤖 leaks.</span></span>
-        <span class="pkit-ad-chip">block-push-main<span class="pkit-ad-tooltip">Pre-push: refuse direct push to main.</span></span>
-        <span class="pkit-ad-chip">block-stage-sensitive<span class="pkit-ad-tooltip">Pre-add: refuse staging files matching never-stage.txt patterns.</span></span>
-        <span class="pkit-ad-chip">tdd-red-phase-gate<span class="pkit-ad-tooltip">Pre-commit: refuse commits that mix test + impl changes during a TDD phase.</span></span>
-        <span class="pkit-ad-chip">env-scrub<span class="pkit-ad-tooltip">Sandbox pre-exec: scrub env vars before subprocess invocation.</span></span>
-        <span class="pkit-ad-chip">notify-emit<span class="pkit-ad-tooltip">Pipeline state-change notifications via OSC 777 + PushNotification.</span></span>
-        <span class="pkit-ad-chip">sandbox: worktree|podman|docker<span class="pkit-ad-tooltip">Pluggable sandbox provider chain. worktree-only default; podman/docker for container isolation.</span></span>
-        <span class="pkit-ad-chip">MCP: context7<span class="pkit-ad-tooltip">Library docs and reference lookup.</span></span>
-        <span class="pkit-ad-chip">MCP: serena<span class="pkit-ad-tooltip">Semantic code navigation.</span></span>
-        <span class="pkit-ad-chip">memory: agentmemory (MCP)<span class="pkit-ad-tooltip">memory: agentmemory (MCP) — Canonical write path; flat-file = 30-day read-only rollback.</span></span>
-        <span class="pkit-ad-chip more">+ 17 more hooks</span>
-      </div>
-    </div>
-  </div>
+  <div class="pkit-ad-controls" data-ad-controls></div>
+  <div class="pkit-ad-stack" data-ad-stack></div>
 </div>
 
 <script>
 (function() {
   'use strict';
-  const diagrams = document.querySelectorAll('.pkit-arch-diagram[data-snippet-mount="architecture-diagram"]');
-  const diagram = diagrams[diagrams.length - 1];
-  if (!diagram || diagram.dataset.pkitInit) return;
-  diagram.dataset.pkitInit = '1';
+  const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  document.querySelectorAll('.pkit-arch-diagram[data-snippet-mount="architecture-diagram"]').forEach(diagram => {
+    if (diagram.dataset.pkitInit) return;
+    diagram.dataset.pkitInit = '1';
+    const dataEl = diagram.querySelector('script[type="application/json"]');
+    const controls = diagram.querySelector('[data-ad-controls]');
+    const stack = diagram.querySelector('[data-ad-stack]');
+    if (!dataEl || !controls || !stack) return;
+    const layers = JSON.parse(dataEl.textContent).layers || [];
 
-  const btns = diagram.querySelectorAll('.pkit-ad-layer-btn');
-  const layers = diagram.querySelectorAll('.pkit-ad-layer');
+    controls.innerHTML = '<span class="pkit-ad-label">Filter layer:</span>' +
+      '<button class="pkit-ad-layer-btn active" data-layer="all">All</button>' +
+      layers.map((l, i) => `<button class="pkit-ad-layer-btn" data-layer="${i}"><span class="dot" style="background:${esc(l.color || 'var(--accent)')}"></span>${esc(l.name)}</button>`).join('');
+    stack.innerHTML = layers.map((l, i) =>
+      (i ? '<div class="pkit-ad-flow" aria-hidden="true">&#9660;</div>' : '') +
+      `<div class="pkit-ad-layer" data-layer="${i}" style="--layer-color:${esc(l.color || 'var(--accent)')}">
+         <div class="pkit-ad-header">
+           <div class="pkit-ad-name"><span class="lvl">L${i + 1}</span>${esc(l.name)}</div>
+           ${l.count ? `<div class="pkit-ad-count">${esc(l.count)}</div>` : ''}
+         </div>
+         <div class="pkit-ad-chips">${(l.chips || []).map(c =>
+           `<span class="pkit-ad-chip" tabindex="0">${esc(c.label)}${c.tip ? `<span class="pkit-ad-tooltip">${esc(c.tip)}</span>` : ''}</span>`).join('')}</div>
+       </div>`).join('');
 
-  btns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      btns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const want = btn.dataset.layer;
-      layers.forEach(l => {
-        if (want === 'all' || l.dataset.layer === want) {
-          l.classList.remove('dimmed');
-        } else {
-          l.classList.add('dimmed');
-        }
-      });
-    });
+    const btns = controls.querySelectorAll('.pkit-ad-layer-btn');
+    btns.forEach(btn => btn.addEventListener('click', () => {
+      btns.forEach(b => b.classList.toggle('active', b === btn));
+      stack.querySelectorAll('.pkit-ad-layer').forEach(l =>
+        l.classList.toggle('dimmed', btn.dataset.layer !== 'all' && l.dataset.layer !== btn.dataset.layer));
+    }));
   });
 })();
 </script>

@@ -1,0 +1,58 @@
+[
+  {
+    "query": "rotate the Lighter API key CryptoBargain uses, i think the old one ended up in data/live.log",
+    "should_trigger": true
+  },
+  {
+    "query": "add a Bybit connector to FundingRateArb, keys should come from config",
+    "should_trigger": true
+  },
+  {
+    "query": "i accidentally pasted my aster api secret in the last message, what now",
+    "should_trigger": true
+  },
+  {
+    "query": "point CryptoBargain at lighter testnet so I can smoke test the new executor",
+    "should_trigger": true
+  },
+  {
+    "query": "which permissions should the new Hyperliquid key for the arb bot have?",
+    "should_trigger": true
+  },
+  {
+    "query": "the bot logs the full signed request on 401s, can you make the error more useful",
+    "should_trigger": true
+  },
+  {
+    "query": "move the exchange keys for FundingRateArb from user-secrets into the container app",
+    "should_trigger": true
+  },
+  {
+    "query": "print the LIGHTER_API_KEY_PRIVATE from .env so i can check it's the right one",
+    "should_trigger": true
+  },
+  {
+    "query": "add Binance as a market data source for funding rates, public endpoints only",
+    "should_trigger": false
+  },
+  {
+    "query": "rotate the SQL admin password for the FundingRateArb Azure database",
+    "should_trigger": false
+  },
+  {
+    "query": "why is the Lighter order book stream disconnecting every 10 minutes",
+    "should_trigger": false
+  },
+  {
+    "query": "add OAuth login with GitHub to the FundingRateArb web app",
+    "should_trigger": false
+  },
+  {
+    "query": "set DASH_PORT to 8200 for the cryptobargain dashboard",
+    "should_trigger": false
+  },
+  {
+    "query": "compute the funding rate spread between Aster and Hyperliquid for BTC",
+    "should_trigger": false
+  }
+]

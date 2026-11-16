@@ -12,7 +12,6 @@
 #   GH_TOKEN              GitHub personal access token (for private repos)
 #   ANTHROPIC_API_KEY     Anthropic API key (supplied later via claude login)
 #   CLAUDE_CLI_SHA256     SHA256 checksum for claude install.sh (pin for reproducibility)
-#   CLAUDE_INSTALL_OPTIONALS  Comma list (default: tresor,lsp,mcp)
 #   PIPELINEKIT_DIR       Clone target dir (default: $HOME/pipelinekit)
 
 set -euo pipefail
@@ -20,7 +19,6 @@ set -euo pipefail
 SCRIPT_NAME="hetzner-bootstrap"
 PIPELINEKIT_REPO="https://github.com/Bruce188/pipelinekit.git"
 PIPELINEKIT_DIR="${PIPELINEKIT_DIR:-$HOME/pipelinekit}"
-CLAUDE_INSTALL_OPTIONALS="${CLAUDE_INSTALL_OPTIONALS:-tresor,lsp,mcp}"
 CLAUDE_AI_INSTALL_URL="https://claude.ai/install.sh"
 
 SELF_TEST=false
@@ -119,7 +117,6 @@ fi
 
 if [ "$SELF_TEST" = "true" ]; then
   log "[self-test] arch=${ARCH}, swap_exists=${SWAP_EXISTS}, no_swap_flag=${NO_SWAP}, claude_exists=${CLAUDE_EXISTS}, repo_exists=${REPO_EXISTS}"
-  log "[self-test] CLAUDE_INSTALL_OPTIONALS=${CLAUDE_INSTALL_OPTIONALS}"
   log "[self-test] PIPELINEKIT_DIR=${PIPELINEKIT_DIR}"
   log "[self-test] OK"
   exit 0
@@ -210,10 +207,9 @@ fi
 # --------------------------------------------------------------------------- #
 # Step 9: Run install.sh non-interactively                                    #
 # --------------------------------------------------------------------------- #
-log "Running install.sh (OPTIONALS: ${CLAUDE_INSTALL_OPTIONALS})"
+log "Running install.sh"
 cd "$PIPELINEKIT_DIR"
 CLAUDE_INSTALL_NONINTERACTIVE=1 \
-CLAUDE_INSTALL_OPTIONALS="$CLAUDE_INSTALL_OPTIONALS" \
   bash scripts/install.sh
 
 # --------------------------------------------------------------------------- #

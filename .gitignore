@@ -26,7 +26,6 @@ claude/shell-snapshots/
 claude/backups/
 claude/archive-*/
 claude/.last-cleanup
-claude/.caveman-active
 claude/mcp-needs-auth-cache.json
 claude/review-diff.txt
 claude/settings.json
@@ -58,18 +57,9 @@ yarn-error.log
 # OS
 Thumbs.db
 
-# Documentation archive (rollback surface for .md -> .html migrations)
-documentation/_md_archive/
-documentation/research-results.html
-
-# docs/ is AI-workflow-only (analysis-vN, plan-vN, prompts-vN, review-vN,
-# charter, progress, pipeline-state, features-vN, etc.) — never committed.
-# User-facing docs live in documentation/. Use `git add -f` to commit a
-# specific docs/ file (rarely needed).
-# Anchor at the repo root so the pattern does NOT also catch
-# documentation/docs/ (the vendored skill-authoring reference pages).
+# docs/ holds local AI-workflow files and is never committed.
+# User-facing docs live in documentation/.
 /docs/
 
-# Local MCP / RAG runtime state (regenerated on demand; never committed)
-lancedb/
+# Local MCP runtime state
 .serena/
