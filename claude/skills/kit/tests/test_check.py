@@ -37,10 +37,12 @@ def test_verbose_lists_every_probe(kit):
         "[pass] post-edit-format.sh: 1 probe as expected",
         "[pass] session-check.py: 2 probes as expected",
         "[pass] commit-msg: 2 probes as expected",
-        "[pass] pre-commit: 1 probe as expected",
+        "[pass] pre-commit: 2 probes as expected",
         "[pass] pre-push: 2 probes as expected",
-        "[pass] event log: 4 refusals recorded",
+        "[pass] event log: 5 refusals recorded",
         "[pass] hook helper: kitlog.py",
+        "[pass] hook helper: filesize.py",
+        "[pass] kit files within the file size limit of 1,500 lines and 50,000 bytes",
         "[pass] git: global core.hooksPath set",
         "[pass] settings.json: 12 kit hook entries wired",
     ):
@@ -134,6 +136,64 @@ def test_edited_frontend_design_is_only_a_warning(kit):
     rc, out = check(kit)
     assert rc == 0, out
     assert "[warn] changed since install: skills/frontend-design/SKILL.md" in out
+
+
+# ---------------------------------------------------------------- file sizes
+
+LIMIT = "file size limit of 1,500 lines and 50,000 bytes"
+
+
+def oversize(path):
+    path.write_text("x = 1\n" * 1501)
+
+
+def test_kit_file_over_the_size_limit_warns(kit):
+    oversize(kit["home"] / "skills" / "deploy" / "SKILL.md")
+    rc, out = check(kit)
+    assert rc == 0, out
+    assert f"[warn] 1 kit file over the {LIMIT}: skills/deploy/SKILL.md" in out, out
+    assert "Result: working, 2 warnings" in out
+
+
+def test_vendored_and_data_files_are_not_counted(kit):
+    oversize(kit["home"] / "skills" / "frontend-design" / "SKILL.md")
+    files = json.loads((kit["home"] / "pipelinekit" / "manifest.json").read_text())
+    data = next(r for r in sorted(files["files"]) if r.endswith(".json"))
+    (kit["home"] / data).write_text(json.dumps(list(range(3000)), indent=1))
+    rc, out = check(kit, "--verbose")
+    assert rc == 0, out
+    assert "over the file size limit" not in out
+    assert f"[pass] kit files within the {LIMIT}" in out
+
+
+def test_quick_does_not_measure_kit_files(kit):
+    oversize(kit["home"] / "skills" / "deploy" / "SKILL.md")
+    rc, out = check(kit, "--quick", "--verbose")
+    assert rc == 0, out
+    assert LIMIT not in out
+
+
+def test_missing_size_helper(kit):
+    (kit["home"] / "hooks" / "filesize.py").unlink()
+    rc, out = check(kit, "--verbose")
+    assert rc == 1
+    assert (
+        "[fail] hook helper missing: filesize.py "
+        "(pre-commit lets commits through without the file size limit)"
+    ) in out
+    assert "[pass] pre-commit: 1 probe as expected" in out
+    assert "[pass] event log: 4 refusals recorded" in out
+    assert LIMIT not in out
+
+
+def test_size_helper_that_lets_everything_through(kit):
+    replace_script(kit, "hooks/filesize.py", "import sys\nsys.exit(0)\n")
+    rc, out = check(kit)
+    assert rc == 1
+    assert (
+        "[fail] pre-commit: a file over the size limit gave 'accept', expected 'reject'"
+    ) in out
+    assert LIMIT not in out and "Result:" in out
 
 
 # ---------------------------------------------------------------- agents

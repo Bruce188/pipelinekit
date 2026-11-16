@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import calendar
+import importlib.util
 import json
 import os
 import re
@@ -384,6 +385,72 @@ def check_drift(c: Check) -> None:
         return
     drift_files(c, files)
     drift_settings(c, as_dict(c.manifest.get("settings")))
+    if not c.quick:
+        check_file_sizes(c, files)
+
+
+# ---------------------------------------------------------------- file sizes
+
+# A file the pre-commit probe stages: over the limit by lines and by bytes.
+PROBE_BIG = "kit-probe-big.txt"
+PROBE_BIG_TEXT = "x = 1  # a line of the kit's file size probe\n" * 2000
+
+
+def size_rules(c: Check):
+    """The installed filesize.py as a module, or None when it does not load."""
+    rel = "hooks/filesize.py"
+    if rel in c.broken:
+        return None
+    try:
+        spec = importlib.util.spec_from_file_location("kit_filesize", c.path(rel))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        int(mod.MAX_LINES), int(mod.MAX_BYTES), tuple(mod.DEFAULT_EXEMPT)
+    except (Exception, SystemExit):
+        return None  # the live probe reports a size check that does not work
+    return mod
+
+
+def check_file_sizes(c: Check, files: dict) -> None:
+    """Hand-written kit files over the limit the pre-commit hook holds.
+
+    The vendored frontend-design skill and the files the hook exempts by
+    default (data, lock, generated) are left out. Only a warning: the kit
+    still works, but a change to that file would be refused.
+    """
+    fs = size_rules(c)
+    if fs is None:
+        return
+    vendored = f"skills/{DESIGN_SKILL}/"
+    try:
+        patterns = fs.compile_patterns(fs.DEFAULT_EXEMPT)
+        limit = f"{fs.MAX_LINES:,} lines and {fs.MAX_BYTES:,} bytes"
+        big, counted = [], 0
+        for rel in sorted(files):
+            if not SAFE_REL.fullmatch(rel) or rel.startswith(vendored):
+                continue
+            if fs.exempt(rel, patterns):
+                continue
+            try:
+                with open(c.path(rel), "rb") as f:
+                    size = fs.measure(f.read())
+            except OSError:
+                continue  # a missing file is reported as missing
+            counted += 1
+            if fs.over(size):
+                big.append(rel)
+    except (Exception, SystemExit):
+        return
+    if big:
+        c.add(
+            "install",
+            "warn",
+            f"{plural(len(big), 'kit file')} over the file size limit of {limit}: "
+            f"{names(big)}",
+            fix="split the file, or install the kit again for its own copy",
+        )
+    elif counted:
+        c.add("install", "pass", f"kit files within the file size limit of {limit}")
 
 
 # ---------------------------------------------------------------- live probe
@@ -614,9 +681,16 @@ def probe(c: Check) -> None:
                 expected.append(("commit-msg", "commit-msg.format"))
         rel = "git-hooks/pre-commit"
         if rel not in c.broken:
-            probe_results(
-                c, "pre-commit", [("nothing staged", "accept", git_hook(rel, []))]
-            )
+            results = [("nothing staged", "accept", git_hook(rel, []))]
+            if "hooks/filesize.py" not in c.broken:
+                with open(os.path.join(repo, PROBE_BIG), "w", encoding="utf-8") as f:
+                    f.write(PROBE_BIG_TEXT)
+                rc, _, _ = run(["git", "add", PROBE_BIG], env=env, cwd=repo)
+                if rc == 0:
+                    over = git_hook(rel, [])
+                    results.append(("a file over the size limit", "reject", over))
+            if probe_results(c, "pre-commit", results) and len(results) > 1:
+                expected.append(("pre-commit", "pre-commit.file-size"))
         rel = "git-hooks/pre-push"
         if rel not in c.broken:
             a, z = "1" * 40, "0" * 40
