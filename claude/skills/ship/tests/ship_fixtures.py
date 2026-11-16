@@ -220,8 +220,55 @@ class Sandbox:
         path.write_text(text)
 
     def passed(self, release="no"):
+        """A judge record and a passed test record for the head."""
+        self.judged()
         done = self.ship("record", "--result", "pass", "--release", release)
         assert done.returncode == 0, done.stderr
+
+    def judged(self, outcome="done", commit=None, **fields):
+        """Write the judge loop's record of the current branch; return its path."""
+        branch = self.git("rev-parse", "--abbrev-ref", "HEAD")
+        name = ship.slug(branch)
+        commit = commit or self.head()
+        state = {
+            "schema": 1,
+            "kind": "build",
+            "name": name,
+            "branch": branch,
+            "base": "main",
+            "base_ref": "refs/remotes/origin/main",
+            "base_sha": "",
+            "base_source": "",
+            "panel": ["general"],
+            "panel_reason": "",
+            "panel_forced": "",
+            "budget": 5,
+            "switches": [],
+            "agents": "kit",
+            "plan_loop": {},
+            "pending": {},
+            "rounds": [{"n": 1, "commit": commit, "scores": {"general": 10}}],
+            "items": {},
+            "streak": 0,
+            "final": False,
+            "notes": [],
+            "outcome": outcome,
+            "commit": commit,
+            "skip": {},
+        }
+        if outcome == "skip":
+            state["rounds"] = []
+            state["skip"] = {
+                "reason": "docs only",
+                "files": 1,
+                "lines": 2,
+                "user_ok": False,
+            }
+        state.update(fields)
+        path = self.work / "docs" / "loops" / name / "build" / "state.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(state))
+        return path
 
     def change(self, path, before, after):
         """Commit `before` to the base and `after` to the branch, both pushed."""

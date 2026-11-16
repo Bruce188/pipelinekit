@@ -69,7 +69,7 @@ off. Every rule id is in
 | `frontend-design` | Visual design guidance, loaded before building or reshaping anything a person looks at: app or site UI, HTML pages and Artifacts, `docs-writer` snippets, charts and dashboards. From [`anthropics/skills`](https://github.com/anthropics/skills), unchanged, under Apache-2.0 (see its `SOURCE.md`) |
 | `mobile` | Android (Kotlin/Compose) builds and device access from WSL2, iPhone home-screen web apps, Expo/EAS cloud builds for iOS, release and security checklist |
 | `kit` | Self-check, run as `/kit`: reports missing or changed kit files, kit files over the file size limit, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, environment conflicts, what the hooks blocked or failed on in the last days, and whether a newer kit is available. `/kit update` applies it after asking |
-| `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then `ship.py` merges once every gate holds (own pull request, not a release, no required review, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
+| `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then `ship.py` merges once every gate holds (own pull request, not a release, no required review, a judged build, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
 | `judge-loop` | Run as `/judge-loop`: plans and builds a change on Opus, and has fresh Fable judges score the plan and the build until each gets 10 out of 10, within a round budget. `loop.py` keeps the state under `docs/loops/` (local, on the never-stage list) and says what comes next |
 
 ### CLAUDE.md template
@@ -104,6 +104,14 @@ backup), so put them in the project; the installer warns when the file it
 replaces held one. The loop needs both a Fable and an Opus model; an account
 without one sets `Judge loop: off`. See
 [Components](documentation/components.html#plan-build-judge).
+
+`ship.py` merges a pull request only once its `judged` gate holds: the
+branch's build loop ended in 10, a used budget or your accept, or
+`loop.py skip --reason` recorded that there was nothing to judge. After an
+update to this version, an open branch without a record shows
+`judged FAIL no judge record ...`; Claude asks you, then records work built
+before the update with
+`loop.py skip --reason "built before the judge loop" --user-ok`.
 
 ### Agents
 
@@ -201,7 +209,7 @@ Each of these was dropped because a built-in Claude Code feature covers it.
 | `vercel-ops`, `railway-ops`, `render-ops`, `digitalocean-ops`, `azure-ops` and the per-provider deployment agents | The `deploy` skill |
 | caveman, model overlays, `modes/`, `rules/`, host adapters | Dropped with no replacement |
 
-The judge loop is not the old pipeline back. It is one helper, three agents and a rule, and the kit keeps it because Claude Code ships no judge on a second model that scores a plan or a build, within a round budget, until it reaches 10.
+The judge loop is not the old pipeline back. It is one helper, three agents, a rule and a merge gate, and the kit keeps it because Claude Code ships no judge on a second model that scores a plan or a build, within a round budget, until it reaches 10.
 
 The [CHANGELOG](CHANGELOG.md) lists every removed file.
 

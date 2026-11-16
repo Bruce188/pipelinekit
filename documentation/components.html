@@ -1271,7 +1271,7 @@ footer {
 </tr>
 <tr>
 <td><code>ship</code></td>
-<td>Run as <code>/ship</code>: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then <code>ship.py</code> merges once every gate holds (own pull request, not a release, no required review, a passed test for exactly this commit, green CI). A project opts out with <code>Merges: ask first</code> in its <code>CLAUDE.md</code></td>
+<td>Run as <code>/ship</code>: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then <code>ship.py</code> merges once every gate holds (own pull request, not a release, no required review, a judged build, a passed test for exactly this commit, green CI). A project opts out with <code>Merges: ask first</code> in its <code>CLAUDE.md</code></td>
 </tr>
 <tr>
 <td><code>judge-loop</code></td>
@@ -1391,6 +1391,7 @@ python3<span class="w"> </span>~/.claude/skills/kit/update.py<span class="w"> </
 <ol>
 <li>The issue lists acceptance criteria as a checklist.</li>
 <li>Claude builds the change, runs the project's tests and opens a draft pull request.</li>
+<li>Before the acceptance test, the build is judged with the judge loop until it reaches 10 (see <a href="#plan-build-judge">Plan, build, judge</a>). A small fix with nothing to judge is recorded with <code>loop.py skip --reason</code> instead.</li>
 <li>A fresh agent tests the change. It gets the criteria and the running build, not the code or the builder's notes. A web page is driven with Playwright, a command-line tool or installer runs in a throwaway directory, an API is started and called. A change with nothing user-visible gets a smoke run instead.</li>
 <li>Findings are fixed, each bug with a regression test, and the test runs again until it passes.</li>
 <li><code>ship.py record</code> notes the result for the tested commit, and with a pass whether the pull request is a release (<code>--release yes</code> or <code>--release no</code>). <code>ship.py merge</code> waits for CI and merges.</li>
@@ -1433,6 +1434,10 @@ python3<span class="w"> </span>~/.claude/skills/kit/update.py<span class="w"> </
 <td>The branch contains its base branch and does not conflict with it</td>
 </tr>
 <tr>
+<td><code>judged</code></td>
+<td>The branch's build loop ended in 10, a used budget or your accept, on this commit or an earlier one of the branch, or <code>loop.py skip</code> recorded this commit. A loop waiting for you stops and asks. <code>Judge loop: off</code> (base branch or user-level <code>CLAUDE.md</code>) passes and names where it stands</td>
+</tr>
+<tr>
 <td><code>tested</code></td>
 <td>The last test record is a pass for exactly this commit, and the loop is not stuck</td>
 </tr>
@@ -1462,7 +1467,8 @@ python3<span class="w"> </span>~/.claude/skills/kit/update.py<span class="w"> </
 </ul>
 <p>The gate guards your own project against a slip. It is not a defence against a pull request written to get past it. It does not see: a version in a place the lists call ordinary (a label in a <code>Dockerfile</code>, a file under <code>tests/</code> or <code>examples/</code>, a <code>.md</code> file that is not release notes); a whole-number version under a plain <code>version</code> key; a version that source code spells another way (<code>VERSION = (1, 2, 4)</code>, the header comment of a plugin); a version in a <code>.nix</code> or <code>.tf</code> file; a version Maven takes from <code>&lt;properties&gt;</code> or <code>${revision}</code>; files over 1 MB and binary files; a release whose title uses no release word (<code>chore: go live</code>) and whose diff sets no version. It holds some pull requests that are not releases: a nested package getting its first version, a version-like setting in a config file, a branch whose short name starts with a stage word (<code>qa-fixes</code>), a title that is a name and a number (<code>chore: lodash 4.17.21</code>). When that happens, say that it may be merged, and merge it yourself.</p>
 <p>Known working branches are: the default branch; the shared branches <code>develop</code>, <code>development</code>, <code>dev</code>, <code>integration</code>, <code>staging</code>, <code>stage</code>, <code>next</code>, <code>beta</code>, <code>alpha</code>, <code>canary</code>, <code>preview</code>, <code>nightly</code>, <code>edge</code>, <code>uat</code>, <code>qa</code>, <code>preprod</code>, <code>test</code>, <code>testing</code> and <code>trunk</code>; branches under <code>integration/</code>, <code>staging/</code>, <code>stage/</code>, <code>uat/</code>, <code>qa/</code> and <code>preprod/</code>; release lines, which is anything that starts with <code>release/</code>, <code>release-</code>, <code>releases/</code>, <code>rel/</code>, <code>rc/</code>, <code>hotfix/</code>, <code>support/</code> or <code>maint/</code>, and bare version names such as <code>1.x</code> or <code>v2</code>; topic branches such as <code>feat/12-base</code> (a stacked pull request). A pull request into any other branch (<code>customer-a</code>, <code>release</code>) is held, because the helper cannot know what that branch stands for. Name such a branch on a <code>Release branches:</code> line when it is a release branch. As the branch a pull request comes from, <code>hotfix/login-crash</code> is a fix like any other; only a hotfix branch with a version in its name (<code>hotfix/1.2.1</code>), or one that other pull requests were merged into, is held.</p>
-<p>These stay yours: release pull requests, tags, publishing and production deploys; pull requests someone else opened; anything behind a required review or branch protection. Claude also stops and asks when the same finding is still open after two fix attempts, after five failed rounds in a row, and when a test needs a decision the criteria do not settle. A stuck loop shows in <code>ship.py status</code> and blocks <code>ship.py merge</code> until you decide.</p>
+<p>These stay yours: release pull requests, tags, publishing and production deploys; pull requests someone else opened; anything behind a required review or branch protection. Claude also stops and asks when the same finding is still open after two fix attempts, after five failed rounds in a row, when the judge loop is waiting for you, and when a test needs a decision the criteria do not settle. A stuck loop shows in <code>ship.py status</code> and blocks <code>ship.py merge</code> until you decide.</p>
+<p>The <code>judged</code> gate reads the record in <code>docs/loops/&lt;branch&gt;/build/state.json</code> of the checkout; it does not run the loop. It shares the loop's limits (see <a href="#plan-build-judge">Plan, build, judge</a>): the record says results were saved, not that a judge ran or judged well, and the session can write or remove it; <code>accept</code>, <code>settle</code>, <code>skip</code> and <code>--user-ok</code> rest on the session's word, like <code>record --tester session</code>. A build needs no plan loop. Commits after the judged one are covered by the acceptance test; the pass reason shows the size since the judged commit. The user-level <code>Judge loop: off</code> is a local file no permission rule of the kit guards; the pass reason names where the line stands. Agent files, role files and <code>loop.py</code> are local too: a session can edit them, and only <code>/kit</code> shows it, under "Changes since install".</p>
 <p>To turn self-merging off for a project, put this line in its <code>CLAUDE.md</code>:</p>
 <div class="codehilite"><pre><span></span><code>Merges: ask first
 </code></pre></div>
@@ -1515,7 +1521,7 @@ python3<span class="w"> </span>~/.claude/skills/ship/ship.py<span class="w"> </s
 <tbody>
 <tr>
 <td><code>Judge loop: off</code></td>
-<td>No loop, no agents, nothing recorded</td>
+<td>No loop, no agents, nothing recorded; the <code>judged</code> gate of <code>ship.py</code> passes</td>
 </tr>
 <tr>
 <td><code>Judge rounds: N</code></td>
@@ -1569,7 +1575,7 @@ python3<span class="w"> </span>~/.claude/skills/ship/ship.py<span class="w"> </s
 </table>
 <h2 id="what-is-not-included">What is not included</h2>
 <p>Plan mode, the Workflow tool, <code>/code-review</code>, <code>/security-review</code>, <code>/simplify</code>, the Explore and Plan agents, auto-memory, worktree isolation, <code>/loop</code> and <code>/schedule</code> are all built into Claude Code. pipelinekit no longer provides its own versions. See <a href="upgrading.html#what-was-removed">Upgrading from 0.0.1</a> for how the old components map to these built-ins.</p>
-<p>The judge loop is not the old pipeline back. It is one helper, three agents and a rule, and the kit keeps it because Claude Code ships no judge on a second model that scores a plan or a build, within a round budget, until it reaches 10.</p>
+<p>The judge loop is not the old pipeline back. It is one helper, three agents, a rule and a merge gate, and the kit keeps it because Claude Code ships no judge on a second model that scores a plan or a build, within a round budget, until it reaches 10.</p>
     </div>
 
     <div class="no-results" id="no-results">

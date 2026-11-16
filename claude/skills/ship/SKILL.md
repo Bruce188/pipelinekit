@@ -2,7 +2,7 @@
 name: ship
 description: Finishes a pull request you opened instead of asking the user to merge it - acceptance-tests the change against the issue's criteria, fixes what the test finds, repeats until it passes, then merges once CI is green. Use right after opening a pull request, when a change is ready to land, or when the user asks to test, ship or merge your own work. Stops and asks for releases, other people's pull requests, required reviews and projects that opted out.
 argument-hint: "[status | test | merge]"
-allowed-tools: Bash(python3 *skills/ship/ship.py*)
+allowed-tools: Bash(python3 *skills/ship/ship.py*), Bash(python3 ~/.claude/skills/judge-loop/loop.py *)
 ---
 
 # ship: test, fix, merge
@@ -23,18 +23,20 @@ Stop and ask, with an interactive question, when any of these is true. The helpe
 - The project opted out: a line `Merges: ask first` in its `CLAUDE.md` (in the checkout or on the base branch) or in the user-level one, or `PIPELINEKIT_MERGE` in the environment with any non-empty value but `auto`.
 - The test needs a product decision the criteria do not settle, or it cannot be run here.
 - The same finding is still open after two fix attempts, or five rounds in a row failed. `status` and `merge` then exit 3 as well.
+- The branch's judge loop is waiting for the user. The `judged` gate says so, and `status` and `merge` exit 3.
 
 ## The loop
 
 1. **Criteria.** The issue lists acceptance criteria as a checklist, each one something a user can observe. If it has none, write them into the issue first.
 2. **Build.** Branch, change, run the project's tests, commit, push, open the pull request as a draft with `Closes #N`.
-3. **Test.** Pick the method from "How to test". A change a user can see or run is tested by a fresh agent that gets only the brief below. A change with nothing user-visible (refactor, CI, internal cleanup) gets a smoke run from you; record it with `--tester session`.
-4. **Findings.** Each one has an id (`F1`, `F2`), the steps, what was expected, what happened, the evidence, and a severity: blocker, should-fix or note.
-5. **Fix.** Fix every blocker and should-fix. A bug gets a regression test. Something outside the issue's scope becomes a new issue, not a fix here. Commit and push.
-6. **Test again.** Same brief, all criteria, plus the findings that were open. A fix can break something that passed before.
-7. **Record.** `record --result pass --release no`, or `record --result fail --open F1 F3`. Say `--release yes` when the change is a release in a way the helper may not see: it sets a new version, publishes, deploys or promotes a stage. Exit 3 means stop and ask.
-8. **Merge.** `merge` waits for CI, marks the pull request ready, watches it for the settle time (30 seconds, 90 where a check is still to come) so that checks and reviews that only start then are seen, merges the commit that was tested and switches to the updated base branch. This takes a minute or more: let it finish. The last line it prints is the outcome: `Merged ...`, `Not merged: ...` or `STOP: ...`.
-9. **After the merge.** Run the tests or start the app once on the base branch. Tell the user in one line what merged and how it was tested, then go on with the next piece of work.
+3. **Judge.** Before the acceptance test, the build is judged with the judge loop (`/judge-loop`) until it reaches 10. A small fix with nothing to judge is recorded with `loop.py skip --reason "..."` instead. The `judged` gate reads the loop's record.
+4. **Test.** Pick the method from "How to test". A change a user can see or run is tested by a fresh agent that gets only the brief below. A change with nothing user-visible (refactor, CI, internal cleanup) gets a smoke run from you; record it with `--tester session`.
+5. **Findings.** Each one has an id (`F1`, `F2`), the steps, what was expected, what happened, the evidence, and a severity: blocker, should-fix or note.
+6. **Fix.** Fix every blocker and should-fix. A bug gets a regression test. Something outside the issue's scope becomes a new issue, not a fix here. Commit and push.
+7. **Test again.** Same brief, all criteria, plus the findings that were open. A fix can break something that passed before.
+8. **Record.** `record --result pass --release no`, or `record --result fail --open F1 F3`. Say `--release yes` when the change is a release in a way the helper may not see: it sets a new version, publishes, deploys or promotes a stage. Exit 3 means stop and ask.
+9. **Merge.** `merge` waits for CI, marks the pull request ready, watches it for the settle time (30 seconds, 90 where a check is still to come) so that checks and reviews that only start then are seen, merges the commit that was tested and switches to the updated base branch. This takes a minute or more: let it finish. The last line it prints is the outcome: `Merged ...`, `Not merged: ...` or `STOP: ...`.
+10. **After the merge.** Run the tests or start the app once on the base branch. Tell the user in one line what merged and how it was tested, then go on with the next piece of work.
 
 A commit pushed after a passed test needs a new test and a new record: the `tested` gate compares commits. When CI fails, read the log (`gh run view <id> --log-failed`) before changing anything.
 
@@ -60,7 +62,7 @@ Start a fresh agent and give it:
 - the acceptance criteria, word for word;
 - how to reach the build: the URL, the command, or the install path;
 - where to write: the report to `docs/uat/<branch>.md` and screenshots to `docs/uat/<branch>/`, with `/` in the branch name replaced by `-`;
-- the finding format from step 4;
+- the finding format from step 5;
 - these rules, word for word: "A file you will check: read it whole, once. A file you need one fact from: search first, then read only those lines. Read nothing twice. Fewer, fuller tool calls: independent reads in one message, commands chained in one call. Keep tool output short. The same error after about 10 calls: stop and report it. Return at most 15 lines; the details go to the report."
 
 Do not give it the diff, your notes, or what you expect to work. It does not edit code, commit, push or merge. `docs/uat/` is local: the helper adds it to `.git/info/exclude`, and it is on the kit's never-stage list.
@@ -77,6 +79,8 @@ Run it through Bash in these forms only. The only text you add is finding ids an
 | `python3 ${CLAUDE_SKILL_DIR}/ship.py wait` | wait until every CI check has a conclusion |
 | `python3 ${CLAUDE_SKILL_DIR}/ship.py merge` | check every gate, wait for CI, merge; `--dry-run` checks the same and shows the command instead of running it |
 
+The judge loop has its own skill and helper. From here run the helper only in the form `python3 ~/.claude/skills/judge-loop/loop.py <command>`, for `status` and `skip --reason "..."`.
+
 A pull request with no check at all is not green where a workflow runs on pull requests: the helper waits for the first check (`--grace`, 90 seconds by default) and then fails. After a draft is marked ready a check must really have run: one that was skipped on the draft does not count. Add `--allow-no-checks` to `wait` or `merge` only after the Actions tab showed that no workflow runs for this change.
 
 Exit code: 0 done, 1 a gate or a check failed (fix it and run again), 2 the helper could not run (not a repository, `gh` missing or not logged in), 3 stop and ask the user.
@@ -90,6 +94,7 @@ Exit code: 0 done, 1 a gate or a check failed (fix it and run again), 2 the help
 | `review` | no review is required, requested or asking for changes |
 | `current` | the local commit is the pull request's head and nothing tracked is uncommitted |
 | `up-to-date` | the branch contains its base branch and does not conflict with it |
+| `judged` | the branch's judge loop ended in 10, a used budget or the user's accept on this commit or an earlier one of the branch, or a skip was recorded for this commit; `Judge loop: off` on the base branch or in the user-level `CLAUDE.md` passes and names where it stands; a loop waiting for the user exits 3 |
 | `tested` | the last record is a pass for this commit, and the loop is not stuck |
 | `ci` | every check passed; no check at all counts only where no workflow runs on pull requests |
 
@@ -98,5 +103,6 @@ Exit code: 0 done, 1 a gate or a check failed (fix it and run again), 2 the help
 - The record says a test was run. It cannot say the test was a good one: test from the criteria, not from what you built.
 - When a check fails, a review is requested or GitHub refuses after the helper marked the pull request ready, it stays ready. The last line says so. Fix the cause and run `merge` again; on `STOP` ask the user.
 - A record file the helper cannot read is never overwritten: move it away and record the test again.
+- The judge record says results were saved, not that a judge ran or judged well; it is a local file the session can write or remove. `accept`, `settle`, `skip` and `--user-ok` rest on the session's word, like `record --tester session`. A build needs no plan loop. Commits after the judged one are covered by the acceptance test; the panel and the size are taken once, when the loop starts, and the pass reason shows the size since the judged commit. The user-level `Judge loop: off` is a local file the session can edit and no permission rule of the kit guards (the pass reason names where the line stands). The agent files, the role files and `loop.py` are local files too: a session can edit them without a prompt, and only `/kit` shows it, under "Changes since install".
 - The release gate reads branch names, the title and the diff, and holds a version it cannot place. A release that shows in none of them (`chore: go live` without a version change) passes unless you say `--release yes`. When the gate holds an ordinary change, do not rename things to get past it: ask the user.
 - In a sandboxed session `gh` may be unable to read its own configuration. The helper then exits 2 with the message from `gh`; report that and stop.

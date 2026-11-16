@@ -32,12 +32,13 @@ def test_status_lists_every_gate_with_its_reason(sb):
         "review",
         "current",
         "up-to-date",
+        "judged",
         "tested",
         "ci",
     ):
         assert f" {name} " in done.stdout
     assert "no test record" in done.stdout
-    assert "Result: not ready (tested)" in done.stdout
+    assert "Result: not ready (judged, tested)" in done.stdout
 
 
 def test_status_json_and_exit_zero(sb):
@@ -55,7 +56,7 @@ def test_status_without_a_pull_request(sb):
     assert done.returncode == 1
     assert gates(done)["pr"]["state"] == "fail"
     assert gates(done)["own"]["state"] == "skip"
-    assert "Result: not ready (pr, tested)" in sb.ship("status").stdout
+    assert "Result: not ready (pr, judged, tested)" in sb.ship("status").stdout
 
 
 def test_status_outside_a_repository_is_a_tool_error(sb, tmp_path):
@@ -78,10 +79,12 @@ def test_status_outside_a_repository_is_a_tool_error(sb, tmp_path):
 
 
 def test_merge_refuses_without_a_test_record(sb):
+    sb.judged()
     assert "no test record" in refused(sb, "tested", 1).stdout
 
 
 def test_merge_refuses_a_failed_round(sb):
+    sb.judged()
     sb.ship("record", "--result", "fail", "--open", "F1")
     assert "still open: F1" in refused(sb, "tested", 1).stdout
 
@@ -808,4 +811,4 @@ def test_status_names_a_pull_request_that_is_not_open(sb):
     done = sb.ship("status")
     first = done.stdout.splitlines()[0]
     assert first.endswith("(merged)") and "draft" not in first
-    assert "Result: not ready (pr, tested)" in done.stdout
+    assert "Result: not ready (pr, judged, tested)" in done.stdout
