@@ -68,7 +68,9 @@ def test_a_broken_git_file_is_not_called_no_repository(sb):
     sb.mp.setenv("GIT_CEILING_DIRECTORIES", str(sb.tmp))
     run = sb.run("status")
     assert run.code == 2, run
-    assert run.lines[-2].startswith("  fatal: not a git repository"), run
+    # Git words this by version ("not a git repository" or "gitfile does not
+    # point to a valid repository"); the helper passes it on as it is.
+    assert run.lines[-2].startswith("  fatal: "), run
     assert run.last == GIT_FAILED
 
 
