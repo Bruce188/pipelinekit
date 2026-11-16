@@ -551,6 +551,8 @@ def outcome_gate(repo, st, head, base, unreadable):
         return judged("fail", "abandoned: loop.py start build")
     if outcome not in OUTCOMES or not COMMIT.fullmatch(st["commit"]):
         return judged("fail", unreadable)
+    if outcome in ("done", "budget") and open_counts(st)[1]:
+        return judged("fail", unreadable)  # loop.py ends such a loop as blocked
     sha = st["commit"]
     if outcome == "skip":
         if sha != head:

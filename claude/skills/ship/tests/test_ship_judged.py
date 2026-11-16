@@ -442,7 +442,7 @@ PASSES = {
     "raised again": (
         {
             "outcome": "budget",
-            "items": {"B1": item("blocking", settled=dict(SETTLED, raised_again=1))},
+            "items": {"I1": item("improvement", settled=dict(SETTLED, raised_again=1))},
         },
         "budget used, 1 item left, on {sha}",
     ),
@@ -467,6 +467,22 @@ def test_the_pass_reason(sb, fields, reason):
     gate = judged(sb)
     assert gate["state"] == "pass"
     assert gate["detail"] == reason.format(sha=short(sb))
+
+
+OPEN_BLOCKING = {
+    "done": {"items": {"B1": item("blocking")}},
+    "budget": {"outcome": "budget", "items": {"B1": item("blocking")}},
+    "budget, raised again": {
+        "outcome": "budget",
+        "items": {"B1": item("blocking", settled=dict(SETTLED, raised_again=1))},
+    },
+}
+
+
+@pytest.mark.parametrize("fields", OPEN_BLOCKING.values(), ids=OPEN_BLOCKING.keys())
+def test_a_finished_record_with_an_open_blocking_item_is_unreadable(sb, fields):
+    sb.judged(**fields)
+    assert detail(sb) == UNREADABLE
 
 
 # ---------------------------------------------------------------- with the judge loop
