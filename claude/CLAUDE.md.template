@@ -66,6 +66,12 @@ Use `gh` and keep work traceable on GitHub:
 - Releases, when the user asks for one: tag, then `gh release create` with notes from the merged PRs.
 - Ask first before closing, transferring or deleting issues, changing repo settings, or commenting on other people's issues/PRs.
 
+## Gardening
+
+- Friction met during a task (a slow or flaky test, a missing check, a confusing name, a stale doc): a small pull request or an issue for it, not a workaround.
+- A pattern an agent introduced (the same mistake in more than one place) is fixed at its cause: the rule, hook, check or test that would have stopped it, not only the instances.
+- `/garden` audits a project: it reports first and changes only the findings the user picks.
+
 ## Deploy platforms
 
 Use the `deploy` skill. If a CLI is missing, stop and ask the user to install it.

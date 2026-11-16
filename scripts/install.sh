@@ -22,7 +22,7 @@ TS="$(date +%Y%m%d-%H%M%S)"
 # Keep in sync with .mcp.json / .mcp.json.template.
 SERENA_REF="${SERENA_REF:-9b292a6c8b03c8306f117efeabb0ea7afdb0b3c0}"
 
-KIT_SKILLS=(dotnet-conventions deploy exchange-api-keys docs-writer frontend-design mobile kit ship judge-loop)
+KIT_SKILLS=(dotnet-conventions deploy exchange-api-keys docs-writer frontend-design mobile kit ship judge-loop garden)
 KIT_AGENTS=(kit-planner.md kit-builder.md kit-judge.md)
 # Shipped by earlier versions. Removed on upgrade only if unmodified (see kit_file).
 RETIRED_SKILLS=(commit-conventions security-conventions expo ios)
@@ -115,7 +115,7 @@ for s in "${KIT_SKILLS[@]}"; do
 done
 find "$CLAUDE_HOME/skills" -name __pycache__ -type d -prune -exec rm -rf {} +
 chmod +x "$CLAUDE_HOME/skills/kit/check.py" "$CLAUDE_HOME/skills/ship/ship.py" \
-  "$CLAUDE_HOME/skills/judge-loop/loop.py"
+  "$CLAUDE_HOME/skills/judge-loop/loop.py" "$CLAUDE_HOME/skills/garden/garden.py"
 # judge-loop in another home: the skill names its helper as ~/.claude/...;
 # from another home that path is wrong, so the installed copy names this home
 # instead, right after the copy (an install that stops later still leaves a

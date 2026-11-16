@@ -31,10 +31,11 @@ Stop and ask, with an interactive question, when any of these is true. The helpe
 3. **Test.** Pick the method from "How to test". A change a user can see or run is tested by a fresh agent that gets only the brief below. A change with nothing user-visible (refactor, CI, internal cleanup) gets a smoke run from you; record it with `--tester session`.
 4. **Findings.** Each one has an id (`F1`, `F2`), the steps, what was expected, what happened, the evidence, and a severity: blocker, should-fix or note.
 5. **Fix.** Fix every blocker and should-fix. A bug gets a regression test. Something outside the issue's scope becomes a new issue, not a fix here. Commit and push.
-6. **Test again.** Same brief, all criteria, plus the findings that were open. A fix can break something that passed before.
-7. **Record.** `record --result pass --release no`, or `record --result fail --open F1 F3`. Say `--release yes` when the change is a release in a way the helper may not see: it sets a new version, publishes, deploys or promotes a stage. Exit 3 means stop and ask.
-8. **Merge.** `merge` waits for CI, marks the pull request ready, watches it for the settle time (30 seconds, 90 where a check is still to come) so that checks and reviews that only start then are seen, merges the commit that was tested and switches to the updated base branch. This takes a minute or more: let it finish. The last line it prints is the outcome: `Merged ...`, `Not merged: ...` or `STOP: ...`.
-9. **After the merge.** Run the tests or start the app once on the base branch. Tell the user in one line what merged and how it was tested, then go on with the next piece of work.
+6. **Root cause.** When a finding comes from a pattern rather than a slip (the same mistake in more than one place, or one the next change will make again), name the rule, hook, check or test that would have stopped it. Add it in the same pull request when it is small; otherwise open an issue for it.
+7. **Test again.** Same brief, all criteria, plus the findings that were open. A fix can break something that passed before.
+8. **Record.** `record --result pass --release no`, or `record --result fail --open F1 F3`. Say `--release yes` when the change is a release in a way the helper may not see: it sets a new version, publishes, deploys or promotes a stage. Exit 3 means stop and ask.
+9. **Merge.** `merge` waits for CI, marks the pull request ready, watches it for the settle time (30 seconds, 90 where a check is still to come) so that checks and reviews that only start then are seen, merges the commit that was tested and switches to the updated base branch. This takes a minute or more: let it finish. The last line it prints is the outcome: `Merged ...`, `Not merged: ...` or `STOP: ...`.
+10. **After the merge.** Run the tests or start the app once on the base branch. Tell the user in one line what merged and how it was tested, then go on with the next piece of work.
 
 A commit pushed after a passed test needs a new test and a new record: the `tested` gate compares commits. When CI fails, read the log (`gh run view <id> --log-failed`) before changing anything.
 

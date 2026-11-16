@@ -37,7 +37,7 @@ The installer merges `claude/config/settings.template.json` into `~/.claude/sett
 | `bash-guard.py` | PreToolUse `Bash` (`if`: git, docker, podman, curl, wget, psql, mysql, mariadb, sqlite3) | Blocks pushes to other remotes or main, remote changes, global git config writes, hook bypasses (`--no-verify`, `core.hooksPath`), staging `config/never-stage.txt` paths or bulk staging, sensitive docker mounts, and `curl \| sh`. Asks before `docker --privileged` and DROP/TRUNCATE |
 | `block-bare-repo-markers.py` | PreToolUse `Edit`/`Write` | Blocks assembling a bare git repo (HEAD + config/objects/refs) in the working directory or one level down |
 | `post-edit-format.sh` | PostToolUse `Edit`/`Write` | Runs the project's own prettier on ts/js/json/yaml |
-| `session-check.py` | SessionStart `startup` | Quick self-check when a session starts: silent when the install is healthy, one line naming `/kit` when something is broken. Never blocks. `PIPELINEKIT_SESSION_CHECK=0` switches it off |
+| `session-check.py` | SessionStart `startup` | Quick self-check when a session starts: silent when the install is healthy, one line naming `/kit` when something is broken. In a project whose last `/garden` run is more than 30 days old, a one-line reminder, at most once in 7 days (`Garden reminder: off` in the project's `CLAUDE.md` or `PIPELINEKIT_GARDEN=0` turns it off). Never blocks. `PIPELINEKIT_SESSION_CHECK=0` switches it off |
 
 ### Git hooks
 
@@ -69,12 +69,13 @@ off. Every rule id is in
 | `frontend-design` | Visual design guidance, loaded before building or reshaping anything a person looks at: app or site UI, HTML pages and Artifacts, `docs-writer` snippets, charts and dashboards. From [`anthropics/skills`](https://github.com/anthropics/skills), unchanged, under Apache-2.0 (see its `SOURCE.md`) |
 | `mobile` | Android (Kotlin/Compose) builds and device access from WSL2, iPhone home-screen web apps, Expo/EAS cloud builds for iOS, release and security checklist |
 | `kit` | Self-check, run as `/kit`: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, environment conflicts, what the hooks blocked or failed on in the last days, and whether a newer kit is available. `/kit update` applies it after asking |
-| `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then `ship.py` merges once every gate holds (own pull request, not a release, no required review, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
+| `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again (a finding that comes from a pattern also gets its root cause fixed: the rule, hook, check or test that would have stopped it), then `ship.py` merges once every gate holds (own pull request, not a release, no required review, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
 | `judge-loop` | Run as `/judge-loop`: plans and builds a change on Opus, and has fresh Fable judges score the plan and the build until each gets 10 out of 10, within a round budget. `loop.py` keeps the state under `docs/loops/` (local, on the never-stage list) and says what comes next |
+| `garden` | Run as `/garden`: audits the project in the current directory and reports ranked findings with their evidence: slow or failing CI and commands (Friction), missing lint, format, types, tests, CI, commit hooks or secret scan for Node, Python, .NET, Go and Rust (Checks), tests that assert nothing, skipped tests and missing dead-code tools (Pruning), and the project's `CLAUDE.md` and last run (Guidance). It changes only the findings you pick, each as its own issue and pull request through `ship`. `/garden report` stops after the report. `garden.py` keeps its record in `docs/garden/` (local, on the never-stage list) |
 
 ### CLAUDE.md template
 
-`claude/CLAUDE.md.template` is 79 lines long. It covers your identity,
+`claude/CLAUDE.md.template` is 85 lines long. It covers your identity,
 git rules (conventional commits, no AI attribution, never-stage list, no
 direct pushes to `main`), the `docs/` and `documentation/` split, base-branch
 detection, serena vs Grep, a design rule (load `frontend-design` before visual
@@ -82,7 +83,8 @@ work; a project's own design system and the host's rules for the output come
 first; skip it for small fixes inside an existing design), the plan, build,
 judge rule and how the agents it starts read files and answer, GitHub issue/PR
 habits with `gh` (Claude tests and merges the pull requests it opens; releases
-stay yours), and the deploy CLIs.
+stay yours), gardening (friction gets a fix, a pattern is fixed at its cause,
+`/garden` reports first), and the deploy CLIs.
 The installer renders it to `~/.claude/CLAUDE.md`.
 
 ### Plan, build, judge
@@ -297,7 +299,7 @@ python3 claude/skills/docs-writer/render.py   # renders every docs-source/*.md; 
 ```bash
 for t in claude/hooks/tests/test_*.sh; do bash "$t"; done   # git hooks
 python3 -m pytest claude/hooks/tests claude/skills/kit/tests claude/skills/ship/tests \
-  claude/skills/judge-loop/tests
+  claude/skills/judge-loop/tests claude/skills/garden/tests
 bash tests/test_install.sh
 bash claude/skills/docs-writer/tests/test_render.sh
 bash claude/skills/docs-writer/tests/test_richness_threshold.sh

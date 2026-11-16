@@ -28,14 +28,15 @@ The kit has six layers. Hover a chip for a one-line summary, or use the buttons 
    "chips": [{"label": "commit-msg", "tip": "Conventional commits, no attribution or emoji"},
              {"label": "pre-commit", "tip": "gitleaks on staged changes"},
              {"label": "pre-push", "tip": "No pushes to main or master"}]},
-  {"name": "Skills", "color": "#10b981", "count": "9 skills",
+  {"name": "Skills", "color": "#10b981", "count": "10 skills",
    "chips": [{"label": "dotnet-conventions"}, {"label": "deploy"}, {"label": "exchange-api-keys"},
              {"label": "docs-writer"},
              {"label": "frontend-design", "tip": "Visual design guidance, from anthropics/skills (Apache-2.0)"},
              {"label": "mobile"},
              {"label": "kit", "tip": "Self-check, run as /kit"},
              {"label": "ship", "tip": "Test, fix and merge your own pull request"},
-             {"label": "judge-loop", "tip": "Plan, build and judge a change until it reaches 10"}]},
+             {"label": "judge-loop", "tip": "Plan, build and judge a change until it reaches 10"},
+             {"label": "garden", "tip": "Audit friction, checks, dead weight and guidance"}]},
   {"name": "Agents", "color": "#ec4899", "count": "3 agents",
    "chips": [{"label": "kit-planner", "tip": "Model: opus"},
              {"label": "kit-builder", "tip": "Model: opus"},
@@ -57,7 +58,7 @@ The installer merges `claude/config/settings.template.json` into `~/.claude/sett
 | `bash-guard.py` | PreToolUse `Bash` (`if`: git, docker, podman, curl, wget, psql, mysql, mariadb, sqlite3) | Blocks pushes to other remotes or main, remote changes, global git config writes, hook bypasses (`--no-verify`, `core.hooksPath`), staging `config/never-stage.txt` paths or bulk staging, sensitive docker mounts, and `curl \| sh`. Asks before `docker --privileged` and DROP/TRUNCATE |
 | `block-bare-repo-markers.py` | PreToolUse `Edit\|Write` | Blocks assembling a bare git repo (HEAD + config/objects/refs) in the working directory or one level down |
 | `post-edit-format.sh` | PostToolUse `Edit\|Write` | Runs the project's own prettier on ts/js/json/yaml |
-| `session-check.py` | SessionStart `startup` | Runs the self-check in quick mode when a session starts. Says nothing when the install is healthy, otherwise one line with the number of problems that names `/kit`. Never blocks a session. `PIPELINEKIT_SESSION_CHECK=0` switches it off |
+| `session-check.py` | SessionStart `startup` | Runs the self-check in quick mode when a session starts. Says nothing when the install is healthy, otherwise one line with the number of problems that names `/kit`. Also gives the `/garden` reminder (see [Gardening a project](#gardening-a-project)). Never blocks a session. `PIPELINEKIT_SESSION_CHECK=0` switches it off |
 
 <details markdown="1">
 <summary>How deny and ask behave in bypassPermissions mode</summary>
@@ -146,8 +147,9 @@ With `ask`, Claude Code prompts you instead of refusing. `override` means a huma
 | `frontend-design` | Visual design guidance: aesthetic direction, typography, layout and copy, loaded before building or reshaping anything a person looks at (app or site UI, HTML pages and Artifacts, `docs-writer` snippets, charts and dashboards). Vendored unchanged from [`anthropics/skills`](https://github.com/anthropics/skills) (`skills/frontend-design` at a pinned commit) under the Apache License 2.0; `SOURCE.md` in its folder records the commit, the checksums and how to move to a newer one. The rest of the kit is MIT |
 | `mobile` | Android (Kotlin/Compose) builds and device access from WSL2, iPhone home-screen web apps, Expo/EAS cloud builds for iOS, release and security checklist |
 | `kit` | Self-check, run as `/kit`: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, environment conflicts, what the hooks blocked or failed on in the last days, and whether a newer kit is available. `/kit update` applies it after asking |
-| `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then `ship.py` merges once every gate holds (own pull request, not a release, no required review, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
+| `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again (a finding that comes from a pattern also gets its root cause fixed: the rule, hook, check or test that would have stopped it), then `ship.py` merges once every gate holds (own pull request, not a release, no required review, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
 | `judge-loop` | Run as `/judge-loop`: plans and builds a change on Opus, and has fresh Fable judges score the plan and the build until each gets 10 out of 10, within a round budget. See [Plan, build, judge](#plan-build-judge). Its record lives in `docs/loops/` of the one checkout it runs in and is never committed; see [The judge loop](installation.html#the-judge-loop). |
+| `garden` | Run as `/garden`: audits the project in the current directory and reports ranked findings with their evidence: slow or failing CI and commands (Friction), missing lint, format, types, tests, CI, commit hooks or secret scan for Node, Python, .NET, Go and Rust (Checks), tests that assert nothing, skipped tests and missing dead-code tools (Pruning), and the project's `CLAUDE.md` and last run (Guidance). It changes only the findings you pick, each as its own issue and pull request through `ship`. `/garden report` stops after the report. See [Gardening a project](#gardening-a-project). |
 
 In 0.1.0, `deploy` replaces the five separate `*-ops` skills and the per-provider deployment agents, `mobile` replaces `expo` and `ios`, and the ASP.NET Core security rules moved into `dotnet-conventions`.
 
@@ -239,7 +241,8 @@ With the kit installed, Claude finishes the pull requests it opens instead of ha
 2. Claude builds the change, runs the project's tests and opens a draft pull request.
 3. A fresh agent tests the change. It gets the criteria and the running build, not the code or the builder's notes. A web page is driven with Playwright, a command-line tool or installer runs in a throwaway directory, an API is started and called. A change with nothing user-visible gets a smoke run instead.
 4. Findings are fixed, each bug with a regression test, and the test runs again until it passes.
-5. `ship.py record` notes the result for the tested commit, and with a pass whether the pull request is a release (`--release yes` or `--release no`). `ship.py merge` waits for CI and merges.
+5. A finding that comes from a pattern rather than a slip gets its root cause fixed as well: the rule, hook, check or test that would have stopped it, in the same pull request when it is small, otherwise as a new issue.
+6. `ship.py record` notes the result for the tested commit, and with a pass whether the pull request is a release (`--release yes` or `--release no`). `ship.py merge` waits for CI and merges.
 
 `ship.py merge` refuses unless every gate holds:
 
@@ -329,9 +332,32 @@ The record of a loop lies in `docs/loops/<name>/plan/` and `docs/loops/<branch>/
 
 Limits: the record says that results were saved, not that a judge ran or judged well; it is a local file the session can write or remove. `accept`, `settle` and `skip` rest on the session's word. A judge's full read cannot be proven, only stated. The panel and the size are taken once, when the loop starts. The loop needs both a Fable and an Opus model; an account without one sets `Judge loop: off`. Where a session does not show the kit agents, the skill starts general-purpose agents with the same models and the installed agent text (`--agents fallback`), and `loop.py start` prints "fallback: the judge is not limited to reading by its tools": the judge's read-only rule then rests on its role text alone.
 
+## Gardening a project
+
+`/garden` audits the ground a project is built on. When the skill loads, `claude/skills/garden/garden.py scan` reads the project's files and, with `gh` and a GitHub remote, its CI runs. It runs nothing from the project. The report has four sections:
+
+| Section | What it measures |
+|---------|------------------|
+| Friction | Median and longest duration of the last 20 finished CI runs on the default branch, and the share that failed; cancelled and skipped runs are counted but not timed. Commands you had timed with `garden.py time` |
+| Checks | Lint, format, types and tests for each recognised stack (Node, Python, .NET, Go, Rust), and CI, commit hooks and a secret scan for the project, each yes or no with the file that shows it. A project of another kind gets the CI and commit-hook rows and a line saying its stack was not recognised |
+| Pruning | Python test functions that assert nothing (file and line), skipped tests by the usual markers of the five stacks, and the dead-code tools found or "none installed". Nothing is deleted |
+| Guidance | Whether the project has a `CLAUDE.md` and how long it is, and the date of the last run with its findings that are still open |
+
+Then come the findings, ranked, each with an id (`G1`), the evidence, the proposed change and a size (S an hour or less, M a few hours, L a day or more). Claude shows them and asks which to fix; nothing in the project changes before that answer. `/garden report` stops after the report. Each picked finding becomes its own issue and its own small pull request through the `ship` skill. Code or a test is deleted only when a search shows nothing uses it, and the project's tests pass after every change.
+
+```bash
+python3 ~/.claude/skills/garden/garden.py scan             # the report; --json for scripts
+python3 ~/.claude/skills/garden/garden.py record --picked G1 G3
+python3 ~/.claude/skills/garden/garden.py time --label tests -- pytest -q
+```
+
+`record` saves the report and `last.json` under `docs/garden/` and adds that folder to `.git/info/exclude`; `docs/garden/` is also on the never-stage list. `time` runs the command you name, keeps its duration and exit code (not its output) and ends it, with everything it started, after 600 seconds (`--timeout N`); it exits with the command's code, 124 on a timeout. The report is data: it shows file names, counts, durations and dates, never text from the project's files, and a name that is not a plain path is counted and not shown.
+
+When a project's last run is more than 30 days old, the session-start hook adds one line naming `/garden` and the number of days, at most once in 7 days per project. It stays quiet in a project that was never audited, and on any fault. A line `Garden reminder: off` in the project's `CLAUDE.md`, or `PIPELINEKIT_GARDEN=0` in the environment, turns the reminder off.
+
 ## CLAUDE.md template
 
-`claude/CLAUDE.md.template` is 79 lines of English with no imported rule files. The installer fills in `${USER_NAME}`, `${USER_EMAIL}` and `${CLAUDE_HOME}` and writes the result to `~/.claude/CLAUDE.md`. It covers:
+`claude/CLAUDE.md.template` is 85 lines of English with no imported rule files. The installer fills in `${USER_NAME}`, `${USER_EMAIL}` and `${CLAUDE_HOME}` and writes the result to `~/.claude/CLAUDE.md`. It covers:
 
 - your identity;
 - git rules: commit only when asked, conventional commits, no AI attribution, no workflow jargon in commit text, the never-stage list, `.git/info/exclude` for Claude-specific ignores, and no direct pushes to `main`;
@@ -342,6 +368,7 @@ Limits: the record says that results were saved, not that a judge ran or judged 
 - design: load `frontend-design` before building or reshaping anything a person looks at; the project's own design system or brand comes first, then the host's rules for the output, then the skill; the `dataviz` skill, when the session has it, decides chart form; `docs-writer` pages keep the template's CSS variables; skip it for work with no visual output and for small fixes inside an existing design;
 - plan, build, judge: a change that is more than a small fix is planned, built and judged with the `judge-loop` skill, to 10 out of 10 in at most five rounds each; the three switch lines; and how every agent it starts reads files and answers (only the form when given a JSON form, else at most 15 lines);
 - GitHub habits with `gh`: issues with acceptance criteria before work, `<type>/<issue#>-<slug>` branches, draft PRs, finishing its own PRs with the `ship` skill, reading CI logs, releases when you ask;
+- gardening: friction met during a task gets a small pull request or an issue, not a workaround; a pattern an agent introduced is fixed at its cause; `/garden` reports first and changes only the findings you pick;
 - the deploy CLIs.
 
 ## MCP servers
