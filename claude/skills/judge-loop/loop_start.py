@@ -439,7 +439,7 @@ def frontmatter_name(data, names=AGENT_NAMES):
     unreadable = False
     top = None
     for line in lines[1:]:
-        if line.strip() == "---":
+        if line.rstrip() == "---":  # at column 0; an indented one is block text
             break
         content = line.lstrip(" ")
         if not line.strip() or content.startswith("#"):
@@ -469,56 +469,91 @@ def frontmatter_name(data, names=AGENT_NAMES):
     return None if unreadable else ""
 
 
+def unchecked(root, path):
+    rel = show_path(os.path.relpath(path, root))
+    say(f"note: {rel} could not be checked for the name general-purpose")
+
+
 def general_purpose_agent(root):
     """The path of a project agent named general-purpose, by file or front
-    matter name, else None. Links and files that cannot be read are passed
-    over: with fallback agents nothing else of the folder matters."""
+    matter name, else None. A link, a file that cannot be read and a name
+    that cannot be read are passed over with a note: fallback agents are the
+    way out of the stop for those, and nothing else of the folder matters."""
     here = root
     for part in (".claude", "agents"):
         here = here / part
         try:
-            if not stat.S_ISDIR(os.lstat(here).st_mode):
-                return None
-        except OSError:
+            mode = os.lstat(here).st_mode
+        except FileNotFoundError:
             return None
-    for top, dirs, files in os.walk(here, followlinks=False):
+        except OSError:
+            unchecked(root, here)
+            return None
+        if stat.S_ISLNK(mode):
+            unchecked(root, here)
+        if not stat.S_ISDIR(mode):
+            return None
+
+    def unlisted(err):
+        unchecked(root, err.filename or here)
+
+    for top, dirs, files in os.walk(here, followlinks=False, onerror=unlisted):
         dirs.sort()
+        for entry in dirs:
+            if os.path.islink(Path(top) / entry):
+                unchecked(root, Path(top) / entry)
         for entry in sorted(files):
             if not entry.lower().endswith(".md"):
                 continue
             path = Path(top) / entry
-            rel = os.path.relpath(path, root)
             if entry[:-3].lower() == "general-purpose":
-                return rel
-            st = os.lstat(path)
-            if not stat.S_ISREG(st.st_mode) or st.st_size > MAX_AGENT_FILE:
+                return os.path.relpath(path, root)
+            try:
+                st = os.lstat(path)
+                small = stat.S_ISREG(st.st_mode) and st.st_size <= MAX_AGENT_FILE
+                data = read_plain(path, MAX_AGENT_FILE) if small else False
+            except FileNotFoundError:
                 continue
-            data = read_plain(path, MAX_AGENT_FILE)
-            if data and frontmatter_name(data, ("general-purpose",)):
-                return rel
+            except OSError:
+                data = False
+            name = frontmatter_name(data, ("general-purpose",)) if data else ""
+            if name:
+                return os.path.relpath(path, root)
+            if data is False or name is None:
+                unchecked(root, path)
     return None
 
 
 def project_agent(root):
     """None, or (name, path) of a project agent with a kit name; ('', path) for
-    a link or a file over the size limit, (None, path) for an unreadable name."""
+    a link, a file over the size limit, or a file or folder that cannot be
+    read (also one gone after it was listed), (None, path) for an unreadable
+    name."""
     here = root
     for part in (".claude", "agents"):
         here = here / part
+        rel = os.path.relpath(here, root)
         try:
             st = os.lstat(here)
         except FileNotFoundError:
             return None
-        rel = os.path.relpath(here, root)
+        except OSError:
+            return "", rel
         if stat.S_ISLNK(st.st_mode):
             return "", rel
         if not stat.S_ISDIR(st.st_mode):
             return None
-    for top, dirs, files in os.walk(here, followlinks=False):
+    failed = []
+    for top, dirs, files in os.walk(here, followlinks=False, onerror=failed.append):
+        if failed:
+            break
         for entry in sorted(dirs) + sorted(files):
             path = Path(top) / entry
             rel = os.path.relpath(path, root)
-            st = os.lstat(path)
+            try:
+                st = os.lstat(path)
+            except OSError:
+                return "", rel
             if stat.S_ISLNK(st.st_mode):
                 return "", rel
             if entry in files and entry.lower().endswith(".md"):
@@ -527,14 +562,19 @@ def project_agent(root):
                 stem = entry[:-3].lower()
                 if stem in AGENT_NAMES:
                     return stem, rel
-                data = read_plain(path, MAX_AGENT_FILE)
-                if data is False:
+                try:
+                    data = read_plain(path, MAX_AGENT_FILE)
+                except OSError:
+                    data = False
+                if not isinstance(data, bytes):
                     return "", rel
-                name = frontmatter_name(data or b"")
+                name = frontmatter_name(data)
                 if name is None:
                     return None, rel
                 if name in AGENT_NAMES:
                     return name, rel
+    if failed:
+        return "", os.path.relpath(failed[0].filename or here, root)
     return None
 
 
@@ -571,10 +611,9 @@ def check_agents(ctx, agents, command, panel=()):
     if not name:
         raise Exit(
             3,
-            f"STOP: {show_path(rel)} cannot be checked for an agent name (a link, or "
-            "over "
-            "64 kB). Next: ask the user: make it a plain file or folder, or the same "
-            "command with --agents fallback.",
+            f"STOP: {show_path(rel)} cannot be checked for an agent name (a link, "
+            "over 64 kB or not readable). Next: ask the user: make it a plain, "
+            "readable file or folder, or the same command with --agents fallback.",
         )
     again = "start ..." if command == "start" else command
     raise Exit(

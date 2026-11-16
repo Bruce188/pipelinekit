@@ -492,10 +492,35 @@ def test_two_branches_build_from_one_plan_loop(sb, first_done):
     assert data["name"] == "feat-2-y"
     sb.git("checkout", "-q", "feat/1-x")
     data = json.loads(sb.run("status", "--json").out)
-    assert (data["name"], data["outcome"]) == ("feat-1-x", first["outcome"])
+    times = [
+        os.lstat(sb.loopdir(*where) / "state.json").st_mtime_ns
+        for where in (("plan", "p1"), ("build", "feat-1-x"))
+    ]
+    assert (data["name"], data["outcome"]) == ("feat-1-x", first["outcome"]), (
+        f"status named {data['name']}; state.json mtime_ns: plan p1 {times[0]}, "
+        f"build feat-1-x {times[1]}"
+    )
     run = sb.run("skip", "--reason", "small", "--user-ok")
     assert run.code == 2
     if first_done:
         assert run.last.startswith("Refused: this branch is already judged (")
     else:
         assert run.last.startswith("Refused: a judge loop is open on this branch.")
+
+
+def test_status_on_a_judged_branch_names_its_build_loop(sb):
+    plan_stage(sb)
+    sb.start_build("--plan-loop", "p1")
+    assert sb.judge({"general": 10}).code == 0
+    later = (sb.loopdir() / "state.json").stat().st_mtime + 3600
+    os.utime(sb.loopdir("plan", "p1") / "state.json", (later, later))
+    run = sb.run("status")
+    assert run.lines[0] == "Loop: build feat-1-x in docs/loops/feat-1-x/build/"
+    data = json.loads(sb.run("status", "--json").out)
+    assert (data["kind"], data["name"], data["outcome"]) == (
+        "build",
+        "feat-1-x",
+        "done",
+    )
+    data = json.loads(sb.run("status", "--json", "--kind", "plan").out)
+    assert (data["kind"], data["name"]) == ("plan", "p1")

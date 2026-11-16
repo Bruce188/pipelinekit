@@ -68,7 +68,9 @@ def test_a_broken_git_file_is_not_called_no_repository(sb):
     sb.mp.setenv("GIT_CEILING_DIRECTORIES", str(sb.tmp))
     run = sb.run("status")
     assert run.code == 2, run
-    assert run.lines[-2].startswith("  fatal: not a git repository"), run
+    # Git words this by version ("not a git repository" or "gitfile does not
+    # point to a valid repository"); the helper passes it on as it is.
+    assert run.lines[-2].startswith("  fatal: "), run
     assert run.last == GIT_FAILED
 
 
@@ -540,3 +542,84 @@ def test_fallback_agents_with_a_project_agent_named_general_purpose(sb, rel, tex
     run = sb.run("start", "build", "--agents", "fallback")
     assert (run.code, run.last) == (3, GENERAL_PURPOSE.format(rel=rel)), run
     assert not (sb.loopdir() / "state.json").exists()
+
+
+UNCHECKED = "note: {rel} could not be checked for the name general-purpose"
+
+
+UNREADABLE = ["a file", "a folder"]
+NOT_ROOT = pytest.mark.skipif(os.geteuid() == 0, reason="root reads mode 000")
+
+
+def unreadable_agent(sb, how):
+    """A project agent file, or a folder holding one, of mode 000. git ignores
+    it: git status would read it and find it changed."""
+    rel = ".claude/agents/helper.md" if how == "a file" else ".claude/agents/sub"
+    exclude = sb.root / ".git" / "info" / "exclude"
+    exclude.parent.mkdir(exist_ok=True)
+    with exclude.open("a") as fh:
+        fh.write(rel + "\n")
+    sb.write(rel if how == "a file" else f"{rel}/helper.md", "---\nname: helper\n---\n")
+    sb.change()
+    (sb.root / rel).chmod(0)
+    return rel
+
+
+@NOT_ROOT
+@pytest.mark.parametrize("how", UNREADABLE)
+def test_fallback_agents_pass_over_a_file_that_cannot_be_read(sb, how):
+    rel = unreadable_agent(sb, how)
+    try:
+        run = sb.run("start", "build", "--agents", "fallback")
+    finally:
+        (sb.root / rel).chmod(0o755)
+    assert run.code == 0, run
+    assert UNCHECKED.format(rel=rel) in run.lines
+
+
+@NOT_ROOT
+@pytest.mark.parametrize("how", UNREADABLE)
+def test_kit_agents_stop_at_a_file_that_cannot_be_read(sb, how):
+    rel = unreadable_agent(sb, how)
+    try:
+        run = sb.run("start", "build")
+    finally:
+        (sb.root / rel).chmod(0o755)
+    assert run.code == 3, run
+    assert run.last.startswith(f"STOP: {rel} cannot be checked for an agent name (")
+    assert run.last.endswith("or the same command with --agents fallback.")
+    assert not (sb.loopdir() / "state.json").exists()
+
+
+UNCHECKED_AGENTS = [
+    "an unreadable name",
+    "a link",
+    "a linked folder",
+    "a linked agents folder",
+]
+
+
+@pytest.mark.parametrize("how", UNCHECKED_AGENTS)
+def test_fallback_agents_note_what_they_cannot_check(sb, how):
+    agents = sb.root / ".claude" / "agents"
+    outside = sb.tmp / "outside"
+    outside.mkdir()
+    (outside / "general-purpose.md").write_text("---\nname: general-purpose\n---\n")
+    rel = ".claude/agents/x.md"
+    if how == "an unreadable name":
+        sb.write(rel, "---\n&a name: general-purpose\n---\n")
+    elif how == "a link":
+        agents.mkdir(parents=True)
+        (sb.root / rel).symlink_to(outside / "general-purpose.md")
+    elif how == "a linked folder":
+        agents.mkdir(parents=True)
+        (agents / "sub").symlink_to(outside)
+        rel = ".claude/agents/sub"
+    else:
+        agents.parent.mkdir(parents=True)
+        agents.symlink_to(outside)
+        rel = ".claude/agents"
+    sb.change()
+    run = sb.run("start", "build", "--agents", "fallback")
+    assert run.code == 0, run
+    assert UNCHECKED.format(rel=rel) in run.lines
