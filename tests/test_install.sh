@@ -118,6 +118,9 @@ grep -qx '## Design' "$CLAUDE_HOME/CLAUDE.md"
 grep -qx '## Plan, build, judge' "$CLAUDE_HOME/CLAUDE.md"
 # The helper starts from its installed place and says why it cannot go on.
 (cd "$T" && python3 "$CLAUDE_HOME/skills/ship/ship.py" status --exit-zero | grep -q 'not inside a git repository')
+# Its modules come along, and running it leaves no cache file in the install.
+for f in ship_base.py ship_gates.py; do test -f "$CLAUDE_HOME/skills/ship/$f"; done
+test ! -e "$CLAUDE_HOME/skills/ship/__pycache__"
 test ! -e "$CLAUDE_HOME/skills/commit-conventions"
 test ! -e "$CLAUDE_HOME/skills/expo"
 test -f "$CLAUDE_HOME/skills/ios/SKILL.md"           # edited: kept
@@ -155,6 +158,7 @@ head = subprocess.run(["git", "-C", repo, "rev-parse", "HEAD"], capture_output=T
 assert m["commit"] == head, "manifest commit is not the checkout's HEAD"
 assert m["hooks_path"] == f"{home}/git-hooks", "manifest missed the hooks path set by this install"
 assert "skills/kit/check.py" in m["files"] and all(m["files"].values()), "manifest file list incomplete"
+assert "skills/ship/ship_gates.py" in m["files"], "manifest missed a module of ship.py"
 PY
 CLAUDE_HOME="$CLAUDE_HOME" bash "$REPO_ROOT/scripts/verify.sh" >/dev/null
 # The session-start check has nothing to say about a fresh install.

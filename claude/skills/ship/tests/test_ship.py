@@ -1699,7 +1699,7 @@ def test_source_code_that_only_names_a_version_is_ordinary(path, before, after):
 @pytest.mark.parametrize("parser", ["tomllib", "by line"])
 def test_toml_is_read_the_same_without_a_parser(monkeypatch, parser):
     if parser == "by line":
-        monkeypatch.setattr(ship, "tomllib", None)
+        monkeypatch.setattr(sys.modules["ship_gates"], "tomllib", None)
     held_one = bump("Cargo.toml", '[package]\nname = "demo"\nversion = "%s"\n')
     assert verdict(*held_one).startswith("the diff sets a version in Cargo.toml")
     assert (
