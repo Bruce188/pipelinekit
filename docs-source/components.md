@@ -268,7 +268,7 @@ With the kit installed, Claude finishes the pull requests it opens instead of ha
 | `review` | No review is required, requested or asking for changes |
 | `current` | The local commit is the pull request's head and nothing tracked is uncommitted |
 | `up-to-date` | The branch contains its base branch and does not conflict with it |
-| `judged` | The branch's build loop ended in 10, a used budget or your accept on this commit or an earlier one, or `loop.py skip` recorded this commit; a loop waiting for you stops and asks; `Judge loop: off` passes. Limits: [The judge loop](installation.html#the-judge-loop) |
+| `judged` | The branch's build loop ended in 10, a used budget or your accept on this commit or an earlier one, or `loop.py skip` recorded this commit; a loop waiting for you stops and asks; `Judge loop: off` on the base branch or in your user-level `CLAUDE.md` passes and is named in the reason. Limits: [The judge loop](installation.html#the-judge-loop) |
 | `tested` | The last test record is a pass for exactly this commit, and the loop is not stuck |
 | `ci` | Every check has finished and passed. A pull request with no check at all passes only where no workflow runs on pull requests, or with `--allow-no-checks` |
 

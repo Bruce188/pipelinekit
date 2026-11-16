@@ -718,6 +718,21 @@ def repo_text(rel):
     return path.read_text()
 
 
+def test_the_components_page_says_where_an_off_line_counts():
+    source = repo_text("docs-source/components.md")
+    row = next(r for r in source.splitlines() if r.startswith("| `judged` |"))
+    assert (
+        "`Judge loop: off` on the base branch or in your user-level `CLAUDE.md` "
+        "passes and is named in the reason"
+    ) in row
+    page = repo_text("documentation/components.html")
+    start = page.index("<td><code>judged</code></td>")
+    row = page[start : page.index("</tr>", start)]
+    assert (
+        "<code>Judge loop: off</code> on the base branch or in your user-level" in row
+    )
+
+
 def test_the_ship_skill_judges_the_build_before_the_acceptance_test():
     text = repo_text("claude/skills/ship/SKILL.md")
     judge = text.index(
