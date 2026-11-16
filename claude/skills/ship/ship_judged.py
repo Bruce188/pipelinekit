@@ -13,6 +13,7 @@ import json
 import os
 import re
 import stat
+import subprocess
 import unicodedata
 from pathlib import Path
 
@@ -235,6 +236,25 @@ def user_file():
     ) / ".claude" / "CLAUDE.md", "~/.claude/CLAUDE.md"
 
 
+def base_blob(repo, spec):
+    """The bytes of a file on the base branch as git keeps them; None without one.
+
+    Read raw: the output of try_git is stripped, which would move line numbers
+    and turn an indented code line into a switch line.
+    """
+    try:
+        done = subprocess.run(
+            ["git", "cat-file", "blob", spec],
+            cwd=repo.root,
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return done.stdout if done.returncode == 0 else None
+
+
 def off_line(repo, base):
     """Where `Judge loop: off` stands, or ''.
 
@@ -246,8 +266,9 @@ def off_line(repo, base):
     if base:
         ref = f"refs/remotes/{repo.remote}/{base}"
         for rel in ("CLAUDE.md", ".claude/CLAUDE.md"):
-            rc, text, _ = repo.try_git("cat-file", "blob", f"{ref}:{rel}")
-            if rc == 0 and len(text) <= MAX_TEXT_FILE:
+            data = base_blob(repo, f"{ref}:{rel}")
+            if data is not None and len(data) <= MAX_TEXT_FILE:
+                text = data.decode("utf-8", "replace")
                 sources.append((rel, text, f" on {show_branch(base)}"))
     path, shown = user_file()
     data = read_plain(path, MAX_TEXT_FILE)

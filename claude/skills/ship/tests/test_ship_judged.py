@@ -93,6 +93,24 @@ def test_off_inside_a_code_block_does_not_count(sb):
     assert detail(sb) == NO_RECORD
 
 
+def test_off_after_blank_lines_on_the_base_branch_names_its_line(sb):
+    text = "\n\nJudge loop: off\n"
+    sb.change("CLAUDE.md", text, text + "More.\n")
+    assert detail(sb) == "off (CLAUDE.md:3 on main)"
+
+
+def test_an_indented_off_line_on_the_base_branch_is_code(sb):
+    text = "    Judge loop: off\n"
+    sb.change("CLAUDE.md", text, text + "More.\n")
+    assert detail(sb) == NO_RECORD
+
+
+def test_a_base_file_over_a_megabyte_is_not_read(sb):
+    text = "Judge loop: off\n" + "\u00e9" * 600_000 + "\n"
+    sb.change("CLAUDE.md", text, text + "More.\n")
+    assert detail(sb) == NO_RECORD
+
+
 def test_off_in_the_user_file_under_claude_home(sb):
     home = Path(sb.env["CLAUDE_HOME"])
     home.mkdir()
