@@ -69,19 +69,19 @@ off. Every rule id is in
 | `frontend-design` | Visual design guidance, loaded before building or reshaping anything a person looks at: app or site UI, HTML pages and Artifacts, `docs-writer` snippets, charts and dashboards. From [`anthropics/skills`](https://github.com/anthropics/skills), unchanged, under Apache-2.0 (see its `SOURCE.md`) |
 | `mobile` | Android (Kotlin/Compose) builds and device access from WSL2, iPhone home-screen web apps, Expo/EAS cloud builds for iOS, release and security checklist |
 | `kit` | Self-check, run as `/kit`: reports missing or changed kit files, kit files over the file size limit, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, environment conflicts, what the hooks blocked or failed on in the last days, and whether a newer kit is available. `/kit update` applies it after asking |
-| `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then `ship.py` merges once every gate holds (own pull request, not a release, linked issues, no required review, a judged build, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
+| `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then `ship.py` merges once every gate holds (own pull request, not a release, linked issues, no required review, a branch up to date with its base, a judged build, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
 | `judge-loop` | Run as `/judge-loop`: plans and builds a change on Opus, and has fresh Fable judges score the plan and the build until each gets 10 out of 10, within a round budget. `loop.py` keeps the state under `docs/loops/` (local, on the never-stage list) and says what comes next |
 
 ### CLAUDE.md template
 
-`claude/CLAUDE.md.template` is 80 lines long. It covers your identity,
+`claude/CLAUDE.md.template` is 81 lines long. It covers your identity,
 git rules (conventional commits, no AI attribution, never-stage list, no
 direct pushes to `main`), the `docs/` and `documentation/` split, base-branch
 detection, serena vs Grep, the file size limit, a design rule (load `frontend-design` before visual
 work; a project's own design system and the host's rules for the output come
 first; skip it for small fixes inside an existing design), the plan, build,
 judge rule and how the agents it starts read files and answer, GitHub issue/PR
-habits with `gh` (Claude tests and merges the pull requests it opens; releases
+habits with `gh` (a branch up to date with its base before the PR; Claude tests and merges the pull requests it opens; releases
 stay yours), and the deploy CLIs.
 The installer renders it to `~/.claude/CLAUDE.md`.
 

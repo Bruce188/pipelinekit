@@ -19,6 +19,7 @@ except ImportError:  # before Python 3.11
     tomllib = None
 
 from ship_base import *
+from ship_behind import base_gate
 from ship_judged import judged_gate
 from ship_links import linked_gate
 
@@ -72,7 +73,8 @@ def pr_gate(repo, pr):
         return gate(
             "pr",
             "fail",
-            f"no pull request for {repo.branch}: push, then gh pr create --draft",
+            f"no pull request for {repo.branch}: bring it up to date with its base "
+            "(see up-to-date), push, then gh pr create --draft",
         )
     state = pr.get("state") or "UNKNOWN"
     if state != "OPEN":
@@ -802,26 +804,6 @@ def current_gate(repo, pr):
     return gate("current", "pass", f"head {short(head)}, tracked files clean")
 
 
-def base_gate(repo, pr):
-    base = pr.get("baseRefName") or ""
-    ref = f"refs/remotes/{repo.remote}/{base}"
-    rc, _, err = repo.try_git("fetch", "-q", repo.remote, f"+refs/heads/{base}:{ref}")
-    if rc:
-        why = (err.splitlines() or [f"exit {rc}"])[-1]
-        return gate("up-to-date", "fail", f"could not fetch {base}: {why}")
-    again = f"merge {repo.remote}/{base} into the branch, then test again"
-    state = pr.get("mergeStateStatus") or ""
-    if pr.get("mergeable") == "CONFLICTING" or state == "DIRTY":
-        return gate("up-to-date", "fail", f"conflicts with {base}: {again}")
-    if repo.try_git("merge-base", "--is-ancestor", ref, "HEAD")[0]:
-        n = repo.try_git("rev-list", "--count", f"HEAD..{ref}")[1]
-        behind = count(int(n), "commit") if n.isdigit() else "some commits"
-        return gate("up-to-date", "fail", f"{behind} behind {base}: {again}")
-    if state == "BEHIND":
-        return gate("up-to-date", "fail", f"behind {base}, GitHub says: {again}")
-    return gate("up-to-date", "pass", f"contains the tip of {base}")
-
-
 def tested_gate(repo, head):
     try:
         rounds = load_record(repo.record_file)["rounds"]
@@ -882,8 +864,11 @@ def ci_gate(pr, expected=False):
     return gate("ci", "pass", f"{count(len(passed), 'check')} finished, none failed")
 
 
-def evaluate(repo, pr, no_checks_ok=False):
-    """Every gate for the current branch's pull request; CI as it stands now."""
+def evaluate(repo, pr, no_checks_ok=False, base=""):
+    """Every gate for the current branch's pull request; CI as it stands now.
+
+    `base`: the base to compare with while there is no pull request (--base).
+    """
     first = pr_gate(repo, pr)
     if first["state"] != "pass":
         return [
@@ -894,13 +879,13 @@ def evaluate(repo, pr, no_checks_ok=False):
             skipped("linked"),
             skipped("review"),
             skipped("current"),
-            skipped("up-to-date"),
+            base_gate(repo, pr, base),
             judged_gate(repo, repo.head, ""),
             tested_gate(repo, repo.head),
             skipped("ci"),
         ]
     # First, because it fetches the base branch, which the policy gate reads.
-    up_to_date = base_gate(repo, pr)
+    up_to_date = base_gate(repo, pr, base)
     return [
         first,
         own_gate(repo, pr),

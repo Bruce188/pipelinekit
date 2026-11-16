@@ -116,13 +116,13 @@ def test_merge_refuses_a_check_that_is_still_running(sb):
 def test_merge_refuses_a_branch_behind_its_base(sb):
     sb.passed()
     sb.advance_base()
-    assert "1 commit behind main" in refused(sb, "up-to-date", 1).stdout
+    assert "1 commit behind origin/main" in refused(sb, "up-to-date", 1).stdout
 
 
 def test_merge_refuses_a_conflicting_branch(sb):
     sb.passed()
     sb.state(pr=sb.pr(mergeable="CONFLICTING"))
-    assert "conflicts with main" in refused(sb, "up-to-date", 1).stdout
+    assert "conflicts with origin/main" in refused(sb, "up-to-date", 1).stdout
 
 
 def test_merge_refuses_an_unpushed_commit_and_dirty_files(sb):
@@ -549,7 +549,7 @@ def test_merge_gives_up_on_a_check_that_keeps_running(sb):
         ({"reviewRequests": [{"login": "owner"}]}, 3, "review requested from owner"),
         ({"reviewDecision": "REVIEW_REQUIRED"}, 3, "requires a review"),
         ({"headRefOid": "1" * 40}, 1, "pull and test again"),
-        ({"mergeStateStatus": "BEHIND"}, 1, "behind main"),
+        ({"mergeStateStatus": "BEHIND"}, 1, "behind origin/main, GitHub says"),
         ({"mergeStateStatus": "BLOCKED"}, 3, "branch protection blocks the merge"),
         ({"mergeStateStatus": "UNKNOWN"}, 1, "has not said"),
         ({"isDraft": True}, 1, "still shows #7 as a draft"),

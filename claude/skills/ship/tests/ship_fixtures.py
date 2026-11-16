@@ -229,6 +229,8 @@ class Sandbox:
         }
         state.update(over)
         (self.fake / "state.json").write_text(json.dumps(state))
+        # A new state starts its sequence of pull request views again.
+        (self.fake / "views").unlink(missing_ok=True)
 
     def ship(self, *args, timeout=300, **env):
         """Run ship.py; a merge settles in 0.2 s here unless the test says more."""
