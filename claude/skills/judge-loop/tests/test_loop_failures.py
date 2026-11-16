@@ -540,3 +540,41 @@ def test_fallback_agents_with_a_project_agent_named_general_purpose(sb, rel, tex
     run = sb.run("start", "build", "--agents", "fallback")
     assert (run.code, run.last) == (3, GENERAL_PURPOSE.format(rel=rel)), run
     assert not (sb.loopdir() / "state.json").exists()
+
+
+UNCHECKED = "note: {rel} could not be checked for the name general-purpose"
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads a file of mode 000")
+def test_fallback_agents_pass_over_a_file_that_cannot_be_read(sb):
+    rel = ".claude/agents/helper.md"
+    exclude = sb.root / ".git" / "info" / "exclude"
+    exclude.parent.mkdir(exist_ok=True)
+    with exclude.open("a") as fh:
+        fh.write(rel + "\n")  # else git status reads the file and finds it changed
+    path = sb.write(rel, "---\nname: helper\n---\n")
+    sb.change()
+    path.chmod(0)
+    try:
+        run = sb.run("start", "build", "--agents", "fallback")
+    finally:
+        path.chmod(0o644)
+    assert run.code == 0, run
+    assert UNCHECKED.format(rel=rel) in run.lines
+
+
+@pytest.mark.parametrize("how", ["an unreadable name", "a link"])
+def test_fallback_agents_note_a_file_they_cannot_check(sb, how):
+    rel = ".claude/agents/x.md"
+    if how == "a link":
+        target = sb.tmp / "outside.md"
+        target.write_text("---\nname: general-purpose\n---\n")
+        (sb.root / rel).parent.mkdir(parents=True)
+        (sb.root / rel).symlink_to(target)
+    else:
+        sb.write(rel, "---\n&a name: general-purpose\n---\n")
+    sb.commit("chore: an agent")
+    sb.change()
+    run = sb.run("start", "build", "--agents", "fallback")
+    assert run.code == 0, run
+    assert UNCHECKED.format(rel=rel) in run.lines

@@ -469,33 +469,51 @@ def frontmatter_name(data, names=AGENT_NAMES):
     return None if unreadable else ""
 
 
+def unchecked(root, path):
+    rel = show_path(os.path.relpath(path, root))
+    say(f"note: {rel} could not be checked for the name general-purpose")
+
+
 def general_purpose_agent(root):
     """The path of a project agent named general-purpose, by file or front
-    matter name, else None. Links and files that cannot be read are passed
-    over: with fallback agents nothing else of the folder matters."""
+    matter name, else None. A link, a file that cannot be read and a name
+    that cannot be read are passed over with a note: fallback agents are the
+    way out of the stop for those, and nothing else of the folder matters."""
     here = root
     for part in (".claude", "agents"):
         here = here / part
         try:
-            if not stat.S_ISDIR(os.lstat(here).st_mode):
-                return None
+            mode = os.lstat(here).st_mode
         except OSError:
+            return None
+        if stat.S_ISLNK(mode):
+            unchecked(root, here)
+        if not stat.S_ISDIR(mode):
             return None
     for top, dirs, files in os.walk(here, followlinks=False):
         dirs.sort()
+        for entry in dirs:
+            if os.path.islink(Path(top) / entry):
+                unchecked(root, Path(top) / entry)
         for entry in sorted(files):
             if not entry.lower().endswith(".md"):
                 continue
             path = Path(top) / entry
-            rel = os.path.relpath(path, root)
             if entry[:-3].lower() == "general-purpose":
-                return rel
-            st = os.lstat(path)
-            if not stat.S_ISREG(st.st_mode) or st.st_size > MAX_AGENT_FILE:
+                return os.path.relpath(path, root)
+            try:
+                st = os.lstat(path)
+                small = stat.S_ISREG(st.st_mode) and st.st_size <= MAX_AGENT_FILE
+                data = read_plain(path, MAX_AGENT_FILE) if small else False
+            except FileNotFoundError:
                 continue
-            data = read_plain(path, MAX_AGENT_FILE)
-            if data and frontmatter_name(data, ("general-purpose",)):
-                return rel
+            except OSError:
+                data = False
+            name = frontmatter_name(data, ("general-purpose",)) if data else ""
+            if name:
+                return os.path.relpath(path, root)
+            if data is False or name is None:
+                unchecked(root, path)
     return None
 
 
