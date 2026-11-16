@@ -262,6 +262,7 @@ BAD_FIELDS = {
     "the commit is not a hash": {"commit": "HEAD"},
     "the commit is an option": {"commit": "-x"},
     "an unknown outcome": {"outcome": "merged"},
+    "an unknown kind": {"kind": "x;y"},
     "a skip without counts": {"outcome": "skip", "skip": {"reason": "x"}},
 }
 

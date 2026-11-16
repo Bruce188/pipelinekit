@@ -332,6 +332,8 @@ def load_state(data):
         value = st.get(key)
         if not (is_int(value) if kind is int else isinstance(value, kind)):
             raise Unreadable
+    if st["kind"] not in ("plan", "build"):
+        raise Unreadable
     if not (items_ok(st["items"]) and skip_ok(st)):
         raise Unreadable
     if not all(isinstance(entry, dict) for entry in st["switches"]):
@@ -518,11 +520,7 @@ def judged_gate(repo, head, base):
             "run the installer",
         )
     if st["kind"] != "build":
-        return judged(
-            "fail",
-            f"the record {record} is for a {show_branch(clean(st['kind']))} loop: "
-            f"{move}",
-        )
+        return judged("fail", f"the record {record} is for a plan loop: {move}")
     if st["branch"] != repo.branch:
         return judged(
             "fail",
