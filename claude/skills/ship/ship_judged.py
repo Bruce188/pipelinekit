@@ -381,27 +381,31 @@ def judged(state, detail, stop=False):
     return gate("judged", state, detail, stop=stop)
 
 
-def size_since(repo, commit, head):
-    """('3 files, 140 lines since', ''), or ('', why git failed)."""
+def size_since(repo, span):
+    """('3 files, 140 lines since', ''), or ('', why git failed).
+
+    The size of the commits in `span`: the branch's own, without those merged in
+    from the base. A file counts once; its lines are added up over the commits.
+    """
     rc, out, err = repo.try_git(
-        "diff",
+        "log",
         "--numstat",
+        "--format=",
         "--no-renames",
         "--no-ext-diff",
         "--no-textconv",
-        commit,
-        head,
+        *span,
     )
     if rc:
         return "", clean(git_said(err or out, rc))
-    files = lines = 0
+    files, lines = set(), 0
     for row in out.splitlines():
-        parts = row.split("\t")
+        parts = row.split("\t", 2)
         if len(parts) < 3:
             continue
-        files += 1
+        files.add(parts[2])
         lines += sum(int(n) for n in parts[:2] if n.isdigit())
-    return f"{count(files, 'file')}, {count(lines, 'line')} since", ""
+    return f"{count(len(files), 'file')}, {count(lines, 'line')} since", ""
 
 
 def pass_reason(st, sha, before):
@@ -592,13 +596,16 @@ def outcome_gate(repo, st, head, base, unreadable):
             )
     before, extra = 0, additions(st)
     if sha != head:
-        rc, out, err = repo.try_git("rev-list", "--count", f"{sha}..{head}")
+        span = [f"{sha}..{head}"]
+        if base:
+            span.append(f"^refs/remotes/{repo.remote}/{base}")
+        rc, out, err = repo.try_git("rev-list", "--count", *span)
         if rc:
             size, why = "", clean(git_said(err or out, rc))
         elif not out.isdigit():
             size, why = "", "git rev-list gave no count"
         else:
-            size, why = size_since(repo, sha, head)
+            size, why = size_since(repo, span)
         if why:
             return judged(
                 "fail", f"git could not measure the commits since {short(sha)}: {why}"

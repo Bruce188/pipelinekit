@@ -448,6 +448,27 @@ def test_commits_after_the_judged_one_are_counted(sb):
     )
 
 
+def test_commits_merged_in_from_the_base_are_not_counted(sb):
+    sb.judged()
+    first = short(sb)
+    sb.git("checkout", "-q", "main")
+    (sb.work / "base.txt").write_text("x\ny\nz\n")
+    sb.git("add", "base.txt")
+    sb.git("commit", "-q", "-m", "feat: on main")
+    sb.git("push", "-q", "origin", "main")
+    sb.git("checkout", "-q", BRANCH)
+    sb.git("merge", "-q", "--no-edit", "main")
+    (sb.work / "app.py").write_text("a\nb\n")
+    sb.git("add", "app.py")
+    sb.git("commit", "-q", "-m", "fix: after")
+    sb.git("push", "-q", "origin", BRANCH)
+    sb.state()
+    assert detail(sb) == (
+        f"done, 10 from 1 judge in 1 round on {first} (2 commits before the head); "
+        "1 file, 2 lines since"
+    )
+
+
 def test_a_judged_commit_no_longer_on_the_branch(sb):
     tree = sb.git("rev-parse", "HEAD^{tree}")
     other = sb.git("commit-tree", tree, "-m", "elsewhere")
@@ -493,7 +514,7 @@ def test_a_git_failure_placing_the_judged_commit_against_the_base(sb, monkeypatc
     [
         ("rev-list", GIT_FAILS, "fatal: bad object"),
         ("rev-list", (0, "many", ""), "git rev-list gave no count"),
-        ("diff", GIT_FAILS, "fatal: bad object"),
+        ("log", GIT_FAILS, "fatal: bad object"),
     ],
     ids=["rev-list fails", "rev-list gives no count", "the size fails"],
 )
