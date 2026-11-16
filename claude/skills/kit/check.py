@@ -294,6 +294,16 @@ def same_path(a: str, b: str) -> bool:
 # ---------------------------------------------------------------- manifest
 
 
+def skill_dirs(repo: str) -> list[str]:
+    """The folders below claude/skills that hold a SKILL.md, sorted."""
+    skills = os.path.join(repo, "claude", "skills")
+    return sorted(
+        d
+        for d in os.listdir(skills)
+        if os.path.isfile(os.path.join(skills, d, "SKILL.md"))
+    )
+
+
 def kit_files(repo: str) -> list[str]:
     """Every file the installer copies, as a path below CLAUDE_HOME."""
     src = os.path.join(repo, "claude")
@@ -304,11 +314,12 @@ def kit_files(repo: str) -> list[str]:
     out += [
         f"git-hooks/{n}" for n in sorted(os.listdir(os.path.join(src, "git-hooks")))
     ]
-    for root, dirs, files in os.walk(os.path.join(src, "skills")):
-        dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
-        for n in sorted(files):
-            if not n.endswith(".pyc"):
-                out.append(os.path.relpath(os.path.join(root, n), src))
+    for skill in skill_dirs(repo):
+        for root, dirs, files in os.walk(os.path.join(src, "skills", skill)):
+            dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
+            for n in sorted(files):
+                if not n.endswith(".pyc"):
+                    out.append(os.path.relpath(os.path.join(root, n), src))
     out += [f"agents/{n}" for n in KIT_AGENTS]
     out.append("config/never-stage.txt")
     return out
@@ -349,7 +360,6 @@ def write_manifest(repo: str, home: str) -> str:
     for rel in [*kit_files(repo), "CLAUDE.md"]:
         full = os.path.join(home, rel)
         files[rel] = sha256(full) if os.path.isfile(full) else ""
-    skills = os.path.join(repo, "claude", "skills")
     manifest = {
         "schema": SCHEMA,
         "version": version,
@@ -361,9 +371,7 @@ def write_manifest(repo: str, home: str) -> str:
         "hooks_path": git_value("config", "--global", "--get", "core.hooksPath"),
         # False: installed with --no-serena; an update keeps it that way.
         "serena": os.environ.get("CLAUDE_INSTALL_SKIP_SERENA") != "1",
-        "skills": sorted(
-            d for d in os.listdir(skills) if os.path.isdir(os.path.join(skills, d))
-        ),
+        "skills": skill_dirs(repo),
         "files": files,
         "settings": kit_settings(repo, home),
     }

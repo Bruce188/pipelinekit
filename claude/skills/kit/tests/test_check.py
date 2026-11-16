@@ -587,12 +587,34 @@ def test_manifest_describes_the_install(kit):
 
 def test_skill_list_matches_the_repo_and_the_installer():
     in_repo = sorted(
-        p.name for p in (REPO / "claude" / "skills").iterdir() if p.is_dir()
+        p.name
+        for p in (REPO / "claude" / "skills").iterdir()
+        if (p / "SKILL.md").is_file()
     )
     assert list(check_py.KIT_SKILLS) == in_repo
     text = (REPO / "scripts" / "install.sh").read_text()
     listed = re.search(r"^KIT_SKILLS=\(([^)]*)\)", text, re.M).group(1).split()
     assert sorted(listed) == in_repo
+
+
+def test_only_a_folder_with_skill_md_counts_as_a_skill(tmp_path, monkeypatch):
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(tmp_path / "gitconfig"))
+    src = tmp_path / "repo" / "claude"
+    for d in ("hooks", "git-hooks", "config", "skills/kept", "skills/bare"):
+        (src / d).mkdir(parents=True)
+    (src / "config" / "settings.template.json").write_text("{}\n")
+    (src / "skills" / "kept" / "SKILL.md").write_text("kept\n")
+    (src / "skills" / "kept" / "tool.py").write_text("")
+    (src / "skills" / "bare" / "tool.py").write_text("")
+    repo = str(tmp_path / "repo")
+    assert check_py.skill_dirs(repo) == ["kept"]
+    skills = [f for f in check_py.kit_files(repo) if f.startswith("skills/")]
+    assert skills == ["skills/kept/SKILL.md", "skills/kept/tool.py"]
+    m = json.loads(
+        Path(check_py.write_manifest(repo, str(tmp_path / "home"))).read_text()
+    )
+    assert m["skills"] == ["kept"]
+    assert [f for f in m["files"] if f.startswith("skills/")] == skills
 
 
 def test_agent_list_matches_the_repo_and_the_installer():
