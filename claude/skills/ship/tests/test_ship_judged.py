@@ -208,13 +208,13 @@ def test_tracked_files_under_docs_loops_fail(sb, rel):
     )
 
 
-def test_a_git_failure_is_told_apart_from_no_tracked_files(sb, monkeypatch):
-    sb.judged()
+def gate_with(sb, monkeypatch, failing, answer):
+    """The gate in this process, where the git calls `failing` picks give `answer`."""
     monkeypatch.setenv("CLAUDE_HOME", sb.env["CLAUDE_HOME"])
 
     def try_git(*args):
-        if args[0] == "ls-files":
-            return 128, "", "hint: x\nfatal: bad index file"
+        if failing(args):
+            return answer
         return ship.run(["git", *args], cwd=sb.work)
 
     repo = SimpleNamespace(
@@ -222,7 +222,21 @@ def test_a_git_failure_is_told_apart_from_no_tracked_files(sb, monkeypatch):
     )
     found = ship_judged.judged_gate(repo, sb.head(), "main")
     assert found["state"] == "fail"
-    assert found["detail"] == (
+    return found["detail"]
+
+
+GIT_FAILS = (128, "", "hint: x\nfatal: bad object")
+
+
+def test_a_git_failure_is_told_apart_from_no_tracked_files(sb, monkeypatch):
+    sb.judged()
+    found = gate_with(
+        sb,
+        monkeypatch,
+        lambda args: args[0] == "ls-files",
+        (128, "", "hint: x\nfatal: bad index file"),
+    )
+    assert found == (
         "git ls-files could not say whether files under docs/loops are tracked: "
         "fatal: bad index file"
     )
@@ -412,6 +426,44 @@ def test_an_unknown_judged_commit_names_the_git_error(sb):
         "the judged commit 0000000 is no longer on this branch (rebased or "
         "amended): judge again (fatal: "
     ), found
+
+
+def judged_before_the_head(sb):
+    """A done record one commit before the head; the judged commit, short."""
+    sb.judged()
+    first = short(sb)
+    sb.commit("fix: after")
+    return first
+
+
+def test_a_git_failure_placing_the_judged_commit_against_the_base(sb, monkeypatch):
+    first = judged_before_the_head(sb)
+    found = gate_with(
+        sb,
+        monkeypatch,
+        lambda args: args[0] == "merge-base" and args[-1].startswith("refs/"),
+        GIT_FAILS,
+    )
+    assert found == (
+        f"git merge-base could not place {first} against main: fatal: bad object"
+    )
+
+
+@pytest.mark.parametrize(
+    ("command", "answer", "why"),
+    [
+        ("rev-list", GIT_FAILS, "fatal: bad object"),
+        ("rev-list", (0, "many", ""), "git rev-list gave no count"),
+        ("diff", GIT_FAILS, "fatal: bad object"),
+    ],
+    ids=["rev-list fails", "rev-list gives no count", "the size fails"],
+)
+def test_a_git_failure_measuring_the_commits_since_the_judged_one(
+    sb, monkeypatch, command, answer, why
+):
+    first = judged_before_the_head(sb)
+    found = gate_with(sb, monkeypatch, lambda args: args[0] == command, answer)
+    assert found == f"git could not measure the commits since {first}: {why}"
 
 
 def test_a_judged_commit_already_on_the_base(sb):

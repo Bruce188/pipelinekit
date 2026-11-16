@@ -380,8 +380,8 @@ def judged(state, detail, stop=False):
 
 
 def size_since(repo, commit, head):
-    """'3 files, 140 lines since', or None when git fails."""
-    rc, out, _ = repo.try_git(
+    """('3 files, 140 lines since', ''), or ('', why git failed)."""
+    rc, out, err = repo.try_git(
         "diff",
         "--numstat",
         "--no-renames",
@@ -391,7 +391,7 @@ def size_since(repo, commit, head):
         head,
     )
     if rc:
-        return None
+        return "", clean(git_said(err or out, rc))
     files = lines = 0
     for row in out.splitlines():
         parts = row.split("\t")
@@ -399,7 +399,7 @@ def size_since(repo, commit, head):
             continue
         files += 1
         lines += sum(int(n) for n in parts[:2] if n.isdigit())
-    return f"{count(files, 'file')}, {count(lines, 'line')} since"
+    return f"{count(files, 'file')}, {count(lines, 'line')} since", ""
 
 
 def pass_reason(st, sha, before):
@@ -587,12 +587,15 @@ def outcome_gate(repo, st, head, base, unreadable):
     before, extra = 0, additions(st)
     if sha != head:
         rc, out, err = repo.try_git("rev-list", "--count", f"{sha}..{head}")
-        size = size_since(repo, sha, head)
-        if rc or not out.isdigit() or size is None:
+        if rc:
+            size, why = "", clean(git_said(err or out, rc))
+        elif not out.isdigit():
+            size, why = "", "git rev-list gave no count"
+        else:
+            size, why = size_since(repo, sha, head)
+        if why:
             return judged(
-                "fail",
-                f"git could not measure the commits since {short(sha)}: "
-                f"{clean(git_said(err, rc)) if rc else 'no answer'}",
+                "fail", f"git could not measure the commits since {short(sha)}: {why}"
             )
         before = int(out)
         extra.append(size)
