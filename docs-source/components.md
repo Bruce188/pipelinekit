@@ -161,7 +161,7 @@ With `ask`, Claude Code prompts you instead of refusing. `override` means a huma
 | `frontend-design` | Visual design guidance: aesthetic direction, typography, layout and copy, loaded before building or reshaping anything a person looks at (app or site UI, HTML pages and Artifacts, `docs-writer` snippets, charts and dashboards). Vendored unchanged from [`anthropics/skills`](https://github.com/anthropics/skills) (`skills/frontend-design` at a pinned commit) under the Apache License 2.0; `SOURCE.md` in its folder records the commit, the checksums and how to move to a newer one. The rest of the kit is MIT |
 | `mobile` | Android (Kotlin/Compose) builds and device access from WSL2, iPhone home-screen web apps, Expo/EAS cloud builds for iOS, release and security checklist |
 | `kit` | Self-check, run as `/kit`: reports missing or changed kit files, kit files over the file size limit, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, environment conflicts, what the hooks blocked or failed on in the last days, and whether a newer kit is available. `/kit update` applies it after asking |
-| `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then `ship.py` merges once every gate holds (own pull request, not a release, no required review, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
+| `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then `ship.py` merges once every gate holds (own pull request, not a release, no required review, a judged build, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
 | `judge-loop` | Run as `/judge-loop`: plans and builds a change on Opus, and has fresh Fable judges score the plan and the build until each gets 10 out of 10, within a round budget. See [Plan, build, judge](#plan-build-judge). Its record lives in `docs/loops/` of the one checkout it runs in and is never committed; see [The judge loop](installation.html#the-judge-loop). |
 
 In 0.1.0, `deploy` replaces the five separate `*-ops` skills and the per-provider deployment agents, `mobile` replaces `expo` and `ios`, and the ASP.NET Core security rules moved into `dotnet-conventions`.
@@ -252,9 +252,10 @@ With the kit installed, Claude finishes the pull requests it opens instead of ha
 
 1. The issue lists acceptance criteria as a checklist.
 2. Claude builds the change, runs the project's tests and opens a draft pull request.
-3. A fresh agent tests the change. It gets the criteria and the running build, not the code or the builder's notes. A web page is driven with Playwright, a command-line tool or installer runs in a throwaway directory, an API is started and called. A change with nothing user-visible gets a smoke run instead.
-4. Findings are fixed, each bug with a regression test, and the test runs again until it passes.
-5. `ship.py record` notes the result for the tested commit, and with a pass whether the pull request is a release (`--release yes` or `--release no`). `ship.py merge` waits for CI and merges.
+3. The build is judged with the judge loop until it reaches 10 (see [Plan, build, judge](#plan-build-judge)); a small fix is recorded with `loop.py skip --reason` instead.
+4. A fresh agent tests the change. It gets the criteria and the running build, not the code or the builder's notes. A web page is driven with Playwright, a command-line tool or installer runs in a throwaway directory, an API is started and called. A change with nothing user-visible gets a smoke run instead.
+5. Findings are fixed, each bug with a regression test, and the test runs again until it passes.
+6. `ship.py record` notes the result for the tested commit, and with a pass whether the pull request is a release (`--release yes` or `--release no`). `ship.py merge` waits for CI and merges.
 
 `ship.py merge` refuses unless every gate holds:
 
@@ -267,6 +268,7 @@ With the kit installed, Claude finishes the pull requests it opens instead of ha
 | `review` | No review is required, requested or asking for changes |
 | `current` | The local commit is the pull request's head and nothing tracked is uncommitted |
 | `up-to-date` | The branch contains its base branch and does not conflict with it |
+| `judged` | The branch's build loop ended in 10, a used budget or your accept on this commit or an earlier one, or `loop.py skip` recorded this commit; a loop waiting for you stops and asks; `Judge loop: off` on the base branch or in your user-level `CLAUDE.md` passes and is named in the reason. Limits: [The judge loop](installation.html#the-judge-loop) |
 | `tested` | The last test record is a pass for exactly this commit, and the loop is not stuck |
 | `ci` | Every check has finished and passed. A pull request with no check at all passes only where no workflow runs on pull requests, or with `--allow-no-checks` |
 
@@ -297,7 +299,7 @@ The gate guards your own project against a slip. It is not a defence against a p
 
 Known working branches are: the default branch; the shared branches `develop`, `development`, `dev`, `integration`, `staging`, `stage`, `next`, `beta`, `alpha`, `canary`, `preview`, `nightly`, `edge`, `uat`, `qa`, `preprod`, `test`, `testing` and `trunk`; branches under `integration/`, `staging/`, `stage/`, `uat/`, `qa/` and `preprod/`; release lines, which is anything that starts with `release/`, `release-`, `releases/`, `rel/`, `rc/`, `hotfix/`, `support/` or `maint/`, and bare version names such as `1.x` or `v2`; topic branches such as `feat/12-base` (a stacked pull request). A pull request into any other branch (`customer-a`, `release`) is held, because the helper cannot know what that branch stands for. Name such a branch on a `Release branches:` line when it is a release branch. As the branch a pull request comes from, `hotfix/login-crash` is a fix like any other; only a hotfix branch with a version in its name (`hotfix/1.2.1`), or one that other pull requests were merged into, is held.
 
-These stay yours: release pull requests, tags, publishing and production deploys; pull requests someone else opened; anything behind a required review or branch protection. Claude also stops and asks when the same finding is still open after two fix attempts, after five failed rounds in a row, and when a test needs a decision the criteria do not settle. A stuck loop shows in `ship.py status` and blocks `ship.py merge` until you decide.
+These stay yours: release pull requests, tags, publishing and production deploys; pull requests someone else opened; anything behind a required review or branch protection. Claude also stops and asks when the same finding is still open after two fix attempts, after five failed rounds in a row, when the judge loop is waiting for you, and when a test needs a decision the criteria do not settle. A stuck loop shows in `ship.py status` and blocks `ship.py merge` until you decide.
 
 To turn self-merging off for a project, put this line in its `CLAUDE.md`:
 
@@ -371,4 +373,4 @@ Limits: the record says that results were saved, not that a judge ran or judged 
 
 Plan mode, the Workflow tool, `/code-review`, `/security-review`, `/simplify`, the Explore and Plan agents, auto-memory, worktree isolation, `/loop` and `/schedule` are all built into Claude Code. pipelinekit no longer provides its own versions. See [Upgrading from 0.0.1](upgrading.html#what-was-removed) for how the old components map to these built-ins.
 
-The judge loop is not the old pipeline back. It is one helper, three agents and a rule, and the kit keeps it because Claude Code ships no judge on a second model that scores a plan or a build, within a round budget, until it reaches 10.
+The judge loop is not the old pipeline back. It is one helper, three agents, a rule and a merge gate, and the kit keeps it because Claude Code ships no judge on a second model that scores a plan or a build, within a round budget, until it reaches 10.

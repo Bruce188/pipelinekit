@@ -10,7 +10,7 @@ pipelinekit v0.1.0 is a small Claude Code config kit. It contains guard hooks, p
 
 ## What it is now
 
-Up to 0.0.1, pipelinekit was a multi-agent pipeline kit with its own orchestrator, review panel, persona agents and memory stack. Current Claude Code covers most of that natively with plan mode, the Workflow tool, `/code-review`, `/security-review`, `/simplify`, the Explore and Plan agents, auto-memory, worktree isolation, `/loop` and `/schedule`. v0.1.0 keeps only what Claude Code does not ship. The judge loop is not the old pipeline back. It is one helper, three agents and a rule, and the kit keeps it because Claude Code ships no judge on a second model that scores a plan or a build, within a round budget, until it reaches 10.
+Up to 0.0.1, pipelinekit was a multi-agent pipeline kit with its own orchestrator, review panel, persona agents and memory stack. Current Claude Code covers most of that natively with plan mode, the Workflow tool, `/code-review`, `/security-review`, `/simplify`, the Explore and Plan agents, auto-memory, worktree isolation, `/loop` and `/schedule`. v0.1.0 keeps only what Claude Code does not ship. The judge loop is not the old pipeline back. It is one helper, three agents, a rule and a merge gate, and the kit keeps it because Claude Code ships no judge on a second model that scores a plan or a build, within a round budget, until it reaches 10.
 
 > The hooks and skills are still being reviewed and may change in later releases. The hooks are guardrails that catch common mistakes. They are not a security boundary.
 
