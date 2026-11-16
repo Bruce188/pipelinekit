@@ -65,7 +65,7 @@ done
 
 bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$T/install1.out" 2>&1
 bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$T/install2.out" 2>&1
-grep -qF '[install] copied 9 skills' "$T/install2.out"
+grep -qF '[install] copied 10 skills' "$T/install2.out"
 n_skills="$(sed -n 's/^KIT_SKILLS=(\(.*\))$/\1/p' "$REPO_ROOT/scripts/install.sh" | wc -w | tr -d ' ')"
 grep -qF "[install] copied $n_skills skills, 3 agents, " "$T/install2.out"
 # The closing line names the agents and says how to load them.
@@ -101,11 +101,14 @@ grep -q 'Test User <test@example.com>' "$CLAUDE_HOME/CLAUDE.md"
 ls "$CLAUDE_HOME"/settings.json.bak-* >/dev/null
 test -f "$CLAUDE_HOME/projects/keep/f"
 for s in dotnet-conventions deploy exchange-api-keys docs-writer frontend-design mobile kit ship \
-         judge-loop; do
+         judge-loop garden; do
   test -f "$CLAUDE_HOME/skills/$s/SKILL.md"
 done
 test -x "$CLAUDE_HOME/skills/ship/ship.py"
 test -x "$CLAUDE_HOME/skills/judge-loop/loop.py"
+test -x "$CLAUDE_HOME/skills/garden/garden.py"
+# The garden scan runs anywhere, a git repository or not, and changes nothing.
+(cd "$T" && python3 "$CLAUDE_HOME/skills/garden/garden.py" scan | grep -qx '## Pruning')
 # Outside a git repository the judge-loop helper refuses (exit 2).
 rc=0
 (cd "$T" && python3 "$CLAUDE_HOME/skills/judge-loop/loop.py" status) >/dev/null 2>&1 || rc=$?
@@ -116,6 +119,7 @@ done
 grep -q 'Merges: ask first' "$CLAUDE_HOME/CLAUDE.md"
 grep -qx '## Design' "$CLAUDE_HOME/CLAUDE.md"
 grep -qx '## Plan, build, judge' "$CLAUDE_HOME/CLAUDE.md"
+grep -qx '## Gardening' "$CLAUDE_HOME/CLAUDE.md"
 # The helper starts from its installed place and says why it cannot go on.
 (cd "$T" && python3 "$CLAUDE_HOME/skills/ship/ship.py" status --exit-zero | grep -q 'not inside a git repository')
 test ! -e "$CLAUDE_HOME/skills/commit-conventions"

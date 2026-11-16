@@ -60,6 +60,7 @@ docs/review-*.md
 docs/reviews/
 docs/uat/
 docs/loops/
+docs/garden/
 docs/prompts*.md
 docs/analysis*.md
 docs/context-dump.md

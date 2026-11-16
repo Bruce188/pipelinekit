@@ -53,6 +53,7 @@ KIT_SKILLS = (
     "dotnet-conventions",
     "exchange-api-keys",
     "frontend-design",
+    "garden",
     "judge-loop",
     "kit",
     "mobile",
