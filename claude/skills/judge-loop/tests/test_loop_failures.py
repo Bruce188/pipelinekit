@@ -545,22 +545,48 @@ def test_fallback_agents_with_a_project_agent_named_general_purpose(sb, rel, tex
 UNCHECKED = "note: {rel} could not be checked for the name general-purpose"
 
 
-@pytest.mark.skipif(os.geteuid() == 0, reason="root reads a file of mode 000")
-def test_fallback_agents_pass_over_a_file_that_cannot_be_read(sb):
-    rel = ".claude/agents/helper.md"
+UNREADABLE = ["a file", "a folder"]
+NOT_ROOT = pytest.mark.skipif(os.geteuid() == 0, reason="root reads mode 000")
+
+
+def unreadable_agent(sb, how):
+    """A project agent file, or a folder holding one, of mode 000. git ignores
+    it: git status would read it and find it changed."""
+    rel = ".claude/agents/helper.md" if how == "a file" else ".claude/agents/sub"
     exclude = sb.root / ".git" / "info" / "exclude"
     exclude.parent.mkdir(exist_ok=True)
     with exclude.open("a") as fh:
-        fh.write(rel + "\n")  # else git status reads the file and finds it changed
-    path = sb.write(rel, "---\nname: helper\n---\n")
+        fh.write(rel + "\n")
+    sb.write(rel if how == "a file" else f"{rel}/helper.md", "---\nname: helper\n---\n")
     sb.change()
-    path.chmod(0)
+    (sb.root / rel).chmod(0)
+    return rel
+
+
+@NOT_ROOT
+@pytest.mark.parametrize("how", UNREADABLE)
+def test_fallback_agents_pass_over_a_file_that_cannot_be_read(sb, how):
+    rel = unreadable_agent(sb, how)
     try:
         run = sb.run("start", "build", "--agents", "fallback")
     finally:
-        path.chmod(0o644)
+        (sb.root / rel).chmod(0o755)
     assert run.code == 0, run
     assert UNCHECKED.format(rel=rel) in run.lines
+
+
+@NOT_ROOT
+@pytest.mark.parametrize("how", UNREADABLE)
+def test_kit_agents_stop_at_a_file_that_cannot_be_read(sb, how):
+    rel = unreadable_agent(sb, how)
+    try:
+        run = sb.run("start", "build")
+    finally:
+        (sb.root / rel).chmod(0o755)
+    assert run.code == 3, run
+    assert run.last.startswith(f"STOP: {rel} cannot be checked for an agent name (")
+    assert run.last.endswith("or the same command with --agents fallback.")
+    assert not (sb.loopdir() / "state.json").exists()
 
 
 UNCHECKED_AGENTS = [
