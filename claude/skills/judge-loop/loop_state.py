@@ -643,7 +643,9 @@ def left_out(loops, args):
 def pick(ctx, args, command):
     """The loop a command means. Only that loop's state is checked in full; the
     others are read for their outcome and branch, and one that cannot be read
-    is left out with a notice."""
+    is left out with a notice. With nothing unfinished, status and leftovers
+    take the build loop of the checked-out branch; the newest state decides
+    only when the branch has none."""
     found = scan(ctx, load=False)
     if len(found) > 1:
         QUALIFY.append(True)
@@ -661,12 +663,13 @@ def pick(ctx, args, command):
     seen = {lp: lenient(lp) for lp in found}
     damaged = [lp for lp in found if seen[lp] is None]
     found = [lp for lp in found if seen[lp]]
-    if ctx.branch and any(
-        lp.kind == "build" and seen[lp]["branch"] == ctx.branch for lp in found
-    ):
-        found = [
-            lp for lp in found if lp.kind == "plan" or seen[lp]["branch"] == ctx.branch
-        ]
+    own = [
+        lp
+        for lp in found
+        if ctx.branch and lp.kind == "build" and seen[lp]["branch"] == ctx.branch
+    ]
+    if own:
+        found = [lp for lp in found if lp.kind == "plan" or lp in own]
     unfinished = [lp for lp in found if seen[lp]["outcome"] in UNFINISHED]
     loop = None
     if len(unfinished) == 1:
@@ -680,7 +683,9 @@ def pick(ctx, args, command):
             "Next: the same command with --kind and --name.",
         )
     elif command in ("status", "leftovers") and found:
-        loop = max(found, key=lambda lp: lp.mtime())
+        # the branch's own build first: a file time moves with a copied folder
+        # or a clock that steps back, so it decides only among the rest
+        loop = max(own or found, key=lambda lp: lp.mtime())
     if loop is None:
         for lp in damaged:
             lp.load()  # nothing else is meant: the damaged loop may be the one
