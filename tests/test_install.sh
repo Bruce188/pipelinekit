@@ -159,10 +159,14 @@ assert m["commit"] == head, "manifest commit is not the checkout's HEAD"
 assert m["hooks_path"] == f"{home}/git-hooks", "manifest missed the hooks path set by this install"
 assert "skills/kit/check.py" in m["files"] and all(m["files"].values()), "manifest file list incomplete"
 assert "skills/ship/ship_gates.py" in m["files"], "manifest missed a module of ship.py"
+assert "skills/kit/check_core.py" in m["files"], "manifest missed a module of check.py"
 PY
 CLAUDE_HOME="$CLAUDE_HOME" bash "$REPO_ROOT/scripts/verify.sh" >/dev/null
 # The session-start check has nothing to say about a fresh install.
 [ -z "$(echo '{}' | "$CLAUDE_HOME/hooks/session-check.py")" ]
+# The checker's modules are installed, and running it leaves no cache file there.
+for f in check_base.py check_core.py; do test -f "$CLAUDE_HOME/skills/kit/$f"; done
+test ! -e "$CLAUDE_HOME/skills/kit/__pycache__"
 
 # An installed agent edited by hand: the check lists it, an install restores it
 # without a backup.
