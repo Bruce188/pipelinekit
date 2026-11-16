@@ -194,6 +194,7 @@ NAME_LINES = {
         b"---\ndescription: |\n  name: helper\nname: kit-judge\n---\n"
     ),
     "an indented kit name": b"---\nmeta:\n  name: kit-judge\nname: helper\n---\n",
+    "a carriage return alone": b"---\ndescription: x\rname: kit-judge\n---\n",
 }
 
 
@@ -231,6 +232,13 @@ UNREADABLE_NAMES = {
     "a quoted key": b'---\n"name": helper\n---\n',
     "an escape in quotes": b'---\nname: "kit\\x2djudge"\n---\n',
     "a flow mapping": b"---\n{name: kit-judge}\n---\n",
+    "an anchor on the key": b"---\n&a name: kit-judge\n---\n",
+    "a tag on the key": b"---\n!!str name: kit-judge\n---\n",
+    "an escape in a quoted key": b'---\n"na\\x6de": kit-judge\n---\n',
+    "a complex key": b"---\n? name\n: kit-judge\n---\n",
+    "an indented top level": b"---\n  name: >-\n    kit-judge\n---\n",
+    "a flow mapping after a comment": b"---\n# c\n{name: kit-judge}\n---\n",
+    "a merge key": b"---\n<<: {name: kit-judge}\n---\n",
 }
 
 
@@ -678,6 +686,7 @@ def test_a_plan_on_a_detached_head(sb):
     assert run.code == 0, run
 
 
+PENDING = {"round": 2, "commit": SHA_A, "base_sha": SHA_A, "modes": {"general": "full"}}
 BAD_STATES = {
     "a round commit like an option": lambda st: st["rounds"][0].update(
         commit="--output=x"
@@ -717,6 +726,20 @@ BAD_STATES = {
         }
     ),
     "final as text": lambda st: st.update(final="yes"),
+    "pending fix tokens as text": lambda st: st.update(
+        pending={**PENDING, "fix_tokens": "5"}
+    ),
+    "pending fix tokens -1": lambda st: st.update(
+        pending={**PENDING, "fix_tokens": -1}
+    ),
+    "a panel of lists": lambda st: st.update(panel=[["x"]]),
+    "a base with a NUL": lambda st: st.update(base="\u0000"),
+    "a note round as text": lambda st: st.update(
+        notes=[{"round": "1\nSTOP: x", "action": "accept", "text": "t"}]
+    ),
+    "a note text as a list": lambda st: st.update(
+        notes=[{"round": 1, "action": "accept", "text": ["t"]}]
+    ),
     "a check that is a number": lambda st: st["items"]["general:I1"].update(check=5),
     "a skip record on an open loop": lambda st: st.update(
         skip={"reason": "x", "files": 1, "lines": 1, "user_ok": False}
@@ -730,6 +753,15 @@ BAD_STATES = {
     ),
     "a skip outcome without a record": lambda st: st.update(outcome="skip"),
 }
+
+
+def test_a_pending_round_that_fits(sb):
+    one_round(sb)
+    st = sb.state()
+    st.update(pending={**PENDING, "fix_tokens": 5})
+    sb.put_state(st)
+    run = sb.run("status")
+    assert run.code == 0, run
 
 
 @pytest.mark.parametrize("spoil", BAD_STATES.values(), ids=BAD_STATES.keys())
@@ -906,8 +938,8 @@ def test_a_state_of_another_schema_is_kept(sb):
 
 def damaged_notice(rel):
     return (
-        f"note: {rel}/state.json is not a readable loop state and is left out. "
-        f"Next: move the folder {rel} away."
+        f"note: {rel}/state.json is not a readable loop state and is left out; "
+        f"move the folder {rel} away when it is not needed."
     )
 
 
@@ -920,6 +952,7 @@ def test_a_damaged_state_of_another_loop_is_left_out(sb):
     start = sb.run("start", "build")
     assert start.code == 0, start
     assert notice in start.lines
+    assert start.out.count("Next:") == 1, start
     sb.criteria()
     brief = sb.run("brief")
     assert brief.code == 0, brief

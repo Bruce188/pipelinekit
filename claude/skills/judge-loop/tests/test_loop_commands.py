@@ -266,6 +266,8 @@ def test_the_brief_of_a_build_names_its_plan(sb):
 
 HELPS = [
     ((), "Exit codes: 0 done or go on"),
+    ((), "1 another round is needed: fix first when the line says Fix"),
+    (("diagnosed",), "the cause you found, in a few words"),
     (("accept",), "your own short summary of what the user said"),
     (("settle",), "only after the user said yes"),
     (("skip",), "only after the user said yes"),
@@ -279,7 +281,7 @@ HELPS = [
 
 @pytest.mark.parametrize("argv, words", HELPS)
 def test_help_says_what_each_option_is(sb, argv, words):
-    run = sb.command(*argv, "--help")
+    run = sb.run(*argv, "--help")
     assert run.code == 0
     assert words in " ".join(run.out.split())
 

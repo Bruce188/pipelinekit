@@ -130,6 +130,25 @@ def test_a_final_round_with_a_judge_below_ten(sb):
     assert (st["outcome"], st["streak"], st["final"]) == ("open", 0, False)
 
 
+def test_status_of_a_final_round_names_the_brief(sb):
+    sb.two_judges(FIVE)
+    sb.start_build()
+    tens = {"correctness": 10, "security": 10, "operations": 10, "scope": 10}
+    assert sb.judge({**tens, "tests": half("T1")}).code == 1
+    (sb.loopdir() / "map.md").write_text("code | app.py | tests\n")
+    sb.change("app.py", 4, tag="r2")
+    optional = result(10, improvements=[item("T2", needed_for_10=False)])
+    run = sb.judge({"tests": optional})
+    assert run.code == 1 and run.last.startswith("Final round:"), run
+    want = "loop.py brief; those judges read everything once."
+    run = sb.run("status")
+    assert run.last.endswith(f"Next: {want}"), run
+    assert "Items left:" in run.lines, run
+    assert json.loads(sb.run("status", "--json").out)["next"] == want
+    run = sb.run("settle", "tests", "T2", "--note", "not needed", "--user-ok")
+    assert run.last.endswith(f"Next: {want}"), run
+
+
 @pytest.mark.parametrize(
     "command, outcome", [("diagnosed", "stalled"), ("resume", "ask")]
 )

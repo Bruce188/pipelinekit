@@ -160,7 +160,8 @@ def test_an_answer_that_failed_save_is_not_counted_as_saved(sb):
     assert sb.save("tests", b"not json").code == 3
     run = sb.run("status")
     assert run.last.startswith(
-        "Open: round 1 of 5, 1 of 2 results saved (missing: tests). Next: start each "
+        "Open: round 1 of 5, 1 of 2 results saved (missing: tests). Next: loop.py "
+        "brief prints the briefs of the missing judges again; "
     ), run
     data = json.loads(sb.run("status", "--json").out)
     assert (data["saved"], data["missing"]) == (["general"], ["tests"])

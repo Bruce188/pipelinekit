@@ -23,12 +23,19 @@ KEYS = {"judge loop": "Judge loop", "judge rounds": "Judge rounds", "judges": "J
 FENCE = re.compile(r"( {0,3})(`{3,}|~{3,})(.*)")
 LIST_ITEM = re.compile(r"( {0,3})([-*+]|\d{1,9}\.)( +)(.*)")
 HTML_OPEN = re.compile(r" {0,3}<([A-Za-z][A-Za-z0-9-]*)(\s[^>]*)?>")
-VOID_TAGS = frozenset(
-    ("br", "hr", "img", "input", "meta", "link", "area", "base", "col", "embed")
-    + ("source", "wbr")
-)
 # Raw HTML that runs to its closing tag; any other tag ends at a blank line.
 RAW_TAGS = frozenset(("pre", "script", "style", "textarea"))
+# The HTML block names of CommonMark: a line that opens or closes one of them
+# starts raw HTML whatever follows on the line, up to the next blank line.
+BLOCK_OPEN = re.compile(r" {0,3}</?([A-Za-z][A-Za-z0-9]*)(?=[ \t>]|/>|$)")
+BLOCK_NAMES = (
+    "address article aside base basefont blockquote body caption center col "
+    "colgroup dd details dialog dir div dl dt fieldset figcaption figure footer "
+    "form frame frameset h1 h2 h3 h4 h5 h6 head header hr html iframe legend li "
+    "link main menu menuitem nav noframes ol optgroup option p param search "
+    "section summary table tbody td tfoot th thead title tr track ul"
+)
+BLOCK_TAGS = frozenset(BLOCK_NAMES.split())
 
 
 def switch_value(key, value):
@@ -68,7 +75,8 @@ def parse_switches(text):
                 comment = None
             continue
         if tag:
-            if f"</{tag}" in line.lower() or (tag not in RAW_TAGS and not line.strip()):
+            ends = f"</{tag}" in line.lower() if tag in RAW_TAGS else not line.strip()
+            if ends:
                 tag = None
             continue
         if not line.strip():
@@ -81,11 +89,14 @@ def parse_switches(text):
             if "-->" not in line.split("<!--", 1)[1]:
                 comment = True
             continue
+        m = BLOCK_OPEN.match(line)
+        if m and m.group(1).lower() in BLOCK_TAGS:
+            tag = m.group(1).lower()
+            continue
         m = HTML_OPEN.match(line)
         if m and (m.group(1).lower() in RAW_TAGS or not line[m.end() :].strip()):
             name = m.group(1).lower()
-            opens = name not in VOID_TAGS and not line.rstrip().endswith("/>")
-            if opens and f"</{name}" not in line.lower():
+            if name not in RAW_TAGS or f"</{name}" not in line.lower():
                 tag = name
             continue
         indent = len(line) - len(line.lstrip(" "))
@@ -249,6 +260,9 @@ def gh_base(ctx):
     except (OSError, subprocess.SubprocessError):
         return gh_note("did not run")
     if proc.returncode:
+        said = proc.stderr.decode("utf-8", "replace")
+        if proc.returncode == 4 or "no pull requests found" not in said:
+            return gh_note(f"failed (code {proc.returncode})")
         return None  # no pull request for this branch
     try:
         data = json.loads(proc.stdout.decode("utf-8"))
@@ -404,35 +418,48 @@ def choose_panel(kind, forced, switches, size):
 
 
 NOT_ONE_LINE = tuple("|>&!*{[")
+KEY_LINE = re.compile(
+    r"(?:[A-Za-z0-9_.-]+|\"[A-Za-z0-9_.-]+\"|'[A-Za-z0-9_.-]+')[ \t]*:(?:[ \t]|$)"
+)
 
 
-def frontmatter_name(data):
-    """A kit agent name of any name line of the front matter, else ''.
+def frontmatter_name(data, names=AGENT_NAMES):
+    """A name of names on any name line of the front matter, else ''.
 
-    None when the top-level name cannot be read on one line, so it cannot be
-    checked: an empty value, a block, anchor, tag or flow value, a quoted key,
-    an escape inside double quotes, or front matter that is one flow mapping.
+    None when the top level cannot be read line by line, so the name cannot be
+    checked: a line there that is not a plain key, a list entry or a comment
+    (an anchor, a tag, a complex or merge key, a flow mapping), or a top-level
+    name that is quoted, empty, a block, anchor, tag or flow value, or holds an
+    escape inside double quotes. The first key line sets the top level.
     """
-    text = data.decode("utf-8", "replace").lstrip("\ufeff").replace("\r", "")
-    lines = text.split("\n")
+    text = data.decode("utf-8", "replace").lstrip("\ufeff")
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     if lines[0].strip() != "---":
         return ""
     unreadable = False
-    for number, line in enumerate(lines[1:]):
+    top = None
+    for line in lines[1:]:
         if line.strip() == "---":
             break
-        if number == 0 and line.lstrip().startswith("{"):
-            return None
-        key, sep, value = line.partition(":")
+        content = line.lstrip(" ")
+        if not line.strip() or content.startswith("#"):
+            continue
+        indent = len(line) - len(content)
+        if top is None:
+            top = indent
+        at_top = indent == top
+        listed = content == "-" or content.startswith("- ")
+        if indent < top or (at_top and not (KEY_LINE.match(content) or listed)):
+            unreadable = True
+        key, sep, value = content.partition(":")
         bare = key.strip().strip("\"'")
         if not sep or bare.lower() != "name":
             continue
-        top = not line[:1].isspace()
         value = re.sub(r"\s#.*$", "", value).strip()
         name = value.strip("\"'").strip().lower()
-        if name in AGENT_NAMES:
+        if name in names:
             return name
-        if top and (
+        if at_top and (
             key.strip() != bare
             or not value
             or value.startswith(NOT_ONE_LINE)
@@ -440,6 +467,36 @@ def frontmatter_name(data):
         ):
             unreadable = True
     return None if unreadable else ""
+
+
+def general_purpose_agent(root):
+    """The path of a project agent named general-purpose, by file or front
+    matter name, else None. Links and files that cannot be read are passed
+    over: with fallback agents nothing else of the folder matters."""
+    here = root
+    for part in (".claude", "agents"):
+        here = here / part
+        try:
+            if not stat.S_ISDIR(os.lstat(here).st_mode):
+                return None
+        except OSError:
+            return None
+    for top, dirs, files in os.walk(here, followlinks=False):
+        dirs.sort()
+        for entry in sorted(files):
+            if not entry.lower().endswith(".md"):
+                continue
+            path = Path(top) / entry
+            rel = os.path.relpath(path, root)
+            if entry[:-3].lower() == "general-purpose":
+                return rel
+            st = os.lstat(path)
+            if not stat.S_ISREG(st.st_mode) or st.st_size > MAX_AGENT_FILE:
+                continue
+            data = read_plain(path, MAX_AGENT_FILE)
+            if data and frontmatter_name(data, ("general-purpose",)):
+                return rel
+    return None
 
 
 def project_agent(root):
@@ -492,6 +549,13 @@ def check_agents(ctx, agents, command, panel=()):
         if not (skill_dir() / "roles" / f"{role}.md").is_file():
             raise Exit(2, f"Refused: roles/{role}.md is not installed. Next: run /kit.")
     if agents != "kit":
+        rel = general_purpose_agent(ctx.root)
+        if rel:
+            raise Exit(
+                3,
+                "STOP: this project has its own agent named general-purpose "
+                f"({show_path(rel)}). Next: ask the user: rename it.",
+            )
         return
     hit = project_agent(ctx.root)
     if hit is None:
@@ -756,16 +820,16 @@ def cmd_start(args):
         plan_loop={"name": args.plan_loop, "sha256": plan[2]} if plan else {},
     )
     loop.mkdir()
-    if plan:
-        try:
+    try:
+        if plan:
             loop.write("plan.md", plan[0])
             loop.write("criteria.md", plan[1])
-        except OSError:
-            for sub in ("plan.md", "criteria.md"):
-                with contextlib.suppress(OSError):
-                    os.unlink(loop.path(sub))
-            raise
-    loop.save()
+        loop.save()
+    except OSError:
+        for sub in ("plan.md", "criteria.md") if plan else ():
+            with contextlib.suppress(OSError):
+                os.unlink(loop.path(sub))
+        raise
     if others:
         QUALIFY.extend([True, (kind, name)])
     say(f"Repository: {clean(ctx.root)}")

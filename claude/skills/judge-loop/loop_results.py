@@ -70,7 +70,7 @@ def check_result(raw: bytes, role: str, open_ids=(), mode="full") -> dict:
     if len(dimensions) > MAX_DIMENSIONS:
         raise NoScore("dimensions", TOO_MANY)
     for i, (name, value) in enumerate(dimensions.items(), 1):
-        shown = f".{name}" if NAME.fullmatch(name) else f"[{i}]"
+        shown = f".{name}" if DIMENSION.fullmatch(name) else f"[{i}]"
         _number(value, f"dimensions{shown}")
 
     lists = {}
@@ -270,14 +270,18 @@ def print_items(loop, questions_since=None):
         )
     lines += [item_line(k, it) for k, it in items]
     if lines:
-        finished = st["outcome"] not in UNFINISHED
+        final = st.get("final") and not st["pending"]
+        finished = st["outcome"] not in UNFINISHED or final
         say("Items left:" if finished else "Items to fix, in this order:")
         for line in lines:
             say(line)
+    files = []
     for key, it in items:
-        if is_cut(it):
-            role = key.partition(":")[0]
-            say(f"  full text: {loop.rel}/judge/r{it['last']}_{role}.json")
+        path = f"{loop.rel}/judge/r{it['last']}_{key.partition(':')[0]}.json"
+        if is_cut(it) and path not in files:
+            files.append(path)
+    for path in files:
+        say(f"  [cut] fields in full: {path}")
     return len(items), sum(1 for _, it in items if it["kind"] == "blocking")
 
 

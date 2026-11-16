@@ -24,10 +24,12 @@ def next_text(loop):
     if st["pending"]:
         if len(saved_roles(loop)) < len(briefed_roles(st)):
             return (
-                "start each judge, write its answer to its answer file, "
-                "loop.py save <role>."
+                "loop.py brief prints the briefs of the missing judges again; start "
+                "them, write each answer to its answer file, loop.py save <role>."
             )
         return "loop.py round."
+    if st.get("final"):
+        return FINAL_NEXT
     if st["rounds"] and open_counts(st)[0]:
         return fix_next(loop.st)
     return "loop.py brief."
@@ -144,14 +146,14 @@ def not_apply(loop, command):
     )
 
 
-def given(value, flag):
+def given(value, flag, what="the user's answer"):
     """A note or reason with something in it, cleaned; else the refusal."""
     text = clean(value)
     if not text:
         raise Exit(
             2,
             f"Refused: {flag} is empty. "
-            "Next: the same command with the user's answer in a few words.",
+            f"Next: the same command with {what} in a few words.",
         )
     return text
 
@@ -164,6 +166,8 @@ def add_note(st, action, text):
 
 def open_next(loop):
     k, _ = print_items(loop)
+    if loop.st.get("final") and not loop.st["pending"]:
+        return FINAL_NEXT
     return fix_next(loop.st) if k else "loop.py brief."
 
 
@@ -174,7 +178,7 @@ def cmd_diagnosed(args):
     check_branch(loop)
     if st["outcome"] != "stalled":
         raise not_apply(loop, "diagnosed")
-    note = given(args.note, "--note")
+    note = given(args.note, "--note", "the cause")
     st["outcome"], st["streak"], st["final"] = "open", 0, False
     add_note(st, "diagnosed", note)
     loop.save()
@@ -252,12 +256,17 @@ def configure_note(sub):
     sub.add_argument("--note", required=True, help=NOTE_HELP)
 
 
+def configure_cause(sub):
+    add_which(sub)
+    sub.add_argument("--note", required=True, help=CAUSE_HELP)
+
+
 def configure_resume(sub):
     configure_note(sub)
     sub.add_argument("--rounds", type=int, help="1 to 5 more rounds")
 
 
-COMMANDS["diagnosed"] = (configure_note, cmd_diagnosed)
+COMMANDS["diagnosed"] = (configure_cause, cmd_diagnosed)
 COMMANDS["resume"] = (configure_resume, cmd_resume)
 COMMANDS["accept"] = (configure_note, cmd_accept)
 COMMANDS["abandon"] = (configure_note, cmd_abandon)
@@ -429,7 +438,7 @@ def cmd_skip(args):
             "the "
             "judge; with their yes, the same command with --user-ok.",
         )
-    reason = given(args.reason, "--reason")
+    reason = given(args.reason, "--reason", "the reason")
     if old and old["outcome"] != "skip":
         say(f"Earlier loop moved to {show_path(move_aside(loop))}")
     loop.st = new_state(
@@ -501,14 +510,15 @@ class Parser(argparse.ArgumentParser):
 
 
 NOTE_HELP = "your own short summary of what the user said"
+CAUSE_HELP = "the cause you found, in a few words"
 OK_HELP = "only after the user said yes"
 BASE_HELP = "the branch the work is compared with"
 TOP_HELP = (
     "The judge loop helper: keeps the state of a plan or build loop and says what "
     'comes next. Every run ends on one line, "<Word>: <what happened>. Next: '
-    '<command, or who acts>.". Exit codes: 0 done or go on; 1 fix, then another '
-    "round; 2 refused or could not run; 3 stop, do not fix: the line says who acts "
-    "next."
+    '<command, or who acts>.". Exit codes: 0 done or go on; 1 another round is '
+    "needed: fix first when the line says Fix; 2 refused or could not run; 3 stop, "
+    "do not fix: the line says who acts next."
 )
 
 DESCRIPTIONS = {
