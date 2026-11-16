@@ -577,8 +577,18 @@ class Loop:
         return st
 
     def save(self):
+        data = (json.dumps(self.st, indent=1, sort_keys=True) + "\n").encode("utf-8")
+        if len(data) > MAX_STATE:
+            # load refuses a state this big; keep the one saved before
+            raise Exit(
+                2,
+                f"Error: the new {show_path(self.rel)}/state.json would be "
+                f"{len(data):,} bytes, over the {MAX_STATE:,} bytes loop.py reads "
+                "back; the saved one is kept. Next: ask the user: move the folder "
+                f"{show_path(self.rel)} away, then loop.py start again.",
+            )
         ensure_ignored(self.ctx)
-        self.write("state.json", json.dumps(self.st, indent=1, sort_keys=True) + "\n")
+        self.write("state.json", data)
 
     def mtime(self):
         return os.lstat(self.path("state.json")).st_mtime_ns
@@ -589,8 +599,16 @@ def scan(ctx, load=True):
     folder = check_contained(ctx.root, "docs/loops", "docs/loops")
     if not folder.is_dir():
         return []
+    try:
+        entries = sorted(os.scandir(folder), key=lambda e: e.name)
+    except PermissionError:
+        raise Exit(
+            2,
+            "Error: docs/loops cannot be read (permission denied). Next: make the "
+            "folder readable (chmod u+rwx docs/loops), then the same command.",
+        ) from None
     found = []
-    for entry in sorted(os.scandir(folder), key=lambda e: e.name):
+    for entry in entries:
         if entry.is_symlink():
             raise link_error(f"docs/loops/{entry.name}", f"docs/loops/{entry.name}")
         if not entry.is_dir() or not NAME.fullmatch(entry.name):

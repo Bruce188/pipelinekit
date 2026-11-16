@@ -234,9 +234,25 @@ def test_a_read_only_loop_folder(sb):
         judge.chmod(0o755)
     assert run.code == 2
     assert run.last.startswith("Error: PermissionError (")
-    assert run.last.endswith(
-        "Next: free space or fix the permissions, then the same command."
-    )
+    assert run.last.endswith("Next: fix the permissions, then the same command.")
+
+
+@pytest.mark.skipif(
+    hasattr(os, "geteuid") and os.geteuid() == 0, reason="root reads anywhere"
+)
+def test_a_loops_folder_that_cannot_be_read(sb):
+    sb.start_build()
+    folder = sb.loopdir().parents[1]
+    folder.chmod(0)
+    try:
+        run = sb.run("status")
+    finally:
+        folder.chmod(0o755)
+    assert (run.code, run.last) == (
+        2,
+        "Error: docs/loops cannot be read (permission denied). Next: make the "
+        "folder readable (chmod u+rwx docs/loops), then the same command.",
+    ), run
 
 
 # Results ----------------------------------------------------------------------

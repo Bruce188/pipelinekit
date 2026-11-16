@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 from loop_fixtures import (
+    CANNOT_CHECK,
     LOOP_PY,
     NAME,
     ROLES_DIR,
@@ -107,6 +108,27 @@ def test_a_start_from_a_plan_loop_that_cannot_write(sb, name):
     assert run.code == 0, run
     plan = (sb.loopdir("plan", "p1") / "plan.md").read_bytes()
     assert (sb.loopdir() / "plan.md").read_bytes() == plan
+
+
+def test_a_state_too_big_to_read_back_is_not_saved(sb):
+    sb.start_build()
+    sb.run("brief")
+    sb.answer("general", result(10))
+    assert sb.run("save", "general").code == 0
+    state = sb.loopdir() / "state.json"
+    before = state.read_bytes()
+    limit = len(before) + 10
+    sb.mp.setattr(loop.loop_state, "MAX_STATE", limit)
+    run = sb.run("round")
+    assert run.code == 2, run
+    assert run.last.startswith(f"Error: the new {FOLDER}/state.json would be "), run
+    assert run.last.endswith(
+        f" bytes, over the {limit:,} bytes loop.py reads back; the saved one is "
+        f"kept. Next: ask the user: move the folder {FOLDER} away, then loop.py "
+        "start again."
+    ), run
+    assert state.read_bytes() == before
+    assert sb.run("status").code == 0
 
 
 def test_a_round_whose_scorecard_cannot_be_written_can_be_run_again(sb):
@@ -585,9 +607,7 @@ def test_kit_agents_stop_at_a_file_that_cannot_be_read(sb, how):
         run = sb.run("start", "build")
     finally:
         (sb.root / rel).chmod(0o755)
-    assert run.code == 3, run
-    assert run.last.startswith(f"STOP: {rel} cannot be checked for an agent name (")
-    assert run.last.endswith("or the same command with --agents fallback.")
+    assert (run.code, run.last) == (3, CANNOT_CHECK.format(rel=rel)), run
     assert not (sb.loopdir() / "state.json").exists()
 
 
@@ -614,10 +634,7 @@ def test_an_agents_folder_that_cannot_be_looked_at(sb, mode):
         assert run.code == 0, run
         assert UNCHECKED.format(rel=".claude/agents") in run.lines
     else:
-        assert run.code == 3, run
-        assert run.last.startswith(
-            "STOP: .claude/agents cannot be checked for an agent name ("
-        )
+        assert (run.code, run.last) == (3, CANNOT_CHECK.format(rel=".claude/agents"))
         assert not (sb.loopdir() / "state.json").exists()
 
 
