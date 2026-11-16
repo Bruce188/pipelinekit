@@ -148,6 +148,9 @@ kit used to ship, so those parts are gone.
 - `round` heads the fix list `Items to fix:`; the order to fix in (blocking
   items first, then the printed order) is in the fix prompts and the agent
   files.
+- A build loop is always named after its branch (`docs/loops/<branch>/build/`),
+  also after `start build --plan-loop <name>`; its state records the plan loop
+  it came from as `plan_loop`, with the sha256 of the judged plan.
 - `status` and `brief` print a note for each area of a loop's `map.md` that
   has no notes file `areas/<name>.md` yet, or a note to rename an area whose
   name cannot be a file name, and `status --json` lists the same notes under

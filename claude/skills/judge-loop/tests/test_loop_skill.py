@@ -221,7 +221,10 @@ def test_the_hand_over():
     text = flat(skill())
     for words in (
         "The builder never creates or changes a branch.",
-        "a build in another worktree needs the plan loop's folder copied there first",
+        "A build in another worktree needs the plan loop's folder copied there first",
+        "a build loop is always named after its branch",
+        "records the plan loop in its state as `plan_loop`",
+        "`--name` is refused for a build loop.",
         "git switch -c <type>/<plan loop name>",
         "git switch -c <type>/<issue>-<slug>",
     ):
@@ -506,7 +509,12 @@ def test_the_components_record_lists_every_file():
 
 def test_the_changelog_names_the_notes_and_the_fix_list():
     text = plain("CHANGELOG.md")
-    for words in ("Items to fix:", "areas/<name>.md", "status --json", "warnings"):
+    for words in (
+        "Items to fix:",
+        "areas/<name>.md",
+        "status --json",
+        "warnings",
+    ):
         assert words in text, words
 
 
