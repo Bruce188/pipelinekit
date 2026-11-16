@@ -272,7 +272,7 @@ def print_items(loop, questions_since=None):
     if lines:
         final = st.get("final") and not st["pending"]
         finished = st["outcome"] not in UNFINISHED or final
-        say("Items left:" if finished else "Items to fix, in this order:")
+        say("Items left:" if finished else "Items to fix:")
         for line in lines:
             say(line)
     files = []
