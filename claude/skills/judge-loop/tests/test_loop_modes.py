@@ -25,8 +25,8 @@ WAIT_ONE = (
 )
 
 
-def write_map(sb, text, kind="build", name=None):
-    (sb.loopdir(kind, name) / "map.md").write_text(text)
+def write_map(sb, text, kind="build", name=None, encoding=None):
+    (sb.loopdir(kind, name) / "map.md").write_text(text, encoding=encoding)
 
 
 def modes(sb, kind="build", name=None):
@@ -181,24 +181,59 @@ def test_a_map_status_cannot_read_gives_no_note_and_no_refusal(sb):
 
 
 NAME_NOTE = (
-    "note: area {name} in map.md cannot be a file name (no / or \\, at most 80 "
-    "characters). Next: rename it in map.md, then write areas/<new name>.md."
+    "note: area {name} in map.md cannot be a file name (no / or \\, no two spaces "
+    "in a row, no tab, combining mark or other character that does not show, at "
+    "most 80 characters); rename it in map.md, then write areas/<new name>.md"
 )
 
 
 @pytest.mark.parametrize(
-    "name", ["a/b", "a\\b", "n" * 81], ids=["slash", "back", "long"]
+    ("name", "reason"),
+    [
+        ("a/b", "no / or \\"),
+        ("a\\b", "no / or \\"),
+        ("n" * 81, "at most 80 characters"),
+        ("a  b", "no two spaces in a row"),
+        ("e\u0301", "combining mark"),
+    ],
+    ids=["slash", "back", "long", "double-space", "combining"],
 )
-def test_an_area_name_that_cannot_be_a_file_name(sb, name):
+def test_an_area_name_that_cannot_be_a_file_name(sb, name, reason):
     sb.start_build()
-    write_map(sb, f"{name} | app.py | tests\n")
+    write_map(sb, f"{name} | app.py | tests\n", encoding="utf-8")
     note = NAME_NOTE.format(name=loop.clean(name, 80))
+    assert reason in note
     run = sb.run("status")
     assert run.code == 0, run
     assert area_notes(run) == [note]
     assert run.last.startswith("Open: ")
     assert json.loads(sb.run("status", "--json").out)["warnings"] == [note]
-    assert area_notes(sb.run("brief")) == [note]
+    run = sb.run("brief")
+    assert area_notes(run) == [note]
+    assert not [x for x in run.lines if x.startswith("note:") and "Next:" in x]
+
+
+@pytest.mark.parametrize("end", ["accept", "abandon"])
+def test_a_finished_loop_gives_no_area_note(sb, end):
+    one_round(sb)
+    write_map(sb, "code | app.py | all\n")
+    assert area_notes(sb.run("status")) == [area_note("code")]
+    run = sb.run(end, "--note", "the user ends it here")
+    assert run.code == 0, run
+    run = sb.run("status")
+    assert run.code == 0, run
+    assert not area_notes(run)
+    assert json.loads(sb.run("status", "--json").out)["warnings"] == []
+
+
+def test_a_plan_loop_names_its_own_notes_path(sb):
+    sb.start_plan("p1")
+    write_map(sb, "code | app.py | all\n", kind="plan", name="p1")
+    note = AREA_NOTE.format(name="code", path="docs/loops/p1/plan/areas/code.md")
+    run = sb.run("status")
+    assert run.code == 0, run
+    assert area_notes(run) == [note]
+    assert json.loads(sb.run("status", "--json").out)["warnings"] == [note]
 
 
 # Skipped judges ---------------------------------------------------------------

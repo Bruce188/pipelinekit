@@ -25,8 +25,9 @@ AREA_NOTE = (
     "next round"
 )
 NAME_NOTE = (
-    "note: area {name} in map.md cannot be a file name (no / or \\, at most 80 "
-    "characters). Next: rename it in map.md, then write areas/<new name>.md."
+    "note: area {name} in map.md cannot be a file name (no / or \\, no two spaces "
+    "in a row, no tab, combining mark or other character that does not show, at "
+    "most 80 characters); rename it in map.md, then write areas/<new name>.md"
 )
 WAIT_NOTE = (
     "note: {items} {verb} for the user. Ask in one batch and record the answers "
