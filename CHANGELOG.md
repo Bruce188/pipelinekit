@@ -75,6 +75,16 @@ kit used to ship, so those parts are gone.
   in the user-level `CLAUDE.md` passes and names where the line stands. The
   ship skill and the `CLAUDE.md` template judge the build before the
   acceptance test; the skill and the docs state the limits of a local record.
+- A `linked` gate, after `release`: a pull request into the default branch
+  passes when GitHub lists every issue it names (the branch's issue number
+  and each `Closes #N`) among the issues it closes, and fails with the reason
+  for a missing, misspelt or shared keyword (`Closes #1, #2` closes only #1).
+  A pull request into another branch passes and names the release pull
+  request that will close its issues. After a merge into the default branch
+  `ship.py` names the issues that are still open; after a merge into another
+  branch it adds one `Closes #N` line per issue to the release pull request
+  when the same account opened it, and prints the lines otherwise. The ship
+  skill and the `CLAUDE.md` template state the rules.
 - Upgrading: after the update an open branch without a record shows
   `judged FAIL no judge record ...`. Work built before the update is recorded
   with `loop.py skip --reason "built before the judge loop" --user-ok`, after

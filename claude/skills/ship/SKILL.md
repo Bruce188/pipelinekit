@@ -28,7 +28,7 @@ Stop and ask, with an interactive question, when any of these is true. The helpe
 ## The loop
 
 1. **Criteria.** The issue lists acceptance criteria as a checklist, each one something a user can observe. If it has none, write them into the issue first.
-2. **Build.** Branch, change, run the project's tests, commit, push, open the pull request as a draft with `Closes #N`.
+2. **Build.** Branch, change, run the project's tests, commit, push, open the pull request as a draft with one `Closes #N` line per issue (see "Issue links").
 3. **Judge.** Before the acceptance test, the build is judged with the judge loop (`/judge-loop`) until it reaches 10. A small fix with nothing to judge is recorded with `loop.py skip --reason "..."` instead. The `judged` gate reads the loop's record.
 4. **Test.** Pick the method from "How to test". A change a user can see or run is tested by a fresh agent that gets only the brief below. A change with nothing user-visible (refactor, CI, internal cleanup) gets a smoke run from you; record it with `--tester session`.
 5. **Findings.** Each one has an id (`F1`, `F2`), the steps, what was expected, what happened, the evidence, and a severity: blocker, should-fix or note.
@@ -36,7 +36,7 @@ Stop and ask, with an interactive question, when any of these is true. The helpe
 7. **Test again.** Same brief, all criteria, plus the findings that were open. A fix can break something that passed before.
 8. **Record.** `record --result pass --release no`, or `record --result fail --open F1 F3`. Say `--release yes` when the change is a release in a way the helper may not see: it sets a new version, publishes, deploys or promotes a stage. Exit 3 means stop and ask.
 9. **Merge.** `merge` waits for CI, marks the pull request ready, watches it for the settle time (30 seconds, 90 where a check is still to come) so that checks and reviews that only start then are seen, merges the commit that was tested and switches to the updated base branch. This takes a minute or more: let it finish. The last line it prints is the outcome: `Merged ...`, `Not merged: ...` or `STOP: ...`.
-10. **After the merge.** Run the tests or start the app once on the base branch. Tell the user in one line what merged and how it was tested, then go on with the next piece of work.
+10. **After the merge.** Run the tests or start the app once on the base branch. Tell the user in one line what merged and how it was tested, and pass on what the helper printed about the issues, then go on with the next piece of work.
 
 A commit pushed after a passed test needs a new test and a new record: the `tested` gate compares commits. When CI fails, read the log (`gh run view <id> --log-failed`) before changing anything.
 
@@ -91,12 +91,23 @@ Exit code: 0 done, 1 a gate or a check failed (fix it and run again), 2 the help
 | `own` | you opened it, and it is not from a fork |
 | `policy` | the project has not opted out |
 | `release` | it is not a release (see "What stays with the user") |
+| `linked` | into the default branch: GitHub lists every issue the pull request names among those it closes; into another branch: names the release pull request that will close them; fails when `gh` cannot answer |
 | `review` | no review is required, requested or asking for changes |
 | `current` | the local commit is the pull request's head and nothing tracked is uncommitted |
 | `up-to-date` | the branch contains its base branch and does not conflict with it |
 | `judged` | the branch's judge loop ended in 10, a used budget or the user's accept on this commit or an earlier one of the branch, or a skip was recorded for this commit; `Judge loop: off` on the base branch or in the user-level `CLAUDE.md` passes and names where it stands; a loop waiting for the user exits 3 |
 | `tested` | the last record is a pass for this commit, and the loop is not stuck |
 | `ci` | every check passed; no check at all counts only where no workflow runs on pull requests |
+
+## Issue links
+
+The issues of a pull request are the number in its branch name (`<type>/<issue#>-<slug>`) and every issue its body names after a closing keyword (`Closes`, `Fixes`, `Resolves` and their other forms) or after a word that looks like a misspelt one (`Closing #4`). The rules:
+
+- One keyword per issue, each on its own line: `Closes #1, #2` closes only #1.
+- A pull request into a branch other than the default one does not close its issue when it merges. GitHub closes issues only on a merge into the default branch.
+- The release pull request, from that branch into the default one, carries the `Closes` lines.
+
+Into the default branch, the `linked` gate fails until GitHub lists every issue named, and says why for each one; after the merge the helper checks that each one is closed and names those still open. Into another branch, after the merge the helper adds the missing `Closes` lines to the open release pull request when you opened it, and prints them for the user to add when someone else did or when none is open. It never merges, approves or marks that pull request ready.
 
 ## Limits
 
@@ -105,4 +116,5 @@ Exit code: 0 done, 1 a gate or a check failed (fix it and run again), 2 the help
 - A record file the helper cannot read is never overwritten: move it away and record the test again.
 - The judge record says results were saved, not that a judge ran or judged well; it is a local file the session can write or remove. `accept`, `settle`, `skip` and `--user-ok` rest on the session's word, like `record --tester session`. A build needs no plan loop. Commits after the judged one are covered by the acceptance test; the panel and the size are taken once, when the loop starts, and the pass reason shows the size since the judged commit. The user-level `Judge loop: off` is a local file the session can edit and no permission rule of the kit guards (the pass reason names where the line stands). The agent files, the role files and `loop.py` are local files too: a session can edit them without a prompt, and only `/kit` shows it, under "Changes since install".
 - The release gate reads branch names, the title and the diff, and holds a version it cannot place. A release that shows in none of them (`chore: go live` without a version change) passes unless you say `--release yes`. When the gate holds an ordinary change, do not rename things to get past it: ask the user.
+- The `linked` gate follows issues of this repository only, and finds them only in the branch name and in the forms above; an issue linked by hand in the pull request's sidebar is not asked for. When the helper prints `Closes` lines, pass them on to the user: the release pull request needs them before it merges.
 - In a sandboxed session `gh` may be unable to read its own configuration. The helper then exits 2 with the message from `gh`; report that and stop.
