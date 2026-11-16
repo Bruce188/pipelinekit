@@ -116,13 +116,13 @@ def test_merge_refuses_a_check_that_is_still_running(sb):
 def test_merge_refuses_a_branch_behind_its_base(sb):
     sb.passed()
     sb.advance_base()
-    assert "1 commit behind main" in refused(sb, "up-to-date", 1).stdout
+    assert "1 commit behind origin/main" in refused(sb, "up-to-date", 1).stdout
 
 
 def test_merge_refuses_a_conflicting_branch(sb):
     sb.passed()
     sb.state(pr=sb.pr(mergeable="CONFLICTING"))
-    assert "conflicts with main" in refused(sb, "up-to-date", 1).stdout
+    assert "conflicts with origin/main" in refused(sb, "up-to-date", 1).stdout
 
 
 def test_merge_refuses_an_unpushed_commit_and_dirty_files(sb):

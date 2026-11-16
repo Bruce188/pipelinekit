@@ -88,6 +88,17 @@ GitHub closes an issue when a pull request that names it after a closing keyword
 - **Into another branch.** A misspelt keyword fails the gate here too, so that no `Closes` line goes to the release pull request for an issue the body did not close. Otherwise the gate passes and says that GitHub will not close the issues on this merge, and names the open release pull request from that branch into the default one, if there is one. After the merge the helper adds one `Closes #N` line per issue to that release pull request when your GitHub account opened it, keeping its text and skipping lines it already has. When someone else opened it, or none is open yet, the helper prints the lines to add. It never merges, approves or marks the release pull request ready.
 - **Limits.** Only issues of the same repository are followed. An issue linked by hand in the sidebar is not asked for. A pull request that names no issue at all passes. When GitHub cannot answer, the gate fails with the reason and nothing merges; a failure after the merge is printed, and the merge stands.
 
+## Up to date with the base
+
+A branch is tested and judged as it will merge, so it first takes in what landed on its base. The base is the branch its pull request targets, which is not always `main`: a stacked pull request into `feat/12-base` is compared with `origin/feat/12-base`.
+
+- **The rule.** Before a pull request is written up or updated, Claude fetches and brings the branch up to date with that base. A branch that was never pushed is rebased onto it (`git rebase origin/<base>`). A pushed branch, one with a remote branch of the same name or an open pull request, gets the base merged in (`git merge origin/<base>`), so its published commits are never rewritten. Nothing is ever force pushed. Then the tests run again, before the pull request text is written. The `CLAUDE.md` template, the `ship` and `judge-loop` skills and the `kit-builder` agent state the rule in the same words.
+- **What `ship.py` checks.** The `up-to-date` gate fetches the base from the remote, counts the commits the branch lacks and names the next command: `1 commit behind origin/main: the branch was never pushed: git rebase origin/main, run the tests again, then push`, or for a pushed branch `git merge origin/main (no rebase, no force push)`. It also fails on a conflict GitHub reports. `ship.py` never rebases, merges or pushes to fix this itself.
+- **Blocking.** While the gate fails, the `ship` skill does not start the acceptance test, `ship.py record --result pass` refuses to record a pass, and `ship.py merge` refuses to merge.
+- **Before there is a pull request.** The base is `--base BRANCH` (`ship.py status --base feat/12-base`), else `branch.<name>.gh-merge-base`, which `gh pr create` reads too, else the repository's default branch. A pull request's own base always wins.
+- **Pushed or not.** An upstream alone does not count: `git switch -c feat origin/main` sets `origin/main` as the upstream of a branch that was never pushed.
+- **Limits.** A conflict is the session's to resolve: it says so in the pull request, and stops and asks when the conflict cannot be resolved safely. A base that moves after the test makes the gate fail again.
+
 ## Optional: context7
 
 context7 is not installed by default. To use it in a project, copy its entry from `.mcp.json.template` into that project's `.mcp.json`. The template also shows how to pin serena for a single project, and it includes optional iOS MCP servers.

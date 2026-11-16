@@ -28,17 +28,23 @@ Stop and ask, with an interactive question, when any of these is true. The helpe
 ## The loop
 
 1. **Criteria.** The issue lists acceptance criteria as a checklist, each one something a user can observe. If it has none, write them into the issue first.
-2. **Build.** Branch, change, run the project's tests, commit, push, open the pull request as a draft with one `Closes #N` line per issue (see "Issue links").
+2. **Build.** Branch, change, run the project's tests, commit, bring the branch up to date with its base (see "Up to date with the base"), push, open the pull request as a draft with one `Closes #N` line per issue (see "Issue links").
 3. **Judge.** Before the acceptance test, the build is judged with the judge loop (`/judge-loop`) until it reaches 10. A small fix with nothing to judge is recorded with `loop.py skip --reason "..."` instead. The `judged` gate reads the loop's record.
-4. **Test.** Pick the method from "How to test". A change a user can see or run is tested by a fresh agent that gets only the brief below. A change with nothing user-visible (refactor, CI, internal cleanup) gets a smoke run from you; record it with `--tester session`.
+4. **Test.** Run `status` first: while `up-to-date` fails, the test does not start; bring the branch up to date as its line says. Pick the method from "How to test". A change a user can see or run is tested by a fresh agent that gets only the brief below. A change with nothing user-visible (refactor, CI, internal cleanup) gets a smoke run from you; record it with `--tester session`.
 5. **Findings.** Each one has an id (`F1`, `F2`), the steps, what was expected, what happened, the evidence, and a severity: blocker, should-fix or note.
-6. **Fix.** Fix every blocker and should-fix. A bug gets a regression test. Something outside the issue's scope becomes a new issue, not a fix here. Commit and push.
+6. **Fix.** Fix every blocker and should-fix. A bug gets a regression test. Something outside the issue's scope becomes a new issue, not a fix here. Commit, bring the branch up to date with its base, run the tests again and push.
 7. **Test again.** Same brief, all criteria, plus the findings that were open. A fix can break something that passed before.
 8. **Record.** `record --result pass --release no`, or `record --result fail --open F1 F3`. Say `--release yes` when the change is a release in a way the helper may not see: it sets a new version, publishes, deploys or promotes a stage. Exit 3 means stop and ask.
 9. **Merge.** `merge` waits for CI, marks the pull request ready, watches it for the settle time (30 seconds, 90 where a check is still to come) so that checks and reviews that only start then are seen, merges the commit that was tested and switches to the updated base branch. This takes a minute or more: let it finish. The last line it prints is the outcome: `Merged ...`, `Not merged: ...` or `STOP: ...`.
 10. **After the merge.** Run the tests or start the app once on the base branch. Tell the user in one line what merged and how it was tested, and pass on what the helper printed about the issues, then go on with the next piece of work.
 
 A commit pushed after a passed test needs a new test and a new record: the `tested` gate compares commits. When CI fails, read the log (`gh run view <id> --log-failed`) before changing anything.
+
+## Up to date with the base
+
+Before a PR is written up or updated: fetch, then bring the branch up to date with the base branch the PR targets (`origin/<base>`, not always `main`). Rebase onto it while the branch was never pushed; once it was pushed (a remote branch of that name exists), merge it in. Never force push. Then run the tests again. A conflict: resolve it and say so in the pull request; one you cannot resolve safely: stop and ask the user.
+
+The helper never does this itself. The `up-to-date` gate fetches the base and names it, the number of commits the branch lacks and the next command: `git rebase origin/<base>` for a branch that was never pushed, `git merge origin/<base>` for a pushed one, never a force push. A branch with an upstream but no remote branch of its own name counts as never pushed. Without a pull request the base is `--base BRANCH`, else `branch.<name>.gh-merge-base` (which `gh pr create` reads too), else the default branch; a pull request's own base always wins. `record --result pass` refuses while the gate fails, and `merge` refuses to merge.
 
 The pull request body gets a short "Testing" section: what was tested, how, and the result. No finding counts, no round numbers.
 
@@ -73,7 +79,7 @@ Run it through Bash in these forms only. The only text you add is finding ids an
 
 | Command | Use |
 |---------|-----|
-| `python3 ${CLAUDE_SKILL_DIR}/ship.py status` | every gate with its state and reason; `--json` for scripts |
+| `python3 ${CLAUDE_SKILL_DIR}/ship.py status` | every gate with its state and reason; `--json` for scripts; `--base BRANCH` names the base before there is a pull request |
 | `python3 ${CLAUDE_SKILL_DIR}/ship.py record --result pass --release no` | the test passed for the current commit, and the pull request is not a release (`--release yes`: it is one) |
 | `python3 ${CLAUDE_SKILL_DIR}/ship.py record --result fail --open F1 F3` | the test failed; these findings are open |
 | `python3 ${CLAUDE_SKILL_DIR}/ship.py wait` | wait until every CI check has a conclusion |
@@ -94,7 +100,7 @@ Exit code: 0 done, 1 a gate or a check failed (fix it and run again), 2 the help
 | `linked` | into the default branch: GitHub lists every issue the pull request names among those it closes; into another branch: no misspelt keyword, and names the release pull request that will close them; fails when `gh` cannot answer |
 | `review` | no review is required, requested or asking for changes |
 | `current` | the local commit is the pull request's head and nothing tracked is uncommitted |
-| `up-to-date` | the branch contains its base branch and does not conflict with it |
+| `up-to-date` | the branch contains its base branch, fetched from the remote, and does not conflict with it; the reason names the base, the commits missing and the next command (see "Up to date with the base") |
 | `judged` | the branch's judge loop ended in 10, a used budget or the user's accept on this commit or an earlier one of the branch, or a skip was recorded for this commit; `Judge loop: off` on the base branch or in the user-level `CLAUDE.md` passes and names where it stands; a loop waiting for the user exits 3 |
 | `tested` | the last record is a pass for this commit, and the loop is not stuck |
 | `ci` | every check passed; no check at all counts only where no workflow runs on pull requests |
