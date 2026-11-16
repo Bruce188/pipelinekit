@@ -439,7 +439,7 @@ def frontmatter_name(data, names=AGENT_NAMES):
     unreadable = False
     top = None
     for line in lines[1:]:
-        if line.strip() == "---":
+        if line.rstrip() == "---":  # at column 0; an indented one is block text
             break
         content = line.lstrip(" ")
         if not line.strip() or content.startswith("#"):

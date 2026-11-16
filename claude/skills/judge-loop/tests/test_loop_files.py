@@ -195,6 +195,7 @@ NAME_LINES = {
     ),
     "an indented kit name": b"---\nmeta:\n  name: kit-judge\nname: helper\n---\n",
     "a carriage return alone": b"---\ndescription: x\rname: kit-judge\n---\n",
+    "a rule line inside a block": b"---\ndescription: |\n  ---\nname: kit-judge\n---\n",
 }
 
 
