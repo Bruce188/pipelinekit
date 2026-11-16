@@ -13,7 +13,6 @@ CHECK = KIT / "check.py"
 REPO = KIT.parents[2]
 
 
-
 _spec = importlib.util.spec_from_file_location("kit_check", CHECK)
 check_py = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(check_py)
