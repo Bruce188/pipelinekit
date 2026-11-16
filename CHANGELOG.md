@@ -161,6 +161,25 @@ kit used to ship, so those parts are gone.
   name cannot be a file name, and `status --json` lists the same notes under
   `warnings`.
 
+### File size limit
+
+- A hand-written file has at most 1,500 lines and 50,000 bytes, so one read
+  returns it whole. The `CLAUDE.md` template states the limit and says that
+  new code that would take a file past it goes in a new file.
+- The global `pre-commit` hook refuses a commit that adds a file over the
+  limit or takes one past it (`[pre-commit.file-size]`, logged with the path
+  and size, never the content). A file already over the limit only warns.
+  Binary and deleted files are not counted; lock, vendored, generated and
+  data files are exempt by default, and a project lists more in
+  `.file-size-exempt` (a list that is a link, a folder or not UTF-8 text is
+  not used, with a warning).
+- `/kit` warns about kit files over the limit, and its live probe checks that
+  `pre-commit` refuses a new file over it.
+- The judge roles name a file the change makes longer and that ends up over
+  the limit as an item.
+- `ship.py`, `check.py` and their tests are split into files under the limit,
+  with unchanged behaviour and test names.
+
 ### Security
 
 - Native permission rules: `deny` Read/Edit of `.env*` (except
