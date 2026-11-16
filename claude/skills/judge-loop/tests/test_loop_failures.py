@@ -591,6 +591,36 @@ def test_kit_agents_stop_at_a_file_that_cannot_be_read(sb, how):
     assert not (sb.loopdir() / "state.json").exists()
 
 
+@pytest.mark.parametrize("mode", ["kit", "fallback"])
+def test_an_agents_folder_that_cannot_be_looked_at(sb, mode):
+    """lstat of .claude/agents fails with something other than not-found. A
+    .claude folder of mode 000 stops earlier, at .claude/CLAUDE.md, so the
+    failure is made here by hand."""
+    sb.write(".claude/agents/helper.md", "---\nname: helper\n---\n")
+    sb.change()
+    real = os.lstat
+
+    def lstat(path, *args, **kwargs):
+        if os.fspath(path).endswith(os.path.join(".claude", "agents")):
+            raise PermissionError(13, "Permission denied", os.fspath(path))
+        return real(path, *args, **kwargs)
+
+    sb.mp.setattr(os, "lstat", lstat)
+    run = sb.run(
+        "start", "build", *(["--agents", "fallback"] if mode == "fallback" else [])
+    )
+    sb.mp.setattr(os, "lstat", real)
+    if mode == "fallback":
+        assert run.code == 0, run
+        assert UNCHECKED.format(rel=".claude/agents") in run.lines
+    else:
+        assert run.code == 3, run
+        assert run.last.startswith(
+            "STOP: .claude/agents cannot be checked for an agent name ("
+        )
+        assert not (sb.loopdir() / "state.json").exists()
+
+
 UNCHECKED_AGENTS = [
     "an unreadable name",
     "a link",
