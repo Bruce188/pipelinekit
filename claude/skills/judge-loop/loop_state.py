@@ -473,6 +473,8 @@ def state_ok(st, kind, name, git):
             return False
         if not is_type(item.get("check", ""), str):
             return False
+        if not is_type(item.get("needed", True), bool):
+            return False
         if not all(is_type(item.get(k), int) for k in ("first", "last")):
             return False
         settled = item.get("settled")
@@ -636,10 +638,9 @@ def scan(ctx, load=True):
 
 
 QUALIFY = []
-NO_OPEN = (
-    "Refused: no loop is open here. Next: loop.py start plan or loop.py start build."
-)
-NO_LOOP = "Open: no loop here. Next: loop.py start plan or loop.py start build."
+START_NEXT = "loop.py start plan --name <issue>-<slug> or loop.py start build."
+NO_OPEN = f"Refused: no loop is open here. Next: {START_NEXT}"
+NO_LOOP = f"Open: no loop here. Next: {START_NEXT}"
 NO_SUCH = "Refused: no such loop here. Next: loop.py status."
 
 

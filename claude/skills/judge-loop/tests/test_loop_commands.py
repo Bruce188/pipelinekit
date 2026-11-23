@@ -289,8 +289,8 @@ def test_help_says_what_each_option_is(sb, argv, words):
 
 def test_status_of_a_finished_loop_lists_items_left(sb):
     one_round(sb)
-    assert "Items to fix, in this order:" in sb.run("status").lines
+    assert "Items to fix:" in sb.run("status").lines
     assert sb.run("accept", "--note", "ship it").code == 0
     lines = sb.run("status").lines
     assert "Items left:" in lines
-    assert "Items to fix, in this order:" not in lines
+    assert "Items to fix:" not in lines

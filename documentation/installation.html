@@ -621,6 +621,7 @@ footer {
       <li class="lvl-2"><a href="#install">Install</a></li>
       <li class="lvl-2"><a href="#what-the-installer-does">What the installer does</a></li>
       <li class="lvl-2"><a href="#options">Options</a></li>
+      <li class="lvl-2"><a href="#the-judge-loop">The judge loop</a></li>
       <li class="lvl-2"><a href="#optional-context7">Optional: context7</a></li>
       <li class="lvl-2"><a href="#devcontainer-and-cloud-vms">Devcontainer and cloud VMs</a></li>
       <li class="lvl-2"><a href="#claude-code-desktop">Claude Code Desktop</a></li>
@@ -655,11 +656,11 @@ bash<span class="w"> </span>scripts/install.sh<span class="w">            </span
 <p>Start a new session after the install: Claude Code loads agents when a session starts, and the installer's last line says so. In Claude Code Desktop, ask the new session "which agents can you start?"; the answer names <code>kit-planner</code>, <code>kit-builder</code> and <code>kit-judge</code>.</p>
 <h2 id="what-the-installer-does">What the installer does</h2>
 <ol>
-<li>Copies the hooks, the global git hooks, the eight skills, the three agents (<code>kit-planner</code>, <code>kit-builder</code>, <code>kit-judge</code>) and <code>config/never-stage.txt</code> into <code>~/.claude</code>. It overwrites those files in place and never moves or deletes the directory. It leaves <code>projects/</code>, <code>sessions/</code>, <code>plugins/</code> and your credentials alone.
+<li>Copies the hooks, the global git hooks, the nine skills, the three agents (<code>kit-planner</code>, <code>kit-builder</code>, <code>kit-judge</code>) and <code>config/never-stage.txt</code> into <code>~/.claude</code>. It overwrites those files in place and never moves or deletes the directory. It leaves <code>projects/</code>, <code>sessions/</code>, <code>plugins/</code> and your credentials alone.
    The kit owns the folder <code>~/.claude/skills/frontend-design</code>: a copy of your own under that name is moved to <code>~/.claude/pipelinekit/backup/</code> once. The installer prints the folder it moved it to; a link of that name is removed, and the folder it points to is left alone.
    In <code>~/.claude/agents/</code> the kit owns only its three files. A file of your own with one of those names that differs from the kit's, and that the last install did not put there, is moved to <code>~/.claude/pipelinekit/backup/</code> once, and the installer prints where. Your edit of the kit's own copy is replaced without a backup. A link of that name is removed, and the file it points to is left alone. Other agents in the folder are not touched.</li>
 <li>Removes skills, hooks and the <code>docs-writer</code> agent that earlier 0.1.0 builds installed (<code>commit-conventions</code>, <code>security-conventions</code>, <code>expo</code>, <code>ios</code>, the old guard hooks), but only if each is still byte-identical to a committed kit version. Edited copies are kept, with a warning.</li>
-<li>Renders <code>~/.claude/CLAUDE.md</code> from <code>claude/CLAUDE.md.template</code>. If the result differs from your existing file, the old one is saved as <code>CLAUDE.md.bak-&lt;timestamp&gt;</code>.</li>
+<li>Renders <code>~/.claude/CLAUDE.md</code> from <code>claude/CLAUDE.md.template</code>. If the result differs from your existing file, the old one is saved as <code>CLAUDE.md.bak-&lt;timestamp&gt;</code>. When the old file held a <code>Judge loop:</code>, <code>Judge rounds:</code> or <code>Judges:</code> line, the installer names it and the backup: add it again, or put it in the project's <code>CLAUDE.md</code>.</li>
 <li>Backs up <code>settings.json</code> to <code>settings.json.bak-&lt;timestamp&gt;</code>, then merges in <code>claude/config/settings.template.json</code>:
    - the kit's hook entries replace its older ones, and hook entries whose script is no longer in <code>~/.claude/hooks/</code> are removed; your own hooks stay;
    - the kit's <code>permissions.deny</code> and <code>permissions.ask</code> rules are added after yours; <code>allow</code> and other permission keys are untouched;
@@ -700,7 +701,7 @@ git<span class="w"> </span>-C<span class="w"> </span>~/path/to/repo<span class="
 <tr>
 <td><code>CLAUDE_HOME</code></td>
 <td><code>~/.claude</code></td>
-<td>Install target</td>
+<td>Install target. Another target is written into the <code>judge-loop</code> skill; see <a href="#the-judge-loop">The judge loop</a></td>
 </tr>
 <tr>
 <td><code>USER_NAME</code>, <code>USER_EMAIL</code></td>
@@ -719,6 +720,16 @@ git<span class="w"> </span>-C<span class="w"> </span>~/path/to/repo<span class="
 </tr>
 </tbody>
 </table>
+<h2 id="the-judge-loop">The judge loop</h2>
+<p>The <code>judge-loop</code> skill plans and builds a change on Opus and has fresh Fable judges score both; see <a href="components.html#plan-build-judge">Plan, build, judge</a>.</p>
+<ul>
+<li><strong>Models.</strong> The loop needs both a Fable and an Opus model. An account without one gets a one-line stop when an agent cannot start; put <code>Judge loop: off</code> in the project's <code>CLAUDE.md</code> to turn the rule off there.</li>
+<li><strong>Switch lines.</strong> <code>Judge loop: off</code>, <code>Judge rounds: N</code> and <code>Judges: ...</code> belong in the project's <code>CLAUDE.md</code> (or <code>.claude/CLAUDE.md</code>) on its base branch. The same lines in <code>~/.claude/CLAUDE.md</code> work only until the next install replaces that file.</li>
+<li><strong>Another <code>CLAUDE_HOME</code>.</strong> The skill names <code>loop.py</code> by its path. With <code>CLAUDE_HOME</code> set to another folder, the installer writes that folder into the installed <code>SKILL.md</code>, as long as it is an absolute path that holds only letters, digits and <code>. _ / @ + -</code>; otherwise it warns, and the skill keeps <code>~/.claude</code>. Keep <code>CLAUDE_HOME</code> set in the environment the session runs in; the helper reads the user-level switch lines from <code>$CLAUDE_HOME/CLAUDE.md</code>, else from <code>~/.claude/CLAUDE.md</code>.</li>
+<li><strong>Permissions.</strong> The session writes one answer file per judge with the Write tool. In the default permission mode each write may ask; "allow edits for this session" avoids one prompt per file.</li>
+<li><strong>The record.</strong> A loop keeps its record in <code>docs/loops/</code> of the checkout or worktree it runs in. A build in another worktree needs the plan loop's folder (<code>docs/loops/&lt;name&gt;/plan/</code>) copied there first. <code>docs/loops/</code> is not committed, so work judged in one checkout and shipped from another must be judged again there, or recorded there with <code>loop.py skip --reason ...</code>. Nothing removes old loop folders: delete one once its work is merged.</li>
+<li><strong>Agents load at session start.</strong> After an install, start a new session so <code>kit-planner</code>, <code>kit-builder</code> and <code>kit-judge</code> show in the agent list. Where they do not show, the skill starts general-purpose agents with the same models and the installed agent text (<code>--agents fallback</code>), and <code>loop.py start</code> says so: "fallback: the judge is not limited to reading by its tools".</li>
+</ul>
 <h2 id="optional-context7">Optional: context7</h2>
 <p>context7 is not installed by default. To use it in a project, copy its entry from <code>.mcp.json.template</code> into that project's <code>.mcp.json</code>. The template also shows how to pin serena for a single project, and it includes optional iOS MCP servers.</p>
 <h2 id="devcontainer-and-cloud-vms">Devcontainer and cloud VMs</h2>

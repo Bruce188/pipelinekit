@@ -653,6 +653,12 @@ def prepare(args):
             "Refused: a build loop is named after its branch. "
             "Next: loop.py start build without --name.",
         )
+    if kind == "plan" and getattr(args, "name", None) is None:
+        raise Exit(
+            2,
+            "Refused: a plan loop needs a name. "
+            "Next: loop.py start plan --name <issue>-<slug>.",
+        )
     if kind == "plan" and getattr(args, "plan_loop", None) is not None:
         raise Exit(
             2,
@@ -660,7 +666,7 @@ def prepare(args):
             "it.",
         )
     ctx = Ctx()
-    if not ctx.branch and (kind == "build" or args.name is None):
+    if not ctx.branch and kind == "build":
         raise Exit(
             2, "Refused: no branch is checked out. Next: check out the work branch."
         )
@@ -691,7 +697,7 @@ def prepare(args):
             f"Refused: {show_branch(base)} is the base branch. "
             "Next: git switch -c <work branch>, then the same command.",
         )
-    if kind == "build" or args.name is None:
+    if kind == "build":
         name = slug(ctx.branch)
         if not NAME.fullmatch(name):
             raise Exit(
@@ -934,7 +940,7 @@ def configure_start(sub):
     )
     sub.add_argument(
         "--name",
-        help="start plan only: the loop's name (default: from the branch); a build "
+        help="the plan loop's name, <issue>-<slug>; start plan needs it, a build "
         "loop is named after its branch",
     )
     sub.add_argument(

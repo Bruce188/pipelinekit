@@ -128,8 +128,8 @@ CANNOT_CHECK = (
     "readable). Next: ask the user: make it a plain, readable file or folder, or "
     "the same command with --agents fallback."
 )
-FIX_BUILD = "Next: have kit-builder fix in this order and commit, then loop.py brief."
-FIX_PLAN = "Next: have kit-planner fix in this order, then loop.py brief."
+FIX_BUILD = "Next: have kit-builder fix these items and commit, then loop.py brief."
+FIX_PLAN = "Next: have kit-planner fix these items, then loop.py brief."
 
 
 class Sandbox:
@@ -422,6 +422,9 @@ def play(sb, kind, budget, scores, blocking=False):
     for i, score in enumerate(scores):
         if kind == "build" and i:
             sb.change("app.py", 3 + i, tag=f"r{i}")
+        elif i:
+            plan = sb.loopdir("plan", "p1") / "plan.md"
+            plan.write_text(f"# Plan\n\nstep one, take {i + 1}\n")
         run = sb.judge({"general": scored(score, blocking)}, *which)
     return run
 

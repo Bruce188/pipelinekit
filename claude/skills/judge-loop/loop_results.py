@@ -147,13 +147,8 @@ def check_result(raw: bytes, role: str, open_ids=(), mode="full") -> dict:
     if overall == 10:
         if items["blocking"]:
             raise NoScore("overall", TEN_WITH_OPEN)
-        for item_id in still_open:
-            entry = seen[item_id]
-            if (
-                entry["kind"] == "improvement"
-                and entry.get("needed_for_10") is not False
-            ):
-                raise NoScore("overall", TEN_WITH_OPEN)
+        if any(e.get("needed_for_10") is not False for e in items["improvements"]):
+            raise NoScore("overall", TEN_WITH_OPEN)
         if read != "full":
             raise NoScore("overall", TEN_NOT_FULL)
 
@@ -272,7 +267,7 @@ def print_items(loop, questions_since=None):
     if lines:
         final = st.get("final") and not st["pending"]
         finished = st["outcome"] not in UNFINISHED or final
-        say("Items left:" if finished else "Items to fix, in this order:")
+        say("Items left:" if finished else "Items to fix:")
         for line in lines:
             say(line)
     files = []
@@ -289,9 +284,9 @@ def fix_next(st):
     agents = st.get("agents", "kit")
     if st["kind"] == "plan":
         who = agent_word(agents, "kit-planner")
-        return f"have {who} fix in this order, then loop.py brief."
+        return f"have {who} fix these items, then loop.py brief."
     who = agent_word(agents, "kit-builder")
-    return f"have {who} fix in this order and commit, then loop.py brief."
+    return f"have {who} fix these items and commit, then loop.py brief."
 
 
 def plan_handover(st):

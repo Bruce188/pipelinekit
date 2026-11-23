@@ -41,6 +41,18 @@ git rev-parse --verify "$BASE" 2>/dev/null || echo "ERROR: Base branch '$BASE' n
 - `docs-writer` pages keep the template's CSS variables; there `frontend-design` guides new snippets, template changes and raw HTML in a page's markdown source.
 - Skip it for work with no visual output and for small fixes inside an existing design: follow what is there.
 
+## Plan, build, judge
+
+- A change that is more than a small fix: plan it on Opus (`kit-planner`), build it on Opus (`kit-builder`), and have each judged by a fresh Fable agent that did not write it (`kit-judge`); only the judges run on Fable. Follow the `judge-loop` skill; its helper keeps the state and says what comes next.
+- The target is 10 out of 10 with nothing blocking, in at most five judge rounds for a plan and five for a build. What is left after the last round becomes follow-up issues; with a blocking item left, stop and ask.
+- Before the first round, ask the user every open question in one batch, and say in one line what the loop is expected to cost.
+- No score back from a judge: stop. Never fix without a score.
+- A plan whose score stops rising: explain to the user what holds it back and ask how to go on. Do not move it to build on your own. The user may end a loop early at any time.
+- Small fixes are exempt: one file with at most ten changed lines, documentation-only changes, and questions; never a change to a sensitive path or to a file that steers an agent (`CLAUDE.md`, a skill, an agent). Anything else skips the judge only when the user says so.
+- Every agent you start, in the loop or not: a file it will change or judge: read it whole, once; a file it needs one fact from: search first, then read only those lines. Read nothing twice. Fewer, fuller tool calls, short tool output, and a stop after about 10 calls on the same error.
+- An agent given a JSON form returns only the form; one without a form returns at most 15 lines and puts the details in a file.
+- A project sets its own terms with one of these on a line of its own in its CLAUDE.md: `Judge loop: off` (no loop), `Judge rounds: N` (the budget), `Judges: correctness, tests` (the panel). A line counts once it is on the branch pull requests go to.
+
 ## GitHub (when the repo has a GitHub remote)
 
 Use `gh` and keep work traceable on GitHub:

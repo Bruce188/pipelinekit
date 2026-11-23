@@ -644,11 +644,11 @@ footer {
 <tbody>
 <tr>
 <td><code>/pipeline</code> orchestrator, planner and goal-setter agents, TDD gates</td>
-<td>Plan mode, the Workflow tool, built-in Plan agent</td>
+<td>Plan mode, the Workflow tool, built-in Plan agent; for a change judged to 10, the kit's <code>judge-loop</code></td>
 </tr>
 <tr>
 <td>Review panel (code-reviewer, security-auditor and similar agents), <code>simplify</code> skill</td>
-<td><code>/code-review</code>, <code>/security-review</code>, <code>/simplify</code></td>
+<td><code>/code-review</code>, <code>/security-review</code>, <code>/simplify</code>; the judges of <code>judge-loop</code></td>
 </tr>
 <tr>
 <td>Persona agents and <code>persona</code></td>
@@ -692,6 +692,7 @@ footer {
 </tr>
 </tbody>
 </table>
+<p>The judge loop is not the old pipeline back. It is one helper, three agents and a rule, and the kit keeps it because Claude Code ships no judge on a second model that scores a plan or a build, within a round budget, until it reaches 10.</p>
 <p>The <a href="https://github.com/Bruce188/pipelinekit/blob/main/CHANGELOG.md">CHANGELOG</a> lists every removed file.</p>
 <h2 id="upgrade-steps">Upgrade steps</h2>
 <p>The 0.0.1 installer copied the whole kit into <code>~/.claude</code>. The new installer
@@ -736,6 +737,12 @@ rm<span class="w"> </span>-f<span class="w"> </span>hooks/<span class="o">{</spa
 <code>rules/</code> or <code>modes/</code>. It also prunes <code>settings.json</code> hook entries whose script
 you just deleted, removes the old guard hooks and skills it replaced (only
 unmodified copies), and asks whether to enable the global git hooks.</p>
+<p>It installs the judge loop's three agents, <code>kit-planner</code>, <code>kit-builder</code> and
+<code>kit-judge</code>, into <code>~/.claude/agents/</code>; other files in that folder are left
+alone. It replaces <code>~/.claude/CLAUDE.md</code> with the kit's own, so a
+<code>Judge loop:</code>, <code>Judge rounds:</code> or <code>Judges:</code> line you kept there is dropped:
+the installer warns and names the backup that holds it. Keep such a line in
+the project's <code>CLAUDE.md</code> instead.</p>
 <div class="codehilite"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>pipelinekit<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>pull<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>bash<span class="w"> </span>scripts/install.sh
 </code></pre></div>
 
