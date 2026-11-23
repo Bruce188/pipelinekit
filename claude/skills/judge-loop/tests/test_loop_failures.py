@@ -112,12 +112,13 @@ def test_a_start_from_a_plan_loop_that_cannot_write(sb, name):
 
 TOO_BIG = (
     "Error: the new {folder}/state.json would be {size:,} bytes, over the "
-    "{limit:,} bytes loop.py reads back; the saved one is kept. Next: ask the "
-    "user: {next}"
+    "{limit:,} bytes loop.py reads back; the saved one is kept. Next: tell the "
+    "user; {next}"
 )
 KEEP_ITEMS = (
-    "loop.py abandon, then loop.py leftovers --dir to keep the open items, then "
-    f"move the folder {FOLDER} away and loop.py start again."
+    "loop.py abandon, then loop.py leftovers --dir to keep the open items (the "
+    f"refused round's results stay in {FOLDER}/judge/), then move the folder "
+    f"{FOLDER} away and loop.py start again."
 )
 COPY_ITEMS = (
     "loop.py status to copy the open items, then move the folder "
@@ -176,7 +177,7 @@ def test_a_settle_too_big_to_save_writes_nothing(sb):
     limit_state(sb, len(before["state.json"]))
     run = sb.run("settle", "general", "I1", "--note", "not needed")
     assert run.code == 2, run
-    assert run.last.endswith(f"Next: ask the user: {KEEP_ITEMS}"), run
+    assert run.last.endswith(f"Next: tell the user; {KEEP_ITEMS}"), run
     assert files_of(folder) == before
 
 
@@ -188,7 +189,7 @@ def test_a_brief_too_big_to_save_writes_nothing(sb):
     limit_state(sb, len(before["state.json"]))
     run = sb.run("brief")
     assert run.code == 2, run
-    assert run.last.endswith(f"Next: ask the user: {KEEP_ITEMS}"), run
+    assert run.last.endswith(f"Next: tell the user; {KEEP_ITEMS}"), run
     assert files_of(folder) == before
 
 
@@ -202,7 +203,7 @@ def test_a_rebrief_too_big_to_save_leaves_the_old_round_in_place(sb):
     limit_state(sb, len(before["state.json"]))
     run = sb.run("brief", "--fix-tokens", "1000")
     assert run.code == 2, run
-    assert run.last.endswith(f"Next: ask the user: {KEEP_ITEMS}"), run
+    assert run.last.endswith(f"Next: tell the user; {KEEP_ITEMS}"), run
     assert not any(line.startswith("The work changed") for line in run.lines), run
     assert files_of(folder) == before
     assert not (folder / "judge" / "stale").exists()
@@ -215,14 +216,17 @@ def test_a_state_too_big_to_save_keeps_its_open_items(sb):
     limit_state(sb, len(before))
     run = sb.run("round")
     assert run.code == 2, run
-    assert run.last.endswith(f"Next: ask the user: {KEEP_ITEMS}"), run
+    assert run.last.endswith(f"Next: tell the user; {KEEP_ITEMS}"), run
     assert state.read_bytes() == before
     assert sb.run("status").code == 0
+    assert f" (the refused round's results stay in {FOLDER}/judge/), " in run.last
+    assert (sb.loopdir() / "judge" / "r2_general.json").is_file()
     assert sb.run("abandon", "--note", "too big").code == 0
     run = sb.run("leftovers", "--dir")
     assert run.code == 0, run
     assert (sb.loopdir() / "leftovers" / "general-I1.md").is_file()
     assert (sb.loopdir() / "leftovers" / "all.md").is_file()
+    assert (sb.loopdir() / "judge" / "r2_general.json").is_file()
 
 
 def test_an_abandon_too_big_to_save_points_to_status(sb):
@@ -235,7 +239,7 @@ def test_an_abandon_too_big_to_save_points_to_status(sb):
     assert run.last.startswith(f"Error: the new {FOLDER}/state.json would be "), run
     assert run.last.endswith(
         f" bytes, over the {len(before):,} bytes loop.py reads back; the saved one "
-        f"is kept. Next: ask the user: {COPY_ITEMS}"
+        f"is kept. Next: tell the user; {COPY_ITEMS}"
     ), run
     assert state.read_bytes() == before
     run = sb.run("status")

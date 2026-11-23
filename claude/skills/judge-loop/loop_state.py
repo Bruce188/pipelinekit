@@ -589,13 +589,14 @@ class Loop:
             rel = show_path(self.rel)
             after = after or (
                 "loop.py abandon, then loop.py leftovers --dir to keep the open "
-                f"items, then move the folder {rel} away and loop.py start again."
+                f"items (the refused round's results stay in {rel}/judge/), then "
+                f"move the folder {rel} away and loop.py start again."
             )
             raise Exit(
                 2,
                 f"Error: the new {rel}/state.json would be {len(data):,} bytes, over "
                 f"the {MAX_STATE:,} bytes loop.py reads back; the saved one is kept. "
-                f"Next: ask the user: {after}",
+                f"Next: tell the user; {after}",
             )
         return data
 
