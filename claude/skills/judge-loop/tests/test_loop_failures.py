@@ -728,18 +728,6 @@ def test_fallback_agents_pass_over_a_file_that_cannot_be_read(sb, how):
     assert run.lines.count(UNCHECKED.format(rel=rel)) == 1, run
 
 
-@NOT_ROOT
-@pytest.mark.parametrize("how", UNREADABLE)
-def test_kit_agents_stop_at_a_file_that_cannot_be_read(sb, how):
-    rel = unreadable_agent(sb, how)
-    try:
-        run = sb.run("start", "build")
-    finally:
-        (sb.root / rel).chmod(0o755)
-    assert (run.code, run.last) == (3, CANNOT_CHECK.format(rel=rel)), run
-    assert not (sb.loopdir() / "state.json").exists()
-
-
 @pytest.mark.parametrize("mode", ["kit", "fallback"])
 def test_an_agents_folder_that_cannot_be_looked_at(sb, mode):
     """lstat of .claude/agents fails with something other than not-found. A
@@ -773,13 +761,20 @@ KIT_UNCHECKED = [
     "a link",
     "a linked folder",
     "a file over 64 kB",
+    "a file that cannot be read",
+    "a folder that cannot be listed",
 ]
+
+
+def denied(path):
+    return PermissionError(13, "Permission denied", os.fspath(path))
 
 
 @pytest.mark.parametrize("how", KIT_UNCHECKED)
 def test_kit_agents_stop_at_what_they_cannot_check(sb, how):
     """Every path the agent check cannot look into stops the kit mode with the
-    line that names it."""
+    line that names it. A file or folder that cannot be read is faked, as root
+    reads mode 000."""
     agents = sb.root / ".claude" / "agents"
     outside = sb.tmp / "outside"
     outside.mkdir()
@@ -798,20 +793,40 @@ def test_kit_agents_stop_at_what_they_cannot_check(sb, how):
         rel = ".claude/agents/sub"
     elif how == "a file over 64 kB":
         sb.write(rel, "x" * (64 * 1024 + 1))
+    elif how == "a folder that cannot be listed":
+        sb.write(".claude/agents/sub/helper.md", "---\nname: helper\n---\n")
+        rel = ".claude/agents/sub"
     else:
         sb.write(rel, "---\nname: helper\n---\n")
     sb.change()
-    real = os.lstat
+    start = sys.modules["loop_start"]
+    real = os.lstat, start.read_plain, os.scandir
 
     def lstat(path, *args, **kwargs):
         if os.fspath(path).endswith(os.path.join("agents", "x.md")):
             raise FileNotFoundError(2, "No such file or directory", os.fspath(path))
-        return real(path, *args, **kwargs)
+        return real[0](path, *args, **kwargs)
+
+    def read_plain(path, limit):
+        if os.fspath(path).endswith(os.path.join("agents", "x.md")):
+            raise denied(path)
+        return real[1](path, limit)
+
+    def scandir(path="."):
+        if os.fspath(path).endswith(os.path.join("agents", "sub")):
+            raise denied(path)
+        return real[2](path)
 
     if how == "a file gone after the listing":
         sb.mp.setattr(os, "lstat", lstat)
+    elif how == "a file that cannot be read":
+        sb.mp.setattr(start, "read_plain", read_plain)
+    elif how == "a folder that cannot be listed":
+        sb.mp.setattr(os, "scandir", scandir)
     run = sb.run("start", "build")
-    sb.mp.setattr(os, "lstat", real)
+    sb.mp.setattr(os, "lstat", real[0])
+    sb.mp.setattr(start, "read_plain", real[1])
+    sb.mp.setattr(os, "scandir", real[2])
     assert (run.code, run.last) == (3, CANNOT_CHECK.format(rel=rel)), run
     assert not (sb.loopdir() / "state.json").exists()
 

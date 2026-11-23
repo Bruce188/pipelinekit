@@ -9,7 +9,6 @@ from pathlib import Path
 
 import pytest
 from loop_fixtures import (
-    CANNOT_CHECK,
     FULL,
     HOSTILE,
     NAME,
@@ -214,13 +213,6 @@ def test_a_project_agent_file_named_like_a_kit_agent(sb):
     )
 
 
-def outside_folder(sb):
-    folder = sb.tmp / "outside"
-    folder.mkdir()
-    (folder / "kit-judge.md").write_text("---\nname: kit-judge\n---\n")
-    return folder
-
-
 UNREADABLE_NAMES = {
     "an empty name": b"---\nname:\n  kit-judge\n---\n",
     "a folded name": b"---\nname: >\n  kit-judge\n---\n",
@@ -252,32 +244,6 @@ def test_a_project_agent_with_another_name_and_a_block(sb):
     project_agent(sb, text=b"---\nname: helper\ndescription: |\n  name:\n---\n")
     sb.change("app.py", 3)
     assert sb.run("start", "build").code == 0
-
-
-UNCHECKABLE = ["a link", "over 64 kB", "a linked folder", "a linked agents folder"]
-
-
-@pytest.mark.parametrize("how", UNCHECKABLE)
-def test_a_project_agent_that_cannot_be_checked(sb, how):
-    agents = sb.root / ".claude" / "agents"
-    if how == "a link":
-        agents.mkdir(parents=True)
-        (agents / "x.md").symlink_to(outside_folder(sb) / "kit-judge.md")
-        rel = ".claude/agents/x.md"
-    elif how == "over 64 kB":
-        project_agent(sb, ".claude/agents/x.md", "x" * (64 * 1024 + 1))
-        rel = ".claude/agents/x.md"
-    elif how == "a linked folder":
-        agents.mkdir(parents=True)
-        (agents / "sub").symlink_to(outside_folder(sb))
-        rel = ".claude/agents/sub"
-    else:
-        agents.parent.mkdir(parents=True)
-        agents.symlink_to(outside_folder(sb))
-        rel = ".claude/agents"
-    sb.change("app.py", 3)
-    run = sb.run("start", "build")
-    assert (run.code, run.last) == (3, CANNOT_CHECK.format(rel=rel))
 
 
 def test_a_project_agent_that_appears_after_round_one(sb):
