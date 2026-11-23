@@ -56,7 +56,7 @@ MAX_TOKENS = 1_000_000_000
 MAX_AREA_FILE = 200 * 1024
 MAX_AREA_PATH = 120
 MODES = ("full", "changes", "skipped")
-READS = ("full", "changes")
+READS = ("full", "changes", "part")
 CUT_MARK = " [cut]"
 
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}")
@@ -174,6 +174,28 @@ START_FROM_LAST = (
 READ_CHANGES = (
     "Read the delta once. For a single fact outside it, search first and read those "
     "lines. The full read before a 10 is the one second read."
+)
+READ_ORDER = (
+    "Read these first, in this order: hunks.patch, map.md, your last counted result, "
+    "criteria.md."
+)
+READ_HUNKS = (
+    "Judge from the hunks. Open a source file only for a fact the hunks do not "
+    'show: search first, then read those lines. After this read, answer "read": '
+    '"changes".'
+)
+TEN_READ_WHOLE = (
+    "Before you give a 10, read every file the change touches whole and answer "
+    '"read": "full".'
+)
+READ_CAP = (
+    'Stop at about 30 tool calls: answer with what you found, "read": "part", and '
+    'name in "unread" what you did not finish. The whole read before a 10 has no '
+    "cap."
+)
+READ_TOUCHED = (
+    "This round may end in a 10: read every file the change touches whole, once, "
+    "before you score. The cap of about 30 tool calls does not hold in this round."
 )
 ONE_OBJECT = "Answer with one compact JSON object and nothing else."
 REAL_DEFECT = (

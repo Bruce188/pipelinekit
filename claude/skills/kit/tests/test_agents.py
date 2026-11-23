@@ -237,6 +237,21 @@ def test_the_judge_reads_what_its_brief_names():
     assert "round before" not in text
 
 
+def test_the_judge_reads_the_hunks_and_stops_at_the_cap():
+    text = flat(parts("kit-judge.md")[1])
+    for words in (
+        "A build brief: read `hunks.patch` first",
+        "then `map.md`, your last counted result and `criteria.md`, in that order",
+        "open a source file only for a fact the hunks do not show: search first, "
+        "then read only those lines.",
+        'Stop at about 30 tool calls: answer with what you found, `"read": "part"`',
+        "In a round whose brief asks for every touched file whole, the cap does "
+        "not hold. Nor does it hold for the whole read before a 10.",
+        "`unread`",
+    ):
+        assert words in text, words
+
+
 def test_the_judge_answer():
     _, body = parts("kit-judge.md")
     for phrase in (

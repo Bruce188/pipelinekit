@@ -24,15 +24,18 @@ def _number(value, field):
 
 
 def _text(item, key, field):
+    """A string field, not empty and not too long; field is the place of item
+    in the answer, empty for the top level."""
+    name = f"{field}.{key}" if field else key
     if key not in item:
-        raise NoScore(f"{field}.{key}", MISSING)
+        raise NoScore(name, MISSING)
     value = item[key]
     if not isinstance(value, str):
-        raise NoScore(f"{field}.{key}", NOT_A_STRING)
+        raise NoScore(name, NOT_A_STRING)
     if not value.strip():
-        raise NoScore(f"{field}.{key}", EMPTY)
+        raise NoScore(name, EMPTY)
     if len(value) > MAX_FIELD:
-        raise NoScore(f"{field}.{key}", TOO_LONG)
+        raise NoScore(name, TOO_LONG)
     return value
 
 
@@ -131,6 +134,8 @@ def check_result(raw: bytes, role: str, open_ids=(), mode="full") -> dict:
         if data["read"] not in READS:
             raise NoScore("read", WRONG_TYPE)
         read = data["read"]
+    if "unread" in data:
+        _text(data, "unread", "")
 
     if "judge" in data:
         if not isinstance(data["judge"], str):
@@ -313,8 +318,11 @@ def below_ten(st):
 def judge_mode(rnd, role):
     """A judge's mode in a round; a changes judge that read in full says so."""
     mode = rnd.get("modes", {}).get(role, "full")
-    if mode == "changes" and rnd.get("read", {}).get(role) == "full":
+    read = rnd.get("read", {}).get(role)
+    if mode == "changes" and read == "full":
         return "changes, read full"
+    if read == "part":
+        return f"{mode}, read part"
     return mode
 
 

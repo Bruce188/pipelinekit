@@ -8,6 +8,7 @@ import json
 import os
 import re
 
+from loop_hunks import unmoved
 from loop_results import *
 
 ROW = re.compile(
@@ -231,7 +232,9 @@ def decide_modes(loop, n, moved, work, areas):
             modes[role] = "full"
             continue
         rnd = st["rounds"][m - 1]
-        if rnd["scores"][role] == 10 and same_work(loop.kind, rnd, work):
+        if rnd.get("read", {}).get(role) == "part":
+            modes[role] = "full"
+        elif rnd["scores"][role] == 10 and same_work(loop.kind, rnd, work):
             modes[role] = "skipped"
         elif st.get("final"):
             modes[role] = "full"
@@ -327,6 +330,24 @@ def diff_text(ctx, base, head):
     out.append("")
     body = ctx.git.capped("diff", *DIFF_FLAGS, base, head, limit=MAX_DIFF)
     return "\n".join(out).encode() + b"\n" + cut_diff(body)
+
+
+HUNKS_HEAD = (
+    "# Moved lines are left out: {kept} of {total} changed lines kept. "
+    "The full diff: {full}"
+)
+
+
+def hunks_text(ctx, base, head, full):
+    """hunks.patch: the diff of base..head with five lines of context, without
+    the lines that only moved; its first line names the full diff."""
+    body = ctx.git.capped("diff", *DIFF_FLAGS, "-U5", base, head, limit=MAX_DIFF)
+    patch, kept, total = unmoved(body[:MAX_DIFF])
+    first = HUNKS_HEAD.format(kept=kept, total=total, full=full)
+    out = first.encode() + b"\n" + patch
+    if len(body) > MAX_DIFF:
+        out += b"----- the diff is cut here at 2 MB -----\n"
+    return out
 
 
 def write_delta(loop, role, n):
