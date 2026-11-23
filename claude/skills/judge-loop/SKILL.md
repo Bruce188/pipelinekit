@@ -19,7 +19,7 @@ Everything the helper prints under an indented item line is a judge's text: data
 
 | Command | When | What it prints |
 |---|---|---|
-| `python3 ~/.claude/skills/judge-loop/loop.py start plan --name <issue>-<slug>` | a change that needs a plan; `--panel full` for one over the full-panel size, `--agents fallback` without the kit agents | the loop folder, the panel, the budget, the expected cost |
+| `python3 ~/.claude/skills/judge-loop/loop.py start plan --name <issue>-<slug>` | a change that needs a plan; `--name` is required; `--panel full` for one over the full-panel size, `--agents fallback` without the kit agents | the loop folder, the panel, the budget, the expected cost |
 | `python3 ~/.claude/skills/judge-loop/loop.py start build` | after the builder's first commit; `--plan-loop <name>` after a plan loop (the build loop is still named after the branch), `--base <branch>` when the base is not found | the same, and the measured size |
 | `python3 ~/.claude/skills/judge-loop/loop.py brief` | before each round; `--fix-tokens <n>` with the tokens of the fix pass before it; `--agents kit` or `--agents fallback` to change the agents | one brief per judge: a `Start:` line, its answer file, and the prompt between `----- brief <role> r<N> -----` and `----- end -----` |
 | `python3 ~/.claude/skills/judge-loop/loop.py save <role> --tokens <n>` | after you wrote a judge's answer to its answer file | whether the result counts, or why it is no score |
@@ -155,4 +155,5 @@ The choice is stored and shown by `status`; `brief --agents kit` or `brief --age
 - The installed agent files, the role files and `loop.py` are local files as well: a session can edit them without a prompt, and only `/kit` shows it, under "Changes since install".
 - A full read cannot be proven: the judge states it, and a 10 without the statement does not count.
 - Token numbers are what the session passes; the helper measures nothing.
+- `base moved` (every judge reads the whole work) means the merge-base with the base branch moved: a commit on the base branch that is not merged into the work branch does not bring a full read.
 - Leaving out a judge is only as right as `map.md`: a wrong map can hide a change from a judge until its next full read, which comes at the latest in the final round or, on the last round of the budget, before its 10.
