@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""File size limit for the global pre-commit hook.
+"""File size limit for the global pre-commit and pre-merge-commit hooks.
 
-  filesize.py        (claude/git-hooks/pre-commit runs it inside the repo)
+  filesize.py [pre-commit|pre-merge-commit]
+      (claude/git-hooks/pre-commit runs it inside the repo; pre-merge-commit,
+      which `git merge` runs before it records a merge, passes its own name)
 
 A hand-written text file has at most 1,500 lines and 50,000 bytes, so that a
 person or an agent can read it whole in one go. The check refuses a commit
@@ -18,7 +20,7 @@ in the staged .gitattributes, and the patterns in the repository's
 `.file-size-exempt` in the working tree lists it gets a note and an override
 event, so a local exemption is never silent.
 
-Exit 0 = the commit may go on, 3 = refused; anything else means the check
+Exit 0 = the commit or merge may go on, 3 = refused; anything else means the check
 itself failed, and the hook lets the commit through with a warning. A refusal
 is logged through kitlog.py with the path and its size, never the content.
 Stdlib only.
@@ -38,6 +40,11 @@ RULE = "pre-commit.file-size"
 WARN_RULE = "pre-commit.file-size-over"
 LOCAL_RULE = "pre-commit.file-size-exempt-local"
 EXEMPT_FILE = ".file-size-exempt"
+HOOK_NAMES = ("pre-commit", "pre-merge-commit")
+HOOK = HOOK_NAMES[0]  # the hook that runs the check; main() sets it
+# While `git merge` runs pre-merge-commit, MERGE_HEAD is not written yet; git
+# names each commit it merges in a GITHEAD_<sha> variable instead.
+MERGED_VAR = re.compile(r"GITHEAD_([0-9a-f]{40}|[0-9a-f]{64})")
 BINARY_PEEK = 8000  # git's own rule: a NUL byte in the first 8,000 bytes
 CHUNK = 1 << 16  # a blob over MAX_BYTES is read in pieces of this size
 ALREADY_OVER = "New code goes in a new file; split this one only when asked."
@@ -121,11 +128,31 @@ def encoded(text: str) -> bytes:
 # ---------------------------------------------------------------- patterns
 
 
+def char_class(glob: str, i: int) -> tuple[str, int] | None:
+    """The `[...]` class that starts at glob[i] as a regex, and the index past
+    it; None when no `]` closes it. `[!...]` and `[^...]` match any other
+    character, and a `]` right after the opening bracket is part of the set.
+    A class never matches the / between folders."""
+    j = i + 1
+    negate = j < len(glob) and glob[j] in "!^"
+    j += negate
+    end = glob.find("]", j + 1 if glob[j : j + 1] == "]" else j)
+    if end < 0:
+        return None
+    body = "".join(c if c == "-" else re.escape(c) for c in glob[j:end])
+    return ("[^/" + body + "]" if negate else "(?!/)[" + body + "]"), end + 1
+
+
 def glob_regex(glob: str) -> str:
-    """A glob as a regex: * and ? stay inside one folder, ** crosses folders."""
+    """A glob as a regex: *, ? and [...] stay inside one folder, ** crosses
+    folders."""
     out, i = [], 0
     while i < len(glob):
-        if glob.startswith("**/", i):
+        cls = char_class(glob, i) if glob[i] == "[" else None
+        if cls:
+            out.append(cls[0])
+            i = cls[1]
+        elif glob.startswith("**/", i):
             out.append("(?:.*/)?")
             i += 3
         elif glob.startswith("**", i):
@@ -172,10 +199,12 @@ def exempt(path: str, patterns: list[re.Pattern]) -> bool:
     return any(p.fullmatch(path) for p in patterns)
 
 
-def exempt_list_unused(why: str) -> list[str]:
+def exempt_list_unused(
+    why: str, step: str = "Make it a plain UTF-8 text file."
+) -> list[str]:
     print(
-        f"pre-commit: warning: {EXEMPT_FILE} at the top of the repository {why}, "
-        "so its patterns are not used. Make it a plain UTF-8 text file.",
+        f"{HOOK}: warning: {EXEMPT_FILE} at the top of the repository {why}, "
+        f"so its patterns are not used. {step}",
         file=sys.stderr,
     )
     return []
@@ -185,10 +214,19 @@ def repo_patterns() -> tuple[list[str], bool]:
     """The lines of .file-size-exempt, and whether they come from the index.
 
     The staged copy counts, else the one in the working tree. A list that is
-    a link, a folder or not UTF-8 text is not used, with a warning; a missing
-    one is the usual case and says nothing.
+    a link, a folder, unreadable or not UTF-8 text is not used, with a warning;
+    a missing one is the usual case and says nothing.
     """
-    entry = git("ls-files", "-s", "-z", "--", EXEMPT_FILE).split(b"\0")[0]
+    # The pathspec also matches files in a folder of that name: only an
+    # entry for the path itself is the list.
+    entries = [
+        e.split(b"\t", 1)
+        for e in git("ls-files", "-s", "-z", "--", EXEMPT_FILE).split(b"\0")
+        if e
+    ]
+    entry = next((head for head, path in entries if path == encoded(EXEMPT_FILE)), b"")
+    if entries and not entry:
+        return exempt_list_unused("is staged as a folder"), True
     if entry:
         mode, sha = entry.split()[:2]
         if mode.decode() not in REGULAR:
@@ -208,7 +246,8 @@ def repo_patterns() -> tuple[list[str], bool]:
             with open(path, "rb") as f:
                 data = f.read()
         except OSError as e:
-            return exempt_list_unused(f"cannot be read ({e.strerror})"), False
+            why = f"cannot be read ({e.strerror})"
+            return exempt_list_unused(why, "Make it a readable file."), False
     try:
         return data.decode("utf-8").splitlines(), staged_list
     except UnicodeDecodeError:
@@ -347,7 +386,10 @@ def base() -> str:
 
 
 def merge_heads() -> list[str]:
-    """The other parents of a merge that this commit concludes."""
+    """The other parents of a merge that this commit concludes, or that `git
+    merge` is about to record."""
+    if HOOK == "pre-merge-commit":
+        return sorted(m[1] for k in os.environ if (m := MERGED_VAR.fullmatch(k)))
     path = git("rev-parse", "--git-path", "MERGE_HEAD").decode().strip()
     try:
         with open(path, encoding="ascii") as f:
@@ -456,7 +498,7 @@ def log(kind: str, rule: str, entries: list[tuple], what: str) -> None:
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         import kitlog
 
-        kitlog.log("pre-commit", kind, rule, reason)
+        kitlog.log(HOOK, kind, rule, reason)
     except Exception:
         pass
 
@@ -465,14 +507,14 @@ def report(refused: list[tuple], warned: list[tuple], local: list[tuple]) -> Non
     limit = f"{MAX_LINES:,} lines and {MAX_BYTES:,} bytes"
     for path, size, _ in warned:
         print(
-            f"pre-commit: warning: {shown(path)} is {describe(size)}, over the "
+            f"{HOOK}: warning: {shown(path)} is {describe(size)}, over the "
             f"file size limit of {limit}. It was over the limit before this "
             f"commit, so the commit goes on. {ALREADY_OVER} [{WARN_RULE}]",
             file=sys.stderr,
         )
     for path, size, _ in local:
         print(
-            f"pre-commit: note: {shown(path)} is {describe(size)}, over the file "
+            f"{HOOK}: note: {shown(path)} is {describe(size)}, over the file "
             f"size limit of {limit}; the commit goes on because {EXEMPT_FILE} in "
             f"the working tree lists it, and that list is not staged. "
             f"[{LOCAL_RULE}]",
@@ -482,8 +524,9 @@ def report(refused: list[tuple], warned: list[tuple], local: list[tuple]) -> Non
         log("override", LOCAL_RULE, local, f"exempt only by the unstaged {EXEMPT_FILE}")
     if not refused:
         return
+    what = "merge" if HOOK == "pre-merge-commit" else "commit"
     print(
-        f"pre-commit: commit refused, over the file size limit of {limit}: [{RULE}]",
+        f"{HOOK}: {what} refused, over the file size limit of {limit}: [{RULE}]",
         file=sys.stderr,
     )
     for path, size, how in refused:
@@ -497,18 +540,23 @@ def report(refused: list[tuple], warned: list[tuple], local: list[tuple]) -> Non
     log("block", RULE, refused, f"limit {MAX_LINES} lines, {MAX_BYTES} bytes")
 
 
-def main() -> int:
+def main(argv: list[str]) -> int:
+    global HOOK
+    if len(argv) > 1 or (argv and argv[0] not in HOOK_NAMES):
+        print(f"usage: filesize.py [{'|'.join(HOOK_NAMES)}]", file=sys.stderr)
+        return 2
+    HOOK = argv[0] if argv else HOOK_NAMES[0]
     # A path that is not UTF-8, or a terminal that is not, must not stop the
     # report half-way: such characters are printed as escapes instead.
     sys.stderr.reconfigure(errors="backslashreplace")
     try:
         refused, warned, local = findings()
     except Exception as e:
-        print(f"pre-commit: file size check failed: {e}", file=sys.stderr)
+        print(f"{HOOK}: file size check failed: {e}", file=sys.stderr)
         return 2
     report(refused, warned, local)
     return REFUSED if refused else 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1:]))

@@ -304,7 +304,7 @@ def test_invalid_input_blocks():
 # ---------------------------------------------------------------- rule ids, event log
 
 REPO = HOOKS.parents[1]
-GIT_HOOKS = ("commit-msg", "pre-commit", "pre-push")
+GIT_HOOKS = ("commit-msg", "pre-commit", "pre-merge-commit", "pre-push")
 RULE = re.compile(r"^[a-z-]+\.[a-z0-9-]+$")
 
 
@@ -485,7 +485,7 @@ def guard_rules():
 
 def git_hook_rules():
     text = "".join((HOOKS.parent / "git-hooks" / n).read_text() for n in GIT_HOOKS)
-    text += (HOOKS / "filesize.py").read_text()  # run by pre-commit
+    text += (HOOKS / "filesize.py").read_text()  # run by both commit hooks
     return set(re.findall(r"\b(?:commit-msg|pre-commit|pre-push)\.[a-z][a-z-]+", text))
 
 

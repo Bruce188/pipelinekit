@@ -148,7 +148,7 @@ if grep -qF 'kept your own' "$T/install2.out"; then
   echo "test_install: a second install backed up the kit's own agent" >&2; exit 1
 fi
 test ! -e "$CLAUDE_HOME/hooks/tests"
-test -x "$CLAUDE_HOME/git-hooks/pre-push"
+for h in commit-msg pre-commit pre-merge-commit pre-push; do test -x "$CLAUDE_HOME/git-hooks/$h"; done
 [ "$(git config --global core.hooksPath)" = "$CLAUDE_HOME/git-hooks" ]
 python3 - "$CLAUDE_HOME" "$REPO_ROOT" <<'PY'
 import json, subprocess, sys

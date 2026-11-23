@@ -140,7 +140,7 @@ def check_hooks_path(c: Check) -> None:
             "install",
             "fail",
             f"git: global core.hooksPath pointed at the kit when it was installed, "
-            f"now '{cur or 'unset'}': commit-msg, pre-commit and pre-push do not run",
+            f"now '{cur or 'unset'}': the kit's git hooks do not run",
             fix=f"git config --global core.hooksPath {want}",
         )
     else:
@@ -697,18 +697,25 @@ def probe(c: Check) -> None:
             ]
             if probe_results(c, "commit-msg", results):
                 expected.append(("commit-msg", "commit-msg.format"))
-        rel = "git-hooks/pre-commit"
-        if rel not in c.broken:
-            results = [("nothing staged", "accept", git_hook(rel, []))]
-            if "hooks/filesize.py" not in c.broken:
-                with open(os.path.join(repo, PROBE_BIG), "w", encoding="utf-8") as f:
-                    f.write(PROBE_BIG_TEXT)
-                rc, _, _ = run(["git", "add", PROBE_BIG], env=env, cwd=repo)
-                if rc == 0:
-                    over = git_hook(rel, [])
+        # pre-commit and pre-merge-commit (run by `git merge`) both hold the
+        # file size limit: each lets an empty commit through, then refuses one
+        # that adds a file over the limit.
+        sized = {
+            n: [("nothing staged", "accept", git_hook(f"git-hooks/{n}", []))]
+            for n in ("pre-commit", "pre-merge-commit")
+            if f"git-hooks/{n}" not in c.broken
+        }
+        if sized and "hooks/filesize.py" not in c.broken:
+            with open(os.path.join(repo, PROBE_BIG), "w", encoding="utf-8") as f:
+                f.write(PROBE_BIG_TEXT)
+            rc, _, _ = run(["git", "add", PROBE_BIG], env=env, cwd=repo)
+            if rc == 0:
+                for n, results in sized.items():
+                    over = git_hook(f"git-hooks/{n}", [])
                     results.append(("a file over the size limit", "reject", over))
-            if probe_results(c, "pre-commit", results) and len(results) > 1:
-                expected.append(("pre-commit", "pre-commit.file-size"))
+        for n, results in sized.items():
+            if probe_results(c, n, results) and len(results) > 1:
+                expected.append((n, "pre-commit.file-size"))
         rel = "git-hooks/pre-push"
         if rel not in c.broken:
             a, z = "1" * 40, "0" * 40

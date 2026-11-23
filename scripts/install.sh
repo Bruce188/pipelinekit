@@ -365,7 +365,7 @@ elif [[ -n "$CUR" ]]; then
 else
   ans="${PIPELINEKIT_GIT_HOOKS:-}"
   if [[ -z "$ans" && -t 0 ]]; then
-    read -r -p "[install] Set global git core.hooksPath to $GH (commit-msg, pre-commit gitleaks, pre-push main guard)? [y/N] " ans
+    read -r -p "[install] Set global git core.hooksPath to $GH (commit-msg, pre-commit gitleaks and file size, pre-merge-commit file size, pre-push main guard)? [y/N] " ans
   fi
   if [[ "$ans" =~ ^(1|y|Y|yes)$ ]]; then
     git config --global core.hooksPath "$GH" && log "git: core.hooksPath -> $GH"

@@ -379,6 +379,73 @@ def test_concluding_a_merge_warns_for_a_file_over_in_the_other_parent(repo):
     assert "warning: shared.py" in p.stderr
 
 
+def grow_on_both_sides(repo, ours: int, theirs: int) -> None:
+    """shared.py starts at 1,300 lines; the branch "other" adds `theirs` lines
+    at its end and feat adds `ours` at its start, so the two merge cleanly."""
+    repo.write("shared.py", text(1300))
+    assert repo.commit().returncode == 0
+    branch_commit(repo, "shared.py", text(1300) + "end = 2\n" * theirs)
+    repo.write("shared.py", "start = 3\n" * ours + text(1300))
+    assert repo.commit().returncode == 0
+
+
+def merge(repo):
+    return repo.git("merge", "-q", "--no-edit", "other")
+
+
+def test_a_clean_merge_that_takes_a_file_past_the_limit_is_refused(repo):
+    grow_on_both_sides(repo, 150, 150)
+    p = merge(repo)
+    assert p.returncode != 0
+    lines = p.stderr.splitlines()
+    assert (
+        f"pre-merge-commit: merge refused, over the file size limit of {LIMIT}: "
+        "[pre-commit.file-size]"
+    ) in lines
+    line = "  shared.py: 1,600 lines, 15,712 bytes (was 1,450 lines, 14,512 bytes)"
+    assert line in lines
+    assert repo.git("rev-parse", "-q", "--verify", "HEAD^2").returncode != 0
+    (e,) = repo.events()
+    assert (e["hook"], e["kind"], e["rule"]) == (
+        "pre-merge-commit",
+        "block",
+        "pre-commit.file-size",
+    )
+    assert MARKER not in repo.log.read_text()
+    # The merge is left for git commit, whose pre-commit refuses it again.
+    assert repo.commit("feat: merge other").returncode != 0
+
+
+def test_a_clean_merge_under_the_limit_goes_through(repo):
+    grow_on_both_sides(repo, 50, 50)
+    p = merge(repo)
+    assert p.returncode == 0, p.stderr
+    assert p.stderr == ""
+    assert repo.git("rev-parse", "-q", "--verify", "HEAD^2").returncode == 0
+    assert repo.git("show", "HEAD:shared.py").stdout.count("\n") == 1400
+
+
+def test_a_clean_merge_warns_for_a_file_over_in_the_other_parent(repo):
+    grow_on_both_sides(repo, 10, 300)
+    p = merge(repo)
+    assert p.returncode == 0, p.stderr
+    assert "pre-merge-commit: warning: shared.py is 1,610 lines" in p.stderr
+    assert "[pre-commit.file-size-over]" in p.stderr
+    assert repo.events() == []
+
+
+def test_a_clean_merge_runs_the_repositorys_own_pre_merge_commit(repo):
+    grow_on_both_sides(repo, 50, 50)
+    own = repo.root / ".git" / "hooks" / "pre-merge-commit"
+    own.parent.mkdir(exist_ok=True)
+    own.write_text("#!/bin/sh\necho own hook ran >&2\nexit 1\n")
+    own.chmod(0o755)
+    p = merge(repo)
+    assert p.returncode != 0
+    assert "own hook ran" in p.stderr
+    assert repo.git("rev-parse", "-q", "--verify", "HEAD^2").returncode != 0
+
+
 # ---------------------------------------------------------------- not counted
 
 
@@ -413,6 +480,30 @@ def test_a_symlink_is_not_counted(repo):
     p = repo.commit()
     assert p.returncode == 0, p.stderr
     assert "size limit" not in p.stderr
+
+
+def test_a_submodule_is_not_counted(repo, tmp_path):
+    content = tmp_path / "content.txt"
+    content.write_text(text(1600))
+    sha = repo.git("hash-object", "-w", str(content)).stdout.strip()
+    gitlink = f"160000,{sha},sub"
+    assert repo.git("update-index", "--add", "--cacheinfo", gitlink).returncode == 0
+    repo.write("big.py", text(2000))
+    p = repo.commit()
+    assert p.returncode != 0
+    listed = [line for line in p.stderr.splitlines() if line.startswith("  ")]
+    assert listed == ["  big.py: 2,000 lines, 20,012 bytes (new file)"]
+
+
+def test_a_symlink_replaced_by_a_file_over_the_limit_is_a_new_file(repo):
+    (repo.root / "link.py").symlink_to("target.py")
+    assert repo.git("add", "link.py").returncode == 0
+    assert repo.commit().returncode == 0
+    (repo.root / "link.py").unlink()
+    repo.write("link.py", text(1600))
+    p = repo.commit()
+    assert p.returncode != 0
+    assert "  link.py: 1,600 lines, 16,012 bytes (new file)" in p.stderr.splitlines()
 
 
 # ---------------------------------------------------------------- exempt
@@ -587,6 +678,38 @@ def test_an_exempt_list_in_the_working_tree_that_is_no_file_is_not_used(repo, ki
     assert UNUSED.format("is a link or a folder") in p.stderr.splitlines()
 
 
+def test_an_exempt_list_staged_as_a_folder_is_not_used(repo):
+    repo.write(".file-size-exempt/list.txt", "big.py\n")
+    repo.write("big.py", text(2000))
+    p = repo.commit()
+    assert p.returncode != 0
+    lines = p.stderr.splitlines()
+    assert "  big.py: 2,000 lines, 20,012 bytes (new file)" in lines
+    assert UNUSED.format("is staged as a folder") in lines
+
+
+@pytest.mark.skipif(
+    not hasattr(os, "geteuid") or os.geteuid() == 0, reason="root reads any file"
+)
+def test_an_exempt_list_in_the_working_tree_that_cannot_be_read_is_not_used(repo):
+    target = repo.root / ".file-size-exempt"
+    target.write_text("big.py\n")
+    target.chmod(0)
+    repo.write("big.py", text(2000))
+    try:
+        p = repo.commit()
+    finally:
+        target.chmod(0o644)
+    assert p.returncode != 0
+    lines = p.stderr.splitlines()
+    assert "  big.py: 2,000 lines, 20,012 bytes (new file)" in lines
+    assert (
+        "pre-commit: warning: .file-size-exempt at the top of the repository "
+        "cannot be read (Permission denied), so its patterns are not used. "
+        "Make it a readable file."
+    ) in lines
+
+
 def test_a_missing_exempt_list_says_nothing(repo):
     repo.write("small.py", text(10))
     p = repo.commit()
@@ -603,6 +726,12 @@ def test_a_missing_exempt_list_says_nothing(repo):
         ("a/**/*.md", ["a/x.md", "a/b/c/x.md"], ["b/x.md"]),
         ("*.g?.cs", ["x.gx.cs", "d/x.gy.cs"], ["x.g.cs"]),
         ("build", ["build", "build/x.py", "a/build/y"], ["builds/x"]),
+        ("*.[ch]", ["a.c", "b/x.h"], ["a.cc", "a.[ch]"]),
+        ("[!a]*.py", ["b.py", "d/c.py"], ["a.py"]),
+        ("x[^0-9].md", ["xa.md"], ["x1.md", "x/.md"]),
+        ("a[/b]c", ["abc"], ["a/c"]),
+        ("v[]]", ["v]"], ["v"]),
+        ("[.md", ["[.md"], ["a.md"]),
     ],
 )
 def test_exempt_patterns(pattern, yes, no):
@@ -634,6 +763,41 @@ def test_a_failing_check_lets_the_commit_through_and_is_logged(tmp_path):
     ) in p.stderr.splitlines()
     (e,) = repo.events()
     assert (e["kind"], e["rule"]) == ("error", "pre-commit.file-size-failed")
+
+
+def test_a_failing_git_is_reported_and_lets_the_commit_through(repo, tmp_path):
+    real = shutil.which("git", path=repo.env["PATH"])
+    stub = tmp_path / "failing-git"
+    stub.mkdir()
+    (stub / "git").write_text(
+        "#!/bin/sh\n"
+        'for a in "$@"; do [ "$a" = diff-index ] && exit 128; done\n'
+        f'exec "{real}" "$@"\n'
+    )
+    (stub / "git").chmod(0o755)
+    repo.write("big.py", text(2000))
+    env = dict(repo.env, PATH=f"{stub}{os.pathsep}{repo.env['PATH']}")
+    # Run the hook itself: git puts its own folder first on a hook's PATH.
+    p = subprocess.run(
+        [str(GIT_HOOKS / "pre-commit")],
+        cwd=repo.root,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert p.returncode == 0, p.stderr
+    assert p.stderr.splitlines() == [
+        "pre-commit: file size check failed: git diff-index failed (exit 128)",
+        "pre-commit: warning: file size check failed (exit 2), file sizes NOT "
+        "checked; run /kit to see what is broken [pre-commit.file-size-failed]",
+    ]
+    (e,) = repo.events()
+    assert (e["hook"], e["kind"], e["rule"]) == (
+        "pre-commit",
+        "error",
+        "pre-commit.file-size-failed",
+    )
 
 
 def test_measure_counts_a_last_line_without_a_newline():

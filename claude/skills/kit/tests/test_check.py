@@ -38,8 +38,9 @@ def test_verbose_lists_every_probe(kit):
         "[pass] session-check.py: 2 probes as expected",
         "[pass] commit-msg: 2 probes as expected",
         "[pass] pre-commit: 2 probes as expected",
+        "[pass] pre-merge-commit: 2 probes as expected",
         "[pass] pre-push: 2 probes as expected",
-        "[pass] event log: 5 refusals recorded",
+        "[pass] event log: 6 refusals recorded",
         "[pass] hook helper: kitlog.py",
         "[pass] hook helper: filesize.py",
         "[pass] kit files within the file size limit of 1,500 lines and 50,000 bytes",
@@ -203,9 +204,11 @@ def test_missing_size_helper(kit):
     assert rc == 1
     assert (
         "[fail] hook helper missing: filesize.py "
-        "(pre-commit lets commits through without the file size limit)"
+        "(pre-commit and pre-merge-commit let commits and merges through "
+        "without the file size limit)"
     ) in out
     assert "[pass] pre-commit: 1 probe as expected" in out
+    assert "[pass] pre-merge-commit: 1 probe as expected" in out
     assert "[pass] event log: 4 refusals recorded" in out
     assert LIMIT not in out
 
@@ -563,6 +566,7 @@ def test_manifest_describes_the_install(kit):
     for rel in (
         "hooks/bash-guard.py",
         "git-hooks/pre-push",
+        "git-hooks/pre-merge-commit",
         "skills/kit/check.py",
         "skills/kit/SKILL.md",
         "config/never-stage.txt",
