@@ -165,9 +165,7 @@ def test_a_state_of_exactly_the_limit_is_saved_and_one_byte_more_is_not(sb):
     run = sb.run("round")
     assert (run.code, run.last) == (
         2,
-        TOO_BIG.format(
-            folder=FOLDER, size=size, limit=size - 1, next=KEEP_ROUND_ITEMS
-        ),
+        TOO_BIG.format(folder=FOLDER, size=size, limit=size - 1, next=KEEP_ROUND_ITEMS),
     ), run
     assert files_of(folder) == before
     limit_state(sb, size)
@@ -767,7 +765,6 @@ def test_an_agents_folder_that_cannot_be_looked_at(sb, mode):
     else:
         assert (run.code, run.last) == (3, CANNOT_CHECK.format(rel=".claude/agents"))
         assert not (sb.loopdir() / "state.json").exists()
-
 
 
 KIT_UNCHECKED = [
