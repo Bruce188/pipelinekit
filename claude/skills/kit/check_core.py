@@ -8,8 +8,10 @@ import importlib.util
 import json
 import os
 import re
+import subprocess
 import sys
 import tempfile
+import time
 
 from check_base import *
 
@@ -454,7 +456,7 @@ def check_file_sizes(c: Check, files: dict) -> None:
                 continue  # a missing file is reported as missing
             counted += 1
             if fs.over(size):
-                big.append(rel)
+                big.append(f"{rel} ({size[0]:,} lines, {size[1]:,} bytes)")
     except (Exception, SystemExit) as e:
         sizes_not_checked(c, "failed", e)
         return
@@ -464,8 +466,7 @@ def check_file_sizes(c: Check, files: dict) -> None:
             "warn",
             f"{plural(len(big), 'kit file')} over the file size limit of {limit}: "
             f"{names(big)}",
-            fix="install the kit again; if the kit's own copy is over the limit, "
-            "report it",
+            fix="open an issue on the kit's repository",
         )
     elif counted:
         c.add("install", "pass", f"kit files within the file size limit of {limit}")
@@ -571,8 +572,19 @@ def probe(c: Check) -> None:
             "PIPELINEKIT_ALLOW_SECRET",
             "PIPELINEKIT_LOG",
             "PIPELINEKIT_SESSION_CHECK",
+            # The caller's repository: the probes stage files, and must only
+            # ever stage them in the temp repository.
+            "GIT_DIR",
+            "GIT_WORK_TREE",
+            "GIT_INDEX_FILE",
+            "GIT_OBJECT_DIRECTORY",
+            "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+            "GIT_COMMON_DIR",
+            "GIT_PREFIX",
         ):
             env.pop(k, None)
+        for k in [k for k in env if k.startswith("GITHEAD_")]:
+            env.pop(k)
         expected: list[tuple[str, str]] = []  # (hook, rule) a probe must have logged
 
         def log_check() -> None:
@@ -689,6 +701,30 @@ def probe(c: Check) -> None:
             rc, _, _ = run([c.path(rel), *args], stdin=stdin, env=env, cwd=repo)
             return "cannot start" if rc is None else "accept" if rc == 0 else "reject"
 
+        def size_hook(rel: str) -> str:
+            """git_hook() for the file size limit: a refusal counts only when
+            it names its rule, and a hook that hangs is told apart."""
+            try:
+                p = subprocess.run(
+                    [c.path(rel)],
+                    stdin=subprocess.DEVNULL,
+                    capture_output=True,
+                    text=True,
+                    errors="replace",
+                    env=env,
+                    cwd=repo,
+                    timeout=10,
+                )
+            except subprocess.TimeoutExpired:
+                return "timed out"
+            except OSError:
+                return "cannot start"
+            if p.returncode == 0:
+                return "accept"
+            if "[pre-commit.file-size]" in p.stderr:
+                return "reject"
+            return "reject without [pre-commit.file-size]"
+
         rel = "git-hooks/commit-msg"
         if rel not in c.broken:
             results = [
@@ -708,11 +744,18 @@ def probe(c: Check) -> None:
         if sized and "hooks/filesize.py" not in c.broken:
             with open(os.path.join(repo, PROBE_BIG), "w", encoding="utf-8") as f:
                 f.write(PROBE_BIG_TEXT)
-            rc, _, _ = run(["git", "add", PROBE_BIG], env=env, cwd=repo)
+            rc, _, err = run(["git", "add", "-f", PROBE_BIG], env=env, cwd=repo)
             if rc == 0:
                 for n, results in sized.items():
-                    over = git_hook(f"git-hooks/{n}", [])
+                    over = size_hook(f"git-hooks/{n}")
                     results.append(("a file over the size limit", "reject", over))
+            else:
+                why = (err.strip().splitlines() or ["no message"])[0]
+                c.add(
+                    "probe",
+                    "warn",
+                    f"file size limit not probed: git add failed in a temp dir ({why})",
+                )
         for n, results in sized.items():
             if probe_results(c, n, results) and len(results) > 1:
                 expected.append((n, "pre-commit.file-size"))

@@ -35,7 +35,14 @@ import time
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from check_core import *
+try:
+    from check_core import *
+except ImportError as e:  # a module missing or broken in the install
+    print(
+        f"check.py: cannot load its modules ({e}); install the kit again",
+        file=sys.stderr,
+    )
+    raise SystemExit(0 if "--exit-zero" in sys.argv else 2) from None
 
 # ---------------------------------------------------------------- environment
 
