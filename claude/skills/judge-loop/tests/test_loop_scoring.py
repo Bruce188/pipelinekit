@@ -92,6 +92,7 @@ def test_save_of_a_skipped_role(sb):
     sb.two_judges()
     sb.start_plan()
     assert sb.judge({"general": 10, "tests": nine("T1")}, "plan", "p1").code == 1
+    assert sb.run("settle", "tests", "T1", "--note", "fine as it is").code == 0
     assert sb.run("brief").code == 0
     run = sb.save("general", 10, "plan", "p1")
     assert (run.code, run.last) == (
@@ -147,6 +148,25 @@ def test_status_of_a_final_round_names_the_brief(sb):
     assert json.loads(sb.run("status", "--json").out)["next"] == want
     run = sb.run("settle", "tests", "T2", "--note", "not needed", "--user-ok")
     assert run.last.endswith(f"Next: {want}"), run
+    run = sb.run("brief")
+    assert run.code == 0, run
+
+
+def test_the_final_round_goes_on_for_items_kept_before_the_mark(sb):
+    sb.two_judges(FIVE)
+    sb.start_build()
+    tens = {"correctness": 10, "security": 10, "operations": 10, "scope": 10}
+    assert sb.judge({**tens, "tests": half("T1")}).code == 1
+    (sb.loopdir() / "map.md").write_text("code | app.py | tests\n")
+    sb.change("app.py", 4, tag="r2")
+    optional = result(10, improvements=[item("T2", needed_for_10=False)])
+    assert sb.judge({"tests": optional}).code == 1
+    st = sb.state()
+    for entry in st["items"].values():
+        entry.pop("needed", None)
+    sb.put_state(st)
+    run = sb.run("brief")
+    assert run.code == 0, run
 
 
 @pytest.mark.parametrize(
@@ -338,3 +358,163 @@ def test_status_shows_the_scorecard_and_the_pending_round(sb):
         "judge tokens: not given | fix tokens: not given"
     ) in run.lines
     assert "Pending round 2: general changes" in run.lines
+
+
+NOTHING_NEW = (
+    "Refused: nothing changed since round 1 ({what}). Next: have {agent} fix the "
+    "open items{commit}, or write an answered: or owner: row to {folder}/changes.md "
+    "for each open item that has none ({k}; loop.py status lists the items), then "
+    "loop.py brief."
+)
+NOTHING_NEW_BUILD = NOTHING_NEW.format(
+    what="no new commit",
+    agent="kit-builder",
+    commit=" and commit",
+    folder=FOLDER,
+    k="1 item",
+)
+NOTHING_NEW_PLAN = NOTHING_NEW.format(
+    what="plan.md is the same",
+    agent="kit-planner",
+    commit=" in plan.md",
+    folder="docs/loops/p1/plan",
+    k="1 item",
+)
+
+
+def row(sb, text, kind="build", name=None):
+    (sb.loopdir(kind, name) / "changes.md").write_text(text)
+
+
+def test_a_build_round_without_a_new_commit_is_refused(sb):
+    one_round(sb)
+    before = sb.state()
+    run = sb.run("brief")
+    assert (run.code, run.last) == (2, NOTHING_NEW_BUILD), run
+    assert sb.state() == before
+    assert not (sb.loopdir() / "judge" / "r2.diff").exists()
+    sb.change("app.py", 4, tag="r2")
+    run = sb.run("brief")
+    assert run.code == 0, run
+
+
+def test_a_plan_round_on_the_same_plan_is_refused(sb):
+    sb.start_plan()
+    assert sb.judge({"general": scored(9)}, "plan", "p1").code == 1
+    run = sb.run("brief")
+    assert (run.code, run.last) == (2, NOTHING_NEW_PLAN), run
+    folder = sb.loopdir("plan", "p1")
+    assert not (folder / "plan.r2.md").exists()
+    (folder / "plan.md").write_text("# Plan\n\nstep two\n")
+    run = sb.run("brief")
+    assert run.code == 0, run
+
+
+def test_a_round_after_the_base_moved_needs_no_new_commit(sb):
+    one_round(sb)
+    sb.git("push", "-q", "origin", "HEAD:main")
+    run = sb.run("brief")
+    assert run.code == 0, run
+    assert any(line.startswith("base moved: ") for line in run.lines), run
+
+
+@pytest.mark.parametrize("word", ["answered", "owner"])
+def test_a_build_round_on_answered_items_needs_no_new_commit(sb, word):
+    one_round(sb)
+    row(sb, f"- r1 [general I1] {word}: the evidence\n")
+    run = sb.run("brief")
+    assert run.code == 0, run
+    assert sb.state()["pending"]["round"] == 2
+
+
+def test_a_plan_round_on_answered_items_needs_no_new_plan(sb):
+    sb.start_plan()
+    assert sb.judge({"general": scored(9)}, "plan", "p1").code == 1
+    row(sb, "- r1 [general I1] answered: the evidence\n", "plan", "p1")
+    run = sb.run("brief")
+    assert run.code == 0, run
+    assert sb.state("plan", "p1")["pending"]["round"] == 2
+
+
+def test_an_item_without_a_row_still_refuses_the_round(sb):
+    sb.start_build()
+    assert sb.judge({"general": nine("I1", "I2")}).code == 1
+    row(sb, "- r1 [general I1] answered: the evidence\n")
+    run = sb.run("brief")
+    assert (run.code, run.last) == (2, NOTHING_NEW_BUILD), run
+    assert "changes.md" in run.last
+    row(sb, "- r1 [general I1] fixed: the change\n")
+    run = sb.run("brief")
+    want = NOTHING_NEW.format(
+        what="no new commit",
+        agent="kit-builder",
+        commit=" and commit",
+        folder=FOLDER,
+        k="2 items",
+    )
+    assert (run.code, run.last) == (2, want), run
+
+
+def test_a_row_of_an_earlier_round_does_not_release_a_later_one(sb):
+    one_round(sb)
+    row(sb, "- r1 [general I1] answered: the evidence\n")
+    assert sb.judge({"general": scored(9)}).code == 1
+    rounds = sb.state()["rounds"]
+    assert len(rounds) == 2
+    assert rounds[1]["commit"] == rounds[0]["commit"]
+    before = sb.state()
+    run = sb.run("brief")
+    want = NOTHING_NEW_BUILD.replace("since round 1", "since round 2")
+    assert (run.code, run.last) == (2, want), run
+    assert sb.state() == before
+    row(
+        sb,
+        "- r1 [general I1] answered: the evidence\n"
+        "- r2 [general I1] answered: the evidence still holds\n",
+    )
+    run = sb.run("brief")
+    assert run.code == 0, run
+    assert sb.state()["pending"]["round"] == 3
+
+
+def test_a_row_releases_only_the_item_of_its_own_role(sb):
+    sb.two_judges()
+    sb.start_build()
+    assert sb.judge({"general": nine("I1"), "tests": nine("I1")}).code == 1
+    for text in (
+        "- r1 [tests I1] answered: the evidence\n",
+        "- r1 [general I1] answered: the evidence\n",
+    ):
+        row(sb, text)
+        run = sb.run("brief")
+        assert (run.code, run.last) == (2, NOTHING_NEW_BUILD), run
+    row(
+        sb,
+        "- r1 [tests I1] answered: the evidence\n"
+        "- r1 [general I1] answered: the evidence\n",
+    )
+    run = sb.run("brief")
+    assert run.code == 0, run
+
+
+def test_an_item_a_ten_does_not_need_does_not_hold_the_round(sb):
+    sb.two_judges()
+    sb.start_build()
+    optional = result(10, improvements=[item("T2", needed_for_10=False)])
+    assert sb.judge({"general": nine("G1"), "tests": optional}).code == 1
+    assert sb.run("settle", "general", "G1", "--note", "fine as it is").code == 0
+    run = sb.run("brief")
+    assert run.code == 0, run
+
+
+def test_the_refusal_names_a_general_purpose_agent_for_the_fallback(sb):
+    one_round(sb)
+    run = sb.run("brief", "--agents", "fallback")
+    want = NOTHING_NEW.format(
+        what="no new commit",
+        agent="a general-purpose agent",
+        commit=" and commit",
+        folder=FOLDER,
+        k="1 item",
+    )
+    assert (run.code, run.last) == (2, want), run
