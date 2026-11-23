@@ -23,7 +23,6 @@ import argparse
 import calendar
 import contextlib
 import hashlib
-import importlib.metadata
 import json
 import os
 import re
@@ -35,6 +34,12 @@ import sys
 import tempfile
 import time
 import unicodedata
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:  # gh's login and Playwright; without the file, Install reports it
+    import check_tools
+except ImportError:
+    check_tools = None
 
 SCHEMA = 1
 HOOKS = (
@@ -1154,16 +1159,17 @@ def check_environment(c: Check) -> None:
         first = ((out or err).strip().splitlines() or ["version unknown"])[0]
         label = "claude CLI" if prog == "claude" else prog
         c.add("environment", "pass", f"{label}: {first.removeprefix('gh version ')}")
-    try:
-        found = importlib.metadata.version("playwright")
-        c.add("environment", "pass", f"playwright: {found} (python3)")
-    except importlib.metadata.PackageNotFoundError:
-        c.add(
-            "environment",
-            "info",
-            "playwright not installed for python3 "
-            "(the ship skill tests web pages with it)",
-        )
+        if prog == "gh" and check_tools:
+            check_tools.check_gh_login(c)
+    if check_tools:
+        check_tools.check_playwright(c, check_tools.python_playwright())
+        with contextlib.suppress(OSError):  # the current folder may be gone
+            check_tools.check_node_playwright(
+                c,
+                os.getcwd(),
+                git_value("rev-parse", "--show-toplevel"),
+                shutil.which("npx"),
+            )
     check_sandbox(c)
     local = git_value("config", "--local", "--get", "core.hooksPath")
     if local and not same_path(local, c.path("git-hooks")):

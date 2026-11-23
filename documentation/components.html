@@ -1305,7 +1305,7 @@ footer {
 </tr>
 <tr>
 <td>Environment</td>
-<td>python3, Claude Code and gitleaks versions; whether <code>gh</code> and Playwright are available; WSL; a repository that sets its own <code>core.hooksPath</code>; a Bash sandbox that keeps <code>gh</code> from reading its own login file; a <code>frontend-design</code> plugin enabled next to the kit's copy, as an <code>[info]</code> line that says how to keep one. Only the user-level <code>settings.json</code> is read, so a plugin enabled in one project's settings is not reported</td>
+<td>python3, Claude Code and gitleaks versions; whether <code>gh</code> is installed and logged in; whether Playwright for python3 is installed, has a browser downloaded and can start chromium, and in a Node project whether <code>npx</code> finds a Playwright; WSL; a repository that sets its own <code>core.hooksPath</code>; a Bash sandbox that keeps <code>gh</code> from reading its own login file; a <code>frontend-design</code> plugin enabled next to the kit's copy, as an <code>[info]</code> line that says how to keep one. Only the user-level <code>settings.json</code> is read, so a plugin enabled in one project's settings is not reported</td>
 </tr>
 <tr>
 <td>Updates</td>
@@ -1350,6 +1350,7 @@ python3<span class="w"> </span>~/.claude/skills/kit/update.py<span class="w"> </
 </code></pre></div>
 
 <p>The Environment section warns about one conflict that is easy to miss. When the Bash sandbox is on, a <code>Read</code> deny rule for the <code>gh</code> login file (<code>hosts.yml</code>) also applies to <code>gh</code> itself, so <code>gh</code> fails in sandboxed commands, and so does <code>git</code> over https when it asks <code>gh</code> for the token. The line names the fix: add <code>gh *</code> to <code>sandbox.excludedCommands</code> in <code>settings.json</code>, or run <code>gh</code> outside the sandbox.</p>
+<p>For <code>gh</code> and Playwright the lines are <code>[pass]</code> or <code>[info]</code>, never a problem: they are your tools, and <code>gh auth status</code> also fails without network. Only the exit code of <code>gh auth status</code> is used; its output, which names the account and the token's scopes, is dropped. Playwright for python3 starts headless chromium once and closes it, so <code>/kit</code> tells <code>installed, but no browser is downloaded</code> (fix: <code>python3 -m playwright install chromium</code>) apart from a browser that does not start (fix: <code>python3 -m playwright install --with-deps chromium</code>). In a folder with a <code>package.json</code> (up to the top of the git repository) it runs <code>npx --no-install playwright --version</code>, which never downloads anything.</p>
 <p>Two things are outside its reach. A <code>permissions.deny</code> match, or a prompt you declined, leaves no trace to report: Activity lists only what the kit's own hooks did. And the report describes the environment it runs in: another WSL distro, an SSH host or a sandboxed session can differ, so run the check there.</p>
 <h2 id="shipping-a-pull-request">Shipping a pull request</h2>
 <p>With the kit installed, Claude finishes the pull requests it opens instead of handing each one to you to merge. The <code>ship</code> skill (<code>/ship</code>) describes the loop, and <code>claude/skills/ship/ship.py</code> holds the conditions for the merge.</p>

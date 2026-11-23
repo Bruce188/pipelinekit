@@ -60,6 +60,10 @@ kit used to ship, so those parts are gone.
   moved in the meantime.
 - The Environment section says when the Bash sandbox keeps `gh` from reading
   its own login file, and which setting fixes that.
+- The Environment section says whether `gh` is logged in (from the exit code
+  of `gh auth status`; its output is never shown), whether Playwright for
+  python3 can start chromium or has no browser downloaded, and in a Node
+  project which Playwright `npx` finds. These lines are `[pass]` or `[info]`.
 
 ### Shipping
 
