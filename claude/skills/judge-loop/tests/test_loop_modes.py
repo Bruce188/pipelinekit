@@ -4,13 +4,23 @@ sentences of a brief, the size limit and the layout of the modules."""
 from __future__ import annotations
 
 import ast
+import json
 import os
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
-from loop_fixtures import LOOP_PY, brief_of, loop, nine, one_round, result
+from loop_fixtures import (
+    HOSTILE,
+    LOOP_PY,
+    brief_of,
+    item,
+    loop,
+    nine,
+    one_round,
+    result,
+)
 
 FOLDER = "docs/loops/feat-1-x/build"
 SKILL = LOOP_PY.parent
@@ -24,8 +34,8 @@ WAIT_ONE = (
 )
 
 
-def write_map(sb, text, kind="build", name=None):
-    (sb.loopdir(kind, name) / "map.md").write_text(text)
+def write_map(sb, text, kind="build", name=None, encoding=None):
+    (sb.loopdir(kind, name) / "map.md").write_text(text, encoding=encoding)
 
 
 def modes(sb, kind="build", name=None):
@@ -116,6 +126,130 @@ def test_an_area_file_at_the_size_limit(sb, sub, extra, code):
         assert not sb.state()["pending"]
 
 
+# Area notes -------------------------------------------------------------------
+
+AREA_NOTE = (
+    "note: area {name} in map.md has no notes file ({path}); write it before the "
+    "next round"
+)
+
+
+def area_note(name):
+    return AREA_NOTE.format(name=name, path=f"{FOLDER}/areas/{name}.md")
+
+
+def area_notes(run):
+    return [line for line in run.lines if line.startswith("note: area ")]
+
+
+def test_status_warns_of_an_area_without_its_notes_file(sb):
+    sb.start_build()
+    write_map(sb, "code | app.py | tests\nhooks | claude/hooks/ | all\n")
+    (sb.loopdir() / "areas").mkdir()
+    (sb.loopdir() / "areas" / "hooks.md").write_text("what the hooks need\n")
+    run = sb.run("status")
+    assert run.code == 0, run
+    assert area_notes(run) == [area_note("code")]
+    assert run.last.startswith("Open: ")
+    run = sb.run("status", "--json")
+    assert run.code == 0, run
+    assert json.loads(run.out)["warnings"] == [area_note("code")]
+
+
+def test_brief_prints_the_area_note_once(sb):
+    sb.start_build()
+    write_map(sb, "code | app.py | tests\ncode | app.py | general\n")
+    run = sb.run("brief")
+    assert run.code == 0, run
+    assert area_notes(run) == [area_note("code")]
+    assert sb.state()["pending"]
+
+
+def test_no_area_note_without_a_map_or_with_every_notes_file(sb):
+    sb.start_build()
+    assert not area_notes(sb.run("status"))
+    assert json.loads(sb.run("status", "--json").out)["warnings"] == []
+    write_map(sb, "# areas\ncode | app.py | tests\n")
+    (sb.loopdir() / "areas").mkdir()
+    (sb.loopdir() / "areas" / "code.md").write_text("what app.py needs\n")
+    assert not area_notes(sb.run("status"))
+    assert not area_notes(sb.run("brief"))
+
+
+def test_a_map_status_cannot_read_gives_no_note_and_no_refusal(sb):
+    sb.start_build()
+    write_map(sb, "a | ../b | all\n")
+    run = sb.run("status")
+    assert run.code == 0, run
+    assert area_notes(run) == [area_note("a")]
+    (sb.loopdir() / "map.md").unlink()
+    (sb.loopdir() / "map.md").mkdir()
+    run = sb.run("status")
+    assert run.code == 0, run
+    assert not area_notes(run)
+
+
+NAME_NOTE = (
+    "note: area {name} in map.md cannot be a file name (only letters, digits, '.', "
+    "'_', '-' and single spaces, at most 80 characters); rename it in map.md, then "
+    "write areas/<new name>.md"
+)
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["a/b", "a\\b", "n" * 81, "a  b", "e\u0301", "a\tb", "caf\u00e9", HOSTILE],
+    ids=["slash", "back", "long", "double-space", "combining", "tab", "accent", "next"],
+)
+def test_an_area_name_that_cannot_be_a_file_name(sb, name):
+    sb.start_build()
+    write_map(sb, f"{name} | app.py | tests\n", encoding="utf-8")
+    note = NAME_NOTE.format(name=loop.shown_value(name))
+    run = sb.run("status")
+    assert run.code == 0, run
+    assert area_notes(run) == [note]
+    assert run.last.startswith("Open: ")
+    warnings = json.loads(sb.run("status", "--json").out)["warnings"]
+    assert warnings == [note]
+    run = sb.run("brief")
+    assert run.code == 0, run
+    assert area_notes(run) == [note]
+    for line in [x for x in run.lines if x.startswith("note:")] + warnings:
+        assert "Next:" not in line and "loop.py accept" not in line, line
+
+
+def test_an_area_name_with_single_spaces_is_a_file_name(sb):
+    sb.start_build()
+    write_map(sb, "app code.v2_x-y | app.py | tests\n")
+    path = f"docs/loops/{sb.loopdir().parent.name}/build/areas/app code.v2_x-y.md"
+    assert area_notes(sb.run("status")) == [
+        AREA_NOTE.format(name="app code.v2_x-y", path=path)
+    ]
+
+
+@pytest.mark.parametrize("end", ["accept", "abandon"])
+def test_a_finished_loop_gives_no_area_note(sb, end):
+    one_round(sb)
+    write_map(sb, "code | app.py | all\n")
+    assert area_notes(sb.run("status")) == [area_note("code")]
+    run = sb.run(end, "--note", "the user ends it here")
+    assert run.code == 0, run
+    run = sb.run("status")
+    assert run.code == 0, run
+    assert not area_notes(run)
+    assert json.loads(sb.run("status", "--json").out)["warnings"] == []
+
+
+def test_a_plan_loop_names_its_own_notes_path(sb):
+    sb.start_plan("p1")
+    write_map(sb, "code | app.py | all\n", kind="plan", name="p1")
+    note = AREA_NOTE.format(name="code", path="docs/loops/p1/plan/areas/code.md")
+    run = sb.run("status")
+    assert run.code == 0, run
+    assert area_notes(run) == [note]
+    assert json.loads(sb.run("status", "--json").out)["warnings"] == [note]
+
+
 # Skipped judges ---------------------------------------------------------------
 
 
@@ -161,6 +295,7 @@ def test_the_guard_when_every_judge_is_skipped(sb):
     rnd["scores"]["tests"] = 10
     rnd["average"] = 10.0
     sb.put_state(st)
+    assert sb.run("settle", "tests", "T1", "--note", "fine as it is").code == 0
     run = sb.run("brief")
     assert (run.code, run.last) == (
         2,
@@ -199,7 +334,12 @@ def test_the_rows_that_count_for_each_judge(sb):
     sb.start_build()
     write_map(sb, "code | app.py | tests\n")
     assert (
-        sb.judge({"general": result(10, improvements=["G1"]), "tests": nine("T1")}).code
+        sb.judge(
+            {
+                "general": result(10, improvements=[item("G1", needed_for_10=False)]),
+                "tests": nine("T1"),
+            }
+        ).code
         == 1
     )
     log = sb.loopdir() / "changes.md"

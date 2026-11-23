@@ -127,7 +127,13 @@ def test_diagnosed_sets_the_streak_to_zero(sb):
 
 def test_done_with_two_improvements_left(sb):
     sb.start_build()
-    run = sb.judge({"general": result(10, improvements=[item("I1"), item("I2")])})
+    run = sb.judge(
+        {
+            "general": result(
+                10, improvements=[item(x, needed_for_10=False) for x in ("I1", "I2")]
+            )
+        }
+    )
     assert run.code == 0
     assert run.last == (
         "Done: 10 from every judge in 1 round, 2 improvements left. Next: loop.py "
@@ -266,8 +272,8 @@ RAISED_AGAIN = (
 
 
 def items_block(run):
-    """The lines under 'Items to fix, in this order:', without the last line."""
-    i = run.lines.index("Items to fix, in this order:")
+    """The lines under 'Items to fix:', without the last line."""
+    i = run.lines.index("Items to fix:")
     return run.lines[i + 1 : -1]
 
 
@@ -282,6 +288,10 @@ def two_rounds(sb, kind):
     (sb.loopdir(*which) / "questions.md").write_text("Q: which way?\nA: this way.\n")
     if kind == "build":
         sb.change("app.py", 5, tag="r2")
+    else:
+        (sb.loopdir(*which) / "plan.md").write_text(
+            "# Plan" + chr(10) + "step two" + chr(10)
+        )
     return sb.judge({"general": nine("C1", "N1", blocking=["B1"])}, *which)
 
 
@@ -337,7 +347,7 @@ def test_nothing_open_after_a_stop(sb, command, outcome):
     assert sb.run("settle", "general", "I1", "--note", "fine as it is").code == 0
     run = sb.run(command, "--note", "go on")
     assert run.code == 0
-    assert "Items to fix, in this order:" not in run.out
+    assert "Items to fix:" not in run.out
     assert run.last.endswith(". Next: loop.py brief.")
 
 
@@ -388,6 +398,7 @@ def test_a_build_round_reads_the_changes(sb):
 
 def test_an_unchanged_plan_skips_its_ten(sb):
     which = ten_and_nine(sb, "plan")
+    assert sb.run("settle", "tests", "T1", "--note", "fine as it is").code == 0
     run = sb.run("brief", "--kind", "plan", "--name", "p1")
     assert run.code == 0, run
     assert "general: skipped, 10 in round 1, the work is unchanged" in run.lines
@@ -410,6 +421,7 @@ def test_a_changed_plan_gets_a_delta(sb):
 
 def test_an_unchanged_plan_ends_without_a_final_round(sb):
     which = ten_and_nine(sb, "plan")
+    assert sb.run("settle", "tests", "T1", "--note", "fine as it is").code == 0
     run = sb.judge({"tests": 10}, *which)
     assert run.code == 0, run
     assert sb.stored("tests", *which, n=2, ext="delta.diff").read_bytes() == b""
@@ -591,7 +603,17 @@ def test_leftovers_lists_blocking_first(sb):
 
 def test_leftovers_after_done(sb):
     sb.start_build()
-    assert sb.judge({"general": result(10, improvements=["I1", "I2"])}).code == 0
+    assert (
+        sb.judge(
+            {
+                "general": result(
+                    10,
+                    improvements=[item(x, needed_for_10=False) for x in ("I1", "I2")],
+                )
+            }
+        ).code
+        == 0
+    )
     run = sb.run("leftovers")
     assert run.lines[1:] == [
         line_of("I1"),
