@@ -146,9 +146,9 @@ The choice is stored and shown by `status`; `brief --agents kit` or `brief --age
 
 ## What a judge reads
 
-- Every build round, `brief` writes `<loop>/hunks.patch`: the diff against the judged base with five lines of context, without the lines that only moved (removed in one place and added unchanged in another, indentation aside, in blocks of at least 20 letters or digits). A changed line inside a moved block stays. Its first line names the full diff, `<loop>/judge/r<N>.diff`.
+- Every build round, `brief` writes `<loop>/hunks.patch`: the diff against the judged base with five lines of context, without the lines that only moved (removed in one hunk and added unchanged in another, indentation aside, in blocks of at least 20 letters or digits). A changed line inside a moved block stays. Its first line names the full diff, `<loop>/judge/r<N>.diff`.
 - A build judge reads, in this order: `hunks.patch`, `map.md` (the brief says when it is not written), its last counted result and `criteria.md`. It opens a source file only for a fact the hunks do not show: search first, then read those lines.
-- A judge stops at about 30 tool calls and answers `"read": "part"`, naming in `"unread"` what it did not finish. A part read counts like any score below 10, and that judge gets a `full` brief in the next round.
+- A judge stops at about 30 tool calls and answers `"read": "part"`, naming in `"unread"` what it did not finish. The whole read before a 10 is not capped. A part read counts like any score below 10, and that judge gets a `full` brief in the next round.
 - A 10 still needs every file the change touches read whole and `"read": "full"`. In the final full round the brief asks for that read up front, and the cap does not hold.
 - A plan judge reads the plan whole, as before.
 

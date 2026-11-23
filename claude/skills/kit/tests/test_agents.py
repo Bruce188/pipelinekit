@@ -246,7 +246,7 @@ def test_the_judge_reads_the_hunks_and_stops_at_the_cap():
         "then read only those lines.",
         'Stop at about 30 tool calls: answer with what you found, `"read": "part"`',
         "In a round whose brief asks for every touched file whole, the cap does "
-        "not hold.",
+        "not hold. Nor does it hold for the whole read before a 10.",
         "`unread`",
     ):
         assert words in text, words

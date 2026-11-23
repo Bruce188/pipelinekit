@@ -291,6 +291,13 @@ def test_a_brief_without_map_md_says_so(sb):
     assert f"The areas of the change: {REL}/map.md (not written; skip it)" in prompt
 
 
+def test_a_normal_brief_leaves_the_read_before_a_10_uncapped(sb):
+    sb.start_build()
+    _, prompt = brief_of(sb.run("brief"), "general", 1)
+    text = "\n".join(prompt)
+    assert loop.TEN_READ_WHOLE in text and loop.READ_CAP in text
+    assert "The whole read before a 10 has no cap." in text
+
 
 def test_the_final_round_asks_for_every_touched_file_whole(sb):
     sb.start_build()

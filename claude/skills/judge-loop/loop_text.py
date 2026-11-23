@@ -190,7 +190,8 @@ TEN_READ_WHOLE = (
 )
 READ_CAP = (
     'Stop at about 30 tool calls: answer with what you found, "read": "part", and '
-    'name in "unread" what you did not finish.'
+    'name in "unread" what you did not finish. The whole read before a 10 has no '
+    "cap."
 )
 READ_TOUCHED = (
     "This round may end in a 10: read every file the change touches whole, once, "

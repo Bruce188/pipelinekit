@@ -138,7 +138,8 @@ kit used to ship, so those parts are gone.
   of context, without the lines that only moved. Then `map.md`, its last
   result and `criteria.md`; it opens a source file only for a fact the hunks
   do not show, and stops at about 30 tool calls with `"read": "part"`. A 10
-  still needs every file the change touches read whole.
+  still needs every file the change touches read whole, and that read is not
+  capped.
 - The `CLAUDE.md` template gains a "Plan, build, judge" section with the rules
   for every agent it starts: read a file whole once or search first, read
   nothing twice, keep output short, return a JSON form or at most 15 lines.

@@ -465,6 +465,8 @@ def test_what_a_judge_reads():
         "only for a fact the hunks do not show",
         'stops at about 30 tool calls and answers `"read": "part"`',
         "In the final full round the brief asks for that read up front",
+        "The whole read before a 10 is not capped.",
+        "removed in one hunk and added unchanged in another",
     ):
         assert words in text, words
 
@@ -479,6 +481,9 @@ def test_the_components_name_the_hunks_and_the_cap(rel):
         "without the lines that only moved",
         "stops at about 30 tool calls",
         "in the final full round the brief asks for that read up front",
+        "the whole read before a 10 is not capped",
+        "it then gets a full brief, not a delta, in the next round",
+        "removed in one hunk and added unchanged in another",
     ):
         assert words in text, words
 
