@@ -2,9 +2,11 @@
 the pull requests above it after a merge."""
 
 import json
+import os
 from pathlib import Path
 
-from test_ship import BRANCH, Sandbox, gates, last_line, sb  # noqa: F401
+import pytest
+from test_ship import BRANCH, Sandbox, gates, last_line
 
 STACK = Path(__file__).resolve().parents[1] / "ship_stack.py"
 
@@ -26,6 +28,11 @@ def stack_state(sandbox, rounds=1, items=None, prs=None, head=None, folder=None)
     exclude = sandbox.work / ".git" / "info" / "exclude"
     exclude.write_text(exclude.read_text() + "docs/\n")
     return path / "state.json"
+
+
+@pytest.fixture
+def sb(tmp_path):
+    return Sandbox(tmp_path)
 
 
 def item(pr, open_=True, settled=None):
@@ -125,8 +132,6 @@ def test_the_newest_stack_state_counts(sb):
     old = stack_state(sb, rounds=0, folder="old")
     newer = stack_state(sb, folder="newer")
     stat = newer.stat()
-    import os
-
     os.utime(old, (stat.st_atime - 100, stat.st_mtime - 100))
     assert stack_gate(sb)["state"] == "pass"
 
@@ -163,9 +168,8 @@ def test_after_a_merge_own_pull_requests_above_move_to_the_base(sb):
     sb.state(stacked=[above(8), above(9, login="you"), above(10, cross=True)])
     done = sb.ship("merge", "--stay")
     assert done.returncode == 0, done.stdout + done.stderr
-    assert ["pr", "list", "--base", BRANCH, "--state", "open"] == sb.calls("pr list")[
-        -1
-    ][:6]
+    asked = sb.calls("pr list")[-1]
+    assert asked[:6] == ["pr", "list", "--base", BRANCH, "--state", "open"]
     assert sb.calls("pr edit") == [["pr", "edit", "8", "--base", "main"]]
     assert sb.calls("pr update-branch") == [["pr", "update-branch", "8"]]
     out = done.stdout
