@@ -576,17 +576,29 @@ class Loop:
         self.st = st
         return st
 
-    def save(self):
+    def check_size(self, after=None):
+        """The state as save writes it; refused when load could not read it back.
+
+        Called before the files written next to state.json, so a refusal leaves
+        them as they were. after is the next step, by default the one that keeps
+        the open items."""
         data = (json.dumps(self.st, indent=1, sort_keys=True) + "\n").encode("utf-8")
         if len(data) > MAX_STATE:
-            # load refuses a state this big; keep the one saved before
+            rel = show_path(self.rel)
+            after = after or (
+                "loop.py abandon, then loop.py leftovers --dir to keep the open "
+                f"items, then move the folder {rel} away and loop.py start again."
+            )
             raise Exit(
                 2,
-                f"Error: the new {show_path(self.rel)}/state.json would be "
-                f"{len(data):,} bytes, over the {MAX_STATE:,} bytes loop.py reads "
-                "back; the saved one is kept. Next: ask the user: move the folder "
-                f"{show_path(self.rel)} away, then loop.py start again.",
+                f"Error: the new {rel}/state.json would be {len(data):,} bytes, over "
+                f"the {MAX_STATE:,} bytes loop.py reads back; the saved one is kept. "
+                f"Next: ask the user: {after}",
             )
+        return data
+
+    def save(self, after=None):
+        data = self.check_size(after)
         ensure_ignored(self.ctx)
         self.write("state.json", data)
 

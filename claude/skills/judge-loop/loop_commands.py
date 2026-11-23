@@ -247,7 +247,10 @@ def cmd_abandon(args):
     note = given(args.note, "--note")
     st["outcome"], st["pending"] = "abandoned", {}
     add_note(st, "abandon", note)
-    loop.save()
+    loop.save(
+        after=f"loop.py status to copy the open items, then move the folder "
+        f"{show_path(loop.rel)} away and loop.py start again."
+    )
     raise Exit(0, ABANDONED)
 
 
@@ -300,6 +303,7 @@ def cmd_settle(args):
         "raised_again": 0,
     }
     add_note(st, "settle", f"{role} {item_id}: {note}")
+    loop.check_size()
     loop.write("settled.md", settled_text(st))
     loop.save()
     n, b = settled_counts(st)

@@ -254,6 +254,10 @@ def cmd_brief(args):
     if moved:
         say(f"base moved: {short(round_base(st))} -> {short(work['base_sha'])}")
     kept = bool(pending)
+    agents_changed = bool(args.agents) and args.agents != st["agents"]
+    if agents_changed:
+        st["agents"] = args.agents
+        st["notes"].append({"round": n, "action": "agents", "text": args.agents})
     if kept:
         modes = {
             role: pending.get("modes", {}).get(role, "full") for role in st["panel"]
@@ -265,6 +269,8 @@ def cmd_brief(args):
         st["pending"] = {**work, "modes": modes}
         if fix_tokens is not None:
             st["pending"]["fix_tokens"] = fix_tokens
+    loop.check_size()
+    if not kept:
         loop.mkdir("judge/in")
         if loop.kind == "plan":
             loop.write(f"plan.r{n}.md", plan)
@@ -277,9 +283,7 @@ def cmd_brief(args):
                 write_delta(loop, role, n)
         if st["rounds"]:
             waiting = print_notes(st, rows)
-    if args.agents and args.agents != st["agents"]:
-        st["agents"] = args.agents
-        st["notes"].append({"round": n, "action": "agents", "text": args.agents})
+    if agents_changed:
         say(f"Agents: {args.agents}")
         if args.agents == "fallback":
             say(FALLBACK_SENTENCE)
@@ -657,6 +661,7 @@ def cmd_round(args):
     check_work(loop)
     results = stored_results(loop, st["pending"]["round"])
     earlier = count_round(loop, results)
+    loop.check_size()
     write_scorecard(loop)
     loop.save()
     say(progress_line(st))

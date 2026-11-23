@@ -110,25 +110,121 @@ def test_a_start_from_a_plan_loop_that_cannot_write(sb, name):
     assert (sb.loopdir() / "plan.md").read_bytes() == plan
 
 
-def test_a_state_too_big_to_read_back_is_not_saved(sb):
-    sb.start_build()
-    sb.run("brief")
-    sb.answer("general", result(10))
-    assert sb.run("save", "general").code == 0
+TOO_BIG = (
+    "Error: the new {folder}/state.json would be {size:,} bytes, over the "
+    "{limit:,} bytes loop.py reads back; the saved one is kept. Next: ask the "
+    "user: {next}"
+)
+KEEP_ITEMS = (
+    "loop.py abandon, then loop.py leftovers --dir to keep the open items, then "
+    f"move the folder {FOLDER} away and loop.py start again."
+)
+COPY_ITEMS = (
+    "loop.py status to copy the open items, then move the folder "
+    f"{FOLDER} away and loop.py start again."
+)
+
+
+def files_of(folder):
+    """Every file under the folder and its bytes."""
+    return {
+        str(p.relative_to(folder)): p.read_bytes()
+        for p in sorted(folder.rglob("*"))
+        if p.is_file()
+    }
+
+
+def limit_state(sb, limit):
+    sb.mp.setattr(loop.loop_state, "MAX_STATE", limit)
+
+
+def second_round_saved(sb):
+    """One counted round with item I1 open, then round 2 briefed and saved."""
+    one_round(sb)
+    sb.change("app.py", 4, tag="r1")
+    assert sb.run("brief").code == 0
+    assert sb.save("general", nine("I1")).code == 0
+
+
+def test_a_state_of_exactly_the_limit_is_saved_and_one_byte_more_is_not(sb):
+    second_round_saved(sb)
+    folder = sb.loopdir()
+    kept = sb.tmp / "kept"
+    shutil.copytree(folder, kept)
+    assert sb.run("round").code == 1
+    size = (folder / "state.json").stat().st_size
+    shutil.rmtree(folder)
+    shutil.copytree(kept, folder)
+    before = files_of(folder)
+    limit_state(sb, size - 1)
+    run = sb.run("round")
+    assert (run.code, run.last) == (
+        2,
+        TOO_BIG.format(folder=FOLDER, size=size, limit=size - 1, next=KEEP_ITEMS),
+    ), run
+    assert files_of(folder) == before
+    limit_state(sb, size)
+    assert sb.run("round").code == 1
+    assert (folder / "state.json").stat().st_size == size
+    assert sb.run("status").code == 0
+
+
+def test_a_settle_too_big_to_save_writes_nothing(sb):
+    one_round(sb)
+    folder = sb.loopdir()
+    before = files_of(folder)
+    limit_state(sb, len(before["state.json"]))
+    run = sb.run("settle", "general", "I1", "--note", "not needed")
+    assert run.code == 2, run
+    assert run.last.endswith(f"Next: ask the user: {KEEP_ITEMS}"), run
+    assert files_of(folder) == before
+
+
+def test_a_brief_too_big_to_save_writes_nothing(sb):
+    one_round(sb)
+    sb.change("app.py", 4, tag="r1")
+    folder = sb.loopdir()
+    before = files_of(folder)
+    limit_state(sb, len(before["state.json"]))
+    run = sb.run("brief")
+    assert run.code == 2, run
+    assert run.last.endswith(f"Next: ask the user: {KEEP_ITEMS}"), run
+    assert files_of(folder) == before
+
+
+def test_a_state_too_big_to_save_keeps_its_open_items(sb):
+    second_round_saved(sb)
     state = sb.loopdir() / "state.json"
     before = state.read_bytes()
-    limit = len(before) + 10
-    sb.mp.setattr(loop.loop_state, "MAX_STATE", limit)
+    limit_state(sb, len(before))
     run = sb.run("round")
+    assert run.code == 2, run
+    assert run.last.endswith(f"Next: ask the user: {KEEP_ITEMS}"), run
+    assert state.read_bytes() == before
+    assert sb.run("status").code == 0
+    assert sb.run("abandon", "--note", "too big").code == 0
+    run = sb.run("leftovers", "--dir")
+    assert run.code == 0, run
+    assert (sb.loopdir() / "leftovers" / "general-I1.md").is_file()
+    assert (sb.loopdir() / "leftovers" / "all.md").is_file()
+
+
+def test_an_abandon_too_big_to_save_points_to_status(sb):
+    one_round(sb)
+    state = sb.loopdir() / "state.json"
+    before = state.read_bytes()
+    limit_state(sb, len(before))
+    run = sb.run("abandon", "--note", "too big")
     assert run.code == 2, run
     assert run.last.startswith(f"Error: the new {FOLDER}/state.json would be "), run
     assert run.last.endswith(
-        f" bytes, over the {limit:,} bytes loop.py reads back; the saved one is "
-        f"kept. Next: ask the user: move the folder {FOLDER} away, then loop.py "
-        "start again."
+        f" bytes, over the {len(before):,} bytes loop.py reads back; the saved one "
+        f"is kept. Next: ask the user: {COPY_ITEMS}"
     ), run
     assert state.read_bytes() == before
-    assert sb.run("status").code == 0
+    run = sb.run("status")
+    assert run.code == 0, run
+    assert any(line.startswith("  [general I1] ") for line in run.lines), run
 
 
 def test_a_round_whose_scorecard_cannot_be_written_can_be_run_again(sb):
@@ -138,6 +234,9 @@ def test_a_round_whose_scorecard_cannot_be_written_can_be_run_again(sb):
     fail_once(sb, "scorecard.md")
     run = sb.run("round")
     assert run.code == 2, run
+    assert run.last.endswith(
+        "Next: free space or fix the permissions, then the same command."
+    ), run
     assert sb.rounds() == 0
     run = sb.run("round")
     assert run.code == 1, run
