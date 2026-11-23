@@ -733,6 +733,19 @@ def test_a_commit_after_brief_makes_the_results_stale(sb):
     assert run.last.startswith("STOP: round 1 has no results yet.")
 
 
+def test_a_moved_base_is_named_before_the_stale_results(sb):
+    sb.start_build()
+    sb.run("brief")
+    assert sb.save("general", 9).code == 0
+    sb.on_base("base.txt", "on the base\n")
+    sb.git("merge", "-q", "--no-edit", "origin/main")
+    run = sb.run("brief")
+    assert run.code == 0, run
+    lines = [line.split(":", 1)[0] for line in run.lines]
+    assert "base moved" in lines and "The work changed" in lines, run
+    assert lines.index("base moved") < lines.index("The work changed"), run
+
+
 def test_brief_again_without_a_change_keeps_the_results(sb):
     sb.start_build()
     sb.run("brief")
