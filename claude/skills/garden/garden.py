@@ -105,10 +105,16 @@ def guide_file(project):
 def previous_run(project):
     """{date, findings} from docs/garden/last.json; {'broken': True} when unreadable."""
     path = project.garden / LAST
-    if not path.exists():
-        return None
     try:
-        if path.stat().st_size > 1024 * 1024:
+        size = path.stat().st_size
+    except (FileNotFoundError, NotADirectoryError):
+        return None
+    except OSError:
+        # Inside the try: on Python 3.10 to 3.13 exists() raises when the
+        # folder cannot be searched.
+        return {"broken": True}
+    try:
+        if size > 1024 * 1024:
             raise ValueError
         data = json.loads(path.read_text(encoding="utf-8"))
         date = when(data.get("date"))
@@ -428,7 +434,14 @@ def ensure_excluded(project):
 
 
 def cmd_scan(args):
-    data = scan(Project(os.getcwd()))
+    try:
+        data = scan(Project(os.getcwd()))
+    except Exception as exc:  # noqa: BLE001 - the scan loads with the skill
+        print(
+            "garden scan: not measured; the scan stopped on an unexpected "
+            f"{type(exc).__name__}. Say so and go on without it."
+        )
+        return 0
     if args.json:
         print(json.dumps(data, indent=2, default=str))
     else:

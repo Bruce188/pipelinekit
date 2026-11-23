@@ -12,6 +12,7 @@ import os
 import re
 import shutil
 import signal
+import stat
 import statistics
 import subprocess
 import time
@@ -193,10 +194,14 @@ def ci_runs(project):
 def load_timings(project):
     """The kept timings; None when the file is there but cannot be read."""
     path = project.garden / TIMINGS
-    if not path.exists() and not path.is_symlink():
-        return {}
     try:
-        if path.is_symlink() or path.stat().st_size > MAX_TIMINGS:
+        st = path.lstat()
+    except (FileNotFoundError, NotADirectoryError):
+        return {}
+    except OSError:
+        return None
+    try:
+        if stat.S_ISLNK(st.st_mode) or st.st_size > MAX_TIMINGS:
             return None
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError, RecursionError):

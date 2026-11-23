@@ -1,6 +1,7 @@
 """garden.py scan: the sections, the JSON, and that it changes nothing (2, 6, 7, 14)."""
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -159,6 +160,42 @@ def test_many_matching_test_files_are_gathered_in_linear_time(monkeypatch):
     took = time.monotonic() - start
     assert names == sorted(py)[: garden_prune.MAX_TEST_FILES]
     assert took < 3, f"gathering the test files took {took:.1f} s"
+
+
+@pytest.mark.skipif(
+    not hasattr(os, "geteuid") or os.geteuid() == 0,
+    reason="root reads a folder without permissions",
+)
+def test_a_garden_folder_that_cannot_be_searched_is_reported_not_raised(sb):
+    sb.write("docs/garden/last.json", "{}")
+    sb.write("docs/garden/timings.json", "{}")
+    folder = sb.root / "docs" / "garden"
+    folder.chmod(0)
+    try:
+        p = sb.garden("scan")
+    finally:
+        folder.chmod(0o755)
+    assert p.returncode == 0, p.stderr
+    assert p.stderr == ""
+    assert "docs/garden/last.json could not be read" in p.stdout
+    assert "docs/garden/timings.json could not be read" in p.stdout
+
+
+def test_a_scan_that_fails_says_so_in_one_line_and_exits_0(monkeypatch, capsys):
+    monkeypatch.syspath_prepend(str(HELPER.parent))
+    import garden
+
+    def broken(project):
+        raise RuntimeError("planted text that must not be shown")
+
+    monkeypatch.setattr(garden, "scan", broken)
+    assert garden.main(["scan"]) == 0
+    out, err = capsys.readouterr()
+    assert out == (
+        "garden scan: not measured; the scan stopped on an unexpected "
+        "RuntimeError. Say so and go on without it.\n"
+    )
+    assert err == ""
 
 
 def test_a_test_file_that_does_not_parse_is_counted(sb):
