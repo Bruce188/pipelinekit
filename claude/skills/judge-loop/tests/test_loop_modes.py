@@ -11,7 +11,16 @@ import sys
 from pathlib import Path
 
 import pytest
-from loop_fixtures import LOOP_PY, brief_of, loop, nine, one_round, result
+from loop_fixtures import (
+    HOSTILE,
+    LOOP_PY,
+    brief_of,
+    item,
+    loop,
+    nine,
+    one_round,
+    result,
+)
 
 FOLDER = "docs/loops/feat-1-x/build"
 SKILL = LOOP_PY.parent
@@ -181,36 +190,41 @@ def test_a_map_status_cannot_read_gives_no_note_and_no_refusal(sb):
 
 
 NAME_NOTE = (
-    "note: area {name} in map.md cannot be a file name (no / or \\, no two spaces "
-    "in a row, no tab, combining mark or other character that does not show, at "
-    "most 80 characters); rename it in map.md, then write areas/<new name>.md"
+    "note: area {name} in map.md cannot be a file name (only letters, digits, '.', "
+    "'_', '-' and single spaces, at most 80 characters); rename it in map.md, then "
+    "write areas/<new name>.md"
 )
 
 
 @pytest.mark.parametrize(
-    ("name", "reason"),
-    [
-        ("a/b", "no / or \\"),
-        ("a\\b", "no / or \\"),
-        ("n" * 81, "at most 80 characters"),
-        ("a  b", "no two spaces in a row"),
-        ("e\u0301", "combining mark"),
-    ],
-    ids=["slash", "back", "long", "double-space", "combining"],
+    "name",
+    ["a/b", "a\\b", "n" * 81, "a  b", "e\u0301", "a\tb", "caf\u00e9", HOSTILE],
+    ids=["slash", "back", "long", "double-space", "combining", "tab", "accent", "next"],
 )
-def test_an_area_name_that_cannot_be_a_file_name(sb, name, reason):
+def test_an_area_name_that_cannot_be_a_file_name(sb, name):
     sb.start_build()
     write_map(sb, f"{name} | app.py | tests\n", encoding="utf-8")
-    note = NAME_NOTE.format(name=loop.clean(name, 80))
-    assert reason in note
+    note = NAME_NOTE.format(name=loop.shown_value(name))
     run = sb.run("status")
     assert run.code == 0, run
     assert area_notes(run) == [note]
     assert run.last.startswith("Open: ")
-    assert json.loads(sb.run("status", "--json").out)["warnings"] == [note]
+    warnings = json.loads(sb.run("status", "--json").out)["warnings"]
+    assert warnings == [note]
     run = sb.run("brief")
+    assert run.code == 0, run
     assert area_notes(run) == [note]
-    assert not [x for x in run.lines if x.startswith("note:") and "Next:" in x]
+    for line in [x for x in run.lines if x.startswith("note:")] + warnings:
+        assert "Next:" not in line and "loop.py accept" not in line, line
+
+
+def test_an_area_name_with_single_spaces_is_a_file_name(sb):
+    sb.start_build()
+    write_map(sb, "app code.v2_x-y | app.py | tests\n")
+    path = f"docs/loops/{sb.loopdir().parent.name}/build/areas/app code.v2_x-y.md"
+    assert area_notes(sb.run("status")) == [
+        AREA_NOTE.format(name="app code.v2_x-y", path=path)
+    ]
 
 
 @pytest.mark.parametrize("end", ["accept", "abandon"])
@@ -281,6 +295,7 @@ def test_the_guard_when_every_judge_is_skipped(sb):
     rnd["scores"]["tests"] = 10
     rnd["average"] = 10.0
     sb.put_state(st)
+    assert sb.run("settle", "tests", "T1", "--note", "fine as it is").code == 0
     run = sb.run("brief")
     assert (run.code, run.last) == (
         2,
@@ -319,7 +334,12 @@ def test_the_rows_that_count_for_each_judge(sb):
     sb.start_build()
     write_map(sb, "code | app.py | tests\n")
     assert (
-        sb.judge({"general": result(10, improvements=["G1"]), "tests": nine("T1")}).code
+        sb.judge(
+            {
+                "general": result(10, improvements=[item("G1", needed_for_10=False)]),
+                "tests": nine("T1"),
+            }
+        ).code
         == 1
     )
     log = sb.loopdir() / "changes.md"

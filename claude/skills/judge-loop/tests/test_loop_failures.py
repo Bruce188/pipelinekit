@@ -298,7 +298,7 @@ def test_status_json_without_a_loop(sb):
     assert run.out.count("\n") == 1 and run.out.endswith("\n"), run
     assert json.loads(run.out) == {
         "outcome": "none",
-        "next": "loop.py start plan or loop.py start build.",
+        "next": "loop.py start plan --name <issue>-<slug> or loop.py start build.",
     }
 
 
@@ -445,7 +445,10 @@ def test_a_brief_that_waits_for_the_user_says_so_last(sb, row, first):
     sb.two_judges()
     sb.start_build()
     (sb.loopdir() / "map.md").write_text("code | app.py | tests\n")
-    scores = {"general": result(10, improvements=["G1"]), "tests": nine("T1")}
+    scores = {
+        "general": result(10, improvements=[item("G1", needed_for_10=False)]),
+        "tests": nine("T1"),
+    }
     assert sb.judge(scores).code == 1
     (sb.loopdir() / "changes.md").write_text(
         f"- r1 [general G1] {row}: the user picks the name\n"
@@ -574,7 +577,7 @@ def test_fallback_agents_pass_over_a_file_that_cannot_be_read(sb, how):
     finally:
         (sb.root / rel).chmod(0o755)
     assert run.code == 0, run
-    assert UNCHECKED.format(rel=rel) in run.lines
+    assert run.lines.count(UNCHECKED.format(rel=rel)) == 1, run
 
 
 @NOT_ROOT
@@ -612,7 +615,7 @@ def test_an_agents_folder_that_cannot_be_looked_at(sb, mode):
     sb.mp.setattr(os, "lstat", real)
     if mode == "fallback":
         assert run.code == 0, run
-        assert UNCHECKED.format(rel=".claude/agents") in run.lines
+        assert run.lines.count(UNCHECKED.format(rel=".claude/agents")) == 1, run
     else:
         assert run.code == 3, run
         assert run.last.startswith(
@@ -626,6 +629,7 @@ UNCHECKED_AGENTS = [
     "a link",
     "a linked folder",
     "a linked agents folder",
+    "a file over 64 kB",
 ]
 
 
@@ -645,11 +649,18 @@ def test_fallback_agents_note_what_they_cannot_check(sb, how):
         agents.mkdir(parents=True)
         (agents / "sub").symlink_to(outside)
         rel = ".claude/agents/sub"
+    elif how == "a file over 64 kB":
+        sb.write(rel, "x" * (64 * 1024 + 1))
     else:
         agents.parent.mkdir(parents=True)
         agents.symlink_to(outside)
         rel = ".claude/agents"
     sb.change()
     run = sb.run("start", "build", "--agents", "fallback")
+    note = UNCHECKED.format(rel=rel)
     assert run.code == 0, run
-    assert UNCHECKED.format(rel=rel) in run.lines
+    assert run.lines.count(note) == 1, run
+    sb.criteria()
+    run = sb.run("brief", "--agents", "fallback")
+    assert run.code == 0, run
+    assert run.lines.count(note) == 1, run
