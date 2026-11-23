@@ -40,6 +40,10 @@ try:  # gh's login and Playwright; without the file, Install reports it
     import check_tools
 except ImportError:
     check_tools = None
+try:  # which file a hook command runs; the installer reads commands with it too
+    import hook_command
+except ImportError:
+    hook_command = None
 
 SCHEMA = 1
 HOOKS = (
@@ -484,12 +488,26 @@ def check_settings(c: Check) -> None:
                     bad.append(f"a hook under {where} has a command that is not text")
                     continue
                 # the program only: what follows it is not ours to repeat
-                first = os.path.expanduser(((cmd or "").split() or [""])[0])
+                if hook_command:
+                    first = hook_command.program(cmd or "")
+                else:
+                    first = ((cmd or "").split() or [""])[0]
+                first = os.path.expanduser(first)
                 first = first.replace("${HOME}", user_home).replace("$HOME", user_home)
                 if first.startswith("/") and not os.path.exists(first):
                     ok = clean(first) == first and len(first) <= MAX_PATH_SHOWN
                     shown = first if ok else "a path that cannot be shown"
                     bad.append(f"hook command not found: {shown}")
+    if hook_command:
+        twice = hook_command.wired_twice(c.settings.get("hooks"), c.path("hooks"), HOOKS)
+        for event, name, n in twice:
+            c.add(
+                "install",
+                "warn",
+                f"settings.json: {name} is wired {n} times under "
+                f"{plain(event, PLAIN_EVENT) or 'one event'}, so it runs {n} times",
+                fix=repair_hint(c),
+            )
     a = c.settings.get("attribution")
     off = a is False or (as_dict(a).get("commit") == "" and as_dict(a).get("pr") == "")
     if not off:

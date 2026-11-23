@@ -225,8 +225,13 @@ chmod 644 "$CLAUDE_HOME/CLAUDE.md"
 # ---------- settings.json ----------
 SETTINGS="$CLAUDE_HOME/settings.json"
 [[ -f "$SETTINGS" ]] && cp -p "$SETTINGS" "$SETTINGS.bak-$TS"
-CLAUDE_HOME="$CLAUDE_HOME" python3 - "$SETTINGS" "$REPO_ROOT/claude/config/settings.template.json" <<'PY'
+CLAUDE_HOME="$CLAUDE_HOME" python3 - "$SETTINGS" "$REPO_ROOT/claude/config/settings.template.json" \
+  "$REPO_ROOT/claude/skills/kit" <<'PY'
 import json, os, sys
+
+sys.dont_write_bytecode = True  # leave no __pycache__ in the checkout
+sys.path.insert(0, sys.argv[3])
+from hook_command import program  # the script a command runs, also after python3
 
 path = sys.argv[1]
 home = os.environ["CLAUDE_HOME"]
@@ -252,8 +257,7 @@ REMOVED = {"block-dangerous-commands.sh", "block-push-main.sh", "block-stage-sen
 prefixes = (hooks_dir + "/", "~/.claude/hooks/", "$HOME/.claude/hooks/", "${HOME}/.claude/hooks/")
 
 def script(cmd):
-    words = (cmd or "").split()
-    first = words[0] if words else ""
+    first = program(cmd if isinstance(cmd, str) else "")
     return next((first[len(p):] for p in prefixes if first.startswith(p)), None)
 
 hooks = data.get("hooks") if isinstance(data.get("hooks"), dict) else {}

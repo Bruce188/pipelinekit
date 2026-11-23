@@ -1152,6 +1152,16 @@ def add_hook(kit, command):
     edit_json(kit, "settings.json", change)
 
 
+def test_a_kit_hook_wired_twice_is_a_warning(kit):
+    add_hook(kit, f"python3 {kit['home'] / 'hooks' / 'session-check.py'}")
+    rc, out = check(kit, "--quick")
+    assert rc == 0, out
+    assert (
+        "[warn] settings.json: session-check.py is wired 2 times under SessionStart"
+    ) in out
+    assert out.rstrip().endswith("Result: working, 1 warning"), out
+
+
 @pytest.mark.parametrize("gap", ["\xa0", "\t", "\u2003", "\n"])
 def test_only_the_program_of_a_missing_hook_command_is_shown(kit, gap):
     add_hook(kit, "/nonexistent/x" + gap + gap.join(["Your", "install", "is", "fine"]))
