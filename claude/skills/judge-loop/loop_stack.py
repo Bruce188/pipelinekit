@@ -46,7 +46,8 @@ STACK_READ = (
     "This loop judges a stack of pull requests, each on the branch of the one "
     "below. Read {rel}/stack.md first: it lists each pull request, its issue, its "
     "branch and its hunks file; for a pull request judged before, that file holds "
-    "only its own changes since then."
+    "only its own changes since then. A full brief reads the whole change all "
+    "the same: {rel}/hunks.patch holds it, against the base of the stack."
 )
 STACK_ITEMS = (
     'Every item names the pull request it belongs to: "pr", one of {prs}. '
