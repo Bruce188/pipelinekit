@@ -40,9 +40,11 @@ REPAIR = "The kit's installer is the repair path and the user runs it."
 GARDEN_DAYS = 30  # a last run older than this gets the reminder
 GARDEN_EVERY = 7 * 86400  # at most one reminder per project in this time
 GARDEN_MAX_BYTES = 256 * 1024
-GARDEN_OFF = re.compile(
-    r"^[\s>*#-]*`?\s*garden\s+reminder\s*:\s*off\b", re.IGNORECASE | re.MULTILINE
-)
+# The switch, after a line's leading space, quote, list, heading and code marks.
+# Checked line by line: one pattern over the whole file backtracks on long
+# runs of blank space and could hold the hook past its time limit.
+GARDEN_OFF = re.compile(r"garden\s+reminder\s*:\s*off\b", re.IGNORECASE)
+LINE_MARKS = " \t\r\f\v>*#-`"
 # Text that does not count for the switch: code fences and HTML comments.
 NOT_PROSE = re.compile(
     r"<!--.*?(?:-->|\Z)|^ {0,3}(`{3,}|~{3,}).*?(?:^ {0,3}\1|\Z)", re.S | re.M
@@ -184,6 +186,10 @@ def reminded_recently(root, now):
     return False
 
 
+def switched_off(text: str) -> bool:
+    return any(GARDEN_OFF.match(line.lstrip(LINE_MARKS)) for line in text.splitlines())
+
+
 def garden_reminder(out, data):
     """One line when the project's last /garden run is old; silent on any fault."""
     if os.environ.get("PIPELINEKIT_GARDEN") == "0":
@@ -198,7 +204,7 @@ def garden_reminder(out, data):
         return
     for name in ("CLAUDE.md", os.path.join(".claude", "CLAUDE.md")):
         text = small_text(os.path.join(root, name))
-        if text and GARDEN_OFF.search(NOT_PROSE.sub("", text)):
+        if text and switched_off(NOT_PROSE.sub("", text)):
             return
     if reminded_recently(root, time.time()):
         return

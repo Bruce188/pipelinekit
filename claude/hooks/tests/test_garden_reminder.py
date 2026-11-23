@@ -183,6 +183,22 @@ def test_the_switch_after_a_closed_code_block_counts(sb):
     assert run(sb) == ""
 
 
+@pytest.mark.parametrize(
+    "text",
+    [(" " * 99 + "\n") * 2000, "\n" * 200_000, "- " * 100_000],
+    ids=["spaces", "newlines", "bullets"],
+)
+def test_a_large_blank_claude_md_does_not_hold_up_the_hook(sb, text):
+    last_run(sb, days=60)
+    (sb["project"] / "CLAUDE.md").write_text(text)
+    (sb["home"] / "skills" / "kit" / "check.py").write_text(BROKEN)
+    message, _ = said(run(sb))
+    assert message.splitlines() == [
+        "pipelinekit: 1 problem in this install. Run /kit for the report.",
+        "pipelinekit: the last /garden run in this project was 60 days ago.",
+    ]
+
+
 def test_switched_off_in_the_environment(sb):
     last_run(sb, days=60)
     assert run(sb, PIPELINEKIT_GARDEN="0") == ""
