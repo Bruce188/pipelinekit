@@ -281,6 +281,11 @@ CLAUDE_HOME="$SH" PIPELINEKIT_GIT_HOOKS=0 bash "$REPO_ROOT/scripts/install.sh" -
   { echo "test_install: a second install into a home with a space failed" >&2; cat "$T/space2.out" >&2; exit 1; }
 CLAUDE_HOME="$SH" bash "$REPO_ROOT/scripts/verify.sh" >"$T/space-verify.out" 2>&1 ||
   { echo "test_install: verify failed for a home with a space" >&2; cat "$T/space-verify.out" >&2; exit 1; }
+# The self-check the installed kit runs, as /kit does, finds every hook: it
+# reads a command whole rather than up to the space.
+CLAUDE_HOME="$SH" python3 "$SH/skills/kit/check.py" --no-remote >"$T/space-check.out" 2>&1 &&
+  ! grep -qF 'hook command not found' "$T/space-check.out" ||
+  { echo "test_install: the installed self-check fails for a home with a space" >&2; cat "$T/space-check.out" >&2; exit 1; }
 python3 - "$SH" "$REPO_ROOT/claude/config/settings.template.json" <<'PY'
 import json, os, subprocess, sys
 home, tmpl = sys.argv[1:]
