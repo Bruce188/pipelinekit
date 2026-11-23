@@ -33,6 +33,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from xml.etree import ElementTree
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ship_stack  # noqa: E402
+
 try:
     import tomllib
 except ImportError:  # before Python 3.11
@@ -1577,6 +1580,7 @@ def evaluate(repo, pr, no_checks_ok=False):
             skipped("current"),
             skipped("up-to-date"),
             tested_gate(repo, repo.head),
+            skipped("stack"),
             skipped("ci"),
         ]
     # First, because it fetches the base branch, which the policy gate reads.
@@ -1590,6 +1594,7 @@ def evaluate(repo, pr, no_checks_ok=False):
         current_gate(repo, pr),
         up_to_date,
         tested_gate(repo, pr.get("headRefOid") or ""),
+        ship_stack.stack_gate(repo, pr, gate),
         ci_gate(pr, repo.expects_checks() and not no_checks_ok),
     ]
 
@@ -1927,6 +1932,14 @@ def refusal(gates):
     return f"STOP: {line} Ask the user." if first["stop"] else f"Not merged: {line}"
 
 
+def login(repo):
+    """The user's login, '' when gh cannot say."""
+    try:
+        return repo.user()
+    except ToolError:
+        return ""
+
+
 def finish(args, repo, pr):
     """Every gate holds: mark ready, watch, merge. The outcome is the last line."""
     number, base = str(pr.get("number")), pr.get("baseRefName")
@@ -1970,6 +1983,10 @@ def finish(args, repo, pr):
         why = said(err or out, rc).rstrip(".")
         print(f"Not merged: gh pr merge failed: {why}.{undrafted}")
         return EXIT_FAIL
+    for line in ship_stack.retarget(
+        repo, pr.get("headRefName"), base, lambda: login(repo)
+    ):
+        print(line)
     done = f"Merged #{number} into {base} ({method}) at {short(repo.head)}."
     if not args.stay:
         done = f"{done} {update_base(repo, base)}"
