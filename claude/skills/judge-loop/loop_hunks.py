@@ -1,7 +1,9 @@
 """The move filter of hunks.patch: a diff without the lines that only moved.
 
-A line only moved when its text, ignoring indentation, was removed in one place
-and added in another, inside a block of at least MIN_BLOCK letters or digits.
+A line only moved when its text, ignoring indentation, was removed in one hunk
+and added in another, inside a block of at least MIN_BLOCK letters or digits. A
+text removed and added in the same hunk is an edit in place (indentation, line
+ends, the newline at the end of a file), never a move.
 Short lines (a lone `}` or `pass`) are found in many places, so they count as
 moved only inside such a block. Blank lines between, before or after moved
 lines go with them. Stdlib only; it works on bytes, as git gives them.
@@ -89,16 +91,24 @@ def mark_moved(files):
     """Mark the lines that only moved."""
     hunks = [hunk for _, found in files for hunk in found]
     seen = {b"-": Counter(), b"+": Counter()}
+    in_place = []
     for hunk in hunks:
+        sides = {b"-": set(), b"+": set()}
         for line in hunk.lines:
-            if line[:1] in seen and key(line):
-                seen[line[:1]][key(line)] += 1
+            if line[:1] in sides and key(line):
+                sides[line[:1]].add(key(line))
+        here = sides[b"-"] & sides[b"+"]
+        in_place.append(here)
+        for line in hunk.lines:
+            k = key(line)
+            if line[:1] in seen and k and k not in here:
+                seen[line[:1]][k] += 1
     pool = {k: min(n, seen[b"+"][k]) for k, n in seen[b"-"].items() if k in seen[b"+"]}
     left = {b"-": Counter(pool), b"+": Counter(pool)}
-    for hunk in hunks:
+    for hunk, here in zip(hunks, in_place, strict=True):
         for j, line in enumerate(hunk.lines):
             tag, k = line[:1], key(line)
-            if tag in left and k and left[tag][k] > 0:
+            if tag in left and k and k not in here and left[tag][k] > 0:
                 left[tag][k] -= 1
                 hunk.moved[j] = True
         for run in runs(hunk):
@@ -191,8 +201,8 @@ def chunks(hunk):
 
 def unmoved(patch):
     """(patch without the lines that only moved, changed lines kept, changed
-    lines in all). A file with hunks of which none is left goes; a file without
-    hunks (binary, mode, empty) stays."""
+    lines in all). Every file keeps its header (a deleted or new file, binary,
+    mode); a hunk with nothing left goes."""
     files = parse(patch)
     mark_moved(files)
     out, kept, total = [], 0, 0
@@ -204,6 +214,5 @@ def unmoved(patch):
                     total += 1
                     kept += not hunk.moved[j]
             body += chunks(hunk)
-        if body or not found:
-            out += header + body
+        out += header + body
     return (b"\n".join(out) + b"\n" if out else b""), kept, total

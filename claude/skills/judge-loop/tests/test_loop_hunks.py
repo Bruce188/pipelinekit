@@ -153,6 +153,51 @@ def test_a_removed_line_that_looks_like_a_header_is_a_line():
     assert b"---- old rule of the notes\n" in body
 
 
+def test_an_indent_change_in_place_stays(tmp_path):
+    body = "".join(f"    total_value_{i} = compute_something(i)\n" for i in range(3))
+    deeper = body.replace("    ", "        ")
+    text, kept, total = unmoved(
+        tmp_path,
+        {"e.py": "def f():\n" + body + "    return 1\n"},
+        {"e.py": "def f():\n    if ok:\n" + deeper + "    return 1\n"},
+    )
+    assert (kept, total) == (7, 7)
+    assert "+        total_value_2 = compute_something(i)" in changed(text)
+    headers_hold(text)
+
+
+@pytest.mark.parametrize(
+    "old, new",
+    [
+        (
+            "x = 1\nreturn compute_the_total_value(x)",
+            "x = 1\nreturn compute_the_total_value(x)\n",
+        ),
+        (
+            "".join(f"line_number_{i} = value_{i}\n" for i in range(5)),
+            "".join(f"line_number_{i} = value_{i}\r\n" for i in range(5)),
+        ),
+    ],
+    ids=["final newline", "line ends"],
+)
+def test_a_whitespace_edit_in_place_stays(tmp_path, old, new):
+    text, kept, total = unmoved(tmp_path, {"f.py": old}, {"f.py": new})
+    assert kept == total > 0
+    assert len(changed(text)) == total
+
+
+def test_a_file_whose_lines_all_moved_keeps_its_header(tmp_path):
+    text, kept, _ = unmoved(
+        tmp_path,
+        {"g.py": BETA, "h.py": HEAD + GAMMA},
+        {"h.py": HEAD + GAMMA + "\n\n" + BETA},
+    )
+    assert kept == 0 and changed(text) == []
+    assert "g.py" in text and "deleted file mode" in text
+    assert "joined_names" not in text
+
+
+
 # The file a build round writes ---------------------------------------------------
 
 REL = "docs/loops/feat-1-x/build"
@@ -231,6 +276,7 @@ def test_a_brief_without_map_md_says_so(sb):
     sb.start_build()
     _, prompt = brief_of(sb.run("brief"), "general", 1)
     assert f"The areas of the change: {REL}/map.md (not written; skip it)" in prompt
+
 
 
 def test_the_final_round_asks_for_every_touched_file_whole(sb):
