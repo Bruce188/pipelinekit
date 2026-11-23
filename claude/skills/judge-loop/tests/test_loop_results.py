@@ -73,6 +73,7 @@ def test_messages_walk_a_build_loop(sb):
     ends(run, 1, "Fix: 1 item (0 blocking).", FIX_BUILD)
     ends(sb.run("status"), 0, "Open: round 2 of 5", FIX_BUILD.removeprefix("Next: "))
     ends(sb.run("leftovers"), 0, "Open: 1 item open (0 blocking), the loop is not")
+    sb.change("app.py", 4, tag="r2")
     run = sb.judge({"general": 10})
     assert run.lines[0] == (
         "Round 2 of 5: average 10.0 (round before: 9.0); general 10 changes, read full"
@@ -100,6 +101,7 @@ def test_the_five_outcome_lines_in_full(sb):
     sb.on_base("CLAUDE.md", "Judge rounds: 2\n")
     sb.start_build()
     sb.judge({"general": nine("I1")})
+    sb.change("app.py", 4, tag="r2")
     run = sb.judge({"general": nine("I1", "I2")})
     assert run.code == 0
     assert run.last == (
@@ -381,7 +383,7 @@ REJECTED = [
     ("read a number", obj(read=1), "read: wrong type"),
     (
         "10 from a read of the changes",
-        obj(overall=10, read="changes"),
+        obj(overall=10, read="changes", improvements=[]),
         "overall: a 10 without a full read",
     ),
     ("no dimensions", obj(dimensions=None), "dimensions: missing"),
@@ -425,7 +427,7 @@ def padded(data, size):
 
 ACCEPTED = [
     ("overall 0", obj(overall=0)),
-    ("overall 10", obj(overall=10, read="full")),
+    ("overall 10", obj(overall=10, read="full", improvements=[])),
     ("9 from a read of the changes", obj(read="changes")),
     ("a blocking item alone", obj(improvements=[], blocking=[item("B1")])),
     ("overall 9.5", obj(overall=9.5)),
@@ -465,6 +467,7 @@ def round_two(sb):
     """A build loop in round 2, briefed; general has I1 open from round 1."""
     sb.start_build()
     sb.judge({"general": nine("I1")})
+    sb.change("app.py", 4, tag="r2")
     assert sb.run("brief").code == 0
     return sb.stored("general", ext="meta")
 

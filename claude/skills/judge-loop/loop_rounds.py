@@ -27,8 +27,8 @@ after it, UTF-8 without a byte order mark, at most 200 kB:
   it, the read of this brief;
   "still_open" (optional): the ids open in your last counted result that you
   raise again in this answer.
-A 10 is refused only for a read that is not full, a blocking item or a
-still_open improvement that is not marked "needed_for_10": false. A score below
+A 10 is refused for a read that is not full, a blocking item or an
+improvement that is not marked "needed_for_10": false. A score below
 10 needs a blocking item or an improvement that is not marked "needed_for_10":
 false. The Fix list cuts each field at 300 characters and marks the cut with
 [cut]; the full text stays in your result."""
@@ -217,6 +217,30 @@ def build_work(loop, n):
     return {"round": n, "commit": head, "base_sha": base}, base != before
 
 
+def unchanged_check(loop, work, agents):
+    """Refuse a new round on the work of the last counted round while an item is
+    open; the final full read and a round after every item was settled go on."""
+    st = loop.st
+    if not st["rounds"] or st.get("final") or not open_counts(st)[0]:
+        return
+    last = st["rounds"][-1]
+    if loop.kind == "build":
+        if work["commit"] != last["commit"]:
+            return
+        what = "no new commit"
+        fix = f"have {agent_word(agents, 'kit-builder')} fix the open items and commit"
+    else:
+        if work["sha256"] != last["plan_sha256"]:
+            return
+        what = "plan.md is the same"
+        fix = f"have {agent_word(agents, 'kit-planner')} fix the open items"
+    raise Exit(
+        3,
+        f"STOP: nothing changed since round {last['n']} ({what}). "
+        f"Next: {fix} (loop.py status lists them), then loop.py brief.",
+    )
+
+
 def cmd_brief(args):
     fix_tokens = whole(args.fix_tokens, "--fix-tokens")
     ctx = Ctx()
@@ -239,18 +263,21 @@ def cmd_brief(args):
     rows = change_rows(loop)
     waiting = False
     pending = st["pending"]
+    same = False
     if pending:
         same = all(pending.get(key) == value for key, value in work.items())
         if same and loop.kind == "plan":
             copy = loop.read(f"plan.r{n}.md")
             same = bool(copy) and sha256(copy) == pending["sha256"]
-        if not same:
-            count_moved = move_stale(loop, n)
-            say(
-                f"The work changed: {count(count_moved, 'file')} of round {n} moved to "
-                "judge/stale/"
-            )
-            pending = {}
+    if not same and not moved:
+        unchanged_check(loop, work, agents)
+    if pending and not same:
+        count_moved = move_stale(loop, n)
+        say(
+            f"The work changed: {count(count_moved, 'file')} of round {n} moved to "
+            "judge/stale/"
+        )
+        pending = {}
     if moved:
         say(f"base moved: {short(round_base(st))} -> {short(work['base_sha'])}")
     for note in missing_area_notes(loop):

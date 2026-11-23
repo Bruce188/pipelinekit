@@ -92,6 +92,7 @@ def test_save_of_a_skipped_role(sb):
     sb.two_judges()
     sb.start_plan()
     assert sb.judge({"general": 10, "tests": nine("T1")}, "plan", "p1").code == 1
+    assert sb.run("settle", "tests", "T1", "--note", "fine as it is").code == 0
     assert sb.run("brief").code == 0
     run = sb.save("general", 10, "plan", "p1")
     assert (run.code, run.last) == (
@@ -338,3 +339,45 @@ def test_status_shows_the_scorecard_and_the_pending_round(sb):
         "judge tokens: not given | fix tokens: not given"
     ) in run.lines
     assert "Pending round 2: general changes" in run.lines
+
+
+NOTHING_NEW_BUILD = (
+    "STOP: nothing changed since round 1 (no new commit). Next: have kit-builder "
+    "fix the open items and commit (loop.py status lists them), then loop.py brief."
+)
+NOTHING_NEW_PLAN = (
+    "STOP: nothing changed since round 1 (plan.md is the same). Next: have "
+    "kit-planner fix the open items (loop.py status lists them), then loop.py brief."
+)
+
+
+def test_a_build_round_without_a_new_commit_is_refused(sb):
+    one_round(sb)
+    before = sb.state()
+    run = sb.run("brief")
+    assert (run.code, run.last) == (3, NOTHING_NEW_BUILD), run
+    assert sb.state() == before
+    assert not (sb.loopdir() / "judge" / "r2.diff").exists()
+    sb.change("app.py", 4, tag="r2")
+    run = sb.run("brief")
+    assert run.code == 0, run
+
+
+def test_a_plan_round_on_the_same_plan_is_refused(sb):
+    sb.start_plan()
+    assert sb.judge({"general": scored(9)}, "plan", "p1").code == 1
+    run = sb.run("brief")
+    assert (run.code, run.last) == (3, NOTHING_NEW_PLAN), run
+    folder = sb.loopdir("plan", "p1")
+    assert not (folder / "plan.r2.md").exists()
+    (folder / "plan.md").write_text("# Plan\n\nstep two\n")
+    run = sb.run("brief")
+    assert run.code == 0, run
+
+
+def test_a_round_after_the_base_moved_needs_no_new_commit(sb):
+    one_round(sb)
+    sb.git("push", "-q", "origin", "HEAD:main")
+    run = sb.run("brief")
+    assert run.code == 0, run
+    assert any(line.startswith("base moved: ") for line in run.lines), run

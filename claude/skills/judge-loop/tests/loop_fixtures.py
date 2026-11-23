@@ -417,6 +417,9 @@ def play(sb, kind, budget, scores, blocking=False):
     for i, score in enumerate(scores):
         if kind == "build" and i:
             sb.change("app.py", 3 + i, tag=f"r{i}")
+        elif i:
+            plan = sb.loopdir("plan", "p1") / "plan.md"
+            plan.write_text(f"# Plan\n\nstep one, take {i + 1}\n")
         run = sb.judge({"general": scored(score, blocking)}, *which)
     return run
 

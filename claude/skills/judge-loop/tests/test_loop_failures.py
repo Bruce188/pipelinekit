@@ -445,7 +445,10 @@ def test_a_brief_that_waits_for_the_user_says_so_last(sb, row, first):
     sb.two_judges()
     sb.start_build()
     (sb.loopdir() / "map.md").write_text("code | app.py | tests\n")
-    scores = {"general": result(10, improvements=["G1"]), "tests": nine("T1")}
+    scores = {
+        "general": result(10, improvements=[item("G1", needed_for_10=False)]),
+        "tests": nine("T1"),
+    }
     assert sb.judge(scores).code == 1
     (sb.loopdir() / "changes.md").write_text(
         f"- r1 [general G1] {row}: the user picks the name\n"
