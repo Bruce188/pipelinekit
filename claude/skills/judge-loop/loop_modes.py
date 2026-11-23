@@ -21,6 +21,10 @@ NOT_PLAIN = (
 )
 PATTERN = re.compile(r"[*?\[]")
 ROW_FORM = " (a row reads: - r{n} [{key}] fixed|answered|owner: <text>)"
+HOLD_NOTE = (
+    "note: [{key}] holds the round (a row reads: - r{n} [{key}] answered|owner: "
+    "<text>)"
+)
 AREA_NOTE = (
     "note: area {name} in map.md has no notes file ({path}); write it before the "
     "next round"
@@ -279,9 +283,12 @@ def change_rows(loop):
 
 
 def counting_rows(st, rows, role):
-    """The rows that count for a role: marked with its last counted round or later."""
+    """The rows that count for a role: marked with its last counted round or a
+    later one, up to the last round counted. A row of a round not counted yet
+    does not count."""
     m = last_counted(st, role)
-    return [r for r in rows if r[1] == role and m and r[0] >= m]
+    top = st["rounds"][-1]["n"] if st["rounds"] else 0
+    return [r for r in rows if r[1] == role and m and m <= r[0] <= top]
 
 
 def print_notes(st, rows):

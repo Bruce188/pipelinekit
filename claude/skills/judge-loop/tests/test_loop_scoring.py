@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 
 import pytest
-from loop_fixtures import item, loop, nine, one_round, result, scored
+from loop_fixtures import brief_of, item, loop, nine, one_round, result, scored
 
 FOLDER = "docs/loops/feat-1-x/build"
 FIVE = "correctness, security, operations, tests, scope"
@@ -362,10 +362,18 @@ def test_status_shows_the_scorecard_and_the_pending_round(sb):
 
 NOTHING_NEW = (
     "Refused: nothing changed since round 1 ({what}). Next: have {agent} fix the "
-    "open items{commit}, or write an answered: or owner: row to {folder}/changes.md "
-    "for each open item that has none ({k}; loop.py status lists the items), then "
-    "loop.py brief."
+    "open items{commit}, or have {agent} write an answered: or owner: row to "
+    "{folder}/changes.md for each item listed above ({k}), then loop.py brief."
 )
+HOLDS = (
+    "note: [{key}] holds the round (a row reads: - r{n} [{key}] answered|owner: "
+    "<text>)"
+)
+
+
+def held(run):
+    """The lines of a refusal that list the items holding the round."""
+    return [line for line in run.lines if " holds the round " in line]
 NOTHING_NEW_BUILD = NOTHING_NEW.format(
     what="no new commit",
     agent="kit-builder",
@@ -391,6 +399,7 @@ def test_a_build_round_without_a_new_commit_is_refused(sb):
     before = sb.state()
     run = sb.run("brief")
     assert (run.code, run.last) == (2, NOTHING_NEW_BUILD), run
+    assert run.lines[-2:] == [HOLDS.format(key="general I1", n=1), run.last], run
     assert sb.state() == before
     assert not (sb.loopdir() / "judge" / "r2.diff").exists()
     sb.change("app.py", 4, tag="r2")
@@ -403,6 +412,7 @@ def test_a_plan_round_on_the_same_plan_is_refused(sb):
     assert sb.judge({"general": scored(9)}, "plan", "p1").code == 1
     run = sb.run("brief")
     assert (run.code, run.last) == (2, NOTHING_NEW_PLAN), run
+    assert held(run) == [HOLDS.format(key="general I1", n=1)], run
     folder = sb.loopdir("plan", "p1")
     assert not (folder / "plan.r2.md").exists()
     (folder / "plan.md").write_text("# Plan\n\nstep two\n")
@@ -442,6 +452,7 @@ def test_an_item_without_a_row_still_refuses_the_round(sb):
     row(sb, "- r1 [general I1] answered: the evidence\n")
     run = sb.run("brief")
     assert (run.code, run.last) == (2, NOTHING_NEW_BUILD), run
+    assert held(run) == [HOLDS.format(key="general I2", n=1)], run
     assert "changes.md" in run.last
     row(sb, "- r1 [general I1] fixed: the change\n")
     run = sb.run("brief")
@@ -453,6 +464,10 @@ def test_an_item_without_a_row_still_refuses_the_round(sb):
         k="2 items",
     )
     assert (run.code, run.last) == (2, want), run
+    assert held(run) == [
+        HOLDS.format(key="general I1", n=1),
+        HOLDS.format(key="general I2", n=1),
+    ], run
 
 
 def test_a_row_of_an_earlier_round_does_not_release_a_later_one(sb):
@@ -466,6 +481,7 @@ def test_a_row_of_an_earlier_round_does_not_release_a_later_one(sb):
     run = sb.run("brief")
     want = NOTHING_NEW_BUILD.replace("since round 1", "since round 2")
     assert (run.code, run.last) == (2, want), run
+    assert held(run) == [HOLDS.format(key="general I1", n=2)], run
     assert sb.state() == before
     row(
         sb,
@@ -475,6 +491,34 @@ def test_a_row_of_an_earlier_round_does_not_release_a_later_one(sb):
     run = sb.run("brief")
     assert run.code == 0, run
     assert sb.state()["pending"]["round"] == 3
+
+
+@pytest.mark.parametrize("n", [2, 9999])
+def test_a_row_of_a_round_not_yet_counted_does_not_count(sb, n):
+    one_round(sb)
+    row(sb, f"- r{n} [general I1] answered: the evidence\n")
+    run = sb.run("brief")
+    assert (run.code, run.last) == (2, NOTHING_NEW_BUILD), run
+    assert held(run) == [HOLDS.format(key="general I1", n=1)], run
+    sb.change("app.py", 4, tag="r2")
+    run = sb.run("brief")
+    assert run.code == 0, run
+    assert run.lines[0] == (
+        "note: no changes.md row for [general I1] (a row reads: - r1 [general I1] "
+        "fixed|answered|owner: <text>)"
+    ), run
+    _, prompt = brief_of(run, "general", 2)
+    assert not [line for line in prompt if "changes.md" in line], prompt
+
+
+def test_a_blocking_item_marked_not_needed_still_counts_as_needed(sb):
+    sb.start_build()
+    blocking = result(9, blocking=[item("B1", needed_for_10=False)])
+    assert sb.judge({"general": blocking}).code == 1
+    assert sb.state()["items"]["general:B1"]["needed"] is True
+    run = sb.run("brief")
+    assert (run.code, run.last) == (2, NOTHING_NEW_BUILD), run
+    assert held(run) == [HOLDS.format(key="general B1", n=1)], run
 
 
 def test_a_row_releases_only_the_item_of_its_own_role(sb):
