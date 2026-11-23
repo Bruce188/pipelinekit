@@ -13,7 +13,6 @@
 #     file over 1,500 lines or 50,000 bytes, or takes one past that, is refused;
 #     a file that was over before only warns. A check that fails warns and
 #     lets the commit through.
-#     A file that passes only through an unstaged .file-size-exempt gets a note.
 set -u
 
 chain() {
@@ -58,7 +57,7 @@ scan() {
 
 size_check() {
   local rc=0
-  python3 "$(dirname "$(realpath "$0")")/../hooks/filesize.py" || rc=$?
+  python3 "$(dirname "$(realpath "$0")")/../hooks/filesize.py" pre-commit || rc=$?
   case $rc in
     0) return 0 ;;
     3) return 1 ;;

@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Global git pre-merge-commit hook (core.hooksPath = ~/.claude/git-hooks).
+# `git merge` runs this hook, not pre-commit, before it records a merge it made
+# without conflicts. It checks the file size limit on the merged index, as
+# pre-commit does for a commit, then runs the repo's own pre-merge-commit hook
+# (.git/hooks/pre-merge-commit or .githooks/pre-merge-commit) if there is one.
+#   - File size limit (../hooks/filesize.py): a merge that takes a hand-written
+#     file past 1,500 lines or 50,000 bytes is refused and left unfinished;
+#     `git commit` concludes it after the file is split, and pre-commit checks
+#     it again. A file over the limit in either parent only warns. A check
+#     that fails warns and lets the merge through.
+#   - The merge has already written the merged files to the working tree, so
+#     .githooks/pre-merge-commit runs only when it is the executable file the
+#     current commit has: a merge never runs a hook it brings in.
+set -u
+
+committed() { # committed <path in repo> <file>: the file is the executable one HEAD has
+  local mode type sha rest
+  read -r mode type sha rest < <(git ls-tree --full-tree HEAD -- "$1" 2>/dev/null) || return 1
+  [ "$mode" = 100755 ] && [ "$type" = blob ] &&
+    [ "$sha" = "$(git hash-object --no-filters -- "$2" 2>/dev/null)" ]
+}
+
+chain() {
+  local name=$1 self h top; shift
+  self=$(realpath "$0")
+  top=$(git rev-parse --show-toplevel 2>/dev/null)
+  for h in "$(git rev-parse --git-common-dir)/hooks/$name" "$top/.githooks/$name"; do
+    [ -x "$h" ] && [ "$(realpath "$h")" != "$self" ] || continue
+    if [ "$h" = "$top/.githooks/$name" ] && ! committed ".githooks/$name" "$h"; then
+      echo "$name: warning: .githooks/$name is not run: it is not the executable file the current commit has." >&2
+      continue
+    fi
+    "$h" "$@" || return $?
+  done
+}
+
+kitlog() { # kitlog <kind> <rule> <reason>: one line in the kit's event log; never fails
+  python3 "$(dirname "$(realpath "$0")")/../hooks/kitlog.py" pre-merge-commit "$@" </dev/null >/dev/null 2>&1 || true
+}
+
+size_check() {
+  local rc=0
+  python3 "$(dirname "$(realpath "$0")")/../hooks/filesize.py" pre-merge-commit || rc=$?
+  case $rc in
+    0) return 0 ;;
+    3) return 1 ;;
+  esac
+  echo "pre-merge-commit: warning: file size check failed (exit $rc), file sizes NOT checked; run /kit to see what is broken [pre-commit.file-size-failed]" >&2
+  kitlog error pre-commit.file-size-failed "file size check failed (exit $rc)"
+  return 0
+}
+
+size_check || exit 1
+chain pre-merge-commit "$@" || exit $?
+exit 0

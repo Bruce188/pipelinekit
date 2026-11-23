@@ -29,8 +29,15 @@ import time
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from ship_gates import *
-from ship_links import after_merge
+try:
+    from ship_gates import *
+    from ship_links import after_merge
+except ImportError as e:  # a module missing or broken in the install
+    print(
+        f"ship.py: cannot load its modules ({e}); install the kit again",
+        file=sys.stderr,
+    )
+    raise SystemExit(2) from None
 
 # ---------------------------------------------------------------- output
 

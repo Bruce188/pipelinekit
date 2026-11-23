@@ -147,13 +147,8 @@ def check_result(raw: bytes, role: str, open_ids=(), mode="full") -> dict:
     if overall == 10:
         if items["blocking"]:
             raise NoScore("overall", TEN_WITH_OPEN)
-        for item_id in still_open:
-            entry = seen[item_id]
-            if (
-                entry["kind"] == "improvement"
-                and entry.get("needed_for_10") is not False
-            ):
-                raise NoScore("overall", TEN_WITH_OPEN)
+        if any(e.get("needed_for_10") is not False for e in items["improvements"]):
+            raise NoScore("overall", TEN_WITH_OPEN)
         if read != "full":
             raise NoScore("overall", TEN_NOT_FULL)
 

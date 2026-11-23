@@ -125,18 +125,17 @@ The global `pre-commit` hook now refuses a commit that adds a hand-written
 file over 1,500 lines or 50,000 bytes, or that takes a file past that, in
 every repository whose commits run the kit's global git hooks. A file that is
 already over the limit only warns when it changes, so existing repositories
-keep working. Lock, vendored, generated, IDE and data files are exempt by
-default.
+keep working. By default the check leaves out generated, vendored, lock and
+data files, and the project and designer files an IDE writes. `git merge`
+runs the same check through the new global `pre-merge-commit` hook before it
+records a merge it made without conflicts. Git runs neither hook for
+`git rebase`, `git cherry-pick`, `git revert`, `git am` or `git stash`, so
+what those commands record is not checked.
 
-To exempt more paths:
+To exempt more paths, commit a `.file-size-exempt` at the repository root,
+one pattern per line. Only the staged list counts.
 
-- For a project, commit a `.file-size-exempt` at the repository root, one
-  pattern per line.
-- For your clone only, keep that list untracked and name it in
-  `.git/info/exclude`. A commit that passes only through such a list prints a
-  note and records an override in the event log.
-
-[Components](components.html#file-size-limit) lists the default exemptions
+[File size limit](file-size.html) lists the default exemptions
 and how the patterns match.
 
 ## Rolling back

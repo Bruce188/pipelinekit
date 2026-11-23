@@ -24,9 +24,12 @@ HOOKS = (
 HELPERS = ("kitlog.py", "filesize.py")
 HELPER_LOSS = {
     "kitlog.py": "the hooks still decide, but nothing is recorded",
-    "filesize.py": "pre-commit lets commits through without the file size limit",
+    "filesize.py": (
+        "pre-commit and pre-merge-commit let commits and merges through "
+        "without the file size limit"
+    ),
 }
-GIT_HOOKS = ("commit-msg", "pre-commit", "pre-push")
+GIT_HOOKS = ("commit-msg", "pre-commit", "pre-merge-commit", "pre-push")
 # Used when there is no manifest; a test keeps it equal to claude/skills/.
 KIT_SKILLS = (
     "deploy",
