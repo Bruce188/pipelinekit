@@ -60,7 +60,7 @@ Your whole answer is one JSON object, with no code fence and no text before or a
 - `still_open` (optional): the ids that were open in your last counted result and that you raise again in this answer.
 - `read` (optional): `full` or `changes`, what you read in this round.
 - `judge` (optional): your role, exactly as the brief names it.
-- A score below 10 needs a blocking item or an improvement that is not marked `"needed_for_10": false`. A 10 needs a full read. A 10 with a blocking item is no score. So is a 10 with a `still_open` improvement that is not marked `"needed_for_10": false`.
+- A score below 10 needs a blocking item or an improvement that is not marked `"needed_for_10": false`. A 10 needs a full read. A 10 with a blocking item is no score. So is a 10 with any improvement that is not marked `"needed_for_10": false`.
 
 ## Limits
 

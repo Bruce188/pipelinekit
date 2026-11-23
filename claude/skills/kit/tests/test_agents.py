@@ -251,10 +251,12 @@ def test_the_judge_answer():
         "`check`",
         "`read`",
         "A 10 with a blocking item is no score.",
+        'So is a 10 with any improvement that is not marked `"needed_for_10": false`.',
         "Never reuse an id for another item.",
         "`settled.md`",
     ):
         assert phrase in body, phrase
+    assert "`still_open` improvement" not in body
     (example,) = re.findall(r"```\n(.*?)\n```", body, re.S)
     answer = json.loads(example)
     assert set(answer) == {
