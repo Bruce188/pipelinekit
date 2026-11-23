@@ -36,6 +36,16 @@ import tempfile
 import time
 import unicodedata
 
+sys.dont_write_bytecode = True  # changes nothing in CLAUDE_HOME, no __pycache__
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    from kit_rules import home_rule
+except ImportError:  # reported as a missing file; the rules read as written
+
+    def home_rule(rule: str, home: str) -> str:
+        return rule
+
+
 SCHEMA = 1
 HOOKS = (
     "bash-guard.py",
@@ -364,7 +374,10 @@ def kit_settings(repo: str, home: str) -> dict:
         for h in g.get("hooks", [])
     ]
     perms = tmpl.get("permissions", {})
-    return {"hooks": hooks, "deny": perms.get("deny", []), "ask": perms.get("ask", [])}
+    return {
+        "hooks": hooks,
+        **{k: [home_rule(r, home) for r in perms.get(k, [])] for k in ("deny", "ask")},
+    }
 
 
 def write_manifest(repo: str, home: str) -> str:

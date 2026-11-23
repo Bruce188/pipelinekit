@@ -193,6 +193,21 @@ def test_removed_skill_is_one_line(kit):
     assert out.count("mobile") == 1, out
 
 
+def test_a_check_without_its_rules_module_still_reports(kit, tmp_path):
+    (tmp_path / "check.py").write_bytes(CHECK.read_bytes())
+    (kit["home"] / "skills" / "kit" / "kit_rules.py").unlink()
+    p = subprocess.run(
+        [sys.executable, str(tmp_path / "check.py"), "--no-remote"],
+        capture_output=True,
+        text=True,
+        env=kit["env"],
+        cwd=kit["root"],
+    )
+    assert p.returncode == 1, p.stdout + p.stderr
+    assert "Traceback" not in p.stdout + p.stderr
+    assert "[fail] missing: skills/kit/kit_rules.py" in p.stdout
+
+
 def test_removed_skill_file(kit):
     (kit["home"] / "skills" / "kit" / "check.py").unlink()
     rc, out = check(kit)
@@ -568,6 +583,7 @@ def test_manifest_describes_the_install(kit):
         "hooks/bash-guard.py",
         "git-hooks/pre-push",
         "skills/kit/check.py",
+        "skills/kit/kit_rules.py",
         "skills/kit/SKILL.md",
         "config/never-stage.txt",
         "CLAUDE.md",
@@ -1199,6 +1215,49 @@ def test_a_missing_exec_form_command_is_named_whole(kit):
 )
 def test_the_program_of_a_hook_entry(hook, program):
     assert check_py.hook_program(hook) == program
+
+
+@pytest.mark.parametrize(
+    ("rule", "home", "want"),
+    [
+        (
+            "Edit(~/.claude/settings.json)",
+            "/u/.claude",
+            "Edit(~/.claude/settings.json)",
+        ),
+        (
+            "Edit(~/.claude/settings.json)",
+            "/u/.claude/",
+            "Edit(~/.claude/settings.json)",
+        ),
+        ("Edit(~/.claude/hooks/**)", "/u/kit home", "Edit(~/kit home/hooks/**)"),
+        ("Edit(~/.claude/settings.json)", "/u", "Edit(~/settings.json)"),
+        ("Edit(~/.claude/config/**)", "/opt/kit", "Edit(//opt/kit/config/**)"),
+        ("Edit(~/.claude/config/**)", "/ux/kit", "Edit(//ux/kit/config/**)"),
+        ("Edit(~/.claude/config/**)", "/u/../opt/kit", "Edit(//opt/kit/config/**)"),
+        ("Edit(~/.claude/a)", "/opt/k*t[1]?", "Edit(//opt/k\\*t\\[1]\\?/a)"),
+        ("Edit(~/.claude/a)", "/u/a\\b", "Edit(~/a\\\\b/a)"),
+        ("Edit(~/.gitconfig)", "/opt/kit", "Edit(~/.gitconfig)"),
+        ("Edit(~/.claudex/a)", "/opt/kit", "Edit(~/.claudex/a)"),
+        ("Bash(git push *--force*)", "/opt/kit", "Bash(git push *--force*)"),
+    ],
+)
+def test_a_path_rule_names_the_home(monkeypatch, rule, home, want):
+    monkeypatch.setenv("HOME", "/u")
+    assert check_py.home_rule(rule, home) == want
+
+
+def test_the_kit_rules_name_another_home(monkeypatch):
+    monkeypatch.setenv("HOME", "/u")
+    kit = check_py.kit_settings(str(REPO), "/opt/kit home")
+    rules = kit["deny"] + kit["ask"]
+    assert "Edit(//opt/kit home/settings.json)" in kit["ask"]
+    assert "Edit(//opt/kit home/hooks/**)" in kit["ask"]
+    assert not [r for r in rules if "~/.claude" in r]
+    default = check_py.kit_settings(str(REPO), "/u/.claude")
+    tmpl = json.loads((REPO / "claude/config/settings.template.json").read_text())
+    assert default["ask"] == tmpl["permissions"]["ask"]
+    assert default["deny"] == tmpl["permissions"]["deny"]
 
 
 def test_a_hook_command_that_is_not_text_is_named(kit):

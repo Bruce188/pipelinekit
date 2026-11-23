@@ -231,7 +231,7 @@ import json, os, sys
 
 sys.dont_write_bytecode = True  # no __pycache__ left in the checkout
 sys.path.insert(0, sys.argv[3])
-from check import hook_program  # how the self-check reads a hook's program
+from check import hook_program, home_rule  # as the self-check reads hooks and rules
 
 path = sys.argv[1]
 home = os.environ["CLAUDE_HOME"]
@@ -246,7 +246,7 @@ else:
 if not isinstance(data, dict):
     sys.exit(f"[install][error] {path} is not a JSON object")
 
-# Hook commands use ${CLAUDE_HOME}; permission rules keep a literal ~/.claude/...
+# Hook commands use ${CLAUDE_HOME}; path rules name ~/.claude/..., turned into this home below.
 tmpl = json.loads(open(sys.argv[2], encoding="utf-8").read().replace("${CLAUDE_HOME}", home))
 KIT_SCRIPTS = {os.path.basename(h["command"]) for gs in tmpl["hooks"].values() for g in gs for h in g["hooks"]}
 # Hooks and helpers that earlier kit versions wired into settings.json.
@@ -291,11 +291,16 @@ data["hooks"] = hooks
 
 # Permissions: keep the user's rules and append the kit's in template order
 # ("!" carve-outs must follow the rule they carve from). allow etc. untouched.
+# Path rules name this home; in another home, the rules an earlier install
+# wrote for ~/.claude/ guard the wrong folder and are replaced.
 perms = data.get("permissions") if isinstance(data.get("permissions"), dict) else {}
+replaced = []
 for kind in ("deny", "ask"):
-    mine = tmpl["permissions"][kind]
+    mine = [home_rule(r, home) for r in tmpl["permissions"][kind]]
+    stale = set(tmpl["permissions"][kind]) - set(mine)
     theirs = perms.get(kind) if isinstance(perms.get(kind), list) else []
-    perms[kind] = [r for r in theirs if r not in mine] + mine
+    replaced += [r for r in theirs if r in stale]
+    perms[kind] = [r for r in theirs if r not in mine and r not in stale] + mine
 data["permissions"] = perms
 env = data.get("env") if isinstance(data.get("env"), dict) else {}
 env.update(tmpl.get("env", {}))
@@ -315,6 +320,8 @@ print(f"[install] settings.json: {added} kit hooks, -{len(removed)} stale hook e
       "attribution off")
 for c in removed:
     print(f"[install]   removed: {c}")
+for r in replaced:
+    print(f"[install]   replaced: {r}")
 PY
 
 # ---------- serena MCP ----------

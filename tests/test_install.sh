@@ -83,6 +83,7 @@ assert d["env"] == {"FOO": "1"}
 p = d["permissions"]
 assert p["allow"] == ["Bash(ls *)"], "user allow rules changed"
 assert p["deny"] == ["Read(secret.txt)"] + t["permissions"]["deny"], "deny merge wrong"
+# The default home: the path rules are the template's own, ~/.claude/... as written.
 assert p["ask"] == t["permissions"]["ask"]
 assert "Stop" not in d["hooks"], "stale hook not pruned"
 hs = [h for g in d["hooks"]["PreToolUse"] for h in g["hooks"]]
@@ -212,6 +213,32 @@ fi
 # The session-start check names /kit once a hook is broken.
 echo '{}' | "$CLAUDE_HOME/hooks/session-check.py" | grep -q 'Run /kit for the report'
 
+# rules_name <CLAUDE_HOME> <the home as a rule names it> [HOME]: the kit's path
+# rules in that home's settings.json name the home, none names ~/.claude/, and
+# the self-check finds every kit rule in place.
+rules_name() {
+  python3 - "$1/settings.json" "$REPO_ROOT/claude/config/settings.template.json" "$2" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+t = json.load(open(sys.argv[2], encoding="utf-8"))
+moved = 0
+for kind in ("deny", "ask"):
+    want = [r.replace("~/.claude/", sys.argv[3] + "/") for r in t["permissions"][kind]]
+    moved += sum(r != w for r, w in zip(t["permissions"][kind], want))
+    have = d["permissions"][kind]
+    assert have[len(have) - len(want):] == want, (kind, have, want)
+    assert not [r for r in have if "~/.claude/" in r], (kind, have)
+assert moved >= 5, f"only {moved} rules name the home"
+PY
+  local report
+  report="$(HOME="${3:-$HOME}" CLAUDE_HOME="$1" python3 "$1/skills/kit/check.py" --no-remote --verbose || true)"
+  if grep -qE 'kit (deny|ask) rules? missing' <<<"$report"; then
+    echo "test_install: the self-check misses kit rules in $1" >&2; grep -E 'rules? missing' <<<"$report" >&2; exit 1
+  fi
+  grep -qE 'settings.json: [0-9]+ kit ask rules$' <<<"$report" ||
+    { echo "test_install: no kit ask rules counted in $1" >&2; exit 1; }
+}
+
 # Another CLAUDE_HOME: the judge-loop skill names the helper by that home's path,
 # and the self-check sees the rewritten file as the installed one.
 KH="$HOME/kit-home"
@@ -227,6 +254,8 @@ if grep -qF 'changed since install:' <<<"$report"; then
   echo "test_install: the rewritten skill shows as changed since install" >&2; exit 1
 fi
 [ "$(git config --global core.hooksPath)" = "$CLAUDE_HOME/git-hooks" ]
+# Its path rules name it by its place below HOME.
+rules_name "$KH" \~/kit-home
 
 # A home a permission pattern cannot hold (a space), or a relative one: a
 # warning, and the installed skill is the kit's own, naming ~/.claude.
@@ -270,7 +299,27 @@ env = dict(os.environ, CLAUDE_HOME=home)
 p = subprocess.run([start["command"], *start["args"]], input="{}", capture_output=True, text=True, env=env)
 assert p.returncode == 0 and p.stdout == "", (p.returncode, p.stdout, p.stderr)
 PY
+# Its path rules name it, space and all.
+rules_name "$SH" \~/kit\ home
 odd_home rel-home "$T/rel-home" relative
+
+# A home outside HOME, with a space: its path rules name it from the root (//).
+# Rules an earlier install wrote for ~/.claude/ go; the user's own stay.
+OU="$T/oh-user" OH="$T/oh home"
+mkdir -p "$OU" "$OH"
+printf '{"permissions": {"ask": ["Edit(~/.claude/settings.json)", "Edit(~/.claude/hooks/**)", "Bash(mine *)"]}}\n' >"$OH/settings.json"
+HOME="$OU" CLAUDE_HOME="$OH" GIT_CONFIG_GLOBAL="$OU/.gitconfig" XDG_CONFIG_HOME="$OU/.config" \
+  PIPELINEKIT_STATE_DIR="$OU/state" PIPELINEKIT_GIT_HOOKS=0 \
+  bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$T/outside.out" 2>&1 ||
+  { echo "test_install: the install into a home outside HOME failed" >&2; cat "$T/outside.out" >&2; exit 1; }
+rules_name "$OH" "/$OH" "$OU"
+python3 - "$OH/settings.json" <<'PY'
+import json, sys
+ask = json.load(open(sys.argv[1], encoding="utf-8"))["permissions"]["ask"]
+assert ask[0] == "Bash(mine *)", ask
+PY
+grep -qF '[install]   replaced: Edit(~/.claude/settings.json)' "$T/outside.out" ||
+  { echo "test_install: the replaced ~/.claude rule is not named" >&2; exit 1; }
 
 # The rewrite follows the copy at once: an install that stops later (here on a
 # settings.json that is not JSON) leaves a skill that already names its home.
