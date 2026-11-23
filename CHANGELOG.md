@@ -257,6 +257,9 @@ kit used to ship, so those parts are gone.
 - docs-writer: widgets and template features (search from `file://`, the
   mobile ToC button, comparison tabs, terminal simulator) now work.
 - `mobile` skill: an example path contained a personal home directory.
+- A `CLAUDE_HOME` with a space in its path: the installer and `/kit` read
+  the hook commands whole instead of stopping at the space, so the install
+  passes verify and a second install no longer wires every hook twice.
 
 ### Removed
 
