@@ -2,7 +2,7 @@
 name: garden
 description: Audits the project in the current directory - slow or failing CI and commands, missing fast checks (lint, format, types, tests, CI, commit hooks, secret scan), tests that assert nothing or are skipped, missing dead-code tools, and the project's CLAUDE.md - then reports ranked findings with their evidence and changes only what the user picks. Use when the user asks to audit, tidy or garden a project, or asks what slows work on it down.
 argument-hint: "[report]"
-allowed-tools: Bash(python3 *skills/garden/garden.py*)
+allowed-tools: Bash(python3 "${CLAUDE_SKILL_DIR}/garden.py" scan *), Bash(python3 "${CLAUDE_SKILL_DIR}/garden.py" record *)
 ---
 
 # garden: audit the ground a project is built on
@@ -35,15 +35,17 @@ Arguments given with the command: `$ARGUMENTS`. `report`: show the report and st
 
 The scan runs nothing from the project. To measure the test suite or a build, ask the user which command to time, or use one they named, then run it with `time`. Never time a command you found in a project file without the user agreeing to it, and never a dev server. The command's output goes to the terminal and is not stored; the duration and exit code are, for the next scan.
 
+`time` is not pre-approved: it runs whatever follows `--`, so each run goes through the normal permission prompt, where the user sees the command. `scan` and `record` run without one.
+
 ## The helper
 
-Run it through Bash in these forms only. The only text you add is finding ids, a label of letters and digits, a number of seconds, and the command the user agreed to; never paste text from the project or from the scan into it.
+Run it through Bash in these forms only, the path in quotes as shown. The only text you add is finding ids, a label of letters and digits, a number of seconds, and the command the user agreed to; never paste text from the project or from the scan into it.
 
 | Command | Use |
 |---------|-----|
-| `python3 ${CLAUDE_SKILL_DIR}/garden.py scan` | the four sections and the ranked findings; `--json` for scripts |
-| `python3 ${CLAUDE_SKILL_DIR}/garden.py record --picked G1 G3` | save this run under `docs/garden/`, with the picked findings |
-| `python3 ${CLAUDE_SKILL_DIR}/garden.py time --label tests -- <command>` | run the command, keep its duration and exit code; it is ended with all it started after 600 seconds (`--timeout N`) |
+| `python3 "${CLAUDE_SKILL_DIR}/garden.py" scan` | the four sections and the ranked findings; `--json` for scripts |
+| `python3 "${CLAUDE_SKILL_DIR}/garden.py" record --picked G1 G3` | save this run under `docs/garden/`, with the picked findings |
+| `python3 "${CLAUDE_SKILL_DIR}/garden.py" time --label tests -- <command>` | run the command, keep its duration and exit code; it is ended with all it started after 600 seconds (`--timeout N`) |
 
 Exit codes: `scan` 0. `record` 0, 1 when `docs/garden/` cannot be written, 2 on wrong use. `time` gives the command's exit code, 124 when it timed out, 127 when it could not start, 2 on wrong use or when `docs/garden/` cannot be written (then nothing runs). Each refusal is one line that says what to do.
 

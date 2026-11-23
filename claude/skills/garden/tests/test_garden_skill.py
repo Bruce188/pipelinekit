@@ -1,6 +1,7 @@
 """The garden skill as installed and as written (criteria 1, 8, 9, 13, 14, 16)."""
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -18,11 +19,68 @@ def read(rel):
 # ---------------------------------------------------------------- the skill text
 
 
-def test_frontmatter_names_the_skill_and_allows_only_the_helper():
+def test_frontmatter_names_the_skill():
     head = SKILL.split("\n---\n", 1)[0]
     assert "\nname: garden\n" in head
     assert 'argument-hint: "[report]"' in head
-    assert "allowed-tools: Bash(python3 *skills/garden/garden.py*)" in head
+
+
+SKILL_DIR = "/home/u/.claude/skills/garden"
+HERE = f'python3 "{SKILL_DIR}/garden.py"'
+
+
+def allowances():
+    """The Bash rules of the frontmatter, with the skill folder filled in."""
+    head = SKILL.split("\n---\n", 1)[0]
+    line = next(x for x in head.splitlines() if x.startswith("allowed-tools:"))
+    rules = re.findall(r"Bash\(([^)]*)\)", line)
+    return [r.replace("${CLAUDE_SKILL_DIR}", SKILL_DIR) for r in rules]
+
+
+def allows(rule, command):
+    """Claude Code's wildcard match: * is anything; a last ' *' may be absent."""
+    pattern = re.escape(rule).replace(r"\*", ".*")
+    if pattern.endswith(r"\ .*") and rule.count("*") == 1:
+        pattern = pattern[: -len(r"\ .*")] + "( .*)?"
+    return re.fullmatch(pattern, command, re.S) is not None
+
+
+def allowed(command):
+    return any(allows(rule, command) for rule in allowances())
+
+
+def test_the_allowances_name_the_helper_with_no_wildcard_before_it():
+    rules = allowances()
+    assert rules
+    for rule in rules:
+        assert "*" not in rule.split("garden.py", 1)[0], rule
+        assert not re.search(r"\*[^ ]*skills/", rule), rule
+
+
+def test_the_allowances_cover_the_load_line_scan_and_record():
+    load = re.search(r"^!`(.*)`$", SKILL, re.M).group(1)
+    assert allowed(load.replace("${CLAUDE_SKILL_DIR}", SKILL_DIR))
+    assert allowed(f"{HERE} scan --json")
+    assert allowed(f"{HERE} record --scan 1a2b3c4d --picked G1 G3")
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        f"{HERE} time --label x -- sh -c id",
+        f"{HERE} time --label tests -- pytest",
+        f'python3 -c "import os" "{SKILL_DIR}/garden.py" scan',
+        "python3 skills/garden/garden.py scan",
+        'python3 "/tmp/x/skills/garden/garden.py" scan',
+    ],
+)
+def test_time_and_other_scripts_are_left_to_the_normal_prompt(command):
+    assert not allowed(command)
+
+
+def test_the_skill_says_time_asks_first():
+    timing = SKILL.split("## Timing a command", 1)[1].split("\n## ", 1)[0]
+    assert "`time` is not pre-approved" in timing
 
 
 def test_the_scan_is_injected_and_called_data():
