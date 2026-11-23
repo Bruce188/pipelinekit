@@ -771,17 +771,14 @@ are left.</p>
 file over 1,500 lines or 50,000 bytes, or that takes a file past that, in
 every repository whose commits run the kit's global git hooks. A file that is
 already over the limit only warns when it changes, so existing repositories
-keep working. Lock, vendored, generated, IDE and data files are exempt by
-default. <code>git merge</code> runs the same check through the new global
-<code>pre-merge-commit</code> hook before it records a merge it made without conflicts.</p>
-<p>To exempt more paths:</p>
-<ul>
-<li>For a project, commit a <code>.file-size-exempt</code> at the repository root, one
-  pattern per line.</li>
-<li>For your clone only, keep that list untracked and name it in
-  <code>.git/info/exclude</code>. A commit that passes only through such a list prints a
-  note and records an override in the event log.</li>
-</ul>
+keep working. By default the check leaves out generated, vendored, lock and
+data files, and the project and designer files an IDE writes. <code>git merge</code>
+runs the same check through the new global <code>pre-merge-commit</code> hook before it
+records a merge it made without conflicts. Git runs neither hook for
+<code>git rebase</code>, <code>git cherry-pick</code>, <code>git revert</code>, <code>git am</code> or <code>git stash</code>, so
+what those commands record is not checked.</p>
+<p>To exempt more paths, commit a <code>.file-size-exempt</code> at the repository root,
+one pattern per line. Only the staged list counts.</p>
 <p><a href="file-size.html">File size limit</a> lists the default exemptions
 and how the patterns match.</p>
 <h2 id="rolling-back">Rolling back</h2>

@@ -617,7 +617,15 @@ footer {
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
     <ul>
-
+      <li class="lvl-2"><a href="#what-is-refused">What is refused</a></li>
+      <li class="lvl-3"><a href="#a-sample-refusal">A sample refusal</a></li>
+      <li class="lvl-2"><a href="#what-is-not-checked">What is not checked</a></li>
+      <li class="lvl-2"><a href="#what-is-not-counted">What is not counted</a></li>
+      <li class="lvl-2"><a href="#exempting-more-paths">Exempting more paths</a></li>
+      <li class="lvl-3"><a href="#a-sample-list">A sample list</a></li>
+      <li class="lvl-3"><a href="#pattern-syntax">Pattern syntax</a></li>
+      <li class="lvl-2"><a href="#silencing-the-over-limit-warning">Silencing the over-limit warning</a></li>
+      <li class="lvl-2"><a href="#merges-and-the-repository-s-own-hook">Merges and the repository&#x27;s own hook</a></li>
     </ul>
   </aside>
 
@@ -630,14 +638,128 @@ footer {
     </header>
 
     <div id="page-content">
+<h2 id="what-is-refused">What is refused</h2>
 <ul>
-<li>A commit or merge that adds a file over the limit, or takes a file from under the limit to over it, is refused with <code>[pre-commit.file-size]</code>. The refusal names each file, its lines and bytes, and what it was before; a control character in a path is shown as <code>?</code>, and a byte that is not UTF-8 as an escape. The event log gets the first path and its size, never the content. A refused merge is left unfinished: split the file, then <code>git commit</code> concludes the merge, and <code>pre-commit</code> checks it again.</li>
-<li>A file that was already over the limit before the commit gets a warning with <code>[pre-commit.file-size-over]</code>, and the commit goes through. A renamed file keeps the size it had under its old name; when a commit concludes a merge, or <code>git merge</code> records one, a file over the limit in either parent counts as already over.</li>
-<li>Binary files (a NUL byte in the first 8,000 bytes, or <code>binary</code> or <code>-diff</code> in <code>.gitattributes</code>), deleted files, symlinks and submodules are never counted. Attributes are read from the staged <code>.gitattributes</code>, so an unstaged edit there exempts nothing. A blob over 50,000 bytes is read in pieces and dropped once its first 8,000 bytes show it is binary.</li>
-<li>Generated, vendored, lock and data files are exempt. By default that is: lock files <code>*.lock</code>, <code>*.lockb</code>, <code>*.lockfile</code>, <code>*-lock.json</code>, <code>*-lock.yaml</code>, <code>npm-shrinkwrap.json</code>, <code>packages.lock.json</code>, <code>Package.resolved</code>, <code>go.sum</code>; vendored folders <code>vendor/</code>, <code>vendored/</code>, <code>third_party/</code>, <code>third-party/</code>, <code>node_modules/</code>; generated files and folders <code>generated/</code>, <code>__generated__/</code>, <code>dist/</code>, <code>*.min.js</code>, <code>*.min.css</code>, <code>*.map</code>, <code>*.generated.*</code>, <code>*.g.cs</code>, <code>*.g.dart</code>, <code>*.freezed.dart</code>, <code>*.designer.cs</code>, <code>*.Designer.cs</code>, <code>*ModelSnapshot.cs</code>, <code>*.pb.go</code>, <code>*_pb2.py</code>, <code>*_pb2.pyi</code>, <code>*.snap</code>; project and designer files an IDE writes <code>*.pbxproj</code>, <code>*.xcstrings</code>, <code>*.storyboard</code>, <code>*.xib</code>, <code>*.resx</code>; data files <code>*.json</code>, <code>*.jsonl</code>, <code>*.ndjson</code>, <code>*.geojson</code>, <code>*.csv</code>, <code>*.tsv</code>, <code>*.ipynb</code>, <code>*.svg</code>. A path marked <code>linguist-generated</code> or <code>linguist-vendored</code> in <code>.gitattributes</code> is exempt too.</li>
-<li>A project exempts more paths in <code>.file-size-exempt</code> at the repository root, one pattern per line, gitignore style: <code>name</code> matches a file or folder of that name at any depth, <code>name/</code> only a folder and everything in it, a pattern with a <code>/</code> in front or in the middle is anchored to the root, <code>*</code>, <code>?</code> and <code>[...]</code> (one character of a set, such as <code>[ch]</code> or <code>[a-z]</code>; <code>[!...]</code> or <code>[^...]</code> one character not in it) stay inside one folder and <code>**</code> crosses folders. <code>#</code> starts a comment; <code>!</code> lines are skipped. The staged copy of the file counts, else the one in the working tree. A file that passes only because an unstaged list in the working tree names it gets a note with <code>[pre-commit.file-size-exempt-local]</code>, and the event log records an override with its path and size, so a local exemption is never silent; to keep such a list out of commits, name it in <code>.git/info/exclude</code>. A list that is a link, a folder, cannot be read or is not UTF-8 text is not used, and the hook warns that it is not. This repository lists <code>documentation/</code>, the rendered pages.</li>
+<li>A commit or merge that adds a file over the limit, or takes a file from under the limit to over it, is refused with <code>[pre-commit.file-size]</code>. The refusal names each file, its lines and bytes, and what it was before; a control character in a path is shown as <code>?</code>, and a byte that is not UTF-8 as an escape. The event log gets the first path and its size, never the content.</li>
+<li>A refused merge is left unfinished: split the file, then <code>git commit</code> concludes the merge, and <code>pre-commit</code> checks it again.</li>
+<li>A file that was already over the limit before the commit gets a warning with <code>[pre-commit.file-size-over]</code>, and the commit or merge goes on. A renamed file keeps the size it had under its old name; when a commit concludes a merge, or <code>git merge</code> records one, a file over the limit in either parent counts as already over.</li>
 <li>A check that fails to run warns with <code>[pre-commit.file-size-failed]</code>, records an error and lets the commit or merge through.</li>
 </ul>
+<h3 id="a-sample-refusal">A sample refusal</h3>
+<div class="codehilite"><pre><span></span><code>pre-commit: commit refused, over the file size limit of 1,500 lines and 50,000 bytes:
+  src/parser.py: 1,900 lines, 15,993 bytes (new file)
+Split the file: new code that would take a file past the limit goes in a new file.
+A generated, vendored or data file can be listed in .file-size-exempt at the top of
+the repository, one pattern per line. [pre-commit.file-size]
+</code></pre></div>
+
+<p>The last line is one line in the terminal; it is wrapped here.</p>
+<h2 id="what-is-not-checked">What is not checked</h2>
+<p>Git runs neither hook for <code>git rebase</code>, <code>git cherry-pick</code>, <code>git revert</code>, <code>git am</code> or <code>git stash</code>, so what those commands record is not checked. <code>git commit --no-verify</code> skips both hooks too; <code>bash-guard.py</code> refuses it for Claude.</p>
+<h2 id="what-is-not-counted">What is not counted</h2>
+<ul>
+<li>Binary files (a NUL byte in the first 8,000 bytes, or <code>binary</code> or <code>-diff</code> in a staged <code>.gitattributes</code>), deleted files, symlinks and submodules. A blob over 50,000 bytes is read in pieces and dropped once its first 8,000 bytes show it is binary.</li>
+<li>A path marked <code>linguist-generated</code> or <code>linguist-vendored</code> in a staged <code>.gitattributes</code>.</li>
+<li>By default, generated, vendored, lock and data files, and the project and designer files an IDE writes:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Patterns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lock files</td>
+<td><code>*.lock</code>, <code>*.lockb</code>, <code>*.lockfile</code>, <code>*-lock.json</code>, <code>*-lock.yaml</code>, <code>npm-shrinkwrap.json</code>, <code>packages.lock.json</code>, <code>Package.resolved</code>, <code>go.sum</code></td>
+</tr>
+<tr>
+<td>Vendored folders</td>
+<td><code>vendor/</code>, <code>vendored/</code>, <code>third_party/</code>, <code>third-party/</code>, <code>node_modules/</code></td>
+</tr>
+<tr>
+<td>Generated files and folders</td>
+<td><code>generated/</code>, <code>__generated__/</code>, <code>dist/</code>, <code>*.min.js</code>, <code>*.min.css</code>, <code>*.map</code>, <code>*.generated.*</code>, <code>*.g.cs</code>, <code>*.g.dart</code>, <code>*.freezed.dart</code>, <code>*.designer.cs</code>, <code>*.Designer.cs</code>, <code>*ModelSnapshot.cs</code>, <code>*.pb.go</code>, <code>*_pb2.py</code>, <code>*_pb2.pyi</code>, <code>*.snap</code></td>
+</tr>
+<tr>
+<td>Project and designer files an IDE writes</td>
+<td><code>*.pbxproj</code>, <code>*.xcstrings</code>, <code>*.storyboard</code>, <code>*.xib</code>, <code>*.resx</code></td>
+</tr>
+<tr>
+<td>Data files</td>
+<td><code>*.json</code>, <code>*.jsonl</code>, <code>*.ndjson</code>, <code>*.geojson</code>, <code>*.csv</code>, <code>*.tsv</code>, <code>*.ipynb</code>, <code>*.svg</code></td>
+</tr>
+</tbody>
+</table>
+<p>Only what the commit carries exempts a file. <code>$GIT_DIR/info/attributes</code>, <code>core.attributesFile</code> and the system attributes file are not read, and an unstaged edit to <code>.gitattributes</code> or to <code>.file-size-exempt</code> exempts nothing.</p>
+<h2 id="exempting-more-paths">Exempting more paths</h2>
+<p>A project lists more paths in <code>.file-size-exempt</code> at the top of the repository, one pattern per line, gitignore style, and commits it. Only the staged copy counts: when the unstaged changes of a tracked list name a refused file, the refusal says to stage the list (<code>git add .file-size-exempt</code>). This repository lists <code>documentation/</code>, the rendered pages.</p>
+<h3 id="a-sample-list">A sample list</h3>
+<div class="codehilite"><pre><span></span><code># The rendered docs site
+documentation/
+# One generated client, at the top of the repository only
+/src/api/client.ts
+*.generated.sql
+fixtures/**/*.txt
+</code></pre></div>
+
+<h3 id="pattern-syntax">Pattern syntax</h3>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Matches</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>A file or folder of that name at any depth</td>
+</tr>
+<tr>
+<td><code>name/</code></td>
+<td>Only a folder of that name, and everything in it</td>
+</tr>
+<tr>
+<td><code>/name</code>, <code>src/name</code></td>
+<td>A <code>/</code> in front or in the middle anchors the pattern to the top of the repository</td>
+</tr>
+<tr>
+<td><code>*</code></td>
+<td>Any characters inside one folder or file name</td>
+</tr>
+<tr>
+<td><code>?</code></td>
+<td>One character other than <code>/</code></td>
+</tr>
+<tr>
+<td><code>[ch]</code>, <code>[a-z]</code></td>
+<td>One character of the set or range</td>
+</tr>
+<tr>
+<td><code>[!ch]</code>, <code>[^ch]</code></td>
+<td>One character not in the set</td>
+</tr>
+<tr>
+<td><code>**</code></td>
+<td>Any number of folders: <code>**/name</code>, <code>src/**</code>, <code>a/**/b</code></td>
+</tr>
+<tr>
+<td><code># text</code></td>
+<td>A comment</td>
+</tr>
+<tr>
+<td><code>!name</code></td>
+<td>Not supported: the line is skipped with a warning</td>
+</tr>
+</tbody>
+</table>
+<p>A line that is not a valid pattern, such as one with the reversed range <code>[z-a]</code>, is skipped with a warning that names its line. A list over 1,000 lines or 64,000 bytes is used up to that point, with a warning. A list staged as a link, a submodule or a folder, or that is not UTF-8 text, is not used, and the hook warns that it is not.</p>
+<h2 id="silencing-the-over-limit-warning">Silencing the over-limit warning</h2>
+<p><code>[pre-commit.file-size-over]</code> comes back each time a file that is already over the limit changes; it is not logged. To stop it, split the file under the limit. A generated, vendored or data file can instead be listed in <code>.file-size-exempt</code>, staged with the commit.</p>
+<h2 id="merges-and-the-repository-s-own-hook">Merges and the repository's own hook</h2>
+<p>After the size check, <code>pre-merge-commit</code> runs the repository's own <code>.git/hooks/pre-merge-commit</code>, and <code>.githooks/pre-merge-commit</code> only when it is the executable file the current commit has. The merge has already written the incoming branch's files to the working tree, so a merge never runs a hook it brings in; a hook skipped this way gets a one-line warning.</p>
     </div>
 
     <div class="no-results" id="no-results">

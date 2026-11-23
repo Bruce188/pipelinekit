@@ -679,6 +679,7 @@ footer {
   {"name": "Git hooks", "color": "#3b82f6", "count": "global core.hooksPath",
    "chips": [{"label": "commit-msg", "tip": "Conventional commits, no attribution or emoji"},
              {"label": "pre-commit", "tip": "gitleaks on staged changes, file size limit"},
+             {"label": "pre-merge-commit", "tip": "File size limit on merges made without conflicts"},
              {"label": "pre-push", "tip": "No pushes to main or master"}]},
   {"name": "Skills", "color": "#10b981", "count": "9 skills",
    "chips": [{"label": "dotnet-conventions"}, {"label": "deploy"}, {"label": "exchange-api-keys"},
@@ -936,7 +937,7 @@ footer {
 <h3 id="the-never-stage-list">The never-stage list</h3>
 <p><code>config/never-stage.txt</code> is the single list of paths that must not be committed. It is gitignore-style, with <code>!</code> negation, and covers env files, credentials, keys, and the local <code>docs/</code> workflow notes. <code>bash-guard.py</code> reads it. Edit the copy in <code>~/.claude/config/</code> to change it for your machine. The installer overwrites that copy on the next run, so put changes you want to keep in the repo's <code>claude/config/never-stage.txt</code>.</p>
 <h2 id="git-hooks">Git hooks</h2>
-<p><code>claude/git-hooks/</code> is installed to <code>~/.claude/git-hooks</code> and, if you agree, set as the global <code>core.hooksPath</code>. Each hook runs the repository's own <code>.git/hooks/&lt;name&gt;</code> or <code>.githooks/&lt;name&gt;</code> afterwards.</p>
+<p><code>claude/git-hooks/</code> is installed to <code>~/.claude/git-hooks</code> and, if you agree, set as the global <code>core.hooksPath</code>. Each hook runs the repository's own <code>.git/hooks/&lt;name&gt;</code> or <code>.githooks/&lt;name&gt;</code> afterwards. <code>pre-merge-commit</code> runs <code>.githooks/pre-merge-commit</code> only when it is the executable file the current commit has: the merge has already written the incoming files, so a merge never runs a hook it brings in.</p>
 <table>
 <thead>
 <tr>
@@ -965,7 +966,7 @@ footer {
 </table>
 <p>A repo with its own local <code>core.hooksPath</code> (husky, the pre-commit framework, or a manual setting) bypasses these. Run <code>git config --show-origin core.hooksPath</code> inside it to check.</p>
 <h3 id="file-size-limit">File size limit</h3>
-<p><code>pre-commit</code> and <code>pre-merge-commit</code> refuse a commit or a merge that adds a hand-written file over 1,500 lines or 50,000 bytes, or takes one past that; a file already over the limit only warns. <a href="file-size.html">File size limit</a> says what is counted, which files are exempt by default and how a project exempts more.</p>
+<p><code>pre-commit</code> and <code>pre-merge-commit</code> refuse a commit or a merge that adds a hand-written file over 1,500 lines or 50,000 bytes, or takes one past that; a file already over the limit only warns. It leaves out generated, vendored, lock and data files, and the project and designer files an IDE writes. <a href="file-size.html">File size limit</a> says what is counted, which files are exempt by default and how a project exempts more.</p>
 <h2 id="rule-ids-and-the-event-log">Rule ids and the event log</h2>
 <p>Every refusal ends with the id of its rule in square brackets, for example <code>BLOCKED: git commit --no-verify skips the git hooks [git.no-verify]</code>. The hooks also record each block, ask, override and error in an event log, and <code>/kit</code> reads it back under Activity (see <a href="#self-check">Self-check</a>).</p>
 <p>The log is <code>~/.local/state/pipelinekit/events.jsonl</code>. <code>$XDG_STATE_HOME</code> moves it as usual, and <code>PIPELINEKIT_STATE_DIR</code> names the directory outright. One line per event holds the time, the hook, the kind, the rule id, the hook's reason and, when known, the session and the working directory. The command text is never written. A reason can name the path, the branch or the name of the remote it is about. A push to a URL is recorded without the URL, and what a URL in any other reason can carry as a secret (a user and password, a query string, a fragment) is removed first, and so are control and direction characters. Only you can read the file (mode 600). At 1 MB it moves to <code>events.jsonl.1</code>, so there are never more than two files. <code>PIPELINEKIT_LOG=0</code> switches the log off. A log that cannot be written never changes what a hook decides.</p>
@@ -1193,13 +1194,13 @@ footer {
 <td><code>pre-commit.file-size</code></td>
 <td><code>pre-commit</code>, <code>pre-merge-commit</code></td>
 <td>block</td>
-<td>The commit adds a file over the <a href="file-size.html">file size limit</a> or takes one past it</td>
+<td>The commit or merge adds a file over the <a href="file-size.html">file size limit</a> or takes one past it</td>
 </tr>
 <tr>
 <td><code>pre-commit.file-size-over</code></td>
 <td><code>pre-commit</code>, <code>pre-merge-commit</code></td>
 <td>warning, not logged</td>
-<td>A file already over the limit changed; the commit goes on</td>
+<td>A file already over the limit changed; the commit or merge goes on</td>
 </tr>
 <tr>
 <td><code>pre-commit.file-size-exempt-local</code></td>
@@ -1227,7 +1228,7 @@ footer {
 </tr>
 </tbody>
 </table>
-<p>With <code>ask</code>, Claude Code prompts you instead of refusing. <code>override</code> means a human-only variable let something through. <code>error</code> means the hook could not do its job: a guard hook then refuses the command or commit, while the session-start check only steps aside.</p>
+<p>With <code>ask</code>, Claude Code prompts you instead of refusing. <code>warning, not logged</code> means the hook prints a warning and lets the commit or merge go on, with nothing in the event log. <code>override</code> means a human-only variable let something through. <code>error</code> means the hook could not do its job: a guard hook then refuses the command or commit, while the session-start check and the file size check step aside and let it through.</p>
 <h2 id="skills">Skills</h2>
 <table>
 <thead>

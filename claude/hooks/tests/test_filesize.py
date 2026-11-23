@@ -1081,10 +1081,39 @@ def test_the_upgrade_page_notes_the_file_size_refusal():
         assert words in note, words
 
 
+CATEGORIES = (
+    "generated, vendored, lock and data files, and the project and designer "
+    "files an IDE writes"
+)
+NOT_CHECKED = (
+    "`git rebase`",
+    "`git cherry-pick`",
+    "`git revert`",
+    "`git am`",
+    "`git stash`",
+)
+
+
 def upgrade_note() -> str:
     page = (REPO / "docs-source" / "upgrading.md").read_text()
     note = page[page.index("## File size limit") :]
     return note[: note.index("\n## ")]
+
+
+def test_the_docs_name_the_commands_that_are_not_checked():
+    for text in ((REPO / "docs-source" / "file-size.md").read_text(), upgrade_note()):
+        missing = [c for c in NOT_CHECKED if c not in text]
+        assert not missing, missing
+
+
+def test_the_exempt_kinds_have_one_name_everywhere():
+    for text in (
+        (REPO / "docs-source" / "file-size.md").read_text(),
+        (REPO / "docs-source" / "components.md").read_text(),
+        upgrade_note(),
+        filesize.__doc__,
+    ):
+        assert CATEGORIES in " ".join(text.split())
 
 
 # ---------------------------------------------------------------- CLAUDE.md template

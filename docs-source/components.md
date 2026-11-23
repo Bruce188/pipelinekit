@@ -27,6 +27,7 @@ The kit has six layers. Hover a chip for a one-line summary, or use the buttons 
   {"name": "Git hooks", "color": "#3b82f6", "count": "global core.hooksPath",
    "chips": [{"label": "commit-msg", "tip": "Conventional commits, no attribution or emoji"},
              {"label": "pre-commit", "tip": "gitleaks on staged changes, file size limit"},
+             {"label": "pre-merge-commit", "tip": "File size limit on merges made without conflicts"},
              {"label": "pre-push", "tip": "No pushes to main or master"}]},
   {"name": "Skills", "color": "#10b981", "count": "9 skills",
    "chips": [{"label": "dotnet-conventions"}, {"label": "deploy"}, {"label": "exchange-api-keys"},
@@ -77,7 +78,7 @@ The installer merges `claude/config/settings.template.json` into `~/.claude/sett
 
 ## Git hooks
 
-`claude/git-hooks/` is installed to `~/.claude/git-hooks` and, if you agree, set as the global `core.hooksPath`. Each hook runs the repository's own `.git/hooks/<name>` or `.githooks/<name>` afterwards.
+`claude/git-hooks/` is installed to `~/.claude/git-hooks` and, if you agree, set as the global `core.hooksPath`. Each hook runs the repository's own `.git/hooks/<name>` or `.githooks/<name>` afterwards. `pre-merge-commit` runs `.githooks/pre-merge-commit` only when it is the executable file the current commit has: the merge has already written the incoming files, so a merge never runs a hook it brings in.
 
 | Hook | What it does |
 |------|--------------|
@@ -90,7 +91,7 @@ A repo with its own local `core.hooksPath` (husky, the pre-commit framework, or 
 
 ### File size limit
 
-`pre-commit` and `pre-merge-commit` refuse a commit or a merge that adds a hand-written file over 1,500 lines or 50,000 bytes, or takes one past that; a file already over the limit only warns. [File size limit](file-size.html) says what is counted, which files are exempt by default and how a project exempts more.
+`pre-commit` and `pre-merge-commit` refuse a commit or a merge that adds a hand-written file over 1,500 lines or 50,000 bytes, or takes one past that; a file already over the limit only warns. It leaves out generated, vendored, lock and data files, and the project and designer files an IDE writes. [File size limit](file-size.html) says what is counted, which files are exempt by default and how a project exempts more.
 
 ## Rule ids and the event log
 
@@ -135,14 +136,14 @@ The log is `~/.local/state/pipelinekit/events.jsonl`. `$XDG_STATE_HOME` moves it
 | `pre-commit.secret` | `pre-commit` | block | gitleaks found a secret in the staged changes |
 | `pre-commit.gitleaks-failed` | `pre-commit` | error | gitleaks itself failed |
 | `pre-commit.allow-secret` | `pre-commit` | override | `PIPELINEKIT_ALLOW_SECRET=1` skipped the scan |
-| `pre-commit.file-size` | `pre-commit`, `pre-merge-commit` | block | The commit adds a file over the [file size limit](file-size.html) or takes one past it |
-| `pre-commit.file-size-over` | `pre-commit`, `pre-merge-commit` | warning, not logged | A file already over the limit changed; the commit goes on |
+| `pre-commit.file-size` | `pre-commit`, `pre-merge-commit` | block | The commit or merge adds a file over the [file size limit](file-size.html) or takes one past it |
+| `pre-commit.file-size-over` | `pre-commit`, `pre-merge-commit` | warning, not logged | A file already over the limit changed; the commit or merge goes on |
 | `pre-commit.file-size-exempt-local` | `pre-commit`, `pre-merge-commit` | override | A file over the limit passes only because the unstaged `.file-size-exempt` in the working tree lists it |
 | `pre-commit.file-size-failed` | `pre-commit`, `pre-merge-commit` | error | The file size check failed, so file sizes were not checked |
 | `pre-push.protected-branch` | `pre-push` | block | A push to `main` or `master` |
 | `pre-push.allow-main` | `pre-push` | override | `ALLOW_MAIN_PUSH=1` let such a push through |
 
-With `ask`, Claude Code prompts you instead of refusing. `override` means a human-only variable let something through. `error` means the hook could not do its job: a guard hook then refuses the command or commit, while the session-start check only steps aside.
+With `ask`, Claude Code prompts you instead of refusing. `warning, not logged` means the hook prints a warning and lets the commit or merge go on, with nothing in the event log. `override` means a human-only variable let something through. `error` means the hook could not do its job: a guard hook then refuses the command or commit, while the session-start check and the file size check step aside and let it through.
 
 ## Skills
 
