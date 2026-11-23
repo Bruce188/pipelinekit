@@ -9,13 +9,28 @@
 #     `git commit` concludes it after the file is split, and pre-commit checks
 #     it again. A file over the limit in either parent only warns. A check
 #     that fails warns and lets the merge through.
+#   - The merge has already written the merged files to the working tree, so
+#     .githooks/pre-merge-commit runs only when it is the executable file the
+#     current commit has: a merge never runs a hook it brings in.
 set -u
 
+committed() { # committed <path in repo> <file>: the file is the executable one HEAD has
+  local mode type sha rest
+  read -r mode type sha rest < <(git ls-tree --full-tree HEAD -- "$1" 2>/dev/null) || return 1
+  [ "$mode" = 100755 ] && [ "$type" = blob ] &&
+    [ "$sha" = "$(git hash-object --no-filters -- "$2" 2>/dev/null)" ]
+}
+
 chain() {
-  local name=$1 self h; shift
+  local name=$1 self h top; shift
   self=$(realpath "$0")
-  for h in "$(git rev-parse --git-common-dir)/hooks/$name" "$(git rev-parse --show-toplevel 2>/dev/null)/.githooks/$name"; do
+  top=$(git rev-parse --show-toplevel 2>/dev/null)
+  for h in "$(git rev-parse --git-common-dir)/hooks/$name" "$top/.githooks/$name"; do
     [ -x "$h" ] && [ "$(realpath "$h")" != "$self" ] || continue
+    if [ "$h" = "$top/.githooks/$name" ] && ! committed ".githooks/$name" "$h"; then
+      echo "$name: warning: .githooks/$name is not run: it is not the executable file the current commit has." >&2
+      continue
+    fi
     "$h" "$@" || return $?
   done
 }

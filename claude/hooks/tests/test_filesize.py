@@ -520,6 +520,44 @@ def test_a_clean_merge_runs_the_repositorys_own_pre_merge_commit(repo):
     assert repo.git("rev-parse", "-q", "--verify", "HEAD^2").returncode != 0
 
 
+def add_own_hook(repo, marker: Path) -> None:
+    hook = repo.root / ".githooks" / "pre-merge-commit"
+    hook.parent.mkdir(exist_ok=True)
+    hook.write_text(f"#!/bin/sh\ntouch '{marker}'\n")
+    hook.chmod(0o755)
+    assert repo.git("add", ".githooks").returncode == 0
+
+
+def test_a_clean_merge_does_not_run_a_pre_merge_commit_it_brings_in(repo, tmp_path):
+    marker = tmp_path / "hook-ran"
+    repo.write("base.py", text(10))
+    repo.commit_unchecked()
+    assert repo.git("checkout", "-q", "-b", "other").returncode == 0
+    add_own_hook(repo, marker)
+    repo.commit_unchecked("feat: add a hook")
+    assert repo.git("checkout", "-q", "feat").returncode == 0
+    repo.write("ours.py", text(10))
+    repo.commit_unchecked()
+    p = merge(repo)
+    assert p.returncode == 0, p.stderr
+    assert not marker.exists()
+    assert (
+        "pre-merge-commit: warning: .githooks/pre-merge-commit is not run: it is "
+        "not the executable file the current commit has."
+    ) in p.stderr.splitlines()
+
+
+def test_a_clean_merge_runs_the_committed_githooks_pre_merge_commit(repo, tmp_path):
+    marker = tmp_path / "hook-ran"
+    grow_on_both_sides(repo, 50, 50)
+    add_own_hook(repo, marker)
+    repo.commit_unchecked("feat: add a hook")
+    p = merge(repo)
+    assert p.returncode == 0, p.stderr
+    assert marker.exists()
+    assert "is not run" not in p.stderr
+
+
 # ---------------------------------------------------------------- not counted
 
 
