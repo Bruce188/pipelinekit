@@ -25,10 +25,11 @@ AREA_NOTE = (
     "next round"
 )
 NAME_NOTE = (
-    "note: area {name} in map.md cannot be a file name (no / or \\, no two spaces "
-    "in a row, no tab, combining mark or other character that does not show, at "
-    "most 80 characters); rename it in map.md, then write areas/<new name>.md"
+    "note: area {name} in map.md cannot be a file name (only letters, digits, '.', "
+    "'_', '-' and single spaces, at most 80 characters); rename it in map.md, then "
+    "write areas/<new name>.md"
 )
+AREA_NAME = re.compile(r"[A-Za-z0-9._-]+( [A-Za-z0-9._-]+)*")
 WAIT_NOTE = (
     "note: {items} {verb} for the user. Ask in one batch and record the answers "
     "(questions.md, loop.py settle) before the judges run."
@@ -174,19 +175,19 @@ def area_names(loop):
 def missing_area_notes(loop):
     """One note per area of map.md without its areas/<name>.md, while unfinished.
 
-    An area whose name cannot be a file name gets a note to rename it instead.
+    An area whose name is not plain (AREA_NAME, at most 80 characters) gets a
+    note to rename it instead, the name shown with every odd character a '?'.
     A warning only: it never refuses and changes no exit code.
     """
     if loop.st["outcome"] not in UNFINISHED:
         return []
     notes = []
     for name in area_names(loop):
-        shown = clean(name, 80)
-        rel = f"areas/{name}.md"
-        usable = shown == name and not any(c in name for c in "/\\") and len(name) <= 80
-        if not usable:
-            notes.append(NAME_NOTE.format(name=shown))
+        if len(name) > 80 or not AREA_NAME.fullmatch(name):
+            notes.append(NAME_NOTE.format(name=shown_value(name)))
             continue
+        shown = name
+        rel = f"areas/{name}.md"
         try:
             found = os.path.isfile(loop.path(rel))
         except (Exit, OSError):
