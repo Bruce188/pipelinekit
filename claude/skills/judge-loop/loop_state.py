@@ -578,6 +578,16 @@ class Loop:
         self.st = st
         return st
 
+    def keep_items(self, results=False):
+        """The next step that keeps the open items after a refused save;
+        results says the refused round's results are stored in judge/."""
+        rel = show_path(self.rel)
+        kept = f" (the refused round's results stay in {rel}/judge/)" if results else ""
+        return (
+            "loop.py abandon, then loop.py leftovers --dir to keep the open items"
+            f"{kept}, then move the folder {rel} away and loop.py start again."
+        )
+
     def check_size(self, after=None):
         """The state as save writes it; refused when load could not read it back.
 
@@ -587,11 +597,7 @@ class Loop:
         data = (json.dumps(self.st, indent=1, sort_keys=True) + "\n").encode("utf-8")
         if len(data) > MAX_STATE:
             rel = show_path(self.rel)
-            after = after or (
-                "loop.py abandon, then loop.py leftovers --dir to keep the open "
-                f"items (the refused round's results stay in {rel}/judge/), then "
-                f"move the folder {rel} away and loop.py start again."
-            )
+            after = after or self.keep_items()
             raise Exit(
                 2,
                 f"Error: the new {rel}/state.json would be {len(data):,} bytes, over "

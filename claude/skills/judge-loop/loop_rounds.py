@@ -721,9 +721,10 @@ def cmd_round(args):
     check_work(loop)
     results = stored_results(loop, st["pending"]["round"])
     earlier = count_round(loop, results)
-    loop.check_size()
+    after = loop.keep_items(results=True)
+    loop.check_size(after)
     write_scorecard(loop)
-    loop.save()
+    loop.save(after)
     say(progress_line(st))
     say(scorecard_line(st, st["rounds"][-1]))
     outcome = st["outcome"]

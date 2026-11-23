@@ -116,6 +116,10 @@ TOO_BIG = (
     "user; {next}"
 )
 KEEP_ITEMS = (
+    "loop.py abandon, then loop.py leftovers --dir to keep the open items, then "
+    f"move the folder {FOLDER} away and loop.py start again."
+)
+KEEP_ROUND_ITEMS = (
     "loop.py abandon, then loop.py leftovers --dir to keep the open items (the "
     f"refused round's results stay in {FOLDER}/judge/), then move the folder "
     f"{FOLDER} away and loop.py start again."
@@ -161,7 +165,9 @@ def test_a_state_of_exactly_the_limit_is_saved_and_one_byte_more_is_not(sb):
     run = sb.run("round")
     assert (run.code, run.last) == (
         2,
-        TOO_BIG.format(folder=FOLDER, size=size, limit=size - 1, next=KEEP_ITEMS),
+        TOO_BIG.format(
+            folder=FOLDER, size=size, limit=size - 1, next=KEEP_ROUND_ITEMS
+        ),
     ), run
     assert files_of(folder) == before
     limit_state(sb, size)
@@ -178,6 +184,7 @@ def test_a_settle_too_big_to_save_writes_nothing(sb):
     run = sb.run("settle", "general", "I1", "--note", "not needed")
     assert run.code == 2, run
     assert run.last.endswith(f"Next: tell the user; {KEEP_ITEMS}"), run
+    assert "refused round" not in run.last, run
     assert files_of(folder) == before
 
 
@@ -190,6 +197,7 @@ def test_a_brief_too_big_to_save_writes_nothing(sb):
     run = sb.run("brief")
     assert run.code == 2, run
     assert run.last.endswith(f"Next: tell the user; {KEEP_ITEMS}"), run
+    assert "refused round" not in run.last, run
     assert files_of(folder) == before
 
 
@@ -204,6 +212,7 @@ def test_a_rebrief_too_big_to_save_leaves_the_old_round_in_place(sb):
     run = sb.run("brief", "--fix-tokens", "1000")
     assert run.code == 2, run
     assert run.last.endswith(f"Next: tell the user; {KEEP_ITEMS}"), run
+    assert "refused round" not in run.last, run
     assert not any(line.startswith("The work changed") for line in run.lines), run
     assert files_of(folder) == before
     assert not (folder / "judge" / "stale").exists()
@@ -216,7 +225,7 @@ def test_a_state_too_big_to_save_keeps_its_open_items(sb):
     limit_state(sb, len(before))
     run = sb.run("round")
     assert run.code == 2, run
-    assert run.last.endswith(f"Next: tell the user; {KEEP_ITEMS}"), run
+    assert run.last.endswith(f"Next: tell the user; {KEEP_ROUND_ITEMS}"), run
     assert state.read_bytes() == before
     assert sb.run("status").code == 0
     assert f" (the refused round's results stay in {FOLDER}/judge/), " in run.last
@@ -758,6 +767,7 @@ def test_an_agents_folder_that_cannot_be_looked_at(sb, mode):
     else:
         assert (run.code, run.last) == (3, CANNOT_CHECK.format(rel=".claude/agents"))
         assert not (sb.loopdir() / "state.json").exists()
+
 
 
 UNCHECKED_AGENTS = [
