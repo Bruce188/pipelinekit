@@ -31,6 +31,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 try:
     from ship_gates import *
+    from ship_links import after_merge
 except ImportError as e:  # a module missing or broken in the install
     print(
         f"ship.py: cannot load its modules ({e}); install the kit again",
@@ -407,8 +408,11 @@ def finish(args, repo, pr):
         print(f"Not merged: gh pr merge failed: {why}.{undrafted}")
         return EXIT_FAIL
     done = f"Merged #{number} into {base} ({method}) at {short(repo.head)}."
+    notes = after_merge(repo, pr)
     if not args.stay:
         done = f"{done} {update_base(repo, base)}"
+    for line in notes:
+        print(line)
     print(done)
     return 0
 

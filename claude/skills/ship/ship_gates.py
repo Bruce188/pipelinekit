@@ -20,6 +20,7 @@ except ImportError:  # before Python 3.11
 
 from ship_base import *
 from ship_judged import judged_gate
+from ship_links import linked_gate
 
 # ---------------------------------------------------------------- gates
 
@@ -890,6 +891,7 @@ def evaluate(repo, pr, no_checks_ok=False):
             skipped("own"),
             policy_gate(repo),
             skipped("release"),
+            skipped("linked"),
             skipped("review"),
             skipped("current"),
             skipped("up-to-date"),
@@ -904,6 +906,7 @@ def evaluate(repo, pr, no_checks_ok=False):
         own_gate(repo, pr),
         policy_gate(repo, pr),
         release_gate(repo, pr),
+        linked_gate(repo, pr),
         review_gate(pr),
         current_gate(repo, pr),
         up_to_date,

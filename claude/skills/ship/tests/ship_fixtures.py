@@ -37,7 +37,14 @@ with open(os.path.join(d, "calls.jsonl"), "a") as f:
 with open(os.path.join(d, "state.json")) as f:
     state = json.load(f)
 kind = args[:2]
-if kind == ["pr", "view"] and "pr_raw" in state:
+if kind == ["pr", "view"] and "body,closingIssuesReferences" in args:
+    if state.get("links_error"):
+        sys.exit(state["links_error"])
+    seq = state.get("pr_sequence")
+    pr = state.get("links") or (seq[-1] if seq else state.get("pr")) or {}
+    keys = ("body", "closingIssuesReferences")
+    print(json.dumps({k: pr.get(k) for k in keys if k in pr}))
+elif kind == ["pr", "view"] and "pr_raw" in state:
     print(state["pr_raw"])
 elif kind == ["pr", "view"]:
     counter = os.path.join(d, "views")
@@ -74,6 +81,32 @@ elif kind == ["pr", "merge"]:
     if state.get("on_merge"):
         import subprocess
         subprocess.run(state["on_merge"], check=True)
+elif kind == ["pr", "list"] and "--head" in args:
+    if state.get("release_error"):
+        sys.exit(state["release_error"])
+    print(json.dumps(state.get("release_prs", [])))
+elif kind == ["pr", "edit"]:
+    if state.get("edit_error"):
+        sys.exit(state["edit_error"])
+    with open(args[args.index("--body-file") + 1], encoding="utf-8") as f:
+        body = f.read()
+    with open(os.path.join(d, "edits.jsonl"), "a") as f:
+        f.write(json.dumps({"number": args[2], "body": body}) + "\n")
+elif kind == ["issue", "view"]:
+    if state.get("issue_error"):
+        sys.exit(state["issue_error"])
+    n = args[2]
+    value = state.get("issues", {}).get(n)
+    if value is None:
+        sys.exit("GraphQL: Could not resolve to an issue or pull request with "
+                 "the number of " + n + ".")
+    if isinstance(value, list):
+        counter = os.path.join(d, "issue_" + n)
+        k = int(open(counter).read()) if os.path.exists(counter) else 0
+        with open(counter, "w") as f:
+            f.write(str(k + 1))
+        value = value[min(k, len(value) - 1)]
+    print(json.dumps({"state": value}))
 elif kind == ["pr", "list"]:
     if state.get("list_error"):
         sys.exit(state["list_error"])
@@ -91,6 +124,12 @@ def check(name, conclusion="SUCCESS", status="COMPLETED"):
         "conclusion": conclusion,
         "detailsUrl": "https://github.com/o/r/actions/runs/42/job/1",
     }
+
+
+def ref(number, repo="o/r"):
+    """An issue in closingIssuesReferences."""
+    owner, name = repo.split("/")
+    return {"number": number, "repository": {"name": name, "owner": {"login": owner}}}
 
 
 class Sandbox:
@@ -164,6 +203,8 @@ class Sandbox:
             "mergeable": "MERGEABLE",
             "mergeStateStatus": "DRAFT",
             "statusCheckRollup": [check("lint"), check("selftests")],
+            "body": "Closes #1",
+            "closingIssuesReferences": [ref(1)],
         }
         pr.update(over)
         return pr
@@ -180,7 +221,12 @@ class Sandbox:
         return repo
 
     def state(self, **over):
-        state = {"user": "me", "repo": self.repo(), "pr": self.pr()}
+        state = {
+            "user": "me",
+            "repo": self.repo(),
+            "pr": self.pr(),
+            "issues": {"1": "CLOSED"},
+        }
         state.update(over)
         (self.fake / "state.json").write_text(json.dumps(state))
 
@@ -204,6 +250,13 @@ class Sandbox:
             return []
         return [json.loads(line) for line in log.read_text().splitlines()]
 
+    def edits(self):
+        """The bodies `gh pr edit` was given: [{"number", "body"}]."""
+        log = self.fake / "edits.jsonl"
+        if not log.exists():
+            return []
+        return [json.loads(line) for line in log.read_text().splitlines()]
+
     def calls(self, kind):
         return [row for row in self.all_calls() if row[:2] == kind.split()]
 
@@ -213,7 +266,10 @@ class Sandbox:
         start = rows.index(["pr", "ready", "7"])
         merges = [i for i, row in enumerate(rows) if row[:2] == ["pr", "merge"]]
         stop = merges[0] if merges else len(rows)
-        return sum(row[:2] == ["pr", "view"] for row in rows[start:stop])
+        return sum(
+            row[:2] == ["pr", "view"] and "body,closingIssuesReferences" not in row
+            for row in rows[start:stop]
+        )
 
     def workflow(self, text="on: [push, pull_request]\n"):
         path = self.work / ".github" / "workflows" / "ci.yml"

@@ -119,7 +119,7 @@ grep -qx '## Plan, build, judge' "$CLAUDE_HOME/CLAUDE.md"
 # The helper starts from its installed place and says why it cannot go on.
 (cd "$T" && python3 "$CLAUDE_HOME/skills/ship/ship.py" status --exit-zero | grep -q 'not inside a git repository')
 # Its modules come along, and running it leaves no cache file in the install.
-for f in ship_base.py ship_gates.py; do test -f "$CLAUDE_HOME/skills/ship/$f"; done
+for f in ship_base.py ship_gates.py ship_links.py; do test -f "$CLAUDE_HOME/skills/ship/$f"; done
 test ! -e "$CLAUDE_HOME/skills/ship/__pycache__"
 test ! -e "$CLAUDE_HOME/skills/commit-conventions"
 test ! -e "$CLAUDE_HOME/skills/expo"

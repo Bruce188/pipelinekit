@@ -29,6 +29,7 @@ def test_status_lists_every_gate_with_its_reason(sb):
         "own",
         "policy",
         "release",
+        "linked",
         "review",
         "current",
         "up-to-date",
@@ -38,6 +39,7 @@ def test_status_lists_every_gate_with_its_reason(sb):
     ):
         assert f" {name} " in done.stdout
     assert "no test record" in done.stdout
+    assert "  ok    linked      closes #1 on the merge into main\n" in done.stdout
     assert "Result: not ready (judged, tested)" in done.stdout
 
 
