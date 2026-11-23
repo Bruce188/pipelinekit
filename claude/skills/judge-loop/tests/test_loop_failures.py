@@ -770,6 +770,55 @@ def test_an_agents_folder_that_cannot_be_looked_at(sb, mode):
 
 
 
+KIT_UNCHECKED = [
+    "a linked agents folder",
+    "a file gone after the listing",
+    "a link",
+    "a linked folder",
+    "a file over 64 kB",
+]
+
+
+@pytest.mark.parametrize("how", KIT_UNCHECKED)
+def test_kit_agents_stop_at_what_they_cannot_check(sb, how):
+    """Every path the agent check cannot look into stops the kit mode with the
+    line that names it."""
+    agents = sb.root / ".claude" / "agents"
+    outside = sb.tmp / "outside"
+    outside.mkdir()
+    (outside / "helper.md").write_text("---\nname: helper\n---\n")
+    rel = ".claude/agents/x.md"
+    if how == "a linked agents folder":
+        agents.parent.mkdir(parents=True)
+        agents.symlink_to(outside)
+        rel = ".claude/agents"
+    elif how == "a link":
+        agents.mkdir(parents=True)
+        (sb.root / rel).symlink_to(outside / "helper.md")
+    elif how == "a linked folder":
+        agents.mkdir(parents=True)
+        (agents / "sub").symlink_to(outside)
+        rel = ".claude/agents/sub"
+    elif how == "a file over 64 kB":
+        sb.write(rel, "x" * (64 * 1024 + 1))
+    else:
+        sb.write(rel, "---\nname: helper\n---\n")
+    sb.change()
+    real = os.lstat
+
+    def lstat(path, *args, **kwargs):
+        if os.fspath(path).endswith(os.path.join("agents", "x.md")):
+            raise FileNotFoundError(2, "No such file or directory", os.fspath(path))
+        return real(path, *args, **kwargs)
+
+    if how == "a file gone after the listing":
+        sb.mp.setattr(os, "lstat", lstat)
+    run = sb.run("start", "build")
+    sb.mp.setattr(os, "lstat", real)
+    assert (run.code, run.last) == (3, CANNOT_CHECK.format(rel=rel)), run
+    assert not (sb.loopdir() / "state.json").exists()
+
+
 UNCHECKED_AGENTS = [
     "an unreadable name",
     "a link",
