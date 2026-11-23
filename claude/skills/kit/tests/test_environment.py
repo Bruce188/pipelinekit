@@ -311,3 +311,20 @@ def test_check_py_reports_the_new_lines(tmp_path, gh, playwright, npx):
         [level] = [lvl for msg, lvl in text.items() if msg.startswith(start)]
         assert level == "info"
     assert SECRET not in p.stdout
+
+
+def test_check_py_runs_without_check_tools(tmp_path):
+    # An install that lost check_tools.py still gets its report.
+    alone = tmp_path / "kit"
+    alone.mkdir()
+    (alone / "check.py").write_text((KIT / "check.py").read_text())
+    env = dict(os.environ, CLAUDE_HOME=str(tmp_path / "nohome"))
+    p = subprocess.run(
+        [sys.executable, str(alone / "check.py"), "--quick", "--json", "--exit-zero"],
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=tmp_path,
+    )
+    assert p.returncode == 0, p.stdout + p.stderr
+    assert json.loads(p.stdout)["mode"] == "quick"
