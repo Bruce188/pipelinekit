@@ -230,8 +230,9 @@ fi
 
 # A home a permission pattern cannot hold (a space), or a relative one: a
 # warning, and the installed skill is the kit's own, naming ~/.claude.
-# The relative home does not pass verify (its hook commands are relative), so
-# the install is checked to run to its end; its exit code is in ODD_RC.
+# The relative home does not pass verify (no hook starts from a relative
+# path), so the install is checked to run to its end; its exit code is in
+# ODD_RC.
 odd_home() { # odd_home <CLAUDE_HOME> <its absolute path> <case>
   ODD_RC=0
   (cd "$T" && CLAUDE_HOME="$1" PIPELINEKIT_GIT_HOOKS=0 bash "$REPO_ROOT/scripts/install.sh" --no-serena) >"$T/$3.out" 2>&1 || ODD_RC=$?
