@@ -25,7 +25,7 @@ Each of these was dropped because a built-in Claude Code feature covers it.
 | `vercel-ops`, `railway-ops`, `render-ops`, `digitalocean-ops`, `azure-ops` and the per-provider deployment agents | The `deploy` skill |
 | caveman, model overlays, `modes/`, `rules/`, host adapters | Dropped with no replacement |
 
-The judge loop is not the old pipeline back. It is one helper, three agents and a rule, and the kit keeps it because Claude Code ships no judge on a second model that scores a plan or a build, within a round budget, until it reaches 10.
+The judge loop is not the old pipeline back. It is one helper, three agents, a rule and a merge gate, and the kit keeps it because Claude Code ships no judge on a second model that scores a plan or a build, within a round budget, until it reaches 10.
 
 The [CHANGELOG](https://github.com/Bruce188/pipelinekit/blob/main/CHANGELOG.md) lists every removed file.
 

@@ -116,23 +116,26 @@ done
 find "$CLAUDE_HOME/skills" -name __pycache__ -type d -prune -exec rm -rf {} +
 chmod +x "$CLAUDE_HOME/skills/kit/check.py" "$CLAUDE_HOME/skills/ship/ship.py" \
   "$CLAUDE_HOME/skills/judge-loop/loop.py"
-# judge-loop in another home: the skill names its helper as ~/.claude/...;
-# from another home that path is wrong, so the installed copy names this home
+# judge-loop in another home: the judge-loop and ship skills name its helper as
+# ~/.claude/...; from another home that path is wrong, so the installed copies
+# name this home
 # instead, right after the copy (an install that stops later still leaves a
 # skill that names its home) and before the manifest hashes it. Only an
 # absolute path that a permission pattern can hold is written in.
 if [[ "$CLAUDE_HOME" != "$HOME/.claude" ]]; then
   if [[ "$CLAUDE_HOME" =~ ^/[A-Za-z0-9._/@+-]+$ ]]; then
-    python3 - "$CLAUDE_HOME/skills/judge-loop/SKILL.md" "$CLAUDE_HOME" <<'PY'
+    python3 - "$CLAUDE_HOME" "$CLAUDE_HOME/skills/judge-loop/SKILL.md" \
+      "$CLAUDE_HOME/skills/ship/SKILL.md" <<'PY'
 import sys
-path, home = sys.argv[1], sys.argv[2].rstrip("/")
-with open(path, encoding="utf-8") as f:
-    s = f.read()
-with open(path, "w", encoding="utf-8") as f:
-    f.write(s.replace("~/.claude/", home + "/"))
+home = sys.argv[1].rstrip("/")
+for path in sys.argv[2:]:
+    with open(path, encoding="utf-8") as f:
+        s = f.read()
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(s.replace("~/.claude/", home + "/"))
 PY
   else
-    warn "judge-loop: CLAUDE_HOME is not an absolute path a permission pattern can hold; the skill still names ~/.claude and will not find loop.py from this home: install into an absolute path of letters, digits and ._/@+-"
+    warn "judge-loop: CLAUDE_HOME is not an absolute path a permission pattern can hold; the judge-loop and ship skills still name ~/.claude and will not find loop.py from this home: install into an absolute path of letters, digits and ._/@+-"
   fi
 fi
 # agents/ is the user's folder too: only the kit's three files are touched. A

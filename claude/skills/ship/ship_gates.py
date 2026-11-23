@@ -19,18 +19,9 @@ except ImportError:  # before Python 3.11
     tomllib = None
 
 from ship_base import *
+from ship_judged import judged_gate
 
 # ---------------------------------------------------------------- gates
-
-
-def gate(name, state, detail, stop=False, hints=()):
-    return {
-        "gate": name,
-        "state": state,
-        "detail": detail,
-        "stop": bool(stop and state == "fail"),
-        "hints": list(hints),
-    }
 
 
 def skipped(name):
@@ -902,6 +893,7 @@ def evaluate(repo, pr, no_checks_ok=False):
             skipped("review"),
             skipped("current"),
             skipped("up-to-date"),
+            judged_gate(repo, repo.head, ""),
             tested_gate(repo, repo.head),
             skipped("ci"),
         ]
@@ -915,6 +907,7 @@ def evaluate(repo, pr, no_checks_ok=False):
         review_gate(pr),
         current_gate(repo, pr),
         up_to_date,
+        judged_gate(repo, pr.get("headRefOid") or "", pr.get("baseRefName") or ""),
         tested_gate(repo, pr.get("headRefOid") or ""),
         ci_gate(pr, repo.expects_checks() and not no_checks_ok),
     ]

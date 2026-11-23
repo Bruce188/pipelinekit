@@ -68,6 +68,17 @@ kit used to ship, so those parts are gone.
   fixed and tested again, and `claude/skills/ship/ship.py` merges once every
   gate holds: own pull request, not a release, no required review, branch up
   to date, a passed test for exactly this commit, green CI.
+- A `judged` gate, before `tested`: the branch's build loop must have ended
+  in 10, a used budget or the user's accept on the head or an earlier commit
+  of the branch, or a skip must be recorded for the head. A loop waiting for
+  the user stops the merge (exit 3). `Judge loop: off` on the base branch or
+  in the user-level `CLAUDE.md` passes and names where the line stands. The
+  ship skill and the `CLAUDE.md` template judge the build before the
+  acceptance test; the skill and the docs state the limits of a local record.
+- Upgrading: after the update an open branch without a record shows
+  `judged FAIL no judge record ...`. Work built before the update is recorded
+  with `loop.py skip --reason "built before the judge loop" --user-ok`, after
+  asking the user.
 - Release pull requests, tags, publishing, other people's pull requests and
   anything behind branch protection stay with the user. A project opts out
   with the line `Merges: ask first` in its `CLAUDE.md`.

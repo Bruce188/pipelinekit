@@ -224,13 +224,20 @@ fi
 # The session-start check names /kit once a hook is broken.
 echo '{}' | "$CLAUDE_HOME/hooks/session-check.py" | grep -q 'Run /kit for the report'
 
-# Another CLAUDE_HOME: the judge-loop skill names the helper by that home's path,
-# and the self-check sees the rewritten file as the installed one.
+# Another CLAUDE_HOME: the judge-loop and ship skills name the helper by that
+# home's path, and the self-check sees the rewritten files as the installed ones.
 KH="$HOME/kit-home"
 CLAUDE_HOME="$KH" PIPELINEKIT_GIT_HOOKS=0 bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$T/kit-home.out" 2>&1
 grep -qxF "allowed-tools: Bash(python3 $KH/skills/judge-loop/loop.py *)" "$KH/skills/judge-loop/SKILL.md"
 if grep -qF '.claude/skills/judge-loop' "$KH/skills/judge-loop/SKILL.md"; then
   echo "test_install: the skill still names the default home" >&2; exit 1
+fi
+grep -qF "Bash(python3 $KH/skills/judge-loop/loop.py *)" "$KH/skills/ship/SKILL.md" ||
+  { echo "test_install: the ship skill does not name loop.py in this home" >&2; exit 1; }
+grep -qF "python3 $KH/skills/judge-loop/loop.py <command>" "$KH/skills/ship/SKILL.md" ||
+  { echo "test_install: the ship skill's command form names another home" >&2; exit 1; }
+if grep -qF '.claude/skills/judge-loop' "$KH/skills/ship/SKILL.md"; then
+  echo "test_install: the ship skill still names the default home" >&2; exit 1
 fi
 report="$(CLAUDE_HOME="$KH" python3 "$KH/skills/kit/check.py" --no-remote --verbose || true)"
 grep -qF 'unchanged since install' <<<"$report" ||
@@ -252,6 +259,8 @@ odd_home() { # odd_home <CLAUDE_HOME> <its absolute path> <case>
     { echo "test_install: no warning for the $3 home" >&2; exit 1; }
   cmp -s "$REPO_ROOT/claude/skills/judge-loop/SKILL.md" "$2/skills/judge-loop/SKILL.md" ||
     { echo "test_install: the skill was rewritten for the $3 home" >&2; exit 1; }
+  cmp -s "$REPO_ROOT/claude/skills/ship/SKILL.md" "$2/skills/ship/SKILL.md" ||
+    { echo "test_install: the ship skill was rewritten for the $3 home" >&2; exit 1; }
 }
 odd_home "$HOME/kit home" "$HOME/kit home" space
 odd_home rel-home "$T/rel-home" relative
@@ -265,6 +274,8 @@ if CLAUDE_HOME="$KB" PIPELINEKIT_GIT_HOOKS=0 bash "$REPO_ROOT/scripts/install.sh
 fi
 grep -qxF "allowed-tools: Bash(python3 $KB/skills/judge-loop/loop.py *)" "$KB/skills/judge-loop/SKILL.md" ||
   { echo "test_install: the stopped install left the skill naming ~/.claude" >&2; exit 1; }
+grep -qF "Bash(python3 $KB/skills/judge-loop/loop.py *)" "$KB/skills/ship/SKILL.md" ||
+  { echo "test_install: the stopped install left the ship skill naming ~/.claude" >&2; exit 1; }
 
 # frontend-design: a folder of that name that the kit did not install. Each case
 # runs in its own throwaway home below $T.

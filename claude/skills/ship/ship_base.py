@@ -394,6 +394,16 @@ def run(cmd, cwd=None, timeout=60):
     return p.returncode, p.stdout.strip(), p.stderr.strip()
 
 
+def gate(name, state, detail, stop=False, hints=()):
+    return {
+        "gate": name,
+        "state": state,
+        "detail": detail,
+        "stop": bool(stop and state == "fail"),
+        "hints": list(hints),
+    }
+
+
 def slug(branch):
     return re.sub(r"[^A-Za-z0-9._-]+", "-", branch).strip("-") or "branch"
 
