@@ -113,6 +113,26 @@ def test_python_tests_that_assert_nothing_are_listed_by_file_and_line(sb):
     assert ("Pruning", "Tests that assert nothing") in [f[2:] for f in findings(text)]
 
 
+def evidence(sb, key):
+    return next(f["evidence"] for f in sb.scan_json()["findings"] if f["key"] == key)
+
+
+def test_the_evidence_counts_every_test_past_the_listed_ones(sb):
+    sb.write("pyproject.toml", "[project]\nname = 'x'\n")
+    sb.write("tests/test_a.py", "".join(f"def test_{n}(): pass\n" for n in range(25)))
+    assert evidence(sb, "pruning.no-assert") == (
+        "25 Python test functions without an assertion: tests/test_a.py:1 and 24 more"
+    )
+
+
+def test_the_evidence_counts_every_skip_marker_past_the_listed_ones(sb):
+    sb.write("Cargo.toml", "[package]\nname = 'x'\n")
+    sb.write("tests/a.rs", "#[ignore]\n" * 25)
+    assert evidence(sb, "pruning.skipped") == (
+        "25 skip markers: tests/a.rs:1 and 24 more"
+    )
+
+
 def test_a_test_file_that_does_not_parse_is_counted(sb):
     sb.write("pyproject.toml", "[project]\nname = 'x'\n")
     sb.write("tests/test_broken.py", "def test_x(:\n")

@@ -242,9 +242,10 @@ def scan_pruning(project, stack_names):
     }
 
 
-def where(items):
+def where(items, total):
+    """The first listed place and how many more there are in all."""
     first = items[0]
-    rest = len(items) - 1
+    rest = total - 1
     return f"{first['file']}:{first['line']}" + (f" and {rest} more" if rest else "")
 
 
@@ -253,7 +254,9 @@ def prune_findings(pruning):
     total = pruning["no_assert_total"]
     if total:
         place = (
-            where(pruning["no_assert"]) if pruning["no_assert"] else "names not shown"
+            where(pruning["no_assert"], total)
+            if pruning["no_assert"]
+            else "names not shown"
         )
         out.append(
             {
@@ -270,7 +273,11 @@ def prune_findings(pruning):
         )
     total = pruning["skipped_total"]
     if total:
-        place = where(pruning["skipped"]) if pruning["skipped"] else "names not shown"
+        place = (
+            where(pruning["skipped"], total)
+            if pruning["skipped"]
+            else "names not shown"
+        )
         out.append(
             {
                 "key": "pruning.skipped",
