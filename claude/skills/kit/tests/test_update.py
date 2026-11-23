@@ -74,6 +74,7 @@ def template(tmp_path_factory):
         "PIPELINEKIT_UPDATE_CHECK",
         "CLAUDE_INSTALL_SKIP_SERENA",
         "XDG_STATE_HOME",
+        "GH_CONFIG_DIR",
     ):
         env.pop(k, None)
     run_git(env, live, "init", "-q", "--bare", "-b", "main", str(origin))
@@ -118,12 +119,12 @@ class Kit:
         data.update(change)
         path.write_text(json.dumps(data, indent=2))
 
-    def update(self, *args):
+    def update(self, *args, env=None):
         p = subprocess.run(
             [sys.executable, str(self.script), *args],
             capture_output=True,
             text=True,
-            env=self.env,
+            env=dict(self.env, **(env or {})),
             cwd=self.live,
         )
         out = p.stdout + p.stderr
@@ -393,14 +394,27 @@ def test_an_installer_that_fails_after_its_work_is_not_called_a_clean_update(kit
     assert BY_HAND.format(work=kit.work) in out.splitlines()
 
 
-def test_a_warning_in_the_new_install_is_not_called_healthy(kit):
+def test_a_warning_in_the_new_install_is_not_called_healthy(kit, tmp_path):
+    # The warning: the Bash sandbox is on while the kit denies the gh login
+    # file. The self-check gives it only when gh is on PATH, so the test puts
+    # one there instead of counting on the machine's (a sandboxed session may
+    # not have it on PATH).
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "gh").write_text("#!/bin/sh\necho 'gh version 2.0.0 (test)'\n")
+    (bin_dir / "gh").chmod(0o755)
     path = kit.home / "settings.json"
     settings = json.loads(path.read_text())
     settings["sandbox"] = {"enabled": True}
     path.write_text(json.dumps(settings, indent=2))
     old = kit.head()
     new = kit.push("feat: version nine", bump_version)
-    rc, out, last = kit.update("apply", "--to", new)
+    rc, out, last = kit.update(
+        "apply",
+        "--to",
+        new,
+        env={"PATH": f"{bin_dir}{os.pathsep}{kit.env['PATH']}"},
+    )
     assert rc == 0, out
     assert last == (
         f"Updated {old[:7]} -> {new[:7]}. Self-check: working, 1 warning, run /kit."
