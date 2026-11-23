@@ -193,14 +193,14 @@ grep -qF 'backed up CLAUDE.md' "$T/install5.out"
 if grep -qF 'had the line' "$T/install5.out"; then
   echo "test_install: a switch-line warning for judges: mid-sentence" >&2; exit 1
 fi
-# The two other keys: the first behind a byte order mark, the second numbered.
-printf '\xef\xbb\xbfJudge loop: off\n\n1. Judges: tests\n' > "$CLAUDE_HOME/CLAUDE.md"
+# The other keys: the first behind a byte order mark, the second numbered.
+printf '\xef\xbb\xbfJudge loop: off\n\n1. Judges: tests\n- Stacks: off\n' > "$CLAUDE_HOME/CLAUDE.md"
 bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$T/install6.out" 2>&1
-for key in 'Judge loop:' 'Judges:'; do
+for key in 'Judge loop:' 'Judges:' 'Stacks:'; do
   grep -qF "had the line '$key'" "$T/install6.out" ||
     { echo "test_install: no warning for the line '$key'" >&2; exit 1; }
 done
-[ "$(grep -c 'had the line' "$T/install6.out")" -eq 2 ] ||
+[ "$(grep -c 'had the line' "$T/install6.out")" -eq 3 ] ||
   { echo "test_install: a warning for a key the file did not hold" >&2; exit 1; }
 
 # verify notices a hook that is present but cannot start (CRLF checkout).

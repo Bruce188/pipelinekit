@@ -205,8 +205,8 @@ if [[ -f "$CLAUDE_HOME/CLAUDE.md" ]] && ! cmp -s "$RENDERED" "$CLAUDE_HOME/CLAUD
   # A judge-loop switch line in the replaced file is lost: name it and the backup.
   python3 - "$CLAUDE_HOME/CLAUDE.md" <<'PY' |
 import re, sys
-keys = {"judge loop": "Judge loop:", "judge rounds": "Judge rounds:", "judges": "Judges:"}
-pat = re.compile(r"^\s*(?:[-*+]\s+|\d+[.)]\s+)?(judge loop|judge rounds|judges)\s*:", re.I)
+keys = {"judge loop": "Judge loop:", "judge rounds": "Judge rounds:", "judges": "Judges:", "stacks": "Stacks:"}
+pat = re.compile(r"^\s*(?:[-*+]\s+|\d+[.)]\s+)?(judge loop|judge rounds|judges|stacks)\s*:", re.I)
 seen = []
 for line in open(sys.argv[1], encoding="utf-8-sig", errors="replace"):
     m = pat.match(line)
