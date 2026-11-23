@@ -238,9 +238,25 @@ def test_a_read_only_loop_folder(sb):
         judge.chmod(0o755)
     assert run.code == 2
     assert run.last.startswith("Error: PermissionError (")
-    assert run.last.endswith(
-        "Next: free space or fix the permissions, then the same command."
-    )
+    assert run.last.endswith("Next: fix the permissions, then the same command.")
+
+
+@pytest.mark.skipif(
+    hasattr(os, "geteuid") and os.geteuid() == 0, reason="root reads anywhere"
+)
+def test_a_loops_folder_that_cannot_be_read(sb):
+    sb.start_build()
+    folder = sb.loopdir().parents[1]
+    folder.chmod(0)
+    try:
+        run = sb.run("status")
+    finally:
+        folder.chmod(0o755)
+    assert (run.code, run.last) == (
+        2,
+        "Error: docs/loops cannot be read (permission denied). Next: make the "
+        "folder readable (chmod u+rwx docs/loops), then the same command.",
+    ), run
 
 
 # Results ----------------------------------------------------------------------
@@ -715,6 +731,19 @@ def test_a_commit_after_brief_makes_the_results_stale(sb):
     run = sb.run("round")
     assert run.code == 3
     assert run.last.startswith("STOP: round 1 has no results yet.")
+
+
+def test_a_moved_base_is_named_before_the_stale_results(sb):
+    sb.start_build()
+    sb.run("brief")
+    assert sb.save("general", 9).code == 0
+    sb.on_base("base.txt", "on the base\n")
+    sb.git("merge", "-q", "--no-edit", "origin/main")
+    run = sb.run("brief")
+    assert run.code == 0, run
+    lines = [line.split(":", 1)[0] for line in run.lines]
+    assert "base moved" in lines and "The work changed" in lines, run
+    assert lines.index("base moved") < lines.index("The work changed"), run
 
 
 def test_brief_again_without_a_change_keeps_the_results(sb):

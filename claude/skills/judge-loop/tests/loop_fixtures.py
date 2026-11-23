@@ -123,6 +123,11 @@ def ends(run, code, first, tail=None):
         assert run.last.endswith(tail), run
 
 
+CANNOT_CHECK = (
+    "STOP: {rel} cannot be checked for an agent name (a link, over 64 kB or not "
+    "readable). Next: ask the user: make it a plain, readable file or folder, or "
+    "the same command with --agents fallback."
+)
 FIX_BUILD = "Next: have kit-builder fix these items and commit, then loop.py brief."
 FIX_PLAN = "Next: have kit-planner fix these items, then loop.py brief."
 
