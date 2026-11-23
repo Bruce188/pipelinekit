@@ -246,7 +246,7 @@ Two things are outside its reach. A `permissions.deny` match, or a prompt you de
 With the kit installed, Claude finishes the pull requests it opens instead of handing each one to you to merge. The `ship` skill (`/ship`) describes the loop, and `claude/skills/ship/ship.py` holds the conditions for the merge.
 
 1. The issue lists acceptance criteria as a checklist.
-2. Claude builds the change, runs the project's tests and opens a draft pull request.
+2. Claude builds the change, brings in its base, runs the project's tests and opens a draft pull request.
 3. The build is judged with the judge loop until it reaches 10 (see [Plan, build, judge](#plan-build-judge)); a small fix is recorded with `loop.py skip --reason` instead.
 4. A fresh agent tests the change. It gets the criteria and the running build, not the code or the builder's notes. A web page is driven with Playwright, a command-line tool or installer runs in a throwaway directory, an API is started and called. A change with nothing user-visible gets a smoke run instead.
 5. Findings are fixed, each bug with a regression test, and the test runs again until it passes.
@@ -263,7 +263,7 @@ With the kit installed, Claude finishes the pull requests it opens instead of ha
 | `linked` | GitHub closes every issue named on this merge, or another branch is the base: [Issue links](installation.html#issue-links) |
 | `review` | No review is required, requested or asking for changes |
 | `current` | The local commit is the pull request's head and nothing tracked is uncommitted |
-| `up-to-date` | The branch contains its base branch and does not conflict with it |
+| `up-to-date` | The branch holds its [base](installation.html#up-to-date-with-the-base), with no conflict |
 | `judged` | The branch's build loop ended in 10, a used budget or your accept on this commit or an earlier one, or `loop.py skip` recorded this commit; a loop waiting for you stops and asks; `Judge loop: off` on the base branch or in your user-level `CLAUDE.md` passes and is named in the reason. Limits: [The judge loop](installation.html#the-judge-loop) |
 | `tested` | The last test record is a pass for exactly this commit, and the loop is not stuck |
 | `ci` | Every check has finished and passed. A pull request with no check at all passes only where no workflow runs on pull requests, or with `--allow-no-checks` |
@@ -344,7 +344,7 @@ Limits: the record says that results were saved, not that a judge ran or judged 
 
 ## CLAUDE.md template
 
-`claude/CLAUDE.md.template` is 80 lines of English with no imported rule files. The installer fills in `${USER_NAME}`, `${USER_EMAIL}` and `${CLAUDE_HOME}` and writes the result to `~/.claude/CLAUDE.md`. It covers:
+`claude/CLAUDE.md.template` is 81 lines of English with no imported rule files. The installer fills in `${USER_NAME}`, `${USER_EMAIL}` and `${CLAUDE_HOME}` and writes the result to `~/.claude/CLAUDE.md`. It covers:
 
 - your identity;
 - git rules: commit only when asked, conventional commits, no AI attribution, no workflow jargon in commit text, the never-stage list, `.git/info/exclude` for Claude-specific ignores, and no direct pushes to `main`;
@@ -355,7 +355,7 @@ Limits: the record says that results were saved, not that a judge ran or judged 
 - decisions that are yours to make, asked as interactive questions: two to four options, each with its upside and downside, the recommended one first;
 - design: load `frontend-design` before building or reshaping anything a person looks at; the project's own design system or brand comes first, then the host's rules for the output, then the skill; the `dataviz` skill, when the session has it, decides chart form; `docs-writer` pages keep the template's CSS variables; skip it for work with no visual output and for small fixes inside an existing design;
 - plan, build, judge: a change that is more than a small fix is planned, built and judged with the `judge-loop` skill, to 10 out of 10 in at most five rounds each; the three switch lines; and how every agent it starts reads files and answers (only the form when given a JSON form, else at most 15 lines);
-- GitHub habits with `gh`: issues with acceptance criteria before work, `<type>/<issue#>-<slug>` branches, draft PRs, finishing its own PRs with the `ship` skill, reading CI logs, releases when you ask;
+- GitHub habits with `gh`: issues with acceptance criteria before work, `<type>/<issue#>-<slug>` branches, draft PRs on a branch up to date with its base, finishing its own PRs with the `ship` skill, reading CI logs, releases when you ask;
 - the deploy CLIs.
 
 ## MCP servers

@@ -30,6 +30,13 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 try:
+    from ship_behind import (
+        behind_refusal,
+        branch_name,
+        conflict_detail,
+        github_behind,
+        open_pr,
+    )
     from ship_gates import *
     from ship_links import after_merge
 except ImportError as e:  # a module missing or broken in the install
@@ -91,7 +98,7 @@ def report(repo, pr, gates):
 
 def cmd_status(args, repo):
     pr = repo.pr()
-    gates = evaluate(repo, pr, args.allow_no_checks)
+    gates = evaluate(repo, pr, args.allow_no_checks, args.base or "")
     if args.json:
         print(json.dumps(report(repo, pr, gates), indent=2))
     else:
@@ -274,12 +281,12 @@ def watch(repo, number, timeout, settle=0, marked=False, expected=False):
             detail = f"checks failed: {check_names(failed)}"
             return gate("ci", "fail", detail, hints=log_hints(failed))
         merge_state = pr.get("mergeStateStatus") or "UNKNOWN"
-        if merge_state in ("BEHIND", "DIRTY") or pr.get("mergeable") == "CONFLICTING":
-            word = "behind" if merge_state == "BEHIND" else "in conflict with"
-            detail = (
-                f"#{number} is {word} {base}: merge {repo.remote}/{base} into "
-                "the branch and test again"
-            )
+        target = f"{repo.remote}/{base}"
+        if merge_state == "DIRTY" or pr.get("mergeable") == "CONFLICTING":
+            detail = conflict_detail(target, open_pr(number))
+            return gate("up-to-date", "fail", detail)
+        if merge_state == "BEHIND":
+            detail = github_behind(repo, target, open_pr(number))
             return gate("up-to-date", "fail", detail)
         draft = bool(pr.get("isDraft")) or merge_state == "DRAFT"
         if draft and not marked:
@@ -482,6 +489,16 @@ def build_parser():
         help="with a pass: does this pull request raise the version, add the "
         "notes of one, publish, deploy or move a release branch on?",
     )
+    for cmd in (status, record):
+        cmd.add_argument(
+            "--base",
+            type=branch_name,
+            default=None,
+            metavar="BRANCH",
+            help="the branch to compare with while there is no pull request "
+            "(default: branch.<name>.gh-merge-base, else the default branch); "
+            "a pull request's own base always wins",
+        )
     wait = sub.add_parser("wait", help="return when CI on the head commit is done")
     merge = sub.add_parser("merge", help="check the gates, wait for CI, merge")
     for cmd in (wait, merge):
@@ -520,9 +537,14 @@ def build_parser():
     return parser
 
 
+def cmd_record_current(args, repo):
+    """Record a round; a pass only while the branch contains its base."""
+    return cmd_record(args, repo, behind=lambda: behind_refusal(repo, args.base or ""))
+
+
 COMMANDS = {
     "status": cmd_status,
-    "record": cmd_record,
+    "record": cmd_record_current,
     "wait": cmd_wait,
     "merge": cmd_merge,
 }

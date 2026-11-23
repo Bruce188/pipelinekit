@@ -88,6 +88,21 @@ kit used to ship, so those parts are gone.
   the release pull request when the same account opened it, and prints the
   lines otherwise. The ship skill and the `CLAUDE.md` template state the
   rules.
+- Up to date with the base: before a pull request is written up or updated,
+  the branch takes in the base it targets (`origin/<base>`, not always
+  `main`): a rebase while it is not shared, a merge once it is shared, never a
+  force push, and then the tests run again. A branch is shared once it is on the
+  remote, has an open pull request, or has a judge result on one of its commits;
+  an upstream on another branch does not count. The `up-to-date` gate names the
+  base, the commits the branch lacks and that next command, with the reason a
+  shared branch is shared (`pushed to origin`, `open pull request #N` or
+  `judged at <commit>`); `ship.py status`
+  shows it before there is a pull request too (`--base BRANCH`, else
+  `branch.<name>.gh-merge-base`, else the default branch), and
+  `ship.py record` refuses a pass while it fails (with no new test asked for
+  when the base could not be checked). The `CLAUDE.md` template,
+  the ship and judge-loop skills and the `kit-builder` agent state the rule
+  in the same words.
 - Upgrading: after the update an open branch without a record shows
   `judged FAIL no judge record ...`. Work built before the update is recorded
   with `loop.py skip --reason "built before the judge loop" --user-ok`, after

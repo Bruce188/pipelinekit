@@ -831,7 +831,10 @@ def test_a_branch_cannot_drop_the_opt_out_of_its_base(sb):
 
 @pytest.mark.parametrize(
     ("state", "words"),
-    [("BEHIND", "behind main, GitHub says"), ("DIRTY", "conflicts with main")],
+    [
+        ("BEHIND", "behind origin/main, GitHub says"),
+        ("DIRTY", "conflicts with origin/main"),
+    ],
 )
 def test_merge_refuses_what_github_calls_behind_or_in_conflict(sb, state, words):
     sb.passed()

@@ -631,7 +631,10 @@ def stop_reason(rounds):
     return ""
 
 
-def cmd_record(args, repo):
+def cmd_record(args, repo, behind=None):
+    """Store one round. `behind`: returns why a pass cannot be recorded (the
+    branch is not up to date with its base, or that could not be checked), or
+    ''; a pass is not recorded while it says something."""
     if repo.branch in {repo.default_branch(), "main", "master"}:
         raise ToolError(
             f"{repo.branch} is not the branch of a pull request: record the test "
@@ -643,6 +646,10 @@ def cmd_record(args, repo):
             "a passed round is tied to a commit",
             file=sys.stderr,
         )
+        return EXIT_FAIL
+    reason = behind() if behind and args.result == "pass" else ""
+    if reason:
+        print(f"ship: not recorded: {reason}", file=sys.stderr)
         return EXIT_FAIL
     path = repo.record_file
     data = load_record(path)
