@@ -120,12 +120,14 @@ def test_functions(tree):
                     yield item
 
 
+def files_matching(files, patterns):
+    """The files matching any of the patterns, sorted, at most MAX_TEST_FILES."""
+    names = {f for pattern in patterns for f in matching(files, pattern)}
+    return sorted(names)[:MAX_TEST_FILES]
+
+
 def python_test_files(project):
-    files = project.files()
-    seen = []
-    for pattern in PY_TESTS:
-        seen.extend(f for f in matching(files, pattern) if f not in seen)
-    return sorted(seen)[:MAX_TEST_FILES]
+    return files_matching(project.files(), PY_TESTS)
 
 
 def no_assert_tests(project):
@@ -153,10 +155,7 @@ def skipped_tests(project, stack_names):
     out = []
     for stack in stack_names:
         patterns, rx = SKIP_MARKERS[stack]
-        names = []
-        for pattern in patterns:
-            names.extend(f for f in matching(files, pattern) if f not in names)
-        for name in sorted(names)[:MAX_TEST_FILES]:
+        for name in files_matching(files, patterns):
             text = project.read(name, MAX_READ)
             if text is None:
                 continue

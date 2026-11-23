@@ -3,6 +3,7 @@
 import json
 import subprocess
 import sys
+import time
 
 import pytest
 from garden_testkit import HELPER, SECTIONS, Sandbox, findings, section, seed_sample
@@ -131,6 +132,33 @@ def test_the_evidence_counts_every_skip_marker_past_the_listed_ones(sb):
     assert evidence(sb, "pruning.skipped") == (
         "25 skip markers: tests/a.rs:1 and 24 more"
     )
+
+
+class ManyFiles:
+    """A project that lists many files and reads none of them."""
+
+    def __init__(self, names):
+        self.names = names
+
+    def files(self):
+        return self.names
+
+    def read(self, name, limit=None):
+        return None
+
+
+def test_many_matching_test_files_are_gathered_in_linear_time(monkeypatch):
+    monkeypatch.syspath_prepend(str(HELPER.parent))
+    import garden_prune
+
+    cs = [f"src/F{n}.cs" for n in range(30000)]
+    py = [f"tests/test_{n}_test.py" for n in range(30000)]
+    start = time.monotonic()
+    assert garden_prune.skipped_tests(ManyFiles(cs), ["dotnet"]) == []
+    names = garden_prune.python_test_files(ManyFiles(py))
+    took = time.monotonic() - start
+    assert names == sorted(py)[: garden_prune.MAX_TEST_FILES]
+    assert took < 3, f"gathering the test files took {took:.1f} s"
 
 
 def test_a_test_file_that_does_not_parse_is_counted(sb):
