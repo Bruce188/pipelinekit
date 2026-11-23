@@ -192,6 +192,22 @@ def test_a_brief_too_big_to_save_writes_nothing(sb):
     assert files_of(folder) == before
 
 
+def test_a_rebrief_too_big_to_save_leaves_the_old_round_in_place(sb):
+    sb.start_build()
+    assert sb.run("brief").code == 0
+    assert sb.save("general", 9).code == 0
+    sb.change("app.py", 4)
+    folder = sb.loopdir()
+    before = files_of(folder)
+    limit_state(sb, len(before["state.json"]))
+    run = sb.run("brief", "--fix-tokens", "1000")
+    assert run.code == 2, run
+    assert run.last.endswith(f"Next: ask the user: {KEEP_ITEMS}"), run
+    assert not any(line.startswith("The work changed") for line in run.lines), run
+    assert files_of(folder) == before
+    assert not (folder / "judge" / "stale").exists()
+
+
 def test_a_state_too_big_to_save_keeps_its_open_items(sb):
     second_round_saved(sb)
     state = sb.loopdir() / "state.json"

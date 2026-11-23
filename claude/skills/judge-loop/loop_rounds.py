@@ -294,12 +294,8 @@ def cmd_brief(args):
             same = bool(copy) and sha256(copy) == pending["sha256"]
     if not same and not moved:
         unchanged_check(loop, work, agents, rows)
-    if pending and not same:
-        count_moved = move_stale(loop, n)
-        say(
-            f"The work changed: {count(count_moved, 'file')} of round {n} moved to "
-            "judge/stale/"
-        )
+    stale = bool(pending) and not same
+    if stale:
         pending = {}
     if moved:
         say(f"base moved: {short(round_base(st))} -> {short(work['base_sha'])}")
@@ -323,6 +319,12 @@ def cmd_brief(args):
             st["pending"]["fix_tokens"] = fix_tokens
     loop.check_size()
     if not kept:
+        if stale:
+            count_moved = move_stale(loop, n)
+            say(
+                f"The work changed: {count(count_moved, 'file')} of round {n} moved "
+                "to judge/stale/"
+            )
         loop.mkdir("judge/in")
         if loop.kind == "plan":
             loop.write(f"plan.r{n}.md", plan)
