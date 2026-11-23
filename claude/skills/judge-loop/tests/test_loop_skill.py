@@ -366,6 +366,17 @@ def test_the_session_fills_the_round_and_the_fixer_the_row():
     ) in text
 
 
+def test_a_miss_asks_for_what_the_refusal_names():
+    text = flat(skill())
+    assert (
+        "**A miss** (`save` exits 3): ask that same judge once for what the "
+        "`Next:` of the `STOP:` line says (when it names nothing else, the JSON "
+        "object alone); continue the agent, and where that is not possible, start "
+        "one fresh judge with the same brief. Write and save again."
+    ) in text
+    assert "ask that same judge once for the JSON object alone" not in text
+
+
 def test_the_closing_report_files_each_issue_from_its_file():
     text = flat(section(skill(), "Closing report"))
     assert (
