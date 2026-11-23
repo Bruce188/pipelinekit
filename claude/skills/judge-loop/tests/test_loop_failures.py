@@ -626,6 +626,7 @@ UNCHECKED_AGENTS = [
     "a link",
     "a linked folder",
     "a linked agents folder",
+    "a file over 64 kB",
 ]
 
 
@@ -645,6 +646,8 @@ def test_fallback_agents_note_what_they_cannot_check(sb, how):
         agents.mkdir(parents=True)
         (agents / "sub").symlink_to(outside)
         rel = ".claude/agents/sub"
+    elif how == "a file over 64 kB":
+        sb.write(rel, "x" * (64 * 1024 + 1))
     else:
         agents.parent.mkdir(parents=True)
         agents.symlink_to(outside)
