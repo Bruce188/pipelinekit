@@ -537,6 +537,9 @@ BUILD_NAME = (
     "Next: loop.py start build without --name."
 )
 NO_BRANCH = "Refused: no branch is checked out. Next: check out the work branch."
+NO_PLAN_NAME = (
+    "Refused: a plan loop needs a name. Next: loop.py start plan --name <issue>-<slug>."
+)
 IS_BASE = (
     "Refused: main is the base branch. "
     "Next: git switch -c <work branch>, then the same command."
@@ -572,7 +575,8 @@ REFUSALS = [
         IS_BASE,
     ),
     ("build detached", detach, ("start", "build"), 2, NO_BRANCH),
-    ("plan detached", detach, ("start", "plan"), 2, NO_BRANCH),
+    ("plan without a name", None, ("start", "plan"), 2, NO_PLAN_NAME),
+    ("plan detached, no name", detach, ("start", "plan"), 2, NO_PLAN_NAME),
     (
         "plan ../x",
         None,
@@ -684,6 +688,15 @@ def test_the_refusals(sb, setup, argv, code, line):
 def test_a_plan_on_a_detached_head(sb):
     detach(sb)
     run = sb.run("start", "plan", "--name", "x")
+    assert run.code == 0, run
+
+
+def test_a_plan_without_a_name_opens_no_loop(sb):
+    run = sb.run("start", "plan")
+    assert run.code == 2, run
+    assert not (sb.root / "docs" / "loops").exists()
+    sb.start_plan("p1")
+    run = sb.run("status")
     assert run.code == 0, run
 
 
