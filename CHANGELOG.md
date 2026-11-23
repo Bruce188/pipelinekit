@@ -177,6 +177,10 @@ kit used to ship, so those parts are gone.
   has no notes file `areas/<name>.md` yet, or a note to rename an area whose
   name cannot be a file name, and `status --json` lists the same notes under
   `warnings`.
+- `brief` refuses a round on unchanged work with one note per item that holds
+  it, giving the `changes.md` row to write and the agent that writes it; a row
+  marked with a round not counted yet does not count. `save` gives a 10 with
+  a blocking item its own reason and hint.
 
 ### Security
 
