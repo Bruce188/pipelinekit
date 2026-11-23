@@ -315,6 +315,8 @@ The helper `claude/skills/judge-loop/loop.py` keeps the state of a loop and says
 
 Each judge reads its role file in `claude/skills/judge-loop/roles/`: what it looks at, its dimensions and what a 10 means. Its answer is one JSON object (`overall`, `dimensions`, `blocking`, `improvements`, `still_open`, `read`), each item with evidence, a fix and the check that proves the fix. The score is 10 minus named items, in steps of 0.5, and a 10 counts only when the judge says it read the whole work. The first round of a build, and a round after the base moved, give every judge a full read; the base counts as moved only when the merge-base with the base branch moved, so a commit on the base branch that is not merged into the work branch does not bring one. Every role lists a hand-written file of code, tests or markdown that the work creates or makes longer, and that is then over 1,500 lines or 50,000 bytes, as an item.
 
+A build judge reads the change from `hunks.patch` in the loop folder, which `brief` writes every round: the diff against the judged base with five lines of context, without the lines that only moved (removed in one place and added unchanged in another). A changed line inside a moved block stays, and the first line names the full diff. The judge reads `hunks.patch`, `map.md`, its last result and `criteria.md`, in that order, and opens a source file only for a fact the hunks do not show. It stops at about 30 tool calls and answers `"read": "part"` with what it did not finish; it then gets a full read in the next round. A 10 still needs every file the change touches read whole: in the final full round the brief asks for that read up front.
+
 A project sets its own terms with one of these lines, on a line of its own:
 
 | Line | Effect |
