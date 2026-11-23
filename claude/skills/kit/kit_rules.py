@@ -16,9 +16,10 @@ GLOB_CHAR = re.compile(r"[\\*?\[]")
 def home_rule(rule: str, home: str) -> str:
     """A kit permission rule with its ~/.claude/ turned into this CLAUDE_HOME.
 
-    A home below the user's home is named from ~/, any other from the root:
-    // in a path rule, where a single / is the project's folder. A character
-    a path rule reads as a glob is escaped. The default home stays ~/.claude/.
+    A home below the user's home is named from ~/, any other from the
+    filesystem root, which a path rule writes as // (a single / does not
+    start there). A character a path rule reads as a glob is escaped. The
+    default home stays ~/.claude/.
     """
     tool, paren, rest = rule.partition("(")
     if not paren or tool not in PATH_TOOLS or not rest.startswith(KIT_HOME):
