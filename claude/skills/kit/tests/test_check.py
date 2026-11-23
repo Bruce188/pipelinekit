@@ -641,7 +641,14 @@ def test_environment_covers_what_the_ship_skill_needs(kit):
     rc, out = check(kit, "--verbose")
     assert rc == 0, out
     assert re.search(r"\[pass\] gh: \S|\[info\] gh not installed", out)
-    assert re.search(r"\[pass\] playwright: \S|\[info\] playwright not installed", out)
+    if "[info] gh not installed" not in out:
+        assert re.search(
+            r"\[pass\] gh: logged in|\[info\] gh (is not logged in|auth status)", out
+        )
+    assert re.search(
+        r"\[pass\] playwright: \S|\[info\] playwright (not installed|\S+ is installed)",
+        out,
+    )
     rc, out = check(kit, "--verbose", "--quick")
     assert rc == 0 and "playwright" not in out
 
