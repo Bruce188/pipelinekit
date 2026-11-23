@@ -129,13 +129,18 @@ def keep_blocks(hunk, run):
             for b in block:
                 hunk.moved[b] = False
         block = []
-    for j in run:
-        if key(hunk.lines[j]):
-            continue
-        before = [b for b in filled if b < j][-1:]
-        after = [b for b in filled if b > j][:1]
-        near = before + after
-        hunk.moved[j] = bool(near) and all(hunk.moved[b] for b in near)
+    near: dict[int, list[int]] = {}
+    for order in (run, run[::-1]):
+        last = None
+        for j in order:
+            if key(hunk.lines[j]):
+                last = j
+            else:
+                near.setdefault(j, [])
+                if last is not None:
+                    near[j].append(last)
+    for j, found in near.items():
+        hunk.moved[j] = bool(found) and all(hunk.moved[b] for b in found)
 
 
 def kept_lines(hunk):

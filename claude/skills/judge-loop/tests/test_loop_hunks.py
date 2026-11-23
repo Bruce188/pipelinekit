@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import time
 
 import pytest
 from loop_fixtures import brief_of, item, loop, nine, result
@@ -196,6 +197,18 @@ def test_a_file_whose_lines_all_moved_keeps_its_header(tmp_path):
     assert "g.py" in text and "deleted file mode" in text
     assert "joined_names" not in text
 
+
+def test_a_long_run_is_filtered_in_linear_time():
+    count = 40000
+    lines = [b"+" if i % 2 else b"+value_%d = %d" % (i, i) for i in range(count)]
+    patch = (
+        b"diff --git a/y.py b/y.py\nnew file mode 100644\n--- /dev/null\n"
+        b"+++ b/y.py\n@@ -0,0 +1,%d @@\n" % count + b"\n".join(lines) + b"\n"
+    )
+    start = time.monotonic()
+    _, kept, total = loop.unmoved(patch)
+    assert time.monotonic() - start < 10
+    assert kept == total == count
 
 
 # The file a build round writes ---------------------------------------------------
