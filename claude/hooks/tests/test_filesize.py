@@ -811,10 +811,11 @@ def test_measure_counts_a_last_line_without_a_newline():
 
 
 def test_the_docs_name_the_limit_and_every_default_pattern():
-    docs = (REPO / "docs-source" / "components.md").read_text()
+    docs = (REPO / "docs-source" / "file-size.md").read_text()
     assert "1,500 lines" in docs and "50,000 bytes" in docs
     missing = [p for p in filesize.DEFAULT_EXEMPT if f"`{p}`" not in docs]
-    assert not missing, f"default exemptions missing from components.md: {missing}"
+    assert not missing, f"default exemptions missing from file-size.md: {missing}"
+    assert "`pre-merge-commit`" in docs
     assert f"`{filesize.EXEMPT_FILE}`" in docs
 
 
@@ -828,7 +829,8 @@ def test_the_upgrade_page_notes_the_file_size_refusal():
         "already over the limit only warns",
         "`.file-size-exempt`",
         ".git/info/exclude",
-        "components.html#file-size-limit",
+        "file-size.html",
+        "`pre-merge-commit`",
     ):
         assert words in note, words
 

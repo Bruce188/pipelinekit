@@ -47,6 +47,7 @@ The installer merges `claude/config/settings.template.json` into `~/.claude/sett
 |------|--------------|
 | `commit-msg` | Conventional commits (`feat fix refactor docs test chore perf style build ci revert`, scopes, `!`). Rejects wip (outside `.claude/worktrees/`), AI attribution and emoji. Lets `Merge`, `Revert "`, `fixup!`/`squash!`/`amend!` through |
 | `pre-commit` | `gitleaks` scan of staged changes. Warns and allows if gitleaks is missing. `PIPELINEKIT_ALLOW_SECRET=1` skips one commit. Refuses a commit that adds a hand-written file over 1,500 lines or 50,000 bytes or takes one past that; a file already over only warns. A project exempts paths in `.file-size-exempt` |
+| `pre-merge-commit` | Run by `git merge` before it records a merge it made without conflicts: the same file size limit as `pre-commit` |
 | `pre-push` | Refuses pushes to `main`/`master`. `ALLOW_MAIN_PUSH=1` overrides (humans only; bash-guard refuses it for Claude) |
 
 A repo with its own local `core.hooksPath` (husky, pre-commit framework, or a manual setting) bypasses these. Run `git config --show-origin core.hooksPath` inside it to check.
