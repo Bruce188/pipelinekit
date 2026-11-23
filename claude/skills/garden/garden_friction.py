@@ -31,6 +31,21 @@ LABEL = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,39}")
 TIMINGS = "timings.json"
 MAX_TIMINGS = 1024 * 1024
 KILL_GRACE = 5
+# Signals that stop garden.py itself, as when the Bash tool ends a call that ran
+# too long: the timed command and all it started are ended first.
+STOP_SIGNALS = tuple(
+    getattr(signal, name) for name in ("SIGTERM", "SIGHUP") if hasattr(signal, name)
+)
+STOP_GRACE = 1
+
+
+class Stopped(Exception):
+    """garden.py got a stop signal while it timed a command."""
+
+    def __init__(self, signum, seconds):
+        super().__init__(signum)
+        self.signum = signum
+        self.seconds = seconds
 
 
 def github_remote(project):
@@ -227,9 +242,9 @@ def save_timing(project, label, seconds, code, timed_out, now):
     )
 
 
-def end_group(p):
+def end_group(p, grace=KILL_GRACE):
     """End the command and everything it started: TERM, then KILL after a grace."""
-    for sig, wait in ((signal.SIGTERM, KILL_GRACE), (signal.SIGKILL, 2)):
+    for sig, wait in ((signal.SIGTERM, grace), (signal.SIGKILL, 2)):
         try:
             os.killpg(p.pid, sig)
         except OSError:
@@ -247,18 +262,37 @@ def end_group(p):
 
 
 def run_timed(command, timeout, cwd):
-    """(seconds, exit code or None, timed out) for one run of `command`."""
+    """(seconds, exit code or None, timed out) for one run of `command`.
+
+    Raises Stopped when garden.py gets TERM or HUP, after ending the command.
+    """
     start = time.monotonic()
-    p = subprocess.Popen(command, cwd=cwd, start_new_session=True)
+
+    def stop(signum, _frame):
+        raise Stopped(signum, time.monotonic() - start)
+
+    before = {sig: signal.signal(sig, stop) for sig in STOP_SIGNALS}
+    p = None
     try:
+        p = subprocess.Popen(command, cwd=cwd, start_new_session=True)
         code = p.wait(timeout=timeout)
         return time.monotonic() - start, code, False
     except subprocess.TimeoutExpired:
         end_group(p)
         return time.monotonic() - start, None, True
-    except KeyboardInterrupt:
-        end_group(p)
+    except Stopped:
+        for sig in STOP_SIGNALS:
+            signal.signal(sig, signal.SIG_IGN)
+        if p is not None:
+            end_group(p, STOP_GRACE)
         raise
+    except KeyboardInterrupt:
+        if p is not None:
+            end_group(p)
+        raise
+    finally:
+        for sig, handler in before.items():
+            signal.signal(sig, handler)
 
 
 def friction_findings(friction):

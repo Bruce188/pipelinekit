@@ -14,8 +14,9 @@ it with the picked ids and refuses when the findings changed since.
 
 Exit codes: scan 0; record 0, 1 when docs/garden/ cannot be written, 2 on
 wrong use; time gives the command's own exit code, 124 when it timed out, 127
-when it could not start, and 2 on wrong use or when docs/garden/ cannot be
-written (then nothing runs).
+when it could not start, 128 plus the signal when garden.py was stopped
+(the command is ended first), and 2 on wrong use or when docs/garden/ cannot
+be written (then nothing runs).
 
 Standard library only, Python 3.10 or later.
 """
@@ -24,6 +25,7 @@ Standard library only, Python 3.10 or later.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 import os
@@ -47,6 +49,7 @@ from garden_common import (
 from garden_friction import (
     LABEL,
     TIMINGS,
+    Stopped,
     ci_runs,
     friction_findings,
     load_timings,
@@ -564,6 +567,17 @@ def cmd_time(args):
             file=sys.stderr,
         )
         return 127
+    except Stopped as exc:
+        with contextlib.suppress(OSError):
+            save_timing(project, args.label, exc.seconds, None, True, now_utc())
+        ensure_excluded(project)
+        with contextlib.suppress(OSError):
+            print(
+                f"{args.label}: stopped after {duration(exc.seconds)} before it "
+                "finished; the command and what it started were ended",
+                flush=True,
+            )
+        return 128 + exc.signum
     sys.stdout.flush()
     try:
         save_timing(project, args.label, seconds, code, timed_out, now_utc())

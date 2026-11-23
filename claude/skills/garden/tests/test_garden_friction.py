@@ -2,6 +2,9 @@
 
 import json
 import os
+import signal
+import subprocess
+import sys
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -208,6 +211,75 @@ def test_time_ends_the_whole_process_tree_on_timeout(sb):
     stored = json.loads((sb.root / "docs" / "garden" / "timings.json").read_text())
     assert stored["slow"]["timed_out"] is True
     assert "slow did not finish" in [f[3] for f in findings(sb.scan())]
+
+
+NEEDS_PROC = pytest.mark.skipif(
+    not os.path.isdir("/proc"), reason="tells a zombie from a running process by /proc"
+)
+
+
+def gone_within(pid, seconds):
+    """True once `pid` has ended (a zombie counts as ended)."""
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        try:
+            os.kill(pid, 0)
+            with open(f"/proc/{pid}/stat") as f:
+                if f.read().split(") ", 1)[1].startswith("Z"):
+                    return True
+        except (ProcessLookupError, FileNotFoundError):
+            return True
+        time.sleep(0.1)
+    return False
+
+
+@NEEDS_PROC
+@pytest.mark.parametrize("sig", [signal.SIGTERM, signal.SIGHUP])
+def test_time_stopped_by_a_signal_ends_the_tree_and_keeps_the_run(sb, sig):
+    pidfile = sb.tmp / "child.pid"
+    script = (
+        "import subprocess, sys, time\n"
+        "c = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(120)'])\n"
+        f"open({str(pidfile)!r} + '.tmp', 'w').write(str(c.pid))\n"
+        f"__import__('os').rename({str(pidfile)!r} + '.tmp', {str(pidfile)!r})\n"
+        "time.sleep(120)\n"
+    )
+    p = subprocess.Popen(
+        [sys.executable, str(HELPER), "time", "--label", "suite", "--", "python3"]
+        + ["-c", script],
+        cwd=sb.root,
+        env=sb.env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        deadline = time.monotonic() + 20
+        while not pidfile.exists() and time.monotonic() < deadline:
+            time.sleep(0.05)
+        child = int(pidfile.read_text())
+        p.send_signal(sig)
+        out, err = p.communicate(timeout=15)
+    finally:
+        if p.poll() is None:
+            p.kill()
+    assert p.returncode == 128 + sig, err
+    assert out.splitlines()[-1].startswith("suite: stopped after ")
+    assert out.splitlines()[-1].endswith(
+        " before it finished; the command and what it started were ended"
+    )
+    if not gone_within(child, 5):
+        os.kill(child, 9)
+        pytest.fail("the child of the timed command is still running")
+    stored = json.loads((sb.root / "docs" / "garden" / "timings.json").read_text())
+    assert stored["suite"]["timed_out"] is True
+    assert stored["suite"]["exit"] is None
+
+
+def test_the_skill_gives_the_bash_call_a_timeout_above_the_commands():
+    skill = (HELPER.parent / "SKILL.md").read_text(encoding="utf-8")
+    assert "`--timeout 580` with a Bash timeout of 600000 ms" in skill
+    assert "in the background" in skill
 
 
 def test_time_default_timeout_is_600_seconds():

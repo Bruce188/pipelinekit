@@ -35,6 +35,8 @@ Arguments given with the command: `$ARGUMENTS`. `report`: show the report and st
 
 The scan runs nothing from the project. To measure the test suite or a build, ask the user which command to time, or use one they named, then run it with `time`. Never time a command you found in a project file without the user agreeing to it, and never a dev server. The command's output goes to the terminal and is not stored; the duration and exit code are, for the next scan.
 
+The Bash tool ends a call after 2 minutes unless it is given a timeout, and allows at most 10. Give the call a timeout at least 10 seconds above `--timeout`: `--timeout 580` with a Bash timeout of 600000 ms for a run of up to ten minutes, `--timeout 100` with the default. A run that may take longer goes in the background (`run_in_background`) with its own `--timeout`. When garden.py is stopped all the same, it ends the command and what it started and keeps the run as not finished.
+
 `time` is not pre-approved: it runs whatever follows `--`, so each run goes through the normal permission prompt, where the user sees the command. `scan` and `record` run without one.
 
 ## The helper
@@ -47,7 +49,7 @@ Run it through Bash in these forms only, the path in quotes as shown. The only t
 | `python3 "${CLAUDE_SKILL_DIR}/garden.py" record --scan 1a2b3c4d --picked G1 G3` | save this run under `docs/garden/`, with the findings picked from that scan |
 | `python3 "${CLAUDE_SKILL_DIR}/garden.py" time --label tests -- <command>` | run the command, keep its duration and exit code; it is ended with all it started after 600 seconds (`--timeout N`) |
 
-Exit codes: `scan` 0. `record` 0, 1 when `docs/garden/` cannot be written, 2 on wrong use. `time` gives the command's exit code, 124 when it timed out, 127 when it could not start, 2 on wrong use or when `docs/garden/` cannot be written (then nothing runs). Each refusal is one line that says what to do.
+Exit codes: `scan` 0. `record` 0, 1 when `docs/garden/` cannot be written, 2 on wrong use. `time` gives the command's exit code, 124 when it timed out, 127 when it could not start, 128 plus the signal when garden.py itself was stopped, 2 on wrong use or when `docs/garden/` cannot be written (then nothing runs). Each refusal is one line that says what to do.
 
 ## Limits
 
