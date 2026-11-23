@@ -257,6 +257,9 @@ kit used to ship, so those parts are gone.
 - docs-writer: widgets and template features (search from `file://`, the
   mobile ToC button, comparison tabs, terminal simulator) now work.
 - `mobile` skill: an example path contained a personal home directory.
+- CI's ruff step checked only some folders, so docs-writer's scripts failed
+  lint unnoticed. It now runs `ruff check` and `ruff format --check` on the
+  whole repo, and docs-writer passes both.
 
 ### Removed
 
