@@ -298,7 +298,7 @@ def test_status_json_without_a_loop(sb):
     assert run.out.count("\n") == 1 and run.out.endswith("\n"), run
     assert json.loads(run.out) == {
         "outcome": "none",
-        "next": "loop.py start plan or loop.py start build.",
+        "next": "loop.py start plan --name <issue>-<slug> or loop.py start build.",
     }
 
 
@@ -445,7 +445,10 @@ def test_a_brief_that_waits_for_the_user_says_so_last(sb, row, first):
     sb.two_judges()
     sb.start_build()
     (sb.loopdir() / "map.md").write_text("code | app.py | tests\n")
-    scores = {"general": result(10, improvements=["G1"]), "tests": nine("T1")}
+    scores = {
+        "general": result(10, improvements=[item("G1", needed_for_10=False)]),
+        "tests": nine("T1"),
+    }
     assert sb.judge(scores).code == 1
     (sb.loopdir() / "changes.md").write_text(
         f"- r1 [general G1] {row}: the user picks the name\n"

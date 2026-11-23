@@ -60,7 +60,8 @@ Start a fresh agent and give it:
 - the acceptance criteria, word for word;
 - how to reach the build: the URL, the command, or the install path;
 - where to write: the report to `docs/uat/<branch>.md` and screenshots to `docs/uat/<branch>/`, with `/` in the branch name replaced by `-`;
-- the finding format from step 4.
+- the finding format from step 4;
+- these rules, word for word: "A file you will check: read it whole, once. A file you need one fact from: search first, then read only those lines. Read nothing twice. Fewer, fuller tool calls: independent reads in one message, commands chained in one call. Keep tool output short. The same error after about 10 calls: stop and report it. Return at most 15 lines; the details go to the report."
 
 Do not give it the diff, your notes, or what you expect to work. It does not edit code, commit, push or merge. `docs/uat/` is local: the helper adds it to `.git/info/exclude`, and it is on the kit's never-stage list.
 
