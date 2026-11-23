@@ -650,7 +650,8 @@ def test_environment_covers_what_the_ship_skill_needs(kit):
         out,
     )
     rc, out = check(kit, "--verbose", "--quick")
-    assert rc == 0 and "playwright" not in out
+    # Only the report lines count: the header names the branch of the install.
+    assert rc == 0 and not re.search(r"(?im)^ +\[\w+\] .*playwright", out)
 
 
 PLUGIN_LINE = "frontend-design is also enabled"
