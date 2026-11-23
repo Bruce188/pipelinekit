@@ -7,7 +7,7 @@
 #
 # Note: the resolved `.worktreeinclude` lists paths to secret files.
 # If those paths include `.env` or `credentials*`, the existing
-# `block-stage-sensitive.sh` hook will refuse to stage them.
+# `bash-guard.py` hook will refuse to stage them.
 # Do not commit the resolved `.worktreeinclude` if it materially differs
 # from this template.
 

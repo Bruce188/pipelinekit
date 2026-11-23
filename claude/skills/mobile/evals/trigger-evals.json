@@ -1,0 +1,22 @@
+[
+  {"query": "adb devices shows nothing from WSL but my Pixel shows up fine in Windows. how do i get ./gradlew installDebug in ~/hsnotes to see the phone?", "should_trigger": true},
+  {"query": "My Iphonewms PWA on the iPhone keeps showing the old version after I rebuild, I think the service worker is stuck. Already bumped the bundle hash.", "should_trigger": true},
+  {"query": "I want to make an Expo app and get it onto my friend's iPhone. I only have a Windows laptop, can EAS build it for me?", "should_trigger": true},
+  {"query": "cashregister fails on ./gradlew assembleDebug with 'SDK location not found. Define a valid SDK location with an ANDROID_HOME environment variable' after I recloned it", "should_trigger": true},
+  {"query": "regenerated wms-ca.crt because my LAN IP changed and now Safari on the phone says 'This Connection Is Not Private' even though I installed the profile", "should_trigger": true},
+  {"query": "how do I see console.log output from Safari on my iPhone? no mac here, just windows + wsl", "should_trigger": true},
+  {"query": "set up wireless debugging so I can run connectedDebugAndroidTest on my Samsung without the cable", "should_trigger": true},
+  {"query": "eas secret:create says command not found, how do I pass SENTRY_AUTH_TOKEN to my production build now?", "should_trigger": true},
+  {"query": "going to put hsnotes on the Play Store, what do I need to sign the AAB and what should I check before uploading", "should_trigger": true},
+  {"query": "can I get web push notifications working for the WMS home-screen app on iOS 18?", "should_trigger": true},
+  {"query": "Make the Iphonewms desktop layout responsive at 1440px, the table overflows on my monitor", "should_trigger": false},
+  {"query": "Add a Kotlin data class and a unit test for this JSON order parser in my Ktor server", "should_trigger": false},
+  {"query": "Write an ASP.NET Core endpoint so the cashregister backend can sync sales to the database", "should_trigger": false},
+  {"query": "add a /health route to scripts/serve.py that returns the git commit hash as JSON", "should_trigger": false},
+  {"query": "the Telegram GramJS client in Iphonewms logs 'AUTH_KEY_DUPLICATED' on login, what does that error mean in the MTProto api?", "should_trigger": false},
+  {"query": "write a Next.js page with a mobile-first navbar that collapses into a hamburger under 768px", "should_trigger": false},
+  {"query": "deploy my Express API to Railway and set the DATABASE_URL env var", "should_trigger": false},
+  {"query": "refactor logic.js run computation into smaller pure functions and keep the node --test suite green", "should_trigger": false},
+  {"query": "my WSL2 distro loses DNS after resume from sleep, how do I fix /etc/resolv.conf with mirrored networking?", "should_trigger": false},
+  {"query": "write a Python script that parses the Gradle build scan JSON from our CI server and posts slow tasks to Slack", "should_trigger": false}
+]

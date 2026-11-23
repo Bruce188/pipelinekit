@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Smoke test for claude/skills/docs-writer/render.py
-# Tests: markdown render mode, --from-html rewrap mode, template signature,
-# generator meta tag, ToC generation, syntax highlight, table rendering.
+# Smoke test for the docs-writer skill scripts (render.py, verify_toc.py,
+# richness_check.py). Uses only paths relative to this file, so it runs the
+# same from the repo checkout and from an installed ~/.claude/skills copy.
 #
-# Exit 0 on all pass, exit 1 on first failure.
+# Exit 0 if every check passes, 1 otherwise.
 
 set -euo pipefail
-cd "$(dirname "$0")/../../../.."
+SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+RENDER="$SKILL_DIR/render.py"
 
 PASS=0
 FAIL=0
@@ -68,7 +69,7 @@ def hello():
 More content.
 EOF
 
-python3 claude/skills/docs-writer/render.py "$TMP/sample.md" "$TMP/sample.html" > /dev/null
+python3 "$RENDER" "$TMP/sample.md" "$TMP/sample.html" > /dev/null
 
 # Verify the rendered HTML has the right shape
 assert_contains "$TMP/sample.html" '<a href="credits.html">Credits</a>' 'footer credits link present'
@@ -133,7 +134,7 @@ cat > "$TMP/source.html" <<'EOF'
 </body></html>
 EOF
 
-python3 claude/skills/docs-writer/render.py --from-html "$TMP/source.html" "$TMP/rewrapped.html" > /dev/null
+python3 "$RENDER" --from-html "$TMP/source.html" "$TMP/rewrapped.html" > /dev/null
 
 assert_contains "$TMP/rewrapped.html" '<a href="credits.html">Credits</a>' 'rewrap footer credits link present'
 assert_contains "$TMP/rewrapped.html" '<title>Existing page' 'rewrap preserves title'
@@ -142,7 +143,7 @@ assert_contains "$TMP/rewrapped.html" 'id="subsection-x-1"' 'rewrap auto-generat
 assert_contains "$TMP/rewrapped.html" 'href="#section-x"' 'rewrap ToC entry present'
 
 # ============ Test 3: explicit metadata overrides ============
-python3 claude/skills/docs-writer/render.py \
+python3 "$RENDER" \
   "$TMP/sample.md" "$TMP/explicit.html" \
   --title "Custom Title" \
   --description "Custom description that overrides derivation" \
@@ -164,64 +165,132 @@ else
   RESULTS+=("  FAIL  body lead paragraph stripped despite explicit --description")
 fi
 
-# ============ Test 4: snippet substitution ============
-cat > "$TMP/snippet-test.md" <<'EOF'
-# Snippet substitution test
+# ============ Test 4: snippet substitution (every shipped snippet) ============
+# A placeholder with a JSON child must become the snippet's mount root with the
+# child moved inside it, and the placeholder must be gone from the body.
+for snip_path in "$SKILL_DIR"/snippets/*.html; do
+  name=$(basename "$snip_path" .html)
+  cat > "$TMP/snip-$name.md" <<EOF
+# Snippet $name
 
-Body paragraph.
+Intro paragraph.
 
-<div data-snippet="pipeline-phase-diagram"></div>
+<div data-snippet="$name" data-title="T-$name">
+<script type="application/json">{"marker": "DATA-$name"}</script>
+</div>
 
 ## Section
 
 More text.
 EOF
+  python3 "$RENDER" "$TMP/snip-$name.md" "$TMP/snip-$name.html" > "$TMP/snip-$name.err" 2>&1 || true
+  python3 - "$TMP/snip-$name.html" "$name" > "$TMP/snip-$name.chk" 2>&1 <<'PY' && rc=0 || rc=$?
+import re, sys
+html, name = open(sys.argv[1]).read(), sys.argv[2]
+body = re.sub(r"<!--.*?-->", "", html, flags=re.S)
+assert f'<div data-snippet="{name}"' not in body, "placeholder left in body"
+m = re.search(r'<[^>]*data-snippet-mount="%s"[^>]*>' % re.escape(name), body)
+assert m, "mount root missing"
+assert 'data-title="T-%s"' % name in m.group(0), "extra attribute not forwarded to mount root"
+after = body[m.end():]
+assert after.lstrip().startswith('<script type="application/json">{"marker": "DATA-%s"}' % name), \
+    "JSON child not placed first inside the mount root"
+PY
+  if [ "$rc" -eq 0 ] && grep -q "snippets: $name" "$TMP/snip-$name.err"; then
+    PASS=$((PASS + 1)); RESULTS+=("  PASS  snippet $name substituted, child + attrs forwarded")
+  else
+    FAIL=$((FAIL + 1)); RESULTS+=("  FAIL  snippet $name: $(tail -1 "$TMP/snip-$name.chk") $(tail -1 "$TMP/snip-$name.err")")
+  fi
+  # No snippet may ship baked-in project data: data comes from the page.
+  if grep -qiE 'pipelinekit|/pipeline|charter' "$snip_path"; then
+    FAIL=$((FAIL + 1)); RESULTS+=("  FAIL  snippet $name still contains project-specific content")
+  fi
+done
 
-python3 claude/skills/docs-writer/render.py "$TMP/snippet-test.md" "$TMP/snippet-test.html" > "$TMP/snippet-stderr.txt" 2>&1
+# before-after-slider: the before/after children must land INSIDE the slider
+# root (where its script looks for them), not as stray text after it.
+cat > "$TMP/bas.md" <<'EOF'
+# Slider
 
-assert_contains "$TMP/snippet-test.html" 'data-snippet-mount="pipeline-phase-diagram"' 'snippet placeholder substituted with mount root'
-assert_contains "$TMP/snippet-test.html" 'pkit-pipeline-diagram' 'snippet inline CSS class present'
-assert_contains "$TMP/snippet-test.html" 'pkit-pd-flow-anim' 'snippet inline animation keyframes present'
+Intro.
 
-# Verify the placeholder is GONE from the page body (the snippet's documentation
-# comment contains the same string as an example, so we restrict the check to
-# the <div id="page-content"> region only).
-PLACEHOLDER_HITS=$(awk '/<div id="page-content">/{flag=1; next} flag && /^<!--/{flag=2} flag==1{print}' "$TMP/snippet-test.html" | grep -c '<div data-snippet="pipeline-phase-diagram"></div>' || true)
-if [ "$PLACEHOLDER_HITS" -eq 0 ]; then
-  PASS=$((PASS + 1))
-  RESULTS+=("  PASS  snippet placeholder removed after substitution (in body)")
+<div data-snippet="before-after-slider">
+<div data-bas-before><p>OLD-STATE</p></div>
+<div data-bas-after><p>NEW-STATE</p></div>
+</div>
+
+Trailing paragraph.
+EOF
+python3 "$RENDER" "$TMP/bas.md" "$TMP/bas.html" > /dev/null 2>&1 || true
+if python3 - "$TMP/bas.html" <<'PY'
+import re, sys
+html = re.sub(r"<!--.*?-->", "", open(sys.argv[1]).read(), flags=re.S)
+start = html.index('data-snippet-mount="before-after-slider"')
+end = html.index('<script>', start)          # snippet init script follows the root
+root = html[start:end]
+assert "<div data-bas-before><p>OLD-STATE</p></div>" in root
+assert "<div data-bas-after><p>NEW-STATE</p></div>" in root
+assert html.count("OLD-STATE") == 1 and html.count("NEW-STATE") == 1
+assert "<p>Trailing paragraph.</p>" in html[end:]
+PY
+then
+  PASS=$((PASS + 1)); RESULTS+=("  PASS  before-after-slider children rendered inside the slider root")
 else
-  FAIL=$((FAIL + 1))
-  RESULTS+=("  FAIL  $PLACEHOLDER_HITS placeholder remains in body (substitution failed)")
+  FAIL=$((FAIL + 1)); RESULTS+=("  FAIL  before-after-slider children not inside the slider root")
 fi
 
-# Verify stderr logs the snippet name
-if grep -q 'snippets: pipeline-phase-diagram' "$TMP/snippet-stderr.txt"; then
-  PASS=$((PASS + 1))
-  RESULTS+=("  PASS  snippet name logged to stderr")
-else
-  FAIL=$((FAIL + 1))
-  RESULTS+=("  FAIL  snippet name not logged to stderr")
-fi
-
-# Missing snippet → error exit
+# Missing snippet -> non-zero exit
 cat > "$TMP/missing-snippet.md" <<'EOF'
 # Missing snippet test
 
 <div data-snippet="nonexistent-snippet-name"></div>
 EOF
-
-if python3 claude/skills/docs-writer/render.py "$TMP/missing-snippet.md" "$TMP/missing-snippet.html" 2>/dev/null; then
-  FAIL=$((FAIL + 1))
-  RESULTS+=("  FAIL  missing snippet did not raise (expected non-zero exit)")
+if python3 "$RENDER" "$TMP/missing-snippet.md" "$TMP/missing-snippet.html" 2>/dev/null; then
+  FAIL=$((FAIL + 1)); RESULTS+=("  FAIL  missing snippet did not raise (expected non-zero exit)")
 else
-  PASS=$((PASS + 1))
-  RESULTS+=("  PASS  missing snippet raises (FileNotFoundError)")
+  PASS=$((PASS + 1)); RESULTS+=("  PASS  missing snippet exits non-zero")
+fi
+
+# Missing input file -> clean error, exit 2
+python3 "$RENDER" "$TMP/does-not-exist.md" "$TMP/x.html" > /dev/null 2> "$TMP/noinput.err" && rc=0 || rc=$?
+if [ "$rc" -eq 2 ] && grep -q '^error: input file not found' "$TMP/noinput.err"; then
+  PASS=$((PASS + 1)); RESULTS+=("  PASS  missing input file: clean error, exit 2")
+else
+  FAIL=$((FAIL + 1)); RESULTS+=("  FAIL  missing input file: rc=$rc $(head -1 "$TMP/noinput.err")")
+fi
+
+# ============ Test 4b: batch mode targets cwd / --root, never the skill dir ============
+mkdir -p "$TMP/proj/docs-source"
+cp "$TMP/sample.md" "$TMP/proj/docs-source/getting-started.md"
+(cd "$TMP/proj" && python3 "$RENDER" > /dev/null 2>&1) || true
+if [ -f "$TMP/proj/documentation/getting-started.html" ] && [ -f "$TMP/proj/documentation/search.json" ] \
+   && grep -q '"quadrant": "tutorial"' "$TMP/proj/documentation/search.json"; then
+  PASS=$((PASS + 1)); RESULTS+=("  PASS  batch mode renders cwd docs-source/ -> documentation/ + search.json")
+else
+  FAIL=$((FAIL + 1)); RESULTS+=("  FAIL  batch mode from cwd did not produce documentation/")
+fi
+rm -rf "$TMP/proj/documentation"
+python3 "$RENDER" --root "$TMP/proj" > /dev/null 2>&1 || true
+if [ -f "$TMP/proj/documentation/getting-started.html" ]; then
+  PASS=$((PASS + 1)); RESULTS+=("  PASS  batch mode honours --root")
+else
+  FAIL=$((FAIL + 1)); RESULTS+=("  FAIL  batch mode ignored --root")
+fi
+if (cd "$TMP/proj/documentation" && python3 "$RENDER" > /dev/null 2>&1); then
+  FAIL=$((FAIL + 1)); RESULTS+=("  FAIL  batch mode without docs-source/ should exit non-zero")
+else
+  PASS=$((PASS + 1)); RESULTS+=("  PASS  batch mode without docs-source/ exits non-zero")
+fi
+(cd "$TMP/proj" && python3 "$SKILL_DIR/verify_toc.py" > "$TMP/vt-cwd.txt" 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && grep -q 'Scanned 1 pages' "$TMP/vt-cwd.txt"; then
+  PASS=$((PASS + 1)); RESULTS+=("  PASS  verify_toc.py with no args scans ./documentation")
+else
+  FAIL=$((FAIL + 1)); RESULTS+=("  FAIL  verify_toc.py with no args: rc=$rc $(tail -1 "$TMP/vt-cwd.txt")")
 fi
 
 # ============ Test 5: richness check linter ============
-# Check on the snippet-test output we just produced (should pass — has a snippet)
-if python3 claude/skills/docs-writer/richness_check.py "$TMP/snippet-test.html" > "$TMP/richness-pass.txt" 2>&1; then
+# A page using one snippet passes, even though the snippet's inline CSS/JS is long
+if python3 "$SKILL_DIR/richness_check.py" "$TMP/snip-comparison-tabs.html" > "$TMP/richness-pass.txt" 2>&1; then
   PASS=$((PASS + 1))
   RESULTS+=("  PASS  richness_check passes on snippet-using page")
 else
@@ -239,13 +308,12 @@ Just a paragraph.
 
 Just another paragraph.
 EOF
-python3 claude/skills/docs-writer/render.py "$TMP/thin.md" "$TMP/thin.html" > /dev/null
+python3 "$RENDER" "$TMP/thin.md" "$TMP/thin.html" > /dev/null
 
-# Move thin.html to a path that's NOT in DEFAULT_EXEMPT_FILES so the check fires
 mkdir -p "$TMP/check_dir"
 cp "$TMP/thin.html" "$TMP/check_dir/thin-test.html"
 
-if python3 claude/skills/docs-writer/richness_check.py "$TMP/check_dir/thin-test.html" > "$TMP/richness-fail.txt" 2>&1; then
+if python3 "$SKILL_DIR/richness_check.py" "$TMP/check_dir/thin-test.html" > "$TMP/richness-fail.txt" 2>&1; then
   FAIL=$((FAIL + 1))
   RESULTS+=("  FAIL  richness_check should have failed on thin page")
 else
@@ -254,8 +322,15 @@ else
 fi
 
 # Exempt marker should let the thin page pass
-sed -i 's|</head>|<!-- richness-exempt: test exemption -->\n</head>|' "$TMP/check_dir/thin-test.html"
-if python3 claude/skills/docs-writer/richness_check.py "$TMP/check_dir/thin-test.html" > "$TMP/richness-exempt.txt" 2>&1; then
+# Not sed -i: its syntax differs between GNU and BSD sed.
+python3 - "$TMP/check_dir/thin-test.html" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p, encoding="utf-8").read()
+s = s.replace("</head>", "<!-- richness-exempt: test exemption -->\n</head>", 1)
+open(p, "w", encoding="utf-8").write(s)
+PY
+if python3 "$SKILL_DIR/richness_check.py" "$TMP/check_dir/thin-test.html" > "$TMP/richness-exempt.txt" 2>&1; then
   PASS=$((PASS + 1))
   RESULTS+=("  PASS  richness_check passes when exempt marker present")
 else
@@ -272,7 +347,7 @@ cat > "$TMP/toc-test.md" <<'EOF'
 Some text.
 
 ```bash
-cat > docs/charter.md <<'CHARTER'
+cat > notes.md <<'CHARTER'
 ## MVP boundary
 - one feature
 ## Non-goals
@@ -297,7 +372,7 @@ Second setup block.
 Third setup block.
 EOF
 
-python3 claude/skills/docs-writer/render.py "$TMP/toc-test.md" "$TMP/toc-test.html" > /dev/null
+python3 "$RENDER" "$TMP/toc-test.md" "$TMP/toc-test.html" > /dev/null
 
 if grep -q 'href="#mvp-boundary"' "$TMP/toc-test.html"; then
   FAIL=$((FAIL + 1))
@@ -334,21 +409,12 @@ for slug in setup setup-2 setup-3; do
   fi
 done
 
-if python3 claude/skills/docs-writer/verify_toc.py "$TMP/toc-test.html" > /dev/null 2>&1; then
+if python3 "$SKILL_DIR/verify_toc.py" "$TMP/toc-test.html" > /dev/null 2>&1; then
   PASS=$((PASS + 1))
   RESULTS+=("  PASS  verify_toc.py reports 0 broken links on synthetic test page")
 else
   FAIL=$((FAIL + 1))
   RESULTS+=("  FAIL  verify_toc.py reported issues on synthetic test page")
-fi
-
-if python3 claude/skills/docs-writer/verify_toc.py > "$TMP/verify-real.txt" 2>&1; then
-  PASS=$((PASS + 1))
-  RESULTS+=("  PASS  verify_toc.py reports 0 broken links across all documentation/")
-else
-  FAIL=$((FAIL + 1))
-  RESULTS+=("  FAIL  verify_toc.py reported issues in documentation/:")
-  cat "$TMP/verify-real.txt" | sed 's/^/    /'
 fi
 
 # Regression: H4 headings in HTML must NOT shift H2/H3 slug assignments.
@@ -387,7 +453,7 @@ This page mixes H3 and H4 around bash blocks with comment-shaped lines.
 ### Delta
 EOF
 
-python3 claude/skills/docs-writer/render.py "$TMP/h4-shift-test.md" "$TMP/h4-shift-test.html" > /dev/null 2>&1
+python3 "$RENDER" "$TMP/h4-shift-test.md" "$TMP/h4-shift-test.html" > /dev/null 2>&1
 for slug_pair in "alpha:Alpha" "beta:Beta" "gamma:Gamma" "delta:Delta" "first-h2:First h2" "second-h2:Second h2"; do
   slug="${slug_pair%:*}"
   expected_text="${slug_pair#*:}"
@@ -400,276 +466,17 @@ for slug_pair in "alpha:Alpha" "beta:Beta" "gamma:Gamma" "delta:Delta" "first-h2
   fi
 done
 
-# ============ Test 7: skill-catalog-grid snippet substitution ============
-cat > "$TMP/skill-catalog-test.md" <<'EOF'
-# Skills catalog
-
-Browse all available skills.
-
-<div data-snippet="skill-catalog-grid"></div>
-
-## Section
-
-More text.
-EOF
-
-python3 claude/skills/docs-writer/render.py "$TMP/skill-catalog-test.md" "$TMP/skill-catalog-test.html" > "$TMP/skill-catalog-stderr.txt" 2>&1
-
-assert_contains "$TMP/skill-catalog-test.html" 'data-snippet-mount="skill-catalog-grid"' 'skill-catalog-grid snippet placeholder substituted with mount root'
-
-SKILL_PLACEHOLDER_HITS=$(awk '/<div id="page-content">/{flag=1; next} flag && /^<!--/{flag=2} flag==1{print}' "$TMP/skill-catalog-test.html" | grep -c '<div data-snippet="skill-catalog-grid"></div>' || true)
-if [ "$SKILL_PLACEHOLDER_HITS" -eq 0 ]; then
-  PASS=$((PASS + 1))
-  RESULTS+=("  PASS  skill-catalog-grid placeholder removed after substitution (in body)")
+# ============ Test 7: widgets really respond in a browser ============
+# Headless Chromium drives every snippet and template feature over file://.
+# Prints SKIP and exits 0 when playwright is not installed.
+if python3 "$SKILL_DIR/tests/test_interactive.py" > "$TMP/interactive.txt" 2>&1; then
+  if grep -q '^SKIP' "$TMP/interactive.txt"; then
+    RESULTS+=("  SKIP  $(head -1 "$TMP/interactive.txt" | sed 's/^SKIP  //')")
+  else
+    PASS=$((PASS + 1)); RESULTS+=("  PASS  $(tail -1 "$TMP/interactive.txt")")
+  fi
 else
-  FAIL=$((FAIL + 1))
-  RESULTS+=("  FAIL  $SKILL_PLACEHOLDER_HITS skill-catalog-grid placeholder remains in body")
-fi
-
-if grep -q 'snippets: skill-catalog-grid' "$TMP/skill-catalog-stderr.txt"; then
-  PASS=$((PASS + 1))
-  RESULTS+=("  PASS  skill-catalog-grid snippet name logged to stderr")
-else
-  FAIL=$((FAIL + 1))
-  RESULTS+=("  FAIL  skill-catalog-grid snippet name not logged to stderr")
-fi
-
-# ============ Test 8: agent-catalog-grid snippet substitution ============
-cat > "$TMP/agent-catalog-test.md" <<'EOF'
-# Agents catalog
-
-Browse all available agents.
-
-<div data-snippet="agent-catalog-grid"></div>
-
-## Section
-
-More text.
-EOF
-
-python3 claude/skills/docs-writer/render.py "$TMP/agent-catalog-test.md" "$TMP/agent-catalog-test.html" > "$TMP/agent-catalog-stderr.txt" 2>&1
-
-assert_contains "$TMP/agent-catalog-test.html" 'data-snippet-mount="agent-catalog-grid"' 'agent-catalog-grid snippet placeholder substituted with mount root'
-
-AGENT_PLACEHOLDER_HITS=$(awk '/<div id="page-content">/{flag=1; next} flag && /^<!--/{flag=2} flag==1{print}' "$TMP/agent-catalog-test.html" | grep -c '<div data-snippet="agent-catalog-grid"></div>' || true)
-if [ "$AGENT_PLACEHOLDER_HITS" -eq 0 ]; then
-  PASS=$((PASS + 1))
-  RESULTS+=("  PASS  agent-catalog-grid placeholder removed after substitution (in body)")
-else
-  FAIL=$((FAIL + 1))
-  RESULTS+=("  FAIL  $AGENT_PLACEHOLDER_HITS agent-catalog-grid placeholder remains in body")
-fi
-
-if grep -q 'snippets: agent-catalog-grid' "$TMP/agent-catalog-stderr.txt"; then
-  PASS=$((PASS + 1))
-  RESULTS+=("  PASS  agent-catalog-grid snippet name logged to stderr")
-else
-  FAIL=$((FAIL + 1))
-  RESULTS+=("  FAIL  agent-catalog-grid snippet name not logged to stderr")
-fi
-
-# ============ Test 9: deployment-provider-quiz snippet substitution ============
-cat > "$TMP/deployment-provider-quiz-test.md" <<'EOF'
-# Deployment + CI provider chooser
-
-Choose your provider.
-
-<div data-snippet="deployment-provider-quiz"></div>
-
-## Section
-
-More text.
-EOF
-
-python3 claude/skills/docs-writer/render.py "$TMP/deployment-provider-quiz-test.md" "$TMP/deployment-provider-quiz-test.html" > "$TMP/deployment-provider-quiz-stderr.txt" 2>&1 || true
-
-assert_contains "$TMP/deployment-provider-quiz-test.html" 'data-snippet-mount="deployment-provider-quiz"' 'deployment-provider-quiz snippet placeholder substituted with mount root'
-
-DPQ_PLACEHOLDER_HITS=$(awk '/<div id="page-content">/{flag=1; next} flag && /^<!--/{flag=2} flag==1{print}' "$TMP/deployment-provider-quiz-test.html" 2>/dev/null | grep -c '<div data-snippet="deployment-provider-quiz"></div>' || true)
-if [ "$DPQ_PLACEHOLDER_HITS" -eq 0 ]; then
-  PASS=$((PASS + 1))
-  RESULTS+=("  PASS  deployment-provider-quiz placeholder removed after substitution (in body)")
-else
-  FAIL=$((FAIL + 1))
-  RESULTS+=("  FAIL  $DPQ_PLACEHOLDER_HITS deployment-provider-quiz placeholder remains in body")
-fi
-
-if grep -q 'snippets: deployment-provider-quiz' "$TMP/deployment-provider-quiz-stderr.txt" 2>/dev/null; then
-  PASS=$((PASS + 1))
-  RESULTS+=("  PASS  deployment-provider-quiz snippet name logged to stderr")
-else
-  FAIL=$((FAIL + 1))
-  RESULTS+=("  FAIL  deployment-provider-quiz snippet name not logged to stderr")
-fi
-
-# ============ Test 10: path-routing-diagram snippet substitution ============
-cat > "$TMP/path-routing-diagram-test.md" <<'EOF'
-# Pipeline path routing
-
-Understanding path routing.
-
-<div data-snippet="path-routing-diagram"></div>
-
-## Section
-
-More text.
-EOF
-
-python3 claude/skills/docs-writer/render.py "$TMP/path-routing-diagram-test.md" "$TMP/path-routing-diagram-test.html" > "$TMP/path-routing-diagram-stderr.txt" 2>&1 || true
-
-assert_contains "$TMP/path-routing-diagram-test.html" 'data-snippet-mount="path-routing-diagram"' 'path-routing-diagram snippet placeholder substituted with mount root'
-
-PRD_PLACEHOLDER_HITS=$(awk '/<div id="page-content">/{flag=1; next} flag && /^<!--/{flag=2} flag==1{print}' "$TMP/path-routing-diagram-test.html" 2>/dev/null | grep -c '<div data-snippet="path-routing-diagram"></div>' || true)
-if [ "$PRD_PLACEHOLDER_HITS" -eq 0 ]; then
-  PASS=$((PASS + 1))
-  RESULTS+=("  PASS  path-routing-diagram placeholder removed after substitution (in body)")
-else
-  FAIL=$((FAIL + 1))
-  RESULTS+=("  FAIL  $PRD_PLACEHOLDER_HITS path-routing-diagram placeholder remains in body")
-fi
-
-if grep -q 'snippets: path-routing-diagram' "$TMP/path-routing-diagram-stderr.txt" 2>/dev/null; then
-  PASS=$((PASS + 1))
-  RESULTS+=("  PASS  path-routing-diagram snippet name logged to stderr")
-else
-  FAIL=$((FAIL + 1))
-  RESULTS+=("  FAIL  path-routing-diagram snippet name not logged to stderr")
-fi
-
-# ============ Test 11: command-cheatsheet snippet substitution ============
-cat > "$TMP/command-cheatsheet-test.md" <<'EOF'
-# Command cheatsheet
-
-Quick reference for all slash commands.
-
-<div data-snippet="command-cheatsheet"></div>
-
-## Section
-
-More text.
-EOF
-
-python3 claude/skills/docs-writer/render.py "$TMP/command-cheatsheet-test.md" "$TMP/command-cheatsheet-test.html" > "$TMP/command-cheatsheet-stderr.txt" 2>&1 || true
-
-assert_contains "$TMP/command-cheatsheet-test.html" 'data-snippet-mount="command-cheatsheet"' 'command-cheatsheet snippet placeholder substituted with mount root'
-
-CMD_PLACEHOLDER_HITS=$(awk '/<div id="page-content">/{flag=1; next} flag && /^<!--/{flag=2} flag==1{print}' "$TMP/command-cheatsheet-test.html" 2>/dev/null | grep -c '<div data-snippet="command-cheatsheet"></div>' || true)
-if [ "$CMD_PLACEHOLDER_HITS" -eq 0 ]; then
-  PASS=$((PASS + 1))
-  RESULTS+=("  PASS  command-cheatsheet placeholder removed after substitution (in body)")
-else
-  FAIL=$((FAIL + 1))
-  RESULTS+=("  FAIL  $CMD_PLACEHOLDER_HITS command-cheatsheet placeholder remains in body")
-fi
-
-if grep -q 'snippets: command-cheatsheet' "$TMP/command-cheatsheet-stderr.txt" 2>/dev/null; then
-  PASS=$((PASS + 1))
-  RESULTS+=("  PASS  command-cheatsheet snippet name logged to stderr")
-else
-  FAIL=$((FAIL + 1))
-  RESULTS+=("  FAIL  command-cheatsheet snippet name not logged to stderr")
-fi
-
-# ============ Test 12: cost-budget-meter snippet substitution ============
-cat > "$TMP/cost-budget-meter-test.md" <<'EOF'
-# Review cost
-
-Track your pipeline spend.
-
-<div data-snippet="cost-budget-meter" data-spent-usd="3.40" data-max-usd="10" data-spent-turns="220" data-max-turns="500"></div>
-
-## Section
-
-More text.
-EOF
-
-python3 claude/skills/docs-writer/render.py "$TMP/cost-budget-meter-test.md" "$TMP/cost-budget-meter-test.html" > "$TMP/cost-budget-meter-stderr.txt" 2>&1 || true
-
-assert_contains "$TMP/cost-budget-meter-test.html" 'data-snippet-mount="cost-budget-meter"' 'cost-budget-meter snippet placeholder substituted with mount root'
-
-CBM_PLACEHOLDER_HITS=$(awk '/<div id="page-content">/{flag=1; next} flag && /^<!--/{flag=2} flag==1{print}' "$TMP/cost-budget-meter-test.html" 2>/dev/null | grep -c '<div data-snippet="cost-budget-meter"' || true)
-if [ "$CBM_PLACEHOLDER_HITS" -eq 0 ]; then
-  PASS=$((PASS + 1))
-  RESULTS+=("  PASS  cost-budget-meter placeholder removed after substitution (in body)")
-else
-  FAIL=$((FAIL + 1))
-  RESULTS+=("  FAIL  $CBM_PLACEHOLDER_HITS cost-budget-meter placeholder remains in body")
-fi
-
-if grep -q 'snippets: cost-budget-meter' "$TMP/cost-budget-meter-stderr.txt" 2>/dev/null; then
-  PASS=$((PASS + 1))
-  RESULTS+=("  PASS  cost-budget-meter snippet name logged to stderr")
-else
-  FAIL=$((FAIL + 1))
-  RESULTS+=("  FAIL  cost-budget-meter snippet name not logged to stderr")
-fi
-
-# ============ Test 13: before-after-slider snippet substitution ============
-cat > "$TMP/before-after-slider-test.md" <<'EOF'
-# Before and after
-
-Compare two states.
-
-<div data-snippet="before-after-slider"></div>
-
-## Section
-
-More text.
-EOF
-
-python3 claude/skills/docs-writer/render.py "$TMP/before-after-slider-test.md" "$TMP/before-after-slider-test.html" > "$TMP/before-after-slider-stderr.txt" 2>&1 || true
-
-assert_contains "$TMP/before-after-slider-test.html" 'data-snippet-mount="before-after-slider"' 'before-after-slider snippet placeholder substituted with mount root'
-
-BAS_PLACEHOLDER_HITS=$(awk '/<div id="page-content">/{flag=1; next} flag && /^<!--/{flag=2} flag==1{print}' "$TMP/before-after-slider-test.html" 2>/dev/null | grep -c '<div data-snippet="before-after-slider"></div>' || true)
-if [ "$BAS_PLACEHOLDER_HITS" -eq 0 ]; then
-  PASS=$((PASS + 1))
-  RESULTS+=("  PASS  before-after-slider placeholder removed after substitution (in body)")
-else
-  FAIL=$((FAIL + 1))
-  RESULTS+=("  FAIL  $BAS_PLACEHOLDER_HITS before-after-slider placeholder remains in body")
-fi
-
-if grep -q 'snippets: before-after-slider' "$TMP/before-after-slider-stderr.txt" 2>/dev/null; then
-  PASS=$((PASS + 1))
-  RESULTS+=("  PASS  before-after-slider snippet name logged to stderr")
-else
-  FAIL=$((FAIL + 1))
-  RESULTS+=("  FAIL  before-after-slider snippet name not logged to stderr")
-fi
-
-# ============ Test 14: governance-roles-table snippet substitution ============
-cat > "$TMP/governance-roles-table-test.md" <<'EOF'
-# Governance test
-
-Intro.
-
-<div data-snippet="governance-roles-table"></div>
-
-## Section
-
-More.
-EOF
-
-python3 claude/skills/docs-writer/render.py "$TMP/governance-roles-table-test.md" "$TMP/governance-roles-table-test.html" > "$TMP/grt-stderr.txt" 2>&1 || true
-
-assert_contains "$TMP/governance-roles-table-test.html" 'data-snippet-mount="governance-roles-table"' 'governance-roles-table snippet placeholder substituted with mount root'
-
-GRT_PLACEHOLDER_HITS=$(awk '/<div id="page-content">/{flag=1; next} flag && /^<!--/{flag=2} flag==1{print}' "$TMP/governance-roles-table-test.html" 2>/dev/null | grep -c '<div data-snippet="governance-roles-table"></div>' || true)
-if [ "$GRT_PLACEHOLDER_HITS" -eq 0 ]; then
-  PASS=$((PASS + 1))
-  RESULTS+=("  PASS  governance-roles-table placeholder removed after substitution (in body)")
-else
-  FAIL=$((FAIL + 1))
-  RESULTS+=("  FAIL  $GRT_PLACEHOLDER_HITS governance-roles-table placeholder remains in body")
-fi
-
-if grep -q 'snippets: governance-roles-table' "$TMP/grt-stderr.txt" 2>/dev/null; then
-  PASS=$((PASS + 1))
-  RESULTS+=("  PASS  governance-roles-table snippet name logged to stderr")
-else
-  FAIL=$((FAIL + 1))
-  RESULTS+=("  FAIL  governance-roles-table snippet name not logged to stderr")
+  FAIL=$((FAIL + 1)); RESULTS+=("  FAIL  test_interactive.py:" "$(grep FAIL "$TMP/interactive.txt")")
 fi
 
 # ============ Summary ============

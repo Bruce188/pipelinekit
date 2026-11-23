@@ -1,0 +1,58 @@
+[
+  {
+    "query": "ship the CryptoBargain dashboard to railway staging and tell me if it's healthy",
+    "should_trigger": true
+  },
+  {
+    "query": "the funding arb container app went into a crash loop after the last revision, roll it back now",
+    "should_trigger": true
+  },
+  {
+    "query": "add BINANCE_API_SECRET to the render service without it ending up in render.yaml",
+    "should_trigger": true
+  },
+  {
+    "query": "why did the vercel build for the landing page fail? get me the error logs",
+    "should_trigger": true
+  },
+  {
+    "query": "push the debouw app to prod on vercel, i've checked the preview",
+    "should_trigger": true
+  },
+  {
+    "query": "doctl app is stuck in deploying, what's going on",
+    "should_trigger": true
+  },
+  {
+    "query": "move the CryptoBargain bot from my WSL box to Render as a background worker",
+    "should_trigger": true
+  },
+  {
+    "query": "set up a health check for the FundingRateArb container app on /healthz",
+    "should_trigger": true
+  },
+  {
+    "query": "write the GitHub Actions workflow that builds the Docker image and pushes to ACR",
+    "should_trigger": false
+  },
+  {
+    "query": "my docker-compose up fails locally because port 5432 is taken",
+    "should_trigger": false
+  },
+  {
+    "query": "compare Railway and Render pricing for a small always-on Python worker",
+    "should_trigger": false
+  },
+  {
+    "query": "restart the cryptobargain-bot systemd unit, it hung",
+    "should_trigger": false
+  },
+  {
+    "query": "add a /health endpoint to the ASP.NET app that checks the DbContext",
+    "should_trigger": false
+  },
+  {
+    "query": "publish the expo app to testflight",
+    "should_trigger": false
+  }
+]
