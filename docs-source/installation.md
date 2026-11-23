@@ -60,7 +60,7 @@ Repo-specific hooks go in `<repo>/.git/hooks/<name>` (local) or `<repo>/.githook
 |-----------------|---------|---------|
 | `--no-serena` / `CLAUDE_INSTALL_SKIP_SERENA=1` | off | Skip installing and registering serena |
 | `--git-hooks` / `--no-git-hooks` / `PIPELINEKIT_GIT_HOOKS=1\|0` | ask | Set, or skip setting, the global `core.hooksPath` without a prompt |
-| `CLAUDE_HOME` | `~/.claude` | Install target; its path may hold spaces. Another target is written into the `judge-loop` skill; see [The judge loop](#the-judge-loop) |
+| `CLAUDE_HOME` | `~/.claude` | Install target; its path may hold spaces. Another target is written into the `ask` rules in its `settings.json` that guard the kit's files (`~/...` for a folder below your home, `//...` for one elsewhere) and into the `judge-loop` skill; see [The judge loop](#the-judge-loop) |
 | `USER_NAME`, `USER_EMAIL` | your global git identity | Identity written into `CLAUDE.md` |
 | `SERENA_REF` | pinned SHA | serena commit to install |
 | `SERENA_ALLOW_ROLLING=1` | off | Allow `SERENA_REF=main` (not recommended) |
