@@ -24,7 +24,8 @@ try:
     from playwright.sync_api import sync_playwright
 except ImportError:
     print(
-        "SKIP  test_interactive: python playwright not installed (pip install playwright && playwright install chromium)"
+        "SKIP  test_interactive: python playwright not installed "
+        "(pip install playwright && playwright install chromium)"
     )
     sys.exit(0)
 
@@ -55,7 +56,8 @@ TERM_STEPS = [
 TERM_TRANSCRIPT = "".join(s.get("text", "") for s in TERM_STEPS)
 
 
-# Kept out of the f-string below: Python < 3.12 forbids backslashes in f-string expressions.
+# Kept out of the f-string below: Python < 3.12 forbids backslashes in
+# f-string expressions.
 LINTER = {
     "label": "Paste a release note title",
     "rules": [
@@ -372,7 +374,8 @@ def check_tabs(page):
     tabs.nth(1).click()
     assert "Functions" in right.inner_text(), "click did not switch the panel"
     assert "per call" in page.locator(".pkit-cmp-col:not(.home)").inner_text()
-    # Keyboard: focus first tab, Enter switches, focus stays on a tab so Tab/arrows keep working.
+    # Keyboard: focus the first tab and press Enter to switch; focus stays on a
+    # tab so Tab and the arrow keys keep working.
     tabs.nth(0).focus()
     page.keyboard.press("Enter")
     assert "Kubernetes" in right.inner_text(), "Enter did not switch the panel"
@@ -396,9 +399,13 @@ def check_slider(page):
     root.scroll_into_view_if_needed()
     assert "AFTER-STATE" in root.locator(".pkit-bas__layer--after").inner_text()
     assert "BEFORE-STATE" in root.locator(".pkit-bas__layer--before").inner_text()
-    clip = lambda: page.evaluate(
-        "getComputedStyle(document.querySelector('.pkit-bas__layer--after')).clipPath"
-    )
+
+    def clip():
+        return page.evaluate(
+            "getComputedStyle(document.querySelector('.pkit-bas__layer--after'))"
+            ".clipPath"
+        )
+
     rng = root.locator(".pkit-bas__range")
     assert rng.input_value() == "50" and "50%" in clip()
     # Keyboard
@@ -455,7 +462,10 @@ def check_quiz(page):
 def check_terminal(page):
     t = page.locator(".pkit-term")
     screen = t.locator("[data-tm-screen]")
-    btn = lambda a: t.locator(f'[data-act="{a}"]')
+
+    def btn(a):
+        return t.locator(f'[data-act="{a}"]')
+
     assert t.locator("[data-tm-title]").inner_text() == "deploy session"
     # Auto-plays once scrolled into view
     t.scroll_into_view_if_needed()
@@ -469,7 +479,8 @@ def check_terminal(page):
     btn("step").click()
     btn("step").click()
     page.wait_for_function(
-        "document.querySelector('[data-tm-screen]').textContent === '$ deployctl push --env staging\\n'",
+        "document.querySelector('[data-tm-screen]').textContent"
+        " === '$ deployctl push --env staging\\n'",
         timeout=5000,
     )
     # Restart + immediate Play must not run two playbacks at once (duplicated output)
@@ -568,9 +579,11 @@ def check_playground(page):
     assert left.input_value() == "env = 'mine'"
 
 
-def heading_near_top(page, hid):
-    return page.evaluate(
-        f"(() => {{ const r = document.getElementById('{hid}').getBoundingClientRect(); return r.top >= 0 && r.top < 200; }})()"
+def heading_near_top(hid):
+    """JS expression: true once heading `hid` sits near the top of the viewport."""
+    return (
+        f"(() => {{ const r = document.getElementById('{hid}')"
+        ".getBoundingClientRect(); return r.top >= 0 && r.top < 200; })()"
     )
 
 
@@ -579,9 +592,7 @@ def check_tutorial_cards(page):
     assert cards.count() == 2
     cards.nth(1).click()
     page.wait_for_function("location.hash === '#command-reference'")
-    page.wait_for_function(
-        "(() => { const r = document.getElementById('command-reference').getBoundingClientRect(); return r.top >= 0 && r.top < 200; })()"
-    )
+    page.wait_for_function(heading_near_top("command-reference"))
     cards.nth(0).scroll_into_view_if_needed()
     cards.nth(0).focus()
     page.keyboard.press("Enter")
@@ -595,7 +606,8 @@ def check_diagram(page):
     dimmed = d.locator(".pkit-ad-layer.dimmed")
     assert dimmed.count() == 2
     page.wait_for_function(
-        "parseFloat(getComputedStyle(document.querySelector('.pkit-ad-layer.dimmed')).opacity) < 0.6"
+        "parseFloat(getComputedStyle("
+        "document.querySelector('.pkit-ad-layer.dimmed')).opacity) < 0.6"
     )
     d.locator(".pkit-ad-layer-btn", has_text="All").click()
     assert dimmed.count() == 0
@@ -608,7 +620,8 @@ def check_diagram(page):
     page.mouse.move(0, 0)
     d.locator(".pkit-ad-chip", has_text="postgres").focus()  # keyboard users
     page.wait_for_function(
-        "getComputedStyle(document.querySelectorAll('.pkit-ad-tooltip')[3]).opacity === '1'"
+        "getComputedStyle(document.querySelectorAll('.pkit-ad-tooltip')[3]).opacity"
+        " === '1'"
     )
 
 
@@ -616,16 +629,17 @@ def check_toc(page):
     link = page.locator('.toc a[href="#command-reference"]')
     link.click()
     page.wait_for_function("location.hash === '#command-reference'")
+    page.wait_for_function(heading_near_top("command-reference"))
     page.wait_for_function(
-        "(() => { const r = document.getElementById('command-reference').getBoundingClientRect(); return r.top >= 0 && r.top < 200; })()"
-    )
-    page.wait_for_function(
-        "document.querySelector('.toc a.active') && document.querySelector('.toc a.active').getAttribute('href') === '#command-reference'",
+        "document.querySelector('.toc a.active')"
+        " && document.querySelector('.toc a.active')"
+        ".getAttribute('href') === '#command-reference'",
         timeout=3000,
     )
     page.locator('.toc a[href="#architecture"]').click()
     page.wait_for_function(
-        "document.querySelector('.toc a.active').getAttribute('href') === '#architecture'",
+        "document.querySelector('.toc a.active').getAttribute('href')"
+        " === '#architecture'",
         timeout=3000,
     )
     # Heading permalink
@@ -645,7 +659,9 @@ def check_mobile_toc(page):
 
 
 def check_theme(page):
-    bg = lambda: page.evaluate("getComputedStyle(document.body).backgroundColor")
+    def bg():
+        return page.evaluate("getComputedStyle(document.body).backgroundColor")
+
     label = page.locator("#theme-label")
     assert label.inner_text() == "Auto"
     page.locator("#theme-toggle").click()
@@ -687,9 +703,11 @@ def check_sortable_table(page):
     table = page.locator(
         "#page-content > .table-wrap table, #page-content table:not(.pkit-cmd-table)"
     ).first
-    first_col = lambda: [
-        c.strip() for c in table.locator("tbody tr td:first-child").all_inner_texts()
-    ]
+
+    def first_col():
+        cells = table.locator("tbody tr td:first-child").all_inner_texts()
+        return [c.strip() for c in cells]
+
     assert first_col() == ["--env", "--dry-run", "--apply"]
     table.locator("th", has_text="Flag").click()
     assert first_col() == ["--apply", "--dry-run", "--env"]
@@ -805,6 +823,19 @@ def launch(p):
     return None
 
 
+def watch_errors(page) -> list[str]:
+    """Collect the console errors and uncaught exceptions the page raises."""
+    errors: list[str] = []
+
+    def on_console(msg):
+        if msg.type == "error":
+            errors.append(f"console: {msg.text}")
+
+    page.on("console", on_console)
+    page.on("pageerror", lambda e: errors.append(f"pageerror: {e}"))
+    return errors
+
+
 def main() -> int:
     only = set(sys.argv[1:])
     with tempfile.TemporaryDirectory() as tmp:
@@ -823,12 +854,7 @@ def main() -> int:
                 ctx.grant_permissions(["clipboard-read", "clipboard-write"])
                 page = ctx.new_page()
                 page.set_default_timeout(5000)
-                errors: list[str] = []
-                page.on(
-                    "console",
-                    lambda m: m.type == "error" and errors.append(f"console: {m.text}"),
-                )
-                page.on("pageerror", lambda e: errors.append(f"pageerror: {e}"))
+                errors = watch_errors(page)
                 try:
                     page.goto((docs / f"{pg}.html").as_uri())
                     fn(page)
@@ -850,9 +876,8 @@ def main() -> int:
                 finally:
                     ctx.close()
             browser.close()
-    print(
-        f"\ntest_interactive: {len(CHECKS) - failed if not only else '?'} pass, {failed} fail"
-    )
+    passed = len(CHECKS) - failed if not only else "?"
+    print(f"\ntest_interactive: {passed} pass, {failed} fail")
     return 1 if failed else 0
 
 

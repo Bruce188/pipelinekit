@@ -3,9 +3,11 @@
 docs-writer renderer — markdown to self-contained HTML.
 
 Usage:
-    render.py <input.md> <output.html> [--title TITLE] [--description DESC] [--source-link URL]
-    render.py [--root DIR]     # batch mode: render every DIR/docs-source/*.md → DIR/documentation/*.html
-                               # and emit DIR/documentation/search.json (DIR defaults to the cwd)
+    render.py <input.md> <output.html> [--title TITLE] [--description DESC]
+              [--source-link URL]
+    render.py [--root DIR]
+        Batch mode: render every DIR/docs-source/*.md to DIR/documentation/*.html
+        and emit DIR/documentation/search.json (DIR defaults to the cwd).
 
 Reads markdown from <input.md>, renders to semantic HTML via the python-markdown
 library with codehilite (Pygments) syntax highlighting, generates an in-page
@@ -24,8 +26,8 @@ Diataxis frontmatter (optional, supported in either YAML or HTML-comment form):
 
     <!-- diataxis: reference -->
 
-When absent, the renderer guesses from the file name in `classify_diataxis()`. The resolved quadrant is rendered as a `.diataxis-chip`
-above the page H1.
+When absent, the renderer guesses from the file name in `classify_diataxis()`.
+The resolved quadrant is rendered as a `.diataxis-chip` above the page H1.
 
 Required deps (install via: pip install markdown pygments):
     - markdown (>= 3.10)
@@ -89,7 +91,7 @@ def parse_frontmatter(md_text: str) -> tuple[dict, str]:
     m = re.match(r"^<!--\s*\n?(.*?)\n?-->\s*\n", md_text, re.DOTALL)
     if m:
         meta = _parse_kv_block(m.group(1))
-        # Only treat as frontmatter if it actually contains key:value lines we recognise.
+        # Only treat it as frontmatter if it holds key:value lines we recognise.
         if meta:
             return meta, md_text[m.end() :]
     return {}, md_text
@@ -218,7 +220,8 @@ def extract_toc(md_text: str) -> str:
         seen.add(slug)
         cls = f"lvl-{level}"
         items.append(
-            f'      <li class="{cls}"><a href="#{slug}">{html_lib.escape(clean)}</a></li>'
+            f'      <li class="{cls}"><a href="#{slug}">'
+            f"{html_lib.escape(clean)}</a></li>"
         )
     return "\n".join(items)
 
@@ -336,7 +339,7 @@ def fill_template(
 
 
 def extract_html_body(html_text: str) -> str:
-    """Extract the inner content of <body>...</body>. Used for --from-html rewrap mode."""
+    """Extract the inner content of <body>...</body> (for --from-html rewrap mode)."""
     m = re.search(r"<body[^>]*>(.*?)</body>", html_text, re.DOTALL | re.IGNORECASE)
     if not m:
         return html_text  # no body tag → assume input is already a body fragment
@@ -397,7 +400,8 @@ def extract_toc_from_html(html_text: str) -> str:
         slug = id_match.group(1) if id_match else slugify(text)
         lvl = "lvl-2" if tag == "h2" else "lvl-3"
         items.append(
-            f'      <li class="{lvl}"><a href="#{slug}">{html_lib.escape(text)}</a></li>'
+            f'      <li class="{lvl}"><a href="#{slug}">'
+            f"{html_lib.escape(text)}</a></li>"
         )
     return "\n".join(items)
 
@@ -498,7 +502,7 @@ def derive_description(md_text: str, fallback: str) -> str:
 
 
 def strip_first_h1(html_body: str) -> str:
-    """Remove the first <h1>...</h1> from the rendered body (we put title in page-header)."""
+    """Remove the first <h1>...</h1> from the body (the title goes in page-header)."""
     return re.sub(r"<h1[^>]*>.*?</h1>\s*", "", html_body, count=1, flags=re.DOTALL)
 
 
@@ -573,7 +577,8 @@ def substitute_snippets(
                 out.append(src[m.start() : i])
                 continue
             raise FileNotFoundError(
-                f"snippet not found: {snippet_path} (referenced from data-snippet={name!r})"
+                f"snippet not found: {snippet_path} "
+                f"(referenced from data-snippet={name!r})"
             )
         used.append(name)
         extra_attrs = m.group(2).strip()
@@ -581,7 +586,7 @@ def substitute_snippets(
         content = snippet_path.read_text(encoding="utf-8")
         content = re.sub(
             r'(<[^>]*?data-snippet-mount="[^"]+")([^>]*>)',
-            lambda mm: (
+            lambda mm, extra_attrs=extra_attrs, children=children: (
                 mm.group(1)
                 + (" " + extra_attrs if extra_attrs else "")
                 + mm.group(2)
@@ -615,7 +620,10 @@ def inline_search_index(html_text: str, records: list[dict]) -> str:
 
 
 def strip_first_paragraph(html_body: str) -> str:
-    """Remove the first <p>...</p> from the rendered body (used when description was auto-derived from it)."""
+    """Remove the first <p>...</p> from the rendered body.
+
+    Used when the description was auto-derived from that paragraph.
+    """
     return re.sub(r"<p[^>]*>.*?</p>\s*", "", html_body, count=1, flags=re.DOTALL)
 
 
@@ -685,14 +693,19 @@ def render_one(
 
     meta_items = []
     if source_link:
+        safe_link = html_lib.escape(source_link)
         meta_items.append(
-            f'<span class="meta-item">Source: <a href="{html_lib.escape(source_link)}">{html_lib.escape(source_link)}</a></span>'
+            f'<span class="meta-item">Source: <a href="{safe_link}">'
+            f"{safe_link}</a></span>"
         )
     for item in extra_meta:
         if ":" in item:
             label, value = item.split(":", 1)
+            label_html = html_lib.escape(label.strip())
+            value_html = html_lib.escape(value.strip())
             meta_items.append(
-                f'<span class="meta-item"><strong>{html_lib.escape(label.strip())}:</strong> {html_lib.escape(value.strip())}</span>'
+                f'<span class="meta-item"><strong>{label_html}:</strong> '
+                f"{value_html}</span>"
             )
         else:
             meta_items.append(f'<span class="meta-item">{html_lib.escape(item)}</span>')
@@ -817,7 +830,11 @@ def main() -> int:
     parser.add_argument(
         "--from-html",
         action="store_true",
-        help="Treat input as HTML (not markdown) and rewrap in the template. Body content is extracted from <body>...</body>; ToC is built from existing h2/h3 ids.",
+        help=(
+            "Treat input as HTML (not markdown) and rewrap in the template. Body "
+            "content is extracted from <body>...</body>; ToC is built from existing "
+            "h2/h3 ids."
+        ),
     )
     parser.add_argument(
         "--root",
@@ -827,7 +844,8 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    # Batch mode: no positional args → render every docs-source/*.md and emit search.json.
+    # Batch mode: with no positional args, render every docs-source/*.md
+    # and emit search.json.
     if args.input is None and args.output is None:
         return batch_render((args.root or Path.cwd()).resolve())
 
@@ -864,7 +882,8 @@ def main() -> int:
     if args.output == "-":
         sys.stdout.write(html_output)
     else:
-        # A search-widget page rendered next to batch mode's search.json gets it inlined.
+        # A search-widget page rendered next to batch mode's search.json
+        # gets the index inlined.
         index_path = Path(args.output).parent / "search.json"
         if index_path.is_file():
             html_output = inline_search_index(

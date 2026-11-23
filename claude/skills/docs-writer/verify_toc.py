@@ -94,7 +94,8 @@ def main() -> int:
 
     print(f"\n{'=' * 60}")
     print(
-        f"Scanned {total_pages} pages, {total_links} ToC links total, {total_broken} broken"
+        f"Scanned {total_pages} pages, {total_links} ToC links total, "
+        f"{total_broken} broken"
     )
     print(f"Pages with issues: {len(issues)}")
 

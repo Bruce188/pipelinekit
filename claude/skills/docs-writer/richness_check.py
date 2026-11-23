@@ -33,7 +33,7 @@ from pathlib import Path
 # Plain <style>/<script>/<table>/icon <svg> do not count: every templated page has them.
 RICHNESS_PATTERNS: list[tuple[str, str]] = [
     ("snippet", r'data-snippet-mount="[^"]+"'),
-    # Custom SVG diagram: viewBox >= 200 wide and >= 100 tall (template icons are 24x24).
+    # Custom SVG diagram: viewBox at least 200x100 (template icons are 24x24).
     (
         "custom-svg-diagram",
         r'viewBox="0 0 (?:[2-9]\d{2}|\d{4,})\s+(?:[1-9]\d{2}|\d{4,})"',
@@ -59,7 +59,7 @@ _TAG_RE = re.compile(r"<[^>]+>")
 
 
 def _body_word_count(html: str) -> int:
-    """Count prose words inside <body>, ignoring tags, comments, <script> and <style>."""
+    """Count prose words in <body>, skipping tags, comments, <script> and <style>."""
     match = _BODY_RE.search(html)
     if not match:
         return 0
@@ -177,17 +177,18 @@ def main() -> int:
             )
             print(f"  {mark:4} {r.path}  score={r.score} words={r.body_words}{extra}")
 
-    print(
-        f"\nTotal: {len(results) - len(failed)} pass, {len(failed)} fail (of {len(results)} checked)"
-    )
+    n_pass = len(results) - len(failed)
+    print(f"\nTotal: {n_pass} pass, {len(failed)} fail (of {len(results)} checked)")
 
     if failed:
         print(
-            "\nTo fix a failing page, add a snippet placeholder to its markdown source,",
+            "\nTo fix a failing page, add a snippet placeholder "
+            "to its markdown source,",
             file=sys.stderr,
         )
         print(
-            'e.g. <div data-snippet="comparison-tabs">...</div> (see the docs-writer SKILL.md).',
+            'e.g. <div data-snippet="comparison-tabs">...</div> '
+            "(see the docs-writer SKILL.md).",
             file=sys.stderr,
         )
         print(
