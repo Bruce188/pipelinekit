@@ -15,15 +15,14 @@ Usage:
     verify_toc.py            # scan ./documentation/ (run from the project root)
     verify_toc.py path...    # scan specific .html files
 """
+
 from __future__ import annotations
 
 import re
 import sys
 from pathlib import Path
 
-_TOC_ASIDE_RE = re.compile(
-    r'<aside[^>]*class="toc"[^>]*>(.+?)</aside>', re.DOTALL
-)
+_TOC_ASIDE_RE = re.compile(r'<aside[^>]*class="toc"[^>]*>(.+?)</aside>', re.DOTALL)
 _TOC_LINK_RE = re.compile(r'href="#([^"]+)"')
 _HEADING_ID_RE = re.compile(r'<h[234]\s+id="([^"]+)"')
 
@@ -52,7 +51,10 @@ def main() -> int:
     else:
         doc_dir = Path.cwd() / "documentation"
         if not doc_dir.is_dir():
-            print(f"error: {doc_dir} not found (run from the project root or pass files)", file=sys.stderr)
+            print(
+                f"error: {doc_dir} not found (run from the project root or pass files)",
+                file=sys.stderr,
+            )
             return 2
         targets = sorted(doc_dir.rglob("*.html"))
 
@@ -91,7 +93,9 @@ def main() -> int:
                 print(f"    ... and {len(dups) - 10} more")
 
     print(f"\n{'=' * 60}")
-    print(f"Scanned {total_pages} pages, {total_links} ToC links total, {total_broken} broken")
+    print(
+        f"Scanned {total_pages} pages, {total_links} ToC links total, {total_broken} broken"
+    )
     print(f"Pages with issues: {len(issues)}")
 
     return 0 if not issues else 1
