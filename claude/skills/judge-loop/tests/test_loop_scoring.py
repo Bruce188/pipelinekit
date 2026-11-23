@@ -455,6 +455,48 @@ def test_an_item_without_a_row_still_refuses_the_round(sb):
     assert (run.code, run.last) == (2, want), run
 
 
+def test_a_row_of_an_earlier_round_does_not_release_a_later_one(sb):
+    one_round(sb)
+    row(sb, "- r1 [general I1] answered: the evidence\n")
+    assert sb.judge({"general": scored(9)}).code == 1
+    rounds = sb.state()["rounds"]
+    assert len(rounds) == 2
+    assert rounds[1]["commit"] == rounds[0]["commit"]
+    before = sb.state()
+    run = sb.run("brief")
+    want = NOTHING_NEW_BUILD.replace("since round 1", "since round 2")
+    assert (run.code, run.last) == (2, want), run
+    assert sb.state() == before
+    row(
+        sb,
+        "- r1 [general I1] answered: the evidence\n"
+        "- r2 [general I1] answered: the evidence still holds\n",
+    )
+    run = sb.run("brief")
+    assert run.code == 0, run
+    assert sb.state()["pending"]["round"] == 3
+
+
+def test_a_row_releases_only_the_item_of_its_own_role(sb):
+    sb.two_judges()
+    sb.start_build()
+    assert sb.judge({"general": nine("I1"), "tests": nine("I1")}).code == 1
+    for text in (
+        "- r1 [tests I1] answered: the evidence\n",
+        "- r1 [general I1] answered: the evidence\n",
+    ):
+        row(sb, text)
+        run = sb.run("brief")
+        assert (run.code, run.last) == (2, NOTHING_NEW_BUILD), run
+    row(
+        sb,
+        "- r1 [tests I1] answered: the evidence\n"
+        "- r1 [general I1] answered: the evidence\n",
+    )
+    run = sb.run("brief")
+    assert run.code == 0, run
+
+
 def test_an_item_a_ten_does_not_need_does_not_hold_the_round(sb):
     sb.two_judges()
     sb.start_build()
