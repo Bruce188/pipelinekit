@@ -220,8 +220,10 @@ grep -qxF "allowed-tools: Bash(python3 $KH/skills/judge-loop/loop.py *)" "$KH/sk
 if grep -qF '.claude/skills/judge-loop' "$KH/skills/judge-loop/SKILL.md"; then
   echo "test_install: the skill still names the default home" >&2; exit 1
 fi
-report="$(CLAUDE_HOME="$KH" python3 "$KH/skills/kit/check.py" --no-remote || true)"
-if grep -qF 'changed since install' <<<"$report"; then
+report="$(CLAUDE_HOME="$KH" python3 "$KH/skills/kit/check.py" --no-remote --verbose || true)"
+grep -qF 'unchanged since install' <<<"$report" ||
+  { echo "test_install: no drift report for the other home" >&2; exit 1; }
+if grep -qF 'changed since install:' <<<"$report"; then
   echo "test_install: the rewritten skill shows as changed since install" >&2; exit 1
 fi
 [ "$(git config --global core.hooksPath)" = "$CLAUDE_HOME/git-hooks" ]
