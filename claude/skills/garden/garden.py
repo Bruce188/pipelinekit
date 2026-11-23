@@ -3,13 +3,14 @@
 
   garden.py scan [--json]                        the four sections, the ranked findings
   garden.py time --label L [--timeout N] -- CMD  run CMD, keep duration and exit code
-  garden.py record [--picked G1 G3]              save this run under docs/garden/
+  garden.py record [--scan ID --picked G1 G3]    save this run under docs/garden/
 
 The scan reads files and asks git and gh; it runs nothing from the project and
 changes no file. Its output holds file names, counts, durations and dates only.
 `time` runs the one command it is given and keeps neither its output nor its
 arguments. `record` and `time` write to docs/garden/ only, which they add to
-.git/info/exclude.
+.git/info/exclude. The scan's id names its list of findings; `record` takes
+it with the picked ids and refuses when the findings changed since.
 
 Exit codes: scan 0; record 0, 1 when docs/garden/ cannot be written, 2 on
 wrong use; time gives the command's own exit code, 124 when it timed out, 127
@@ -23,6 +24,7 @@ Standard library only, Python 3.10 or later.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -59,6 +61,7 @@ LAST = "last.json"
 LONG_GUIDE_LINES = 300
 LONG_GUIDE_BYTES = 40000
 FINDING_ID = re.compile(r"G[1-9][0-9]{0,3}")
+SCAN_ID = re.compile(r"[0-9a-f]{8}")
 # The last part may hold dots: a label of `garden.py time` such as unit.fast.
 KEY = re.compile(r"[a-z]+(?:\.[A-Za-z0-9_-]+){1,2}(?:\.[A-Za-z0-9._-]{1,40})?")
 STATES = ("open", "picked")
@@ -204,11 +207,13 @@ def scan(project):
     findings.sort(key=lambda f: (-f["weight"], f["key"]))
     for n, f in enumerate(findings, 1):
         f["id"] = f"G{n}"
+    pairs = json.dumps([[f["id"], f["key"]] for f in findings])
     previous = previous_run(project)
     guidance = scan_guidance(project, findings, previous, now)
     return {
         "schema": SCHEMA,
         "date": stamp(now),
+        "scan": hashlib.sha256(pairs.encode()).hexdigest()[:8],
         "git": project.in_git,
         "git_problem": project.git_problem,
         "files_truncated": project.truncated,
@@ -260,7 +265,8 @@ def render(data):
     lines += ["", "## Guidance"] + render_guidance(data["guidance"])
     lines += [
         "",
-        "Findings, ranked (size: S an hour or less, M a few hours, L a day or more):",
+        f"Findings, ranked, scan {data['scan']} "
+        "(size: S an hour or less, M a few hours, L a day or more):",
     ]
     if not data["findings"]:
         lines.append("- none")
@@ -435,13 +441,38 @@ def cmd_record(args):
                 what = f"'{fid}'" if SAFE_ARG.fullmatch(fid) else "an argument"
                 print(
                     f"record: {what} is not a finding id like G1; "
-                    "give the ids of the scan, as in: garden.py record --picked G1 G3",
+                    "give the ids of the scan, as in: "
+                    "garden.py record --scan 1a2b3c4d --picked G1 G3",
                     file=sys.stderr,
                 )
                 return 2
             picked.append(fid.upper())
+    given = args.scan.lower() if args.scan is not None else None
+    if given is not None and not SCAN_ID.fullmatch(given):
+        print(
+            "record: --scan takes the 8 letters and digits after 'scan' on the "
+            "scan's 'Findings, ranked' line, as in: --scan 1a2b3c4d",
+            file=sys.stderr,
+        )
+        return 2
+    if picked and given is None:
+        print(
+            "record: give the scan's id with the picked findings, as in: "
+            "garden.py record --scan 1a2b3c4d --picked G1 G3; the id is on the "
+            "scan's 'Findings, ranked' line",
+            file=sys.stderr,
+        )
+        return 2
     project = Project(os.getcwd())
     data = scan(project)
+    if given is not None and given != data["scan"]:
+        # The ids are ranks: after a change G1 may name another finding.
+        print(
+            f"record: the findings changed since scan {given}; run garden.py "
+            "scan again, show the new findings and ask again which to fix",
+            file=sys.stderr,
+        )
+        return 2
     ids = {f["id"] for f in data["findings"]}
     unknown = [f for f in picked if f not in ids]
     if unknown:
@@ -563,6 +594,11 @@ def main(argv=None):
     s.add_argument("--json", action="store_true", help="the same facts as JSON")
     s.set_defaults(func=cmd_scan)
     r = sub.add_parser("record", help="save this run under docs/garden/")
+    r.add_argument(
+        "--scan",
+        metavar="ID",
+        help="the id of the scan the user picked from, on its 'Findings, ranked' line",
+    )
     r.add_argument(
         "--picked", nargs="*", metavar="ID", help="the findings the user picked"
     )

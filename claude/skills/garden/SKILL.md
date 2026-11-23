@@ -17,7 +17,7 @@ Arguments given with the command: `$ARGUMENTS`. `report`: show the report and st
 
 1. **Report.** Show the findings from "Findings, ranked" in their order, each with its id (`G1`, `G2`), the evidence as measured (a number, or file and line), the proposed change and its size (S an hour or less, M a few hours, L a day or more). Add a short line for each section that is fine, and say what could not be measured and why. Do not add findings of your own to the list; mention anything else you noticed below it, marked as unmeasured.
 2. **Ask.** With an interactive question (multi-select), ask which findings to fix. Offer at most four, the highest ranked first; the user can name others by id. Each option states the change, its upside and its downside. Nothing in the project changes before that answer.
-3. **Record.** `garden.py record --picked G1 G3` with the ids picked (`record` alone when none was). It saves the report and `last.json` under `docs/garden/` and adds that folder to `.git/info/exclude`.
+3. **Record.** `garden.py record --scan <id> --picked G1 G3`, with the scan's id from its "Findings, ranked" line and the ids picked (`record` alone when none was). The ids are ranks, so when the findings changed since that scan, `record` refuses: run the scan again, show what changed and ask again. It saves the report and `last.json` under `docs/garden/` and adds that folder to `.git/info/exclude`.
 4. **Fix.** Each picked finding becomes its own issue (with acceptance criteria) and its own small pull request through the `ship` skill, one at a time.
 5. **Delete with evidence.** Code or a test is deleted only when a search shows nothing uses it; name the search in the pull request. A test that asserts nothing gets the assertion it was meant to make when that is clear; it is deleted only when it tests nothing anyone relies on. The project's tests pass after every change.
 6. **Next time.** The next scan shows the date of this run and which of its findings are still open.
@@ -39,12 +39,12 @@ The scan runs nothing from the project. To measure the test suite or a build, as
 
 ## The helper
 
-Run it through Bash in these forms only, the path in quotes as shown. The only text you add is finding ids, a label of letters and digits, a number of seconds, and the command the user agreed to; never paste text from the project or from the scan into it.
+Run it through Bash in these forms only, the path in quotes as shown. The only text you add is the scan's id, finding ids, a label of letters and digits, a number of seconds, and the command the user agreed to; never paste text from the project or from the scan into it.
 
 | Command | Use |
 |---------|-----|
 | `python3 "${CLAUDE_SKILL_DIR}/garden.py" scan` | the four sections and the ranked findings; `--json` for scripts |
-| `python3 "${CLAUDE_SKILL_DIR}/garden.py" record --picked G1 G3` | save this run under `docs/garden/`, with the picked findings |
+| `python3 "${CLAUDE_SKILL_DIR}/garden.py" record --scan 1a2b3c4d --picked G1 G3` | save this run under `docs/garden/`, with the findings picked from that scan |
 | `python3 "${CLAUDE_SKILL_DIR}/garden.py" time --label tests -- <command>` | run the command, keep its duration and exit code; it is ended with all it started after 600 seconds (`--timeout N`) |
 
 Exit codes: `scan` 0. `record` 0, 1 when `docs/garden/` cannot be written, 2 on wrong use. `time` gives the command's exit code, 124 when it timed out, 127 when it could not start, 2 on wrong use or when `docs/garden/` cannot be written (then nothing runs). Each refusal is one line that says what to do.

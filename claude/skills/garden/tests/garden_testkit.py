@@ -165,6 +165,13 @@ class Sandbox:
         assert p.returncode == 0, p.stderr
         return json.loads(p.stdout)
 
+    def scan_id(self) -> str:
+        return self.scan_json()["scan"]
+
+    def record(self, *picked: str):
+        """record with the ids picked from a scan run just before it."""
+        return self.garden("record", "--scan", self.scan_id(), "--picked", *picked)
+
     def snapshot(self) -> dict:
         """Every file below the project but .git, with a hash of its bytes."""
         out = {}

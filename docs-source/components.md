@@ -347,11 +347,11 @@ Then come the findings, ranked, each with an id (`G1`), the evidence, the propos
 
 ```bash
 python3 ~/.claude/skills/garden/garden.py scan             # the report; --json for scripts
-python3 ~/.claude/skills/garden/garden.py record --picked G1 G3
+python3 ~/.claude/skills/garden/garden.py record --scan 1a2b3c4d --picked G1 G3
 python3 ~/.claude/skills/garden/garden.py time --label tests -- pytest -q
 ```
 
-`record` saves the report and `last.json` under `docs/garden/` and adds that folder to `.git/info/exclude`; `docs/garden/` is also on the never-stage list. `time` runs the command you name, keeps its duration and exit code (not its output) and ends it, with everything it started, after 600 seconds (`--timeout N`); it exits with the command's code, 124 on a timeout. The skill runs `scan` and `record` without a prompt; `time` runs any command it is given, so it goes through the normal permission prompt. The report is data: it shows file names, counts, durations and dates, never text from the project's files, and a name that is not a plain path is counted and not shown.
+The report names the scan with a short id on its findings line. `record` takes that id with the picked findings and refuses when the findings changed since, because the ids are ranks and G1 could name another finding. It saves the report and `last.json` under `docs/garden/` and adds that folder to `.git/info/exclude`; `docs/garden/` is also on the never-stage list. `time` runs the command you name, keeps its duration and exit code (not its output) and ends it, with everything it started, after 600 seconds (`--timeout N`); it exits with the command's code, 124 on a timeout. The skill runs `scan` and `record` without a prompt; `time` runs any command it is given, so it goes through the normal permission prompt. The report is data: it shows file names, counts, durations and dates, never text from the project's files, and a name that is not a plain path is counted and not shown.
 
 When a project's last run is more than 30 days old, the session-start hook adds one line naming `/garden` and the number of days, at most once in 7 days per project. It stays quiet in a project that was never audited, and on any fault. A line `Garden reminder: off` in the project's `CLAUDE.md`, or `PIPELINEKIT_GARDEN=0` in the environment, turns the reminder off.
 

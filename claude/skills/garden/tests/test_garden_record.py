@@ -2,6 +2,7 @@
 
 import json
 import re
+import sys
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -43,7 +44,7 @@ def test_the_sample_names_the_three_problems_and_changes_nothing(sb):
 
 
 def test_record_saves_the_report_and_last_json_and_excludes_the_folder(sb):
-    p = sb.garden("record", "--picked", "g1", "G3")
+    p = sb.record("g1", "G3")
     assert p.returncode == 0, p.stderr
     day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     report = sb.root / "docs" / "garden" / f"{day}.md"
@@ -74,7 +75,7 @@ def test_record_keeps_an_exclude_file_without_a_last_newline(sb):
 
 def test_the_next_scan_shows_the_date_and_what_is_still_open(sb):
     first = sb.scan_json()["findings"]
-    sb.garden("record", "--picked", "G1")
+    sb.record("G1")
     sb.write(
         "pyproject.toml",
         sb.root.joinpath("pyproject.toml").read_text() + "\n[tool.ruff]\n",
@@ -149,7 +150,7 @@ def test_a_last_json_entry_with_odd_fields_is_dropped(sb):
 
 @pytest.mark.parametrize("ids", [["G99"], ["foo"], ["G1;rm"]])
 def test_record_with_an_unknown_id_exits_2_and_writes_nothing(sb, ids):
-    p = sb.garden("record", "--picked", *ids)
+    p = sb.record(*ids)
     assert p.returncode == 2
     assert not (sb.root / "docs").exists()
 
@@ -159,21 +160,76 @@ def test_record_with_an_unknown_id_exits_2_and_writes_nothing(sb, ids):
     [("foo", "'foo'"), ("G1;rm", "an argument"), ("x" * 21, "an argument")],
 )
 def test_a_wrong_id_is_refused_in_one_line(sb, arg, what):
-    p = sb.garden("record", "--picked", arg)
+    p = sb.record(arg)
     assert p.stderr == (
         f"record: {what} is not a finding id like G1; give the ids of the scan, "
-        "as in: garden.py record --picked G1 G3\n"
+        "as in: garden.py record --scan 1a2b3c4d --picked G1 G3\n"
     )
 
 
 def test_an_id_not_in_the_scan_is_refused_in_one_line(sb):
     n = len(sb.scan_json()["findings"])
-    p = sb.garden("record", "--picked", "G99")
+    p = sb.record("G99")
     things = "finding" if n == 1 else "findings"
     assert p.stderr == (
         f"record: no finding G99 in this scan (it has {n} {things}); "
         "run garden.py scan and pick from its ids\n"
     )
+
+
+def test_the_scan_shows_its_id_with_the_findings(sb):
+    data = sb.scan_json()
+    assert re.fullmatch(r"[0-9a-f]{8}", data["scan"])
+    assert f"Findings, ranked, scan {data['scan']} (size: " in sb.scan()
+    assert sb.scan_id() == data["scan"]
+
+
+def test_picks_from_a_scan_whose_findings_changed_are_refused(sb):
+    first = sb.scan_json()
+    fail = [sys.executable, "-c", "raise SystemExit(1)"]
+    assert sb.garden("time", "--label", "tests", "--", *fail).returncode == 1
+    p = sb.garden("record", "--scan", first["scan"], "--picked", "G1")
+    assert p.returncode == 2
+    assert p.stderr == (
+        f"record: the findings changed since scan {first['scan']}; run garden.py "
+        "scan again, show the new findings and ask again which to fix\n"
+    )
+    assert not (sb.root / "docs" / "garden" / "last.json").exists()
+    # Picked from the new scan, G1 is the finding the user saw as G1.
+    now = sb.scan_json()
+    assert now["scan"] != first["scan"]
+    assert sb.record("G1").returncode == 0
+    last = json.loads((sb.root / "docs" / "garden" / "last.json").read_text())
+    picked = [f["key"] for f in last["findings"] if f["state"] == "picked"]
+    assert picked == [now["findings"][0]["key"]]
+
+
+def test_picks_without_the_scan_id_are_refused_in_one_line(sb):
+    p = sb.garden("record", "--picked", "G1")
+    assert p.returncode == 2
+    assert p.stderr == (
+        "record: give the scan's id with the picked findings, as in: garden.py "
+        "record --scan 1a2b3c4d --picked G1 G3; the id is on the scan's "
+        "'Findings, ranked' line\n"
+    )
+    assert not (sb.root / "docs").exists()
+
+
+@pytest.mark.parametrize("value", ["1a2b", "1a2b3c4d;rm", "", "ZZZZZZZZ"])
+def test_a_wrong_scan_id_is_refused_in_one_line(sb, value):
+    p = sb.garden("record", "--scan", value, "--picked", "G1")
+    assert p.returncode == 2
+    assert p.stderr == (
+        "record: --scan takes the 8 letters and digits after 'scan' on the "
+        "scan's 'Findings, ranked' line, as in: --scan 1a2b3c4d\n"
+    )
+    assert not (sb.root / "docs").exists()
+
+
+def test_record_with_nothing_picked_needs_no_scan_id(sb):
+    assert sb.garden("record").returncode == 0
+    last = json.loads((sb.root / "docs" / "garden" / "last.json").read_text())
+    assert all(f["state"] == "open" for f in last["findings"])
 
 
 def test_record_outside_git_writes_no_exclude(tmp_path):
