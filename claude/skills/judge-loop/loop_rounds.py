@@ -439,6 +439,9 @@ FIRST_MISS = {
         "have that judge mark each improvement it does not need for the 10 as "
         '"needed_for_10": false, or score below 10'
     ),
+    TEN_WITH_BLOCKING: (
+        "have that judge score below 10, since a blocking item rules out a 10"
+    ),
 }
 
 

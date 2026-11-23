@@ -116,6 +116,7 @@ NOT_AN_ID = "not a valid id"
 NOT_OPEN_ID = "not an open id"
 NOT_THE_ROLE = "not the role"
 TEN_WITH_OPEN = "a 10 with open items"
+TEN_WITH_BLOCKING = "a 10 with a blocking item"
 NOT_ONE_OBJECT = "not one JSON object"
 NOT_UTF8 = "not UTF-8"
 OVER_SIZE = "over 200 kB"
@@ -137,6 +138,7 @@ WHY_PHRASES = (
     NOT_OPEN_ID,
     NOT_THE_ROLE,
     TEN_WITH_OPEN,
+    TEN_WITH_BLOCKING,
     NOT_ONE_OBJECT,
     NOT_UTF8,
     OVER_SIZE,
