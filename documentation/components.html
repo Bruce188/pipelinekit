@@ -1403,7 +1403,7 @@ python3<span class="w"> </span>~/.claude/skills/kit/update.py<span class="w"> </
 </tr>
 <tr>
 <td><code>stack</code></td>
-<td>Outside a judged stack it always holds. In one: the stack's last round is counted, no item is open on this pull request or on one below it, no commit came on its branch since that round other than merges and commits of its base, and the pull request below it merged first</td>
+<td>Outside a judged stack it always holds. In one: the stack's last round is counted, no item is open on this pull request or on one below it (once the loop ended done, at its budget or accepted, the items left are follow-up issues and do not hold it), no commit came on its branch since that round other than merges and commits of its base, and the pull request below it, in its own stack or in the stack it is based on, merged first</td>
 </tr>
 <tr>
 <td><code>ci</code></td>

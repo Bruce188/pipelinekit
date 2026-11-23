@@ -91,7 +91,7 @@ Exit code: 0 done, 1 a gate or a check failed (fix it and run again), 2 the help
 | `current` | the local commit is the pull request's head and nothing tracked is uncommitted |
 | `up-to-date` | the branch contains its base branch and does not conflict with it |
 | `tested` | the last record is a pass for this commit, and the loop is not stuck |
-| `stack` | outside a judged stack: always. In one: its last round is counted, no item is open on it or on a pull request below it, no commit came on its branch since that round other than merges and the base's own, and the pull request below it merged first |
+| `stack` | outside a judged stack: always. In one: its last round is counted, no item is open on it or on a pull request below it (once the loop ended done, at its budget or accepted, the items left are follow-up issues and do not hold it), no commit came on its branch since that round other than merges and the base's own, and the pull request below it, in its own stack or in the stack it is based on, merged first |
 | `ci` | every check passed; no check at all counts only where no workflow runs on pull requests |
 
 ## Limits

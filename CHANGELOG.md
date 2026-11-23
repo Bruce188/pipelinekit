@@ -86,7 +86,8 @@ kit used to ship, so those parts are gone.
   as a run (`--allow-no-checks` says otherwise).
 - A pull request of a judged stack merges bottom-up: a `stack` gate holds it
   until the stack's last round is counted, nothing is open on it or below
-  it, and no unjudged commit came on its branch. After a merge, your own
+  it while the loop runs, no unjudged commit came on its branch, and the
+  pull request below it, also the top of a stack it is based on, merged. After a merge, your own
   pull requests based on the merged branch move to its base and get that
   base merged in; others are named, not moved.
 - `gh pr merge --admin` is on the `permissions.ask` list, `docs/uat/` (local

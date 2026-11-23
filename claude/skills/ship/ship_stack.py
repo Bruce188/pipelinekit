@@ -11,6 +11,8 @@ from pathlib import Path
 NAME = "stack"
 MAX_STATE = 4 * 1024 * 1024
 SHOWN = 5
+# A loop that ended judged: the items it left are follow-up issues.
+JUDGED = ("done", "budget", "accepted")
 
 
 def plural(n, word):
@@ -53,22 +55,47 @@ def read_state(path):
     return st
 
 
-def find_stack(repo, number):
-    """(path, state) of the newest stack loop, in any worktree, that holds this
-    pull request; None when it is in none."""
+def stack_states(repo):
+    """(path, state) of every stack loop in any worktree, oldest first."""
     found = []
     for root in worktrees(repo):
         for path in sorted((root / "docs" / "loops").glob("*/build/state.json")):
             st = read_state(path)
-            if st and any(e.get("pr") == number for e in st["stack"]["prs"]):
+            if st:
                 try:
                     found.append((path.stat().st_mtime, str(path), path, st))
                 except OSError:
                     continue
-    if not found:
-        return None
     found.sort(key=lambda entry: entry[:2])
-    return found[-1][2], found[-1][3]
+    return [(path, st) for _, _, path, st in found]
+
+
+def find_stack(states, number):
+    """(path, state) of the newest stack loop that holds this pull request; None
+    when it is in none."""
+    found = [
+        (path, st)
+        for path, st in states
+        if any(e.get("pr") == number for e in st["stack"]["prs"])
+    ]
+    return found[-1] if found else None
+
+
+def owner_below(states, path, entries, k, base):
+    """The pull request whose branch is the base of this one: one below it in its
+    own stack, or one of another stack this one is based on; None for neither."""
+    lower = {e.get("branch"): e.get("pr") for e in entries[:k]}
+    if base in lower:
+        return lower[base]
+    if k:
+        return None
+    for other, st in reversed(states):
+        if other == path:
+            continue
+        for e in st["stack"]["prs"]:
+            if e.get("branch") == base and isinstance(e.get("pr"), int):
+                return e["pr"]
+    return None
 
 
 def open_at_or_below(st, below):
@@ -90,7 +117,8 @@ def open_at_or_below(st, below):
 def stack_gate(repo, pr, gate):
     """The stack gate of one pull request."""
     number = pr.get("number")
-    found = find_stack(repo, number)
+    states = stack_states(repo)
+    found = find_stack(states, number)
     if not found:
         return gate(NAME, "pass", "not in a judged stack")
     path, st = found
@@ -102,7 +130,7 @@ def stack_gate(repo, pr, gate):
     again = f"judge the stack again (loop.py brief in {where})"
     if not rounds:
         return gate(NAME, "fail", f"the stack loop in {where} has no judged round yet")
-    if st.get("outcome") != "accepted":
+    if st.get("outcome") not in JUDGED:
         left = open_at_or_below(st, set(numbers[: k + 1]))
         if left:
             shown = ", ".join(left[:SHOWN]) + (", ..." if len(left) > SHOWN else "")
@@ -113,12 +141,14 @@ def stack_gate(repo, pr, gate):
                 f"fix each on its pull request's branch, merge it up, then {again}",
             )
     base = pr.get("baseRefName") or ""
-    lower = {e.get("branch"): e.get("pr") for e in entries[:k]}
-    if base in lower:
+    below = owner_below(states, path, entries, k, base)
+    if below is not None:
         return gate(
             NAME,
             "fail",
-            f"#{lower[base]} below it merges first: a stack merges bottom-up",
+            f"#{below} below it merges first: a stack merges bottom-up; once "
+            f"#{below} has merged, set the base of #{number} to the branch #{below} "
+            "merged into",
         )
     heads = rounds[-1].get("heads")
     judged = heads.get(str(number)) if isinstance(heads, dict) else None

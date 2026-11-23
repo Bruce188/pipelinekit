@@ -253,7 +253,7 @@ With the kit installed, Claude finishes the pull requests it opens instead of ha
 | `current` | The local commit is the pull request's head and nothing tracked is uncommitted |
 | `up-to-date` | The branch contains its base branch and does not conflict with it |
 | `tested` | The last test record is a pass for exactly this commit, and the loop is not stuck |
-| `stack` | Outside a judged stack it always holds. In one: the stack's last round is counted, no item is open on this pull request or on one below it, no commit came on its branch since that round other than merges and commits of its base, and the pull request below it merged first |
+| `stack` | Outside a judged stack it always holds. In one: the stack's last round is counted, no item is open on this pull request or on one below it (once the loop ended done, at its budget or accepted, the items left are follow-up issues and do not hold it), no commit came on its branch since that round other than merges and commits of its base, and the pull request below it, in its own stack or in the stack it is based on, merged first |
 | `ci` | Every check has finished and passed. A pull request with no check at all passes only where no workflow runs on pull requests, or with `--allow-no-checks` |
 
 The merge command names the tested commit (`--match-head-commit`), so a commit pushed in between is not merged. The helper has no `--admin` option, and `gh pr merge --admin` is on the `permissions.ask` list. The merge method follows the base branch: a merge commit where the branch already has them, squash otherwise.
