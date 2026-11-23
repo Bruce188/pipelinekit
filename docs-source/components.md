@@ -253,11 +253,14 @@ With the kit installed, Claude finishes the pull requests it opens instead of ha
 | `current` | The local commit is the pull request's head and nothing tracked is uncommitted |
 | `up-to-date` | The branch contains its base branch and does not conflict with it |
 | `tested` | The last test record is a pass for exactly this commit, and the loop is not stuck |
+| `stack` | Outside a judged stack it always holds. In one: the stack's last round is counted, no item is open on this pull request or on one below it, no commit came on its branch since that round other than merges and commits of its base, and the pull request below it merged first |
 | `ci` | Every check has finished and passed. A pull request with no check at all passes only where no workflow runs on pull requests, or with `--allow-no-checks` |
 
 The merge command names the tested commit (`--match-head-commit`), so a commit pushed in between is not merged. The helper has no `--admin` option, and `gh pr merge --admin` is on the `permissions.ask` list. The merge method follows the base branch: a merge commit where the branch already has them, squash otherwise.
 
 A draft has to be marked ready before GitHub merges it, and that can start checks, add reviewers or turn on branch protection. The helper therefore watches the pull request after marking it ready and merges only when it stayed mergeable for the whole settle time: 30 seconds, or 90 (the `--grace` time) where a check is still to come, because none has run yet or a workflow starts on `ready_for_review`. `--settle S` sets the time. Where a workflow runs on pull requests, a check must really have run by then: one that was skipped on the draft does not count, and only `--allow-no-checks` lifts that. If something showed up, the pull request stays ready and unmerged. The last line of output is always the outcome: `Merged #12 into main ...`, `Not merged: ...` or `STOP: ...`.
+
+A stack of pull requests merges bottom-up. After each merge, the helper moves your own open pull requests based on the merged branch to the branch it merged into (`gh pr edit --base`) and merges that branch into each of them (`gh pr update-branch`). One line names each pull request moved, and each it left alone: someone else's, or one where a command failed, with what to do by hand. The `stack` gate reads the loop records in `docs/loops/` of every worktree, a local file like the test record.
 
 The release gate leans towards asking. A feature branch into a release branch such as `release/v1.0` is an ordinary change and merges; the release branch into `main` does not. A title counts when it is made of release words (`chore: prepare 0.3.0`, `Bump version: 1.2.3 to 1.2.4`, `chore: release kit 1.2.0`, `chore: bump version in package.json`, `chore: weekly release`, `chore: patch`, `Deploy`), not when it is about a release (`fix: release 1.2.0 broke the installer`, `chore: release script`), about a dependency (`chore(deps): bump lodash to 4.17.21`) or about a tool (`ci: bump python version to 3.12`); `docs`, `test`, `style`, `refactor` and `perf` titles never count.
 
@@ -317,6 +320,8 @@ Each judge reads its role file in `claude/skills/judge-loop/roles/`: what it loo
 
 A build judge reads the change from `hunks.patch` in the loop folder, which `brief` writes every round: the diff against the judged base with five lines of context, without the lines that only moved (removed in one hunk and added unchanged in another). A changed line inside a moved block stays, and the first line names the full diff. The judge reads `hunks.patch`, `map.md`, its last result and `criteria.md`, in that order, and opens a source file only for a fact the hunks do not show. It stops at about 30 tool calls and answers `"read": "part"` with what it did not finish; it then gets a full brief, not a delta, in the next round. A 10 still needs every file the change touches read whole, and the whole read before a 10 is not capped; in the final full round the brief asks for that read up front.
 
+Work of several issues is built and judged as stacks of pull requests, unless a `Stacks: off` line says otherwise. `loop.py stacks --issues <file>` reads the issues (number, type, slug, the files each touches, the issues it waits on, its expected size) and groups those that touch the same files into one stack, ordered so that an issue comes after the ones it waits on; independent groups become separate stacks. A stack holds at most five pull requests and about 2,500 changed lines; a larger group is cut into stacks based one on the top of the other. Each issue is built on its own branch, made from the branch below it, with a draft pull request based on that branch. One build loop judges a whole stack from its top branch (`loop.py start build --stack <file>`), with the full panel and a budget of at most five rounds; `start` checks that each branch holds the one below it. Every `brief` writes `stack.md` with one row per pull request and its own patch file, which, for a pull request judged before, holds only its own commits since then, without the merges from below. Every item a judge gives names its pull request (`"pr"`); its fix goes on that branch and is merged up through the branches above it, never rebased. When the judges cannot run, `loop.py wait --note <summary>` marks the loop as waiting, and `status` says so until the next `brief`.
+
 A project sets its own terms with one of these lines, on a line of its own:
 
 | Line | Effect |
@@ -324,6 +329,7 @@ A project sets its own terms with one of these lines, on a line of its own:
 | `Judge loop: off` | No loop, no agents, nothing recorded |
 | `Judge rounds: N` | The round budget of a plan and of a build, 1 to 20 (5 by default) |
 | `Judges: correctness, tests` | The roles of the panel, from the seven above |
+| `Stacks: off` | One loop per pull request, each on the base branch, instead of stacks |
 
 A line counts in the project's `CLAUDE.md` or `.claude/CLAUDE.md` once it is on the base branch (the branch pull requests go to), and in `~/.claude/CLAUDE.md`; the first one found wins, in that order. A line only in your checkout is named and not used. The installer replaces `~/.claude/CLAUDE.md` after a backup, so a line there lasts until the next install; when the file it replaces held one, the installer names the line and the backup.
 
@@ -333,7 +339,7 @@ Limits: the record says that results were saved, not that a judge ran or judged 
 
 ## CLAUDE.md template
 
-`claude/CLAUDE.md.template` is 79 lines of English with no imported rule files. The installer fills in `${USER_NAME}`, `${USER_EMAIL}` and `${CLAUDE_HOME}` and writes the result to `~/.claude/CLAUDE.md`. It covers:
+`claude/CLAUDE.md.template` is 80 lines of English with no imported rule files. The installer fills in `${USER_NAME}`, `${USER_EMAIL}` and `${CLAUDE_HOME}` and writes the result to `~/.claude/CLAUDE.md`. It covers:
 
 - your identity;
 - git rules: commit only when asked, conventional commits, no AI attribution, no workflow jargon in commit text, the never-stage list, `.git/info/exclude` for Claude-specific ignores, and no direct pushes to `main`;
@@ -342,7 +348,7 @@ Limits: the record says that results were saved, not that a judge ran or judged 
 - serena for symbol navigation, Grep/Glob for text;
 - decisions that are yours to make, asked as interactive questions: two to four options, each with its upside and downside, the recommended one first;
 - design: load `frontend-design` before building or reshaping anything a person looks at; the project's own design system or brand comes first, then the host's rules for the output, then the skill; the `dataviz` skill, when the session has it, decides chart form; `docs-writer` pages keep the template's CSS variables; skip it for work with no visual output and for small fixes inside an existing design;
-- plan, build, judge: a change that is more than a small fix is planned, built and judged with the `judge-loop` skill, to 10 out of 10 in at most five rounds each; the three switch lines; and how every agent it starts reads files and answers (only the form when given a JSON form, else at most 15 lines);
+- plan, build, judge: a change that is more than a small fix is planned, built and judged with the `judge-loop` skill, to 10 out of 10 in at most five rounds each; work of several issues built, judged and merged as stacks of pull requests; the four switch lines; and how every agent it starts reads files and answers (only the form when given a JSON form, else at most 15 lines);
 - GitHub habits with `gh`: issues with acceptance criteria before work, `<type>/<issue#>-<slug>` branches, draft PRs, finishing its own PRs with the `ship` skill, reading CI logs, releases when you ask;
 - the deploy CLIs.
 

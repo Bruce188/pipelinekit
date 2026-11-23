@@ -84,6 +84,11 @@ kit used to ship, so those parts are gone.
   skipped. A pull request without any check is not green where workflows run
   on pull requests, and a check that was skipped on the draft does not count
   as a run (`--allow-no-checks` says otherwise).
+- A pull request of a judged stack merges bottom-up: a `stack` gate holds it
+  until the stack's last round is counted, nothing is open on it or below
+  it, and no unjudged commit came on its branch. After a merge, your own
+  pull requests based on the merged branch move to its base and get that
+  base merged in; others are named, not moved.
 - `gh pr merge --admin` is on the `permissions.ask` list, `docs/uat/` (local
   test reports) is on the never-stage list, and `/kit` reports whether `gh`
   and Playwright are available.
@@ -147,6 +152,12 @@ kit used to ship, so those parts are gone.
 - A project sets its own terms in its `CLAUDE.md`: `Judge loop: off`,
   `Judge rounds: N`, `Judges: correctness, tests`. The installer warns when
   the user-level `CLAUDE.md` it replaces held one of these lines.
+- Work of several issues is built and judged as stacks of pull requests:
+  `loop.py stacks` groups issues that touch the same files into ordered
+  chains of at most five pull requests and about 2,500 changed lines, and
+  `start build --stack` judges a chain in one loop, each item naming its pull
+  request. `loop.py wait` marks a loop whose judges cannot run yet.
+  `Stacks: off` keeps one loop per pull request.
 - A judge lists a hand-written file over 1,500 lines or 50,000 bytes that the
   work creates or makes longer as an item.
 - Installed into another `CLAUDE_HOME` that is an absolute path of letters,
