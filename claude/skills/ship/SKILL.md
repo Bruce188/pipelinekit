@@ -100,5 +100,6 @@ Exit code: 0 done, 1 a gate or a check failed (fix it and run again), 2 the help
 - When a check fails, a review is requested or GitHub refuses after the helper marked the pull request ready, it stays ready. The last line says so. Fix the cause and run `merge` again; on `STOP` ask the user.
 - A record file the helper cannot read is never overwritten: move it away and record the test again.
 - The release gate reads branch names, the title and the diff, and holds a version it cannot place. A release that shows in none of them (`chore: go live` without a version change) passes unless you say `--release yes`. When the gate holds an ordinary change, do not rename things to get past it: ask the user.
+- Where the repository deletes head branches after a merge, GitHub may move the pull requests above to the new base before the helper looks; it then names none and merges nothing into them, and their `up-to-date` gate says what to merge.
 - The `stack` gate reads the judge loop's record in `docs/loops/` of every worktree; like the test record it is a local file. A pull request whose stack record is gone or unreadable counts as outside a stack.
 - In a sandboxed session `gh` may be unable to read its own configuration. The helper then exits 2 with the message from `gh`; report that and stop.
