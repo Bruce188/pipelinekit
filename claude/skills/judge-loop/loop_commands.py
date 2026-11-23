@@ -83,7 +83,7 @@ def cmd_status(args):
     except Exit:
         if not args.json or scan(ctx, load=False):
             raise
-        none = {"outcome": "none", "next": "loop.py start plan or loop.py start build."}
+        none = {"outcome": "none", "next": loop_state.START_NEXT}
         say(json.dumps(none, sort_keys=True))
         return 0
     st = loop.st

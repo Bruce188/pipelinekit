@@ -256,9 +256,12 @@ def test_a_ten_with_an_unmarked_improvement_is_no_score(sb):
     sb.start_build()
     assert sb.run("brief").code == 0
     run = sb.save("general", result(10, improvements=[item("I1")]))
-    assert run.code == 3, run
-    assert run.last.startswith(
-        "STOP: not a score from general (overall: a 10 with open items)."
+    assert (run.code, run.last) == (
+        3,
+        "STOP: not a score from general (overall: a 10 with open items). Next: have "
+        "that judge mark each improvement it does not need for the 10 as "
+        '"needed_for_10": false, or score below 10; write it to '
+        "docs/loops/feat-1-x/build/judge/in/r1_general.txt, loop.py save general.",
     ), run
     marked = result(10, improvements=[item("I1", needed_for_10=False)])
     run = sb.save("general", marked)

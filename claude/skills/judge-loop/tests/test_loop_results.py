@@ -21,14 +21,16 @@ from loop_fixtures import (
 
 # Messages ---------------------------------------------------------------------
 
+START = "loop.py start plan --name <issue>-<slug> or loop.py start build."
+
 
 def test_messages_walk_a_build_loop(sb):
     """The table of last lines, walked in the order a session meets them."""
     steps = [
-        (("status",), 0, "Open:", "loop.py start plan or loop.py start build."),
-        (("leftovers",), 0, "Open:", "loop.py start plan or loop.py start build."),
-        (("brief",), 2, "Refused:", "loop.py start plan or loop.py start build."),
-        (("round",), 2, "Refused:", "loop.py start plan or loop.py start build."),
+        (("status",), 0, "Open:", START),
+        (("leftovers",), 0, "Open:", START),
+        (("brief",), 2, "Refused:", START),
+        (("round",), 2, "Refused:", START),
     ]
     for argv, code, first, tail in steps:
         ends(sb.run(*argv), code, first, tail)

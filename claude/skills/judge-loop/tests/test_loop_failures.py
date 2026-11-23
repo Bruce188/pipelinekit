@@ -298,7 +298,7 @@ def test_status_json_without_a_loop(sb):
     assert run.out.count("\n") == 1 and run.out.endswith("\n"), run
     assert json.loads(run.out) == {
         "outcome": "none",
-        "next": "loop.py start plan or loop.py start build.",
+        "next": "loop.py start plan --name <issue>-<slug> or loop.py start build.",
     }
 
 
