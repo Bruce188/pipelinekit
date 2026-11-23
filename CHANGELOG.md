@@ -260,6 +260,10 @@ kit used to ship, so those parts are gone.
 - A `CLAUDE_HOME` with a space in its path: the installer and `/kit` read
   the hook commands whole instead of stopping at the space, so the install
   passes verify and a second install no longer wires every hook twice.
+- Another `CLAUDE_HOME`: the `ask` rules that guard the kit's settings, hooks
+  and config in `settings.json` now name that home (`~/...` below your home,
+  `//...` elsewhere) instead of `~/.claude`, and a reinstall replaces the
+  `~/.claude` rules an earlier install wrote there.
 
 ### Removed
 
