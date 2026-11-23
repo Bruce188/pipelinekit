@@ -47,7 +47,8 @@ jobs:
         run: pip install --user ruff
       - name: Run ruff
         if: hashFiles('pyproject.toml') != ''
-        run: ruff check claude/hooks/ claude/skills/kit/ claude/skills/ship/ claude/skills/judge-loop/
+        # The whole repo, so a new skill is linted without editing this step.
+        run: ruff check . && ruff format --check .
 
   selftests:
     name: selftests

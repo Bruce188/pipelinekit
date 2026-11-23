@@ -10,6 +10,7 @@ fails the check that caused it.
     python3 tests/test_interactive.py        # exit 0 = all pass, 1 = failures
 Prints SKIP and exits 0 when playwright (or its Chromium) is not installed.
 """
+
 from __future__ import annotations
 
 import json
@@ -22,7 +23,10 @@ from pathlib import Path
 try:
     from playwright.sync_api import sync_playwright
 except ImportError:
-    print("SKIP  test_interactive: python playwright not installed (pip install playwright && playwright install chromium)")
+    print(
+        "SKIP  test_interactive: python playwright not installed "
+        "(pip install playwright && playwright install chromium)"
+    )
     sys.exit(0)
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
@@ -52,12 +56,27 @@ TERM_STEPS = [
 TERM_TRANSCRIPT = "".join(s.get("text", "") for s in TERM_STEPS)
 
 
-# Kept out of the f-string below: Python < 3.12 forbids backslashes in f-string expressions.
-LINTER = {"label": "Paste a release note title",
-          "rules": [
-              {"name": "Conventional type", "pattern": r"^(feat|fix|docs|chore)(\(.+\))?: ", "hint": "Start with feat:, fix:, ..."},
-              {"name": "No trailing period", "pattern": r"\.$", "flags": "gm", "mode": "forbid", "level": "warn", "hint": "Drop the final period."}],
-          "example": "fix: roll back build 42"}
+# Kept out of the f-string below: Python < 3.12 forbids backslashes in
+# f-string expressions.
+LINTER = {
+    "label": "Paste a release note title",
+    "rules": [
+        {
+            "name": "Conventional type",
+            "pattern": r"^(feat|fix|docs|chore)(\(.+\))?: ",
+            "hint": "Start with feat:, fix:, ...",
+        },
+        {
+            "name": "No trailing period",
+            "pattern": r"\.$",
+            "flags": "gm",
+            "mode": "forbid",
+            "level": "warn",
+            "hint": "Drop the final period.",
+        },
+    ],
+    "example": "fix: roll back build 42",
+}
 
 
 def j(obj) -> str:
@@ -70,8 +89,27 @@ Rollback, promote and inspect deployments with deployctl.
 
 <div data-snippet="tutorial-cards">
 <script type="application/json">
-{j([{"anchor": "rolling-back", "label": "HOW-TO 1", "title": "Roll back", "desc": "Return to the previous build.", "level": "easy", "badges": ["Easy", "~2 min"]},
-    {"anchor": "command-reference", "label": "REFERENCE", "title": "Commands", "desc": "Every deployctl subcommand.", "badges": ["Lookup"]}])}
+{
+    j(
+        [
+            {
+                "anchor": "rolling-back",
+                "label": "HOW-TO 1",
+                "title": "Roll back",
+                "desc": "Return to the previous build.",
+                "level": "easy",
+                "badges": ["Easy", "~2 min"],
+            },
+            {
+                "anchor": "command-reference",
+                "label": "REFERENCE",
+                "title": "Commands",
+                "desc": "Every deployctl subcommand.",
+                "badges": ["Lookup"],
+            },
+        ]
+    )
+}
 </script>
 </div>
 
@@ -79,23 +117,79 @@ Rollback, promote and inspect deployments with deployctl.
 
 <div data-snippet="comparison-tabs" data-home-label="default">
 <script type="application/json">
-{j({"home": "vm", "items": {
-    "vm": {"name": "Virtual machine", "icon": "V", "rows": {"Cold start": "none", "Cost": "fixed"}},
-    "k8s": {"name": "Kubernetes", "icon": "K", "rows": {"Cold start": "seconds", "Cost": "per node"}},
-    "fn": {"name": "Functions", "icon": "F", "rows": {"Cold start": "100 ms+", "Cost": "per call"}}}})}
+{
+    j(
+        {
+            "home": "vm",
+            "items": {
+                "vm": {
+                    "name": "Virtual machine",
+                    "icon": "V",
+                    "rows": {"Cold start": "none", "Cost": "fixed"},
+                },
+                "k8s": {
+                    "name": "Kubernetes",
+                    "icon": "K",
+                    "rows": {"Cold start": "seconds", "Cost": "per node"},
+                },
+                "fn": {
+                    "name": "Functions",
+                    "icon": "F",
+                    "rows": {"Cold start": "100 ms+", "Cost": "per call"},
+                },
+            },
+        }
+    )
+}
 </script>
 </div>
 
 <div data-snippet="chooser-quiz">
 <script type="application/json">
-{j({"title": "Which target fits?",
-    "questions": [
-      {"key": "traffic", "prompt": "Traffic pattern?", "options": [{"value": "steady", "label": "Steady"}, {"value": "spiky", "label": "Spiky", "hint": "bursts"}]},
-      {"key": "ops", "prompt": "Ops team?", "options": [{"value": "yes", "label": "Yes"}, {"value": "no", "label": "No"}]}],
-    "recommend": [
-      {"match": {"traffic": "spiky", "ops": "no"}, "pick": "Functions", "why": "Scales to zero.", "runners": ["fn"]},
-      {"match": {"traffic": "steady", "ops": "yes"}, "pick": "Kubernetes", "why": "Steady load, team to run it."},
-      {"match": {}, "pick": "Virtual machine", "why": "Simplest default.", "link": "#choosing-a-target"}]})}
+{
+    j(
+        {
+            "title": "Which target fits?",
+            "questions": [
+                {
+                    "key": "traffic",
+                    "prompt": "Traffic pattern?",
+                    "options": [
+                        {"value": "steady", "label": "Steady"},
+                        {"value": "spiky", "label": "Spiky", "hint": "bursts"},
+                    ],
+                },
+                {
+                    "key": "ops",
+                    "prompt": "Ops team?",
+                    "options": [
+                        {"value": "yes", "label": "Yes"},
+                        {"value": "no", "label": "No"},
+                    ],
+                },
+            ],
+            "recommend": [
+                {
+                    "match": {"traffic": "spiky", "ops": "no"},
+                    "pick": "Functions",
+                    "why": "Scales to zero.",
+                    "runners": ["fn"],
+                },
+                {
+                    "match": {"traffic": "steady", "ops": "yes"},
+                    "pick": "Kubernetes",
+                    "why": "Steady load, team to run it.",
+                },
+                {
+                    "match": {},
+                    "pick": "Virtual machine",
+                    "why": "Simplest default.",
+                    "link": "#choosing-a-target",
+                },
+            ],
+        }
+    )
+}
 </script>
 </div>
 
@@ -103,10 +197,33 @@ Rollback, promote and inspect deployments with deployctl.
 
 <div data-snippet="architecture-diagram">
 <script type="application/json">
-{j({"layers": [
-    {"name": "Clients", "color": "#10b981", "count": "2 apps", "chips": [{"label": "web", "tip": "Single-page app"}, {"label": "cli", "tip": "deployctl binary"}]},
-    {"name": "API", "color": "#3b82f6", "chips": [{"label": "gateway", "tip": "Auth and routing"}]},
-    {"name": "Data", "color": "#f59e0b", "chips": [{"label": "postgres", "tip": "Build metadata"}]}]})}
+{
+    j(
+        {
+            "layers": [
+                {
+                    "name": "Clients",
+                    "color": "#10b981",
+                    "count": "2 apps",
+                    "chips": [
+                        {"label": "web", "tip": "Single-page app"},
+                        {"label": "cli", "tip": "deployctl binary"},
+                    ],
+                },
+                {
+                    "name": "API",
+                    "color": "#3b82f6",
+                    "chips": [{"label": "gateway", "tip": "Auth and routing"}],
+                },
+                {
+                    "name": "Data",
+                    "color": "#f59e0b",
+                    "chips": [{"label": "postgres", "tip": "Build metadata"}],
+                },
+            ]
+        }
+    )
+}
 </script>
 </div>
 
@@ -140,10 +257,28 @@ deployctl rollback --to previous
 
 <div data-snippet="command-cheatsheet" data-label="deployctl commands">
 <script type="application/json">
-{j([{"name": "push", "args": "--env ENV", "description": "Upload and deploy a build."},
-    {"name": "rollback", "args": "--to BUILD", "description": "Restore an earlier build."},
-    {"name": "status", "args": "", "description": "Show live build health."},
-    {"name": "promote", "args": "FROM TO", "description": "Copy a build between environments."}])}
+{
+    j(
+        [
+            {
+                "name": "push",
+                "args": "--env ENV",
+                "description": "Upload and deploy a build.",
+            },
+            {
+                "name": "rollback",
+                "args": "--to BUILD",
+                "description": "Restore an earlier build.",
+            },
+            {"name": "status", "args": "", "description": "Show live build health."},
+            {
+                "name": "promote",
+                "args": "FROM TO",
+                "description": "Copy a build between environments.",
+            },
+        ]
+    )
+}
 </script>
 </div>
 
@@ -165,9 +300,29 @@ deployctl rollback --to previous
 
 <div data-snippet="playground-2col">
 <script type="application/json">
-{j({"title": "Config to plan", "left_label": "deploy.toml", "right_label": "Plan",
-    "presets": [{"label": "staging", "left": "env = 'staging'", "right": "1 node", "note": "Staging uses <code>1</code> node."},
-                {"label": "prod", "left": "env = 'prod'", "right": "3 nodes", "note": "PROD-NOTE three nodes."}]})}
+{
+    j(
+        {
+            "title": "Config to plan",
+            "left_label": "deploy.toml",
+            "right_label": "Plan",
+            "presets": [
+                {
+                    "label": "staging",
+                    "left": "env = 'staging'",
+                    "right": "1 node",
+                    "note": "Staging uses <code>1</code> node.",
+                },
+                {
+                    "label": "prod",
+                    "left": "env = 'prod'",
+                    "right": "3 nodes",
+                    "note": "PROD-NOTE three nodes.",
+                },
+            ],
+        }
+    )
+}
 </script>
 </div>
 
@@ -188,15 +343,28 @@ def render(proj: Path) -> None:
     src.mkdir(parents=True)
     (src / "index.md").write_text(INDEX_MD)
     (src / "widgets.md").write_text(WIDGETS_MD)
-    subprocess.run([sys.executable, str(RENDER), "--root", str(proj)], check=True, capture_output=True)
+    subprocess.run(
+        [sys.executable, str(RENDER), "--root", str(proj)],
+        check=True,
+        capture_output=True,
+    )
     index = json.loads((proj / "documentation" / "search.json").read_text())
     assert {r["slug"] for r in index} == {"index", "widgets"}, index
-    subprocess.run([sys.executable, str(RENDER), str(src / "widgets.md"), str(proj / "documentation" / "widgets.html")],
-                   check=True, capture_output=True)
+    subprocess.run(
+        [
+            sys.executable,
+            str(RENDER),
+            str(src / "widgets.md"),
+            str(proj / "documentation" / "widgets.html"),
+        ],
+        check=True,
+        capture_output=True,
+    )
 
 
 # ---------------------------------------------------------------- checks
 # Each check gets a fresh page already at widgets.html (or index.html).
+
 
 def check_tabs(page):
     tabs = page.locator(".pkit-cmp-tab")
@@ -206,16 +374,24 @@ def check_tabs(page):
     tabs.nth(1).click()
     assert "Functions" in right.inner_text(), "click did not switch the panel"
     assert "per call" in page.locator(".pkit-cmp-col:not(.home)").inner_text()
-    # Keyboard: focus first tab, Enter switches, focus stays on a tab so Tab/arrows keep working.
+    # Keyboard: focus the first tab and press Enter to switch; focus stays on a
+    # tab so Tab and the arrow keys keep working.
     tabs.nth(0).focus()
     page.keyboard.press("Enter")
     assert "Kubernetes" in right.inner_text(), "Enter did not switch the panel"
     focused = page.evaluate("document.activeElement.className")
-    assert "pkit-cmp-tab" in focused, f"focus lost after activating a tab (now on {focused!r})"
+    assert "pkit-cmp-tab" in focused, (
+        f"focus lost after activating a tab (now on {focused!r})"
+    )
     page.keyboard.press("ArrowRight")
     assert "Functions" in right.inner_text(), "ArrowRight did not move to the next tab"
     assert page.evaluate("document.activeElement.dataset.key") == "fn"
-    assert page.locator('.pkit-cmp-tab[aria-selected="true"]').inner_text().strip().endswith("Functions")
+    assert (
+        page.locator('.pkit-cmp-tab[aria-selected="true"]')
+        .inner_text()
+        .strip()
+        .endswith("Functions")
+    )
 
 
 def check_slider(page):
@@ -223,7 +399,13 @@ def check_slider(page):
     root.scroll_into_view_if_needed()
     assert "AFTER-STATE" in root.locator(".pkit-bas__layer--after").inner_text()
     assert "BEFORE-STATE" in root.locator(".pkit-bas__layer--before").inner_text()
-    clip = lambda: page.evaluate("getComputedStyle(document.querySelector('.pkit-bas__layer--after')).clipPath")
+
+    def clip():
+        return page.evaluate(
+            "getComputedStyle(document.querySelector('.pkit-bas__layer--after'))"
+            ".clipPath"
+        )
+
     rng = root.locator(".pkit-bas__range")
     assert rng.input_value() == "50" and "50%" in clip()
     # Keyboard
@@ -231,7 +413,9 @@ def check_slider(page):
     for _ in range(5):
         page.keyboard.press("ArrowRight")
     assert rng.input_value() == "55", rng.input_value()
-    page.wait_for_function("getComputedStyle(document.querySelector('.pkit-bas__layer--after')).clipPath.includes('45%')")
+    page.wait_for_function(
+        "getComputedStyle(document.querySelector('.pkit-bas__layer--after')).clipPath.includes('45%')"
+    )
     # Drag the range thumb
     box = rng.bounding_box()
     y = box["y"] + box["height"] / 2
@@ -248,7 +432,9 @@ def check_slider(page):
     page.mouse.move(vp["x"] + vp["width"] * 0.2, hy, steps=5)
     page.mouse.up()
     v = int(rng.input_value())
-    assert 15 <= v <= 25, f"dragging the handle in the picture did not move the slider (value {v})"
+    assert 15 <= v <= 25, (
+        f"dragging the handle in the picture did not move the slider (value {v})"
+    )
     left = page.evaluate("document.querySelector('.pkit-bas__handle').style.left")
     assert left == f"{v}%", left
 
@@ -268,29 +454,41 @@ def check_quiz(page):
     q.locator('[data-act="restart"]').click()
     q.locator(".pkit-cq-option", has_text="Steady").click()
     q.locator(".pkit-cq-option", has_text="No").click()
-    assert "Virtual machine" in q.locator(".pkit-cq-r-pick").inner_text(), "fallback recommendation not shown"
+    assert "Virtual machine" in q.locator(".pkit-cq-r-pick").inner_text(), (
+        "fallback recommendation not shown"
+    )
 
 
 def check_terminal(page):
     t = page.locator(".pkit-term")
     screen = t.locator("[data-tm-screen]")
-    btn = lambda a: t.locator(f'[data-act="{a}"]')
+
+    def btn(a):
+        return t.locator(f'[data-act="{a}"]')
+
     assert t.locator("[data-tm-title]").inner_text() == "deploy session"
     # Auto-plays once scrolled into view
     t.scroll_into_view_if_needed()
-    page.wait_for_function("document.querySelector('[data-tm-screen]').textContent.length > 3", timeout=3000)
+    page.wait_for_function(
+        "document.querySelector('[data-tm-screen]').textContent.length > 3",
+        timeout=3000,
+    )
     # Restart, then step through prompt + command: the command must be typed out.
     btn("restart").click()
     assert screen.text_content() == ""
     btn("step").click()
     btn("step").click()
     page.wait_for_function(
-        "document.querySelector('[data-tm-screen]').textContent === '$ deployctl push --env staging\\n'", timeout=5000)
+        "document.querySelector('[data-tm-screen]').textContent"
+        " === '$ deployctl push --env staging\\n'",
+        timeout=5000,
+    )
     # Restart + immediate Play must not run two playbacks at once (duplicated output)
     btn("play").click()
     page.wait_for_timeout(150)
     btn("restart").click()
-    btn("speed").click(); btn("speed").click()  # 4x
+    btn("speed").click()
+    btn("speed").click()  # 4x
     assert btn("speed").inner_text() == "4×"
     btn("play").click()
     # Pause mid-way, then resume: no characters may be lost
@@ -304,10 +502,18 @@ def check_terminal(page):
     page.wait_for_timeout(200)
     assert screen.text_content() == paused_at, "output kept changing while paused"
     btn("play").click()
-    page.wait_for_function("document.querySelector('[data-tm-progress]').style.width === '100%'", timeout=10000)
-    page.wait_for_function("!document.querySelector('.pkit-term [data-act=\"play\"]').disabled", timeout=5000)
+    page.wait_for_function(
+        "document.querySelector('[data-tm-progress]').style.width === '100%'",
+        timeout=10000,
+    )
+    page.wait_for_function(
+        "!document.querySelector('.pkit-term [data-act=\"play\"]').disabled",
+        timeout=5000,
+    )
     page.wait_for_timeout(300)
-    assert screen.text_content() == TERM_TRANSCRIPT, f"transcript mismatch:\n{screen.text_content()!r}"
+    assert screen.text_content() == TERM_TRANSCRIPT, (
+        f"transcript mismatch:\n{screen.text_content()!r}"
+    )
 
 
 def check_cheatsheet(page):
@@ -315,13 +521,17 @@ def check_cheatsheet(page):
     assert c.locator("tbody tr").count() == 4
     assert c.locator("[data-cmd-count]").inner_text() == "4 / 4"
     c.locator(".pkit-cmd-filter").fill("rollback")
-    page.wait_for_function("document.querySelector('[data-cmd-count]').textContent === '1 / 4'")
+    page.wait_for_function(
+        "document.querySelector('[data-cmd-count]').textContent === '1 / 4'"
+    )
     assert c.locator("tbody tr:visible").count() == 1
     assert "rollback" in c.locator("tbody tr:visible").inner_text()
     c.locator(".pkit-cmd-filter").fill("zzzz")
     c.locator("[data-cmd-empty]").wait_for(state="visible")
     c.locator(".pkit-cmd-filter").fill("")
-    page.wait_for_function("document.querySelector('[data-cmd-count]').textContent === '4 / 4'")
+    page.wait_for_function(
+        "document.querySelector('[data-cmd-count]').textContent === '4 / 4'"
+    )
     assert c.locator("table").get_attribute("aria-label") == "deployctl commands"
 
 
@@ -331,15 +541,24 @@ def check_linter(page):
     grade = lt.locator("[data-ll-grade]")
     assert grade.text_content() == "no input"
     ta.fill("Updated stuff.")
-    page.wait_for_function("document.querySelector('[data-ll-grade]').textContent === '1 failing'")
-    assert lt.locator(".badge.fail").count() == 1 and lt.locator(".badge.warn").count() == 1
+    page.wait_for_function(
+        "document.querySelector('[data-ll-grade]').textContent === '1 failing'"
+    )
+    assert (
+        lt.locator(".badge.fail").count() == 1
+        and lt.locator(".badge.warn").count() == 1
+    )
     assert "Start with feat:" in lt.locator("[data-ll-rows]").inner_text()
     # Same verdict on every keystroke, even with a /g rule (stateful lastIndex)
     for text in ["fix: a.", "fix: ab.", "fix: abc."]:
         ta.fill(text)
-        page.wait_for_function(f"document.querySelector('[data-ll-input]').value === {text!r}")
+        page.wait_for_function(
+            f"document.querySelector('[data-ll-input]').value === {text!r}"
+        )
         page.wait_for_timeout(200)
-        assert grade.text_content() == "warnings only", f"{text!r}: {grade.text_content()}"
+        assert grade.text_content() == "warnings only", (
+            f"{text!r}: {grade.text_content()}"
+        )
     lt.locator('[data-act="example"]').click()
     assert grade.text_content() == "all clear"
     lt.locator('[data-act="clear"]').click()
@@ -353,13 +572,19 @@ def check_playground(page):
     pg.locator(".pkit-p2-preset", has_text="prod").click()
     assert left.input_value() == "env = 'prod'" and right.input_value() == "3 nodes"
     assert "PROD-NOTE" in pg.locator("[data-p2-note]").inner_text()
-    assert "active" in pg.locator(".pkit-p2-preset", has_text="prod").get_attribute("class")
+    assert "active" in pg.locator(".pkit-p2-preset", has_text="prod").get_attribute(
+        "class"
+    )
     left.fill("env = 'mine'")
     assert left.input_value() == "env = 'mine'"
 
 
-def heading_near_top(page, hid):
-    return page.evaluate(f"(() => {{ const r = document.getElementById('{hid}').getBoundingClientRect(); return r.top >= 0 && r.top < 200; }})()")
+def heading_near_top(hid):
+    """JS expression: true once heading `hid` sits near the top of the viewport."""
+    return (
+        f"(() => {{ const r = document.getElementById('{hid}')"
+        ".getBoundingClientRect(); return r.top >= 0 && r.top < 200; })()"
+    )
 
 
 def check_tutorial_cards(page):
@@ -367,7 +592,7 @@ def check_tutorial_cards(page):
     assert cards.count() == 2
     cards.nth(1).click()
     page.wait_for_function("location.hash === '#command-reference'")
-    page.wait_for_function("(() => { const r = document.getElementById('command-reference').getBoundingClientRect(); return r.top >= 0 && r.top < 200; })()")
+    page.wait_for_function(heading_near_top("command-reference"))
     cards.nth(0).scroll_into_view_if_needed()
     cards.nth(0).focus()
     page.keyboard.press("Enter")
@@ -380,27 +605,43 @@ def check_diagram(page):
     d.locator(".pkit-ad-layer-btn", has_text="API").click()
     dimmed = d.locator(".pkit-ad-layer.dimmed")
     assert dimmed.count() == 2
-    page.wait_for_function("parseFloat(getComputedStyle(document.querySelector('.pkit-ad-layer.dimmed')).opacity) < 0.6")
+    page.wait_for_function(
+        "parseFloat(getComputedStyle("
+        "document.querySelector('.pkit-ad-layer.dimmed')).opacity) < 0.6"
+    )
     d.locator(".pkit-ad-layer-btn", has_text="All").click()
     assert dimmed.count() == 0
-    tip_opacity = "getComputedStyle(document.querySelectorAll('.pkit-ad-tooltip')[2]).opacity"
+    tip_opacity = (
+        "getComputedStyle(document.querySelectorAll('.pkit-ad-tooltip')[2]).opacity"
+    )
     page.wait_for_function(f"{tip_opacity} === '0'")
     d.locator(".pkit-ad-chip", has_text="gateway").hover()
     page.wait_for_function(f"{tip_opacity} === '1'")
     page.mouse.move(0, 0)
     d.locator(".pkit-ad-chip", has_text="postgres").focus()  # keyboard users
-    page.wait_for_function("getComputedStyle(document.querySelectorAll('.pkit-ad-tooltip')[3]).opacity === '1'")
+    page.wait_for_function(
+        "getComputedStyle(document.querySelectorAll('.pkit-ad-tooltip')[3]).opacity"
+        " === '1'"
+    )
 
 
 def check_toc(page):
     link = page.locator('.toc a[href="#command-reference"]')
     link.click()
     page.wait_for_function("location.hash === '#command-reference'")
-    page.wait_for_function("(() => { const r = document.getElementById('command-reference').getBoundingClientRect(); return r.top >= 0 && r.top < 200; })()")
-    page.wait_for_function("document.querySelector('.toc a.active') && document.querySelector('.toc a.active').getAttribute('href') === '#command-reference'",
-                           timeout=3000)
+    page.wait_for_function(heading_near_top("command-reference"))
+    page.wait_for_function(
+        "document.querySelector('.toc a.active')"
+        " && document.querySelector('.toc a.active')"
+        ".getAttribute('href') === '#command-reference'",
+        timeout=3000,
+    )
     page.locator('.toc a[href="#architecture"]').click()
-    page.wait_for_function("document.querySelector('.toc a.active').getAttribute('href') === '#architecture'", timeout=3000)
+    page.wait_for_function(
+        "document.querySelector('.toc a.active').getAttribute('href')"
+        " === '#architecture'",
+        timeout=3000,
+    )
     # Heading permalink
     page.locator("#rolling-back a.anchor").click()
     page.wait_for_function("location.hash === '#rolling-back'")
@@ -418,18 +659,28 @@ def check_mobile_toc(page):
 
 
 def check_theme(page):
-    bg = lambda: page.evaluate("getComputedStyle(document.body).backgroundColor")
+    def bg():
+        return page.evaluate("getComputedStyle(document.body).backgroundColor")
+
     label = page.locator("#theme-label")
     assert label.inner_text() == "Auto"
     page.locator("#theme-toggle").click()
-    assert label.inner_text() == "Light" and page.evaluate("document.documentElement.dataset.theme") == "light"
+    assert (
+        label.inner_text() == "Light"
+        and page.evaluate("document.documentElement.dataset.theme") == "light"
+    )
     light = bg()
     page.locator("#theme-toggle").click()
-    assert label.inner_text() == "Dark" and page.evaluate("document.documentElement.dataset.theme") == "dark"
+    assert (
+        label.inner_text() == "Dark"
+        and page.evaluate("document.documentElement.dataset.theme") == "dark"
+    )
     page.wait_for_timeout(300)  # background may transition
     assert bg() != light, "dark theme did not change the background"
     page.reload()
-    assert page.locator("#theme-label").inner_text() == "Dark", "theme not persisted across reload"
+    assert page.locator("#theme-label").inner_text() == "Dark", (
+        "theme not persisted across reload"
+    )
     page.locator("#theme-toggle").click()
     assert page.locator("#theme-label").inner_text() == "Auto"
     assert page.evaluate("document.documentElement.dataset.theme") is None
@@ -440,15 +691,23 @@ def check_copy_code(page):
     pre.hover()
     btn = pre.locator(".copy-btn")
     btn.click()
-    page.wait_for_function("document.querySelector('#page-content pre .copy-btn.copied') !== null")
+    page.wait_for_function(
+        "document.querySelector('#page-content pre .copy-btn.copied') !== null"
+    )
     assert "Copied" in btn.inner_text()
     clip = page.evaluate("navigator.clipboard.readText()")
     assert clip.strip() == "deployctl rollback --to previous", repr(clip)
 
 
 def check_sortable_table(page):
-    table = page.locator("#page-content > .table-wrap table, #page-content table:not(.pkit-cmd-table)").first
-    first_col = lambda: [c.strip() for c in table.locator("tbody tr td:first-child").all_inner_texts()]
+    table = page.locator(
+        "#page-content > .table-wrap table, #page-content table:not(.pkit-cmd-table)"
+    ).first
+
+    def first_col():
+        cells = table.locator("tbody tr td:first-child").all_inner_texts()
+        return [c.strip() for c in cells]
+
     assert first_col() == ["--env", "--dry-run", "--apply"]
     table.locator("th", has_text="Flag").click()
     assert first_col() == ["--apply", "--dry-run", "--env"]
@@ -460,14 +719,25 @@ def check_page_search(page):
     content = page.locator("#page-content")
     before = content.text_content()
     page.keyboard.press("/")
-    assert page.evaluate("document.activeElement.id") == "page-search", "/ did not focus the filter"
+    assert page.evaluate("document.activeElement.id") == "page-search", (
+        "/ did not focus the filter"
+    )
     page.keyboard.type("rollback")
-    page.wait_for_function("document.querySelectorAll('#page-content .search-hit').length > 0")
+    page.wait_for_function(
+        "document.querySelectorAll('#page-content .search-hit').length > 0"
+    )
     assert content.text_content() == before, "highlighting changed the page text"
     assert page.locator(".search-hit").first.inner_text().lower() == "rollback"
-    assert page.locator("#page-content table:not(.pkit-cmd-table) tbody tr:visible").count() == 0  # flag table has no hit
+    assert (
+        page.locator(
+            "#page-content table:not(.pkit-cmd-table) tbody tr:visible"
+        ).count()
+        == 0
+    )  # flag table has no hit
     page.keyboard.press("Escape")
-    page.wait_for_function("document.querySelectorAll('#page-content .search-hit').length === 0")
+    page.wait_for_function(
+        "document.querySelectorAll('#page-content .search-hit').length === 0"
+    )
     assert content.text_content() == before
     page.locator("#page-search").fill("qqqxyz")
     page.locator("#no-results").wait_for(state="visible")
@@ -495,7 +765,9 @@ def check_search_widget(page):
     hit = page.locator("#docs-search-results a", has_text="Deployment reference")
     hit.wait_for(timeout=3000)
     inp.fill("project")
-    page.locator("#docs-search-results a", has_text="Project docs").wait_for(timeout=3000)
+    page.locator("#docs-search-results a", has_text="Project docs").wait_for(
+        timeout=3000
+    )
     inp.fill("roll")  # prefix match
     hit.wait_for(timeout=3000)
     hit.click()
@@ -506,7 +778,9 @@ def check_search_widget(page):
 def check_search_widget_single(page):
     """widgets.html (single-page render next to search.json) can search too."""
     page.locator("#docs-search").fill("project")
-    page.locator("#docs-search-results a", has_text="Project docs").wait_for(timeout=3000)
+    page.locator("#docs-search-results a", has_text="Project docs").wait_for(
+        timeout=3000
+    )
 
 
 CHECKS = [
@@ -549,6 +823,19 @@ def launch(p):
     return None
 
 
+def watch_errors(page) -> list[str]:
+    """Collect the console errors and uncaught exceptions the page raises."""
+    errors: list[str] = []
+
+    def on_console(msg):
+        if msg.type == "error":
+            errors.append(f"console: {msg.text}")
+
+    page.on("console", on_console)
+    page.on("pageerror", lambda e: errors.append(f"pageerror: {e}"))
+    return errors
+
+
 def main() -> int:
     only = set(sys.argv[1:])
     with tempfile.TemporaryDirectory() as tmp:
@@ -567,9 +854,7 @@ def main() -> int:
                 ctx.grant_permissions(["clipboard-read", "clipboard-write"])
                 page = ctx.new_page()
                 page.set_default_timeout(5000)
-                errors: list[str] = []
-                page.on("console", lambda m: m.type == "error" and errors.append(f"console: {m.text}"))
-                page.on("pageerror", lambda e: errors.append(f"pageerror: {e}"))
+                errors = watch_errors(page)
                 try:
                     page.goto((docs / f"{pg}.html").as_uri())
                     fn(page)
@@ -578,7 +863,11 @@ def main() -> int:
                     print(f"  PASS  {name}")
                 except Exception as exc:
                     failed += 1
-                    msg = str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
+                    msg = (
+                        str(exc).strip().splitlines()[0]
+                        if str(exc).strip()
+                        else type(exc).__name__
+                    )
                     if errors:
                         msg += " | " + "; ".join(errors)
                     print(f"  FAIL  {name}: {msg}")
@@ -587,7 +876,8 @@ def main() -> int:
                 finally:
                     ctx.close()
             browser.close()
-    print(f"\ntest_interactive: {len(CHECKS) - failed if not only else '?'} pass, {failed} fail")
+    passed = len(CHECKS) - failed if not only else "?"
+    print(f"\ntest_interactive: {passed} pass, {failed} fail")
     return 1 if failed else 0
 
 
