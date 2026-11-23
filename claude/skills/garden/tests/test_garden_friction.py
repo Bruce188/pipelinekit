@@ -178,41 +178,6 @@ def test_time_a_passing_command(sb):
     assert "build" not in [f[3].split()[0] for f in findings(sb.scan())]
 
 
-def test_time_ends_the_whole_process_tree_on_timeout(sb):
-    pidfile = sb.tmp / "child.pid"
-    script = (
-        "import subprocess, sys, time\n"
-        "c = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(120)'])\n"
-        f"open({str(pidfile)!r}, 'w').write(str(c.pid))\n"
-        "time.sleep(120)\n"
-    )
-    start = time.monotonic()
-    p = sb.garden(
-        "time", "--label", "slow", "--timeout", "1", "--", "python3", "-c", script
-    )
-    took = time.monotonic() - start
-    assert p.returncode == 124
-    assert "timed out" in p.stdout
-    assert took < 20
-    child = int(pidfile.read_text())
-    for _ in range(50):
-        try:
-            os.kill(child, 0)
-            with open(f"/proc/{child}/stat") as f:
-                stat = f.read()
-            if stat.split(") ", 1)[1].startswith("Z"):
-                break
-        except (ProcessLookupError, FileNotFoundError):
-            break
-        time.sleep(0.1)
-    else:
-        os.kill(child, 9)
-        pytest.fail("the child of the timed command is still running")
-    stored = json.loads((sb.root / "docs" / "garden" / "timings.json").read_text())
-    assert stored["slow"]["timed_out"] is True
-    assert "slow did not finish" in [f[3] for f in findings(sb.scan())]
-
-
 NEEDS_PROC = pytest.mark.skipif(
     not os.path.isdir("/proc"), reason="tells a zombie from a running process by /proc"
 )
@@ -231,6 +196,32 @@ def gone_within(pid, seconds):
             return True
         time.sleep(0.1)
     return False
+
+
+@NEEDS_PROC
+def test_time_ends_the_whole_process_tree_on_timeout(sb):
+    pidfile = sb.tmp / "child.pid"
+    script = (
+        "import subprocess, sys, time\n"
+        "c = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(120)'])\n"
+        f"open({str(pidfile)!r}, 'w').write(str(c.pid))\n"
+        "time.sleep(120)\n"
+    )
+    start = time.monotonic()
+    p = sb.garden(
+        "time", "--label", "slow", "--timeout", "1", "--", "python3", "-c", script
+    )
+    took = time.monotonic() - start
+    assert p.returncode == 124
+    assert "timed out" in p.stdout
+    assert took < 20
+    child = int(pidfile.read_text())
+    if not gone_within(child, 5):
+        os.kill(child, 9)
+        pytest.fail("the child of the timed command is still running")
+    stored = json.loads((sb.root / "docs" / "garden" / "timings.json").read_text())
+    assert stored["slow"]["timed_out"] is True
+    assert "slow did not finish" in [f[3] for f in findings(sb.scan())]
 
 
 @NEEDS_PROC
@@ -280,6 +271,18 @@ def test_the_skill_gives_the_bash_call_a_timeout_above_the_commands():
     skill = (HELPER.parent / "SKILL.md").read_text(encoding="utf-8")
     assert "`--timeout 580` with a Bash timeout of 600000 ms" in skill
     assert "in the background" in skill
+
+
+def test_every_process_check_is_skipped_without_proc():
+    import inspect
+
+    me = "test_every_process_check_is_skipped_without_proc"
+    for name, fn in list(globals().items()):
+        if not name.startswith("test_") or name == me or not callable(fn):
+            continue
+        source = inspect.getsource(fn)
+        if "gone_within(" in source or "/proc/" in source:
+            assert NEEDS_PROC.mark in getattr(fn, "pytestmark", []), name
 
 
 def test_time_default_timeout_is_600_seconds():
