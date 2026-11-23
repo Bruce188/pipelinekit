@@ -225,8 +225,13 @@ chmod 644 "$CLAUDE_HOME/CLAUDE.md"
 # ---------- settings.json ----------
 SETTINGS="$CLAUDE_HOME/settings.json"
 [[ -f "$SETTINGS" ]] && cp -p "$SETTINGS" "$SETTINGS.bak-$TS"
-CLAUDE_HOME="$CLAUDE_HOME" python3 - "$SETTINGS" "$REPO_ROOT/claude/config/settings.template.json" <<'PY'
+CLAUDE_HOME="$CLAUDE_HOME" python3 - "$SETTINGS" "$REPO_ROOT/claude/config/settings.template.json" \
+  "$REPO_ROOT/claude/skills/kit" <<'PY'
 import json, os, sys
+
+sys.dont_write_bytecode = True  # no __pycache__ left in the checkout
+sys.path.insert(0, sys.argv[3])
+from check import hook_program  # how the self-check reads a hook's program
 
 path = sys.argv[1]
 home = os.environ["CLAUDE_HOME"]
@@ -251,9 +256,8 @@ REMOVED = {"block-dangerous-commands.sh", "block-push-main.sh", "block-stage-sen
 
 prefixes = (hooks_dir + "/", "~/.claude/hooks/", "$HOME/.claude/hooks/", "${HOME}/.claude/hooks/")
 
-def script(cmd):
-    words = (cmd or "").split()
-    first = words[0] if words else ""
+def script(h):
+    first = hook_program(h)
     return next((first[len(p):] for p in prefixes if first.startswith(p)), None)
 
 hooks = data.get("hooks") if isinstance(data.get("hooks"), dict) else {}
@@ -263,7 +267,7 @@ for event in list(hooks):
     for g in hooks[event] if isinstance(hooks[event], list) else []:
         kept = []
         for h in g.get("hooks", []) if isinstance(g, dict) else []:
-            name = script(h.get("command"))
+            name = script(h)
             if name is None:
                 kept.append(h)
             elif name in KIT_SCRIPTS:

@@ -117,6 +117,8 @@ UPDATE_TTL = {"ok": 24 * 3600, "gone": 24 * 3600, "unreachable": 3600}
 UPDATE_TIMEOUT = 5  # seconds the remote gets to answer
 BRANCH = re.compile(r"(?!-)[A-Za-z0-9._/+-]{1,200}")
 COMMIT = re.compile(r"[0-9a-f]{40,64}")
+# Every character str.split() takes for a gap; shlex alone knows the ASCII ones.
+SPACES = "".join(ch for ch in map(chr, range(0x3001)) if ch.isspace())
 
 
 def clean(text: object, limit: int = 300) -> str:
@@ -134,6 +136,25 @@ def clean(text: object, limit: int = 300) -> str:
         elif kind not in ("Mn", "Me"):
             out.append(ch)
     return " ".join("".join(out).split())[:limit]
+
+
+def hook_program(hook: dict) -> str:
+    """The program a settings.json hook entry starts, as written there.
+
+    With "args" Claude Code spawns the command itself, spaces and all (exec
+    form). Without, a shell reads it: the first word, its quotes undone.
+    """
+    cmd = hook.get("command")
+    if not isinstance(cmd, str):
+        return ""
+    if "args" in hook:
+        return cmd
+    lex = shlex.shlex(cmd, posix=True)
+    lex.whitespace, lex.whitespace_split = SPACES, True
+    try:
+        return lex.get_token() or ""
+    except ValueError:  # an unclosed quote: the first word as it stands
+        return (cmd.split() or [""])[0]
 
 
 def plain(value: object, pattern: re.Pattern) -> str:
@@ -479,7 +500,7 @@ def check_settings(c: Check) -> None:
                     bad.append(f"a hook under {where} has a command that is not text")
                     continue
                 # the program only: what follows it is not ours to repeat
-                first = os.path.expanduser(((cmd or "").split() or [""])[0])
+                first = os.path.expanduser(hook_program(h))
                 first = first.replace("${HOME}", user_home).replace("$HOME", user_home)
                 if first.startswith("/") and not os.path.exists(first):
                     ok = clean(first) == first and len(first) <= MAX_PATH_SHOWN
