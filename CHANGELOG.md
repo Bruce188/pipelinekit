@@ -260,6 +260,9 @@ kit used to ship, so those parts are gone.
 - CI's ruff step checked only some folders, so docs-writer's scripts failed
   lint unnoticed. It now runs `ruff check` and `ruff format --check` on the
   whole repo, and docs-writer passes both.
+- The kit test for a warning after an update counted on gh being on PATH, so
+  it failed in sessions without it (a sandboxed one, say). It now puts a gh
+  stub on PATH itself.
 
 ### Removed
 
