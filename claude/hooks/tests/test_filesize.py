@@ -12,6 +12,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -125,12 +126,12 @@ def test_the_whole_refusal(repo):
     p = repo.commit()
     assert p.returncode != 0
     assert p.stderr.splitlines() == [
-        f"pre-commit: commit refused, over the file size limit of {LIMIT}: "
-        "[pre-commit.file-size]",
+        f"pre-commit: commit refused, over the file size limit of {LIMIT}:",
         "  src/big.py: 1,501 lines, 15,022 bytes (new file)",
         "Split the file: new code that would take a file past the limit goes in "
         "a new file. A generated, vendored or data file can be listed in "
-        ".file-size-exempt.",
+        ".file-size-exempt at the top of the repository, one pattern per line. "
+        "[pre-commit.file-size]",
     ]
 
 
@@ -225,7 +226,11 @@ def test_a_file_that_grows_past_only_the_byte_limit_is_refused(repo):
     repo.write("notes.md", text(10, "z" * 4000 + "\n"))
     assert repo.commit().returncode == 0
     repo.write("notes.md", text(14, "z" * 4000 + "\n"))
-    assert repo.commit().returncode != 0
+    p = repo.commit()
+    assert p.returncode != 0
+    lines = p.stderr.splitlines()
+    assert "  notes.md: 14 lines, 52,035 bytes (was 10 lines, 36,031 bytes)" in lines
+    assert lines[-1].endswith("[pre-commit.file-size]")
 
 
 def test_a_file_at_the_limit_passes(repo):
@@ -240,7 +245,11 @@ def test_a_file_at_the_limit_passes(repo):
 def test_the_first_commit_of_a_repository_is_checked(repo):
     repo.write("big.py", text(2000))
     assert repo.git("rev-parse", "-q", "--verify", "HEAD").returncode != 0
-    assert repo.commit().returncode != 0
+    p = repo.commit()
+    assert p.returncode != 0
+    assert "  big.py: 2,000 lines, 20,012 bytes (new file)" in p.stderr.splitlines()
+    (e,) = repo.events()
+    assert (e["kind"], e["rule"]) == ("block", "pre-commit.file-size")
 
 
 def test_a_new_copy_of_a_file_already_over_is_refused(repo):
@@ -281,8 +290,8 @@ def test_a_large_binary_is_never_read_whole(repo, monkeypatch):
     repo.write("small.py", text(10))
     big = repo.git("rev-parse", ":blob.bin").stdout.strip()
     read = []
-    real = filesize.read_blobs
-    monkeypatch.setattr(filesize, "read_blobs", lambda n: read.extend(n) or real(n))
+    real = filesize.read_sizes
+    monkeypatch.setattr(filesize, "read_sizes", lambda n: read.extend(n) or real(n))
     monkeypatch.chdir(repo.root)
     for k in ("GIT_DIR", "GIT_INDEX_FILE", "GIT_WORK_TREE"):
         monkeypatch.delenv(k, raising=False)
@@ -298,6 +307,57 @@ def test_a_large_text_file_is_counted_whole(repo):
     assert p.returncode != 0
     line = "  huge.md: 30,000 lines, 3,000,000 bytes (new file)"
     assert line in p.stderr.splitlines()
+
+
+def blobs(repo, tmp_path, contents: list[bytes]) -> list[str]:
+    folder = tmp_path / "blobs"
+    folder.mkdir()
+    files = []
+    for i, data in enumerate(contents):
+        (folder / str(i)).write_bytes(data)
+        files.append(str(folder / str(i)))
+    p = subprocess.run(
+        ["git", "hash-object", "-w", "--stdin-paths"],
+        cwd=repo.root,
+        env=repo.env,
+        input="\n".join(files),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return p.stdout.split()
+
+
+def in_repo(repo, monkeypatch) -> None:
+    monkeypatch.chdir(repo.root)
+    for k in ("GIT_DIR", "GIT_INDEX_FILE", "GIT_WORK_TREE"):
+        monkeypatch.delenv(k, raising=False)
+
+
+def test_many_blobs_read_in_one_batch_are_measured_like_measure(
+    repo, tmp_path, monkeypatch
+):
+    contents = []
+    for i in range(2500):
+        data = f"line {i}\n".encode() * (i % 13) + b"tail" * (i % 3)
+        if i % 17 == 0:
+            data = b"\0" + data
+        if i % 500 == 0:
+            data += b"x\n" * 30_000  # over MAX_BYTES: read in pieces
+        contents.append(data)
+    names = blobs(repo, tmp_path, contents)
+    in_repo(repo, monkeypatch)
+    assert filesize.sizes(names) == [filesize.measure(c) for c in contents]
+
+
+def test_a_blob_too_small_to_be_over_is_never_read(repo, tmp_path, monkeypatch):
+    (small,) = blobs(repo, tmp_path, [b"a\n" * 700])
+    in_repo(repo, monkeypatch)
+    read = []
+    real = filesize.read_sizes
+    monkeypatch.setattr(filesize, "read_sizes", lambda n: read.extend(n) or real(n))
+    assert filesize.sizes([small], floor=filesize.MAX_LINES) == [(0, 1400)]
+    assert read == []
 
 
 def test_a_binary_stream_is_dropped_after_its_first_bytes():
@@ -379,6 +439,19 @@ def test_concluding_a_merge_warns_for_a_file_over_in_the_other_parent(repo):
     assert "warning: shared.py" in p.stderr
 
 
+def test_a_new_file_named_like_an_object_in_a_merge_is_a_new_file(repo):
+    repo.write("legacy.py", text(1600))
+    repo.commit_unchecked()
+    blob = repo.git("rev-parse", "HEAD:legacy.py").stdout.strip()
+    other = branch_commit(repo, "side.py", text(10))
+    (repo.root / ".git" / "MERGE_HEAD").write_text(other + "\n")
+    name = f"new-g{blob[:7]}"
+    repo.write(name, text(2000))
+    p = repo.commit("feat: merge other")
+    assert p.returncode != 0, p.stderr
+    assert f"  {name}: 2,000 lines, 20,012 bytes (new file)" in p.stderr.splitlines()
+
+
 def grow_on_both_sides(repo, ours: int, theirs: int) -> None:
     """shared.py starts at 1,300 lines; the branch "other" adds `theirs` lines
     at its end and feat adds `ours` at its start, so the two merge cleanly."""
@@ -399,9 +472,9 @@ def test_a_clean_merge_that_takes_a_file_past_the_limit_is_refused(repo):
     assert p.returncode != 0
     lines = p.stderr.splitlines()
     assert (
-        f"pre-merge-commit: merge refused, over the file size limit of {LIMIT}: "
-        "[pre-commit.file-size]"
+        f"pre-merge-commit: merge refused, over the file size limit of {LIMIT}:"
     ) in lines
+    assert any(x.endswith(" [pre-commit.file-size]") for x in lines)
     line = "  shared.py: 1,600 lines, 15,712 bytes (was 1,450 lines, 14,512 bytes)"
     assert line in lines
     assert repo.git("rev-parse", "-q", "--verify", "HEAD^2").returncode != 0
@@ -430,6 +503,7 @@ def test_a_clean_merge_warns_for_a_file_over_in_the_other_parent(repo):
     p = merge(repo)
     assert p.returncode == 0, p.stderr
     assert "pre-merge-commit: warning: shared.py is 1,610 lines" in p.stderr
+    assert "before this merge, so the merge goes on" in p.stderr
     assert "[pre-commit.file-size-over]" in p.stderr
     assert repo.events() == []
 
@@ -509,9 +583,72 @@ def test_a_symlink_replaced_by_a_file_over_the_limit_is_a_new_file(repo):
 # ---------------------------------------------------------------- exempt
 
 
+SAMPLES = {
+    "*.lock": "Cargo.lock",
+    "*.lockb": "bun.lockb",
+    "*.lockfile": "gradle.lockfile",
+    "*-lock.json": "package-lock.json",
+    "*-lock.yaml": "web/pnpm-lock.yaml",
+    "npm-shrinkwrap.json": "npm-shrinkwrap.json",
+    "packages.lock.json": "src/App/packages.lock.json",
+    "Package.resolved": "App.xcworkspace/swiftpm/Package.resolved",
+    "go.sum": "go.sum",
+    "vendor/": "vendor/lib/big.py",
+    "vendored/": "pkg/vendored/x.py",
+    "third_party/": "src/third_party/zlib.c",
+    "third-party/": "third-party/a.js",
+    "node_modules/": "node_modules/a/index.js",
+    "generated/": "api/generated/client.py",
+    "__generated__/": "web/__generated__/types.ts",
+    "dist/": "dist/app.js",
+    "*.min.js": "static/app.min.js",
+    "*.min.css": "static/app.min.css",
+    "*.map": "static/app.js.map",
+    "*.generated.*": "src/api.generated.ts",
+    "*.g.cs": "obj/View.g.cs",
+    "*.g.dart": "lib/model.g.dart",
+    "*.freezed.dart": "lib/model.freezed.dart",
+    "*.designer.cs": "Forms/main.designer.cs",
+    "*.Designer.cs": "Forms/Main.Designer.cs",
+    "*ModelSnapshot.cs": "Data/Migrations/AppDbContextModelSnapshot.cs",
+    "*.pb.go": "proto/model.pb.go",
+    "*_pb2.py": "proto/model_pb2.py",
+    "*_pb2.pyi": "proto/model_pb2.pyi",
+    "*.snap": "tests/__snapshots__/view.test.js.snap",
+    "*.pbxproj": "ios/App.xcodeproj/project.pbxproj",
+    "*.xcstrings": "ios/App/Localizable.xcstrings",
+    "*.storyboard": "ios/App/Base.lproj/Main.storyboard",
+    "*.xib": "ios/App/Views/Cell.xib",
+    "*.resx": "src/App/Properties/Resources.resx",
+    "*.json": "fixtures/big.json",
+    "*.jsonl": "events.jsonl",
+    "*.ndjson": "logs/a.ndjson",
+    "*.geojson": "maps/city.geojson",
+    "*.csv": "data/table.csv",
+    "*.tsv": "data/table.tsv",
+    "*.ipynb": "notebooks/a.ipynb",
+    "*.svg": "logo.svg",
+}
+
+
+def test_every_default_pattern_has_a_sample_it_matches():
+    assert set(SAMPLES) == set(filesize.DEFAULT_EXEMPT)
+    for pattern, rel in SAMPLES.items():
+        assert filesize.exempt(rel, filesize.compile_patterns([pattern])), pattern
+
+
+@pytest.mark.parametrize("rel", ["src/generated.py", "app.css", "lockfile.py"])
+def test_names_close_to_a_default_pattern_are_counted(repo, rel):
+    repo.write(rel, text(2000))
+    p = repo.commit()
+    assert p.returncode != 0
+    assert f"  {rel}: 2,000 lines, 20,012 bytes (new file)" in p.stderr.splitlines()
+
+
 @pytest.mark.parametrize(
     "rel",
     [
+        *SAMPLES.values(),
         "package-lock.json",
         "web/pnpm-lock.yaml",
         "yarn.lock",
@@ -587,48 +724,6 @@ def test_the_repository_exempt_list(repo):
     assert p.returncode != 0 and "sub/top.txt" in p.stderr
 
 
-LOCAL_NOTE = (
-    "pre-commit: note: {} is {}, over the file size limit of "
-    f"{LIMIT}; the commit goes on because .file-size-exempt in the working "
-    "tree lists it, and that list is not staged. "
-    "[pre-commit.file-size-exempt-local]"
-)
-
-
-def test_an_exempt_list_in_the_working_tree_counts_with_a_note(repo):
-    (repo.root / ".file-size-exempt").write_text("big.py\nother.py\n")
-    repo.write("big.py", text(2000))
-    repo.write("other.py", text(1600))
-    p = repo.commit()
-    assert p.returncode == 0, p.stderr
-    assert p.stderr.splitlines() == [
-        LOCAL_NOTE.format("big.py", "2,000 lines, 20,012 bytes"),
-        LOCAL_NOTE.format("other.py", "1,600 lines, 16,012 bytes"),
-    ]
-    (e,) = repo.events()
-    assert (e["hook"], e["kind"], e["rule"]) == (
-        "pre-commit",
-        "override",
-        "pre-commit.file-size-exempt-local",
-    )
-    assert e["reason"] == (
-        "big.py: 2000 lines, 20012 bytes; exempt only by the unstaged "
-        ".file-size-exempt; 1 more file(s)"
-    )
-    assert MARKER not in repo.log.read_text()
-
-
-def test_a_working_tree_exempt_list_says_nothing_for_files_under_the_limit(repo):
-    (repo.root / ".file-size-exempt").write_text("small.py\nlegacy.py\n")
-    repo.write("small.py", text(10))
-    repo.write("legacy.py", text(1600))
-    repo.commit_unchecked()
-    repo.write("legacy.py", text(1700))
-    p = repo.commit()
-    assert p.returncode == 0 and p.stderr == ""
-    assert repo.events() == []
-
-
 def test_a_listed_file_is_exempt_in_the_same_commit_that_lists_it(repo):
     repo.write("report.html", text(1400))
     assert repo.commit().returncode == 0
@@ -664,20 +759,6 @@ def test_an_exempt_list_staged_as_a_link_is_not_used(repo):
     assert line in p.stderr.splitlines()
 
 
-@pytest.mark.parametrize("kind", ["link", "folder"])
-def test_an_exempt_list_in_the_working_tree_that_is_no_file_is_not_used(repo, kind):
-    target = repo.root / ".file-size-exempt"
-    if kind == "link":
-        (repo.root / "list.txt").write_text("big.py\n")
-        target.symlink_to("list.txt")
-    else:
-        target.mkdir()
-    repo.write("big.py", text(2000))
-    p = repo.commit()
-    assert p.returncode != 0
-    assert UNUSED.format("is a link or a folder") in p.stderr.splitlines()
-
-
 def test_an_exempt_list_staged_as_a_folder_is_not_used(repo):
     repo.write(".file-size-exempt/list.txt", "big.py\n")
     repo.write("big.py", text(2000))
@@ -688,26 +769,115 @@ def test_an_exempt_list_staged_as_a_folder_is_not_used(repo):
     assert UNUSED.format("is staged as a folder") in lines
 
 
-@pytest.mark.skipif(
-    not hasattr(os, "geteuid") or os.geteuid() == 0, reason="root reads any file"
-)
-def test_an_exempt_list_in_the_working_tree_that_cannot_be_read_is_not_used(repo):
-    target = repo.root / ".file-size-exempt"
-    target.write_text("big.py\n")
-    target.chmod(0)
+def test_an_untracked_exempt_list_is_not_used(repo):
+    (repo.root / ".file-size-exempt").write_text("big.py\n")
     repo.write("big.py", text(2000))
-    try:
-        p = repo.commit()
-    finally:
-        target.chmod(0o644)
+    p = repo.commit()
+    assert p.returncode != 0
+    lines = p.stderr.splitlines()
+    assert "  big.py: 2,000 lines, 20,012 bytes (new file)" in lines
+    assert "stage the list" not in p.stderr
+    (e,) = repo.events()
+    assert (e["kind"], e["rule"]) == ("block", "pre-commit.file-size")
+
+
+def test_unstaged_changes_to_a_tracked_exempt_list_are_named(repo):
+    repo.write(".file-size-exempt", "documentation/\n")
+    assert repo.commit().returncode == 0
+    (repo.root / ".file-size-exempt").write_text("documentation/\nbig.py\n")
+    repo.write("big.py", text(2000))
+    repo.write("other.py", text(1600))
+    p = repo.commit()
     assert p.returncode != 0
     lines = p.stderr.splitlines()
     assert "  big.py: 2,000 lines, 20,012 bytes (new file)" in lines
     assert (
-        "pre-commit: warning: .file-size-exempt at the top of the repository "
-        "cannot be read (Permission denied), so its patterns are not used. "
-        "Make it a readable file."
+        "The unstaged changes of .file-size-exempt list big.py; stage the list "
+        "(`git add .file-size-exempt`)."
     ) in lines
+    assert lines[-1].endswith("[pre-commit.file-size]")
+    assert repo.git("add", ".file-size-exempt").returncode == 0
+    p = repo.commit()
+    assert p.returncode != 0
+    assert "  other.py: 1,600 lines" in p.stderr
+    assert "big.py" not in p.stderr and "stage the list" not in p.stderr
+
+
+def test_bad_lines_in_the_exempt_list_are_skipped_with_a_warning(repo):
+    repo.write(".file-size-exempt", "[z-a]\n!keep.py\ndocs/\n")
+    repo.write("big.py", text(2000))
+    repo.write("docs/page.md", text(2000))
+    p = repo.commit()
+    assert p.returncode != 0
+    lines = p.stderr.splitlines()
+    assert (
+        "pre-commit: warning: .file-size-exempt line 1: `[z-a]` is skipped: "
+        "the range z-a is reversed."
+    ) in lines
+    assert (
+        "pre-commit: warning: .file-size-exempt line 2: `!keep.py` is skipped: "
+        "negation (!) is not supported."
+    ) in lines
+    assert "  big.py: 2,000 lines, 20,012 bytes (new file)" in lines
+    assert "docs/page.md" not in p.stderr
+    assert "file size check failed" not in p.stderr
+
+
+def test_a_reversed_range_does_not_stop_the_other_patterns():
+    rx = filesize.compile_patterns(["[z-a]", "a.py"])
+    assert len(rx) == 1 and filesize.exempt("x/a.py", rx)
+
+
+@pytest.mark.parametrize(
+    "pattern, path",
+    [("*a" * 30 + "b", "a" * 200), ("**?" * 30 + "b", "a/" * 49 + "aa")],
+    ids=["stars", "double-stars"],
+)
+def test_a_pattern_cannot_make_the_check_slow(pattern, path):
+    rx = filesize.compile_patterns([pattern])
+    start = time.monotonic()
+    assert not filesize.exempt(path, rx)
+    assert time.monotonic() - start < 1
+
+
+@pytest.mark.parametrize(
+    "content, used",
+    [("# padding\n" * 1000 + "big.py\n", "1,000"), ("x" * 70_000 + "\nbig.py\n", "0")],
+    ids=["lines", "bytes"],
+)
+def test_an_oversized_exempt_list_is_cut_with_a_warning(repo, content, used):
+    repo.write(".file-size-exempt", content)
+    repo.write("big.py", text(2000))
+    p = repo.commit()
+    assert p.returncode != 0
+    lines = p.stderr.splitlines()
+    assert (
+        "pre-commit: warning: .file-size-exempt is over 1,000 lines or 64,000 "
+        f"bytes; only its first {used} lines are used."
+    ) in lines
+    assert "  big.py: 2,000 lines, 20,012 bytes (new file)" in lines
+
+
+@pytest.mark.parametrize("staged_attributes", [True, False], ids=["staged", "none"])
+@pytest.mark.parametrize("where", ["info", "config"])
+def test_attributes_from_outside_the_commit_do_not_exempt(
+    repo, tmp_path, where, staged_attributes
+):
+    if staged_attributes:
+        repo.write(".gitattributes", "*.dat binary\n")
+    rule = "big.py linguist-generated\n"
+    if where == "info":
+        info = repo.root / ".git" / "info"
+        info.mkdir(exist_ok=True)
+        (info / "attributes").write_text(rule)
+    else:
+        (tmp_path / "attributes").write_text(rule)
+        attrs = str(tmp_path / "attributes")
+        assert repo.git("config", "core.attributesFile", attrs).returncode == 0
+    repo.write("big.py", text(2000))
+    p = repo.commit()
+    assert p.returncode != 0, p.stderr
+    assert "  big.py: 2,000 lines, 20,012 bytes (new file)" in p.stderr.splitlines()
 
 
 def test_a_missing_exempt_list_says_nothing(repo):
@@ -732,6 +902,11 @@ def test_a_missing_exempt_list_says_nothing(repo):
         ("a[/b]c", ["abc"], ["a/c"]),
         ("v[]]", ["v]"], ["v"]),
         ("[.md", ["[.md"], ["a.md"]),
+        ("a/**", ["a/x", "a/b/c"], ["a", "b/a/x"]),
+        ("**/foo", ["foo", "x/y/foo", "foo/z"], ["foox", "xfoo"]),
+        ("a/**/b", ["a/b", "a/x/y/b"], ["a/xb", "b"]),
+        ("*", ["a", "b/c"], []),
+        ("a**b", ["ab", "axxb", "d/ab"], ["a/b"]),
     ],
 )
 def test_exempt_patterns(pattern, yes, no):
@@ -747,31 +922,67 @@ def test_comments_blank_lines_and_negations_are_skipped():
 # ---------------------------------------------------------------- the check failing
 
 
-def test_a_failing_check_lets_the_commit_through_and_is_logged(tmp_path):
+@pytest.mark.parametrize("hook", ["pre-commit", "pre-merge-commit"])
+def test_a_failing_check_lets_the_commit_through_and_is_logged(tmp_path, hook):
     kit = tmp_path / "kit"
     shutil.copytree(GIT_HOOKS, kit / "git-hooks")
     (kit / "hooks").mkdir()
     shutil.copy(HOOKS / "kitlog.py", kit / "hooks" / "kitlog.py")
     (kit / "hooks" / "filesize.py").write_text("raise SystemExit(5)\n")
     repo = make_repo(tmp_path, kit / "git-hooks")
-    repo.write("big.py", text(2000))
-    p = repo.commit()
+    if hook == "pre-commit":
+        repo.write("big.py", text(2000))
+        p = repo.commit()
+    else:
+        grow_on_both_sides(repo, 150, 150)
+        repo.log.unlink(missing_ok=True)
+        p = merge(repo)
+        assert repo.git("rev-parse", "-q", "--verify", "HEAD^2").returncode == 0
     assert p.returncode == 0, p.stderr
     assert (
-        "pre-commit: warning: file size check failed (exit 5), file sizes NOT "
+        f"{hook}: warning: file size check failed (exit 5), file sizes NOT "
         "checked; run /kit to see what is broken [pre-commit.file-size-failed]"
     ) in p.stderr.splitlines()
     (e,) = repo.events()
-    assert (e["kind"], e["rule"]) == ("error", "pre-commit.file-size-failed")
+    assert (e["hook"], e["kind"], e["rule"]) == (
+        hook,
+        "error",
+        "pre-commit.file-size-failed",
+    )
 
 
-def test_a_failing_git_is_reported_and_lets_the_commit_through(repo, tmp_path):
+@pytest.mark.parametrize("args", [[], ["pre-push"], ["pre-commit", "extra"]])
+def test_a_wrong_argument_is_a_usage_error(repo, args):
+    p = subprocess.run(
+        [sys.executable, str(HOOKS / "filesize.py"), *args],
+        cwd=repo.root,
+        env=repo.env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert p.returncode == 2
+    assert p.stderr == "usage: filesize.py pre-commit|pre-merge-commit\n"
+    assert repo.events() == []
+
+
+@pytest.mark.parametrize(
+    "says, shown",
+    [
+        ("", ""),
+        ("printf 'fatal: bad\\033 index\\nmore\\n' >&2; ", ": fatal: bad? index"),
+    ],
+    ids=["silent", "with-stderr"],
+)
+def test_a_failing_git_is_reported_and_lets_the_commit_through(
+    repo, tmp_path, says, shown
+):
     real = shutil.which("git", path=repo.env["PATH"])
     stub = tmp_path / "failing-git"
     stub.mkdir()
     (stub / "git").write_text(
         "#!/bin/sh\n"
-        'for a in "$@"; do [ "$a" = diff-index ] && exit 128; done\n'
+        f'for a in "$@"; do [ "$a" = diff-index ] && {{ {says}exit 128; }}; done\n'
         f'exec "{real}" "$@"\n'
     )
     (stub / "git").chmod(0o755)
@@ -788,7 +999,7 @@ def test_a_failing_git_is_reported_and_lets_the_commit_through(repo, tmp_path):
     )
     assert p.returncode == 0, p.stderr
     assert p.stderr.splitlines() == [
-        "pre-commit: file size check failed: git diff-index failed (exit 128)",
+        f"pre-commit: file size check failed: git diff-index failed (exit 128){shown}",
         "pre-commit: warning: file size check failed (exit 2), file sizes NOT "
         "checked; run /kit to see what is broken [pre-commit.file-size-failed]",
     ]
@@ -820,19 +1031,22 @@ def test_the_docs_name_the_limit_and_every_default_pattern():
 
 
 def test_the_upgrade_page_notes_the_file_size_refusal():
-    page = (REPO / "docs-source" / "upgrading.md").read_text()
-    note = page[page.index("## File size limit") :]
-    note = note[: note.index("\n## ")]
+    note = upgrade_note()
     for words in (
         "refuses a commit",
         "1,500 lines or 50,000 bytes",
         "already over the limit only warns",
         "`.file-size-exempt`",
-        ".git/info/exclude",
         "file-size.html",
         "`pre-merge-commit`",
     ):
         assert words in note, words
+
+
+def upgrade_note() -> str:
+    page = (REPO / "docs-source" / "upgrading.md").read_text()
+    note = page[page.index("## File size limit") :]
+    return note[: note.index("\n## ")]
 
 
 # ---------------------------------------------------------------- CLAUDE.md template
