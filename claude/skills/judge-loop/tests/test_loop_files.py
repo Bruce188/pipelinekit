@@ -160,11 +160,6 @@ OWN_AGENT = (
     "STOP: this project has its own agent named kit-judge ({rel}). "
     "Next: ask the user: rename it, or loop.py {again} --agents fallback."
 )
-CANNOT_CHECK = (
-    "STOP: {rel} cannot be checked for an agent name (a link, over 64 kB or not "
-    "readable). Next: ask the user: make it a plain, readable file or folder, or "
-    "the same command with --agents fallback."
-)
 CANNOT_READ = (
     "STOP: {rel} cannot be checked for an agent name (its name: line cannot be "
     "read). Next: ask the user: write that line as name: <plain word>, or the same "
@@ -218,13 +213,6 @@ def test_a_project_agent_file_named_like_a_kit_agent(sb):
     )
 
 
-def outside_folder(sb):
-    folder = sb.tmp / "outside"
-    folder.mkdir()
-    (folder / "kit-judge.md").write_text("---\nname: kit-judge\n---\n")
-    return folder
-
-
 UNREADABLE_NAMES = {
     "an empty name": b"---\nname:\n  kit-judge\n---\n",
     "a folded name": b"---\nname: >\n  kit-judge\n---\n",
@@ -256,32 +244,6 @@ def test_a_project_agent_with_another_name_and_a_block(sb):
     project_agent(sb, text=b"---\nname: helper\ndescription: |\n  name:\n---\n")
     sb.change("app.py", 3)
     assert sb.run("start", "build").code == 0
-
-
-UNCHECKABLE = ["a link", "over 64 kB", "a linked folder", "a linked agents folder"]
-
-
-@pytest.mark.parametrize("how", UNCHECKABLE)
-def test_a_project_agent_that_cannot_be_checked(sb, how):
-    agents = sb.root / ".claude" / "agents"
-    if how == "a link":
-        agents.mkdir(parents=True)
-        (agents / "x.md").symlink_to(outside_folder(sb) / "kit-judge.md")
-        rel = ".claude/agents/x.md"
-    elif how == "over 64 kB":
-        project_agent(sb, ".claude/agents/x.md", "x" * (64 * 1024 + 1))
-        rel = ".claude/agents/x.md"
-    elif how == "a linked folder":
-        agents.mkdir(parents=True)
-        (agents / "sub").symlink_to(outside_folder(sb))
-        rel = ".claude/agents/sub"
-    else:
-        agents.parent.mkdir(parents=True)
-        agents.symlink_to(outside_folder(sb))
-        rel = ".claude/agents"
-    sb.change("app.py", 3)
-    run = sb.run("start", "build")
-    assert (run.code, run.last) == (3, CANNOT_CHECK.format(rel=rel))
 
 
 def test_a_project_agent_that_appears_after_round_one(sb):
@@ -537,6 +499,9 @@ BUILD_NAME = (
     "Next: loop.py start build without --name."
 )
 NO_BRANCH = "Refused: no branch is checked out. Next: check out the work branch."
+NO_PLAN_NAME = (
+    "Refused: a plan loop needs a name. Next: loop.py start plan --name <issue>-<slug>."
+)
 IS_BASE = (
     "Refused: main is the base branch. "
     "Next: git switch -c <work branch>, then the same command."
@@ -572,7 +537,8 @@ REFUSALS = [
         IS_BASE,
     ),
     ("build detached", detach, ("start", "build"), 2, NO_BRANCH),
-    ("plan detached", detach, ("start", "plan"), 2, NO_BRANCH),
+    ("plan without a name", None, ("start", "plan"), 2, NO_PLAN_NAME),
+    ("plan detached, no name", detach, ("start", "plan"), 2, NO_PLAN_NAME),
     (
         "plan ../x",
         None,
@@ -684,6 +650,15 @@ def test_the_refusals(sb, setup, argv, code, line):
 def test_a_plan_on_a_detached_head(sb):
     detach(sb)
     run = sb.run("start", "plan", "--name", "x")
+    assert run.code == 0, run
+
+
+def test_a_plan_without_a_name_opens_no_loop(sb):
+    run = sb.run("start", "plan")
+    assert run.code == 2, run
+    assert not (sb.root / "docs" / "loops").exists()
+    sb.start_plan("p1")
+    run = sb.run("status")
     assert run.code == 0, run
 
 

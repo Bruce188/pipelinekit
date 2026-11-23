@@ -141,46 +141,63 @@ def test_plan_and_build_go_through_the_agents_step():
     ) in line
 
 
+# Per row, its options in order; per option, the commands it names. A command
+# that starts with "(" or holds a backtick before its end is matched as written,
+# any other one as the full loop.py command; a backtick at its end closes it.
 ROWS = {
-    "a plan ends in `ask`": (
-        "settle <role> <id> --note",
-        "--user-ok",
-        "resume --note",
-        "--rounds N",
-        "accept --note",
-        "abandon --note",
-    ),
-    "`blocked`": (
-        "settle <role> <id> --note",
-        "--user-ok",
-        "resume --note",
-        "--rounds N",
-        "accept --note",
-        "abandon --note",
-    ),
-    "a build is `stalled`": (
-        "settle <role> <id> --note",
-        "--user-ok",
-        "diagnosed --note",
-        "accept --note",
-        "abandon --note",
-    ),
-    "a second miss of a judge": (
-        "brief",
-        "save <role>",
-        "accept --note",
-        "abandon --note",
-    ),
-    "a project agent has a kit name": ("brief --agents fallback", "--agents fallback"),
-    "`skip` exits 3": (
-        "start build --panel single",
-        "skip --reason",
-        "--user-ok",
-        "start build",
-    ),
-    "a settled item is raised again": ("settle <role> <id> --note", "--user-ok"),
-    "a model is missing": (),
+    "a plan ends in `ask`": [
+        (
+            "settle <role> <id> --note <summary>`",
+            "(`--user-ok` for a blocking item",
+            "resume --note <summary>`",
+            "(with `--rounds N` when no round is left)",
+        ),
+        ("accept --note <summary>`",),
+        ("resume --note <summary> --rounds N`",),
+        ("abandon --note <summary>`",),
+    ],
+    "`blocked`": [
+        (
+            "settle <role> <id> --note <summary> --user-ok`",
+            "resume --note <summary> --rounds N`",
+        ),
+        ("accept --note <summary>`",),
+        ("resume --note <summary> --rounds N`",),
+        ("abandon --note <summary>`",),
+    ],
+    "a build is `stalled`": [
+        (
+            "settle <role> <id> --note <summary>`",
+            "(`--user-ok` for a blocking item",
+            "diagnosed --note <summary>`",
+        ),
+        ("accept --note <summary>`",),
+        ("abandon --note <summary>`",),
+    ],
+    "a second miss of a judge": [
+        ("brief`", "save <role>`"),
+        ("accept --note <summary>`",),
+        ("abandon --note <summary>`",),
+    ],
+    "a project agent has a kit name": [
+        (
+            "brief --agents fallback`",
+            "the same `start` command with `--agents fallback`",
+        ),
+        (),
+    ],
+    "`skip` exits 3": [
+        ("start build --panel single`",),
+        ("skip --reason <summary> --user-ok`",),
+        ("start build`",),
+    ],
+    "a settled item is raised again": [
+        ("settle <role> <id> --note <summary>`", "(`--user-ok` for a blocking item)"),
+        (),
+    ],
+    "a model is missing": [],
 }
+BACK_REFERENCES = ("Upside and downside as for `ask`", "as for `ask`")
 
 
 def asking_rows():
@@ -199,18 +216,32 @@ def test_asking_the_user_has_one_row_per_situation():
         assert sum(row.startswith(f"| {start}") for row in rows) == 1, start
 
 
+def options_of(row):
+    """The options cell of a row, split on its (n) markers; text before (1) goes."""
+    cell = row.strip().strip("|").split("|")[2].strip()
+    parts = re.split(r"\((\d+)\) ", cell)
+    numbers = [int(x) for x in parts[1::2]]
+    assert numbers == list(range(1, len(numbers) + 1)), numbers
+    return parts[2::2]
+
+
 @pytest.mark.parametrize("start", sorted(ROWS))
-def test_each_row_names_its_commands(start):
+def test_each_option_names_its_commands(start):
     (row,) = [r for r in asking_rows() if r.startswith(f"| {start}")]
-    for command in ROWS[start]:
-        if command.startswith("--"):
-            assert command in row, command
-        else:
-            assert f"{LOOP} {command}" in row, command
+    options = options_of(row)
+    assert len(options) == len(ROWS[start]), options
+    for segment, commands in zip(options, ROWS[start], strict=True):
+        for command in commands:
+            literal = command.startswith("(") or "`" in command[:-1]
+            want = command if literal else f"{LOOP} {command}"
+            assert want in segment, (command, segment)
+        if not commands:
+            assert "loop.py" not in segment, segment
+        assert ("Upside" in segment and "Downside" in segment) or any(
+            ref in segment for ref in BACK_REFERENCES
+        ), segment
     if not ROWS[start]:
         assert "loop.py" not in row
-    else:
-        assert "Upside" in row and "Downside" in row
 
 
 def test_asking_the_user_says_how_to_ask():
@@ -335,6 +366,17 @@ def test_the_session_fills_the_round_and_the_fixer_the_row():
     ) in text
 
 
+def test_a_miss_asks_for_what_the_refusal_names():
+    text = flat(skill())
+    assert (
+        "**A miss** (`save` exits 3): ask that same judge once for what the "
+        "`Next:` of the `STOP:` line says (when it names nothing else, the JSON "
+        "object alone); continue the agent, and where that is not possible, start "
+        "one fresh judge with the same brief. Write and save again."
+    ) in text
+    assert "ask that same judge once for the JSON object alone" not in text
+
+
 def test_the_closing_report_files_each_issue_from_its_file():
     text = flat(section(skill(), "Closing report"))
     assert (
@@ -406,8 +448,33 @@ def test_the_stated_limits():
         "Token numbers are what the session passes",
         "a wrong map can hide a change from a judge",
         "only `/kit` shows it",
+        "no permission rule of the kit guards it",
     ):
         assert words in text, words
+
+
+NUMBER_WORDS = {10: "ten"}
+
+
+def test_the_sizes_match_the_helper():
+    import loop_text
+
+    text = flat(section(skill(), "Three sizes of change"))
+    exts = [f"`{e}`" for e in loop_text.DOC_EXTENSIONS]
+    for words in (
+        f"at most {NUMBER_WORDS[loop_text.EXEMPT_LINES]} changed lines",
+        f"more than {loop_text.FULL_LINES} changed lines",
+        f"more than {loop_text.FULL_FILES} files",
+        f"the extension is {', '.join(exts[:-1])} or {exts[-1]},",
+    ):
+        assert words in text, words
+    m = re.search(r"one of its words is in `([^`]+)`", text)
+    assert m and set(m.group(1).split()) == loop_text.SENSITIVE_WORDS
+    m = re.search(r"a file named (.*?), or a file under", text)
+    named = {x.lower() for x in re.findall(r"`([^`]+)`", m.group(1))}
+    assert named == loop_text.STEERING_FILES
+    m = re.search(r"a folder named (.*?)\. ", text)
+    assert set(re.findall(r"`([^`]+)`", m.group(1))) == loop_text.STEERING_FOLDERS
 
 
 # The template rule ------------------------------------------------------------

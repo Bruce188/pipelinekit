@@ -27,6 +27,7 @@ The kit has six layers. Hover a chip for a one-line summary, or use the buttons 
   {"name": "Git hooks", "color": "#3b82f6", "count": "global core.hooksPath",
    "chips": [{"label": "commit-msg", "tip": "Conventional commits, no attribution or emoji"},
              {"label": "pre-commit", "tip": "gitleaks on staged changes, file size limit"},
+             {"label": "pre-merge-commit", "tip": "File size limit on merges made without conflicts"},
              {"label": "pre-push", "tip": "No pushes to main or master"}]},
   {"name": "Skills", "color": "#10b981", "count": "9 skills",
    "chips": [{"label": "dotnet-conventions"}, {"label": "deploy"}, {"label": "exchange-api-keys"},
@@ -77,26 +78,20 @@ The installer merges `claude/config/settings.template.json` into `~/.claude/sett
 
 ## Git hooks
 
-`claude/git-hooks/` is installed to `~/.claude/git-hooks` and, if you agree, set as the global `core.hooksPath`. Each hook runs the repository's own `.git/hooks/<name>` or `.githooks/<name>` afterwards.
+`claude/git-hooks/` is installed to `~/.claude/git-hooks` and, if you agree, set as the global `core.hooksPath`. Each hook runs the repository's own `.git/hooks/<name>` or `.githooks/<name>` afterwards. `pre-merge-commit` runs `.githooks/pre-merge-commit` only when it is the executable file the current commit has: the merge has already written the incoming files, so a merge never runs a hook it brings in.
 
 | Hook | What it does |
 |------|--------------|
 | `commit-msg` | Conventional commits (`feat fix refactor docs test chore perf style build ci revert`, scopes, `!`). Rejects wip (outside `.claude/worktrees/`), AI attribution and emoji. Lets `Merge`, `Revert "`, `fixup!`/`squash!`/`amend!` through |
 | `pre-commit` | `gitleaks` scan of staged changes. Warns and allows if gitleaks is missing. `PIPELINEKIT_ALLOW_SECRET=1` skips one commit. Then the [file size limit](#file-size-limit) |
+| `pre-merge-commit` | Run by `git merge` before it records a merge it made without conflicts, which skips `pre-commit`: the same [file size limit](#file-size-limit) on the merged files |
 | `pre-push` | Refuses pushes to `main`/`master`. `ALLOW_MAIN_PUSH=1` overrides (humans only; bash-guard refuses it for Claude) |
 
 A repo with its own local `core.hooksPath` (husky, the pre-commit framework, or a manual setting) bypasses these. Run `git config --show-origin core.hooksPath` inside it to check.
 
 ### File size limit
 
-A hand-written text file (code, tests, markdown) has at most 1,500 lines and 50,000 bytes. Claude Code's Read tool returns a text file whole only up to 25,000 tokens and past that a first page, so a longer file is read in pieces or only in part. `pre-commit` runs `~/.claude/hooks/filesize.py` on the staged files:
-
-- A commit that adds a file over the limit, or takes a file from under the limit to over it, is refused with `[pre-commit.file-size]`. The refusal names each file, its lines and bytes, and what it was before; a control character in a path is shown as `?`, and a byte that is not UTF-8 as an escape. The event log gets the first path and its size, never the content.
-- A file that was already over the limit before the commit gets a warning with `[pre-commit.file-size-over]`, and the commit goes through. A renamed file keeps the size it had under its old name; when a commit concludes a merge, a file over the limit in either parent counts as already over.
-- Binary files (a NUL byte in the first 8,000 bytes, or `binary` or `-diff` in `.gitattributes`), deleted files, symlinks and submodules are never counted. Attributes are read from the staged `.gitattributes`, so an unstaged edit there exempts nothing. A blob over 50,000 bytes is read in pieces and dropped once its first 8,000 bytes show it is binary.
-- Generated, vendored, lock and data files are exempt. By default that is: lock files `*.lock`, `*.lockb`, `*.lockfile`, `*-lock.json`, `*-lock.yaml`, `npm-shrinkwrap.json`, `packages.lock.json`, `Package.resolved`, `go.sum`; vendored folders `vendor/`, `vendored/`, `third_party/`, `third-party/`, `node_modules/`; generated files and folders `generated/`, `__generated__/`, `dist/`, `*.min.js`, `*.min.css`, `*.map`, `*.generated.*`, `*.g.cs`, `*.g.dart`, `*.freezed.dart`, `*.designer.cs`, `*.Designer.cs`, `*ModelSnapshot.cs`, `*.pb.go`, `*_pb2.py`, `*_pb2.pyi`, `*.snap`; project and designer files an IDE writes `*.pbxproj`, `*.xcstrings`, `*.storyboard`, `*.xib`, `*.resx`; data files `*.json`, `*.jsonl`, `*.ndjson`, `*.geojson`, `*.csv`, `*.tsv`, `*.ipynb`, `*.svg`. A path marked `linguist-generated` or `linguist-vendored` in `.gitattributes` is exempt too.
-- A project exempts more paths in `.file-size-exempt` at the repository root, one pattern per line, gitignore style: `name` matches a file or folder of that name at any depth, `name/` only a folder and everything in it, a pattern with a `/` in front or in the middle is anchored to the root, `*` and `?` stay inside one folder and `**` crosses folders. `#` starts a comment; `!` lines are skipped. The staged copy of the file counts, else the one in the working tree. A file that passes only because an unstaged list in the working tree names it gets a note with `[pre-commit.file-size-exempt-local]`, and the event log records an override with its path and size, so a local exemption is never silent; to keep such a list out of commits, name it in `.git/info/exclude`. A list that is a link, a folder or not UTF-8 text is not used, and the hook warns that it is not. This repository lists `documentation/`, the rendered pages.
-- A check that fails to run warns with `[pre-commit.file-size-failed]`, records an error and lets the commit through.
+`pre-commit` and `pre-merge-commit` refuse a commit or a merge that adds a hand-written file over 1,500 lines or 50,000 bytes, or takes one past that; a file already over the limit only warns. It leaves out generated, vendored, lock and data files, and the project and designer files an IDE writes. [File size limit](file-size.html) says what is counted, which files are exempt by default and how a project exempts more.
 
 ## Rule ids and the event log
 
@@ -141,14 +136,14 @@ The log is `~/.local/state/pipelinekit/events.jsonl`. `$XDG_STATE_HOME` moves it
 | `pre-commit.secret` | `pre-commit` | block | gitleaks found a secret in the staged changes |
 | `pre-commit.gitleaks-failed` | `pre-commit` | error | gitleaks itself failed |
 | `pre-commit.allow-secret` | `pre-commit` | override | `PIPELINEKIT_ALLOW_SECRET=1` skipped the scan |
-| `pre-commit.file-size` | `pre-commit` | block | The commit adds a file over the [file size limit](#file-size-limit) or takes one past it |
-| `pre-commit.file-size-over` | `pre-commit` | warning, not logged | A file already over the limit changed; the commit goes on |
-| `pre-commit.file-size-exempt-local` | `pre-commit` | override | A file over the limit passes only because the unstaged `.file-size-exempt` in the working tree lists it |
-| `pre-commit.file-size-failed` | `pre-commit` | error | The file size check failed, so file sizes were not checked |
+| `pre-commit.file-size` | `pre-commit`, `pre-merge-commit` | block | The commit or merge adds a file over the [file size limit](file-size.html) or takes one past it |
+| `pre-commit.file-size-over` | `pre-commit`, `pre-merge-commit` | warning, not logged | A file already over the limit changed; the commit or merge goes on |
+| `pre-commit.file-size-exempt-local` | `pre-commit`, `pre-merge-commit` | override | A file over the limit passes only because the unstaged `.file-size-exempt` in the working tree lists it |
+| `pre-commit.file-size-failed` | `pre-commit`, `pre-merge-commit` | error | The file size check failed, so file sizes were not checked |
 | `pre-push.protected-branch` | `pre-push` | block | A push to `main` or `master` |
 | `pre-push.allow-main` | `pre-push` | override | `ALLOW_MAIN_PUSH=1` let such a push through |
 
-With `ask`, Claude Code prompts you instead of refusing. `override` means a human-only variable let something through. `error` means the hook could not do its job: a guard hook then refuses the command or commit, while the session-start check only steps aside.
+With `ask`, Claude Code prompts you instead of refusing. `warning, not logged` means the hook prints a warning and lets the commit or merge go on, with nothing in the event log. `override` means a human-only variable let something through. `error` means the hook could not do its job: a guard hook then refuses the command or commit, while the session-start check and the file size check step aside and let it through.
 
 ## Skills
 
@@ -192,7 +187,7 @@ The kit owns these three names in `~/.claude/agents/`, and leaves the rest of th
 |---------|-----------------|
 | Install | Every hook, the event-log helper, the file size check, git hook, skill and agent is present; `kit-judge.md` has the one tools line `Read, Grep, Glob`, else `kit-judge.md allows more than reading`; hooks are executable and have LF line endings; `settings.json` is valid, its hook commands point to files that exist, attribution is off and the secret deny rules are there; the global `core.hooksPath`. A kit file over the file size limit (1,500 lines or 50,000 bytes) is a `[warn]`; the vendored `frontend-design` skill and the files the limit exempts by default are left out, and `--quick` skips this |
 | Changes since install | Each installed file, the agent files included, against the hash recorded at install time; the kit's hook entries and deny/ask rules in `settings.json` |
-| Live probe | Each hook gets input it must block and input it must allow: `git commit --no-verify`, a `docker` mount of `/etc`, `curl` piped into `sh`, `DROP TABLE` through `psql`, a `HEAD` file next to `refs/`, a non-conventional commit message, a commit that adds a file over the file size limit, a push to `main`. The session-start check must report an install with nothing in it and say nothing about this one. Each refusal must also arrive in an event log, which the probe keeps in a temporary directory |
+| Live probe | Each hook gets input it must block and input it must allow: `git commit --no-verify`, a `docker` mount of `/etc`, `curl` piped into `sh`, `DROP TABLE` through `psql`, a `HEAD` file next to `refs/`, a non-conventional commit message, a commit that adds a file over the file size limit (to `pre-commit` and to `pre-merge-commit`), a push to `main`. The session-start check must report an install with nothing in it and say nothing about this one. Each refusal must also arrive in an event log, which the probe keeps in a temporary directory |
 | Environment | python3, Claude Code and gitleaks versions; whether `gh` and Playwright are available; WSL; a repository that sets its own `core.hooksPath`; a Bash sandbox that keeps `gh` from reading its own login file; a `frontend-design` plugin enabled next to the kit's copy, as an `[info]` line that says how to keep one. Only the user-level `settings.json` is read, so a plugin enabled in one project's settings is not reported |
 | Updates | Whether the remote of the checkout the install was made from has commits this install lacks: `up to date`, `update available` or `not checked`. Information only, never a problem. Not part of `--quick` |
 | Activity | What the kit's hooks did in the last 7 days, read from the event log: each rule that blocked, asked, was overridden or failed, with a count and the last time. The 20 newest rules are listed, and a hook that failed is listed however old it is. See [Rule ids and the event log](#rule-ids-and-the-event-log). Not part of `--quick` |
@@ -321,7 +316,7 @@ Exit code 0 means done, 1 means a gate or a check failed, 2 means the helper cou
 
 ## Plan, build, judge
 
-The template's "Plan, build, judge" section makes this the rule for every change that is more than a small fix. Run `/judge-loop` (or let Claude start it): `kit-planner` writes the plan, fresh `kit-judge` agents score it, `kit-builder` builds the judged plan, and fresh judges score the build. Each judge answers with a score from 0 to 10 and the items that keep it from a 10; the planner or the builder fixes the items between two rounds, until every judge gives 10 with nothing blocking, within a budget of five rounds for the plan and five for the build. What is left after the last round becomes follow-up issues, or a list in the closing report without a GitHub remote. With a blocking item left, or a plan whose score stops rising, Claude stops and asks you, with options. You can say at any time to take the work as it is or to end the loop. Open questions are asked in one batch, and the session says in one line what a loop is expected to cost.
+The template's "Plan, build, judge" section makes this the rule for every change that is more than a small fix. Run `/judge-loop` (or let Claude start it): `kit-planner` writes the plan, fresh `kit-judge` agents score it, `kit-builder` builds the judged plan, and fresh judges score the build. `/judge-loop plan` and `/judge-loop build` start one loop only, and `/judge-loop status` shows where a loop stands. Each judge answers with a score from 0 to 10 and the items that keep it from a 10; the planner or the builder fixes the items between two rounds, until every judge gives 10 with nothing blocking, within a budget of five rounds for the plan and five for the build. What is left after the last round becomes follow-up issues, or a list in the closing report without a GitHub remote. With a blocking item left, or a plan whose score stops rising, Claude stops and asks you, with options. You can say at any time to take the work as it is or to end the loop. Open questions are asked in one batch, and the session says in one line what a loop is expected to cost.
 
 The helper `claude/skills/judge-loop/loop.py` keeps the state of a loop and says what comes next; the session runs it, never an agent. The size of the change decides the panel:
 
@@ -331,7 +326,7 @@ The helper `claude/skills/judge-loop/loop.py` keeps the state of a loop and says
 | One judge | Everything else below the next row | `general` |
 | Full panel | More than 400 changed lines, more than 15 files, or a sensitive path (workflows, auth, payments, migrations, hooks, deploy, install, secrets, permissions, and steering files such as `CLAUDE.md`, `SKILL.md` and anything under `.claude/`, `agents/` or `skills/`) | `correctness`, `tests`, `security`, `scope`, `operations`, `user-experience` |
 
-Each judge reads its role file in `claude/skills/judge-loop/roles/`: what it looks at, its dimensions and what a 10 means. Its answer is one JSON object (`overall`, `dimensions`, `blocking`, `improvements`, `still_open`, `read`), each item with evidence, a fix and the check that proves the fix. The score is 10 minus named items, in steps of 0.5, and a 10 counts only when the judge says it read the whole work. Every role lists a hand-written file of code, tests or markdown that the work creates or makes longer, and that is then over 1,500 lines or 50,000 bytes, as an item.
+Each judge reads its role file in `claude/skills/judge-loop/roles/`: what it looks at, its dimensions and what a 10 means. Its answer is one JSON object (`overall`, `dimensions`, `blocking`, `improvements`, `still_open`, `read`), each item with evidence, a fix and the check that proves the fix. The score is 10 minus named items, in steps of 0.5, and a 10 counts only when the judge says it read the whole work. The first round of a build, and a round after the base moved, give every judge a full read; the base counts as moved only when the merge-base with the base branch moved, so a commit on the base branch that is not merged into the work branch does not bring one. Every role lists a hand-written file of code, tests or markdown that the work creates or makes longer, and that is then over 1,500 lines or 50,000 bytes, as an item.
 
 A project sets its own terms with one of these lines, on a line of its own:
 

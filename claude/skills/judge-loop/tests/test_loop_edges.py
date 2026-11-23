@@ -246,16 +246,25 @@ def test_the_missing_row_note_shows_the_row_form_once(sb):
     ]
 
 
-def test_a_ten_with_a_new_unmarked_improvement_is_a_score(sb):
+def test_a_ten_with_an_unmarked_improvement_is_no_score(sb):
     text = " ".join(loop.SCHEMA_TEXT.split())
     assert "without the mark it counts as needed" not in text
     assert (
-        "A 10 is refused only for a read that is not full, a blocking item or a "
-        'still_open improvement that is not marked "needed_for_10": false.'
+        "A 10 is refused for a read that is not full, a blocking item or an "
+        'improvement that is not marked "needed_for_10": false.'
     ) in text
     sb.start_build()
     assert sb.run("brief").code == 0
     run = sb.save("general", result(10, improvements=[item("I1")]))
+    assert (run.code, run.last) == (
+        3,
+        "STOP: not a score from general (overall: a 10 with open items). Next: have "
+        "that judge mark each improvement it does not need for the 10 as "
+        '"needed_for_10": false, or score below 10; write it to '
+        "docs/loops/feat-1-x/build/judge/in/r1_general.txt, loop.py save general.",
+    ), run
+    marked = result(10, improvements=[item("I1", needed_for_10=False)])
+    run = sb.save("general", marked)
     assert (run.code, run.last) == (
         0,
         "Saved: general scored 10 (0 blocking, 1 improvement). Next: loop.py round.",
@@ -306,6 +315,8 @@ def test_save_of_a_skipped_role_with_two_loops_names_the_loop(sb):
     sb.two_judges()
     sb.start_plan()
     assert sb.judge({"general": 10, "tests": nine("T1")}, "plan", "p1").code == 1
+    flags = ("--kind", "plan", "--name", "p1")
+    assert sb.run("settle", "tests", "T1", "--note", "fine as it is", *flags).code == 0
     assert sb.run("brief").code == 0
     run = sb.save("general", 10, "plan", "p1")
     which = "--kind plan --name p1"
@@ -344,6 +355,9 @@ def test_a_fallback_plan_loop_names_no_kit_agent(sb):
     (sb.loopdir("plan", "p1") / "plan.md").write_text("# Plan\n\nstep one\n")
     run = sb.judge({"general": nine("I1")}, "plan", "p1")
     assert run.code == 1 and "kit-planner" not in run.last, run
+    (sb.loopdir("plan", "p1") / "plan.md").write_text(
+        "# Plan" + chr(10) + "step two" + chr(10)
+    )
     run = sb.judge({"general": 10}, "plan", "p1")
     assert run.code == 0, run
     assert "have a general-purpose agent build" in run.last, run

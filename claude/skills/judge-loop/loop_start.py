@@ -578,6 +578,12 @@ def project_agent(root):
     return None
 
 
+def check_roles(panel):
+    for role in panel:
+        if not (skill_dir() / "roles" / f"{role}.md").is_file():
+            raise Exit(2, f"Refused: roles/{role}.md is not installed. Next: run /kit.")
+
+
 def check_agents(ctx, agents, command, panel=()):
     folder = loop_state.agents_dir()
     for name in AGENT_NAMES:
@@ -585,9 +591,7 @@ def check_agents(ctx, agents, command, panel=()):
             raise Exit(
                 2, f"Refused: agents/{name}.md is not installed. Next: run /kit."
             )
-    for role in panel:
-        if not (skill_dir() / "roles" / f"{role}.md").is_file():
-            raise Exit(2, f"Refused: roles/{role}.md is not installed. Next: run /kit.")
+    check_roles(panel)
     if agents != "kit":
         rel = general_purpose_agent(ctx.root)
         if rel:
@@ -653,6 +657,12 @@ def prepare(args):
             "Refused: a build loop is named after its branch. "
             "Next: loop.py start build without --name.",
         )
+    if kind == "plan" and getattr(args, "name", None) is None:
+        raise Exit(
+            2,
+            "Refused: a plan loop needs a name. "
+            "Next: loop.py start plan --name <issue>-<slug>.",
+        )
     if kind == "plan" and getattr(args, "plan_loop", None) is not None:
         raise Exit(
             2,
@@ -660,7 +670,7 @@ def prepare(args):
             "it.",
         )
     ctx = Ctx()
-    if not ctx.branch and (kind == "build" or args.name is None):
+    if not ctx.branch and kind == "build":
         raise Exit(
             2, "Refused: no branch is checked out. Next: check out the work branch."
         )
@@ -691,7 +701,7 @@ def prepare(args):
             f"Refused: {show_branch(base)} is the base branch. "
             "Next: git switch -c <work branch>, then the same command.",
         )
-    if kind == "build" or args.name is None:
+    if kind == "build":
         name = slug(ctx.branch)
         if not NAME.fullmatch(name):
             raise Exit(
@@ -835,7 +845,8 @@ def cmd_start(args):
     check_agents(ctx, args.agents, "start")
     forced = "" if args.panel == "auto" else args.panel
     panel, reason = choose_panel(kind, forced, switches, size)
-    check_agents(ctx, args.agents, "start", panel)
+    # the project's agents were looked at above; once, so each note shows once
+    check_roles(panel)
     budget = (
         switches["Judge rounds"]["value"]
         if "Judge rounds" in switches
@@ -932,7 +943,11 @@ def configure_start(sub):
     sub.add_argument(
         "loop_kind", choices=KINDS, metavar="plan|build", help="the kind of loop"
     )
-    sub.add_argument("--name", help="the loop's name (default: from the branch)")
+    sub.add_argument(
+        "--name",
+        help="the plan loop's name, <issue>-<slug>; start plan needs it, a build "
+        "loop is named after its branch",
+    )
     sub.add_argument(
         "--panel",
         choices=("auto", "single", "full"),

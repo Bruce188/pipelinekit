@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 from loop_fixtures import (
+    CANNOT_CHECK,
     LOOP_PY,
     NAME,
     ROLES_DIR,
@@ -109,6 +110,150 @@ def test_a_start_from_a_plan_loop_that_cannot_write(sb, name):
     assert (sb.loopdir() / "plan.md").read_bytes() == plan
 
 
+TOO_BIG = (
+    "Error: the new {folder}/state.json would be {size:,} bytes, over the "
+    "{limit:,} bytes loop.py reads back; the saved one is kept. Next: tell the "
+    "user; {next}"
+)
+KEEP_ITEMS = (
+    "loop.py abandon, then loop.py leftovers --dir to keep the open items, then "
+    f"move the folder {FOLDER} away and loop.py start again."
+)
+KEEP_ROUND_ITEMS = (
+    "loop.py abandon, then loop.py leftovers --dir to keep the open items (the "
+    f"refused round's results stay in {FOLDER}/judge/), then move the folder "
+    f"{FOLDER} away and loop.py start again."
+)
+COPY_ITEMS = (
+    "loop.py status to copy the open items, then move the folder "
+    f"{FOLDER} away and loop.py start again."
+)
+
+
+def files_of(folder):
+    """Every file under the folder and its bytes."""
+    return {
+        str(p.relative_to(folder)): p.read_bytes()
+        for p in sorted(folder.rglob("*"))
+        if p.is_file()
+    }
+
+
+def limit_state(sb, limit):
+    sb.mp.setattr(loop.loop_state, "MAX_STATE", limit)
+
+
+def second_round_saved(sb):
+    """One counted round with item I1 open, then round 2 briefed and saved."""
+    one_round(sb)
+    sb.change("app.py", 4, tag="r1")
+    assert sb.run("brief").code == 0
+    assert sb.save("general", nine("I1")).code == 0
+
+
+def test_a_state_of_exactly_the_limit_is_saved_and_one_byte_more_is_not(sb):
+    second_round_saved(sb)
+    folder = sb.loopdir()
+    kept = sb.tmp / "kept"
+    shutil.copytree(folder, kept)
+    assert sb.run("round").code == 1
+    size = (folder / "state.json").stat().st_size
+    shutil.rmtree(folder)
+    shutil.copytree(kept, folder)
+    before = files_of(folder)
+    limit_state(sb, size - 1)
+    run = sb.run("round")
+    assert (run.code, run.last) == (
+        2,
+        TOO_BIG.format(folder=FOLDER, size=size, limit=size - 1, next=KEEP_ROUND_ITEMS),
+    ), run
+    assert files_of(folder) == before
+    limit_state(sb, size)
+    assert sb.run("round").code == 1
+    assert (folder / "state.json").stat().st_size == size
+    assert sb.run("status").code == 0
+
+
+def test_a_settle_too_big_to_save_writes_nothing(sb):
+    one_round(sb)
+    folder = sb.loopdir()
+    before = files_of(folder)
+    limit_state(sb, len(before["state.json"]))
+    run = sb.run("settle", "general", "I1", "--note", "not needed")
+    assert run.code == 2, run
+    assert run.last.endswith(f"Next: tell the user; {KEEP_ITEMS}"), run
+    assert "refused round" not in run.last, run
+    assert files_of(folder) == before
+
+
+def test_a_brief_too_big_to_save_writes_nothing(sb):
+    one_round(sb)
+    sb.change("app.py", 4, tag="r1")
+    folder = sb.loopdir()
+    before = files_of(folder)
+    limit_state(sb, len(before["state.json"]))
+    run = sb.run("brief")
+    assert run.code == 2, run
+    assert run.last.endswith(f"Next: tell the user; {KEEP_ITEMS}"), run
+    assert "refused round" not in run.last, run
+    assert files_of(folder) == before
+
+
+def test_a_rebrief_too_big_to_save_leaves_the_old_round_in_place(sb):
+    sb.start_build()
+    assert sb.run("brief").code == 0
+    assert sb.save("general", 9).code == 0
+    sb.change("app.py", 4)
+    folder = sb.loopdir()
+    before = files_of(folder)
+    limit_state(sb, len(before["state.json"]))
+    run = sb.run("brief", "--fix-tokens", "1000")
+    assert run.code == 2, run
+    assert run.last.endswith(f"Next: tell the user; {KEEP_ITEMS}"), run
+    assert "refused round" not in run.last, run
+    assert not any(line.startswith("The work changed") for line in run.lines), run
+    assert files_of(folder) == before
+    assert not (folder / "judge" / "stale").exists()
+
+
+def test_a_state_too_big_to_save_keeps_its_open_items(sb):
+    second_round_saved(sb)
+    state = sb.loopdir() / "state.json"
+    before = state.read_bytes()
+    limit_state(sb, len(before))
+    run = sb.run("round")
+    assert run.code == 2, run
+    assert run.last.endswith(f"Next: tell the user; {KEEP_ROUND_ITEMS}"), run
+    assert state.read_bytes() == before
+    assert sb.run("status").code == 0
+    assert f" (the refused round's results stay in {FOLDER}/judge/), " in run.last
+    assert (sb.loopdir() / "judge" / "r2_general.json").is_file()
+    assert sb.run("abandon", "--note", "too big").code == 0
+    run = sb.run("leftovers", "--dir")
+    assert run.code == 0, run
+    assert (sb.loopdir() / "leftovers" / "general-I1.md").is_file()
+    assert (sb.loopdir() / "leftovers" / "all.md").is_file()
+    assert (sb.loopdir() / "judge" / "r2_general.json").is_file()
+
+
+def test_an_abandon_too_big_to_save_points_to_status(sb):
+    one_round(sb)
+    state = sb.loopdir() / "state.json"
+    before = state.read_bytes()
+    limit_state(sb, len(before))
+    run = sb.run("abandon", "--note", "too big")
+    assert run.code == 2, run
+    assert run.last.startswith(f"Error: the new {FOLDER}/state.json would be "), run
+    assert run.last.endswith(
+        f" bytes, over the {len(before):,} bytes loop.py reads back; the saved one "
+        f"is kept. Next: tell the user; {COPY_ITEMS}"
+    ), run
+    assert state.read_bytes() == before
+    run = sb.run("status")
+    assert run.code == 0, run
+    assert any(line.startswith("  [general I1] ") for line in run.lines), run
+
+
 def test_a_round_whose_scorecard_cannot_be_written_can_be_run_again(sb):
     sb.start_build()
     assert sb.run("brief").code == 0
@@ -116,6 +261,9 @@ def test_a_round_whose_scorecard_cannot_be_written_can_be_run_again(sb):
     fail_once(sb, "scorecard.md")
     run = sb.run("round")
     assert run.code == 2, run
+    assert run.last.endswith(
+        "Next: free space or fix the permissions, then the same command."
+    ), run
     assert sb.rounds() == 0
     run = sb.run("round")
     assert run.code == 1, run
@@ -298,7 +446,7 @@ def test_status_json_without_a_loop(sb):
     assert run.out.count("\n") == 1 and run.out.endswith("\n"), run
     assert json.loads(run.out) == {
         "outcome": "none",
-        "next": "loop.py start plan or loop.py start build.",
+        "next": "loop.py start plan --name <issue>-<slug> or loop.py start build.",
     }
 
 
@@ -445,7 +593,10 @@ def test_a_brief_that_waits_for_the_user_says_so_last(sb, row, first):
     sb.two_judges()
     sb.start_build()
     (sb.loopdir() / "map.md").write_text("code | app.py | tests\n")
-    scores = {"general": result(10, improvements=["G1"]), "tests": nine("T1")}
+    scores = {
+        "general": result(10, improvements=[item("G1", needed_for_10=False)]),
+        "tests": nine("T1"),
+    }
     assert sb.judge(scores).code == 1
     (sb.loopdir() / "changes.md").write_text(
         f"- r1 [general G1] {row}: the user picks the name\n"
@@ -574,21 +725,7 @@ def test_fallback_agents_pass_over_a_file_that_cannot_be_read(sb, how):
     finally:
         (sb.root / rel).chmod(0o755)
     assert run.code == 0, run
-    assert UNCHECKED.format(rel=rel) in run.lines
-
-
-@NOT_ROOT
-@pytest.mark.parametrize("how", UNREADABLE)
-def test_kit_agents_stop_at_a_file_that_cannot_be_read(sb, how):
-    rel = unreadable_agent(sb, how)
-    try:
-        run = sb.run("start", "build")
-    finally:
-        (sb.root / rel).chmod(0o755)
-    assert run.code == 3, run
-    assert run.last.startswith(f"STOP: {rel} cannot be checked for an agent name (")
-    assert run.last.endswith("or the same command with --agents fallback.")
-    assert not (sb.loopdir() / "state.json").exists()
+    assert run.lines.count(UNCHECKED.format(rel=rel)) == 1, run
 
 
 @pytest.mark.parametrize("mode", ["kit", "fallback"])
@@ -612,13 +749,86 @@ def test_an_agents_folder_that_cannot_be_looked_at(sb, mode):
     sb.mp.setattr(os, "lstat", real)
     if mode == "fallback":
         assert run.code == 0, run
-        assert UNCHECKED.format(rel=".claude/agents") in run.lines
+        assert run.lines.count(UNCHECKED.format(rel=".claude/agents")) == 1, run
     else:
-        assert run.code == 3, run
-        assert run.last.startswith(
-            "STOP: .claude/agents cannot be checked for an agent name ("
-        )
+        assert (run.code, run.last) == (3, CANNOT_CHECK.format(rel=".claude/agents"))
         assert not (sb.loopdir() / "state.json").exists()
+
+
+KIT_UNCHECKED = [
+    "a linked agents folder",
+    "a file gone after the listing",
+    "a link",
+    "a linked folder",
+    "a file over 64 kB",
+    "a file that cannot be read",
+    "a folder that cannot be listed",
+]
+
+
+def denied(path):
+    return PermissionError(13, "Permission denied", os.fspath(path))
+
+
+@pytest.mark.parametrize("how", KIT_UNCHECKED)
+def test_kit_agents_stop_at_what_they_cannot_check(sb, how):
+    """Every path the agent check cannot look into stops the kit mode with the
+    line that names it. A file or folder that cannot be read is faked, as root
+    reads mode 000."""
+    agents = sb.root / ".claude" / "agents"
+    outside = sb.tmp / "outside"
+    outside.mkdir()
+    (outside / "helper.md").write_text("---\nname: helper\n---\n")
+    rel = ".claude/agents/x.md"
+    if how == "a linked agents folder":
+        agents.parent.mkdir(parents=True)
+        agents.symlink_to(outside)
+        rel = ".claude/agents"
+    elif how == "a link":
+        agents.mkdir(parents=True)
+        (sb.root / rel).symlink_to(outside / "helper.md")
+    elif how == "a linked folder":
+        agents.mkdir(parents=True)
+        (agents / "sub").symlink_to(outside)
+        rel = ".claude/agents/sub"
+    elif how == "a file over 64 kB":
+        sb.write(rel, "x" * (64 * 1024 + 1))
+    elif how == "a folder that cannot be listed":
+        sb.write(".claude/agents/sub/helper.md", "---\nname: helper\n---\n")
+        rel = ".claude/agents/sub"
+    else:
+        sb.write(rel, "---\nname: helper\n---\n")
+    sb.change()
+    start = sys.modules["loop_start"]
+    real = os.lstat, start.read_plain, os.scandir
+
+    def lstat(path, *args, **kwargs):
+        if os.fspath(path).endswith(os.path.join("agents", "x.md")):
+            raise FileNotFoundError(2, "No such file or directory", os.fspath(path))
+        return real[0](path, *args, **kwargs)
+
+    def read_plain(path, limit):
+        if os.fspath(path).endswith(os.path.join("agents", "x.md")):
+            raise denied(path)
+        return real[1](path, limit)
+
+    def scandir(path="."):
+        if os.fspath(path).endswith(os.path.join("agents", "sub")):
+            raise denied(path)
+        return real[2](path)
+
+    if how == "a file gone after the listing":
+        sb.mp.setattr(os, "lstat", lstat)
+    elif how == "a file that cannot be read":
+        sb.mp.setattr(start, "read_plain", read_plain)
+    elif how == "a folder that cannot be listed":
+        sb.mp.setattr(os, "scandir", scandir)
+    run = sb.run("start", "build")
+    sb.mp.setattr(os, "lstat", real[0])
+    sb.mp.setattr(start, "read_plain", real[1])
+    sb.mp.setattr(os, "scandir", real[2])
+    assert (run.code, run.last) == (3, CANNOT_CHECK.format(rel=rel)), run
+    assert not (sb.loopdir() / "state.json").exists()
 
 
 UNCHECKED_AGENTS = [
@@ -626,6 +836,7 @@ UNCHECKED_AGENTS = [
     "a link",
     "a linked folder",
     "a linked agents folder",
+    "a file over 64 kB",
 ]
 
 
@@ -645,11 +856,18 @@ def test_fallback_agents_note_what_they_cannot_check(sb, how):
         agents.mkdir(parents=True)
         (agents / "sub").symlink_to(outside)
         rel = ".claude/agents/sub"
+    elif how == "a file over 64 kB":
+        sb.write(rel, "x" * (64 * 1024 + 1))
     else:
         agents.parent.mkdir(parents=True)
         agents.symlink_to(outside)
         rel = ".claude/agents"
     sb.change()
     run = sb.run("start", "build", "--agents", "fallback")
+    note = UNCHECKED.format(rel=rel)
     assert run.code == 0, run
-    assert UNCHECKED.format(rel=rel) in run.lines
+    assert run.lines.count(note) == 1, run
+    sb.criteria()
+    run = sb.run("brief", "--agents", "fallback")
+    assert run.code == 0, run
+    assert run.lines.count(note) == 1, run
