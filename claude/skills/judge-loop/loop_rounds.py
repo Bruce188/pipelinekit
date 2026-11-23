@@ -27,8 +27,8 @@ after it, UTF-8 without a byte order mark, at most 200 kB:
   it, the read of this brief;
   "still_open" (optional): the ids open in your last counted result that you
   raise again in this answer.
-A 10 is refused only for a read that is not full, a blocking item or a
-still_open improvement that is not marked "needed_for_10": false. A score below
+A 10 is refused for a read that is not full, a blocking item or an
+improvement that is not marked "needed_for_10": false. A score below
 10 needs a blocking item or an improvement that is not marked "needed_for_10":
 false. The Fix list cuts each field at 300 characters and marks the cut with
 [cut]; the full text stays in your result."""
@@ -217,6 +217,53 @@ def build_work(loop, n):
     return {"round": n, "commit": head, "base_sha": base}, base != before
 
 
+def holding_items(st, rows):
+    """The open items that keep a judge below 10 and have no answered: or owner:
+    row in changes.md for their role's last counted round or later."""
+    out = []
+    for key, item in st["items"].items():
+        if not effective_open(item) or not item.get("needed", True):
+            continue
+        role, _, item_id = key.partition(":")
+        answered = any(
+            r[2] == item_id and r[3] in ("answered", "owner")
+            for r in counting_rows(st, rows, role)
+        )
+        if not answered:
+            out.append(key)
+    return out
+
+
+def unchanged_check(loop, work, agents, rows):
+    """Refuse a new round on the work of the last counted round while an item
+    that keeps a judge below 10 has no answered: or owner: row; the final full
+    read goes on."""
+    st = loop.st
+    if not st["rounds"] or st.get("final"):
+        return
+    holding = holding_items(st, rows)
+    if not holding:
+        return
+    last = st["rounds"][-1]
+    if loop.kind == "build":
+        if work["commit"] != last["commit"]:
+            return
+        what = "no new commit"
+        fix = f"have {agent_word(agents, 'kit-builder')} fix the open items and commit"
+    else:
+        if work["sha256"] != last["plan_sha256"]:
+            return
+        what = "plan.md is the same"
+        fix = f"have {agent_word(agents, 'kit-planner')} fix the open items in plan.md"
+    raise Exit(
+        2,
+        f"Refused: nothing changed since round {last['n']} ({what}). Next: {fix}, "
+        f"or write an answered: or owner: row to {loop.rel}/changes.md for each open "
+        f"item that has none ({count(len(holding), 'item')}; loop.py status lists "
+        "the items), then loop.py brief.",
+    )
+
+
 def cmd_brief(args):
     fix_tokens = whole(args.fix_tokens, "--fix-tokens")
     ctx = Ctx()
@@ -239,23 +286,26 @@ def cmd_brief(args):
     rows = change_rows(loop)
     waiting = False
     pending = st["pending"]
+    same = False
     if pending:
         same = all(pending.get(key) == value for key, value in work.items())
         if same and loop.kind == "plan":
             copy = loop.read(f"plan.r{n}.md")
             same = bool(copy) and sha256(copy) == pending["sha256"]
-        if not same:
-            count_moved = move_stale(loop, n)
-            say(
-                f"The work changed: {count(count_moved, 'file')} of round {n} moved to "
-                "judge/stale/"
-            )
-            pending = {}
+    if not same and not moved:
+        unchanged_check(loop, work, agents, rows)
+    stale = bool(pending) and not same
+    if stale:
+        pending = {}
     if moved:
         say(f"base moved: {short(round_base(st))} -> {short(work['base_sha'])}")
     for note in missing_area_notes(loop):
         say(note)
     kept = bool(pending)
+    agents_changed = bool(args.agents) and args.agents != st["agents"]
+    if agents_changed:
+        st["agents"] = args.agents
+        st["notes"].append({"round": n, "action": "agents", "text": args.agents})
     if kept:
         modes = {
             role: pending.get("modes", {}).get(role, "full") for role in st["panel"]
@@ -267,6 +317,14 @@ def cmd_brief(args):
         st["pending"] = {**work, "modes": modes}
         if fix_tokens is not None:
             st["pending"]["fix_tokens"] = fix_tokens
+    loop.check_size()
+    if not kept:
+        if stale:
+            count_moved = move_stale(loop, n)
+            say(
+                f"The work changed: {count(count_moved, 'file')} of round {n} moved "
+                "to judge/stale/"
+            )
         loop.mkdir("judge/in")
         if loop.kind == "plan":
             loop.write(f"plan.r{n}.md", plan)
@@ -279,9 +337,7 @@ def cmd_brief(args):
                 write_delta(loop, role, n)
         if st["rounds"]:
             waiting = print_notes(st, rows)
-    if args.agents and args.agents != st["agents"]:
-        st["agents"] = args.agents
-        st["notes"].append({"round": n, "action": "agents", "text": args.agents})
+    if agents_changed:
         say(f"Agents: {args.agents}")
         if args.agents == "fallback":
             say(FALLBACK_SENTENCE)
@@ -348,6 +404,10 @@ FIRST_MISS = {
     ),
     BELOW_NO_ITEM: (
         "have that judge name the item behind the score, or do the full read for a 10"
+    ),
+    TEN_WITH_OPEN: (
+        "have that judge mark each improvement it does not need for the 10 as "
+        '"needed_for_10": false, or score below 10'
     ),
 }
 
@@ -567,6 +627,8 @@ def update_items(st, role, result, n):
             check=entry["check"],
             last=n,
             open=True,
+            needed=entry["kind"] == "blocking"
+            or entry.get("needed_for_10") is not False,
         )
     for key, item in st["items"].items():
         if key.startswith(f"{role}:") and key not in seen:
@@ -659,8 +721,10 @@ def cmd_round(args):
     check_work(loop)
     results = stored_results(loop, st["pending"]["round"])
     earlier = count_round(loop, results)
+    after = loop.keep_items(results=True)
+    loop.check_size(after)
     write_scorecard(loop)
-    loop.save()
+    loop.save(after)
     say(progress_line(st))
     say(scorecard_line(st, st["rounds"][-1]))
     outcome = st["outcome"]

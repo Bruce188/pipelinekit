@@ -4,10 +4,12 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 from check_fixtures import (
+    CHECK,
     REPO,
     check,
     check_py,
@@ -38,8 +40,9 @@ def test_verbose_lists_every_probe(kit):
         "[pass] session-check.py: 2 probes as expected",
         "[pass] commit-msg: 2 probes as expected",
         "[pass] pre-commit: 2 probes as expected",
+        "[pass] pre-merge-commit: 2 probes as expected",
         "[pass] pre-push: 2 probes as expected",
-        "[pass] event log: 5 refusals recorded",
+        "[pass] event log: 6 refusals recorded",
         "[pass] hook helper: kitlog.py",
         "[pass] hook helper: filesize.py",
         "[pass] kit files within the file size limit of 1,500 lines and 50,000 bytes",
@@ -152,12 +155,12 @@ def test_kit_file_over_the_size_limit_warns(kit):
     rc, out = check(kit)
     assert rc == 0, out
     lines = out.splitlines()
-    assert f"[warn] 1 kit file over the {LIMIT}: skills/deploy/SKILL.md" in out, out
+    assert (
+        f"[warn] 1 kit file over the {LIMIT}: "
+        "skills/deploy/SKILL.md (1,501 lines, 9,006 bytes)"
+    ) in out, out
     i = next(n for n, line in enumerate(lines) if f"over the {LIMIT}" in line)
-    assert lines[i + 1] == (
-        "         fix: install the kit again; if the kit's own copy is over the "
-        "limit, report it"
-    )
+    assert lines[i + 1] == "         fix: open an issue on the kit's repository"
     assert "Result: working, 2 warnings" in out
 
 
@@ -203,9 +206,11 @@ def test_missing_size_helper(kit):
     assert rc == 1
     assert (
         "[fail] hook helper missing: filesize.py "
-        "(pre-commit lets commits through without the file size limit)"
+        "(pre-commit and pre-merge-commit let commits and merges through "
+        "without the file size limit)"
     ) in out
     assert "[pass] pre-commit: 1 probe as expected" in out
+    assert "[pass] pre-merge-commit: 1 probe as expected" in out
     assert "[pass] event log: 4 refusals recorded" in out
     assert LIMIT not in out
 
@@ -214,10 +219,55 @@ def test_size_helper_that_lets_everything_through(kit):
     replace_script(kit, "hooks/filesize.py", "import sys\nsys.exit(0)\n")
     rc, out = check(kit)
     assert rc == 1
-    assert (
-        "[fail] pre-commit: a file over the size limit gave 'accept', expected 'reject'"
-    ) in out
+    for n in ("pre-commit", "pre-merge-commit"):
+        assert (
+            f"[fail] {n}: a file over the size limit gave 'accept', expected 'reject'"
+        ) in out, out
     assert LIMIT not in out and "Result:" in out
+
+
+def test_a_size_refusal_without_its_rule_id_fails(kit):
+    replace_script(
+        kit,
+        "hooks/filesize.py",
+        "import subprocess, sys\n"
+        "staged = subprocess.run(['git', 'diff', '--cached', '--quiet']).returncode\n"
+        "sys.exit(3 if staged else 0)\n",
+    )
+    rc, out = check(kit)
+    assert rc == 1, out
+    for n in ("pre-commit", "pre-merge-commit"):
+        assert (
+            f"[fail] {n}: a file over the size limit gave "
+            "'reject without [pre-commit.file-size]', expected 'reject'"
+        ) in out, out
+
+
+def test_the_probe_never_stages_in_the_calling_repository(kit, tmp_path):
+    caller = tmp_path / "caller"
+    subprocess.run(["git", "init", "-q", "--template=", str(caller)], check=True)
+    index = caller / ".git" / "index"
+    rc, out = check(
+        kit,
+        "--verbose",
+        env={
+            "GIT_DIR": str(caller / ".git"),
+            "GIT_INDEX_FILE": str(index),
+        },
+    )
+    assert not index.exists(), out
+    assert "[pass] pre-commit: 2 probes as expected" in out, out
+    assert "[pass] pre-merge-commit: 2 probes as expected" in out, out
+
+
+def test_a_missing_module_stops_the_check_with_one_line(tmp_path):
+    shutil.copy(CHECK, tmp_path / "check.py")
+    p = subprocess.run(
+        [sys.executable, str(tmp_path / "check.py")], capture_output=True, text=True
+    )
+    assert p.returncode == 2, p.stderr
+    assert p.stdout == "" and len(p.stderr.splitlines()) == 1, p.stderr
+    assert p.stderr.startswith("check.py: cannot load its modules ("), p.stderr
 
 
 # ---------------------------------------------------------------- agents
@@ -563,6 +613,7 @@ def test_manifest_describes_the_install(kit):
     for rel in (
         "hooks/bash-guard.py",
         "git-hooks/pre-push",
+        "git-hooks/pre-merge-commit",
         "skills/kit/check.py",
         "skills/kit/SKILL.md",
         "config/never-stage.txt",

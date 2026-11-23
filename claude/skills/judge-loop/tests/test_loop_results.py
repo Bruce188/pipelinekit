@@ -21,14 +21,16 @@ from loop_fixtures import (
 
 # Messages ---------------------------------------------------------------------
 
+START = "loop.py start plan --name <issue>-<slug> or loop.py start build."
+
 
 def test_messages_walk_a_build_loop(sb):
     """The table of last lines, walked in the order a session meets them."""
     steps = [
-        (("status",), 0, "Open:", "loop.py start plan or loop.py start build."),
-        (("leftovers",), 0, "Open:", "loop.py start plan or loop.py start build."),
-        (("brief",), 2, "Refused:", "loop.py start plan or loop.py start build."),
-        (("round",), 2, "Refused:", "loop.py start plan or loop.py start build."),
+        (("status",), 0, "Open:", START),
+        (("leftovers",), 0, "Open:", START),
+        (("brief",), 2, "Refused:", START),
+        (("round",), 2, "Refused:", START),
     ]
     for argv, code, first, tail in steps:
         ends(sb.run(*argv), code, first, tail)
@@ -73,6 +75,7 @@ def test_messages_walk_a_build_loop(sb):
     ends(run, 1, "Fix: 1 item (0 blocking).", FIX_BUILD)
     ends(sb.run("status"), 0, "Open: round 2 of 5", FIX_BUILD.removeprefix("Next: "))
     ends(sb.run("leftovers"), 0, "Open: 1 item open (0 blocking), the loop is not")
+    sb.change("app.py", 4, tag="r2")
     run = sb.judge({"general": 10})
     assert run.lines[0] == (
         "Round 2 of 5: average 10.0 (round before: 9.0); general 10 changes, read full"
@@ -100,6 +103,7 @@ def test_the_five_outcome_lines_in_full(sb):
     sb.on_base("CLAUDE.md", "Judge rounds: 2\n")
     sb.start_build()
     sb.judge({"general": nine("I1")})
+    sb.change("app.py", 4, tag="r2")
     run = sb.judge({"general": nine("I1", "I2")})
     assert run.code == 0
     assert run.last == (
@@ -234,9 +238,25 @@ def test_a_read_only_loop_folder(sb):
         judge.chmod(0o755)
     assert run.code == 2
     assert run.last.startswith("Error: PermissionError (")
-    assert run.last.endswith(
-        "Next: free space or fix the permissions, then the same command."
-    )
+    assert run.last.endswith("Next: fix the permissions, then the same command.")
+
+
+@pytest.mark.skipif(
+    hasattr(os, "geteuid") and os.geteuid() == 0, reason="root reads anywhere"
+)
+def test_a_loops_folder_that_cannot_be_read(sb):
+    sb.start_build()
+    folder = sb.loopdir().parents[1]
+    folder.chmod(0)
+    try:
+        run = sb.run("status")
+    finally:
+        folder.chmod(0o755)
+    assert (run.code, run.last) == (
+        2,
+        "Error: docs/loops cannot be read (permission denied). Next: make the "
+        "folder readable (chmod u+rwx docs/loops), then the same command.",
+    ), run
 
 
 # Results ----------------------------------------------------------------------
@@ -381,7 +401,7 @@ REJECTED = [
     ("read a number", obj(read=1), "read: wrong type"),
     (
         "10 from a read of the changes",
-        obj(overall=10, read="changes"),
+        obj(overall=10, read="changes", improvements=[]),
         "overall: a 10 without a full read",
     ),
     ("no dimensions", obj(dimensions=None), "dimensions: missing"),
@@ -425,7 +445,7 @@ def padded(data, size):
 
 ACCEPTED = [
     ("overall 0", obj(overall=0)),
-    ("overall 10", obj(overall=10, read="full")),
+    ("overall 10", obj(overall=10, read="full", improvements=[])),
     ("9 from a read of the changes", obj(read="changes")),
     ("a blocking item alone", obj(improvements=[], blocking=[item("B1")])),
     ("overall 9.5", obj(overall=9.5)),
@@ -465,6 +485,7 @@ def round_two(sb):
     """A build loop in round 2, briefed; general has I1 open from round 1."""
     sb.start_build()
     sb.judge({"general": nine("I1")})
+    sb.change("app.py", 4, tag="r2")
     assert sb.run("brief").code == 0
     return sb.stored("general", ext="meta")
 
@@ -710,6 +731,19 @@ def test_a_commit_after_brief_makes_the_results_stale(sb):
     run = sb.run("round")
     assert run.code == 3
     assert run.last.startswith("STOP: round 1 has no results yet.")
+
+
+def test_a_moved_base_is_named_before_the_stale_results(sb):
+    sb.start_build()
+    sb.run("brief")
+    assert sb.save("general", 9).code == 0
+    sb.on_base("base.txt", "on the base\n")
+    sb.git("merge", "-q", "--no-edit", "origin/main")
+    run = sb.run("brief")
+    assert run.code == 0, run
+    lines = [line.split(":", 1)[0] for line in run.lines]
+    assert "base moved" in lines and "The work changed" in lines, run
+    assert lines.index("base moved") < lines.index("The work changed"), run
 
 
 def test_brief_again_without_a_change_keeps_the_results(sb):

@@ -266,7 +266,22 @@ def test_merge_never_passes_admin_and_has_no_option_for_it(sb):
     assert sb.ship("merge").returncode == 0
     flat = [arg for call in sb.calls("pr merge") for arg in call]
     assert "--admin" not in flat and "--auto" not in flat
-    assert "--admin" not in SHIP.read_text()
+    scripts = sorted(SHIP.parent.glob("ship*.py"))
+    assert len(scripts) >= 3, scripts
+    for script in scripts:
+        assert "--admin" not in script.read_text(), script.name
+
+
+def test_a_missing_module_stops_ship_with_one_line(tmp_path):
+    (tmp_path / "ship.py").write_text(SHIP.read_text())
+    p = subprocess.run(
+        [sys.executable, str(tmp_path / "ship.py"), "status"],
+        capture_output=True,
+        text=True,
+    )
+    assert p.returncode == 2, p.stderr
+    assert p.stdout == "" and len(p.stderr.splitlines()) == 1, p.stderr
+    assert p.stderr.startswith("ship.py: cannot load its modules ("), p.stderr
 
 
 def test_merge_dry_run_changes_nothing(sb):

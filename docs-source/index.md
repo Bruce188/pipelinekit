@@ -20,6 +20,7 @@ Up to 0.0.1, pipelinekit was a multi-agent pipeline kit with its own orchestrato
 |------|--------------|
 | [Installation](installation.html) | You are setting up the kit on a new machine, devcontainer or VM |
 | [Components](components.html) | You want to know what each permission rule, hook, git hook, skill, agent and MCP server does |
+| [File size limit](file-size.html) | A commit or merge was refused over a file's size, or you want to exempt files from the limit |
 | [Upgrading from 0.0.1](upgrading.html) | You installed the old pipeline kit and want to move to 0.1.0 |
 
 The full list of changes is in [CHANGELOG.md](https://github.com/Bruce188/pipelinekit/blob/main/CHANGELOG.md).

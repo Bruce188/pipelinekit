@@ -148,7 +148,7 @@ if grep -qF 'kept your own' "$T/install2.out"; then
   echo "test_install: a second install backed up the kit's own agent" >&2; exit 1
 fi
 test ! -e "$CLAUDE_HOME/hooks/tests"
-test -x "$CLAUDE_HOME/git-hooks/pre-push"
+for h in commit-msg pre-commit pre-merge-commit pre-push; do test -x "$CLAUDE_HOME/git-hooks/$h"; done
 [ "$(git config --global core.hooksPath)" = "$CLAUDE_HOME/git-hooks" ]
 python3 - "$CLAUDE_HOME" "$REPO_ROOT" <<'PY'
 import json, subprocess, sys
@@ -239,8 +239,10 @@ grep -qF "python3 $KH/skills/judge-loop/loop.py <command>" "$KH/skills/ship/SKIL
 if grep -qF '.claude/skills/judge-loop' "$KH/skills/ship/SKILL.md"; then
   echo "test_install: the ship skill still names the default home" >&2; exit 1
 fi
-report="$(CLAUDE_HOME="$KH" python3 "$KH/skills/kit/check.py" --no-remote || true)"
-if grep -qF 'changed since install' <<<"$report"; then
+report="$(CLAUDE_HOME="$KH" python3 "$KH/skills/kit/check.py" --no-remote --verbose || true)"
+grep -qF 'unchanged since install' <<<"$report" ||
+  { echo "test_install: no drift report for the other home" >&2; exit 1; }
+if grep -qF 'changed since install:' <<<"$report"; then
   echo "test_install: the rewritten skill shows as changed since install" >&2; exit 1
 fi
 [ "$(git config --global core.hooksPath)" = "$CLAUDE_HOME/git-hooks" ]

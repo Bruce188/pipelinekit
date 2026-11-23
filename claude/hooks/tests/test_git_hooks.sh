@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Tests claude/git-hooks/{commit-msg,pre-commit,pre-push} against throwaway
 # repos that point core.hooksPath at the kit's git-hooks directory.
+# pre-merge-commit is tested with real merges in test_filesize.py.
 set -uo pipefail
 
 KIT_HOOKS="$(cd "$(dirname "$0")/../../git-hooks" && pwd)"

@@ -156,7 +156,7 @@ def test_event_log_switched_off(kit):
     assert "no blocks, asks" not in out
     # The probes still test that the hooks can record.
     rc, out = check(kit, "--verbose", env=off)
-    assert "[pass] event log: 5 refusals recorded" in out, out
+    assert "[pass] event log: 6 refusals recorded" in out, out
 
 
 def test_quick_has_no_activity(kit):
@@ -198,7 +198,10 @@ def test_log_helper_that_records_nothing(kit):
     replace_script(kit, "hooks/kitlog.py", body)
     rc, out = check(kit)
     assert rc == 1
-    hooks = "bash-guard, block-bare-repo-markers, commit-msg, pre-commit, pre-push"
+    hooks = (
+        "bash-guard, block-bare-repo-markers, commit-msg, pre-commit, "
+        "pre-merge-commit and 1 more"
+    )
     assert f"[fail] event log: nothing recorded for {hooks}" in out
 
 
