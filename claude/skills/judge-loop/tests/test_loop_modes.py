@@ -474,7 +474,8 @@ def test_the_sentences_by_round_and_mode(sb):
         for name in (*EVERY_BRIEF, "ONE_OBJECT", "READ_ONLY"):
             assert getattr(loop, name) in prompt, name
     first, second, third = prompts
-    assert loop.READ_FULL in first
+    assert loop.READ_HUNKS in first and loop.READ_CAP in first
+    assert loop.READ_FULL not in first
     assert loop.START_FROM_LAST not in first
     for later in (second, third):
         assert loop.START_FROM_LAST in later

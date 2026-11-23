@@ -113,7 +113,8 @@ def test_the_diff_is_read_through_the_limit(sb, monkeypatch):
     monkeypatch.setattr(loop.loop_state.Git, "capped", spy)
     sb.start_build()
     assert sb.run("brief").code == 0
-    assert calls == [("diff", loop.MAX_DIFF)]
+    # The full diff, then the diff of hunks.patch.
+    assert calls == [("diff", loop.MAX_DIFF)] * 2
 
 
 def moved_base(sb, how):

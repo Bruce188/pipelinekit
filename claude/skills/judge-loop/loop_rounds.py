@@ -23,8 +23,10 @@ after it, UTF-8 without a byte order mark, at most 200 kB:
   characters; "check" is the check that proves the fix);
   an improvement may carry "needed_for_10": false when you would give a 10
   without it; an unmarked improvement is a reason for a score below 10;
-  "read" (optional): "full" or "changes", what you read in this round; without
-  it, the read of this brief;
+  "read" (optional): "full", "changes" or "part" (you stopped before the end),
+  what you read in this round; without it, the read of this brief;
+  "unread" (optional): with "part", what you did not finish (a string, not
+  empty, at most 2000 characters);
   "still_open" (optional): the ids open in your last counted result that you
   raise again in this answer.
 A 10 is refused for a read that is not full, a blocking item or an
@@ -107,34 +109,49 @@ def judge_prompt(loop, role, n, mode, agents, rows):
         f"You are the {role} judge of round {n} of a {loop.kind} loop.",
         f"Your role file, the rubric: {skill_dir() / 'roles' / (role + '.md')}",
     ]
-    if loop.kind == "plan":
-        lines.append(f"The work: {rel}/plan.r{n}.md")
+    m = last_counted(st, role)
+    if m:
+        last = f"Your last counted result (round {m}): {rel}/judge/r{m}_{role}.json"
     else:
-        lines.append(
-            f"The work: {rel}/judge/r{n}.diff; the checkout is at the judged commit."
-        )
-    lines.append(f"Acceptance criteria: {rel}/criteria.md")
-    lines.append(
+        last = "This is your first round: there is no result of yours before it."
+    criteria = f"Acceptance criteria: {rel}/criteria.md"
+    settled = (
         "Settled by the user, do not raise again without new evidence: "
         f"{rel}/settled.md"
     )
-    if loop.kind == "build" and loop.exists("plan.md"):
-        lines.append(f"The plan this build follows: {rel}/plan.md")
-    m = last_counted(st, role)
-    if m:
-        lines.append(
-            f"Your last counted result (round {m}): {rel}/judge/r{m}_{role}.json"
-        )
+    if loop.kind == "plan":
+        lines += [f"The work: {rel}/plan.r{n}.md", criteria, settled, last]
     else:
-        lines.append("This is your first round: there is no result of yours before it.")
+        areas = f"The areas of the change: {rel}/map.md"
+        if not loop.exists("map.md"):
+            areas += " (not written; skip it)"
+        lines += [
+            READ_ORDER,
+            f"The changed hunks, moved lines left out: {rel}/hunks.patch",
+            areas,
+            last,
+            criteria,
+            f"The full diff, for a fact the hunks do not show: {rel}/judge/r{n}.diff; "
+            "the checkout is at the judged commit.",
+            settled,
+        ]
+        if loop.exists("plan.md"):
+            lines.append(f"The plan this build follows: {rel}/plan.md")
+    final = loop.kind == "build" and mode == "full" and bool(st.get("final"))
     if mode == "changes":
         lines += [
             f"The delta since round {m}: {rel}/judge/r{n}_{role}.delta.diff",
             START_FROM_LAST,
             READ_CHANGES,
         ]
-    else:
+    elif loop.kind == "plan" or final:
         lines.append(READ_FULL)
+    else:
+        lines += [READ_HUNKS, TEN_READ_WHOLE]
+    if final:
+        lines.append(READ_TOUCHED)
+    elif loop.kind == "build":
+        lines.append(READ_CAP)
     if counting_rows(st, rows, role):
         lines += [f"The author's change log: {rel}/changes.md", CHANGE_LOG.format(m=m)]
     lines += [TEN_MINUS, EVERY_GAP, NO_MARK_DOWN, NO_RAISE_AGAIN, HALF_STEPS]
@@ -331,6 +348,11 @@ def cmd_brief(args):
         else:
             loop.write(
                 f"judge/r{n}.diff", diff_text(ctx, work["base_sha"], work["commit"])
+            )
+            full = f"{loop.rel}/judge/r{n}.diff"
+            loop.write(
+                "hunks.patch",
+                hunks_text(ctx, work["base_sha"], work["commit"], full),
             )
         for role, mode in modes.items():
             if mode == "changes":
