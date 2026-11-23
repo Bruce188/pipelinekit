@@ -232,6 +232,7 @@ def test_the_brief_maps_the_stack(sb):
     _, prompt = brief_of(run, ROLE, 1)
     assert any(f"{ROOT}/stack.md" in line for line in prompt)
     assert any('"pr", one of #21, #22' in line for line in prompt)
+    assert any("A full brief reads the whole change" in line for line in prompt)
 
 
 def test_the_criteria_name_each_issue(sb):
