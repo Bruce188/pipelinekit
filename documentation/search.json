@@ -12,6 +12,12 @@
     "quadrant": "reference"
   },
   {
+    "title": "File size limit",
+    "slug": "file-size",
+    "excerpt": "A hand-written text file (code, tests, markdown) has at most 1,500 lines and 50,000 bytes. Claude Code's Read tool returns a text file whole only up to 25,000 tokens and past that a first page, so a…",
+    "quadrant": "reference"
+  },
+  {
     "title": "pipelinekit documentation",
     "slug": "index",
     "excerpt": "pipelinekit v0.1.0 is a small Claude Code config kit. It contains guard hooks, permission rules, global git hooks, nine skills, three agents, a short CLAUDE.md template, and an installer that copies…",

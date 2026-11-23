@@ -1,6 +1,6 @@
 ---
 name: kit
-description: Reports what is not working in the pipelinekit install - missing or changed files, hooks that no longer block or allow what they should, settings entries that went missing, environment conflicts - what the hooks blocked, asked about or failed on in the last days, and whether a newer kit is available; `/kit update` applies it after asking. Use when a kit hook (bash-guard, block-bare-repo-markers, commit-msg, pre-commit, pre-push) blocks something unexpectedly or fails, when the session-start check reported problems in the install, right after installing or updating the kit, when the user asks whether their Claude Code setup, hooks or guardrails still work, or when they want to update the kit.
+description: Reports what is not working in the pipelinekit install - missing or changed files, hooks that no longer block or allow what they should, settings entries that went missing, environment conflicts - what the hooks blocked, asked about or failed on in the last days, and whether a newer kit is available; `/kit update` applies it after asking. Use when a kit hook (bash-guard, block-bare-repo-markers, commit-msg, pre-commit, pre-merge-commit, pre-push) blocks something unexpectedly or fails, when the session-start check reported problems in the install, right after installing or updating the kit, when the user asks whether their Claude Code setup, hooks or guardrails still work, or when they want to update the kit.
 argument-hint: "[update | --verbose | --quick | --json | --days N]"
 allowed-tools: Bash(python3 *skills/kit/check.py*), Bash(python3 *skills/kit/update.py plan*)
 ---
@@ -65,7 +65,7 @@ Never pass a commit id that did not come from the plan you just ran, and never a
 
 | Section | Checks |
 |---------|--------|
-| Install | hooks, git hooks, skills and agents are present, hooks executable; `kit-judge.md` may only read (`Read, Grep, Glob`); `settings.json` resolves; global `core.hooksPath` |
+| Install | hooks, git hooks, skills and agents are present, hooks executable; `kit-judge.md` may only read (`Read, Grep, Glob`); `settings.json` resolves; global `core.hooksPath`; kit files over the file size limit (1,500 lines or 50,000 bytes) are a warning, not in `--quick` |
 | Changes since install | files against the hashes in the install manifest; the kit's hook entries and deny/ask rules in `settings.json` |
 | Live probe | every hook gets input it must block and input it must allow |
 | Environment | python3, Claude Code and gitleaks versions; whether `gh` and Playwright are available; WSL; a repository with its own `core.hooksPath`; a Bash sandbox that denies `gh` its own login file; a `frontend-design` plugin enabled next to the kit's copy |

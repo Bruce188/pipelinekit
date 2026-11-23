@@ -161,6 +161,30 @@ kit used to ship, so those parts are gone.
   name cannot be a file name, and `status --json` lists the same notes under
   `warnings`.
 
+### File size limit
+
+- A hand-written file has at most 1,500 lines and 50,000 bytes, so one read
+  returns it whole. The `CLAUDE.md` template states the limit and says that
+  new code that would take a file past it goes in a new file.
+- The global `pre-commit` hook refuses a commit that adds a file over the
+  limit or takes one past it (`[pre-commit.file-size]`, logged with the path
+  and size, never the content). A file already over the limit only warns.
+  A new global `pre-merge-commit` hook runs the same check before `git merge`
+  records a merge it made without conflicts, which skips `pre-commit`.
+  Binary and deleted files are not counted; generated, vendored, lock and
+  data files, and the project and designer files an IDE writes, are exempt
+  by default, and a project lists more in `.file-size-exempt`, gitignore
+  style with `*`, `?`, `[...]` and `**` (a list staged as a link, a
+  submodule or a folder, or that is not UTF-8 text, is not used, with a
+  warning). Only the staged list and the staged `.gitattributes` exempt a
+  file. `pre-merge-commit` runs a repository's own
+  `.githooks/pre-merge-commit` only when the current commit has it. The
+  upgrade page notes the new refusal.
+- `/kit` warns about kit files over the limit, and its live probe checks that
+  `pre-commit` and `pre-merge-commit` refuse a new file over it.
+- `ship.py`, `check.py` and their tests are split into files under the limit,
+  with unchanged behaviour and test names.
+
 ### Security
 
 - Native permission rules: `deny` Read/Edit of `.env*` (except

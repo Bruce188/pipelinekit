@@ -118,6 +118,9 @@ grep -qx '## Design' "$CLAUDE_HOME/CLAUDE.md"
 grep -qx '## Plan, build, judge' "$CLAUDE_HOME/CLAUDE.md"
 # The helper starts from its installed place and says why it cannot go on.
 (cd "$T" && python3 "$CLAUDE_HOME/skills/ship/ship.py" status --exit-zero | grep -q 'not inside a git repository')
+# Its modules come along, and running it leaves no cache file in the install.
+for f in ship_base.py ship_gates.py; do test -f "$CLAUDE_HOME/skills/ship/$f"; done
+test ! -e "$CLAUDE_HOME/skills/ship/__pycache__"
 test ! -e "$CLAUDE_HOME/skills/commit-conventions"
 test ! -e "$CLAUDE_HOME/skills/expo"
 test -f "$CLAUDE_HOME/skills/ios/SKILL.md"           # edited: kept
@@ -145,7 +148,7 @@ if grep -qF 'kept your own' "$T/install2.out"; then
   echo "test_install: a second install backed up the kit's own agent" >&2; exit 1
 fi
 test ! -e "$CLAUDE_HOME/hooks/tests"
-test -x "$CLAUDE_HOME/git-hooks/pre-push"
+for h in commit-msg pre-commit pre-merge-commit pre-push; do test -x "$CLAUDE_HOME/git-hooks/$h"; done
 [ "$(git config --global core.hooksPath)" = "$CLAUDE_HOME/git-hooks" ]
 python3 - "$CLAUDE_HOME" "$REPO_ROOT" <<'PY'
 import json, subprocess, sys
@@ -155,10 +158,19 @@ head = subprocess.run(["git", "-C", repo, "rev-parse", "HEAD"], capture_output=T
 assert m["commit"] == head, "manifest commit is not the checkout's HEAD"
 assert m["hooks_path"] == f"{home}/git-hooks", "manifest missed the hooks path set by this install"
 assert "skills/kit/check.py" in m["files"] and all(m["files"].values()), "manifest file list incomplete"
+assert "skills/ship/ship_gates.py" in m["files"], "manifest missed a module of ship.py"
+assert "skills/kit/check_core.py" in m["files"], "manifest missed a module of check.py"
 PY
 CLAUDE_HOME="$CLAUDE_HOME" bash "$REPO_ROOT/scripts/verify.sh" >/dev/null
 # The session-start check has nothing to say about a fresh install.
 [ -z "$(echo '{}' | "$CLAUDE_HOME/hooks/session-check.py")" ]
+# The checker's modules are installed, and running it leaves no cache file there.
+for f in check_base.py check_core.py; do test -f "$CLAUDE_HOME/skills/kit/$f"; done
+test -f "$CLAUDE_HOME/hooks/filesize.py"
+test ! -e "$CLAUDE_HOME/skills/kit/__pycache__"
+# Its live probe has pre-commit refuse a file over the size limit, which logs
+# the refusal through kitlog.py: that leaves no cache file beside the hooks.
+test ! -e "$CLAUDE_HOME/hooks/__pycache__"
 
 # An installed agent edited by hand: the check lists it, an install restores it
 # without a backup.

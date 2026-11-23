@@ -46,7 +46,8 @@ The installer merges `claude/config/settings.template.json` into `~/.claude/sett
 | Hook | What it does |
 |------|--------------|
 | `commit-msg` | Conventional commits (`feat fix refactor docs test chore perf style build ci revert`, scopes, `!`). Rejects wip (outside `.claude/worktrees/`), AI attribution and emoji. Lets `Merge`, `Revert "`, `fixup!`/`squash!`/`amend!` through |
-| `pre-commit` | `gitleaks` scan of staged changes. Warns and allows if gitleaks is missing. `PIPELINEKIT_ALLOW_SECRET=1` skips one commit |
+| `pre-commit` | `gitleaks` scan of staged changes. Warns and allows if gitleaks is missing. `PIPELINEKIT_ALLOW_SECRET=1` skips one commit. Refuses a commit that adds a hand-written file over 1,500 lines or 50,000 bytes or takes one past that; a file already over only warns. A project exempts paths in `.file-size-exempt`; see [File size limit](documentation/file-size.html) |
+| `pre-merge-commit` | Run by `git merge` before it records a merge it made without conflicts: the same file size limit as `pre-commit` |
 | `pre-push` | Refuses pushes to `main`/`master`. `ALLOW_MAIN_PUSH=1` overrides (humans only; bash-guard refuses it for Claude) |
 
 A repo with its own local `core.hooksPath` (husky, pre-commit framework, or a manual setting) bypasses these. Run `git config --show-origin core.hooksPath` inside it to check.
@@ -68,16 +69,16 @@ off. Every rule id is in
 | `docs-writer` | Render `docs-source/*.md` into self-contained HTML pages under `documentation/`, with optional data-driven interactive snippets |
 | `frontend-design` | Visual design guidance, loaded before building or reshaping anything a person looks at: app or site UI, HTML pages and Artifacts, `docs-writer` snippets, charts and dashboards. From [`anthropics/skills`](https://github.com/anthropics/skills), unchanged, under Apache-2.0 (see its `SOURCE.md`) |
 | `mobile` | Android (Kotlin/Compose) builds and device access from WSL2, iPhone home-screen web apps, Expo/EAS cloud builds for iOS, release and security checklist |
-| `kit` | Self-check, run as `/kit`: reports missing or changed kit files, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, environment conflicts, what the hooks blocked or failed on in the last days, and whether a newer kit is available. `/kit update` applies it after asking |
+| `kit` | Self-check, run as `/kit`: reports missing or changed kit files, kit files over the file size limit, hooks that no longer block or allow what they should, kit entries missing from `settings.json`, environment conflicts, what the hooks blocked or failed on in the last days, and whether a newer kit is available. `/kit update` applies it after asking |
 | `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then `ship.py` merges once every gate holds (own pull request, not a release, no required review, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
 | `judge-loop` | Run as `/judge-loop`: plans and builds a change on Opus, and has fresh Fable judges score the plan and the build until each gets 10 out of 10, within a round budget. `loop.py` keeps the state under `docs/loops/` (local, on the never-stage list) and says what comes next |
 
 ### CLAUDE.md template
 
-`claude/CLAUDE.md.template` is 79 lines long. It covers your identity,
+`claude/CLAUDE.md.template` is 80 lines long. It covers your identity,
 git rules (conventional commits, no AI attribution, never-stage list, no
 direct pushes to `main`), the `docs/` and `documentation/` split, base-branch
-detection, serena vs Grep, a design rule (load `frontend-design` before visual
+detection, serena vs Grep, the file size limit, a design rule (load `frontend-design` before visual
 work; a project's own design system and the host's rules for the output come
 first; skip it for small fixes inside an existing design), the plan, build,
 judge rule and how the agents it starts read files and answer, GitHub issue/PR

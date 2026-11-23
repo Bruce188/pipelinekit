@@ -31,7 +31,8 @@ git rev-parse --verify "$BASE" 2>/dev/null || echo "ERROR: Base branch '$BASE' n
 - Verify before claiming done: run the build/tests after each change.
 - Prefer serena (symbol navigation) for finding definitions/references and symbol edits in code repos; Grep/Glob for text, config and docs.
 - Decisions that are the user's to make: ask with the interactive question tool instead of prose. Two to four options per question. Each option states its upside and its downside. Put the option you recommend first and mark it "(Recommended)". Every question must make sense on its own. Without that tool, use a numbered list with the same parts. Do not ask about things that have a conventional default.
-- A kit hook (`bash-guard.py`, `block-bare-repo-markers.py`, `commit-msg`, `pre-commit`, `pre-push`) that blocks something unexpectedly or fails to start: run `/kit` to see what is broken before working around it. The same when a session starts with a `pipelinekit:` line about problems in the install.
+- File size: a hand-written file (code, tests, markdown) has at most 1,500 lines and 50,000 bytes, so one read returns it whole. New code that would take a file past that goes in a new file; do not split an existing longer file unless asked. Generated, vendored, lock and data files are exempt. The global `pre-commit` hook refuses a commit that adds a file over the limit or takes one past it.
+- A kit hook (`bash-guard.py`, `block-bare-repo-markers.py`, `commit-msg`, `pre-commit`, `pre-merge-commit`, `pre-push`) that blocks something unexpectedly or fails to start: run `/kit` to see what is broken before working around it. The same when a session starts with a `pipelinekit:` line about problems in the install.
 
 ## Design
 

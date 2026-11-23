@@ -119,6 +119,25 @@ bash scripts/verify.sh
 
 In a Claude Code session, `/kit` gives the same report.
 
+## File size limit
+
+The global `pre-commit` hook now refuses a commit that adds a hand-written
+file over 1,500 lines or 50,000 bytes, or that takes a file past that, in
+every repository whose commits run the kit's global git hooks. A file that is
+already over the limit only warns when it changes, so existing repositories
+keep working. By default the check leaves out generated, vendored, lock and
+data files, and the project and designer files an IDE writes. `git merge`
+runs the same check through the new global `pre-merge-commit` hook before it
+records a merge it made without conflicts. Git runs neither hook for
+`git rebase`, `git cherry-pick`, `git revert`, `git am` or `git stash`, so
+what those commands record is not checked.
+
+To exempt more paths, commit a `.file-size-exempt` at the repository root,
+one pattern per line. Only the staged list counts.
+
+[File size limit](file-size.html) lists the default exemptions
+and how the patterns match.
+
 ## Rolling back
 
 Your 0.0.1 setup is still in the backups from step 1. To go back, move the current directory aside rather than deleting it, so sessions and memory created since the upgrade are not lost:

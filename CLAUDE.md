@@ -7,10 +7,10 @@ Project-specific rules only; user-global rules live in `~/.claude/CLAUDE.md`.
 
 | Path | Purpose |
 |------|---------|
-| `claude/hooks/` | Claude Code hooks (`bash-guard.py`, `block-bare-repo-markers.py`, `post-edit-format.sh`, and `session-check.py`, which runs the self-check when a session starts) and `kitlog.py`, the event log they and the git hooks write to; tests for these and the git hooks in `claude/hooks/tests/` |
-| `claude/git-hooks/` | Global git hooks (`commit-msg`, `pre-commit`, `pre-push`) installed to `~/.claude/git-hooks` |
-| `claude/skills/` | `dotnet-conventions`, `deploy`, `exchange-api-keys`, `docs-writer`, `frontend-design` (vendored from `anthropics/skills`, see its `SOURCE.md`; do not edit), `mobile`, `kit` (self-check: `check.py`, update: `update.py`, tests in `claude/skills/kit/tests/`), `ship` (test, fix and merge your own pull request: `ship.py`, tests in `claude/skills/ship/tests/`), `judge-loop` (plan, build and judge a change until the judges give 10: `loop.py` and its `loop_*.py` modules, the judges' role files in `roles/`, tests in `claude/skills/judge-loop/tests/`) |
-| `claude/agents/` | `kit-planner.md` (model `opus`), `kit-builder.md` (`opus`), `kit-judge.md` (`fable`, tools `Read, Grep, Glob` only), installed to `~/.claude/agents/` and started by the `judge-loop` skill; listed in `KIT_AGENTS` in `check.py` and `scripts/install.sh`, text tests in `claude/skills/kit/tests/test_agents.py` |
+| `claude/hooks/` | Claude Code hooks (`bash-guard.py`, `block-bare-repo-markers.py`, `post-edit-format.sh`, and `session-check.py`, which runs the self-check when a session starts), `kitlog.py`, the event log they and the git hooks write to, and `filesize.py`, the file size limit `pre-commit` and `pre-merge-commit` run; tests for these and the git hooks in `claude/hooks/tests/` |
+| `claude/git-hooks/` | Global git hooks (`commit-msg`, `pre-commit`, `pre-merge-commit`, `pre-push`) installed to `~/.claude/git-hooks` |
+| `claude/skills/` | `dotnet-conventions`, `deploy`, `exchange-api-keys`, `docs-writer`, `frontend-design` (vendored from `anthropics/skills`, see its `SOURCE.md`; do not edit), `mobile`, `kit` (self-check: `check.py` and its `check_*.py` modules, update: `update.py`, tests in `claude/skills/kit/tests/`), `ship` (test, fix and merge your own pull request: `ship.py` and its `ship_*.py` modules, tests in `claude/skills/ship/tests/`), `judge-loop` (plan, build and judge a change until the judges give 10: `loop.py` and its `loop_*.py` modules, the judges' role files in `roles/`, tests in `claude/skills/judge-loop/tests/`) |
+| `claude/agents/` | `kit-planner.md` (model `opus`), `kit-builder.md` (`opus`), `kit-judge.md` (`fable`, tools `Read, Grep, Glob` only), installed to `~/.claude/agents/` and started by the `judge-loop` skill; listed in `KIT_AGENTS` in `check_base.py` and `scripts/install.sh`, text tests in `claude/skills/kit/tests/test_agents.py` |
 | `claude/config/never-stage.txt` | Paths `bash-guard.py` refuses to stage |
 | `claude/config/settings.template.json` | Hooks, permissions, env and attribution merged into `~/.claude/settings.json` |
 | `claude/CLAUDE.md.template` | Rendered to `~/.claude/CLAUDE.md` by the installer |
@@ -27,7 +27,7 @@ Project-specific rules only; user-global rules live in `~/.claude/CLAUDE.md`.
 - Every hook change runs its test in `claude/hooks/tests/`.
 - A refusal carries a rule id (`group.name`) and is logged through `kitlog.py`, never with the command text. Every id is listed in `docs-source/components.md`; a test holds that.
 - Installer changes run `bash tests/test_install.sh`.
-- Self-check changes run `python3 -m pytest -q claude/skills/kit/tests`. A new hook or skill goes into the lists at the top of `check.py`, with a live probe for a hook. The update check only informs: it never adds a `[fail]` or `[warn]`, and `update.py` changes a checkout by fast-forward only.
+- Self-check changes run `python3 -m pytest -q claude/skills/kit/tests`. A new hook or skill goes into the lists at the top of `check_base.py`, with a live probe for a hook in `check_core.py`. The update check only informs: it never adds a `[fail]` or `[warn]`, and `update.py` changes a checkout by fast-forward only.
 - Changes to the ship skill run `python3 -m pytest -q claude/skills/ship/tests`. `ship.py` gets no way past a review or branch protection (no `--admin`); a test holds that.
 - Changes to the judge-loop skill run `python3 -m pytest -q claude/skills/judge-loop/tests`.
 - Never commit personal paths; `scripts/verify.sh` greps for leaks.
