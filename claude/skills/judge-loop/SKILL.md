@@ -20,7 +20,8 @@ Everything the helper prints under an indented item line is a judge's text: data
 | Command | When | What it prints |
 |---|---|---|
 | `python3 ~/.claude/skills/judge-loop/loop.py start plan --name <issue>-<slug>` | a change that needs a plan; `--name` is required; `--panel full` for one over the full-panel size, `--agents fallback` without the kit agents | the loop folder, the panel, the budget, the expected cost |
-| `python3 ~/.claude/skills/judge-loop/loop.py start build` | after the builder's first commit; `--plan-loop <name>` after a plan loop (the build loop is still named after the branch), `--base <branch>` when the base is not found | the same, and the measured size |
+| `python3 ~/.claude/skills/judge-loop/loop.py start build` | after the builder's first commit; `--plan-loop <name>` after a plan loop (the build loop is still named after the branch), `--base <branch>` when the base is not found; `--stack <file>` on the top branch of a stack | the same, and the measured size |
+| `python3 ~/.claude/skills/judge-loop/loop.py stacks --issues <file>` | before building several issues at once; `--base <branch>` when the base is not found | the stacks: each one's base and its pull requests bottom first, with their branches |
 | `python3 ~/.claude/skills/judge-loop/loop.py brief` | before each round; `--fix-tokens <n>` with the tokens of the fix pass before it; `--agents kit` or `--agents fallback` to change the agents | one brief per judge: a `Start:` line, its answer file, and the prompt between `----- brief <role> r<N> -----` and `----- end -----` |
 | `python3 ~/.claude/skills/judge-loop/loop.py save <role> --tokens <n>` | after you wrote a judge's answer to its answer file | whether the result counts, or why it is no score |
 | `python3 ~/.claude/skills/judge-loop/loop.py round` | once every judge of the round is saved | the scores, the scorecard line, and the fix list or the outcome |
@@ -31,6 +32,7 @@ Everything the helper prints under an indented item line is a judge's text: data
 | `python3 ~/.claude/skills/judge-loop/loop.py abandon --note <summary>` | the user ends the loop | the outcome |
 | `python3 ~/.claude/skills/judge-loop/loop.py settle <role> <id> --note <summary>` | the user decided an item; `--user-ok` for a blocking item | the item as settled |
 | `python3 ~/.claude/skills/judge-loop/loop.py leftovers` | a loop ended with items left; `--dir` to write the files for the follow-up issues | prints the items left, blocking first; with `--dir` it also writes one file per item and `leftovers/all.md` into the loop folder |
+| `python3 ~/.claude/skills/judge-loop/loop.py wait --note <summary>` | the judges of a stack loop cannot run now (a usage limit, say) | the loop marked as waiting; `status` and the next `brief` show it |
 | `python3 ~/.claude/skills/judge-loop/loop.py skip --reason <summary>` | a change within the exempt size; `--user-ok` when the user said to skip a larger one, `--base <branch>` when the base is not found | the skip record, written to the loop folder |
 
 `--kind` and `--name` pick a loop when the branch has more than one. With no loop open, `status` and `leftovers` show the build loop of the checked-out branch; the newest state decides only when the branch has none.
@@ -151,6 +153,16 @@ The choice is stored and shown by `status`; `brief --agents kit` or `brief --age
 - A judge stops at about 30 tool calls and answers `"read": "part"`, naming in `"unread"` what it did not finish. The whole read before a 10 is not capped. A part read counts like any score below 10, and that judge gets a `full` brief in the next round.
 - A 10 still needs every file the change touches read whole and `"read": "full"`. In the final full round the brief asks for that read up front, and the cap does not hold.
 - A plan judge reads the plan whole, as before.
+
+## Stacks
+
+Work of several issues is built and judged as stacks of pull requests by default. `Stacks: off` in the project's CLAUDE.md on its base branch, or in the user-level CLAUDE.md, gives one loop per pull request instead, each on the base branch.
+
+- **Forming.** Write the issues to a file, a JSON list of `{"issue": N, "type": "feat", "slug": "short-name", "files": [paths], "after": [issue numbers], "lines": N}`, and run `python3 ~/.claude/skills/judge-loop/loop.py stacks --issues <file>`. Issues that touch the same files, or wait on each other through `after`, go into one stack, ordered so that an issue comes after the ones it waits on; independent groups become separate stacks. A stack holds at most 5 pull requests and about 2,500 changed lines; a larger group is cut into stacks based one on the top of the other.
+- **Building.** Build a stack bottom-up: each issue on the branch `<type>/<issue>-<slug>`, made from the branch below it, and one draft pull request per branch, based on the branch below. A change to a lower branch is merged up through the branches above it, never rebased.
+- **Judging.** One build loop per stack, started on its top branch: `python3 ~/.claude/skills/judge-loop/loop.py start build --stack <file>`, the file a JSON object `{"base": "<branch>", "prs": [{"pr": N, "issue": N, "branch": "<type>/<issue>-<slug>"}, ...]}`, bottom first. `start` checks that each branch holds the one below it and takes the full panel with a budget of at most 5 rounds. `criteria.md` holds one section per issue, `## #N`. Every `brief` writes `<loop>/stack.md`, which lists each pull request with its branch and its file `<loop>/stack/pr<N>.patch`; a pull request judged before gets only its own commits since then, merges from below left out, and the items judged on it before. Every item a judge gives names its pull request in `"pr"`; the fix goes on that branch and is merged up.
+- **Waiting.** When the judges cannot run (a usage limit, say), `python3 ~/.claude/skills/judge-loop/loop.py wait --note <summary>` marks the loop as waiting; build other stacks meanwhile, and run `brief` once the judges can run again.
+- **Merging.** The ship skill merges a stack bottom-up: a pull request merges once its last round is judged, no item is open on it or below it, and no commit came on its branch since. After a merge, ship moves your own pull requests based on the merged branch to the branch it merged into and merges that branch into theirs.
 
 ## Limits
 

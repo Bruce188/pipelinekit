@@ -42,6 +42,8 @@ MAX_AGENT_FILE = 64 * 1024
 MAX_STATE = 5 * 1024 * 1024
 MAX_TEXT_FILE = 1024 * 1024
 MAX_DIFF = 2 * 1024 * 1024
+# The most pull requests one stack loop judges together.
+STACK_MAX_PRS = 5
 MAX_FIELD = 2000
 MAX_ITEMS = 50
 MAX_DIMENSIONS = 20
@@ -120,6 +122,7 @@ OVER_SIZE = "over 200 kB"
 NOT_HALF_STEP = "not a step of 0.5"
 BELOW_NO_ITEM = "below 10 without an item"
 TEN_NOT_FULL = "a 10 without a full read"
+NOT_IN_STACK = "not a pull request of the stack"
 WHY_PHRASES = (
     MISSING,
     WRONG_TYPE,
@@ -140,6 +143,7 @@ WHY_PHRASES = (
     NOT_HALF_STEP,
     BELOW_NO_ITEM,
     TEN_NOT_FULL,
+    NOT_IN_STACK,
 )
 # The reasons of `round` that name no field.
 NO_RESULT = "no result saved"

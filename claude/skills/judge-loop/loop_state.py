@@ -381,6 +381,60 @@ def skip_ok(st):
     )
 
 
+STACK_PR_BRANCH = re.compile(r"[a-z]+/[1-9][0-9]{0,8}-[A-Za-z0-9._-]+")
+
+
+def heads_ok(heads, prs):
+    return isinstance(heads, dict) and all(
+        k in prs and is_type(v, str) and SHA.fullmatch(v) for k, v in heads.items()
+    )
+
+
+def stack_entry_ok(entry):
+    return (
+        isinstance(entry, dict)
+        and is_type(entry.get("pr"), int)
+        and entry["pr"] > 0
+        and is_type(entry.get("issue"), int)
+        and entry["issue"] > 0
+        and is_type(entry.get("branch"), str)
+        and bool(STACK_PR_BRANCH.fullmatch(entry["branch"]))
+    )
+
+
+def stack_fields_ok(st):
+    """The fields of a stack loop and of waiting; each optional."""
+    stack, prs = st.get("stack"), set()
+    if stack is not None:
+        if not (
+            isinstance(stack, dict)
+            and stack.get("base") == st["base"]
+            and isinstance(stack.get("prs"), list)
+            and 0 < len(stack["prs"]) <= STACK_MAX_PRS
+            and all(stack_entry_ok(entry) for entry in stack["prs"])
+            and stack["prs"][-1]["branch"] == st["branch"]
+        ):
+            return False
+        prs = {str(entry["pr"]) for entry in stack["prs"]}
+        if len(prs) != len(stack["prs"]):
+            return False
+    if "heads" in st["pending"] and not heads_ok(st["pending"]["heads"], prs):
+        return False
+    if any("heads" in rnd and not heads_ok(rnd["heads"], prs) for rnd in st["rounds"]):
+        return False
+    if any(
+        "pr" in it and not (is_type(it["pr"], int) and str(it["pr"]) in prs)
+        for it in st["items"].values()
+    ):
+        return False
+    waiting = st.get("waiting")
+    return waiting is None or (
+        isinstance(waiting, dict)
+        and is_type(waiting.get("since"), str)
+        and is_type(waiting.get("note"), str)
+    )
+
+
 def state_ok(st, kind, name, git):
     """True when a loaded state holds every field with a fitting value."""
     if any(not is_type(st.get(k), t) for k, t in STATE_TYPES.items()):
@@ -496,7 +550,9 @@ def state_ok(st, kind, name, git):
         for note in st["notes"]
     ):
         return False
-    return all(isinstance(entry, dict) for entry in st["switches"])
+    if not all(isinstance(entry, dict) for entry in st["switches"]):
+        return False
+    return stack_fields_ok(st)
 
 
 class Loop:

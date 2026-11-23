@@ -18,8 +18,15 @@ from loop_state import *
 
 # Switch lines -----------------------------------------------------------------
 
-SWITCH = re.compile(r"(judge loop|judge rounds|judges):[ \t]*(.*?)[ \t]*", re.I | re.A)
-KEYS = {"judge loop": "Judge loop", "judge rounds": "Judge rounds", "judges": "Judges"}
+SWITCH = re.compile(
+    r"(judge loop|judge rounds|judges|stacks):[ \t]*(.*?)[ \t]*", re.I | re.A
+)
+KEYS = {
+    "judge loop": "Judge loop",
+    "judge rounds": "Judge rounds",
+    "judges": "Judges",
+    "stacks": "Stacks",
+}
 FENCE = re.compile(r"( {0,3})(`{3,}|~{3,})(.*)")
 LIST_ITEM = re.compile(r"( {0,3})([-*+]|\d{1,9}\.)( +)(.*)")
 HTML_OPEN = re.compile(r" {0,3}<([A-Za-z][A-Za-z0-9-]*)(\s[^>]*)?>")
@@ -40,7 +47,7 @@ BLOCK_TAGS = frozenset(BLOCK_NAMES.split())
 
 def switch_value(key, value):
     """The value of a switch line and the names it dropped; None: not valid."""
-    if key == "Judge loop":
+    if key in ("Judge loop", "Stacks"):
         return ("off" if value.lower() == "off" else None), []
     if key == "Judge rounds":
         if re.fullmatch(r"\d{1,2}", value) and 1 <= int(value) <= MAX_SWITCH_ROUNDS:
@@ -818,6 +825,11 @@ def new_state(**fields):
 
 
 def cmd_start(args):
+    stack = None
+    if args.stack is not None:
+        import loop_stack
+
+        stack = stack_args(args, loop_stack)
     ctx, kind, name, base, base_ref, base_sha, source, switches, said, size = prepare(
         args
     )
@@ -828,6 +840,15 @@ def cmd_start(args):
             "is "
             "only for a head with nothing to judge.",
         )
+    if stack:
+        if "Stacks" in switches:
+            raise Exit(
+                2,
+                f"Refused: stacks are switched off by {switches['Stacks']['where']}. "
+                "Next: loop.py start build on each pull request's branch, without "
+                "--stack.",
+            )
+        loop_stack.check_stack(ctx, stack, size)
     loop = Loop(ctx, kind, name)
     others = [lp for lp in scan(ctx, load=False) if (lp.kind, lp.name) != (kind, name)]
     left_out([lp for lp in others if lenient(lp) is None], args)
@@ -843,7 +864,7 @@ def cmd_start(args):
     if args.plan_loop is not None:
         plan = judged_plan(ctx, args.plan_loop)
     check_agents(ctx, args.agents, "start")
-    forced = "" if args.panel == "auto" else args.panel
+    forced = "full" if stack else ("" if args.panel == "auto" else args.panel)
     panel, reason = choose_panel(kind, forced, switches, size)
     # the project's agents were looked at above; once, so each note shows once
     check_roles(panel)
@@ -852,6 +873,8 @@ def cmd_start(args):
         if "Judge rounds" in switches
         else DEFAULT_BUDGET
     )
+    if stack:
+        budget = min(budget, loop_stack.STACK_BUDGET)
     moved = move_aside(loop) if old else ""
     loop.st = new_state(
         kind=kind,
@@ -868,6 +891,7 @@ def cmd_start(args):
         switches=list(switches.values()),
         agents=args.agents,
         plan_loop={"name": args.plan_loop, "sha256": plan[2]} if plan else {},
+        **({"stack": stack} if stack else {}),
     )
     loop.mkdir()
     try:
@@ -905,6 +929,8 @@ def cmd_start(args):
             "(written by loop.py save; the answer file is named in the brief)"
         )
     say(f"Budget: {count(budget, 'round')}")
+    if stack:
+        say(f"Stack: {loop_stack.stack_list(stack)}")
     for entry in switches.values():
         say(f"switch used: {clean(switch_text(entry))} ({entry['where']})")
     for line in said:
@@ -936,7 +962,26 @@ def cmd_start(args):
             f"{agent_word(args.agents, 'kit-planner')} write plan.md, then loop.py "
             "brief.",
         )
-    raise Exit(0, f"{head} Next: write criteria.md, then loop.py brief.")
+    what = "criteria.md, one section per issue (## #N)" if stack else "criteria.md"
+    raise Exit(0, f"{head} Next: write {what}, then loop.py brief.")
+
+
+def stack_args(args, loop_stack):
+    """The stack of `start build --stack`; its base is the base of the loop."""
+    if args.loop_kind != "build":
+        raise Exit(
+            2,
+            "Refused: --stack is for start build. Next: loop.py start plan without it.",
+        )
+    stack = loop_stack.load_stack(args.stack)
+    if args.base is not None and args.base != stack["base"]:
+        raise Exit(
+            2,
+            f"Refused: --base {show_branch(args.base)} is not the base of the stack, "
+            f"{show_branch(stack['base'])}. Next: the same command without --base.",
+        )
+    args.base = stack["base"]
+    return stack
 
 
 def configure_start(sub):
@@ -957,6 +1002,11 @@ def configure_start(sub):
     sub.add_argument("--base", help="the branch the work is compared with")
     sub.add_argument(
         "--plan-loop", dest="plan_loop", help="the plan loop this build follows"
+    )
+    sub.add_argument(
+        "--stack",
+        help="a stack file: judge the pull requests of a stack together, from its "
+        "top branch",
     )
     sub.add_argument(
         "--agents", choices=("kit", "fallback"), default="kit", help=AGENTS_HELP

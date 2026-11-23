@@ -21,6 +21,8 @@ def next_text(loop):
     st = loop.st
     if st["outcome"] != "open":
         return closing_line(loop).split(" Next: ", 1)[1]
+    if st.get("waiting"):
+        return "build other stacks; loop.py brief once the judges can run again."
     if st["pending"]:
         if len(saved_roles(loop)) < len(briefed_roles(st)):
             return (
@@ -62,6 +64,8 @@ def status_data(loop):
         ],
         "scorecard": [scorecard_line(st, r) for r in st["rounds"]],
         "final": bool(st.get("final")),
+        "waiting": st.get("waiting") or {},
+        "stack": st.get("stack") or {},
         "pending_modes": pending.get("modes", {}) if pending else {},
         "saved": saved,
         "missing": [r for r in briefed_roles(st) if r not in saved] if pending else [],
@@ -94,6 +98,8 @@ def cmd_status(args):
     say(f"Loop: {loop.kind} {loop.name} in {loop.rel}/")
     if loop.kind == "build":
         say(f"Branch: {show_branch(st['branch'])}, base {show_branch(st['base'])}")
+    if st.get("stack"):
+        say(f"Stack: {stack_list(st['stack'])}")
     if st["outcome"] == "skip":
         skip = st.get("skip") if isinstance(st.get("skip"), dict) else {}
         asked = "yes" if skip.get("user_ok") else "no"
@@ -105,6 +111,8 @@ def cmd_status(args):
         say(f"Agents: {st['agents']}")
     for line in data["scorecard"]:
         say(line)
+    if waiting_line(st):
+        say(waiting_line(st))
     if st["pending"]:
         say(pending_line(st))
     for note in st["notes"]:
