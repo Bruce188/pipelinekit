@@ -326,6 +326,37 @@ PY
 grep -qF '[install]   replaced: Edit(~/.claude/settings.json)' "$T/outside.out" ||
   { echo "test_install: the replaced ~/.claude rule is not named" >&2; exit 1; }
 
+# No USER and no global git identity, as in containers and cron jobs: the
+# install runs to its end, CLAUDE.md names the login name, and the self-check
+# is healthy. Without a login name either (a uid with no passwd entry), it
+# still finishes and says the name is missing.
+no_user() { # no_user <case> [PATH]: install into $T/<case> with no USER or identity
+  NU="$T/$1"
+  mkdir -p "$NU"
+  env -u USER -u LOGNAME -u USER_NAME -u USER_EMAIL PATH="${2:-$PATH}" HOME="$NU" CLAUDE_HOME="$NU/.claude" \
+    GIT_CONFIG_GLOBAL="$NU/.gitconfig" XDG_CONFIG_HOME="$NU/.config" PIPELINEKIT_STATE_DIR="$NU/state" \
+    PIPELINEKIT_GIT_HOOKS=0 bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$T/$1.out" 2>&1 ||
+    { echo "test_install: the install without USER ($1) failed" >&2; cat "$T/$1.out" >&2; exit 1; }
+  env -u USER -u LOGNAME HOME="$NU" CLAUDE_HOME="$NU/.claude" \
+    python3 "$NU/.claude/skills/kit/check.py" --no-remote >"$T/$1-check.out" 2>&1 ||
+    { echo "test_install: the self-check after the install without USER ($1) failed" >&2; cat "$T/$1-check.out" >&2; exit 1; }
+}
+no_user no-user
+grep -qxF "Identity: $(id -un) <>." "$T/no-user/.claude/CLAUDE.md" ||
+  { echo "test_install: CLAUDE.md does not name the login name" >&2; grep Identity "$T/no-user/.claude/CLAUDE.md" >&2; exit 1; }
+if grep -qF 'no name for CLAUDE.md' "$T/no-user.out"; then
+  echo "test_install: a missing-name warning with a login name" >&2; exit 1
+fi
+mkdir "$T/noid"
+printf '#!/bin/sh\necho "id: cannot find name for user ID 4242" >&2\nexit 1\n' >"$T/noid/id"
+chmod +x "$T/noid/id"
+no_user no-login "$T/noid:$PATH"
+grep -qF '[install][warn] no name for CLAUDE.md' "$T/no-login.out" ||
+  { echo "test_install: no warning for a missing name" >&2; cat "$T/no-login.out" >&2; exit 1; }
+if grep -qF 'cannot find name' "$T/no-login.out"; then
+  echo "test_install: the raw id error was shown" >&2; exit 1
+fi
+
 # The rewrite follows the copy at once: an install that stops later (here on a
 # settings.json that is not JSON) leaves a skill that already names its home.
 KB="$HOME/kit-broken"
