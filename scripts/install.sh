@@ -5,7 +5,7 @@
 #
 # Env:
 #   CLAUDE_HOME     target dir (default: $HOME/.claude)
-#   USER_NAME       identity for CLAUDE.md (default: git config user.name)
+#   USER_NAME       identity for CLAUDE.md (default: git config user.name, else the login name)
 #   USER_EMAIL      identity for CLAUDE.md (default: git config user.email)
 #   SERENA_REF      serena commit to install (default: pinned SHA below)
 #   SERENA_ALLOW_ROLLING=1  allow SERENA_REF=main
@@ -188,7 +188,11 @@ for a in "${RETIRED_AGENTS[@]}"; do
 done
 
 # ---------- CLAUDE.md ----------
-USER_NAME="${USER_NAME:-$(git config --global user.name 2>/dev/null || echo "$USER")}"
+# Containers and cron jobs often have no USER and no git identity: fall back
+# to the login name, and go on without one rather than stop half-way.
+USER_NAME="${USER_NAME:-$(git config --global user.name 2>/dev/null || echo "${USER:-$(id -un 2>/dev/null || true)}")}"
+[[ -n "$USER_NAME" ]] ||
+  warn "no name for CLAUDE.md: set USER_NAME or git config --global user.name, then run the installer again"
 USER_EMAIL="${USER_EMAIL:-$(git config --global user.email 2>/dev/null || echo "")}"
 RENDERED="$(mktemp)"
 CLAUDE_HOME="$CLAUDE_HOME" USER_NAME="$USER_NAME" USER_EMAIL="$USER_EMAIL" python3 - \

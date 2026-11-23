@@ -23,6 +23,8 @@ kit used to ship, so those parts are gone.
 - `.gitattributes` forces LF, so a checkout made with Git for Windows no
   longer breaks the hook shebangs.
 - `verify.sh` runs each hook once instead of only checking that it exists.
+- `install.sh` runs to its end without a `USER` variable or a global git
+  identity, as in containers and cron jobs: `CLAUDE.md` names the login name.
 
 ### Self-check
 
