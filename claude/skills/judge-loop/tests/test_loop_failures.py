@@ -313,7 +313,7 @@ def test_a_build_whose_plan_copy_changed_is_refused(sb, command, spoil):
 # A role file that is missing ------------------------------------------------------
 
 MODULES = ("loop_text", "loop_state", "loop_start", "loop_results", "loop_modes")
-MODULES += ("loop_rounds", "loop_commands", "loop_hunks")
+MODULES += ("loop_stack", "loop_rounds", "loop_commands", "loop_hunks")
 MISSING_ROLE = "Refused: roles/tests.md is not installed. Next: run /kit."
 
 
