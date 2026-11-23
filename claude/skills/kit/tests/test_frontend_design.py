@@ -152,7 +152,7 @@ DOCS = (
     "documentation/credits.html",
 )
 
-# The count check of the docs: every "<number> skills" must say nine.
+# The count check of the docs: every "<number> skills" must say ten.
 COUNT = re.compile(
     r"(^|[^0-9a-z])([0-9]+|one|two|three|four|five|six|seven|eight|nine|ten) skills",
     re.I,
@@ -170,16 +170,16 @@ def test_credits_name_the_vendored_skill():
     assert "no vendored third-party source" not in read("docs-source/credits.md")
 
 
-def test_skill_counts_say_nine():
-    assert "9 skills" in read("docs-source/components.md")
+def test_skill_counts_say_ten():
+    assert "10 skills" in read("docs-source/components.md")
     for rel in ("docs-source/index.md", "docs-source/installation.md"):
-        assert "nine skills" in read(rel), rel
+        assert "ten skills" in read(rel), rel
     paths = [REPO / "README.md"]
     paths += sorted(p for p in (REPO / "docs-source").rglob("*") if p.is_file())
     for path in paths:
         for line in path.read_text(encoding="utf-8").splitlines():
             for match in COUNT.finditer(line):
-                assert match.group(2).lower() in ("9", "nine"), (path.name, line)
+                assert match.group(2).lower() in ("10", "ten"), (path.name, line)
 
 
 def test_template_line_count_is_not_the_old_one():

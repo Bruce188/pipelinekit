@@ -24,3 +24,14 @@ def test_the_tester_brief_gives_the_rules_for_every_agent():
     brief = read_tester_brief()
     for words in EVERY_AGENT:
         assert words in brief, words
+
+
+def test_root_cause_comes_after_fix_and_before_test_again():
+    text = SKILL.read_text(encoding="utf-8")
+    fix, cause, again = (
+        text.index("**Fix.**"),
+        text.index("**Root cause.**"),
+        text.index("**Test again.**"),
+    )
+    assert fix < cause < again
+    assert "name the rule, hook, check or test that would have stopped it" in text
