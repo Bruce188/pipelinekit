@@ -250,7 +250,10 @@ def cmd_abandon(args):
     note = given(args.note, "--note")
     st["outcome"], st["pending"] = "abandoned", {}
     add_note(st, "abandon", note)
-    loop.save()
+    loop.save(
+        after=f"loop.py status to copy the open items, then move the folder "
+        f"{show_path(loop.rel)} away and loop.py start again."
+    )
     raise Exit(0, ABANDONED)
 
 
@@ -303,6 +306,7 @@ def cmd_settle(args):
         "raised_again": 0,
     }
     add_note(st, "settle", f"{role} {item_id}: {note}")
+    loop.check_size()
     loop.write("settled.md", settled_text(st))
     loop.save()
     n, b = settled_counts(st)
@@ -662,9 +666,14 @@ def dispatch(argv):
         why = clean(err.strerror or "no reason", 80)
         where = error_path(err)
         detail = f"{why}: {where}" if where else why
+        fix = (
+            "fix the permissions"
+            if isinstance(err, PermissionError)
+            else "free space or fix the permissions"
+        )
         say(
             f"Error: {type(err).__name__} ({detail}). "
-            "Next: free space or fix the permissions, then the same command."
+            f"Next: {fix}, then the same command."
         )
         return 2
     except Exception as err:

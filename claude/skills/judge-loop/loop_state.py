@@ -578,9 +578,38 @@ class Loop:
         self.st = st
         return st
 
-    def save(self):
+    def keep_items(self, results=False):
+        """The next step that keeps the open items after a refused save;
+        results says the refused round's results are stored in judge/."""
+        rel = show_path(self.rel)
+        kept = f" (the refused round's results stay in {rel}/judge/)" if results else ""
+        return (
+            "loop.py abandon, then loop.py leftovers --dir to keep the open items"
+            f"{kept}, then move the folder {rel} away and loop.py start again."
+        )
+
+    def check_size(self, after=None):
+        """The state as save writes it; refused when load could not read it back.
+
+        Called before the files written next to state.json, so a refusal leaves
+        them as they were. after is the next step, by default the one that keeps
+        the open items."""
+        data = (json.dumps(self.st, indent=1, sort_keys=True) + "\n").encode("utf-8")
+        if len(data) > MAX_STATE:
+            rel = show_path(self.rel)
+            after = after or self.keep_items()
+            raise Exit(
+                2,
+                f"Error: the new {rel}/state.json would be {len(data):,} bytes, over "
+                f"the {MAX_STATE:,} bytes loop.py reads back; the saved one is kept. "
+                f"Next: tell the user; {after}",
+            )
+        return data
+
+    def save(self, after=None):
+        data = self.check_size(after)
         ensure_ignored(self.ctx)
-        self.write("state.json", json.dumps(self.st, indent=1, sort_keys=True) + "\n")
+        self.write("state.json", data)
 
     def mtime(self):
         return os.lstat(self.path("state.json")).st_mtime_ns
@@ -591,8 +620,16 @@ def scan(ctx, load=True):
     folder = check_contained(ctx.root, "docs/loops", "docs/loops")
     if not folder.is_dir():
         return []
+    try:
+        entries = sorted(os.scandir(folder), key=lambda e: e.name)
+    except PermissionError:
+        raise Exit(
+            2,
+            "Error: docs/loops cannot be read (permission denied). Next: make the "
+            "folder readable (chmod u+rwx docs/loops), then the same command.",
+        ) from None
     found = []
-    for entry in sorted(os.scandir(folder), key=lambda e: e.name):
+    for entry in entries:
         if entry.is_symlink():
             raise link_error(f"docs/loops/{entry.name}", f"docs/loops/{entry.name}")
         if not entry.is_dir() or not NAME.fullmatch(entry.name):
