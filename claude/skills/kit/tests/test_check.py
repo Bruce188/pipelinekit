@@ -5,6 +5,7 @@ import importlib.util
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -1136,9 +1137,9 @@ def test_switched_off_session_check_is_mentioned(kit):
     assert rc == 0 and "session-start check is switched off" not in out
 
 
-def add_hook(kit, command):
+def add_hook(kit, command, **fields):
     def change(data):
-        entry = {"hooks": [{"type": "command", "command": command}]}
+        entry = {"hooks": [{"type": "command", "command": command, **fields}]}
         data["hooks"].setdefault("SessionStart", []).append(entry)
 
     edit_json(kit, "settings.json", change)
@@ -1151,6 +1152,53 @@ def test_only_the_program_of_a_missing_hook_command_is_shown(kit, gap):
     assert rc == 1
     assert "hook command not found: /nonexistent/x" in out
     assert "Your" not in out and "fine" not in out
+
+
+def spaced_program(kit):
+    """A program that exists below a folder whose name holds a space."""
+    prog = kit["user"] / "my tools" / "hook.sh"
+    prog.parent.mkdir()
+    prog.write_text("#!/bin/sh\n")
+    prog.chmod(0o755)
+    return str(prog)
+
+
+@pytest.mark.parametrize("form", ["exec", "shell"])
+def test_a_hook_command_with_a_space_in_its_path_is_found(kit, form):
+    prog = spaced_program(kit)
+    if form == "exec":
+        add_hook(kit, prog, args=[])
+    else:
+        add_hook(kit, shlex.quote(prog) + " --flag")
+    rc, out = check(kit, "--quick")
+    assert rc == 0, out
+    assert "hook command not found" not in out
+
+
+def test_a_missing_exec_form_command_is_named_whole(kit):
+    add_hook(kit, "/nonexistent/my tools/hook.sh", args=["x"])
+    rc, out = check(kit, "--quick")
+    assert rc == 1
+    assert "hook command not found: /nonexistent/my tools/hook.sh" in out
+
+
+@pytest.mark.parametrize(
+    ("hook", "program"),
+    [
+        ({"command": "/a b/c.py", "args": []}, "/a b/c.py"),
+        ({"command": "/a b/c.py", "args": ["x"]}, "/a b/c.py"),
+        ({"command": "'/a b/c.py' x"}, "/a b/c.py"),
+        ({"command": '"/a b/c.py"'}, "/a b/c.py"),
+        ({"command": "/a/c.py x"}, "/a/c.py"),
+        ({"command": "/a/c.py\u2003x"}, "/a/c.py"),
+        ({"command": "'/a b/c.py"}, "'/a"),
+        ({"command": ""}, ""),
+        ({"command": 7}, ""),
+        ({}, ""),
+    ],
+)
+def test_the_program_of_a_hook_entry(hook, program):
+    assert check_py.hook_program(hook) == program
 
 
 def test_a_hook_command_that_is_not_text_is_named(kit):

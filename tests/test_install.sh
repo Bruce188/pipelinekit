@@ -230,10 +230,11 @@ fi
 
 # A home a permission pattern cannot hold (a space), or a relative one: a
 # warning, and the installed skill is the kit's own, naming ~/.claude.
-# Neither home passes verify (the hooks do not start from it), so the install
-# is checked to run to its end instead.
+# The relative home does not pass verify (its hook commands are relative), so
+# the install is checked to run to its end; its exit code is in ODD_RC.
 odd_home() { # odd_home <CLAUDE_HOME> <its absolute path> <case>
-  (cd "$T" && CLAUDE_HOME="$1" PIPELINEKIT_GIT_HOOKS=0 bash "$REPO_ROOT/scripts/install.sh" --no-serena) >"$T/$3.out" 2>&1 || true
+  ODD_RC=0
+  (cd "$T" && CLAUDE_HOME="$1" PIPELINEKIT_GIT_HOOKS=0 bash "$REPO_ROOT/scripts/install.sh" --no-serena) >"$T/$3.out" 2>&1 || ODD_RC=$?
   grep -qF "[install] manifest: $1/pipelinekit/manifest.json" "$T/$3.out" ||
     { echo "test_install: the install into the $3 home stopped early" >&2; exit 1; }
   grep -qF '[install][warn] judge-loop: CLAUDE_HOME is not an absolute path a permission pattern can hold' "$T/$3.out" ||
@@ -241,7 +242,33 @@ odd_home() { # odd_home <CLAUDE_HOME> <its absolute path> <case>
   cmp -s "$REPO_ROOT/claude/skills/judge-loop/SKILL.md" "$2/skills/judge-loop/SKILL.md" ||
     { echo "test_install: the skill was rewritten for the $3 home" >&2; exit 1; }
 }
-odd_home "$HOME/kit home" "$HOME/kit home" space
+SH="$HOME/kit home"
+odd_home "$SH" "$SH" space
+# The home with a space installs (its last step is verify), installs again
+# without doubling a hook, and every hook it wires starts from its path.
+[ "$ODD_RC" -eq 0 ] || { echo "test_install: the install into a home with a space exited $ODD_RC" >&2; cat "$T/space.out" >&2; exit 1; }
+CLAUDE_HOME="$SH" PIPELINEKIT_GIT_HOOKS=0 bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$T/space2.out" 2>&1 ||
+  { echo "test_install: a second install into a home with a space failed" >&2; cat "$T/space2.out" >&2; exit 1; }
+CLAUDE_HOME="$SH" bash "$REPO_ROOT/scripts/verify.sh" >"$T/space-verify.out" 2>&1 ||
+  { echo "test_install: verify failed for a home with a space" >&2; cat "$T/space-verify.out" >&2; exit 1; }
+python3 - "$SH" "$REPO_ROOT/claude/config/settings.template.json" <<'PY'
+import json, os, subprocess, sys
+home, tmpl = sys.argv[1:]
+d = json.load(open(f"{home}/settings.json"))
+t = json.load(open(tmpl))
+hs = [h for gs in d["hooks"].values() for g in gs for h in g["hooks"]]
+want = sum(len(g["hooks"]) for gs in t["hooks"].values() for g in gs)
+assert len(hs) == want, f"{len(hs)} hook entries, the template has {want}"
+for h in hs:
+    # "args" makes Claude Code spawn the command itself, without a shell.
+    assert "args" in h and h["command"].startswith(f"{home}/hooks/"), h["command"]
+    assert os.access(h["command"], os.X_OK), h["command"]
+(start,) = [h for g in d["hooks"]["SessionStart"] for h in g["hooks"]]
+# Run as Claude Code would for this home: no problem to report.
+env = dict(os.environ, CLAUDE_HOME=home)
+p = subprocess.run([start["command"], *start["args"]], input="{}", capture_output=True, text=True, env=env)
+assert p.returncode == 0 and p.stdout == "", (p.returncode, p.stdout, p.stderr)
+PY
 odd_home rel-home "$T/rel-home" relative
 
 # The rewrite follows the copy at once: an install that stops later (here on a
