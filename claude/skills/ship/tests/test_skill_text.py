@@ -97,9 +97,9 @@ def test_the_skill_names_the_command_that_keeps_the_reports_out_of_git():
     assert "`prepare` adds it to `.git/info/exclude`" in skill
     assert "`status` changes nothing in the repository" in skill
     assert "| `python3 ${CLAUDE_SKILL_DIR}/ship.py prepare` |" in skill
-    components = INSTALLATION.with_name("components.md").read_text(encoding="utf-8")
+    shipping = INSTALLATION.with_name("shipping.md").read_text(encoding="utf-8")
     assert "`ship.py prepare` adds it to `.git/info/exclude`" in " ".join(
-        components.split()
+        shipping.split()
     )
 
 

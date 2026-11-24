@@ -835,8 +835,8 @@ def test_the_skip_and_the_abandon_the_judge_loop_writes(real):
     [
         "claude/skills/ship/SKILL.md",
         "README.md",
-        "docs-source/components.md",
-        "documentation/components.html",
+        "docs-source/shipping.md",
+        "documentation/shipping.html",
     ],
 )
 def test_the_docs_name_the_judged_gate(rel):
@@ -854,14 +854,14 @@ def repo_text(rel):
     return path.read_text()
 
 
-def test_the_components_page_says_where_an_off_line_counts():
-    source = repo_text("docs-source/components.md")
+def test_the_shipping_page_says_where_an_off_line_counts():
+    source = repo_text("docs-source/shipping.md")
     row = next(r for r in source.splitlines() if r.startswith("| `judged` |"))
     assert (
         "`Judge loop: off` on the base branch or in your user-level `CLAUDE.md` "
         "passes and is named in the reason"
     ) in row
-    page = repo_text("documentation/components.html")
+    page = repo_text("documentation/shipping.html")
     start = page.index("<td><code>judged</code></td>")
     row = page[start : page.index("</tr>", start)]
     assert (

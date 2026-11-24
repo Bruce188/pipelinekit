@@ -146,9 +146,11 @@ def test_kit_answer_relays_the_plugin_line():
 DOCS = (
     "README.md",
     "docs-source/components.md",
+    "docs-source/skills.md",
     "docs-source/credits.md",
     "CHANGELOG.md",
     "documentation/components.html",
+    "documentation/skills.html",
     "documentation/credits.html",
 )
 

@@ -1109,7 +1109,7 @@ def test_the_docs_name_the_commands_that_are_not_checked():
 def test_the_exempt_kinds_have_one_name_everywhere():
     for text in (
         (REPO / "docs-source" / "file-size.md").read_text(),
-        (REPO / "docs-source" / "components.md").read_text(),
+        (REPO / "docs-source" / "hooks.md").read_text(),
         upgrade_note(),
         filesize.__doc__,
     ):
