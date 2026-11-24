@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- ship: the `judged` gate reads a user-level `CLAUDE.md` that is a link,
+  through the same reader as the `policy` gate; a link to a named pipe, a
+  folder or nothing is named in one line by both gates.
 - ship: `wait` and `merge` with `--allow-no-checks` no longer wait for a
   first check; a `--release yes` record stands until a new commit; the
   opt-out line counts in quotation marks; `Release files:` values are read
