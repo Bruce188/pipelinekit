@@ -74,7 +74,12 @@ The installer merges `claude/config/settings.template.json` into `~/.claude/sett
 
 ### The never-stage list
 
-`config/never-stage.txt` is the single list of paths that must not be committed. It is gitignore-style, with `!` negation, and covers env files, credentials, keys, and the local `docs/` workflow notes. `bash-guard.py` reads it. Edit the copy in `~/.claude/config/` to change it for your machine. The installer overwrites that copy on the next run, so put changes you want to keep in the repo's `claude/config/never-stage.txt`.
+`config/never-stage.txt` is the single list of paths that must not be committed. It is gitignore-style, with `!` negation, and covers env files, credentials, keys, and the local `docs/` workflow notes. Two layers hold it:
+
+- `bash-guard.py` refuses Claude's `git add` of a listed path (also with `-f`), and a `git commit -a` or `git commit <path>` that would stage one (`[git.never-stage]`).
+- The global `pre-commit` git hook refuses any commit that adds or changes a listed path, however it was staged: from a terminal, by a tool that does not go through Claude Code, or earlier, so that it is already in the index (`[pre-commit.never-stage]`). The refusal names each path and the pattern it matches, and ends with a `Next: git restore --staged -- <path>` line; the files stay on disk. A commit that removes a tracked listed path goes through. When the hook cannot read the list it warns, records `[pre-commit.never-stage-failed]` and lets the commit through, as the file size check does; `/kit` reports the missing list. Git does not run `pre-commit` for `git merge` without conflicts, rebase, cherry-pick, revert, am or stash.
+
+Edit the copy in `~/.claude/config/` to change it for your machine. The installer overwrites that copy on the next run, so put changes you want to keep in the repo's `claude/config/never-stage.txt`.
 
 ## Git hooks
 
@@ -83,7 +88,7 @@ The installer merges `claude/config/settings.template.json` into `~/.claude/sett
 | Hook | What it does |
 |------|--------------|
 | `commit-msg` | Conventional commits (`feat fix refactor docs test chore perf style build ci revert`, scopes, `!`). Rejects wip (outside `.claude/worktrees/`), AI attribution and emoji. Lets `Merge`, `Revert "`, `fixup!`/`squash!`/`amend!` through |
-| `pre-commit` | `gitleaks` scan of staged changes. Warns and allows if gitleaks is missing. `PIPELINEKIT_ALLOW_SECRET=1` skips one commit. Then the [file size limit](#file-size-limit) |
+| `pre-commit` | Refuses a commit that adds or changes a path on the [never-stage list](#the-never-stage-list). Then a `gitleaks` scan of staged changes. Warns and allows if gitleaks is missing. `PIPELINEKIT_ALLOW_SECRET=1` skips one commit. Then the [file size limit](#file-size-limit) |
 | `pre-merge-commit` | Run by `git merge` before it records a merge it made without conflicts, which skips `pre-commit`: the same `gitleaks` scan of what the merge brings in, with the same `PIPELINEKIT_ALLOW_SECRET=1` override for one merge, and the same [file size limit](#file-size-limit) on the merged files. A refused merge is left unfinished. `git merge --no-verify` skips it, as `git commit --no-verify` skips `pre-commit` |
 | `pre-push` | Refuses pushes to `main`/`master`. `ALLOW_MAIN_PUSH=1` overrides (humans only; bash-guard refuses it for Claude) |
 
@@ -111,7 +116,7 @@ The log is `~/.local/state/pipelinekit/events.jsonl`. `$XDG_STATE_HOME` moves it
 | `git.push-remote` | `bash-guard` | block | A push to a remote other than `origin` |
 | `git.push-protected` | `bash-guard` | block | A direct push to `main` or `master` |
 | `git.push-all` | `bash-guard` | block | `git push --all`, `--mirror` or `--branches` |
-| `git.never-stage` | `bash-guard` | block | Staging or committing a path on the never-stage list |
+| `git.never-stage` | `bash-guard` | block | Staging a path on the never-stage list, also through `git commit -a` or `git commit <path>` |
 | `git.never-stage-missing` | `bash-guard` | block | The never-stage list is missing, so nothing is staged |
 | `git.bulk-staging` | `bash-guard` | block | `git add -A`, `git add .`, `git commit -a` and other bulk staging |
 | `git.add-expansion` | `bash-guard` | block | A `git add` path with `$` or a backtick in it |
@@ -133,6 +138,8 @@ The log is `~/.local/state/pipelinekit/events.jsonl`. `$XDG_STATE_HOME` moves it
 | `commit-msg.wip` | `commit-msg` | block | A wip commit outside `.claude/worktrees/` |
 | `commit-msg.ai-attribution` | `commit-msg` | block | An AI attribution line in the message |
 | `commit-msg.emoji` | `commit-msg` | block | An emoji in the message |
+| `pre-commit.never-stage` | `pre-commit` | block | The commit adds or changes a path on the never-stage list, however it was staged |
+| `pre-commit.never-stage-failed` | `pre-commit` | error | The never-stage check failed, for example because the list is missing, so staged paths were not checked |
 | `pre-commit.secret` | `pre-commit`, `pre-merge-commit` | block | gitleaks found a secret in the staged changes or in what a merge brings in |
 | `pre-commit.gitleaks-failed` | `pre-commit`, `pre-merge-commit` | error | gitleaks itself failed |
 | `pre-commit.allow-secret` | `pre-commit`, `pre-merge-commit` | override | `PIPELINEKIT_ALLOW_SECRET=1` skipped the scan |

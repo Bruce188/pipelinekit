@@ -104,6 +104,12 @@ def make_repo(tmp_path: Path, hooks: Path = GIT_HOOKS) -> Repo:
     return r
 
 
+def copy_never_stage(kit: Path) -> None:
+    """The never-stage list beside a copied kit, for pre-commit's first check."""
+    (kit / "config").mkdir()
+    shutil.copy(HOOKS.parent / "config" / "never-stage.txt", kit / "config")
+
+
 @pytest.fixture
 def repo(tmp_path: Path) -> Repo:
     return make_repo(tmp_path)
@@ -264,8 +270,9 @@ def test_a_refusal_leaves_no_bytecode_cache_beside_the_hooks(tmp_path):
     kit = tmp_path / "kit"
     shutil.copytree(GIT_HOOKS, kit / "git-hooks")
     (kit / "hooks").mkdir()
-    for name in ("filesize.py", "kitlog.py"):
+    for name in ("filesize.py", "kitlog.py", "bash-guard.py"):
         shutil.copy(HOOKS / name, kit / "hooks" / name)
+    copy_never_stage(kit)
     repo = make_repo(tmp_path, kit / "git-hooks")
     repo.write("big.py", text(2000))
     assert repo.commit().returncode != 0
@@ -974,7 +981,9 @@ def test_a_failing_check_lets_the_commit_through_and_is_logged(tmp_path, hook):
     kit = tmp_path / "kit"
     shutil.copytree(GIT_HOOKS, kit / "git-hooks")
     (kit / "hooks").mkdir()
-    shutil.copy(HOOKS / "kitlog.py", kit / "hooks" / "kitlog.py")
+    for name in ("kitlog.py", "bash-guard.py"):
+        shutil.copy(HOOKS / name, kit / "hooks" / name)
+    copy_never_stage(kit)
     (kit / "hooks" / "filesize.py").write_text("raise SystemExit(5)\n")
     repo = make_repo(tmp_path, kit / "git-hooks")
     if hook == "pre-commit":

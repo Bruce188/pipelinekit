@@ -11,7 +11,7 @@ Project-specific rules only; user-global rules live in `~/.claude/CLAUDE.md`.
 | `claude/git-hooks/` | Global git hooks (`commit-msg`, `pre-commit`, `pre-merge-commit`, `pre-push`) installed to `~/.claude/git-hooks` |
 | `claude/skills/` | `dotnet-conventions`, `deploy`, `exchange-api-keys`, `docs-writer`, `frontend-design` (vendored from `anthropics/skills`, see its `SOURCE.md`; do not edit), `mobile`, `kit` (self-check: `check.py` and its `check_*.py` modules, update: `update.py`, tests in `claude/skills/kit/tests/`), `ship` (test, fix and merge your own pull request: `ship.py` and its `ship_*.py` modules, tests in `claude/skills/ship/tests/`), `judge-loop` (plan, build and judge a change until the judges give 10: `loop.py` and its `loop_*.py` modules, the judges' role files in `roles/`, tests in `claude/skills/judge-loop/tests/`) |
 | `claude/agents/` | `kit-planner.md` (model `opus`), `kit-builder.md` (`opus`), `kit-judge.md` (`fable`, tools `Read, Grep, Glob` only), installed to `~/.claude/agents/` and started by the `judge-loop` skill; listed in `KIT_AGENTS` in `check_base.py` and `scripts/install.sh`, text tests in `claude/skills/kit/tests/test_agents.py` |
-| `claude/config/never-stage.txt` | Paths `bash-guard.py` refuses to stage |
+| `claude/config/never-stage.txt` | Paths `bash-guard.py` refuses to stage and the `pre-commit` git hook refuses to commit (through `bash-guard.py pre-commit`) |
 | `claude/config/settings.template.json` | Hooks, permissions, env and attribution merged into `~/.claude/settings.json` |
 | `claude/CLAUDE.md.template` | Rendered to `~/.claude/CLAUDE.md` by the installer |
 | `scripts/install.sh` | In-place overlay into `~/.claude`, settings merge, global git hooks, serena registration |

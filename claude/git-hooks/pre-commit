@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 # Global git pre-commit hook (core.hooksPath = ~/.claude/git-hooks).
-# Scans staged content with gitleaks, checks the file size limit, then runs the
-# repo's own pre-commit hook (.git/hooks/pre-commit or .githooks/pre-commit) if
-# there is one.
+# Refuses paths on the never-stage list, scans staged content with gitleaks,
+# checks the file size limit, then runs the repo's own pre-commit hook
+# (.git/hooks/pre-commit or .githooks/pre-commit) if there is one.
+#   - Never-stage list (../config/never-stage.txt, matched by
+#     ../hooks/bash-guard.py): a commit that adds or changes a listed path is
+#     refused, however it was staged. A check that fails warns and lets the
+#     commit through.
 #   - gitleaks missing: warn and allow.
 #   - PIPELINEKIT_ALLOW_SECRET=1: skip the scan for one commit (humans only;
 #     the Claude bash-guard hook refuses that assignment).
@@ -26,6 +30,18 @@ chain() {
 
 kitlog() { # kitlog <kind> <rule> <reason>: one line in the kit's event log; never fails
   python3 "$(dirname "$(realpath "$0")")/../hooks/kitlog.py" pre-commit "$@" </dev/null >/dev/null 2>&1 || true
+}
+
+never_stage() {
+  local rc=0
+  python3 "$(dirname "$(realpath "$0")")/../hooks/bash-guard.py" pre-commit || rc=$?
+  case $rc in
+    0) return 0 ;;
+    3) return 1 ;;
+  esac
+  echo "pre-commit: warning: never-stage check failed (exit $rc), staged paths NOT checked against the never-stage list; run /kit to see what is broken [pre-commit.never-stage-failed]" >&2
+  kitlog error pre-commit.never-stage-failed "never-stage check failed (exit $rc)"
+  return 0
 }
 
 scan() {
@@ -67,6 +83,7 @@ size_check() {
   return 0
 }
 
+never_stage || exit 1
 scan || exit 1
 size_check || exit 1
 chain pre-commit "$@" || exit $?
