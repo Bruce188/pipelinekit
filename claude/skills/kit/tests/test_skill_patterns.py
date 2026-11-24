@@ -23,14 +23,24 @@ def skill_text(name):
     return (SKILLS / name / "SKILL.md").read_text(encoding="utf-8")
 
 
-def allowed_tools(name):
-    """The rules of a skill's allowed-tools, inline or as a YAML list."""
-    head = re.match(r"---\n(.*?)\n---\n", skill_text(name), re.S).group(1)
+def rules_in(text):
+    """The rules of the allowed-tools in a skill's text, inline or as a YAML
+    list."""
+    head = re.match(r"---\n(.*?)\n---\n", text, re.S).group(1)
     m = re.search(r"^allowed-tools:(.*(?:\n  - .*)*)", head, re.M)
     if not m:
         return []
     value = m.group(1).replace("\n  - ", ", ")
     return re.findall(r"[A-Za-z]+(?:\([^()]*\))?", value)
+
+
+def allowed_tools(name):
+    return rules_in(skill_text(name))
+
+
+def every_bash_command(rule):
+    """A rule that lets any Bash command run: Bash, Bash() or Bash(*)."""
+    return re.fullmatch(r"Bash(?:\(\s*\**\s*\))?", rule) is not None
 
 
 def bash_rules(name, skill_dir):
@@ -52,6 +62,8 @@ def matches(rule, command):
 
 
 def allowed(name, skill_dir, command):
+    if any(every_bash_command(r) for r in allowed_tools(name)):
+        return True
     return any(matches(r, command) for r in bash_rules(name, skill_dir))
 
 
@@ -68,6 +80,27 @@ def helper_calls(name, skill_dir):
     return [c.strip().replace("${CLAUDE_SKILL_DIR}", skill_dir) for c in calls]
 
 
+def fenced_commands(name, skill_dir):
+    """Every command of the ```bash blocks in a skill's text, as written and
+    with its trailing comment left off, with the placeholders filled in."""
+    text = skill_text(name)
+    blocks = re.findall(r"^ *```bash\n(.*?)^ *```", text, re.S | re.M)
+    commands = []
+    for line in (line.strip() for block in blocks for line in block.splitlines()):
+        if not line or line.startswith("#"):
+            continue
+        line = (
+            line.replace("${CLAUDE_SKILL_DIR}", skill_dir)
+            .replace("<page>", "guide")
+            .replace("/path/to/repo", "/work/repo")
+        )
+        commands.append(line)
+        bare = re.sub(r"\s+#.*$", "", line)
+        if bare != line:
+            commands.append(bare)
+    return commands
+
+
 def test_the_matcher_follows_the_documented_examples():
     assert matches("npm run *", "npm run build")
     assert matches("npm run *", "npm run")
@@ -79,6 +112,26 @@ def test_the_matcher_follows_the_documented_examples():
     assert not matches("* --help *", "npm --help")
     assert matches("npm run build", "npm run build")
     assert not matches("npm run build", "npm run build --watch")
+
+
+@pytest.mark.parametrize(
+    "head",
+    [
+        "---\nname: x\nallowed-tools: Read, Bash\n---\n",
+        "---\nname: x\nallowed-tools:\n  - Read\n  - Bash\n  - Grep\n---\n",
+        "---\nname: x\nallowed-tools: Read, Bash(*)\n---\n",
+        "---\nname: x\nallowed-tools:\n  - Bash()\n---\n",
+    ],
+)
+def test_a_rule_for_every_bash_command_is_found_inline_and_in_a_list(head):
+    assert any(every_bash_command(r) for r in rules_in(head)), rules_in(head)
+    assert not every_bash_command("Bash(python3 ${CLAUDE_SKILL_DIR}/render.py *)")
+
+
+@pytest.mark.parametrize("name", SKILL_NAMES)
+def test_no_skill_lets_every_bash_command_run(name):
+    rules = allowed_tools(name)
+    assert not [r for r in rules if every_bash_command(r)], (name, rules)
 
 
 @pytest.mark.parametrize("name", SKILL_NAMES)
@@ -148,3 +201,55 @@ def test_a_lookalike_helper_in_a_project_asks(home):
     skill_dir = f"{home}/skills/kit"
     assert not allowed("kit", skill_dir, f"python3 {skill_dir}/check.pyc")
     assert not allowed("kit", skill_dir, f"python3 {skill_dir}/check_core.py")
+
+
+def test_docs_writer_names_its_helpers_by_the_skill_folder():
+    assert allowed_tools("docs-writer") == [
+        "Read",
+        "Write",
+        "Edit",
+        "Glob",
+        "Grep",
+        "Bash(python3 ${CLAUDE_SKILL_DIR}/render.py *)",
+        "Bash(python3 ${CLAUDE_SKILL_DIR}/verify_toc.py *)",
+        "Bash(python3 ${CLAUDE_SKILL_DIR}/richness_check.py *)",
+        "Bash(bash ${CLAUDE_SKILL_DIR}/tests/test_render.sh)",
+        "Bash(bash ${CLAUDE_SKILL_DIR}/tests/test_richness_threshold.sh)",
+    ]
+
+
+@pytest.mark.parametrize("home", HOMES)
+def test_docs_writer_runs_its_commands_without_a_prompt_from_any_home(home):
+    skill_dir = f"{home}/skills/docs-writer"
+    commands = fenced_commands("docs-writer", skill_dir)
+    assert len(commands) >= 8, commands
+    for script in ("render.py", "verify_toc.py", "richness_check.py"):
+        assert any(c.startswith(f"python3 {skill_dir}/{script} ") for c in commands), (
+            script
+        )
+    for script in ("render.py", "verify_toc.py"):
+        assert f"python3 {skill_dir}/{script}" in commands, script
+    for command in commands:
+        assert allowed("docs-writer", skill_dir, command), command
+
+
+@pytest.mark.parametrize("home", HOMES)
+def test_docs_writer_asks_for_any_other_command(home):
+    skill_dir = f"{home}/skills/docs-writer"
+    for command in (
+        "rm -rf build",
+        "git push origin main",
+        "pip install markdown pygments",
+        "python3 render.py",
+        "python3 -m render",
+        "python3 claude/skills/docs-writer/render.py",
+        "python3 /work/project/x/skills/docs-writer/verify_toc.py",
+        f"python3 {skill_dir}/render.py/../../../../work/x.py",
+        f"python3 {skill_dir}x/render.py",
+        f"python3 {skill_dir}/render.pyc",
+        f"python3 {home}/skills/docs-writer-old/richness_check.py --all",
+        f"bash {skill_dir}/tests/other.sh",
+        f"bash {skill_dir}/tests/test_render.sh; rm -rf build",
+        f"head -30 {skill_dir}/snippets/search-widget.html",
+    ):
+        assert not allowed("docs-writer", skill_dir, command), command
