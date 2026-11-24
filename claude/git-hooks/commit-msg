@@ -52,7 +52,7 @@ if re.search(rf"(?im)^\s*co-authored-by:.*{AI}", body) or \
 EMOJI = re.compile("[\U0001F000-\U0001FAFF☀-⛿✅✊✋✨❌❎"
                    "❓-❕❗➕-➗➰➿⭐⭕️]")
 if EMOJI.search(body):
-    fail("commit-msg.emoji", f"emoji are not allowed ({EMOJI.search(body).group()!r})",
+    fail("commit-msg.emoji", "emoji are not allowed",
          "take the emoji out of the message and commit again.")
 
 if re.match(r"(?i)wip\b", subject) or re.fullmatch(r"(?i)\w+(\([^)]*\))?!?:\s*wip\W*", subject):
