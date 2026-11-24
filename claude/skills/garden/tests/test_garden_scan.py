@@ -198,6 +198,30 @@ def test_a_scan_that_fails_says_so_in_one_line_and_exits_0(monkeypatch, capsys):
     assert err == ""
 
 
+def test_the_helper_starts_without_a_warning(sb, tmp_path):
+    # -W always: on Python 3.11 an invalid escape such as "\d" in a plain
+    # string is a DeprecationWarning, hidden by default. A fresh pycache folder
+    # makes every module compile again, so the warning cannot hide in a cache.
+    seed_sample(sb.root)
+    p = subprocess.run(
+        [
+            sys.executable,
+            "-W",
+            "always",
+            "-X",
+            f"pycache_prefix={tmp_path / 'pycache'}",
+            str(HELPER),
+            "scan",
+        ],
+        cwd=sb.root,
+        env=sb.env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert (p.returncode, p.stderr) == (0, "")
+
+
 def test_a_test_file_that_does_not_parse_is_counted(sb):
     sb.write("pyproject.toml", "[project]\nname = 'x'\n")
     sb.write("tests/test_broken.py", "def test_x(:\n")

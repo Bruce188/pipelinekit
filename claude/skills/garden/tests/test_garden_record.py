@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from garden_testkit import (
+    DEEP_JSON,
     SAMPLE_NO_ASSERT,
     SAMPLE_SKIP,
     Sandbox,
@@ -119,7 +120,13 @@ def test_an_old_run_shows_its_age(sb):
 
 @pytest.mark.parametrize(
     "text",
-    ["{", "[]", '{"date": "x", "findings": []}', '{"date": "2026-01-01T00:00:00Z"}'],
+    [
+        "{",
+        "[]",
+        '{"date": "x", "findings": []}',
+        '{"date": "2026-01-01T00:00:00Z"}',
+        pytest.param(DEEP_JSON, id="deeply-nested"),
+    ],
 )
 def test_a_broken_last_json_is_reported_not_trusted(sb, text):
     sb.write("docs/garden/last.json", text)
