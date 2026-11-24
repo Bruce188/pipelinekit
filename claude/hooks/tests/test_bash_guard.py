@@ -387,6 +387,7 @@ def test_block_names_its_rule_and_is_logged(env, tmp_path):
 @pytest.mark.parametrize(
     "remote",
     [
+        "https://user:token123@h.example/r",
         "https://user:pa ss@h.example/r",
         "https://user:pa'ss@h.example/r",
         "https://tok en@h.example/r",
