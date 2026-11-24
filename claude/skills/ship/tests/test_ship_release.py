@@ -760,6 +760,18 @@ def test_merge_refuses_what_the_record_calls_a_release(sb):
     )
 
 
+def test_a_release_answer_stays_until_a_new_commit(sb):
+    sb.passed("yes")
+    done = sb.ship("record", "--result", "pass", "--release", "no")
+    assert done.returncode == 0, done.stderr
+    assert "says this is a release; that stays until a new commit" in done.stdout
+    assert gates(sb.ship("status", "--json"))["release"]["state"] == "fail"
+    refused(sb, "release", 3)
+    sb.commit("fix: the last finding")
+    sb.passed("no")
+    assert gates(sb.ship("status", "--json"))["release"]["state"] == "pass"
+
+
 def test_a_record_without_the_answer_does_not_pass(sb):
     sb.passed()
     file = sb.work / "docs" / "uat" / "feat-1-thing.json"

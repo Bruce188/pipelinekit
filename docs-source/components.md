@@ -287,7 +287,7 @@ Ordinary are: lock files; files that pin tools (`.nvmrc`, `.python-version`, `Do
 
 No reading of a diff is complete, so three more things decide:
 
-- `ship.py record --result pass` takes `--release yes` or `--release no`. Whoever ran the test knows what the change is and says so; `yes` holds the pull request, and a pass without the answer is not accepted.
+- `ship.py record --result pass` takes `--release yes` or `--release no`. Whoever ran the test knows what the change is and says so; `yes` holds the pull request until a new commit, also when a later round on the same commit says `no`, and a pass without the answer is not accepted.
 - A project names its own release files and branches in its `CLAUDE.md`, each on a line of its own: `Release files: app/build.txt, deploy/` and `Release branches: team-*, customer-*`. A change to one of the files, and a pull request from or into one of the branches, is held. `deploy/` is everything below that directory; anything else is a glob on the path, for files also on the file name alone. As with the opt-out line, the `CLAUDE.md` on the base branch counts as well.
 - A branch that other pull requests were merged into is a stage, whatever it is called, and merging it on is a promotion. The helper asks GitHub about every head branch that is not a topic branch (`feat/...`, `fix/...`); without an answer nothing merges.
 

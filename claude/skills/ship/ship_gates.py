@@ -769,7 +769,11 @@ def promoted(repo, head):
 
 
 def recorded_release(repo, head):
-    """What the passed round on `head` says: 'yes', 'no', '' or None for no round."""
+    """What the passed round on `head` says: 'yes', 'no', '' or None for no round.
+
+    A `yes` from any round on `head` stands until a new commit: a later `no`
+    on the same commit does not lift it.
+    """
     try:
         rounds = load_record(repo.record_file)["rounds"]
     except RecordError:
@@ -777,6 +781,8 @@ def recorded_release(repo, head):
     last = rounds[-1] if rounds else {}
     if last.get("result") != "pass" or last.get("commit") != head:
         return None
+    if any(r.get("commit") == head and r.get("release") == "yes" for r in rounds):
+        return "yes"
     answer = last.get("release")
     return answer if answer in ("yes", "no") else ""
 

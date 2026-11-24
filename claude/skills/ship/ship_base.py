@@ -673,6 +673,9 @@ def cmd_record(args, repo, behind=None):
     path = repo.record_file
     data = load_record(path)
     rounds = data["rounds"]
+    said_yes = any(
+        r.get("commit") == repo.head and r.get("release") == "yes" for r in rounds
+    )
     rounds.append(
         {
             "round": len(rounds) + 1,
@@ -695,6 +698,11 @@ def cmd_record(args, repo, behind=None):
         f"({args.tester}){left}"
     )
     print(f"Record: {path.relative_to(repo.root).as_posix()}")
+    if said_yes and args.release != "yes":
+        print(
+            f"Note: an earlier round on {short(repo.head)} says this is a release; "
+            "that stays until a new commit."
+        )
     reason = stop_reason(rounds)
     if reason:
         print(f"STOP: {reason}. Tell the user what is stuck instead of trying again.")
