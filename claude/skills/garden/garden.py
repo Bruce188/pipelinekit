@@ -625,9 +625,9 @@ def cmd_time(args):
 
 
 def internal_error(exc):
-    """'internal error (<class>, line <n>)', the line the innermost in garden.
+    """'internal error (<class>, line <n>)': n is the innermost line in a garden module.
 
-    The message of the error is left out: it may quote the project's files.
+    The error's own message is left out: it may quote the project's files.
     """
     line = "?"
     for frame in traceback.extract_tb(exc.__traceback__):
