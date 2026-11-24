@@ -37,15 +37,21 @@ MAX_UNROTATED = 4_000_000  # a log that cannot be rotated grows to this size
 MAX_LINE = 2048
 # Characters that can change how a line reads: controls (C0 and C1), the soft
 # hyphen, line and paragraph separators, direction marks, zero-width and tag
-# characters, and halves of a surrogate pair.
+# characters, halves of a surrogate pair, and letters that draw as nothing (the
+# Hangul fillers, the Mongolian vowel separator and the blank Braille pattern;
+# check_base.BLANK lists the same, a test holds that).
 CONTROL = re.compile(
-    r"[\x00-\x1f\x7f-\x9f\xad\u061c\u200b-\u200f\u2028-\u202e\u2060-\u206f"
-    r"\ufeff\ud800-\udfff\U000e0000-\U000e007f]+"
+    r"[\x00-\x1f\x7f-\x9f\xad\u061c\u115f\u1160\u180e\u200b-\u200f\u2028-\u202e"
+    r"\u2060-\u206f\u2800\u3164\ufeff\uffa0\ud800-\udfff\U000e0000-\U000e007f]+"
 )
-# A password can hold a space or a quote, so only a slash ends it.
+# A password can hold a space or a quote, so only a slash ends it; after a
+# scheme's //, where user:password can only end at an @, not even a slash does.
 USER_PASSWORD = re.compile(r"[^\s/@:'\"]+:[^/]{0,400}@")  # user:password@host
+URL_PASSWORD = re.compile(r"//[^\s/@:'\"]*:.{0,400}@")  # //user:pass/word@host
 URL_USER = re.compile(r"//[^/]{0,400}@")  # //token@host
-URL_QUERY = re.compile(r"(?<=[^\s'\"])[?#][^\s'\"]*")  # ?token=... and #token
+# ?token=... and #token, also written as %3F and %23
+URL_QUERY = re.compile(r"(?<=[^\s'\"])(?:[?#]|%3[Ff]|%23)[^\s'\"]*")
+URL_PARAMS = re.compile(r"(/[^\s'\";]*);[^\s'\"]+")  # /path;token=...
 # What the kit keeps in its state directory; only such a directory is made private.
 OWN_FILES = {"events.jsonl", "events.jsonl.1", "update.json", "update.json.tmp"}
 
@@ -79,9 +85,16 @@ def tidy(text: object, limit: int) -> str:
 
 def without_credentials(text: str) -> str:
     """Without what a URL or remote can carry as a secret: user:password@,
-    a user in front of the host, a query string and a fragment."""
-    text = URL_USER.sub("//", USER_PASSWORD.sub("", text))
-    return URL_QUERY.sub("", text)
+    a user in front of the host, a query string, a fragment and path
+    parameters."""
+    text = URL_PASSWORD.sub("//", USER_PASSWORD.sub("", text))
+    text = URL_USER.sub("//", text)
+    return URL_PARAMS.sub(r"\1", URL_QUERY.sub("", text))
+
+
+def as_text(value: object) -> str:
+    """A field of the hook's input: a string, or empty for anything else."""
+    return value if isinstance(value, str) else ""
 
 
 def event(
@@ -93,6 +106,7 @@ def event(
     prog: str = "",
 ) -> dict:
     data = data if isinstance(data, dict) else {}
+    cwd = data.get("cwd")
     out: dict = {
         "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "v": VERSION,
@@ -103,9 +117,9 @@ def event(
     }
     optional = {
         "prog": tidy(prog, 40),
-        "session": tidy(data.get("session_id") or "", 80),
-        "tool_use_id": tidy(data.get("tool_use_id") or "", 80),
-        "cwd": tidy(data.get("cwd") or os.getcwd(), 400),
+        "session": tidy(as_text(data.get("session_id")), 80),
+        "tool_use_id": tidy(as_text(data.get("tool_use_id")), 80),
+        "cwd": tidy(os.getcwd() if cwd is None or cwd == "" else as_text(cwd), 400),
     }
     out.update({k: v for k, v in optional.items() if v})
     if os.environ.get("CLAUDECODE") == "1":
