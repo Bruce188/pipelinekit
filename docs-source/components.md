@@ -248,7 +248,7 @@ With the kit installed, Claude finishes the pull requests it opens instead of ha
 1. The issue lists acceptance criteria as a checklist.
 2. Claude builds the change, brings in its base, runs the project's tests and opens a draft pull request.
 3. The build is judged with the judge loop until it reaches 10 (see [Plan, build, judge](#plan-build-judge)); a small fix is recorded with `loop.py skip --reason` instead.
-4. A fresh agent tests the change. It gets the criteria and the running build, not the code or the builder's notes. A web page is driven with Playwright, a command-line tool or installer runs in a throwaway directory, an API is started and called. A change with nothing user-visible gets a smoke run instead.
+4. `ship.py prepare` keeps the test reports out of git, and a fresh agent tests the change. It gets the criteria and the running build, not the code or the builder's notes. A web page is driven with Playwright, a command-line tool or installer runs in a throwaway directory, an API is started and called. A change with nothing user-visible gets a smoke run instead.
 5. Findings are fixed, each bug with a regression test, and the test runs again until it passes.
 6. `ship.py record` notes the result for the tested commit, and with a pass whether the pull request is a release (`--release yes` or `--release no`). `ship.py merge` waits for CI and merges.
 
@@ -305,10 +305,11 @@ Merges: ask first
 
 The same line in `~/.claude/CLAUDE.md` turns it off everywhere, and so does `PIPELINEKIT_MERGE` in the environment with any non-empty value but `auto`. Claude then asks before it merges. The line counts on its own line, also as a list or task item, a heading, a table cell or two cells of a row (`| Merges | ask first |`), in bold, quoted, in backticks or inside an HTML comment. `Merging: ask first`, `Merges - ask first`, `Merges: always ask first`, `Merges: never`, `Merges: off` and `Merges: manual` count as the same line. A sentence that only mentions it does not. The `CLAUDE.md` on the base branch counts as well, so a branch cannot drop the line for its own pull request.
 
-Test reports and screenshots go to `docs/uat/` in the project. That directory is local: the helper adds it to `.git/info/exclude`, and it is on the never-stage list. The kit does not install Playwright; `/kit` reports whether `gh` and Playwright are available.
+Test reports and screenshots go to `docs/uat/` in the project. That directory is local: `ship.py prepare` adds it to `.git/info/exclude` before the test starts, so `git status` does not list the reports (`ship.py record` adds it too), and it is on the never-stage list. `ship.py status` and `ship.py merge --dry-run` change nothing in the repository. The kit does not install Playwright; `/kit` reports whether `gh` and Playwright are available.
 
 ```bash
 python3 ~/.claude/skills/ship/ship.py status           # every gate, with the reason
+python3 ~/.claude/skills/ship/ship.py prepare          # keep docs/uat/ out of git, print the report paths
 python3 ~/.claude/skills/ship/ship.py merge --dry-run  # what would be merged, and how
 ```
 

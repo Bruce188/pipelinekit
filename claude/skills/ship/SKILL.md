@@ -30,7 +30,7 @@ Stop and ask, with an interactive question, when any of these is true. The helpe
 1. **Criteria.** The issue lists acceptance criteria as a checklist, each one something a user can observe. If it has none, write them into the issue first.
 2. **Build.** Branch, change, run the project's tests, commit, bring the branch up to date with its base (see "Up to date with the base"), push, open the pull request as a draft with one `Closes #N` line per issue (see "Issue links").
 3. **Judge.** Before the acceptance test, the build is judged with the judge loop (`/judge-loop`) until it reaches 10. A small fix with nothing to judge is recorded with `loop.py skip --reason "..."` instead. The `judged` gate reads the loop's record.
-4. **Test.** Run `status` first: while `up-to-date` fails, the test does not start; bring the branch up to date as its line says. Pick the method from "How to test". A change a user can see or run is tested by a fresh agent that gets only the brief below. A change with nothing user-visible (refactor, CI, internal cleanup) gets a smoke run from you; record it with `--tester session`.
+4. **Test.** Run `status` first: while `up-to-date` fails, the test does not start; bring the branch up to date as its line says. Then run `prepare`: it keeps `docs/uat/` out of `git status` and prints where the tester writes. Pick the method from "How to test". A change a user can see or run is tested by a fresh agent that gets only the brief below. A change with nothing user-visible (refactor, CI, internal cleanup) gets a smoke run from you; record it with `--tester session`.
 5. **Findings.** Each one has an id (`F1`, `F2`), the steps, what was expected, what happened, the evidence, and a severity: blocker, should-fix or note.
 6. **Fix.** Fix every blocker and should-fix. A bug gets a regression test. Something outside the issue's scope becomes a new issue, not a fix here. Commit, bring the branch up to date with its base, run the tests again and push.
 7. **Test again.** Same brief, all criteria, plus the findings that were open. A fix can break something that passed before.
@@ -67,11 +67,11 @@ Start a fresh agent and give it:
 
 - the acceptance criteria, word for word;
 - how to reach the build: the URL, the command, or the install path;
-- where to write: the report to `docs/uat/<branch>.md` and screenshots to `docs/uat/<branch>/`, with `/` in the branch name replaced by `-`;
+- where to write: the report and screenshot paths `prepare` printed (`docs/uat/<branch>.md` and `docs/uat/<branch>/`, with `/` in the branch name replaced by `-`);
 - the finding format from step 5;
 - these rules, word for word: "A file you will check: read it whole, once. A file you need one fact from: search first, then read only those lines. Read nothing twice. Fewer, fuller tool calls: independent reads in one message, commands chained in one call. Keep tool output short. The same error after about 10 calls: stop and report it. Return at most 15 lines; the details go to the report."
 
-Do not give it the diff, your notes, or what you expect to work. It does not edit code, commit, push or merge. `docs/uat/` is local: the helper adds it to `.git/info/exclude`, and it is on the kit's never-stage list.
+Do not give it the diff, your notes, or what you expect to work. It does not edit code, commit, push or merge. `docs/uat/` is local: `prepare` adds it to `.git/info/exclude` (`record` does too, for a test run without it), and it is on the kit's never-stage list. `status` changes nothing in the repository.
 
 ## The helper
 
@@ -80,6 +80,7 @@ Run it through Bash in these forms only. The only text you add is finding ids an
 | Command | Use |
 |---------|-----|
 | `python3 ${CLAUDE_SKILL_DIR}/ship.py status` | every gate with its state and reason; `--json` for scripts; `--base BRANCH` names the base before there is a pull request |
+| `python3 ${CLAUDE_SKILL_DIR}/ship.py prepare` | before the test: adds `docs/uat/` to `.git/info/exclude` and prints the report and screenshot paths for this branch; needs no `gh` |
 | `python3 ${CLAUDE_SKILL_DIR}/ship.py record --result pass --release no` | the test passed for the current commit, and the pull request is not a release (`--release yes`: it is one) |
 | `python3 ${CLAUDE_SKILL_DIR}/ship.py record --result fail --open F1 F3` | the test failed; these findings are open |
 | `python3 ${CLAUDE_SKILL_DIR}/ship.py wait` | wait until every CI check has a conclusion |

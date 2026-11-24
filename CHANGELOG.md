@@ -131,6 +131,10 @@ kit used to ship, so those parts are gone.
 - `gh pr merge --admin` is on the `permissions.ask` list, `docs/uat/` (local
   test reports) is on the never-stage list, and `/kit` reports whether `gh`
   and Playwright are available.
+- `ship.py prepare` adds `docs/uat/` to `.git/info/exclude` before the
+  acceptance test and prints where the report and screenshots go, so
+  `git status` does not list the reports before the first `record`.
+  `ship.py status` and `merge --dry-run` still change nothing.
 
 ### Design
 

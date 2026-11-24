@@ -438,6 +438,70 @@ def test_record_writes_the_round_and_keeps_it_out_of_commits(sb):
     assert sb.git("status", "--porcelain") == ""
 
 
+def exclude_bytes(sb):
+    path = sb.work / ".git/info/exclude"
+    return path.read_bytes() if path.exists() else None
+
+
+def write_report(sb):
+    (sb.work / "docs/uat/feat-1-thing").mkdir(parents=True)
+    (sb.work / "docs/uat/feat-1-thing.md").write_text("# Report\n")
+    (sb.work / "docs/uat/feat-1-thing/home.png").write_bytes(b"png")
+
+
+def test_prepare_keeps_the_report_out_of_git_status_before_the_first_record(sb):
+    done = sb.ship("prepare")
+    assert done.returncode == 0, done.stderr
+    assert "Report: docs/uat/feat-1-thing.md" in done.stdout
+    assert "Screenshots: docs/uat/feat-1-thing/" in done.stdout
+    write_report(sb)
+    assert sb.git("status", "--porcelain") == ""
+    exclude = (sb.work / ".git/info/exclude").read_text()
+    assert exclude.count("docs/uat/") == 1
+    assert sb.ship("prepare").returncode == 0
+    assert (sb.work / ".git/info/exclude").read_text() == exclude
+    assert not (sb.fake / "calls.jsonl").exists()  # no gh call, no network
+
+
+def test_prepare_adds_no_line_where_another_rule_ignores_the_folder(sb):
+    ignore = sb.tmp / "global-ignore"
+    ignore.write_text("docs/\n")
+    (sb.tmp / "gitconfig").write_text(f"[core]\n\texcludesFile = {ignore}\n")
+    before = exclude_bytes(sb)
+    assert sb.ship("prepare").returncode == 0
+    assert exclude_bytes(sb) == before
+
+
+def test_prepare_adds_the_line_where_another_rule_ignores_only_the_record(sb):
+    exclude = sb.work / ".git/info/exclude"
+    exclude.parent.mkdir(parents=True, exist_ok=True)
+    exclude.write_text("*.json\n")
+    assert sb.ship("prepare").returncode == 0
+    write_report(sb)
+    assert sb.git("status", "--porcelain") == ""
+    assert exclude.read_text() == "*.json\ndocs/uat/\n"
+
+
+def test_prepare_says_when_it_cannot_write_the_exclude_file(sb):
+    exclude = sb.work / ".git/info/exclude"
+    exclude.unlink(missing_ok=True)
+    exclude.mkdir(parents=True)
+    done = sb.ship("prepare")
+    assert done.returncode == 1
+    assert "could not add docs/uat/ to .git/info/exclude" in done.stdout
+    assert "Report: docs/uat/feat-1-thing.md" in done.stdout
+
+
+def test_status_and_a_dry_run_change_nothing_in_the_repository(sb):
+    write_report(sb)
+    before = exclude_bytes(sb)
+    sb.ship("status")
+    sb.ship("status", "--json", "--exit-zero")
+    sb.ship("merge", "--dry-run")
+    assert exclude_bytes(sb) == before
+    assert sb.git("status", "--porcelain") == "?? docs/"
+
+
 def test_record_checks_its_arguments(sb):
     assert sb.ship("record", "--result", "pass", "--open", "F1").returncode == 2
     assert sb.ship("record", "--result", "fail").returncode == 2
