@@ -512,7 +512,7 @@ def test_json_report(kit):
         "update",
         "activity",
     }
-    assert d["update"] == {"state": "off"}
+    assert d["update"] == {"state": "off", "reason": "switched-off"}
     assert d["healthy"] is True and d["mode"] == "full"
     assert d["counts"]["fail"] == 0 and d["counts"]["pass"] > 20
     assert d["kit"]["checkout"] == str(REPO)

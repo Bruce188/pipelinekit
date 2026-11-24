@@ -1483,12 +1483,12 @@ def answer_of_origin(c: Check, checkout: str, branch: str, now: float) -> dict:
 def check_update(c: Check) -> None:
     """Is the remote ahead of this install? Informs; never a problem."""
 
-    def skip(why: str, fix: str = "") -> None:
-        c.update = {"state": "unknown"}
+    def skip(reason: str, why: str, fix: str = "") -> None:
+        c.update = {"state": "unknown", "reason": reason}
         c.add("update", "info", f"not checked: {why}", fix)
 
     if os.environ.get("PIPELINEKIT_UPDATE_CHECK") == "0":
-        c.update = {"state": "off"}
+        c.update = {"state": "off", "reason": "switched-off"}
         c.add(
             "update",
             "info",
@@ -1497,9 +1497,9 @@ def check_update(c: Check) -> None:
         return
     checkout, branch, installed = update_source(c)
     if checkout_problem(checkout):
-        return skip(checkout_problem(checkout))
+        return skip("no-checkout", checkout_problem(checkout))
     if not COMMIT.fullmatch(installed):
-        return skip("the install manifest names no commit")
+        return skip("no-commit", "the install manifest names no commit")
     head = git_value("-C", checkout, "rev-parse", "HEAD")
     if COMMIT.fullmatch(head) and head != installed:
         c.add(
@@ -1510,12 +1510,15 @@ def check_update(c: Check) -> None:
             repair_hint(c),
         )
     if branch_problem(branch):
-        return skip(branch_problem(branch))
+        return skip("no-branch", branch_problem(branch))
     now = time.time()
     answer = None if c.refresh else cached_answer(checkout, branch, now)
     if answer is None:
         if not c.remote:
-            return skip("no recent answer of origin, and --no-remote does not ask it")
+            return skip(
+                "no-remote",
+                "no recent answer of origin, and --no-remote does not ask it",
+            )
         answer = answer_of_origin(c, checkout, branch, now)
         store_answer(checkout, branch, answer)
     remote = answer["commit"]
@@ -1523,12 +1526,13 @@ def check_update(c: Check) -> None:
     if answer["state"] == "unreachable":
         hours = UPDATE_TTL["unreachable"] // 3600
         return skip(
+            "unreachable",
             f"origin did not answer (offline, no access or no such remote), {when}",
             f"origin is asked again {plural(hours, 'hour')} after that; to ask "
             f"now: python3 {c.path('skills/kit/check.py')} --refresh",
         )
     if answer["state"] == "gone":
-        return skip(f"origin has no branch {branch}, {when}")
+        return skip("branch-gone", f"origin has no branch {branch}, {when}")
     c.update = {
         "state": "current",
         "branch": branch,
@@ -1664,7 +1668,9 @@ def run_checks(
     if not quick:
         probe(c)
     check_environment(c)
-    if not quick:
+    if quick:
+        c.update = {"state": "unknown", "reason": "quick"}
+    else:
         check_update(c)
         check_activity(c)
     return c

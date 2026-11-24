@@ -176,6 +176,8 @@ def test_unreachable_origin_is_not_a_problem(tracked):
     assert "[info] not checked: origin did not answer" in out
     assert out.rstrip().endswith("Result: healthy")
     assert json.loads(cache(kit).read_text())["state"] == "unreachable"
+    d = json.loads(check(kit, "--json", env=ON)[1])
+    assert d["update"] == {"state": "unknown", "reason": "unreachable"}
     # An hour later it is asked again; an answer would be kept for a day.
     git(kit, tracked["work"], "remote", "set-url", "origin", str(tracked["origin"]))
     rc, out = check(kit, env=ON)
@@ -193,27 +195,40 @@ def test_branch_gone_from_origin(tracked):
     rc, out = check(kit, env=ON)
     assert rc == 0, out
     assert "[info] not checked: origin has no branch old, checked just now" in out
+    d = json.loads(check(kit, "--json", env=ON)[1])
+    assert d["update"] == {"state": "unknown", "reason": "branch-gone"}
 
 
 @pytest.mark.parametrize(
-    "change, said",
+    "change, said, reason",
     [
-        ({"checkout": "/no/such/checkout"}, "the checkout this install was made from"),
-        ({"checkout": ""}, "the checkout this install was made from"),
-        ({"commit": "abc"}, "the install manifest names no commit"),
-        ({"branch": ""}, "the install was made from a checkout that was on no branch"),
+        (
+            {"checkout": "/no/such/checkout"},
+            "the checkout this install was made from",
+            "no-checkout",
+        ),
+        ({"checkout": ""}, "the checkout this install was made from", "no-checkout"),
+        ({"commit": "abc"}, "the install manifest names no commit", "no-commit"),
+        (
+            {"branch": ""},
+            "the install was made from a checkout that was on no branch",
+            "no-branch",
+        ),
         (
             {"branch": "--upload-pack=touch pwned"},
             "the branch in the install manifest is not a name the kit takes",
+            "no-branch",
         ),
     ],
 )
-def test_update_not_checked(tracked, change, said):
+def test_update_not_checked(tracked, change, said, reason):
     kit = tracked["kit"]
     edit_json(kit, "pipelinekit/manifest.json", lambda d: d.update(change))
     rc, out = check(kit, env=ON, cwd=tracked["work"].parent)
     assert rc == 0, out
     assert f"[info] not checked: {said}" in out
+    d = json.loads(check(kit, "--json", env=ON, cwd=tracked["work"].parent)[1])
+    assert d["update"] == {"state": "unknown", "reason": reason}
     assert not cache(kit).exists()
     assert not (tracked["work"].parent / "pwned").exists()
 
@@ -231,7 +246,8 @@ def test_quick_has_no_update_check(tracked):
     kit = tracked["kit"]
     rc, out = check(kit, "--quick", "--verbose", env=ON)
     assert rc == 0 and "Updates" not in out and not cache(kit).exists(), out
-    assert json.loads(check(kit, "--quick", "--json", env=ON)[1])["update"] == {}
+    d = json.loads(check(kit, "--quick", "--json", env=ON)[1])
+    assert d["update"] == {"state": "unknown", "reason": "quick"}
 
 
 NO_ANSWER = (
@@ -252,7 +268,7 @@ def test_no_remote_uses_only_a_recent_answer(tracked):
     cache(kit).write_text(json.dumps(saved))
     rc, out = check(kit, "--no-remote", "--json", env=ON)
     d = json.loads(out)
-    assert d["update"] == {"state": "unknown"}
+    assert d["update"] == {"state": "unknown", "reason": "no-remote"}
     assert [i["msg"] for i in d["results"] if i["section"] == "update"] == [
         NO_ANSWER.removeprefix("[info] ")
     ]
@@ -390,7 +406,7 @@ def test_origin_is_asked_while_the_other_checks_run(tracked, monkeypatch, tmp_pa
     msgs = [i["msg"] for i in c.items if i["section"] == "update"]
     assert msgs and msgs[0].startswith("not checked: origin did not answer"), msgs
     c = check_py.run_checks(str(tracked["kit"]["home"]), True)
-    assert asked == ["main"] and c.update == {}
+    assert asked == ["main"] and c.update == {"state": "unknown", "reason": "quick"}
 
 
 def test_no_remote_and_a_stored_answer_start_no_call(tracked, monkeypatch, tmp_path):
