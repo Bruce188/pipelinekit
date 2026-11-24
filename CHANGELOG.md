@@ -10,6 +10,10 @@
   userscript headers, Sphinx, Ant, `debian/changelog`, `.nix`, Vite).
 - kit: a `gh`, `claude` or `gitleaks` that fails on `--version` is a warning,
   not a pass; a skill helper that lost its executable bit is a warning.
+- kit, ship: the skills pre-approve their installed helper only
+  (`${CLAUDE_SKILL_DIR}/check.py`, `update.py plan`, `ship.py`), no longer any
+  script whose path ends the same way; the components page lists what each
+  skill runs without asking.
 
 ## 0.1.0 — 2026-11-03
 
