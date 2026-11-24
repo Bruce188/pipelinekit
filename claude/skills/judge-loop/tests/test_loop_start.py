@@ -319,6 +319,12 @@ def test_a_rename_counts_as_two_files(sb):
     )
 
 
+SKIP_STOP = (
+    "STOP: this change is 1 file and {lines}, {cause}. Next: ask the user before "
+    "skipping the judge; with their yes, the same command with --user-ok."
+)
+
+
 def test_a_binary_file_gets_the_full_panel(sb):
     sb.write("img.bin", b"\x00\x01\x02\x00")
     run = sb.start_build(lines=0)
@@ -340,7 +346,10 @@ def test_a_path_the_base_marks_without_diff(sb):
     sb.git("merge", "-q", "--ff-only", "origin/main")
     sb.change("data.txt", 1)
     run = sb.run("skip", "--reason", "small")
-    assert run.code == 3, run
+    assert (run.code, run.last) == (
+        3,
+        SKIP_STOP.format(lines="0 lines", cause="data.txt has no line count"),
+    ), run
     run = sb.start_build(lines=0)
     assert panel_line(run) == f"Panel: {FULL} (auto: data.txt has no line count)"
 
@@ -350,7 +359,10 @@ def test_a_submodule_pointer_alone(sb):
     sb.git("commit", "-q", "-m", "feat: sub")
     (sb.root / "sub").mkdir()  # how a submodule that is not checked out looks
     run = sb.run("skip", "--reason", "small")
-    assert run.code == 3, run
+    assert (run.code, run.last) == (
+        3,
+        SKIP_STOP.format(lines="1 line", cause="sub is a submodule pointer"),
+    ), run
     run = sb.start_build(lines=0)
     assert panel_line(run) == f"Panel: {FULL} (auto: sub is a submodule pointer)"
 

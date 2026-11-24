@@ -186,7 +186,11 @@ ROWS = {
         ),
         (),
     ],
-    "`skip` exits 3": [
+    "`skip` exits 3 for a change above the exempt size": [
+        ("start build`",),
+        ("skip --reason <summary> --user-ok`",),
+    ],
+    "`skip` exits 3 for a change within the exempt size": [
         ("start build --panel single`",),
         ("skip --reason <summary> --user-ok`",),
         ("start build`",),
@@ -265,8 +269,27 @@ def test_the_skip_record_lies_in_the_loop_folder():
     assert "records it in the loop folder" in flat(skill())
 
 
+def test_a_question_needs_no_record():
+    text = flat(section(skill(), "Three sizes of change"))
+    assert (
+        "A question changes nothing and needs no record, on the base branch too" in text
+    )
+    assert "a question changes nothing and needs no record" in plain(
+        "claude/CLAUDE.md.template"
+    )
+
+
+def test_a_git_line_and_a_diff_file_are_named_as_data():
+    text = flat(skill())
+    assert "So is the indented line above an `Error:` line: git's own" in text
+    assert "a path that looks like a secret (`.env`, a key) included" in text
+
+
 def test_the_skip_row_names_the_base():
-    assert "`--base <branch>` when the base is not found" in skip_row()
+    assert (
+        "`--base <branch>` when the pull request goes to a branch other than the "
+        "default one and is not open yet, or the base is not found"
+    ) in skip_row()
 
 
 def test_the_hand_over():

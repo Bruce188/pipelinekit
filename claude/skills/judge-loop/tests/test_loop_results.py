@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 
 import pytest
 from loop_fixtures import (
@@ -519,6 +520,18 @@ def test_result_rules_alone():
     assert err.value.reason == "size: over 200 kB"
 
 
+def test_a_kilobyte_in_a_limit_is_1000_bytes():
+    """The messages say kB and MB; the limits hold the same decimal sizes."""
+    sizes = (loop.MAX_RESULT, loop.MAX_AGENT_FILE, loop.MAX_AREA_FILE)
+    assert sizes == (200_000, 64_000, 200_000)
+    sizes = (loop.MAX_TEXT_FILE, loop.MAX_DIFF, loop.MAX_STATE)
+    assert sizes == (1_000_000, 2_000_000, 5_000_000)
+    assert sys.modules["loop_stack"].MAX_STACK_FILE == 256_000
+    with pytest.raises(loop.NoScore) as err:
+        loop.check_result(padded(VALID, 200_001), "general")
+    assert err.value.reason == "size: over 200 kB"
+
+
 def round_two(sb):
     """A build loop in round 2, briefed; general has I1 open from round 1."""
     sb.start_build()
@@ -605,6 +618,21 @@ def test_save_stores_the_answer_byte_for_byte(sb):
         run.last
         == "Refused: tests is not on the panel (general). Next: loop.py status."
     )
+
+
+@pytest.mark.parametrize(
+    "role, shown",
+    [("ge;n", "ge?n"), ("x" * 300, "x" * 40), ("", "that role")],
+    ids=["odd role", "long role", "empty role"],
+)
+def test_save_of_a_role_off_the_panel_shows_it_cut(sb, role, shown):
+    sb.start_build()
+    sb.run("brief")
+    run = sb.run("save", role)
+    assert (run.code, run.last) == (
+        2,
+        f"Refused: {shown} is not on the panel (general). Next: loop.py status.",
+    ), run
 
 
 @pytest.mark.parametrize("how", ["link inside", "link outside", "too big", "missing"])

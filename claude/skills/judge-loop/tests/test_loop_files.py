@@ -510,6 +510,15 @@ START_ON_BASE = (
     "Refused: main is the base branch. Next: git switch -c <work branch>, then the "
     "same command; for a plan loop, loop.py start plan --name <issue>-<slug>."
 )
+MOVE_BACK = (
+    "Refused: main is the base branch. Next: git switch -c <work branch>; with no "
+    "remote, git branch -f main <commit the work began on> when work is committed "
+    "on main; then the same command"
+)
+IS_BASE_NO_REMOTE = MOVE_BACK + "."
+START_ON_BASE_NO_REMOTE = (
+    MOVE_BACK + "; for a plan loop, loop.py start plan --name <issue>-<slug>."
+)
 BAD_PLAN = (
     "Refused: {v} cannot name a judge record "
     "(letters, digits, '.', '_', '-'; at most 80). Next: {t}."
@@ -531,14 +540,14 @@ REFUSALS = [
         on_main_without_remote,
         ("start", "build"),
         2,
-        START_ON_BASE,
+        START_ON_BASE_NO_REMOTE,
     ),
     (
         "skip on main, no remote",
         on_main_without_remote,
         ("skip", "--reason", "x"),
         2,
-        IS_BASE,
+        IS_BASE_NO_REMOTE,
     ),
     ("build detached", detach, ("start", "build"), 2, NO_BRANCH),
     ("plan without a name", None, ("start", "plan"), 2, NO_PLAN_NAME),

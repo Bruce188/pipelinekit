@@ -11,9 +11,9 @@ from loop_stack import *
 
 # brief ------------------------------------------------------------------------
 
-SCHEMA_TEXT = """\
+SCHEMA_TEXT = f"""\
 Your whole answer is one JSON object, with no code fence and no text before or
-after it, UTF-8 without a byte order mark, at most 200 kB:
+after it, UTF-8 without a byte order mark, at most {size_text(MAX_RESULT)}:
   "judge": your role (optional); "overall": a number from 0 to 10 in steps of 0.5;
   "dimensions": an object of at most 20 names, each a number from 0 to 10 in
   steps of 0.5;
@@ -483,7 +483,7 @@ def cmd_save(args):
     if role not in st["panel"]:
         raise Exit(
             2,
-            f"Refused: {show_name(role, 'that role')} is not on the panel "
+            f"Refused: {shown_value(role or '') or 'that role'} is not on the panel "
             f"({', '.join(st['panel'])}). Next: loop.py status.",
         )
     pending = st["pending"]
@@ -509,7 +509,8 @@ def cmd_save(args):
     if data is False:
         raise Exit(
             2,
-            f"Refused: {answer} is not a plain file of at most 200 kB. "
+            f"Refused: {answer} is not a plain file of at most "
+            f"{size_text(MAX_RESULT)}. "
             "Next: write the judge's answer there with the Write tool.",
         )
     briefed = work_id(pending)

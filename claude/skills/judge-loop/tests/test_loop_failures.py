@@ -924,7 +924,7 @@ def test_kit_agents_stop_at_what_they_cannot_check(sb, how):
         (agents / "sub").symlink_to(outside)
         rel = ".claude/agents/sub"
     elif how == "a file over 64 kB":
-        sb.write(rel, "x" * (64 * 1024 + 1))
+        sb.write(rel, "x" * (64_000 + 1))
     elif how == "a folder that cannot be listed":
         sb.write(".claude/agents/sub/helper.md", "---\nname: helper\n---\n")
         rel = ".claude/agents/sub"
@@ -989,7 +989,7 @@ def test_fallback_agents_note_what_they_cannot_check(sb, how):
         (agents / "sub").symlink_to(outside)
         rel = ".claude/agents/sub"
     elif how == "a file over 64 kB":
-        sb.write(rel, "x" * (64 * 1024 + 1))
+        sb.write(rel, "x" * (64_000 + 1))
     else:
         agents.parent.mkdir(parents=True)
         agents.symlink_to(outside)
