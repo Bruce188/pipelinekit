@@ -57,7 +57,7 @@ and is recorded without the command text in
 `~/.local/state/pipelinekit/events.jsonl`. `/kit` lists what the hooks blocked,
 asked about or failed on in the last days. `PIPELINEKIT_LOG=0` switches the log
 off. Every rule id is in
-[Components](documentation/components.html#rule-ids-and-the-event-log).
+[Hooks and rule ids](documentation/hooks.html#rule-ids-and-the-event-log).
 
 ### Skills
 
@@ -104,7 +104,7 @@ A line counts once it is on the branch pull requests go to. The same lines in
 backup), so put them in the project; the installer warns when the file it
 replaces held one. The loop needs both a Fable and an Opus model; an account
 without one sets `Judge loop: off`. See
-[Components](documentation/components.html#plan-build-judge).
+[Skills and agents](documentation/skills.html#plan-build-judge).
 
 `ship.py` merges a pull request only once its `judged` gate holds: the
 branch's build loop ended in 10, a used budget or your accept, or
