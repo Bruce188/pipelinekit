@@ -901,9 +901,7 @@ def test_status_names_a_release_file_value_that_matches_nothing(sb):
         "CLAUDE.md", "# Rules\n", "# Rules\n\nRelease files: deploy, nothing.txt\n"
     )
     release = gates(sb.ship("status", "--json"))["release"]
-    assert release["hints"] == [
-        "Release files: nothing.txt matches no tracked file"
-    ]
+    assert release["hints"] == ["Release files: nothing.txt matches no tracked file"]
     assert "Release files: nothing.txt matches no" in sb.ship("status").stdout
 
 
