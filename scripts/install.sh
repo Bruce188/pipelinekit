@@ -197,10 +197,14 @@ for skill in skills:
             else:
                 shutil.copy2(s, d)
     except OSError:
+        # A partial copy goes; the user's files are still in place.
         if dst and os.path.isdir(dst) and not os.path.islink(dst):
             shutil.rmtree(dst, ignore_errors=True)
         elif dst and os.path.lexists(dst):
-            os.remove(dst)
+            try:
+                os.remove(dst)
+            except OSError:
+                pass
         fail(skill)
     count = f"{len(rels)} file" + ("" if len(rels) == 1 else "s")
     print(f"[install] kept {count} of your own from skills/{skill} in {dst}")
