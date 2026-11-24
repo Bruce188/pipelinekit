@@ -10,19 +10,21 @@
         "@upstash/context7-mcp"
       ]
     },
-    "_serena_pin_note": "Pinned to oraios/serena @ 9b292a6c8b03c8306f117efeabb0ea7afdb0b3c0. Refresh the pin (and re-run install.sh with SERENA_REF=<new sha>) when upgrading. This project-scope entry takes precedence over the user-scope registration written by scripts/install.sh.",
+    "_serena_pin_note": "Pinned to oraios/serena @ 5e4f5cd173c7ff3eed37ee3f1de6c266b937c5dc. Refresh the pin (and re-run install.sh with SERENA_REF=<new sha>) when upgrading. This project-scope entry takes precedence over the user-scope registration written by scripts/install.sh.",
     "serena": {
       "type": "stdio",
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/oraios/serena@9b292a6c8b03c8306f117efeabb0ea7afdb0b3c0",
+        "git+https://github.com/oraios/serena@5e4f5cd173c7ff3eed37ee3f1de6c266b937c5dc",
         "serena",
         "start-mcp-server",
         "--context",
         "claude-code",
         "--project",
-        "."
+        ".",
+        "--agent-interface",
+        "tools"
       ]
     }
   },

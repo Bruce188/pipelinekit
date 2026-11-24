@@ -19,8 +19,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 VERSION="$(cat "$REPO_ROOT/VERSION" 2>/dev/null || echo unknown)"
 CLAUDE_HOME="${CLAUDE_HOME:-$HOME/.claude}"
 TS="$(date +%Y%m%d-%H%M%S)"
-# Keep in sync with .mcp.json / .mcp.json.template.
-SERENA_REF="${SERENA_REF:-9b292a6c8b03c8306f117efeabb0ea7afdb0b3c0}"
+# serena 2.1.0. Keep in sync with .mcp.json / .mcp.json.template.
+SERENA_REF="${SERENA_REF:-5e4f5cd173c7ff3eed37ee3f1de6c266b937c5dc}"
 
 KIT_SKILLS=(dotnet-conventions deploy exchange-api-keys docs-writer frontend-design mobile kit ship judge-loop)
 KIT_AGENTS=(kit-planner.md kit-builder.md kit-judge.md)
@@ -463,18 +463,47 @@ else
   if [[ "$SERENA_REF" == "main" && "${SERENA_ALLOW_ROLLING:-0}" != "1" ]]; then
     die "SERENA_REF=main is a rolling ref; pin a commit SHA or set SERENA_ALLOW_ROLLING=1"
   fi
+  SERENA_SRC="git+https://github.com/oraios/serena@${SERENA_REF}"
+  # serena_version: the version the serena on PATH names, empty if it names none.
+  serena_version() { serena --version 2>/dev/null | sed -n 's/^Serena \([0-9][0-9.]*[^ ]*\).*/\1/p' | head -n 1 || true; }
+  # serena 1.x stops on a .serena/project.yml that serena 2 wrote, and has no
+  # --agent-interface; the kit's registration needs serena 2.
+  serena_2() { [[ "$1" =~ ^[0-9]+\. ]] && (( ${1%%.*} >= 2 )); }
   if ! command -v serena >/dev/null 2>&1; then
     if command -v uv >/dev/null 2>&1; then
       log "installing serena @ $SERENA_REF"
-      uv tool install --quiet "git+https://github.com/oraios/serena@${SERENA_REF}" || warn "serena install failed"
+      uv tool install --quiet "$SERENA_SRC" || warn "serena install failed"
     else
       warn "serena: uv not found (curl -LsSf https://astral.sh/uv/install.sh | sh); skipping"
     fi
+  else
+    have="$(serena_version)"
+    if [[ -n "$have" ]] && ! serena_2 "$have"; then
+      if command -v uv >/dev/null 2>&1; then
+        log "serena $have cannot read the .serena/project.yml files that serena 2 writes; upgrading to $SERENA_REF"
+        log "serena 2 rewrites each registered project's .serena/project.yml on its first start; serena 1.x cannot read them afterwards"
+        uv tool install --force --quiet "$SERENA_SRC" || warn "serena upgrade failed"
+      else
+        warn "serena $have cannot read the .serena/project.yml files that serena 2 writes; upgrade it: uv tool install --force $SERENA_SRC"
+      fi
+    fi
   fi
   if command -v serena >/dev/null 2>&1; then
+    have="$(serena_version)"
+    # The tools interface: one MCP tool per operation, as before serena 2. Its
+    # default for a new config, REPL, runs Python inside the server, out of
+    # reach of bash-guard.py and the sandbox.
+    SERENA_ARGS=(start-mcp-server --context claude-code --project-from-cwd)
+    if [[ -z "$have" ]]; then
+      warn "could not read the version of $(command -v serena); registered it without --agent-interface tools. Upgrade it (uv tool install --force $SERENA_SRC) and run the installer again"
+    elif serena_2 "$have"; then
+      SERENA_ARGS+=(--agent-interface tools)
+    else
+      warn "serena $have is older than 2: registered it without --agent-interface tools. Upgrade it and run the installer again"
+    fi
     CJ="$HOME/.claude.json"
     [[ -f "$CJ" ]] && cp -p "$CJ" "$CJ.bak-$TS"
-    python3 - "$CJ" <<'PY'
+    python3 - "$CJ" "${SERENA_ARGS[@]}" <<'PY'
 import json, os, sys
 p = sys.argv[1]
 try:
@@ -486,7 +515,7 @@ if not isinstance(data, dict) or not isinstance(data.setdefault("mcpServers", {}
 data["mcpServers"]["serena"] = {
     "type": "stdio",
     "command": "serena",
-    "args": ["start-mcp-server", "--context", "claude-code", "--project-from-cwd"],
+    "args": sys.argv[2:],
 }
 tmp = p + ".tmp"
 with open(tmp, "w", encoding="utf-8") as f:
