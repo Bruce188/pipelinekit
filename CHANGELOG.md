@@ -109,7 +109,9 @@ kit used to ship, so those parts are gone.
   asking the user.
 - Release pull requests, tags, publishing, other people's pull requests and
   anything behind branch protection stay with the user. A project opts out
-  with the line `Merges: ask first` in its `CLAUDE.md`.
+  with the line `Merges: ask first` in its `CLAUDE.md`. A `CLAUDE.md` that
+  cannot be read, such as a named pipe at `~/.claude/CLAUDE.md`, is named and
+  stops the merge instead of hanging `ship.py status` and `merge`.
 - The release gate reads the branches, the title and the diff. A version is
   held wherever it is set, except in the places known to hold the versions of
   other things (lock files, dependency tables, files that pin tools, CI,

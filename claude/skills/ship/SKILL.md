@@ -95,7 +95,7 @@ Exit code: 0 done, 1 a gate or a check failed (fix it and run again), 2 the help
 |------|------------|
 | `pr` | the branch has an open pull request |
 | `own` | you opened it, and it is not from a fork |
-| `policy` | the project has not opted out |
+| `policy` | the project has not opted out; a `CLAUDE.md` it cannot read (a named pipe, a folder) stops it and is named |
 | `release` | it is not a release (see "What stays with the user") |
 | `linked` | into the default branch: GitHub lists every issue the pull request names among those it closes; into another branch: no misspelt keyword, and names the release pull request that will close them; fails when `gh` cannot answer |
 | `review` | no review is required, requested or asking for changes |
