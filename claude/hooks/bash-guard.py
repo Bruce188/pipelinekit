@@ -13,7 +13,8 @@ Stdlib only. Never exits 1 on purpose, so `onFailure: "block"` is safe.
 
 Every block and ask carries a rule id (`git.no-verify`, `fetch.pipe-to-shell`)
 that is printed with the reason and written to the kit's event log through
-kitlog.py; `/kit` reads that log. The command text is not logged.
+kitlog.py; `/kit` reads that log. The command text is not logged. A block ends
+with a `Next:` line that names the step to take (NEXT_STEP).
 
 Groups:
   git    --no-verify / commit -n, -c core.hooksPath, override env vars,
@@ -81,11 +82,50 @@ class Verdict(Exception):
 
 
 class Block(Verdict):
-    pass
+    """A refusal. `step` is what to do instead; it defaults to NEXT_STEP[rule]."""
+
+    def __init__(self, reason: str, rule: str, step: str = "") -> None:
+        super().__init__(reason, rule)
+        self.step = step or NEXT_STEP[rule]
 
 
 class Ask(Verdict):
     pass
+
+
+FETCH_STEP = "download to a file (curl -fsSLo file <url>), read it, then run it."
+PUSH_STEP = "git switch -c <branch>, git push -u origin <branch>, then open a PR."
+COMMIT_NAMED = "then git commit without -a or a bulk pathspec."
+# The `Next:` line of each block: the step to take instead.
+NEXT_STEP = {
+    "parse.unparsable": "simplify the quoting and run the command again.",
+    "git.no-verify": "run the command without --no-verify or -n, and fix what "
+    "the hook reports.",
+    "git.hookspath-option": "run the git command without the core.hooksPath setting.",
+    "git.config-hookspath": "leave core.hooksPath as it is; if it has to change, "
+    "ask the user to change it.",
+    "git.config-global": "ask the user to make the change to the global or "
+    "system git config.",
+    "git.override-variable": "run the command without that variable; only the "
+    "user sets it.",
+    "git.remote-change": "ask the user to change the remotes.",
+    "git.push-remote": "push to origin: git push origin <branch>.",
+    "git.push-protected": PUSH_STEP,
+    "git.push-all": "push one branch: git push origin <branch>.",
+    "git.never-stage": "leave that path out and git add the other files by name.",
+    "git.never-stage-missing": "run /kit; it names the installer command that "
+    "puts the list back.",
+    "git.bulk-staging": "git add the files by name; git status lists them.",
+    "git.add-expansion": "name the files literally, without $ or backticks.",
+    "git.pathspec-file": "name the files on the command line.",
+    "docker.mount-sensitive": "mount the project or a directory under it "
+    "instead, for example -v .:/app.",
+    "docker.mount-variable": "write the mount source as a literal path.",
+    "fetch.pipe-to-shell": FETCH_STEP,
+    "fetch.substitution": FETCH_STEP,
+    "fetch.process-substitution": FETCH_STEP,
+}
+CHECK_STEP = "run /kit to see what is broken, then run the command again."
 
 
 # ---------------------------------------------------------------- parsing
@@ -109,7 +149,7 @@ def pipelines(cmd: str) -> list[list[list[str]]]:
         toks = tokenize(cmd)
     except ValueError as exc:
         raise Block(
-            f"could not parse the command ({exc}); simplify the quoting",
+            f"could not parse the command ({exc})",
             "parse.unparsable",
         ) from None
     out: list[list[list[str]]] = []
@@ -362,7 +402,7 @@ def check_git(argv: list[str], cwd: str, ctx: dict) -> None:
         check_git_config(args)
     elif sub == "remote" and args and args[0] in ("add", "set-url"):
         raise Block(
-            f"git remote {args[0]} is not allowed; ask the user to change remotes",
+            f"git remote {args[0]} is not allowed",
             "git.remote-change",
         )
     elif sub == "push":
@@ -408,12 +448,12 @@ def check_git_config(args: list[str]) -> None:
         return
     if any(p.lower() == "core.hookspath" for p in positional):
         raise Block(
-            "changing core.hooksPath bypasses the git hooks; ask the user",
+            "changing core.hooksPath bypasses the git hooks",
             "git.config-hookspath",
         )
     if scoped:
         raise Block(
-            "git config --global/--system writes are not allowed; ask the user",
+            "git config --global/--system writes are not allowed",
             "git.config-global",
         )
 
@@ -430,7 +470,7 @@ def check_push(args: list[str], cwd: str) -> None:
         a = args[i]
         if a in ("--all", "--mirror", "--branches"):
             raise Block(
-                f"git push {a} would push main/master too; push one branch",
+                f"git push {a} would push main/master too",
                 "git.push-all",
             )
         if a.startswith("--repo="):
@@ -466,7 +506,7 @@ def check_push(args: list[str], cwd: str) -> None:
             dst = dst.split("heads/", 1)[1]
         if dst in PROTECTED_BRANCHES and not spec.startswith(":"):
             raise Block(
-                f"direct push to {dst} is not allowed; push a branch and open a PR",
+                f"direct push to {dst} is not allowed",
                 "git.push-protected",
             )
 
@@ -500,6 +540,11 @@ def check_paths(paths: list[str], ctx: dict, how: str) -> None:
                 f"{how} '{p}' matches never-stage pattern '{hit}' "
                 f"({NEVER_STAGE}); it must not be committed",
                 "git.never-stage",
+                step=f"leave '{p}' out and git add the other files by name; "
+                "the file stays on disk."
+                if how == "staging"
+                else f"leave '{p}' out: git add the other files by name, "
+                "then git commit without -a or that path.",
             )
 
 
@@ -526,12 +571,12 @@ def check_add(args: list[str], cwd: str, ctx: dict) -> None:
     for s in specs:
         if "$" in s or "`" in s:
             raise Block(
-                f"git add path '{s}' uses shell expansion; name the files literally",
+                f"git add path '{s}' uses shell expansion",
                 "git.add-expansion",
             )
     if any(f.startswith("--pathspec-from-file") for f in flags):
         raise Block(
-            "git add --pathspec-from-file can't be checked; name the files",
+            "git add --pathspec-from-file can't be checked",
             "git.pathspec-file",
         )
     bulk = [
@@ -543,8 +588,7 @@ def check_add(args: list[str], cwd: str, ctx: dict) -> None:
     ]
     if bulk and not in_worktree(cwd):
         raise Block(
-            f"bulk staging ({bulk[0]}) may stage protected files; "
-            "git add specific paths instead",
+            f"bulk staging ({bulk[0]}) may stage protected files",
             "git.bulk-staging",
         )
     check_paths(
@@ -614,7 +658,7 @@ def check_commit(args: list[str], cwd: str, ctx: dict) -> None:
                 all_flag = True
             if key == "--pathspec-from-file":
                 raise Block(
-                    "git commit --pathspec-from-file can't be checked; name the files",
+                    "git commit --pathspec-from-file can't be checked",
                     "git.pathspec-file",
                 )
             if key in COMMIT_LONG_WITH_ARG and "=" not in a:
@@ -638,9 +682,9 @@ def check_commit(args: list[str], cwd: str, ctx: dict) -> None:
     if all_flag:
         if not in_worktree(cwd):
             raise Block(
-                "git commit -a may commit protected files; "
-                "git add specific paths first",
+                "git commit -a may commit protected files",
                 "git.bulk-staging",
+                step=f"git add the files by name, {COMMIT_NAMED}",
             )
         rc, out = run_git(cwd, "-c", "core.quotepath=off", "diff", "--name-only")
         check_paths(out.split("\n") if out else [], ctx, "committing")
@@ -651,6 +695,7 @@ def check_commit(args: list[str], cwd: str, ctx: dict) -> None:
             raise Block(
                 "git commit with a bulk pathspec may commit protected files",
                 "git.bulk-staging",
+                step=f"git add the files by name, {COMMIT_NAMED}",
             )
         check_paths(
             [repo_rel(cwd, s) for s in specs if not s.startswith(":")],
@@ -706,7 +751,7 @@ def host_path(src: str, cwd: str) -> str | None:
     src = re.sub(r"^\$\{?PWD\}?|^\$\(pwd\)", cwd, src)
     if "$" in src or "`" in src:
         raise Block(
-            f"docker mount source '{src}' has an unresolved variable; spell it out",
+            f"docker mount source '{src}' has an unresolved variable",
             "docker.mount-variable",
         )
     return os.path.realpath(os.path.join(cwd, os.path.expanduser(src)))
@@ -806,7 +851,7 @@ def check_fetch(pipeline: list[list[str]], raw: str) -> None:
             seen_fetch = True
         elif seen_fetch and argv and reads_stdin_code(argv):
             raise Block(
-                "piping a download into a shell or interpreter; download, inspect, run",
+                "piping a download into a shell or interpreter",
                 "fetch.pipe-to-shell",
             )
         # bash -c "$(curl ...)", eval "$(curl ...)", python3 -c "$(curl ...)"
@@ -816,13 +861,13 @@ def check_fetch(pipeline: list[list[str]], raw: str) -> None:
             and any(FETCH_SUBST.search(t) for t in argv[1:])
         ):
             raise Block(
-                "running downloaded code via substitution; download, inspect, then run",
+                "running downloaded code via substitution",
                 "fetch.substitution",
             )
     # bash <(curl ...), source <(wget ...): the tokenizer splits `<(`; match text.
     if PROC_SUBST.search(raw):
         raise Block(
-            "running downloaded code via process substitution; download, inspect, run",
+            "running downloaded code via process substitution",
             "fetch.process-substitution",
         )
 
@@ -911,7 +956,8 @@ def main() -> int:
     if not isinstance(data, dict):
         record("error", "input.invalid", "invalid hook input")
         print(
-            "BLOCKED: bash-guard got invalid hook input [input.invalid]",
+            "BLOCKED: bash-guard got invalid hook input [input.invalid]\n"
+            f"Next: {CHECK_STEP}",
             file=sys.stderr,
         )
         return 2
@@ -921,7 +967,7 @@ def main() -> int:
         guard(str(cmd or ""), str(data.get("cwd") or os.getcwd()), groups)
     except Block as exc:
         record("block", exc.rule, str(exc), data)
-        print(f"BLOCKED: {exc} [{exc.rule}]", file=sys.stderr)
+        print(f"BLOCKED: {exc} [{exc.rule}]\nNext: {exc.step}", file=sys.stderr)
         return 2
     except Ask as exc:
         record("ask", exc.rule, str(exc), data)
@@ -942,7 +988,7 @@ def main() -> int:
         record("error", "internal.crash", f"bash-guard failed ({name})", data)
         print(
             f"BLOCKED: bash-guard failed ({name}); the command was not checked"
-            " [internal.crash]",
+            f" [internal.crash]\nNext: {CHECK_STEP}",
             file=sys.stderr,
         )
         return 2

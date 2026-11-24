@@ -107,7 +107,7 @@ def test_block_is_logged_with_its_rule(tmp_path):
     )
     assert p.returncode == 2
     assert p.stderr.startswith("BLOCKED: ")
-    assert p.stderr.rstrip().endswith("[bare-repo.marker]")
+    assert p.stderr.splitlines()[0].endswith("[bare-repo.marker]")
     lines = (tmp_path / "state" / "events.jsonl").read_text().splitlines()
     (e,) = [json.loads(ln) for ln in lines]
     assert (e["hook"], e["kind"], e["rule"]) == (
@@ -141,4 +141,4 @@ def test_input_nested_too_deep_is_refused(tmp_path):
         [str(BARE)], input="[" * 200000, capture_output=True, text=True, env=env
     )
     assert p.returncode == 2 and "Traceback" not in p.stderr
-    assert p.stderr.rstrip().endswith("[input.invalid]")
+    assert p.stderr.splitlines()[0].endswith("[input.invalid]")

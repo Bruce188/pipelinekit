@@ -12,7 +12,8 @@ cwd would hold HEAD together with config, objects or refs. A lone `config`
 directory are allowed.
 
 Exit 0 = allow, exit 2 + stderr = block. A block is written to the kit's event
-log (kitlog.py) under the rule id `bare-repo.marker`.
+log (kitlog.py) under the rule id `bare-repo.marker`, and its message ends with
+a `Next:` line that names the step to take.
 """
 
 from __future__ import annotations
@@ -22,6 +23,11 @@ import os
 import sys
 
 MARKERS = ("HEAD", "config", "objects", "refs")
+MARKER_STEP = (
+    "write the file in another directory; if a bare repository belongs here, "
+    "ask the user to make it."
+)
+CHECK_STEP = "run /kit to see what is broken, then make the write again."
 
 
 def check(path: str, cwd: str) -> str | None:
@@ -64,7 +70,8 @@ def main() -> int:
     if not isinstance(data, dict):
         record("error", "input.invalid", "invalid hook input")
         print(
-            "BLOCKED: block-bare-repo-markers got invalid hook input [input.invalid]",
+            "BLOCKED: block-bare-repo-markers got invalid hook input"
+            f" [input.invalid]\nNext: {CHECK_STEP}",
             file=sys.stderr,
         )
         return 2
@@ -82,13 +89,16 @@ def main() -> int:
         )
         print(
             f"BLOCKED: block-bare-repo-markers failed ({name}); the write was not"
-            " checked [internal.crash]",
+            f" checked [internal.crash]\nNext: {CHECK_STEP}",
             file=sys.stderr,
         )
         return 2
     if reason:
         record("block", "bare-repo.marker", reason, data)
-        print(f"BLOCKED: {reason} [bare-repo.marker]", file=sys.stderr)
+        print(
+            f"BLOCKED: {reason} [bare-repo.marker]\nNext: {MARKER_STEP}",
+            file=sys.stderr,
+        )
         return 2
     return 0
 
