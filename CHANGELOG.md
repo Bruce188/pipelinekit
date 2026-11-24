@@ -181,6 +181,13 @@ kit used to ship, so those parts are gone.
   it, giving the `changes.md` row to write and the agent that writes it; a row
   marked with a round not counted yet does not count. `save` gives a 10 with
   a blocking item its own reason and hint.
+- `save` refuses an item whose evidence names no place, neither a `file:line`
+  nor a section of the plan or a criterion, and says which form it expects.
+- `start` does not ask `gh pr view` for the base in a repository without a
+  remote, and a remote that `gh` does not know as GitHub reads as no pull
+  request, without a note.
+- The installer leaves the `judge-loop` tests in the repo, and `/kit` no
+  longer expects them in `~/.claude/skills/judge-loop/`.
 
 ### Security
 
