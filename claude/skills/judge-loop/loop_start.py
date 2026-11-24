@@ -196,7 +196,7 @@ def read_switches(ctx, base):
         data = None
         said.append(f"{shown} is a folder where a file was expected: not used")
     if data is False:
-        said.append(f"{shown} is a link or over 1 MB: not used")
+        said.append(f"{shown} is a link or over {size_text(MAX_TEXT_FILE)}: not used")
     sources.append((shown, data.decode("utf-8", "replace") if data else "", ""))
     for rel, text, on in sources:
         for key, value, number, dropped in parse_switches(text):
@@ -631,7 +631,8 @@ def check_agents(ctx, agents, command, panel=()):
         raise Exit(
             3,
             f"STOP: {show_path(rel)} cannot be checked for an agent name (a link, "
-            "over 64 kB or not readable). Next: ask the user: make it a plain, "
+            f"over {size_text(MAX_AGENT_FILE)} or not readable). Next: ask the user: "
+            "make it a plain, "
             "readable file or folder, or the same command with --agents fallback.",
         )
     again = "start ..." if command == "start" else command

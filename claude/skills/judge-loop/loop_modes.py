@@ -16,7 +16,8 @@ ROW = re.compile(
     r"(fixed|answered|owner): \S.*"
 )
 NOT_PLAIN = (
-    "Refused: {path} is not a plain file of at most 200 kB. "
+    "Refused: {path} is not a plain file of at most "
+    f"{size_text(MAX_AREA_FILE)}. "
     "Next: shorten it, then loop.py brief."
 )
 PATTERN = re.compile(r"[*?\[]")
@@ -318,9 +319,12 @@ def print_notes(st, rows):
 # Diffs ------------------------------------------------------------------------
 
 
+DIFF_CUT = f"----- the diff is cut here at {size_text(MAX_DIFF)} -----\n".encode()
+
+
 def cut_diff(body):
     if len(body) > MAX_DIFF:
-        return body[:MAX_DIFF] + b"\n----- the diff is cut here at 2 MB -----\n"
+        return body[:MAX_DIFF] + b"\n" + DIFF_CUT
     return body
 
 
@@ -352,7 +356,7 @@ def hunks_text(ctx, base, head, full):
     first = HUNKS_HEAD.format(kept=kept, total=total, full=full)
     out = first.encode() + b"\n" + patch
     if len(body) > MAX_DIFF:
-        out += b"----- the diff is cut here at 2 MB -----\n"
+        out += DIFF_CUT
     return out
 
 

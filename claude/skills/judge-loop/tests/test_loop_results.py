@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 
 import pytest
 from loop_fixtures import (
@@ -516,6 +517,18 @@ def test_result_rules_alone():
         assert loop.check_result(data, "general", {"I1"}), name
     with pytest.raises(loop.NoScore) as err:
         loop.check_result(padded(VALID, loop.MAX_RESULT + 1), "general")
+    assert err.value.reason == "size: over 200 kB"
+
+
+def test_a_kilobyte_in_a_limit_is_1000_bytes():
+    """The messages say kB and MB; the limits hold the same decimal sizes."""
+    sizes = (loop.MAX_RESULT, loop.MAX_AGENT_FILE, loop.MAX_AREA_FILE)
+    assert sizes == (200_000, 64_000, 200_000)
+    sizes = (loop.MAX_TEXT_FILE, loop.MAX_DIFF, loop.MAX_STATE)
+    assert sizes == (1_000_000, 2_000_000, 5_000_000)
+    assert sys.modules["loop_stack"].MAX_STACK_FILE == 256_000
+    with pytest.raises(loop.NoScore) as err:
+        loop.check_result(padded(VALID, 200_001), "general")
     assert err.value.reason == "size: over 200 kB"
 
 

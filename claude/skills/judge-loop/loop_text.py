@@ -37,11 +37,14 @@ AGENTS_HELP = "kit: the kit's agents; fallback: general-purpose agents"
 DEFAULT_BUDGET = 5
 MAX_SWITCH_ROUNDS = 20
 MAX_RESUME_ROUNDS = 5
-MAX_RESULT = 200 * 1024
-MAX_AGENT_FILE = 64 * 1024
-MAX_STATE = 5 * 1024 * 1024
-MAX_TEXT_FILE = 1024 * 1024
-MAX_DIFF = 2 * 1024 * 1024
+# Sizes are decimal, as the messages name them: a kB is 1000 bytes.
+KB = 1000
+MB = 1000 * KB
+MAX_RESULT = 200 * KB
+MAX_AGENT_FILE = 64 * KB
+MAX_STATE = 5 * MB
+MAX_TEXT_FILE = 1 * MB
+MAX_DIFF = 2 * MB
 # The most pull requests one stack loop judges together.
 STACK_MAX_PRS = 5
 MAX_FIELD = 2000
@@ -55,7 +58,7 @@ LIMIT = 300
 REFUSED_SHOWN = 40
 MAX_PATH_SHOWN = 120
 MAX_TOKENS = 1_000_000_000
-MAX_AREA_FILE = 200 * 1024
+MAX_AREA_FILE = 200 * KB
 MAX_AREA_PATH = 120
 MODES = ("full", "changes", "skipped")
 READS = ("full", "changes", "part")
@@ -119,7 +122,14 @@ TEN_WITH_OPEN = "a 10 with open items"
 TEN_WITH_BLOCKING = "a 10 with a blocking item"
 NOT_ONE_OBJECT = "not one JSON object"
 NOT_UTF8 = "not UTF-8"
-OVER_SIZE = "over 200 kB"
+
+
+def size_text(size) -> str:
+    """A size limit as the messages name it: 2 MB, 200 kB."""
+    return f"{size // MB} MB" if size % MB == 0 else f"{size // KB} kB"
+
+
+OVER_SIZE = f"over {size_text(MAX_RESULT)}"
 NOT_HALF_STEP = "not a step of 0.5"
 BELOW_NO_ITEM = "below 10 without an item"
 TEN_NOT_FULL = "a 10 without a full read"

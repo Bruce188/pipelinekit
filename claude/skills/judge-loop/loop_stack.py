@@ -17,7 +17,7 @@ from loop_modes import *
 STACK_MAX_LINES = 2500
 # A stack loop runs at most this many rounds, whatever Judge rounds says.
 STACK_BUDGET = 5
-MAX_STACK_FILE = 256 * 1024
+MAX_STACK_FILE = 256 * KB
 MAX_PATHS = 200
 TYPES = (
     "feat",
@@ -77,7 +77,9 @@ def read_json(path, what, form):
         data = None
     if not data:
         raise refuse(
-            f"{shown_value(path)} is not a readable file of at most 256 kB", fix
+            f"{shown_value(path)} is not a readable file of at most "
+            f"{size_text(MAX_STACK_FILE)}",
+            fix,
         )
     try:
         return json.loads(data.decode("utf-8"))
@@ -434,7 +436,7 @@ def own_changes(ctx, old, head, below, base, m):
         ).encode()
     out = first.encode() + body[:MAX_DIFF]
     if len(body) > MAX_DIFF:
-        out += b"----- the log is cut here at 2 MB -----\n"
+        out += f"----- the log is cut here at {size_text(MAX_DIFF)} -----\n".encode()
     return out
 
 
