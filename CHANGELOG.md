@@ -197,6 +197,13 @@ kit used to ship, so those parts are gone.
 - `start build` on the base branch also names the way to a plan loop
   (`loop.py start plan --name <issue>-<slug>`), which still starts there; with
   `--stack` it names the stack's top branch to switch to.
+- Without a remote, `start build` and `skip` on the base branch also say to
+  move the base branch back to the commit the work began on. `skip` above the
+  exempt size has its own question for the user; a question needs no skip
+  record. `leftovers --dir` writes the repository and home folders as `<repo>`
+  and `~`, and its checklist names each item in code. A refused role or id of
+  `settle` and `save` is shown cut, odd characters as `?`. Size limits are
+  decimal, as their messages say (200 kB is 200,000 bytes).
 
 ### Security
 
@@ -289,6 +296,9 @@ kit used to ship, so those parts are gone.
 
 ### Fixed
 
+- The installer names the backup of your own agent or `frontend-design` folder
+  by an absolute path without a doubled slash, also for a relative
+  `CLAUDE_HOME` or one that ends in `/`.
 - docs-writer: the richness check counted inline script/style as prose words.
 - docs-writer: before-after-slider dropped its placeholder children.
 - docs-writer: widgets and template features (search from `file://`, the
