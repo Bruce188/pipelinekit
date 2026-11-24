@@ -27,10 +27,10 @@ def rules_in(text):
     """The rules of the allowed-tools in a skill's text, inline or as a YAML
     list."""
     head = re.match(r"---\n(.*?)\n---\n", text, re.S).group(1)
-    m = re.search(r"^allowed-tools:(.*(?:\n  - .*)*)", head, re.M)
+    m = re.search(r"^allowed-tools:(.*(?:\n[ \t]*- .*)*)", head, re.M)
     if not m:
         return []
-    value = m.group(1).replace("\n  - ", ", ")
+    value = re.sub(r"\n[ \t]*- ", ", ", m.group(1))
     return re.findall(r"[A-Za-z]+(?:\([^()]*\))?", value)
 
 
@@ -121,6 +121,7 @@ def test_the_matcher_follows_the_documented_examples():
         "---\nname: x\nallowed-tools:\n  - Read\n  - Bash\n  - Grep\n---\n",
         "---\nname: x\nallowed-tools: Read, Bash(*)\n---\n",
         "---\nname: x\nallowed-tools:\n  - Bash()\n---\n",
+        "---\nname: x\nallowed-tools:\n- Read\n- Bash\npaths:\n  - docs/**\n---\n",
     ],
 )
 def test_a_rule_for_every_bash_command_is_found_inline_and_in_a_list(head):
