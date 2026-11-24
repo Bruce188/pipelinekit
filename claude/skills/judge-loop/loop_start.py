@@ -3,7 +3,6 @@
 # ruff: noqa: F403, F405
 from __future__ import annotations
 
-import contextlib
 import json
 import os
 import re
@@ -754,7 +753,7 @@ def move_aside(loop):
     i = 1
     while os.path.lexists(parent / f"{loop.kind}.{i}"):
         i += 1
-    os.rename(loop.path(), parent / f"{loop.kind}.{i}")
+    loop.move(loop.path(), parent / f"{loop.kind}.{i}")
     return f"docs/loops/{loop.name}/{loop.kind}.{i}"
 
 
@@ -909,9 +908,7 @@ def cmd_start(args):
             loop.write("criteria.md", plan[1])
         loop.save()
     except OSError:
-        for sub in ("plan.md", "criteria.md") if plan else ():
-            with contextlib.suppress(OSError):
-                os.unlink(loop.path(sub))
+        loop.put_back()
         raise
     if others:
         QUALIFY.extend([True, (kind, name)])

@@ -562,6 +562,10 @@ class Loop:
         self.ctx, self.kind, self.name = ctx, kind, name
         self.rel = f"docs/loops/{name}/{kind}"
         self.st = None
+        # what this command changed in the folder, oldest first, so that a state
+        # too big to save can put it back: ("mkdir", path, None), ("write",
+        # path, old bytes or None) and ("move", from, to)
+        self.undo = []
 
     def path(self, sub=""):
         rel = f"{self.rel}/{sub}" if sub else self.rel
@@ -577,6 +581,7 @@ class Loop:
             )
             if not os.path.lexists(here):
                 os.mkdir(here)
+                self.undo.append(("mkdir", here, None))
         return self.path(sub)
 
     def read(self, sub, limit=MAX_TEXT_FILE):
@@ -594,7 +599,66 @@ class Loop:
             data = data.encode("utf-8")
         parent = os.path.dirname(sub)
         self.mkdir(parent)
-        write_atomic(self.path(sub), data)
+        path = self.path(sub)
+        try:
+            with open(path, "rb") as fh:
+                old = fh.read()
+        except (FileNotFoundError, IsADirectoryError):
+            old = None
+        write_atomic(path, data)
+        self.undo.append(("write", path, old))
+
+    def move(self, src, dst):
+        """Move a file or folder of the loop, so that put_back can move it back."""
+        os.replace(src, dst)
+        self.undo.append(("move", src, dst))
+
+    def put_back(self):
+        """Undo what this command wrote, moved and made, last first.
+
+        The number of files put back and the paths that could not be."""
+        done, failed = set(), []
+        while self.undo:
+            what, path, old = self.undo.pop()
+            try:
+                if what == "mkdir":
+                    os.rmdir(path)
+                    continue
+                if what == "move":
+                    os.replace(old, path)
+                elif old is None:
+                    os.unlink(path)
+                else:
+                    write_atomic(path, old)
+                done.add(path)
+            except OSError:
+                if what != "mkdir" and path not in failed:
+                    failed.append(path)
+        return len(done - set(failed)), failed
+
+    def put_back_words(self):
+        """Put back this command's changes; the words that say how it went."""
+        done, failed = self.put_back()
+        if failed:
+            shown = ", ".join(
+                show_path(os.path.relpath(p, self.ctx.root)) for p in failed[:3]
+            )
+            more = ", ..." if len(failed) > 3 else ""
+            return (
+                f"the saved one is kept, but {count(len(failed), 'other file')} this "
+                f"command changed could not be put back ({shown}{more})"
+            )
+        if done == 1:
+            return (
+                "the saved one is kept and the other file this command changed is "
+                "put back as it was"
+            )
+        if done:
+            return (
+                f"the saved one is kept and the {done} other files this command "
+                "changed are put back as they were"
+            )
+        return "the saved one is kept and this command changed no other file"
 
     def exists(self, sub=""):
         return os.path.lexists(self.path(sub))
@@ -647,9 +711,10 @@ class Loop:
     def check_size(self, after=None):
         """The state as save writes it; refused when load could not read it back.
 
-        Called before the files written next to state.json, so a refusal leaves
-        them as they were. after is the next step, by default the one that keeps
-        the open items."""
+        Called before the files written next to state.json, so a refusal mostly
+        finds nothing to undo; what this command did change in the folder is
+        put back. after is the next step, by default the one that keeps the open
+        items."""
         data = (json.dumps(self.st, indent=1, sort_keys=True) + "\n").encode("utf-8")
         if len(data) > MAX_STATE:
             rel = show_path(self.rel)
@@ -657,8 +722,8 @@ class Loop:
             raise Exit(
                 2,
                 f"Error: the new {rel}/state.json would be {len(data):,} bytes, over "
-                f"the {MAX_STATE:,} bytes loop.py reads back; the saved one is kept. "
-                f"Next: tell the user; {after}",
+                f"the {MAX_STATE:,} bytes loop.py reads back; "
+                f"{self.put_back_words()}. Next: tell the user; {after}",
             )
         return data
 
@@ -666,6 +731,7 @@ class Loop:
         data = self.check_size(after)
         ensure_ignored(self.ctx)
         self.write("state.json", data)
+        self.undo.clear()
 
     def mtime(self):
         return os.lstat(self.path("state.json")).st_mtime_ns

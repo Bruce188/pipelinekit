@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -112,8 +113,12 @@ def test_a_start_from_a_plan_loop_that_cannot_write(sb, name):
 
 TOO_BIG = (
     "Error: the new {folder}/state.json would be {size:,} bytes, over the "
-    "{limit:,} bytes loop.py reads back; the saved one is kept. Next: tell the "
-    "user; {next}"
+    "{limit:,} bytes loop.py reads back; {kept}. Next: tell the user; {next}"
+)
+NOTHING_ELSE = "the saved one is kept and this command changed no other file"
+PUT_BACK = re.compile(
+    r"; the saved one is kept and the [0-9]+ other files this command changed are "
+    r"put back as they were\. Next: "
 )
 KEEP_ITEMS = (
     "loop.py abandon, then loop.py leftovers --dir to keep the open items, then "
@@ -165,7 +170,13 @@ def test_a_state_of_exactly_the_limit_is_saved_and_one_byte_more_is_not(sb):
     run = sb.run("round")
     assert (run.code, run.last) == (
         2,
-        TOO_BIG.format(folder=FOLDER, size=size, limit=size - 1, next=KEEP_ROUND_ITEMS),
+        TOO_BIG.format(
+            folder=FOLDER,
+            size=size,
+            limit=size - 1,
+            kept=NOTHING_ELSE,
+            next=KEEP_ROUND_ITEMS,
+        ),
     ), run
     assert files_of(folder) == before
     limit_state(sb, size)
@@ -181,7 +192,7 @@ def test_a_settle_too_big_to_save_writes_nothing(sb):
     limit_state(sb, len(before["state.json"]))
     run = sb.run("settle", "general", "I1", "--note", "not needed")
     assert run.code == 2, run
-    assert run.last.endswith(f"Next: tell the user; {KEEP_ITEMS}"), run
+    assert run.last.endswith(f"; {NOTHING_ELSE}. Next: tell the user; {KEEP_ITEMS}")
     assert "refused round" not in run.last, run
     assert files_of(folder) == before
 
@@ -245,13 +256,125 @@ def test_an_abandon_too_big_to_save_points_to_status(sb):
     assert run.code == 2, run
     assert run.last.startswith(f"Error: the new {FOLDER}/state.json would be "), run
     assert run.last.endswith(
-        f" bytes, over the {len(before):,} bytes loop.py reads back; the saved one "
-        f"is kept. Next: tell the user; {COPY_ITEMS}"
+        f" bytes, over the {len(before):,} bytes loop.py reads back; {NOTHING_ELSE}. "
+        f"Next: tell the user; {COPY_ITEMS}"
     ), run
     assert state.read_bytes() == before
     run = sb.run("status")
     assert run.code == 0, run
     assert any(line.startswith("  [general I1] ") for line in run.lines), run
+
+
+def refuse_at_save(sb, limit):
+    """The state is refused only at its save, after the command wrote its files:
+    the size checks before them pass. Clear the list it returns to lift it."""
+    real, big = loop.loop_state.Loop.save, loop.loop_state.MAX_STATE
+    on = [True]
+
+    def save(self, after=None):
+        limit_state(sb, limit if on else big)
+        try:
+            return real(self, after)
+        finally:
+            limit_state(sb, big)
+
+    sb.mp.setattr(loop.loop_state.Loop, "save", save)
+    return on
+
+
+def without_stamps(files):
+    """files_of with the time stamp of judge/stale/<stamp>/ left out."""
+    return {
+        re.sub(r"^judge/stale/[^/]+/", "judge/stale/", k): v for k, v in files.items()
+    }
+
+
+def test_a_brief_refused_at_its_save_puts_its_judge_files_back(sb):
+    second_round_saved(sb)
+    sb.change("app.py", 2, tag="r2")
+    folder = sb.loopdir()
+    kept = sb.tmp / "kept"
+    shutil.copytree(folder, kept)
+    before = files_of(folder)
+    on = refuse_at_save(sb, 100)
+    run = sb.run("brief")
+    assert run.code == 2, run
+    assert any(line.startswith("The work changed: ") for line in run.lines), run
+    assert PUT_BACK.search(run.last), run
+    assert run.last.endswith(f"Next: tell the user; {KEEP_ITEMS}"), run
+    assert files_of(folder) == before
+    assert not (folder / "judge" / "stale").exists()
+    on.clear()
+    again = sb.run("brief")
+    assert again.code == 0, again
+    after = without_stamps(files_of(folder))
+    shutil.rmtree(folder)
+    shutil.copytree(kept, folder)
+    first = sb.run("brief")
+    assert first.code == 0, first
+    assert (again.code, again.lines) == (first.code, first.lines)
+    assert after == without_stamps(files_of(folder))
+
+
+def test_a_round_refused_at_its_save_puts_its_scorecard_back(sb):
+    second_round_saved(sb)
+    folder = sb.loopdir()
+    before = files_of(folder)
+    on = refuse_at_save(sb, 100)
+    run = sb.run("round")
+    assert run.code == 2, run
+    assert (
+        "; the saved one is kept and the other file this command changed is put "
+        f"back as it was. Next: tell the user; {KEEP_ROUND_ITEMS}"
+    ) in run.last, run
+    assert files_of(folder) == before
+    on.clear()
+    assert sb.run("round").code == 1
+    assert sb.rounds() == 2
+
+
+def test_a_start_refused_at_its_save_puts_the_earlier_loop_back(sb):
+    plan_stage(sb, "p1")
+    one_round(sb)
+    assert sb.run("accept", "--note", "good enough").code == 0
+    sb.change("app.py", 2, tag="next")
+    folder = sb.loopdir()
+    before = files_of(folder)
+    on = refuse_at_save(sb, 100)
+    run = sb.run("start", "build", "--plan-loop", "p1")
+    assert run.code == 2, run
+    assert PUT_BACK.search(run.last), run
+    assert files_of(folder) == before
+    assert not (folder.parent / "build.1").exists()
+    on.clear()
+    run = sb.run("start", "build", "--plan-loop", "p1")
+    assert run.code == 0, run
+    assert f"Earlier loop moved to {FOLDER}.1" in run.lines, run
+    assert files_of(folder.parent / "build.1") == before
+    plan = (sb.loopdir("plan", "p1") / "plan.md").read_bytes()
+    assert (folder / "plan.md").read_bytes() == plan
+
+
+def test_a_file_that_cannot_be_put_back_is_named(sb):
+    plan_stage(sb, "p1")
+    sb.change()
+    real = os.unlink
+
+    def unlink(path, *args, **kwargs):
+        if Path(path).name == "criteria.md":
+            raise OSError(13, "Permission denied")
+        return real(path, *args, **kwargs)
+
+    refuse_at_save(sb, 100)
+    sb.mp.setattr(os, "unlink", unlink)
+    run = sb.run("start", "build", "--plan-loop", "p1")
+    assert run.code == 2, run
+    assert (
+        "; the saved one is kept, but 1 other file this command changed could not "
+        f"be put back ({FOLDER}/criteria.md). Next: tell the user; "
+    ) in run.last, run
+    assert not (sb.loopdir() / "plan.md").exists()
+    assert not (sb.loopdir() / "state.json").exists()
 
 
 def test_a_round_whose_scorecard_cannot_be_written_can_be_run_again(sb):
