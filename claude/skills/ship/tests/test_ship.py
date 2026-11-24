@@ -608,6 +608,18 @@ def test_the_settle_time_after_a_skipped_check_is_the_grace_time_when_longer():
     assert settle("--settle", "5") == 5
 
 
+def test_allow_no_checks_does_not_wait_for_a_first_check():
+    repo = SimpleNamespace(expects_checks=lambda: True)
+
+    def grace(*argv):
+        return ship.grace_seconds(ship.build_parser().parse_args(argv), repo)
+
+    for cmd in ("wait", "merge"):
+        assert grace(cmd) == 90
+        assert grace(cmd, "--allow-no-checks") == 0
+        assert grace(cmd, "--allow-no-checks", "--grace", "20") == 20
+
+
 def test_status_and_a_dry_run_say_a_check_is_still_to_come(sb):
     sb.workflow()
     sb.passed()
@@ -944,6 +956,7 @@ def test_no_check_is_not_a_pass_when_workflows_run_on_pull_requests(sb):
     done = sb.ship("wait", "--grace", "0")
     assert done.returncode == 1 and "no check has shown up" in done.stdout
     assert sb.ship("wait", "--grace", "0", "--allow-no-checks").returncode == 0
+    assert sb.ship("wait", "--allow-no-checks", timeout=40).returncode == 0
     assert "--allow-no-checks" in refused(sb, "ci", 1).stdout
     done = sb.ship("merge", "--grace", "0", "--allow-no-checks")
     assert done.returncode == 0, done.stdout + done.stderr
