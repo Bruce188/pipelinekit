@@ -210,6 +210,26 @@ def test_default_location_follows_xdg(tmp_path, monkeypatch):
     assert kitlog.log_path() == str(want)
 
 
+@pytest.mark.parametrize(
+    "explicit,xdg,want",
+    [
+        ("~/kit-state", "", "home/kit-state"),
+        ("kit-state", "", "home/.local/state/pipelinekit"),
+        ("./kit-state", "~/xdg", "home/xdg/pipelinekit"),
+        ("", "xdg", "home/.local/state/pipelinekit"),
+        ("", "~", "home/pipelinekit"),
+    ],
+)
+def test_a_tilde_is_expanded_and_a_relative_path_is_not_used(
+    tmp_path, monkeypatch, explicit, xdg, want
+):
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("PIPELINEKIT_STATE_DIR", explicit)
+    monkeypatch.setenv("XDG_STATE_HOME", xdg)
+    monkeypatch.chdir(tmp_path)
+    assert kitlog.state_dir() == str(tmp_path / want)
+
+
 def cli(state, *args):
     env = {"PATH": "/usr/bin:/bin", "PIPELINEKIT_STATE_DIR": str(state)}
     return subprocess.run(

@@ -214,6 +214,8 @@ def test_event_log_formats_match_the_hooks(monkeypatch, tmp_path):
         {"PIPELINEKIT_STATE_DIR": str(tmp_path / "a")},
         {"XDG_STATE_HOME": str(tmp_path / "b")},
         {},
+        {"PIPELINEKIT_STATE_DIR": "~/c", "XDG_STATE_HOME": "~/d"},
+        {"PIPELINEKIT_STATE_DIR": "c", "XDG_STATE_HOME": "d"},
     )
     for case in cases:
         for k in ("PIPELINEKIT_STATE_DIR", "XDG_STATE_HOME"):

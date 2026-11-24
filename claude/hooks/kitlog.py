@@ -5,7 +5,8 @@
   kitlog.py HOOK KIND RULE [REASON]        (shell hooks; always exits 0)
 
 The log is $PIPELINEKIT_STATE_DIR/events.jsonl, by default
-~/.local/state/pipelinekit ($XDG_STATE_HOME is honoured). Only its owner can
+~/.local/state/pipelinekit ($XDG_STATE_HOME is honoured; a leading ~ in either
+is expanded, and a relative path is not used). Only its owner can
 read it: a log or a directory made before with a wider mode is made private (a
 directory that holds other files, or a shared one, keeps its mode). Every event
 is a single write, and at 1 MB it moves to events.jsonl.1. A log that cannot be
@@ -49,11 +50,19 @@ URL_QUERY = re.compile(r"(?<=[^\s'\"])[?#][^\s'\"]*")  # ?token=... and #token
 OWN_FILES = {"events.jsonl", "events.jsonl.1", "update.json", "update.json.tmp"}
 
 
+def env_dir(name: str) -> str:
+    """A directory named in the environment: a leading ~ is expanded, and a
+    path that is still relative is not used (it would depend on where a hook
+    runs)."""
+    value = os.path.expanduser(os.environ.get(name) or "")
+    return value if os.path.isabs(value) else ""
+
+
 def state_dir() -> str:
-    explicit = os.environ.get("PIPELINEKIT_STATE_DIR")
+    explicit = env_dir("PIPELINEKIT_STATE_DIR")
     if explicit:
         return explicit
-    base = os.environ.get("XDG_STATE_HOME") or os.path.join(
+    base = env_dir("XDG_STATE_HOME") or os.path.join(
         os.path.expanduser("~"), ".local", "state"
     )
     return os.path.join(base, "pipelinekit")

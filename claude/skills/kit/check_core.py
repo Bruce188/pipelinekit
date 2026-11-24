@@ -778,12 +778,20 @@ def probe(c: Check) -> None:
 # ---------------------------------------------------------------- event log
 
 
+def env_dir(name: str) -> str:
+    """A directory named in the environment: a leading ~ is expanded, and a
+    path that is still relative is not used (it would depend on where a hook
+    runs)."""
+    value = os.path.expanduser(os.environ.get(name) or "")
+    return value if os.path.isabs(value) else ""
+
+
 def state_dir() -> str:
     """Where the hooks keep their event log (the same rule as kitlog.py)."""
-    explicit = os.environ.get("PIPELINEKIT_STATE_DIR")
+    explicit = env_dir("PIPELINEKIT_STATE_DIR")
     if explicit:
         return explicit
-    base = os.environ.get("XDG_STATE_HOME") or os.path.join(
+    base = env_dir("XDG_STATE_HOME") or os.path.join(
         os.path.expanduser("~"), ".local", "state"
     )
     return os.path.join(base, "pipelinekit")
