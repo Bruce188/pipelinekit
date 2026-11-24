@@ -350,12 +350,26 @@ COMMANDS["settle"] = (configure_settle, cmd_settle)
 # leftovers --------------------------------------------------------------------
 
 
-def body_lines(item):
-    return [
-        f"    {field}: {clean(item[field], MAX_FIELD)}"
-        for field in ("kind", "problem", "evidence", "fix", "check")
-        if field in item
-    ]
+def body_lines(item, places=()):
+    """The fields of an item; each local folder in places (path, mark) is
+    named by its mark, so a filed issue shows no local path."""
+    lines = []
+    for field in ("kind", "problem", "evidence", "fix", "check"):
+        if field not in item:
+            continue
+        text = clean(item[field], MAX_FIELD)
+        for path, mark in places:
+            pattern = rf"(?<![A-Za-z0-9._/-]){re.escape(path)}(?![A-Za-z0-9._-])"
+            text = re.sub(pattern, mark, text)
+        lines.append(f"    {field}: {text}")
+    return lines
+
+
+def local_places(ctx):
+    """The repository first, as it may lie inside the home folder."""
+    places = [(str(ctx.root).rstrip("/"), "<repo>")]
+    places.append((os.path.expanduser("~").rstrip("/"), "~"))
+    return [(path, mark) for path, mark in places if len(path) > 1]
 
 
 def cmd_leftovers(args):
@@ -380,6 +394,7 @@ def cmd_leftovers(args):
             "",
         ]
         checklist = []
+        places = local_places(ctx)
         for key, item in items:
             role, _, item_id = key.partition(":")
             rel = f"leftovers/{role}-{item_id}.md"
@@ -388,11 +403,11 @@ def cmd_leftovers(args):
                 "loop; "
                 "the text below is the judge's, unverified.",
                 "",
-                *body_lines(item),
+                *body_lines(item, places),
             ]
             loop.write(rel, "\n".join(body) + "\n")
-            everything += [f"    [{role} {item_id}]", *body_lines(item), ""]
-            checklist.append(f"- [ ] {role} {item_id}")
+            everything += [f"    [{role} {item_id}]", *body_lines(item, places), ""]
+            checklist.append(f"- [ ] `{role} {item_id}`")
             say(f"[{role} {item_id}] {loop.rel}/{rel}")
         loop.write("leftovers/all.md", "\n".join(everything + checklist) + "\n")
         say(f"all items in one file: {loop.rel}/leftovers/all.md")

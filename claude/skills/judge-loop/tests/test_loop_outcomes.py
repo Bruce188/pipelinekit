@@ -669,10 +669,26 @@ def test_leftovers_writes_body_files(sb):
     assert lines[0] == (
         "Raised by the judges of the judge loop; the text below is theirs, unverified."
     )
-    assert lines[-2:] == ["- [ ] general B1", "- [ ] general I1"]
+    assert lines[-2:] == ["- [ ] `general B1`", "- [ ] `general I1`"]
     rest = [line for line in lines[1:-2] if line.strip()]
     assert rest and all(line.startswith("    ") for line in rest)
     assert "    [general B1]" in rest
+
+
+def test_leftovers_name_no_local_path(sb):
+    root, home = sb.root, sb.home
+    problem = (
+        f"see {root}/app.py:3 and {home}/notes/x.md and {home}, "
+        f"not {home}2/y nor /x{home}/z"
+    )
+    accepted_with_items(sb, i=(), problem=problem)
+    assert sb.run("leftovers", "--dir").code == 0
+    folder = sb.loopdir() / "leftovers"
+    shown = f"see <repo>/app.py:3 and ~/notes/x.md and ~, not {home}2/y nor /x{home}/z"
+    for name in ("general-B1.md", "all.md"):
+        text = (folder / name).read_text()
+        assert f"    problem: {shown}" in text.splitlines(), name
+        assert f"{root}/" not in text, name
 
 
 # skip -------------------------------------------------------------------------
