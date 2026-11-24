@@ -206,6 +206,12 @@ kit used to ship, so those parts are gone.
   if gitleaks is missing), `pre-push` (refuses main/master from git's ref
   list). Each chains to the repo's own `.git/hooks/<name>` or
   `.githooks/<name>`.
+- The global `pre-commit` hook refuses a commit that adds or changes a path
+  on `config/never-stage.txt` (`[pre-commit.never-stage]`, logged with the
+  path and pattern), however it was staged: from a terminal, with
+  `git add -f`, or earlier. It uses the same matcher as `bash-guard.py`
+  (`bash-guard.py pre-commit`); a missing list warns and lets the commit
+  through (`[pre-commit.never-stage-failed]`).
 
 ### Added
 

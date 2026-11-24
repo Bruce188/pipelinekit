@@ -1,5 +1,7 @@
-# Paths the bash-guard hook refuses to stage or commit (git add/stage, commit -a,
-# commit <paths>). Single source of truth; `git add -f` does not bypass it.
+# Paths that must never be committed. Single source of truth: the bash-guard
+# hook refuses to stage them (git add/stage, commit -a, commit <paths>; `git
+# add -f` does not bypass it), and the global pre-commit git hook refuses a
+# commit that adds or changes one, however it was staged.
 #
 # Syntax (a subset of .gitignore), matched against repo-relative paths:
 #   name        no slash: matches that file or directory name at any depth

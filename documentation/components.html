@@ -935,7 +935,12 @@ footer {
 </ul>
 </details>
 <h3 id="the-never-stage-list">The never-stage list</h3>
-<p><code>config/never-stage.txt</code> is the single list of paths that must not be committed. It is gitignore-style, with <code>!</code> negation, and covers env files, credentials, keys, and the local <code>docs/</code> workflow notes. <code>bash-guard.py</code> reads it. Edit the copy in <code>~/.claude/config/</code> to change it for your machine. The installer overwrites that copy on the next run, so put changes you want to keep in the repo's <code>claude/config/never-stage.txt</code>.</p>
+<p><code>config/never-stage.txt</code> is the single list of paths that must not be committed. It is gitignore-style, with <code>!</code> negation, and covers env files, credentials, keys, and the local <code>docs/</code> workflow notes. Two layers hold it:</p>
+<ul>
+<li><code>bash-guard.py</code> refuses Claude's <code>git add</code> of a listed path (also with <code>-f</code>), and a <code>git commit -a</code> or <code>git commit &lt;path&gt;</code> that would stage one (<code>[git.never-stage]</code>).</li>
+<li>The global <code>pre-commit</code> git hook refuses any commit that adds or changes a listed path, however it was staged: from a terminal, by a tool that does not go through Claude Code, or earlier, so that it is already in the index (<code>[pre-commit.never-stage]</code>). The refusal names each path and the pattern it matches, and ends with a <code>Next: git restore --staged -- &lt;path&gt;</code> line; the files stay on disk. A commit that removes a tracked listed path goes through. When the hook cannot read the list it warns, records <code>[pre-commit.never-stage-failed]</code> and lets the commit through, as the file size check does; <code>/kit</code> reports the missing list. Git does not run <code>pre-commit</code> for <code>git merge</code> without conflicts, rebase, cherry-pick, revert, am or stash.</li>
+</ul>
+<p>Edit the copy in <code>~/.claude/config/</code> to change it for your machine. The installer overwrites that copy on the next run, so put changes you want to keep in the repo's <code>claude/config/never-stage.txt</code>.</p>
 <h2 id="git-hooks">Git hooks</h2>
 <p><code>claude/git-hooks/</code> is installed to <code>~/.claude/git-hooks</code> and, if you agree, set as the global <code>core.hooksPath</code>. Each hook runs the repository's own <code>.git/hooks/&lt;name&gt;</code> or <code>.githooks/&lt;name&gt;</code> afterwards. <code>pre-merge-commit</code> runs <code>.githooks/pre-merge-commit</code> only when it is the executable file the current commit has: the merge has already written the incoming files, so a merge never runs a hook it brings in.</p>
 <table>
@@ -952,7 +957,7 @@ footer {
 </tr>
 <tr>
 <td><code>pre-commit</code></td>
-<td><code>gitleaks</code> scan of staged changes. Warns and allows if gitleaks is missing. <code>PIPELINEKIT_ALLOW_SECRET=1</code> skips one commit. Then the <a href="#file-size-limit">file size limit</a></td>
+<td>Refuses a commit that adds or changes a path on the <a href="#the-never-stage-list">never-stage list</a>. Then a <code>gitleaks</code> scan of staged changes. Warns and allows if gitleaks is missing. <code>PIPELINEKIT_ALLOW_SECRET=1</code> skips one commit. Then the <a href="#file-size-limit">file size limit</a></td>
 </tr>
 <tr>
 <td><code>pre-merge-commit</code></td>
@@ -1044,7 +1049,7 @@ footer {
 <td><code>git.never-stage</code></td>
 <td><code>bash-guard</code></td>
 <td>block</td>
-<td>Staging or committing a path on the never-stage list</td>
+<td>Staging a path on the never-stage list, also through <code>git commit -a</code> or <code>git commit &lt;path&gt;</code></td>
 </tr>
 <tr>
 <td><code>git.never-stage-missing</code></td>
@@ -1171,6 +1176,18 @@ footer {
 <td><code>commit-msg</code></td>
 <td>block</td>
 <td>An emoji in the message</td>
+</tr>
+<tr>
+<td><code>pre-commit.never-stage</code></td>
+<td><code>pre-commit</code></td>
+<td>block</td>
+<td>The commit adds or changes a path on the never-stage list, however it was staged</td>
+</tr>
+<tr>
+<td><code>pre-commit.never-stage-failed</code></td>
+<td><code>pre-commit</code></td>
+<td>error</td>
+<td>The never-stage check failed, for example because the list is missing, so staged paths were not checked</td>
 </tr>
 <tr>
 <td><code>pre-commit.secret</code></td>

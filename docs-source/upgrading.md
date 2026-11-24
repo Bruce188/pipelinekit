@@ -140,6 +140,16 @@ one pattern per line. Only the staged list counts.
 [File size limit](file-size.html) lists the default exemptions
 and how the patterns match.
 
+## Never-stage list in pre-commit
+
+The global `pre-commit` hook now refuses a commit that adds or changes a path
+on `config/never-stage.txt` (env files, credentials, keys, the local `docs/`
+workflow notes), with `[pre-commit.never-stage]`. Before, only `bash-guard.py`
+held the list, and only for commands Claude ran. A commit from a terminal, or
+of a path that was already in the index, now gets the same refusal. If a
+repository tracks a listed file on purpose, a commit that changes it is
+refused as well; a commit that removes it goes through.
+
 ## Rolling back
 
 Your 0.0.1 setup is still in the backups from step 1. To go back, move the current directory aside rather than deleting it, so sessions and memory created since the upgrade are not lost:
