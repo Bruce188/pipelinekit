@@ -920,6 +920,14 @@ def check_env(seg: list[str], argv: list[str]) -> None:
 
 
 def guard(cmd: str, cwd: str, groups: set[str]) -> None:
+    # The parser reads past a NUL, but a shell may not: refuse what can't be
+    # checked as it would run.
+    if "\0" in cmd:
+        raise Block(
+            "the command holds a NUL character, so it cannot be checked",
+            "parse.unparsable",
+            step="take the NUL character out and run the command again.",
+        )
     pipes = pipelines(cmd)
     ctx: dict = {}
     run_cwd = cwd
