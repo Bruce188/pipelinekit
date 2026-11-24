@@ -130,8 +130,15 @@ def cmd_prepare(args, repo):
 
 
 def grace_seconds(args, repo):
+    """How long to wait for the first check to show up.
+
+    No time where no workflow runs here, or where --allow-no-checks says none
+    runs for this change: a check that does show up is still waited for.
+    """
     if args.grace is not None:
         return args.grace
+    if getattr(args, "allow_no_checks", False):
+        return 0
     return FIRST_CHECK if repo.expects_checks() else 0
 
 
@@ -530,7 +537,8 @@ def build_parser():
             default=None,
             metavar="S",
             help="how long to wait for the first check to show up "
-            f"(default {FIRST_CHECK} where {RUNS_HERE}, else 0)",
+            f"(default {FIRST_CHECK} where {RUNS_HERE} and --allow-no-checks "
+            "is not given, else 0)",
         )
     for cmd in (status, wait, merge):
         cmd.add_argument(

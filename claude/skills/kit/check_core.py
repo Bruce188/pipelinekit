@@ -209,6 +209,15 @@ def check_install(c: Check) -> None:
         else:
             c.broken.add(rel)
             c.add("install", "fail", f"skill missing: {s}")
+    for rel in SKILL_SCRIPTS:
+        path = c.path(f"skills/{rel}")
+        if os.path.isfile(path) and not os.access(path, os.X_OK):
+            c.add(
+                "install",
+                "warn",
+                f"skill script not executable: {rel}",
+                fix=f"chmod +x {path}",
+            )
     for a in KIT_AGENTS:
         rel = f"agents/{a}"
         if os.path.isfile(c.path(rel)):

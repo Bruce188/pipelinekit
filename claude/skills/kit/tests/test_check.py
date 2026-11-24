@@ -1,6 +1,7 @@
 """check.py: a healthy install passes and each way it can break is reported."""
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -692,6 +693,34 @@ def test_environment_covers_what_the_ship_skill_needs(kit):
     assert re.search(r"\[pass\] playwright: \S|\[info\] playwright not installed", out)
     rc, out = check(kit, "--verbose", "--quick")
     assert rc == 0 and "playwright" not in out
+
+
+def test_a_program_that_fails_on_its_version_does_not_pass(kit, tmp_path):
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    gh = bin_dir / "gh"
+    gh.write_text("#!/bin/sh\necho 'panic: runtime error'\nexit 2\n")
+    gh.chmod(0o755)
+    path = f"{bin_dir}{os.pathsep}{kit['env']['PATH']}"
+    rc, out = check(kit, "--verbose", env={"PATH": path})
+    assert "[warn] gh --version failed (exit 2)" in out, out
+    assert "[pass] gh:" not in out
+    assert "panic" not in out
+
+
+def test_a_skill_script_without_its_exec_bit_is_named(kit):
+    rc, out = check(kit)
+    assert "skill script not executable" not in out
+    (kit["home"] / "skills" / "ship" / "ship.py").chmod(0o644)
+    rc, out = check(kit)
+    assert "[warn] skill script not executable: ship/ship.py" in out, out
+    assert "chmod +x" in out
+
+
+def test_the_skill_scripts_are_the_ones_the_installer_marks():
+    install = (REPO / "scripts" / "install.sh").read_text()
+    for rel in check_py.SKILL_SCRIPTS:
+        assert f"skills/{rel}" in install
 
 
 PLUGIN_LINE = "frontend-design is also enabled"

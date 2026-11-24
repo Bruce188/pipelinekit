@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- ship: `wait` and `merge` with `--allow-no-checks` no longer wait for a
+  first check; a `--release yes` record stands until a new commit; the
+  opt-out line counts in quotation marks; `Release files:` values are read
+  the way `.gitignore` reads them, and `status` names one that matches no
+  file; the release gate reads more version forms (a tuple, plugin and
+  userscript headers, Sphinx, Ant, `debian/changelog`, `.nix`, Vite).
+- kit: a `gh`, `claude` or `gitleaks` that fails on `--version` is a warning,
+  not a pass; a skill helper that lost its executable bit is a warning.
+
 ## 0.1.0 — 2026-11-03
 
 Trimmed to a small config kit. Current Claude Code covers most of what the

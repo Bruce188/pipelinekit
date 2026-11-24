@@ -525,6 +525,24 @@ HELD_FILES = [
         'android {\n  defaultConfig {\n    versionName "%s"\n  }\n}\n',
     ),
     bump("MODULE.bazel", 'module(name = "app", version = "%s")\n'),
+    bump(
+        "build.xml",
+        '<project name="demo">\n  <property name="version" value="%s"/>\n</project>\n',
+    ),
+    bump(
+        "default.nix",
+        '{ stdenv }:\nstdenv.mkDerivation {\n  pname = "demo";\n  version = "%s";\n}\n',
+    ),
+    bump(
+        "vite.config.ts",
+        "export default defineConfig({\n  define: {\n"
+        '    __APP_VERSION__: JSON.stringify("%s"),\n  },\n});\n',
+    ),
+    bump(
+        "vite.config.js",
+        "export default {\n  define: {\n"
+        "    'import.meta.env.VITE_VERSION': JSON.stringify('%s'),\n  },\n};\n",
+    ),
 ]
 ORDINARY_FILES = [
     ("pom.xml", POM % ("3.0.0", "1.2.3", "4.13.1"), POM % ("3.0.1", "1.2.3", "4.13.1")),
@@ -564,6 +582,16 @@ ORDINARY_FILES = [
         '    .package(url: "https://example.invalid/x.git", from: "%s"),\n  ]\n)\n',
     ),
     bump("paket.dependencies", "source https://example.invalid\nnuget Json %s\n"),
+    bump(
+        "flake.nix",
+        '{\n  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-%s";\n}\n',
+        "24.05",
+        "24.11",
+    ),
+    bump(
+        "build.xml",
+        '<project>\n  <property name="src.dir" value="src/%s"/>\n</project>\n',
+    ),
 ]
 
 
@@ -605,6 +633,15 @@ HELD_CODE = [
     bump("demo.php", "define('APP_VERSION', '%s');\n"),
     bump("config/app.php", "return [\n    'version' => '%s',\n];\n"),
     bump("src/x/__init__.py", '__version__ = "%s"\n'),
+    bump("src/x/__init__.py", "VERSION = (%s)\n", "1, 2, 3", "1, 2, 4"),
+    bump("src/x/__init__.py", "__version_info__ = (%s)\n", "1, 2, 3", "1, 2, 4"),
+    bump("docs/conf.py", 'project = "demo"\nrelease = "%s"\n'),
+    bump("demo-plugin.php", "<?php\n/**\n * Plugin Name: Demo\n * Version: %s\n */\n"),
+    bump("style.css", "/*\nTheme Name: Demo\nVersion: %s\n*/\n"),
+    bump(
+        "demo.user.js",
+        "// ==UserScript==\n// @name Demo\n// @version %s\n// ==/UserScript==\n",
+    ),
 ]
 ORDINARY_CODE = [
     bump("src/client.ts", 'const options = {\n  apiVersion: "%s",\n};\n'),
@@ -614,6 +651,9 @@ ORDINARY_CODE = [
     bump("src/app.py", '    print("version: %s")\n'),
     bump("tests/meta.js", "module.exports = {\n  version: '%s',\n};\n"),
     bump("src/app.js", "  // version: '%s' was the last one with the old login\n"),
+    bump("src/app.py", "if sys.version_info >= (%s):\n", "3, 8", "3, 9"),
+    bump("src/app.py", "    # needs version %s of the driver\n"),
+    bump("src/app.py", "release_notes = load('%s')\n"),
 ]
 
 
@@ -688,9 +728,38 @@ def test_a_note_about_another_version_is_ordinary(added):
     assert verdict("CHANGELOG.md", NOTES % "", NOTES % added, own) == ""
 
 
-def test_a_new_file_of_release_notes_for_one_version_is_held():
-    why = verdict("docs/releases/1.2.4.md", "", "# What is new\n\n- second\n")
-    assert why == "the diff changes docs/releases/1.2.4.md: a new version is a release"
+@pytest.mark.parametrize(
+    "path",
+    [
+        "docs/releases/1.2.4.md",
+        "docs/whatsnew/1.2.4.rst",
+        "doc/whats-new/v1.2.4.md",
+        "news/1.2.4.md",
+        "docs/changes/1.2.4.rst",
+        "history/1.2.4.txt",
+    ],
+)
+def test_a_new_file_of_release_notes_for_one_version_is_held(path):
+    why = verdict(path, "", "# What is new\n\n- second\n")
+    assert why == f"the diff changes {path}: a new version is a release"
+
+
+DEBIAN = "demo (%s-1) unstable; urgency=medium\n\n  * %s\n\n -- A B <a@b.invalid>  %s\n"
+
+
+def test_a_new_entry_of_a_debian_changelog_is_held():
+    old = DEBIAN % ("1.2.3", "first", "Mon, 09 Nov 2026 10:00:00 +0000")
+    new = DEBIAN % ("1.2.4", "second", "Tue, 10 Nov 2026 10:00:00 +0000") + "\n" + old
+    why = verdict("debian/changelog", old, new)
+    assert why == (
+        "the diff adds a version heading to debian/changelog: a new version is a "
+        "release"
+    )
+
+
+def test_a_release_set_in_a_sphinx_conf_is_held_through_git(sb):
+    sb.change("docs/conf.py", 'release = "1.2.3"\n', 'release = "1.2.4"\n')
+    assert gates(sb.ship("status", "--json"))["release"]["state"] == "fail"
 
 
 # ---------------------------------------------------------------- promotions
@@ -760,6 +829,18 @@ def test_merge_refuses_what_the_record_calls_a_release(sb):
     )
 
 
+def test_a_release_answer_stays_until_a_new_commit(sb):
+    sb.passed("yes")
+    done = sb.ship("record", "--result", "pass", "--release", "no")
+    assert done.returncode == 0, done.stderr
+    assert "says this is a release; that stays until a new commit" in done.stdout
+    assert gates(sb.ship("status", "--json"))["release"]["state"] == "fail"
+    refused(sb, "release", 3)
+    sb.commit("fix: the last finding")
+    sb.passed("no")
+    assert gates(sb.ship("status", "--json"))["release"]["state"] == "pass"
+
+
 def test_a_record_without_the_answer_does_not_pass(sb):
     sb.passed()
     file = sb.work / "docs" / "uat" / "feat-1-thing.json"
@@ -782,6 +863,46 @@ def test_project_lines_name_release_files_and_branches():
     files, branches = ship.project_lines(texts)
     assert files == ["app/build.txt", "deploy/", "*.ver"]
     assert branches == ["team-*", "shipping"]
+
+
+def test_a_release_file_value_may_end_a_sentence():
+    text = "Release files: deploy/.\nRelease file: app/v.txt.\n"
+    files, _ = ship.project_lines([text])
+    assert files == ["deploy/", "app/v.txt"]
+
+
+FILE_VALUES = [
+    ("deploy", "deploy/app.yml", True),
+    ("deploy", "infra/deploy/app.yml", True),
+    ("deploy/", "infra/deploy/app.yml", True),
+    ("/deploy/", "infra/deploy/app.yml", False),
+    ("/deploy", "deploy/app.yml", True),
+    ("infra/deploy", "infra/deploy/app.yml", True),
+    ("infra/deploy/", "x/infra/deploy/app.yml", False),
+    ("deploy", "deployment/app.yml", False),
+    ("deploy", "app/deploy", True),
+    ("deploy/", "app/deploy", False),
+    ("build.txt", "app/build.txt", True),
+    ("app/build.txt", "app/build.txt", True),
+    ("app/build.txt", "x/app/build.txt", False),
+    ("*.ver", "a/b.ver", True),
+    ("team-*/", "x/team-red/v.txt", True),
+]
+
+
+@pytest.mark.parametrize("pattern, path, hit", FILE_VALUES)
+def test_release_file_values_read_like_gitignore(pattern, path, hit):
+    assert ship.file_listed([pattern], path) is hit
+
+
+def test_status_names_a_release_file_value_that_matches_nothing(sb):
+    sb.change("deploy/app.yml", "a: 1\n", "a: 2\n")
+    sb.change(
+        "CLAUDE.md", "# Rules\n", "# Rules\n\nRelease files: deploy, nothing.txt\n"
+    )
+    release = gates(sb.ship("status", "--json"))["release"]
+    assert release["hints"] == ["Release files: nothing.txt matches no tracked file"]
+    assert "Release files: nothing.txt matches no" in sb.ship("status").stdout
 
 
 def test_merge_refuses_a_change_to_a_release_file_of_the_project(sb):
