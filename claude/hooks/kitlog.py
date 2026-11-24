@@ -6,7 +6,9 @@
 
 The log is $PIPELINEKIT_STATE_DIR/events.jsonl, by default
 ~/.local/state/pipelinekit ($XDG_STATE_HOME is honoured). Only its owner can
-read it, every event is a single write, and at 1 MB it moves to events.jsonl.1.
+read it: a log or a directory made before with a wider mode is made private (a
+directory that holds other files, or a shared one, keeps its mode). Every event
+is a single write, and at 1 MB it moves to events.jsonl.1.
 PIPELINEKIT_LOG=0 switches it off.
 
 The command text is never logged: an event holds the rule id, the hook's
@@ -40,6 +42,8 @@ CONTROL = re.compile(
 USER_PASSWORD = re.compile(r"[^\s/@:'\"]+:[^/]{0,400}@")  # user:password@host
 URL_USER = re.compile(r"//[^/]{0,400}@")  # //token@host
 URL_QUERY = re.compile(r"(?<=[^\s'\"])[?#][^\s'\"]*")  # ?token=... and #token
+# What the kit keeps in its state directory; only such a directory is made private.
+OWN_FILES = {"events.jsonl", "events.jsonl.1", "update.json", "update.json.tmp"}
 
 
 def state_dir() -> str:
@@ -115,9 +119,25 @@ def encode(e: dict) -> bytes:
     return line
 
 
+def private_dir(directory: str) -> None:
+    """Create the state directory, or close one made before with a wider mode."""
+    os.makedirs(directory, mode=0o700, exist_ok=True)
+    try:
+        st = os.stat(directory)
+        if (
+            st.st_mode & 0o077
+            and st.st_uid == os.geteuid()
+            and not st.st_mode & stat.S_ISVTX  # a shared directory such as /tmp
+            and set(os.listdir(directory)) <= OWN_FILES
+        ):
+            os.chmod(directory, 0o700)
+    except OSError:
+        pass  # the log itself is still private
+
+
 def append(line: bytes) -> None:
     path = log_path()
-    os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
+    private_dir(os.path.dirname(path))
     try:
         if os.stat(path).st_size >= MAX_BYTES:
             os.replace(path, path + ".1")
@@ -127,8 +147,13 @@ def append(line: bytes) -> None:
     # A named pipe at the path must not make a hook wait for a reader.
     fd = os.open(path, flags | getattr(os, "O_NONBLOCK", 0), 0o600)
     try:
-        if not stat.S_ISREG(os.fstat(fd).st_mode):
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode):
             raise OSError("the log is not a regular file")
+        if st.st_uid != os.geteuid():
+            raise OSError("the log belongs to another user")
+        if st.st_mode & 0o077:
+            os.fchmod(fd, 0o600)  # a log made before with a wider mode
         os.write(fd, line)
     finally:
         os.close(fd)

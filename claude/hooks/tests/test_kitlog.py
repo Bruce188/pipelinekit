@@ -67,6 +67,33 @@ def test_only_the_owner_can_read_the_log(state):
     assert mode(state / "events.jsonl") == 0o600
 
 
+def test_a_log_made_before_is_made_private(state):
+    state.mkdir(mode=0o755)
+    state.chmod(0o755)
+    log = state / "events.jsonl"
+    log.write_text("")
+    log.chmod(0o644)
+    old = state / "events.jsonl.1"
+    old.write_text("")
+    assert kitlog.log("bash-guard", "ask", "sql.destructive", "x")
+    assert mode(state) == 0o700 and mode(log) == 0o600
+
+
+def test_a_directory_that_holds_other_files_keeps_its_mode(state):
+    state.mkdir()
+    state.chmod(0o755)
+    (state / "notes.txt").write_text("mine")
+    assert kitlog.log("bash-guard", "ask", "sql.destructive", "x")
+    assert mode(state) == 0o755 and mode(state / "events.jsonl") == 0o600
+
+
+def test_a_shared_directory_keeps_its_mode(state):
+    state.mkdir()
+    state.chmod(0o1777)
+    assert kitlog.log("bash-guard", "ask", "sql.destructive", "x")
+    assert mode(state) == 0o1777 and mode(state / "events.jsonl") == 0o600
+
+
 def test_reason_is_one_clean_line_without_credentials(state):
     reason = "push to\n\x1b[31m https://user:s3cret@example.com/o/r.git " + "x" * 900
     kitlog.log("bash-guard", "block", "git.push-remote", reason)
