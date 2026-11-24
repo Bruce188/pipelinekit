@@ -34,7 +34,7 @@ Run the checker through Bash with these flags only. The one value that may come 
 | `python3 ${CLAUDE_SKILL_DIR}/check.py --quick` | no live probes, well under a second |
 | `python3 ${CLAUDE_SKILL_DIR}/check.py --days 30` | activity of the last 30 days instead of 7 (1 to 365) |
 | `python3 ${CLAUDE_SKILL_DIR}/check.py --session "${CLAUDE_SESSION_ID}"` | activity of this session only |
-| `python3 ${CLAUDE_SKILL_DIR}/check.py --json` | for scripts: `healthy`, `counts`, `results[]`, `update`, `activity[]` |
+| `python3 ${CLAUDE_SKILL_DIR}/check.py --json` | for scripts: `healthy`, `counts`, `results[]`, `update` (with a `reason` when the check did not run), `activity[]` |
 | `python3 ${CLAUDE_SKILL_DIR}/check.py --no-remote` | does not ask the remote for updates |
 | `python3 ${CLAUDE_SKILL_DIR}/check.py --refresh` | asks the remote now, also when it answered earlier |
 
@@ -79,4 +79,5 @@ Never pass a commit id that did not come from the plan you just ran, and never a
 - Activity covers the kit's own hooks, from the first refusal after this version was installed. `PIPELINEKIT_LOG=0` switches the log off; `--quick` leaves the section out.
 - The update check asks the remote at most once a day, while the other checks run, and gives it 5 seconds; offline it says `not checked` and how long ago it asked, and asks again after an hour or with `--refresh`. `PIPELINEKIT_UPDATE_CHECK=0` switches it off; `--quick` leaves it out.
 - `session-check.py` runs this checker with `--quick` when a session starts and prints one line only when something fails. `PIPELINEKIT_SESSION_CHECK=0` switches that off.
+- The Bash sandbox line is part of `--quick` too. Being a `[warn]` at most, it never makes the session-start check speak.
 - The report describes the session it runs in. Another environment (a different WSL distro, an SSH host, a sandboxed session) can differ; run the check there.
