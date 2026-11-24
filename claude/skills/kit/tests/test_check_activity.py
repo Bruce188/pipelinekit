@@ -949,7 +949,11 @@ def test_gh_login_file_follows_the_environment(monkeypatch):
 def test_the_repair_command_keeps_an_install_without_serena_that_way(kit):
     (kit["home"] / "hooks" / "bash-guard.py").unlink()
     _, out = check(kit, "--quick")
-    assert out.rstrip().endswith(f"Repair: bash {REPO}/scripts/install.sh --no-serena")
+    assert out.rstrip().endswith(
+        f"Next: run bash {REPO}/scripts/install.sh --no-serena, then /kit again."
+    )
     edit_json(kit, "pipelinekit/manifest.json", lambda d: d.update(serena=True))
     _, out = check(kit, "--quick")
-    assert out.rstrip().endswith(f"Repair: bash {REPO}/scripts/install.sh")
+    assert out.rstrip().endswith(
+        f"Next: run bash {REPO}/scripts/install.sh, then /kit again."
+    )

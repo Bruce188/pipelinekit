@@ -76,7 +76,7 @@ def test_missing_hook_is_reported_once(kit):
     assert "settings.json: hook command not found" in out
     assert "missing: hooks/bash-guard.py" not in out
     assert "bash-guard.py does not start" not in out
-    assert "Repair: bash " in out
+    assert out.rstrip().splitlines()[-1].startswith("Next: run bash ")
 
 
 def test_hook_not_executable(kit):
