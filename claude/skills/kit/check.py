@@ -484,14 +484,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--exit-zero", action="store_true", help="exit 0 whatever is found")
     ap.add_argument(
         "--days",
-        type=int,
-        default=7,
+        default="7",
         metavar="N",
         help="activity of the last N days (1 to 365, default 7)",
     )
     ap.add_argument(
         "--session",
-        default="",
+        default=None,
         metavar="ID",
         help="activity of one Claude Code session only",
     )
@@ -502,9 +501,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument("--write-manifest", metavar="REPO_ROOT", help=argparse.SUPPRESS)
     args = ap.parse_args(argv)
-    if not 1 <= args.days <= 365:
+    # int() would also take " 7 ", "+7" and digits of other scripts.
+    if not re.fullmatch(r"[0-9]{1,3}", args.days) or not 1 <= int(args.days) <= 365:
         ap.error("--days takes a whole number from 1 to 365")
-    if args.session and not SESSION.fullmatch(args.session):
+    if args.session is not None and not SESSION.fullmatch(args.session):
         ap.error("--session takes a session id (letters, digits, - and _)")
     home = os.environ.get("CLAUDE_HOME") or os.path.join(
         os.path.expanduser("~"), ".claude"
@@ -512,7 +512,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.write_manifest:
         write_manifest(args.write_manifest, home)
         return 0
-    c = run_checks(home, args.quick, args.days, args.session, not args.no_remote)
+    days, session = int(args.days), args.session or ""
+    c = run_checks(home, args.quick, days, session, not args.no_remote)
     print(render_json(c) if args.json else render_text(c, args.verbose))
     return 0 if args.exit_zero or c.count("fail") == 0 else 1
 
