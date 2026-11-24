@@ -258,7 +258,7 @@ With the kit installed, Claude finishes the pull requests it opens instead of ha
 |------|------------|
 | `pr` | The branch has an open pull request |
 | `own` | Your GitHub account opened it, and it is not from a fork |
-| `policy` | The project has not opted out. A project or user-level `CLAUDE.md` that is there but is not a regular file, such as a named pipe or a folder, is named and stops the merge, since it may hold the opt-out line; it is opened without waiting, so it cannot hang the helper |
+| `policy` | The project has not opted out. A project or user-level `CLAUDE.md` that is there but cannot be read, such as a named pipe, a folder or a file without read permission, is named and stops the merge, since it may hold the opt-out line; it is opened without waiting, so it cannot hang the helper |
 | `release` | It is not a release. A release is: a release, stage or version branch (`release/1.0`, `develop`, `staging`, `v2`, `chore/release-0.2.0`) into the default branch or into another long-lived branch; the default branch into another branch; anything into a deploy branch such as `production`, `prod-eu` or `gh-pages`; anything into `main` where another branch is the default; anything into a branch that is neither the default nor a known working branch; a branch that pull requests were merged into; a title that names a release or a version; a diff that sets a version or changes a release file of the project; a test record that says it is one (all below) |
 | `linked` | GitHub closes every issue named on this merge, or another branch is the base: [Issue links](installation.html#issue-links) |
 | `review` | No review is required, requested or asking for changes |

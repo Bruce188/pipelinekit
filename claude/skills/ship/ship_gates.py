@@ -184,7 +184,7 @@ def policy_gate(repo, pr=None):
     for label, text, why in policy_texts(repo, (pr or {}).get("baseRefName") or ""):
         if why:
             # It may hold the opt-out line: only the user can tell.
-            why += ": make it a regular file or remove it"
+            why += ": make it a readable regular file or remove it"
             return gate("policy", "fail", why, stop=True)
         if opts_out(text):
             why = f"{label} says `Merges: ask first`"
