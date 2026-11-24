@@ -35,7 +35,7 @@ echo "my own judge" > "$CLAUDE_HOME/agents/kit-judge.md"
 echo "outside" > "$T/outside-agent.md"
 ln -s "$T/outside-agent.md" "$CLAUDE_HOME/agents/kit-builder.md"
 
-# Pre-existing settings: stale and old-kit hooks, a user hook, user rules, an unrelated key.
+# Pre-existing settings: stale and old-kit hooks, a user hook, user rules, an unrelated key,\n# and a kit hook edited by hand to start through python3 (replaced, not doubled).
 H="$CLAUDE_HOME/hooks"
 cat > "$CLAUDE_HOME/settings.json" <<JSON
 {"model": "x", "includeCoAuthoredBy": false,
@@ -45,7 +45,9 @@ cat > "$CLAUDE_HOME/settings.json" <<JSON
            "PreToolUse": [{"matcher": "Bash", "hooks": [
               {"type": "command", "command": "$H/block-push-main.sh"},
               {"type": "command", "command": "$H/env-scrub.py"},
-              {"type": "command", "command": "echo my-hook"}]}]}}
+              {"type": "command", "command": "echo my-hook"}]}],
+           "SessionStart": [{"matcher": "startup", "hooks": [
+              {"type": "command", "command": "python3 $H/session-check.py"}]}]}}
 JSON
 
 # A native Windows shell (Git Bash, MSYS, Cygwin) is refused before anything is written.

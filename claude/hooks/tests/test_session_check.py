@@ -164,6 +164,46 @@ def test_a_timeout_ends_what_the_checker_started(home):
     pytest.fail("the checker's child was still running after the timeout")
 
 
+def test_endless_output_is_cut_off(home):
+    endless = "import sys\nwhile True:\n    sys.stdout.write('x' * 65536)\n"
+    started = time.monotonic()
+    message, _ = said(run(home, endless))
+    assert time.monotonic() - started < 3
+    assert "could not run (check.py printed more than 1 MB)" in message
+    assert [e["rule"] for e in logged(home)] == ["session-check.failed"]
+
+
+def test_stdin_left_open_does_not_hold_up_the_hook(home):
+    env = dict(os.environ, PIPELINEKIT_STATE_DIR=str(home.parent / "state"))
+    for k in ("PIPELINEKIT_SESSION_CHECK", "PIPELINEKIT_LOG", "CLAUDE_HOME"):
+        env.pop(k, None)
+    p = subprocess.Popen(
+        [sys.executable, str(home / "hooks" / "session-check.py")],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+    )
+    p.stdin.write(START)
+    p.stdin.flush()  # and never closed, so no end of input arrives
+    started = time.monotonic()
+    try:
+        p.wait(timeout=4)
+    except subprocess.TimeoutExpired:
+        p.kill()
+        p.wait()
+        pytest.fail("the hook waited for its input to end")
+    finally:
+        p.stdin.close()
+    assert time.monotonic() - started < 3
+    assert "could not run (skills/kit/check.py is missing)" in said(p.stdout.read())[0]
+    p.stdout.close()
+    p.stderr.close()
+    (event,) = logged(home)
+    assert event["session"] == "s1", "the input that came was still read"
+
+
 def test_switched_off(home):
     check = checker(("fail", "broken"))
     assert run(home, check, PIPELINEKIT_SESSION_CHECK="0") == ""

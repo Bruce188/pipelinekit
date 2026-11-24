@@ -64,6 +64,16 @@ kit used to ship, so those parts are gone.
   of `gh auth status`; its output is never shown), whether Playwright for
   python3 can start chromium or has no browser downloaded, and in a Node
   project which Playwright `npx` finds. These lines are `[pass]` or `[info]`.
+- A kit hook entry edited to start through an interpreter
+  (`python3 ~/.claude/hooks/session-check.py`) is replaced by the installer
+  instead of getting a second entry next to it, and `/kit` warns about a kit
+  hook wired twice on one event.
+- A hook of your own in `settings.json` whose file is gone is a `[warn]` worded
+  as yours, so the session-start check no longer counts it as a problem.
+- `/kit` gives `session-check.py` 6 seconds and says that it timed out, instead
+  of waiting about 23 seconds and saying that it does not start.
+- `session-check.py` reads at most 1 MB of the check's report and waits at
+  most a second for its input to end.
 
 ### Shipping
 

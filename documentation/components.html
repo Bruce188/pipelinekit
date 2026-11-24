@@ -1132,7 +1132,7 @@ footer {
 <td><code>session-check.failed</code></td>
 <td><code>session-check</code></td>
 <td>error</td>
-<td>The session-start check could not run: <code>check.py</code> is missing or gave no report</td>
+<td>The session-start check could not run: <code>check.py</code> is missing, gave no report or printed more than 1 MB</td>
 </tr>
 <tr>
 <td><code>commit-msg.format</code></td>
@@ -1293,7 +1293,7 @@ footer {
 <tbody>
 <tr>
 <td>Install</td>
-<td>Every hook, the event-log helper, git hook, skill and agent is present; <code>kit-judge.md</code> has the one tools line <code>Read, Grep, Glob</code>, else <code>kit-judge.md allows more than reading</code>; hooks are executable and have LF line endings; <code>settings.json</code> is valid, its hook commands point to files that exist, attribution is off and the secret deny rules are there; the global <code>core.hooksPath</code></td>
+<td>Every hook, the event-log helper, git hook, skill and agent is present; <code>kit-judge.md</code> has the one tools line <code>Read, Grep, Glob</code>, else <code>kit-judge.md allows more than reading</code>; hooks are executable and have LF line endings; <code>settings.json</code> is valid, its hook commands point to files that exist (also when they start the script through an interpreter such as <code>python3</code>; a hook of your own whose file is gone is a <code>[warn]</code>, worded as yours), no kit hook is wired twice on one event (a <code>[warn]</code>), attribution is off and the secret deny rules are there; the global <code>core.hooksPath</code></td>
 </tr>
 <tr>
 <td>Changes since install</td>
@@ -1301,7 +1301,7 @@ footer {
 </tr>
 <tr>
 <td>Live probe</td>
-<td>Each hook gets input it must block and input it must allow: <code>git commit --no-verify</code>, a <code>docker</code> mount of <code>/etc</code>, <code>curl</code> piped into <code>sh</code>, <code>DROP TABLE</code> through <code>psql</code>, a <code>HEAD</code> file next to <code>refs/</code>, a non-conventional commit message, a push to <code>main</code>. The session-start check must report an install with nothing in it and say nothing about this one. Each refusal must also arrive in an event log, which the probe keeps in a temporary directory</td>
+<td>Each hook gets input it must block and input it must allow: <code>git commit --no-verify</code>, a <code>docker</code> mount of <code>/etc</code>, <code>curl</code> piped into <code>sh</code>, <code>DROP TABLE</code> through <code>psql</code>, a <code>HEAD</code> file next to <code>refs/</code>, a non-conventional commit message, a push to <code>main</code>. The session-start check must report an install with nothing in it and say nothing about this one; it gets 6 seconds, and a check that hangs is reported as timed out. Each refusal must also arrive in an event log, which the probe keeps in a temporary directory</td>
 </tr>
 <tr>
 <td>Environment</td>
@@ -1323,7 +1323,7 @@ footer {
 <div class="codehilite"><pre><span></span><code>pipelinekit: 2 problems in this install. Run /kit for the report.
 </code></pre></div>
 
-<p>The hook never blocks a session. A check that takes longer than 4 seconds is dropped, together with anything it started, and shows up under Activity as <code>session-check.timeout</code>. <code>PIPELINEKIT_SESSION_CHECK=0</code> in the environment switches it off, and <code>/kit</code> then says so.</p>
+<p>The hook never blocks a session. A check that takes longer than 4 seconds is dropped, together with anything it started, and shows up under Activity as <code>session-check.timeout</code>. The hook reads at most 1 MB of the check's report, and waits at most a second for its own input to end. <code>PIPELINEKIT_SESSION_CHECK=0</code> in the environment switches it off, and <code>/kit</code> then says so.</p>
 <p>The checker is <code>claude/skills/kit/check.py</code>, stdlib only. It also runs outside a session:</p>
 <div class="codehilite"><pre><span></span><code>python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w">            </span><span class="c1"># full report, about a second</span>
 python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w"> </span>--quick<span class="w">    </span><span class="c1"># no live probes</span>
