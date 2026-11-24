@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 # Global git pre-merge-commit hook (core.hooksPath = ~/.claude/git-hooks).
 # `git merge` runs this hook, not pre-commit, before it records a merge it made
-# without conflicts. It checks the file size limit on the merged index, as
-# pre-commit does for a commit, then runs the repo's own pre-merge-commit hook
-# (.git/hooks/pre-merge-commit or .githooks/pre-merge-commit) if there is one.
+# without conflicts. It scans the merged changes with gitleaks and checks the
+# file size limit on the merged index, as pre-commit does for a commit, then
+# runs the repo's own pre-merge-commit hook (.git/hooks/pre-merge-commit or
+# .githooks/pre-merge-commit) if there is one. `git merge --no-verify` skips
+# all of it, as `git commit --no-verify` skips pre-commit.
+#   - Secret scan: the same as pre-commit's, of what the merge changes against
+#     the current commit, with the same rule ids. gitleaks missing: warn and
+#     allow. PIPELINEKIT_ALLOW_SECRET=1 skips it for one merge (humans only).
+#     A refused merge is left unfinished, like one with a conflict.
 #   - File size limit (../hooks/filesize.py): a merge that takes a hand-written
 #     file past 1,500 lines or 50,000 bytes is refused and left unfinished;
 #     `git commit` concludes it after the file is split, and pre-commit checks
@@ -39,6 +45,33 @@ kitlog() { # kitlog <kind> <rule> <reason>: one line in the kit's event log; nev
   python3 "$(dirname "$(realpath "$0")")/../hooks/kitlog.py" pre-merge-commit "$@" </dev/null >/dev/null 2>&1 || true
 }
 
+scan() {
+  if [ "${PIPELINEKIT_ALLOW_SECRET:-}" = 1 ]; then
+    echo "pre-merge-commit: PIPELINEKIT_ALLOW_SECRET=1, secret scan skipped" >&2
+    kitlog override pre-commit.allow-secret "PIPELINEKIT_ALLOW_SECRET=1 skipped the secret scan"
+    return 0
+  fi
+  if ! command -v gitleaks >/dev/null 2>&1; then
+    echo "pre-merge-commit: warning: gitleaks not installed, merged changes NOT scanned for secrets (https://github.com/gitleaks/gitleaks)" >&2
+    return 0
+  fi
+  git diff --cached --quiet && return 0
+  local ver sub=git rc=0
+  ver=$(gitleaks version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)
+  if [ -n "$ver" ] && [ "${ver%%.*}" -eq 8 ] && [ "${ver#*.}" -lt 19 ]; then
+    sub=protect
+  fi
+  gitleaks "$sub" --staged --redact --no-banner --exit-code 3 -v >&2 || rc=$?
+  case $rc in
+    0) return 0 ;;
+    3) echo "pre-merge-commit: gitleaks found secret(s) in the changes this merge brings in (values redacted above); the merge is not recorded. Run \`git merge --abort\` and remove them from the branch you merge; PIPELINEKIT_ALLOW_SECRET=1 overrides one merge. [pre-commit.secret]" >&2
+       kitlog block pre-commit.secret "gitleaks found secrets in the merged changes" ;;
+    *) echo "pre-merge-commit: gitleaks $sub failed (exit $rc); merge not recorded. Fix gitleaks or set PIPELINEKIT_ALLOW_SECRET=1 for one merge. [pre-commit.gitleaks-failed]" >&2
+       kitlog error pre-commit.gitleaks-failed "gitleaks $sub failed (exit $rc)" ;;
+  esac
+  return 1
+}
+
 size_check() {
   local rc=0
   python3 "$(dirname "$(realpath "$0")")/../hooks/filesize.py" pre-merge-commit || rc=$?
@@ -51,6 +84,7 @@ size_check() {
   return 0
 }
 
+scan || exit 1
 size_check || exit 1
 chain pre-merge-commit "$@" || exit $?
 exit 0
