@@ -1148,6 +1148,8 @@ def check_environment(c: Check) -> None:
             "the session-start check is switched off (PIPELINEKIT_SESSION_CHECK=0)",
         )
     check_design_plugin(c)
+    if check_sandbox:  # reads settings and starts no program: --quick too
+        check_sandbox.check(c)
     if c.quick:
         return
     for prog, args, missing in (
@@ -1185,8 +1187,6 @@ def check_environment(c: Check) -> None:
                 git_value("rev-parse", "--show-toplevel"),
                 shutil.which("npx"),
             )
-    if check_sandbox:
-        check_sandbox.check(c)
     local = git_value("config", "--local", "--get", "core.hooksPath")
     if local and not same_path(local, c.path("git-hooks")):
         c.add(
