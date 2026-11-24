@@ -146,6 +146,23 @@ if grep -qF 'kept your own' "$T/install2.out"; then
   echo "test_install: a second install backed up the kit's own agent" >&2; exit 1
 fi
 test ! -e "$CLAUDE_HOME/hooks/tests"
+# Skill tests stay in the repo as the hook tests do, no SKILL.md is executable,
+# and the executable files are the scripts the repo commits as executable.
+if [ -n "$(find "$CLAUDE_HOME/skills" -name tests)" ]; then
+  echo "test_install: a tests folder was installed below skills/" >&2; exit 1
+fi
+if [ -n "$(find "$CLAUDE_HOME/skills" -name SKILL.md -perm /111)" ]; then
+  echo "test_install: an installed SKILL.md is executable" >&2; exit 1
+fi
+kit_scripts() { # the files below claude/skills committed as executable, tests left out
+  git -C "$REPO_ROOT" ls-files -s -- claude/skills | awk '$1 == "100755" { print $4 }' |
+    grep -v '/tests/' | sed 's#^claude/##' | sort
+}
+exec_files() { (cd "$1" && find skills -type f -perm /111 | sort); }
+if [ "$(exec_files "$CLAUDE_HOME")" != "$(kit_scripts)" ]; then
+  echo "test_install: the installed executables are not the kit's scripts" >&2
+  diff <(exec_files "$CLAUDE_HOME") <(kit_scripts) >&2; exit 1
+fi
 test -x "$CLAUDE_HOME/git-hooks/pre-push"
 [ "$(git config --global core.hooksPath)" = "$CLAUDE_HOME/git-hooks" ]
 python3 - "$CLAUDE_HOME" "$REPO_ROOT" <<'PY'
@@ -355,6 +372,21 @@ grep -qF '[install][warn] no name for CLAUDE.md' "$T/no-login.out" ||
   { echo "test_install: no warning for a missing name" >&2; cat "$T/no-login.out" >&2; exit 1; }
 if grep -qF 'cannot find name' "$T/no-login.out"; then
   echo "test_install: the raw id error was shown" >&2; exit 1
+fi
+
+# A checkout where every file is executable, as on a Windows drive under WSL:
+# the installed skills still carry the bit only on the kit's scripts.
+AX="$T/allx"
+mkdir -p "$AX/kit" "$AX/home"
+cp -R "$REPO_ROOT/claude" "$REPO_ROOT/scripts" "$REPO_ROOT/VERSION" "$AX/kit/"
+chmod -R a+x "$AX/kit/claude/skills"
+HOME="$AX/home" CLAUDE_HOME="$AX/home/.claude" GIT_CONFIG_GLOBAL="$AX/home/.gitconfig" \
+  XDG_CONFIG_HOME="$AX/home/.config" PIPELINEKIT_STATE_DIR="$AX/state" PIPELINEKIT_GIT_HOOKS=0 \
+  bash "$AX/kit/scripts/install.sh" --no-serena >"$T/allx.out" 2>&1 ||
+  { echo "test_install: the install from an all-executable checkout failed" >&2; cat "$T/allx.out" >&2; exit 1; }
+if [ "$(exec_files "$AX/home/.claude")" != "$(kit_scripts)" ]; then
+  echo "test_install: an all-executable checkout installed other executables" >&2
+  diff <(exec_files "$AX/home/.claude") <(kit_scripts) >&2; exit 1
 fi
 
 # The rewrite follows the copy at once: an install that stops later (here on a

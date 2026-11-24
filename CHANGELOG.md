@@ -25,6 +25,10 @@ kit used to ship, so those parts are gone.
 - `verify.sh` runs each hook once instead of only checking that it exists.
 - `install.sh` runs to its end without a `USER` variable or a global git
   identity, as in containers and cron jobs: `CLAUDE.md` names the login name.
+- `install.sh` leaves the skills' `tests/` folders in the checkout and installs
+  only the skills' scripts executable, so no `SKILL.md` is, also from a
+  checkout on a Windows drive. `/kit` warns when an installed kit script has
+  lost its executable bit.
 
 ### Self-check
 
