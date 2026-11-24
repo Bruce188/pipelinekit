@@ -64,6 +64,9 @@ KIT_AGENTS = ("kit-planner.md", "kit-builder.md", "kit-judge.md")
 NO_TESTS_SKILLS = ("judge-loop",)
 # The judge reads and never writes or runs anything.
 JUDGE_TOOLS = ("Read", "Grep", "Glob")
+# The keys kit-judge.md may have; any other (hooks, mcpServers,
+# permissionMode, ...) can give the judge more than its tools line says.
+JUDGE_KEYS = ("name", "description", "model", "tools")
 PLACEHOLDERS = ("${USER_NAME}", "${USER_EMAIL}", "${CLAUDE_HOME}")
 SECTIONS = (
     ("install", "Install"),
@@ -610,7 +613,7 @@ def frontmatter(text: str) -> list[str] | None:
 
 
 def check_judge_tools(c: Check) -> None:
-    """kit-judge.md must allow exactly the reading tools, through one tools line."""
+    """kit-judge.md may only read: the kit's keys only, and one tools line."""
     path = c.path("agents/kit-judge.md")
     if not os.path.isfile(path):
         return  # reported as missing
@@ -619,29 +622,60 @@ def check_judge_tools(c: Check) -> None:
             head = frontmatter(f.read(65536))
     except OSError:
         head = None
-    # Only a key at column 0 is the tools key. Any other line whose key reads
-    # tools (indented, inside a block scalar, or quoted) makes the file suspect,
-    # and so does any indented line: YAML joins it to the value above it.
-    tools, other = [], False
-    for line in head or []:
-        if re.match(r"tools\s*:", line):
-            tools.append(line.split(":", 1)[1])
-        elif line.startswith((" ", "\t")) or (
-            ":" in line and line.split(":", 1)[0].strip(" \t\"'") == "tools"
-        ):
-            other = True
-    if (
-        not other
-        and len(tools) == 1
-        and tuple(t.strip() for t in tools[0].split(",")) == JUDGE_TOOLS
-    ):
-        c.add("install", "pass", "kit-judge.md only reads")
-    else:
+    tools, odd_tools, odd_keys = judge_frontmatter(head or [])
+    if odd_keys:
         c.add(
             "install",
             "fail",
-            "kit-judge.md allows more than reading: run the installer",
+            "kit-judge.md has frontmatter keys other than name, description, "
+            "model and tools: run the installer",
         )
+    if (
+        odd_tools
+        or len(tools) != 1
+        or tuple(t.strip() for t in tools[0].split(",")) != JUDGE_TOOLS
+    ):
+        c.add(
+            "install",
+            "fail",
+            "kit-judge.md does not have the kit's tools line "
+            f"({', '.join(JUDGE_TOOLS)}): run the installer",
+        )
+    elif not odd_keys:
+        c.add("install", "pass", "kit-judge.md only reads")
+
+
+def judge_frontmatter(head: list[str]) -> tuple[list[str], bool, bool]:
+    """The values of the tools lines, whether a tools line is suspect, and
+    whether a key other than JUDGE_KEYS is there.
+
+    Only a key at column 0 written `tools:` (spaces or tabs before the colon)
+    is the tools key. An indented line belongs to the key above it: YAML joins
+    it to that value, so one under tools makes it suspect, and so does any
+    other line that reads as a tools key (indented, or quoted). A line at
+    column 0 that is no key of JUDGE_KEYS (a no-break space before the colon
+    makes another key) is another key.
+    """
+    tools, odd_tools, odd_keys = [], False, False
+    above = ""
+    for line in head:
+        if not line.strip(" \t") or line.startswith("#"):
+            continue  # an empty line or a comment keeps the key above
+        if line.startswith((" ", "\t")):
+            if above == "tools" or re.match(r"[ \t]*[\"']?tools[\"']?[ \t]*:", line):
+                odd_tools = True
+            continue
+        key = line.split(":", 1)[0] if ":" in line else line
+        if re.match(r"tools[ \t]*:", line):
+            tools.append(line.split(":", 1)[1])
+            above = "tools"
+        elif key.strip(" \t").strip("\"'") == "tools":
+            odd_tools, above = True, "tools"
+        elif ":" in line and key.rstrip(" \t") in JUDGE_KEYS:
+            above = key.rstrip(" \t")
+        else:
+            odd_keys, above = True, ""
+    return tools, odd_tools, odd_keys
 
 
 def drift_files(c: Check, files: dict) -> None:
