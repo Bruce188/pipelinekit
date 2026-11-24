@@ -17,6 +17,10 @@
   (`${CLAUDE_SKILL_DIR}/check.py`, `update.py plan`, `ship.py`), no longer any
   script whose path ends the same way; the components page lists what each
   skill runs without asking.
+- docs-writer: the skill pre-approves its own helpers only (`render.py`,
+  `verify_toc.py`, `richness_check.py` and its two test scripts, named by
+  `${CLAUDE_SKILL_DIR}`), no longer every Bash command; any other command
+  asks while the skill is active.
 
 ## 0.1.0 — 2026-11-03
 
