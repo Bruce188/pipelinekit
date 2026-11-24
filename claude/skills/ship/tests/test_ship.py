@@ -867,6 +867,11 @@ OPT_OUTS = [
     "Merges: never",
     "Merges: manual",
     "<!-- pipelinekit: Merges: ask first -->",
+    '"Merges: ask first"',
+    "'Merges: ask first'",
+    "\u201cMerges: ask first\u201d",
+    '- "Merges: ask first".',
+    "> \u2018Merges: ask first\u2019",
 ]
 NOT_OPT_OUTS = [
     "To turn this off, add `Merges: ask first` to this file.",

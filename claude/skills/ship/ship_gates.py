@@ -109,10 +109,16 @@ def own_gate(repo, pr):
 
 
 def opts_out(text):
-    """True when one line of `text` is the opt-out line itself."""
+    """True when one line of `text` is the opt-out line itself.
+
+    The line may be marked up, quoted or start a sentence; a line that only
+    names it further on does not count.
+    """
     for line in text.lstrip("\ufeff").splitlines():
         cells = [
-            re.sub(r"[*_]", "", LINE_LEAD.sub("", cell.strip(), count=1)).strip()
+            re.sub(r"[*_]", "", LINE_LEAD.sub("", cell.strip(), count=1))
+            .strip()
+            .lstrip("\"'\u201c\u2018")
             for cell in line.split("|")
         ]
         # `| Merges | ask first |`: two cells of a table row read as one line.
