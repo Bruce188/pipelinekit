@@ -536,11 +536,12 @@ def check_settings(c: Check) -> None:
                     if in_kit and os.path.basename(first) in HOOKS:
                         bad.append(f"hook command not found: {shown}")
                     else:
-                        why = f"a hook of your own runs a file that is not there: {shown}"
-                        theirs.append(why)
+                        theirs.append(
+                            f"a hook of your own runs a file that is not there: {shown}"
+                        )
     if hook_command:
-        twice = hook_command.wired_twice(c.settings.get("hooks"), c.path("hooks"), HOOKS)
-        for event, name, n in twice:
+        hooks = c.settings.get("hooks")
+        for event, name, n in hook_command.wired_twice(hooks, c.path("hooks"), HOOKS):
             c.add(
                 "install",
                 "warn",

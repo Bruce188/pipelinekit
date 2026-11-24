@@ -9,8 +9,9 @@ can end up in them.
 
 It never holds up a session: every path exits 0, a check that takes too long
 is dropped without a word, and it reads a bounded amount of input and of the
-check's output, waiting at most a second for its input to end. Its own failures go to the event log as
-`session-check.timeout` and `session-check.failed`, where /kit shows them.
+check's output, waiting at most a second for its input to end. Its own failures
+go to the event log as `session-check.timeout` and `session-check.failed`,
+where /kit shows them.
 
 PIPELINEKIT_SESSION_CHECK=0 switches it off. Stdlib only.
 """
