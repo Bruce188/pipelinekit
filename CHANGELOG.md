@@ -306,6 +306,9 @@ kit used to ship, so those parts are gone.
 - `/kit` Activity: an unreadable or unrotated log is a `[warn]`, skipped lines
   and events dated after now are counted, a large log is read from its end,
   and `--days` and `--session` refuse values such as ` 7 `, `+7` and `''`.
+- `post-edit-format.sh` runs prettier on stock macOS, which has no `timeout`:
+  it uses `gtimeout` when that is there and otherwise relies on the hook's
+  own timeout in `settings.json`.
 
 ### Removed
 
