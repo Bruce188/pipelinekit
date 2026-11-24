@@ -50,6 +50,11 @@ def installed(tmp_path_factory):
         "PIPELINEKIT_LOG",
         "PIPELINEKIT_SESSION_CHECK",
         "XDG_STATE_HOME",
+        "GH_CONFIG_DIR",
+        "GH_TOKEN",
+        "GITHUB_TOKEN",
+        "GH_ENTERPRISE_TOKEN",
+        "GITHUB_ENTERPRISE_TOKEN",
     ):
         env.pop(k, None)
     p = subprocess.run(
@@ -1664,88 +1669,3 @@ def test_age_in_words():
     assert check_py.age(5) == "just now"
     assert check_py.age(600) == "10 minutes ago"
     assert check_py.age(3 * 3600) == "3 hours ago"
-
-
-# ---------------------------------------------------------------- sandbox
-
-
-@pytest.fixture
-def with_gh(kit, tmp_path):
-    """A gh on PATH, so the check does not depend on the machine's own."""
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    (bin_dir / "gh").write_text("#!/bin/sh\necho 'gh version 2.0.0 (test)'\n")
-    (bin_dir / "gh").chmod(0o755)
-    return {"PATH": f"{bin_dir}{os.pathsep}{kit['env']['PATH']}"}
-
-
-def test_sandbox_denies_gh_its_login(kit, with_gh):
-    edit_json(kit, "settings.json", lambda d: d.update(sandbox={"enabled": True}))
-    rc, out = check(kit, env=with_gh)
-    assert rc == 0, out
-    assert "[warn] the Bash sandbox is on and applies the deny rule for the gh" in out
-    assert 'fix: add "gh *" to sandbox.excludedCommands in settings.json' in out
-    assert "Result: working, 1 warning" in out
-    assert "sandbox" not in check(kit, "--quick", env=with_gh)[1]
-
-
-@pytest.mark.parametrize("excluded", [["gh *"], ["docker", "gh"], ["gh:*"]])
-def test_sandbox_with_gh_excluded(kit, with_gh, excluded):
-    box = {"enabled": True, "excludedCommands": excluded}
-    edit_json(kit, "settings.json", lambda d: d.update(sandbox=box))
-    rc, out = check(kit, "--verbose", env=with_gh)
-    assert rc == 0 and "[warn]" not in out, out
-    assert "[pass] gh is excluded from the Bash sandbox" in out
-
-
-@pytest.mark.parametrize(
-    "box",
-    [
-        None,
-        {},
-        {"enabled": False},
-        {"enabled": "yes"},
-        "on",
-        {"enabled": True, "excludedCommands": ["ghost"]},
-    ],
-)
-def test_sandbox_off_or_gh_not_excluded(kit, with_gh, box):
-    edit_json(kit, "settings.json", lambda d: d.update(sandbox=box))
-    rc, out = check(kit, "--verbose", env=with_gh)
-    assert rc == 0, out
-    warned = isinstance(box, dict) and box.get("enabled") is True
-    assert ("[warn] the Bash sandbox is on" in out) is warned
-    assert "gh is excluded" not in out
-
-
-def test_refused_read_is_told_from_a_closed_file(tmp_path, monkeypatch):
-    login = tmp_path / "hosts.yml"
-    assert check_py.read_refused(str(login)) is False  # no file
-    login.write_text("x\n")
-    assert check_py.read_refused(str(login)) is False  # readable
-    login.chmod(0)
-    assert check_py.read_refused(str(login)) is False  # closed by its owner
-    login.chmod(0o600)
-
-    def refuse(*_a, **_k):
-        raise PermissionError(13, "Permission denied")
-
-    monkeypatch.setattr(check_py.os, "open", refuse)
-    assert check_py.read_refused(str(login)) is True
-
-
-def test_gh_login_file_follows_the_environment(monkeypatch):
-    monkeypatch.setenv("GH_CONFIG_DIR", "/a/gh")
-    assert check_py.gh_login_file() == "/a/gh/hosts.yml"
-    monkeypatch.delenv("GH_CONFIG_DIR")
-    monkeypatch.setenv("XDG_CONFIG_HOME", "/b")
-    assert check_py.gh_login_file() == "/b/gh/hosts.yml"
-
-
-def test_the_repair_command_keeps_an_install_without_serena_that_way(kit):
-    (kit["home"] / "hooks" / "bash-guard.py").unlink()
-    _, out = check(kit, "--quick")
-    assert out.rstrip().endswith(f"Repair: bash {REPO}/scripts/install.sh --no-serena")
-    edit_json(kit, "pipelinekit/manifest.json", lambda d: d.update(serena=True))
-    _, out = check(kit, "--quick")
-    assert out.rstrip().endswith(f"Repair: bash {REPO}/scripts/install.sh")

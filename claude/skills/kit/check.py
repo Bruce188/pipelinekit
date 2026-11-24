@@ -40,6 +40,10 @@ try:  # gh's login and Playwright; without the file, Install reports it
     import check_tools
 except ImportError:
     check_tools = None
+try:  # the Bash sandbox and gh's login file
+    import check_sandbox
+except ImportError:
+    check_sandbox = None
 try:  # which file a hook command runs; the installer reads commands with it too
     import hook_command
 except ImportError:
@@ -1095,75 +1099,6 @@ def is_wsl() -> bool:
         return False
 
 
-def gh_login_file() -> str:
-    base = os.environ.get("GH_CONFIG_DIR") or os.path.join(
-        os.environ.get("XDG_CONFIG_HOME")
-        or os.path.join(os.path.expanduser("~"), ".config"),
-        "gh",
-    )
-    return os.path.join(base, "hosts.yml")
-
-
-def read_refused(path: str) -> bool:
-    """The file is ours and readable by its mode, and opening it is refused.
-
-    That is what a sandbox around this process does. Nothing is read from it.
-    """
-    try:
-        st = os.stat(path)
-        if st.st_uid != os.getuid() or not st.st_mode & 0o400:
-            return False
-        os.close(os.open(path, os.O_RDONLY))
-    except PermissionError:
-        return True
-    except OSError:
-        return False
-    return False
-
-
-def check_sandbox(c: Check) -> None:
-    """The kit's deny rule for the gh login also binds gh inside the sandbox."""
-    if not shutil.which("gh"):
-        return
-    settings = as_dict(c.settings)
-    box = as_dict(settings.get("sandbox"))
-    rules = as_list(as_dict(settings.get("permissions")).get("deny"))
-    declared = box.get("enabled") is True and any(
-        str(r).startswith("Read(") and "gh/hosts.yml" in str(r) for r in rules
-    )
-    refused = read_refused(gh_login_file())
-    if not (declared or refused):
-        return
-    fix = (
-        'add "gh *" to sandbox.excludedCommands in settings.json, '
-        "or run gh outside the sandbox"
-    )
-    excluded = as_list(box.get("excludedCommands"))
-    if any(re.match(r"gh\b", str(x).strip()) for x in excluded):
-        c.add(
-            "environment",
-            "pass",
-            "gh is excluded from the Bash sandbox, which denies its login file",
-        )
-    elif declared:
-        c.add(
-            "environment",
-            "warn",
-            "the Bash sandbox is on and applies the deny rule for the gh login "
-            "file (hosts.yml) to gh itself: gh fails in sandboxed commands, and "
-            "so does git over https when it asks gh for the token",
-            fix,
-        )
-    else:
-        c.add(
-            "environment",
-            "info",
-            "this session cannot open the gh login file (hosts.yml), as inside "
-            "a Bash sandbox: gh works here only when it is excluded from it",
-            fix,
-        )
-
-
 def check_design_plugin(c: Check) -> None:
     """One info line when the user settings enable frontend-design as a plugin
     and the kit's copy is installed (without it there are no two copies).
@@ -1242,7 +1177,8 @@ def check_environment(c: Check) -> None:
                 git_value("rev-parse", "--show-toplevel"),
                 shutil.which("npx"),
             )
-    check_sandbox(c)
+    if check_sandbox:
+        check_sandbox.check(c)
     local = git_value("config", "--local", "--get", "core.hooksPath")
     if local and not same_path(local, c.path("git-hooks")):
         c.add(
