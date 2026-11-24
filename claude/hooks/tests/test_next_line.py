@@ -4,6 +4,7 @@ cases cover every refusing rule in docs-source/components.md."""
 
 from __future__ import annotations
 
+import ast
 import importlib.util
 import io
 import json
@@ -41,12 +42,10 @@ COMMIT_NAMED = (
     "git add the files by name, then git commit without -a or a bulk pathspec."
 )
 SPLIT = "split the file so each part is under the limit, stage the parts, then "
-TESTED: set[str] = set()  # rule ids with a case below
 
 
 def ends_with_next(text: str, rule: str, step: str) -> None:
     """The line with [rule], later exactly one `Next:` line, and it is last."""
-    TESTED.add(rule)
     lines = [ln for ln in text.splitlines() if not ln.startswith(GIT_DONE)]
     assert lines and lines[-1] == f"Next: {step}", text
     assert sum(ln.startswith("Next:") for ln in lines) == 1, text
@@ -499,7 +498,36 @@ def refusing_rules() -> set[str]:
     return {rule for rule, kind in rows if kind == "block"} | errors
 
 
+def pinned_rules() -> set[str]:
+    """The rule ids of the case tables, and of the ends_with_next calls in
+    this file that name their rule outright."""
+    tree = ast.parse(Path(__file__).read_text())
+    calls = {
+        call.args[1].value
+        for call in ast.walk(tree)
+        if isinstance(call, ast.Call)
+        and getattr(call.func, "id", "") == "ends_with_next"
+        and isinstance(call.args[1], ast.Constant)
+    }
+    return calls | {c[1] for c in GUARD_CASES + COMMIT_MSG_CASES}
+
+
 def test_every_refusing_rule_has_a_next_case():
-    # Runs last in this file: TESTED is filled by the cases above.
-    missing = refusing_rules() - TESTED
+    missing = refusing_rules() - pinned_rules()
     assert not missing, f"refusals without a pinned Next: line: {sorted(missing)}"
+
+
+def test_every_block_in_the_guard_has_a_next_step():
+    """A Block without its own step falls back to NEXT_STEP[rule]; a rule
+    missing there would turn the refusal into a crash."""
+    tree = ast.parse(GUARD.read_text())
+    rules = {
+        call.args[1].value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Raise)
+        and isinstance(call := node.exc, ast.Call)
+        and getattr(call.func, "id", "") == "Block"
+    }
+    assert len(rules) > 15, rules
+    missing = rules - set(load(GUARD, "bash_guard_steps").NEXT_STEP)
+    assert not missing, f"Block rules without a NEXT_STEP entry: {sorted(missing)}"
