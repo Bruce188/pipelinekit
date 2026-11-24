@@ -408,9 +408,9 @@ def check_criteria(loop):
         )
 
 
-def own_changes(ctx, old, head, below, m):
+def own_changes(ctx, old, head, below, base, m):
     """The commits of one pull request since round m, without what came up from
-    the branches below it."""
+    the branches below it or straight from the base of the stack."""
     body = ctx.git.capped(
         "log",
         "-p",
@@ -419,13 +419,18 @@ def own_changes(ctx, old, head, below, m):
         "--format=commit %H%n%n    %s%n",
         f"{old}..{head}",
         f"^{below}",
+        f"^{base}",
         "--",
         limit=MAX_DIFF,
     )
-    first = f"# Its own commits since round {m}; merges from below left out.\n"
+    first = (
+        f"# Its own commits since round {m}; merges from below and from the base "
+        "left out.\n"
+    )
     if not body.strip():
         return (
-            f"# No commit of its own since round {m}, only merges from below.\n"
+            f"# No commit of its own since round {m}, only merges from below or "
+            "from the base.\n"
         ).encode()
     out = first.encode() + body[:MAX_DIFF]
     if len(body) > MAX_DIFF:
@@ -458,7 +463,7 @@ def write_stack(loop, n, work):
             data = f"# #{entry['pr']} is {since}: nothing new to read.\n".encode()
         elif old and ctx.is_ancestor(old, head):
             since = f"changes since round {last['n']}"
-            data = own_changes(ctx, old, head, below_sha, last["n"])
+            data = own_changes(ctx, old, head, below_sha, work["base_sha"], last["n"])
         else:
             since = f"rewritten since round {last['n']}" if old else "new"
             start = ctx.git.out("merge-base", below_sha, head, ok=(0, 1))
