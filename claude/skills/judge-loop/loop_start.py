@@ -632,8 +632,8 @@ def check_agents(ctx, agents, command, panel=()):
             3,
             f"STOP: {show_path(rel)} cannot be checked for an agent name (a link, "
             f"over {size_text(MAX_AGENT_FILE)} or not readable). Next: ask the user: "
-            "make it a plain, "
-            "readable file or folder, or the same command with --agents fallback.",
+            "make it a plain, readable file or folder, or the same command with "
+            "--agents fallback.",
         )
     again = "start ..." if command == "start" else command
     raise Exit(
