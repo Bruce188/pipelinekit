@@ -111,6 +111,103 @@ elif [[ -e "$FD" ]] && { [[ ! -d "$FD" ]] || { [[ "$listed" == 0 ]] &&
     die "could not move your own skills/frontend-design to $FD_BACKUPS. It is untouched and the skills were not installed. Move or rename it yourself, then run the installer again."
   log "kept your own frontend-design skill in $FD_BACKUP"
 fi
+# Files of your own inside a kit skill folder: each folder is replaced as a
+# whole below, so every file the kit did not put there (not in the checkout's
+# skill, not listed by the last install's manifest) is copied to a backup first,
+# one folder per skill, and named. The kit's own files go without a backup: an
+# edited copy, an older install's tests/, caches. A link is kept as a link, and
+# a file in place of a skill folder is kept as it is. All skills are looked at
+# before any is replaced, so a copy that fails leaves every skill as it was.
+python3 - "$REPO_ROOT/claude" "$CLAUDE_HOME" "$TS" "${KIT_SKILLS[@]}" <<'PY'
+import json, os, shutil, sys
+
+src, home, ts, skills = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4:]
+CACHES = {"__pycache__", ".pytest_cache", ".ruff_cache"}
+backups = os.path.join(home, "pipelinekit", "backup")
+try:
+    with open(os.path.join(home, "pipelinekit", "manifest.json"), encoding="utf-8") as f:
+        listed = json.load(f).get("files")
+except (OSError, ValueError, AttributeError):
+    listed = None
+listed = set(listed) if isinstance(listed, dict) else set()
+
+
+def fail(skill):
+    sys.exit(
+        f"[install][error] could not copy your own files in skills/{skill} to {backups}. "
+        "They are untouched and the skills were not installed. "
+        "Move them out of the folder yourself, then run the installer again."
+    )
+
+
+def raise_(err):
+    raise err
+
+
+def own(skill):
+    """The user's files in the installed skill, relative to it ("" for the skill itself)."""
+    top = os.path.join(home, "skills", skill)
+    if os.path.islink(top) or not os.path.lexists(top):
+        return []  # a link goes without its target being touched
+    if not os.path.isdir(top):
+        return [""]
+    kit = set(listed)
+    for root, _, files in os.walk(os.path.join(src, "skills", skill)):
+        kit.update(os.path.relpath(os.path.join(root, n), src) for n in files)
+    found = []
+    for root, dirs, files in os.walk(top, onerror=raise_):
+        links = [d for d in dirs if os.path.islink(os.path.join(root, d))]
+        dirs[:] = sorted(d for d in dirs if d not in CACHES and d not in links)
+        for n in files + links:
+            p = os.path.join(root, n)
+            if n.endswith(".pyc") or os.path.relpath(p, home) in kit:
+                continue
+            if os.path.islink(p) or os.path.isfile(p):
+                found.append(os.path.relpath(p, top))
+    return sorted(found)
+
+
+def shown(rel):
+    return "".join(c if c.isprintable() else "?" for c in rel)
+
+
+for skill in skills:
+    top = os.path.join(home, "skills", skill)
+    dst = None
+    try:
+        rels = own(skill)
+        if not rels:
+            continue
+        dst = base = os.path.join(backups, f"skills-{skill}-{ts}")
+        n = 1
+        while os.path.lexists(dst):
+            n += 1
+            dst = f"{base}-{n}"
+        os.makedirs(backups, exist_ok=True)
+        if rels == [""]:
+            shutil.copy2(top, dst)
+            print(f"[install] kept your own file skills/{skill} in {dst}")
+            continue
+        for rel in rels:
+            s, d = os.path.join(top, rel), os.path.join(dst, rel)
+            os.makedirs(os.path.dirname(d), exist_ok=True)
+            if os.path.islink(s):
+                os.symlink(os.readlink(s), d)
+            else:
+                shutil.copy2(s, d)
+    except OSError:
+        if dst and os.path.isdir(dst) and not os.path.islink(dst):
+            shutil.rmtree(dst, ignore_errors=True)
+        elif dst and os.path.lexists(dst):
+            os.remove(dst)
+        fail(skill)
+    count = f"{len(rels)} file" + ("" if len(rels) == 1 else "s")
+    print(f"[install] kept {count} of your own from skills/{skill} in {dst}")
+    for rel in rels[:10]:
+        print(f"[install]   {shown(rel)}")
+    if len(rels) > 10:
+        print(f"[install]   and {len(rels) - 10} more")
+PY
 # Skill tests stay in the repo, as the hook tests do. A checkout on a Windows
 # drive (WSL) marks every file executable, so the modes are set here.
 for s in "${KIT_SKILLS[@]}"; do
