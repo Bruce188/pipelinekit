@@ -247,6 +247,30 @@ if grep -qF 'changed since install:' <<<"$report"; then
 fi
 [ "$(git config --global core.hooksPath)" = "$CLAUDE_HOME/git-hooks" ]
 
+# The kit and ship skills pre-approve their helper by the folder Claude Code
+# loads the skill from (${CLAUDE_SKILL_DIR}), so no home needs a rewrite: in
+# both homes the rules are the kit's own, and the skill's first command, filled
+# in the way Claude Code fills it in, runs the installed helper.
+# shellcheck disable=SC2016 # a literal backtick and ${CLAUDE_SKILL_DIR}
+run_preload() { # run_preload <home> <skill>: the skill's !`...` line
+  local line
+  line="$(sed -n 's/^!`\(.*\)`$/\1/p' "$1/skills/$2/SKILL.md")"
+  [[ -n "$line" ]] || { echo "test_install: no load command in the $2 skill" >&2; exit 1; }
+  (cd "$T" && CLAUDE_HOME="$1" bash -c "${line//'${CLAUDE_SKILL_DIR}'/$1/skills/$2}")
+}
+for h in "$CLAUDE_HOME" "$KH"; do
+  # shellcheck disable=SC2016 # the rules name ${CLAUDE_SKILL_DIR} literally
+  grep -qxF 'allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/check.py *), Bash(python3 ${CLAUDE_SKILL_DIR}/update.py plan)' "$h/skills/kit/SKILL.md" ||
+    { echo "test_install: the kit skill's rules changed in $h" >&2; exit 1; }
+  # shellcheck disable=SC2016
+  grep -qF 'allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/ship.py *), ' "$h/skills/ship/SKILL.md" ||
+    { echo "test_install: the ship skill's rule for ship.py changed in $h" >&2; exit 1; }
+  run_preload "$h" kit | grep -q '^Result: ' ||
+    { echo "test_install: the kit skill's first command gave no report in $h" >&2; exit 1; }
+  run_preload "$h" ship | grep -q 'not inside a git repository' ||
+    { echo "test_install: the ship skill's first command did not run ship.py in $h" >&2; exit 1; }
+done
+
 # A home a permission pattern cannot hold (a space), or a relative one: a
 # warning, and the installed skill is the kit's own, naming ~/.claude.
 # Neither home passes verify (the hooks do not start from it), so the install
