@@ -122,6 +122,7 @@ The log is `~/.local/state/pipelinekit/events.jsonl`. `$XDG_STATE_HOME` moves it
 | `internal.crash` | `bash-guard`, `block-bare-repo-markers` | error | The hook itself failed, so the command was not checked |
 | `session-check.timeout` | `session-check` | error | The session-start check took longer than 4 seconds and was dropped |
 | `session-check.failed` | `session-check` | error | The session-start check could not run: `check.py` is missing, gave no report or printed more than 1 MB |
+| `session-check.stopped` | `session-check` | error | The session-start hook was ended from outside with SIGTERM, SIGHUP or SIGINT before the check finished; it ended the check first |
 | `commit-msg.format` | `commit-msg` | block | The subject is not a conventional commit |
 | `commit-msg.subject-length` | `commit-msg` | block | The subject is longer than 100 characters |
 | `commit-msg.wip` | `commit-msg` | block | A wip commit outside `.claude/worktrees/` |
@@ -186,13 +187,13 @@ A line is `[fail]` when a guard is missing or does the wrong thing, `[warn]` whe
 
 The report repeats a name from `settings.json` or the install manifest only when it reads as a plain name: a hook's file name, an event, a rule, a version, a branch. Anything else is counted and not quoted, so a line that sits in one of those files cannot show up as a line of the report. Characters that draw as nothing or change how a line reads are removed. A plain name can still spell a word, so read the report as a list of names, not as advice.
 
-The same check runs when a session starts. `session-check.py` is a SessionStart hook that runs `check.py --quick` on `startup` (not on resume or after `/clear`); it takes about 0.2 seconds. A healthy install, warnings included, gives no output. With a `[fail]` you get one line with the number of problems and no text from the report, and Claude is told the same:
+The same check runs when a session starts. `session-check.py` is a SessionStart hook that runs `check.py --quick` on `startup` only: the hook itself leaves a resume, `/clear` and a compaction alone, so an entry wired without a matcher behaves the same. It takes well under a second, about a second on a slow machine. A healthy install, warnings included, gives no output. With a `[fail]` you get one line with the number of problems and no text from the report, and Claude is told the same:
 
 ```text
 pipelinekit: 2 problems in this install. Run /kit for the report.
 ```
 
-The hook never blocks a session. A check that takes longer than 4 seconds is dropped, together with anything it started, and shows up under Activity as `session-check.timeout`. The hook reads at most 1 MB of the check's report, and waits at most a second for its own input to end. `PIPELINEKIT_SESSION_CHECK=0` in the environment switches it off, and `/kit` then says so.
+The hook never blocks a session. A check that takes longer than 4 seconds is dropped, together with anything it started, and shows up under Activity as `session-check.timeout`. On Linux that includes a process that left the check's process group with `setsid`, also after its parent ended, because the hook adopts what the check leaves behind; elsewhere only the process group is ended. When the hook itself is ended from outside with SIGTERM, SIGHUP or SIGINT, it ends the check first and records `session-check.stopped`. A SIGKILL cannot be caught: then nothing is recorded, and the check is left to end on its own. The hook reads at most 1 MB of the check's report, and waits at most a second for its own input to end. `PIPELINEKIT_SESSION_CHECK=0` in the environment switches it off, and `/kit` then says so. Only `0` does: `false`, `off` or `no` leave the check on, the same as for `PIPELINEKIT_LOG`, so a switch that is mistyped or means something else never silences the check.
 
 The checker is `claude/skills/kit/check.py`, stdlib only. It also runs outside a session:
 

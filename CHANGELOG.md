@@ -74,6 +74,10 @@ kit used to ship, so those parts are gone.
   of waiting about 23 seconds and saying that it does not start.
 - `session-check.py` reads at most 1 MB of the check's report and waits at
   most a second for its input to end.
+- A session-start check dropped at its time limit also ends a process that
+  left its process group with `setsid` (Linux). The hook records
+  `session-check.stopped` when it is ended from outside, and does nothing
+  on a resume, `/clear` or a compaction, also when wired without a matcher.
 
 ### Shipping
 
