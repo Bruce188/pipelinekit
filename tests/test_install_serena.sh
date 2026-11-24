@@ -49,7 +49,7 @@ SH
       chmod +x "$H/bin/uv" ;;
   esac
 }
-install() { # output in $H/out, stderr also in $H/err
+run_install() { # output in $H/out, stderr also in $H/err
   local rc=0
   env -u CLAUDE_INSTALL_SKIP_SERENA -u SERENA_REF -u SERENA_ALLOW_ROLLING \
     PATH="$H/bin:/usr/bin:/bin" HOME="$H" CLAUDE_HOME="$H/.claude" USER_NAME="Test User" USER_EMAIL="t@example.com" \
@@ -68,7 +68,7 @@ expect() { # expect <what> <want> <have>
 
 # (a) No serena: installed at the pin and registered with the tools interface.
 home a "" ok
-install
+run_install
 expect "uv call (a)" "tool install --quiet git+https://github.com/oraios/serena@$REF" "$(cat "$H/uv.log")"
 expect "registration (a)" "$NEW" "$(registered)"
 
@@ -76,7 +76,7 @@ expect "registration (a)" "$NEW" "$(registered)"
 # files move one way, and registered with the tools interface.
 home b "1.5.4.dev0-9b292a6c" ok
 echo '{"keep": 1}' >"$H/.claude.json"
-install
+run_install
 expect "uv call (b)" "tool install --force --quiet git+https://github.com/oraios/serena@$REF" "$(cat "$H/uv.log")"
 grep -qF "[install] serena 1.5.4.dev0-9b292a6c cannot read the .serena/project.yml files that serena 2 writes; upgrading to $REF" "$H/out" ||
   { echo "test_install_serena: no line about the upgrade" >&2; cat "$H/out" >&2; exit 1; }
@@ -87,21 +87,21 @@ python3 -c 'import json, sys; assert json.load(open(sys.argv[1]))["keep"] == 1' 
 
 # (c) A serena 2.x on PATH: left as it is.
 home c "2.0.0" ok
-install
+run_install
 test ! -e "$H/uv.log" || { echo "test_install_serena: uv ran for a serena 2" >&2; exit 1; }
 expect "registration (c)" "$NEW" "$(registered)"
 
 # (d) A serena 1.x and no uv: a warning with the command, and the 1.x form,
 # which that serena can start.
 home d "1.5.4.dev0" none
-install
+run_install
 grep -qF "[install][warn] serena 1.5.4.dev0 cannot read the .serena/project.yml files that serena 2 writes; upgrade it: uv tool install --force git+https://github.com/oraios/serena@$REF" "$H/err" ||
   { echo "test_install_serena: no warning naming the upgrade command" >&2; cat "$H/out" >&2; exit 1; }
 expect "registration (d)" "$OLD" "$(registered)"
 
 # (e) The upgrade fails: a warning, and the 1.x form.
 home e "1.5.4.dev0" fail
-install
+run_install
 grep -qF '[install][warn] serena upgrade failed' "$H/err" ||
   { echo "test_install_serena: no warning for the failed upgrade" >&2; cat "$H/out" >&2; exit 1; }
 expect "registration (e)" "$OLD" "$(registered)"
@@ -110,7 +110,7 @@ expect "registration (e)" "$OLD" "$(registered)"
 home f "" none
 printf '#!/bin/sh\nexit 2\n' >"$H/bin/serena"
 chmod +x "$H/bin/serena"
-install
+run_install
 grep -qF '[install][warn] could not read the version of' "$H/err" ||
   { echo "test_install_serena: no warning for an unknown version" >&2; cat "$H/out" >&2; exit 1; }
 expect "registration (f)" "$OLD" "$(registered)"

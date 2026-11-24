@@ -468,7 +468,7 @@ else
   serena_version() { serena --version 2>/dev/null | sed -n 's/^Serena \([0-9][0-9.]*[^ ]*\).*/\1/p' | head -n 1 || true; }
   # serena 1.x stops on a .serena/project.yml that serena 2 wrote, and has no
   # --agent-interface; the kit's registration needs serena 2.
-  serena_2() { [[ "$1" =~ ^[0-9]+\. ]] && (( ${1%%.*} >= 2 )); }
+  serena_2() { [[ "$1" =~ ^[0-9]+\. ]] && (( 10#${1%%.*} >= 2 )); }
   if ! command -v serena >/dev/null 2>&1; then
     if command -v uv >/dev/null 2>&1; then
       log "installing serena @ $SERENA_REF"
@@ -495,11 +495,11 @@ else
     # reach of bash-guard.py and the sandbox.
     SERENA_ARGS=(start-mcp-server --context claude-code --project-from-cwd)
     if [[ -z "$have" ]]; then
-      warn "could not read the version of $(command -v serena); registered it without --agent-interface tools. Upgrade it (uv tool install --force $SERENA_SRC) and run the installer again"
+      warn "could not read the version of $(command -v serena); registering it without --agent-interface tools. Upgrade it (uv tool install --force $SERENA_SRC) and run the installer again"
     elif serena_2 "$have"; then
       SERENA_ARGS+=(--agent-interface tools)
     else
-      warn "serena $have is older than 2: registered it without --agent-interface tools. Upgrade it and run the installer again"
+      warn "serena $have is older than 2: registering it without --agent-interface tools. Upgrade it and run the installer again"
     fi
     CJ="$HOME/.claude.json"
     [[ -f "$CJ" ]] && cp -p "$CJ" "$CJ.bak-$TS"
