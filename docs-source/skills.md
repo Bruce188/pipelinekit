@@ -22,7 +22,7 @@ This page lists the skills and agents that pipelinekit v0.1.0 installs, and how 
 
 ### What the skills run without asking
 
-A skill's `allowed-tools` line lets Claude run the commands it names without a permission prompt, during the turn that started the skill. The `kit` and `ship` skills name their helper by the folder Claude Code loaded the skill from (`${CLAUDE_SKILL_DIR}`), which is `~/.claude/skills/<skill>` after a default install and `$CLAUDE_HOME/skills/<skill>` after an install into another home. The table shows the paths of a default install.
+A skill's `allowed-tools` line lets Claude run the commands it names without a permission prompt, during the turn that started the skill. The `kit`, `ship` and `docs-writer` skills name their helpers by the folder Claude Code loaded the skill from (`${CLAUDE_SKILL_DIR}`), which is `~/.claude/skills/<skill>` after a default install and `$CLAUDE_HOME/skills/<skill>` after an install into another home. The table shows the paths of a default install.
 
 | Skill | Runs without asking |
 |-------|---------------------|
