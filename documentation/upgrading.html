@@ -774,7 +774,9 @@ already over the limit only warns when it changes, so existing repositories
 keep working. By default the check leaves out generated, vendored, lock and
 data files, and the project and designer files an IDE writes. <code>git merge</code>
 runs the same check through the new global <code>pre-merge-commit</code> hook before it
-records a merge it made without conflicts. Git runs neither hook for
+records a merge it made without conflicts. That hook also runs the <code>gitleaks</code>
+secret scan of <code>pre-commit</code>, so a merge that brings in a secret is now refused
+with <code>[pre-commit.secret]</code>. Git runs neither hook for
 <code>git rebase</code>, <code>git cherry-pick</code>, <code>git revert</code>, <code>git am</code> or <code>git stash</code>, so
 what those commands record is not checked.</p>
 <p>To exempt more paths, commit a <code>.file-size-exempt</code> at the repository root,

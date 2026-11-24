@@ -679,7 +679,7 @@ footer {
   {"name": "Git hooks", "color": "#3b82f6", "count": "global core.hooksPath",
    "chips": [{"label": "commit-msg", "tip": "Conventional commits, no attribution or emoji"},
              {"label": "pre-commit", "tip": "gitleaks on staged changes, file size limit"},
-             {"label": "pre-merge-commit", "tip": "File size limit on merges made without conflicts"},
+             {"label": "pre-merge-commit", "tip": "Secret scan and file size limit on merges made without conflicts"},
              {"label": "pre-push", "tip": "No pushes to main or master"}]},
   {"name": "Skills", "color": "#10b981", "count": "9 skills",
    "chips": [{"label": "dotnet-conventions"}, {"label": "deploy"}, {"label": "exchange-api-keys"},
@@ -956,7 +956,7 @@ footer {
 </tr>
 <tr>
 <td><code>pre-merge-commit</code></td>
-<td>Run by <code>git merge</code> before it records a merge it made without conflicts, which skips <code>pre-commit</code>: the same <a href="#file-size-limit">file size limit</a> on the merged files</td>
+<td>Run by <code>git merge</code> before it records a merge it made without conflicts, which skips <code>pre-commit</code>: the same <code>gitleaks</code> scan of what the merge brings in, with the same <code>PIPELINEKIT_ALLOW_SECRET=1</code> override for one merge, and the same <a href="#file-size-limit">file size limit</a> on the merged files. A refused merge is left unfinished. <code>git merge --no-verify</code> skips it, as <code>git commit --no-verify</code> skips <code>pre-commit</code></td>
 </tr>
 <tr>
 <td><code>pre-push</code></td>
@@ -1174,19 +1174,19 @@ footer {
 </tr>
 <tr>
 <td><code>pre-commit.secret</code></td>
-<td><code>pre-commit</code></td>
+<td><code>pre-commit</code>, <code>pre-merge-commit</code></td>
 <td>block</td>
-<td>gitleaks found a secret in the staged changes</td>
+<td>gitleaks found a secret in the staged changes or in what a merge brings in</td>
 </tr>
 <tr>
 <td><code>pre-commit.gitleaks-failed</code></td>
-<td><code>pre-commit</code></td>
+<td><code>pre-commit</code>, <code>pre-merge-commit</code></td>
 <td>error</td>
 <td>gitleaks itself failed</td>
 </tr>
 <tr>
 <td><code>pre-commit.allow-secret</code></td>
-<td><code>pre-commit</code></td>
+<td><code>pre-commit</code>, <code>pre-merge-commit</code></td>
 <td>override</td>
 <td><code>PIPELINEKIT_ALLOW_SECRET=1</code> skipped the scan</td>
 </tr>

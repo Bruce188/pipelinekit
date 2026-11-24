@@ -128,7 +128,9 @@ already over the limit only warns when it changes, so existing repositories
 keep working. By default the check leaves out generated, vendored, lock and
 data files, and the project and designer files an IDE writes. `git merge`
 runs the same check through the new global `pre-merge-commit` hook before it
-records a merge it made without conflicts. Git runs neither hook for
+records a merge it made without conflicts. That hook also runs the `gitleaks`
+secret scan of `pre-commit`, so a merge that brings in a secret is now refused
+with `[pre-commit.secret]`. Git runs neither hook for
 `git rebase`, `git cherry-pick`, `git revert`, `git am` or `git stash`, so
 what those commands record is not checked.
 

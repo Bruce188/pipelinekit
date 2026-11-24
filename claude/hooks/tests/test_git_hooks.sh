@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Tests claude/git-hooks/{commit-msg,pre-commit,pre-push} against throwaway
-# repos that point core.hooksPath at the kit's git-hooks directory.
-# pre-merge-commit is tested with real merges in test_filesize.py.
+# Tests claude/git-hooks/{commit-msg,pre-commit,pre-merge-commit,pre-push}
+# against throwaway repos that point core.hooksPath at the kit's git-hooks
+# directory. The file size limit of pre-commit and pre-merge-commit is tested
+# in test_filesize.py.
 set -uo pipefail
 
 KIT_HOOKS="$(cd "$(dirname "$0")/../../git-hooks" && pwd)"
@@ -120,6 +121,77 @@ check "log: pre-commit.allow-secret" ok logged pre-commit override pre-commit.al
 printf '#!/bin/sh\nexit 1\n' >"$R/.git/hooks/pre-commit"; chmod +x "$R/.git/hooks/pre-commit"
 check "chains to .git/hooks/pre-commit" fail stubbed
 rm "$R/.git/hooks/pre-commit"
+
+# ---------------- pre-merge-commit: the secret scan on a merge without conflicts
+M="$TMP/merge"; mkrepo "$M"; commit "$M" "feat: base" >/dev/null 2>&1
+SIDE=0
+side() { # side [file content]: a new branch sideN with one new file, unmerged
+  SIDE=$((SIDE + 1))
+  git -C "$M" checkout -q -b "side$SIDE" feat
+  printf '%s\n' "${1:-side $SIDE}" >"$M/side$SIDE.txt"
+  git -C "$M" add "side$SIDE.txt" && git -C "$M" commit -q --no-verify -m "feat: side $SIDE"
+  git -C "$M" checkout -q feat
+}
+merged() { # merged [VAR=value...] [-- merge option...]: merge sideN with gitleaks stubbed
+  local vars=()
+  while [ $# -gt 0 ] && [ "$1" != -- ]; do vars+=("$1"); shift; done
+  [ $# -gt 0 ] && shift
+  env PATH="$STUB:$PATH" "${vars[@]}" git -C "$M" merge -q --no-ff --no-edit "$@" "side$SIDE"
+}
+unfinished() { test -f "$M/.git/MERGE_HEAD"; }
+abort() { git -C "$M" merge --abort 2>/dev/null; }
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  side
+  check "merge, gitleaks missing: allow" ok git -C "$M" merge -q --no-ff --no-edit "side$SIDE"
+  check "merge, gitleaks missing: warns" ok grep -q "gitleaks not installed" "$TMP/last"
+fi
+side; : >"$TMP/gitleaks.argv"
+check "merge, 8.19+: clean allows" ok merged
+check "merge, 8.19+: uses gitleaks git --staged" ok grep -q '^git --staged --redact --no-banner --exit-code 3' "$TMP/gitleaks.argv"
+side; : >"$TMP/gitleaks.argv"
+check "merge, <8.19: clean allows" ok merged STUB_VERSION=v8.18.4
+check "merge, <8.19: uses gitleaks protect --staged" ok grep -q '^protect --staged' "$TMP/gitleaks.argv"
+side
+check "merge, finding blocks" fail merged STUB_EXIT=3
+check "merge, finding names its rule" ok grep -q '^pre-merge-commit: .*\[pre-commit\.secret\]$' "$TMP/last"
+check "merge, log: pre-commit.secret" ok logged pre-merge-commit block pre-commit.secret
+check "merge, a refused merge is left unfinished" ok unfinished
+abort
+check "merge, gitleaks error blocks" fail merged STUB_EXIT=1
+check "merge, gitleaks error names its rule" ok grep -q '\[pre-commit\.gitleaks-failed\]$' "$TMP/last"
+check "merge, log: pre-commit.gitleaks-failed" ok logged pre-merge-commit error pre-commit.gitleaks-failed
+abort; : >"$TMP/gitleaks.argv"
+check "merge, PIPELINEKIT_ALLOW_SECRET=1 skips" ok merged STUB_EXIT=3 PIPELINEKIT_ALLOW_SECRET=1
+check "merge, opt-out never calls gitleaks" fail test -s "$TMP/gitleaks.argv"
+check "merge, log: pre-commit.allow-secret" ok logged pre-merge-commit override pre-commit.allow-secret
+side; : >"$TMP/gitleaks.argv"; n=$(events)
+check "merge --no-verify skips the scan" ok merged STUB_EXIT=3 -- --no-verify
+check "merge --no-verify never calls gitleaks" fail test -s "$TMP/gitleaks.argv"
+check "merge --no-verify: nothing recorded" ok test "$(events)" = "$n"
+# The repository's own hook runs after the scan, and not when the scan refuses.
+printf '#!/bin/sh\necho own-ran >>"%s/merge-chain.log"\n' "$TMP" >"$M/.git/hooks/pre-merge-commit"
+chmod +x "$M/.git/hooks/pre-merge-commit"
+side
+check "merge, a finding stops before .git/hooks/pre-merge-commit" fail merged STUB_EXIT=3
+check "merge, own hook not run after a finding" fail test -e "$TMP/merge-chain.log"
+abort
+check "merge, chains to .git/hooks/pre-merge-commit" ok merged
+check "merge, own hook ran" ok grep -q own-ran "$TMP/merge-chain.log"
+printf '#!/bin/sh\nexit 1\n' >"$M/.git/hooks/pre-merge-commit"
+side
+check "merge, own pre-merge-commit can veto" fail merged
+abort; rm "$M/.git/hooks/pre-merge-commit"
+# The real gitleaks, when installed, finds a token a merge brings in. The
+# token is built here so this file holds none.
+if command -v gitleaks >/dev/null 2>&1; then
+  tok="gh"; tok="${tok}p_$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 36)"
+  side "token = \"$tok\""
+  check "merge, real gitleaks: a token is refused" fail git -C "$M" merge -q --no-ff --no-edit "side$SIDE"
+  check "merge, real gitleaks: names its rule" ok grep -q '\[pre-commit\.secret\]$' "$TMP/last"
+  check "merge, real gitleaks: the value is redacted" fail grep -qF "$tok" "$TMP/last"
+  abort
+fi
 
 # ---------------- pre-push
 git init -q --bare "$TMP/origin.git"

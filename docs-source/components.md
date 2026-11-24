@@ -27,7 +27,7 @@ The kit has six layers. Hover a chip for a one-line summary, or use the buttons 
   {"name": "Git hooks", "color": "#3b82f6", "count": "global core.hooksPath",
    "chips": [{"label": "commit-msg", "tip": "Conventional commits, no attribution or emoji"},
              {"label": "pre-commit", "tip": "gitleaks on staged changes, file size limit"},
-             {"label": "pre-merge-commit", "tip": "File size limit on merges made without conflicts"},
+             {"label": "pre-merge-commit", "tip": "Secret scan and file size limit on merges made without conflicts"},
              {"label": "pre-push", "tip": "No pushes to main or master"}]},
   {"name": "Skills", "color": "#10b981", "count": "9 skills",
    "chips": [{"label": "dotnet-conventions"}, {"label": "deploy"}, {"label": "exchange-api-keys"},
@@ -84,7 +84,7 @@ The installer merges `claude/config/settings.template.json` into `~/.claude/sett
 |------|--------------|
 | `commit-msg` | Conventional commits (`feat fix refactor docs test chore perf style build ci revert`, scopes, `!`). Rejects wip (outside `.claude/worktrees/`), AI attribution and emoji. Lets `Merge`, `Revert "`, `fixup!`/`squash!`/`amend!` through |
 | `pre-commit` | `gitleaks` scan of staged changes. Warns and allows if gitleaks is missing. `PIPELINEKIT_ALLOW_SECRET=1` skips one commit. Then the [file size limit](#file-size-limit) |
-| `pre-merge-commit` | Run by `git merge` before it records a merge it made without conflicts, which skips `pre-commit`: the same [file size limit](#file-size-limit) on the merged files |
+| `pre-merge-commit` | Run by `git merge` before it records a merge it made without conflicts, which skips `pre-commit`: the same `gitleaks` scan of what the merge brings in, with the same `PIPELINEKIT_ALLOW_SECRET=1` override for one merge, and the same [file size limit](#file-size-limit) on the merged files. A refused merge is left unfinished. `git merge --no-verify` skips it, as `git commit --no-verify` skips `pre-commit` |
 | `pre-push` | Refuses pushes to `main`/`master`. `ALLOW_MAIN_PUSH=1` overrides (humans only; bash-guard refuses it for Claude) |
 
 A repo with its own local `core.hooksPath` (husky, the pre-commit framework, or a manual setting) bypasses these. Run `git config --show-origin core.hooksPath` inside it to check.
@@ -133,9 +133,9 @@ The log is `~/.local/state/pipelinekit/events.jsonl`. `$XDG_STATE_HOME` moves it
 | `commit-msg.wip` | `commit-msg` | block | A wip commit outside `.claude/worktrees/` |
 | `commit-msg.ai-attribution` | `commit-msg` | block | An AI attribution line in the message |
 | `commit-msg.emoji` | `commit-msg` | block | An emoji in the message |
-| `pre-commit.secret` | `pre-commit` | block | gitleaks found a secret in the staged changes |
-| `pre-commit.gitleaks-failed` | `pre-commit` | error | gitleaks itself failed |
-| `pre-commit.allow-secret` | `pre-commit` | override | `PIPELINEKIT_ALLOW_SECRET=1` skipped the scan |
+| `pre-commit.secret` | `pre-commit`, `pre-merge-commit` | block | gitleaks found a secret in the staged changes or in what a merge brings in |
+| `pre-commit.gitleaks-failed` | `pre-commit`, `pre-merge-commit` | error | gitleaks itself failed |
+| `pre-commit.allow-secret` | `pre-commit`, `pre-merge-commit` | override | `PIPELINEKIT_ALLOW_SECRET=1` skipped the scan |
 | `pre-commit.file-size` | `pre-commit`, `pre-merge-commit` | block | The commit or merge adds a file over the [file size limit](file-size.html) or takes one past it |
 | `pre-commit.file-size-over` | `pre-commit`, `pre-merge-commit` | warning, not logged | A file already over the limit changed; the commit or merge goes on |
 | `pre-commit.file-size-exempt-local` | `pre-commit`, `pre-merge-commit` | override | A file over the limit passes only because the unstaged `.file-size-exempt` in the working tree lists it |
