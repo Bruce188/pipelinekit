@@ -265,9 +265,11 @@ for h in "$CLAUDE_HOME" "$KH"; do
   # shellcheck disable=SC2016
   grep -qF 'allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/ship.py *), ' "$h/skills/ship/SKILL.md" ||
     { echo "test_install: the ship skill's rule for ship.py changed in $h" >&2; exit 1; }
-  run_preload "$h" kit | grep -q '^Result: ' ||
+  out="$(run_preload "$h" kit)"
+  grep -q '^Result: ' <<<"$out" ||
     { echo "test_install: the kit skill's first command gave no report in $h" >&2; exit 1; }
-  run_preload "$h" ship | grep -q 'not inside a git repository' ||
+  out="$(run_preload "$h" ship)"
+  grep -q 'not inside a git repository' <<<"$out" ||
     { echo "test_install: the ship skill's first command did not run ship.py in $h" >&2; exit 1; }
 done
 
