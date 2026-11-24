@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- judge-loop: a full-panel loop runs the six roles in round 1 and in the final
+  round, and three combined judges at high effort in the rounds between
+  (`correctness+tests`, `security+operations`, `user-experience+scope`). The
+  state, `status` and `scorecard.md` name the panel of each round.
+
 ## 0.1.0 — 2026-11-03
 
 Trimmed to a small config kit. Current Claude Code covers most of what the

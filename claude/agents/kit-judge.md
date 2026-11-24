@@ -57,7 +57,7 @@ Your whole answer is one JSON object, with no code fence and no text before or a
 - `overall`: a number from 0 to 10 in steps of 0.5, not a string and not a boolean.
 - `dimensions`: an object of at most 20 names, each a number from 0 to 10 in steps of 0.5.
 - `blocking`: what makes the work wrong or unsafe as it stands. `improvements`: anything else you want. Together at most 50 items.
-- Each item has an `id` that starts with a capital letter, followed by at most 19 letters, digits, `_` or `-`, unique in the answer, and the strings `problem`, `evidence`, `fix` and `check` (the check that proves the fix), none empty and none longer than 2000 characters. An improvement may carry `needed_for_10` (true or false).
+- Each item has an `id` that starts with a capital letter, followed by at most 19 letters, digits, `_` or `-`, unique in the answer, and the strings `problem`, `evidence`, `fix` and `check` (the check that proves the fix), none empty and none longer than 2000 characters. An improvement may carry `needed_for_10` (true or false). A combined judge, one judge for two roles, names each item `<role>:<id>` with one of its roles, such as `tests:I1`, as its brief says; in `still_open` too.
 - `still_open` (optional): the ids that were open in your last counted result and that you raise again in this answer.
 - `read` (optional): `full`, `changes` or `part` (you stopped at the cap), what you read in this round.
 - `unread` (optional): with `part`, what you did not finish: a string, not empty, at most 2000 characters.
