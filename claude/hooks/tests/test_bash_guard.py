@@ -234,6 +234,23 @@ def test_missing_never_stage_is_default_deny(env, tmp_path):
     assert run(e, "git status") == "allow"
 
 
+def test_a_named_pipe_as_never_stage_list_is_refused_without_waiting(env, tmp_path):
+    (tmp_path / "config").mkdir()
+    os.mkfifo(tmp_path / "config" / "never-stage.txt")
+    e = dict(GIT_ENV, CLAUDE_HOME=str(tmp_path), PIPELINEKIT_LOG="0")
+    payload = json.dumps(
+        {"tool_input": {"command": "git add src/app.ts"}, "cwd": str(env["repo"])}
+    )
+    p = subprocess.run(
+        [str(GUARD)], input=payload, capture_output=True, text=True, env=e, timeout=10
+    )
+    assert p.returncode == 2
+    first = p.stderr.splitlines()[0]
+    assert "is not a regular file" in first
+    assert first.endswith("[git.never-stage-missing]")
+
+
+
 @pytest.mark.parametrize(
     "cmd,want",
     [
