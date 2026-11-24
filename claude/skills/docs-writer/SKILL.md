@@ -1,13 +1,7 @@
 ---
 name: docs-writer
 description: Render a repository's project documentation as offline, self-contained HTML pages committed under its documentation/ folder (markdown sources in docs-source/, rendered with a bundled template that adds a sidebar ToC, search, code highlighting, theme toggle and optional interactive widgets). Use when the user wants to write, add, regenerate or restyle pages in a repo's documentation/ directory, or turn docs-source/*.md into HTML docs. Do NOT use for claude.ai documents or Artifacts, Word/PDF/slides, README.md or other plain markdown files, API docstrings, or docs/ AI-workflow notes.
-allowed-tools:
-  - Read
-  - Write
-  - Edit
-  - Bash
-  - Glob
-  - Grep
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash(python3 ${CLAUDE_SKILL_DIR}/render.py *), Bash(python3 ${CLAUDE_SKILL_DIR}/verify_toc.py *), Bash(python3 ${CLAUDE_SKILL_DIR}/richness_check.py *), Bash(bash ${CLAUDE_SKILL_DIR}/tests/test_render.sh), Bash(bash ${CLAUDE_SKILL_DIR}/tests/test_richness_threshold.sh)
 paths:
   - docs-source/**
   - documentation/**
@@ -27,29 +21,29 @@ Requires Python 3.9+ and `pip install markdown pygments` (`pyyaml` is optional, 
 | `documentation/<page>.html` | Rendered page. Commit it. Never write `.md` here. |
 | `documentation/search.json` | Search index written by batch mode (used by the `search-widget` snippet). |
 
-The bundled assets live next to this file: `template.html`, `render.py`, `verify_toc.py`, `richness_check.py`, `snippets/`. Always call them through `${CLAUDE_SKILL_DIR}` and run from the target repo's root.
+The bundled assets live next to this file: `template.html`, `render.py`, `verify_toc.py`, `richness_check.py`, `snippets/`. Always call them through `${CLAUDE_SKILL_DIR}` and run from the target repo's root. Write each command the way it is shown below, `python3 ${CLAUDE_SKILL_DIR}/render.py ...`: no quotes around the path, nothing in front of it and no second command after it. In that form the helpers run without a permission prompt; any other Bash command asks as usual.
 
 ## Workflow
 
 1. **Write the source** in `docs-source/<page>.md`. Start with one `# H1` (becomes the title) and a first paragraph (becomes the description). Use `##`/`###` for sections; they build the sidebar ToC.
 2. **Render one page:**
    ```bash
-   python3 "${CLAUDE_SKILL_DIR}/render.py" docs-source/<page>.md documentation/<page>.html
+   python3 ${CLAUDE_SKILL_DIR}/render.py docs-source/<page>.md documentation/<page>.html
    ```
    Optional flags: `--title`, `--description`, `--source-link URL`, `--meta "Label: value"` (repeatable). `-` reads stdin / writes stdout.
 3. **Or render everything** (all `docs-source/*.md`, plus `documentation/search.json`):
    ```bash
-   python3 "${CLAUDE_SKILL_DIR}/render.py"            # from the repo root
-   python3 "${CLAUDE_SKILL_DIR}/render.py" --root /path/to/repo
+   python3 ${CLAUDE_SKILL_DIR}/render.py            # from the repo root
+   python3 ${CLAUDE_SKILL_DIR}/render.py --root /path/to/repo
    ```
 4. **Check the ToC** (broken sidebar links, duplicate heading ids). Must exit 0:
    ```bash
-   python3 "${CLAUDE_SKILL_DIR}/verify_toc.py"                       # all of ./documentation
-   python3 "${CLAUDE_SKILL_DIR}/verify_toc.py" documentation/<page>.html
+   python3 ${CLAUDE_SKILL_DIR}/verify_toc.py                       # all of ./documentation
+   python3 ${CLAUDE_SKILL_DIR}/verify_toc.py documentation/<page>.html
    ```
 5. **Optional, advisory:** check that pages carry some interactive content (a snippet, a diagram SVG, a form control or a `<details>` block; long pages need two):
    ```bash
-   python3 "${CLAUDE_SKILL_DIR}/richness_check.py" --all -v
+   python3 ${CLAUDE_SKILL_DIR}/richness_check.py --all -v
    ```
    Add a snippet where it genuinely helps the reader. Reference pages that should stay plain can opt out with `<!-- richness-exempt: reason -->`.
 
@@ -85,7 +79,7 @@ Embed a widget with a raw-HTML placeholder in the markdown (blank line before an
 | `terminal-simulator` | Replayed terminal session | JSON step list (+ `data-title`) |
 | `tutorial-cards` | Card grid linking to sections | JSON cards with `anchor` = a heading id |
 
-Each snippet's header comment documents its full JSON schema. Read it before use: `head -30 "${CLAUDE_SKILL_DIR}/snippets/<name>.html"`. Only use a snippet when its content is about the page's subject; never paste placeholder data.
+Each snippet's header comment documents its full JSON schema. Read it before use: the first 30 lines of `${CLAUDE_SKILL_DIR}/snippets/<name>.html`, with the Read tool. Only use a snippet when its content is about the page's subject; never paste placeholder data.
 
 **New snippet:** add `snippets/<name>.html` with a header comment (purpose + usage), a root element carrying `class="pkit-<tag>"` and `data-snippet-mount="<name>"`, a `<style>` scoped to `.pkit-<tag>` using only the template's CSS variables (`--bg`, `--fg`, `--accent`, `--border`, ...), and an IIFE `<script>` that initialises every mount once (guard with `dataset.pkitInit`) and reads its data from `root.querySelector('script[type="application/json"]')`. No remote assets. Headings inside snippets use a `pkit-*` class so they stay out of the page ToC.
 
@@ -102,8 +96,8 @@ Load the `frontend-design` skill before adding a snippet, restyling `template.ht
 ## Tests
 
 ```bash
-bash "${CLAUDE_SKILL_DIR}/tests/test_render.sh"
-bash "${CLAUDE_SKILL_DIR}/tests/test_richness_threshold.sh"
+bash ${CLAUDE_SKILL_DIR}/tests/test_render.sh
+bash ${CLAUDE_SKILL_DIR}/tests/test_richness_threshold.sh
 ```
 
 `test_render.sh` also runs `tests/test_interactive.py`, which clicks, drags and types through every snippet and template feature in headless Chromium over `file://` (needs `pip install playwright && playwright install chromium`; prints SKIP otherwise).
