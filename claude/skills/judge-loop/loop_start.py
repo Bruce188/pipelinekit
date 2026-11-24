@@ -663,13 +663,22 @@ def no_history(
     )
 
 
-def on_base(base, starting, stack):
+def on_base(base, starting, stack, has_remote=True):
     """The refusal of a build loop or skip on its base branch."""
     if stack:
         top = show_branch(stack["prs"][-1]["branch"])
         then = f"git switch {top} (the top of the stack), then the same command"
     else:
         then = "git switch -c <work branch>, then the same command"
+        if not has_remote:
+            # Without a remote the local base branch is the base: work already
+            # committed on it would leave the work branch with an empty diff.
+            name = show_branch(base)
+            then = (
+                f"git switch -c <work branch>; with no remote, git branch -f {name} "
+                f"<commit the work began on> when work is committed on {name}; "
+                "then the same command"
+            )
         if starting:
             then += "; for a plan loop, loop.py start plan --name <issue>-<slug>"
     return Exit(2, f"Refused: {show_branch(base)} is the base branch. Next: {then}.")
@@ -723,7 +732,7 @@ def prepare(args, stack=None, starting=False):
             "<branch>.",
         )
     if kind == "build" and ctx.branch == base:
-        raise on_base(base, starting, stack)
+        raise on_base(base, starting, stack, ctx.has_remote)
     if kind == "build":
         name = slug(ctx.branch)
         if not NAME.fullmatch(name):
