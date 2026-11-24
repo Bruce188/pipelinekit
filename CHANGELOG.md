@@ -32,6 +32,9 @@ kit used to ship, so those parts are gone.
 - `install.sh` keeps the files you added inside a kit skill folder: before it
   replaces the folder it copies them to `~/.claude/pipelinekit/backup/` and
   names them. A `tests/` folder left by an older install goes without a backup.
+- `install.sh` makes those backups, and moves an own `frontend-design` folder
+  or agent with a kit name, before it copies any kit file: an install that
+  stops because it cannot move one has copied nothing of the kit.
 
 ### Self-check
 

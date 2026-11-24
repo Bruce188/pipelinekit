@@ -70,7 +70,6 @@ case "$(uname -s)" in
 esac
 command -v python3 >/dev/null || die "python3 is required"
 log "pipelinekit v$VERSION -> $CLAUDE_HOME"
-mkdir -p "$CLAUDE_HOME"/{hooks,git-hooks,skills,agents,config}
 
 # kit_file <installed file> <repo path>: true if the installed file is
 # byte-identical to a committed version of <repo path>, i.e. this kit put it
@@ -82,13 +81,21 @@ kit_file() {
   git -C "$REPO_ROOT" rev-list --all --objects -- "$2" 2>/dev/null | grep -qxF "$h $2"
 }
 
-# ---------- files ----------
-# Hooks: copy runtime files only (tests stay in the repo).
-find "$REPO_ROOT/claude/hooks" -maxdepth 1 -type f \( -name '*.sh' -o -name '*.py' \) \
-  -exec cp -p {} "$CLAUDE_HOME/hooks/" \;
-chmod +x "$CLAUDE_HOME"/hooks/*.sh "$CLAUDE_HOME"/hooks/*.py
-cp -p "$REPO_ROOT"/claude/git-hooks/* "$CLAUDE_HOME/git-hooks/"
-chmod +x "$CLAUDE_HOME"/git-hooks/*
+# ---------- your own files in the kit's places ----------
+# Everything of yours that a kit file would replace goes to a backup first, and
+# only then is any kit file copied: an install that stops here has made those
+# backups and changed nothing else, and it removes the backup folders it made
+# and left empty.
+BACKUPS="$CLAUDE_HOME/pipelinekit/backup"
+made_pk=0 made_bk=0
+[[ -e "$CLAUDE_HOME/pipelinekit" || -L "$CLAUDE_HOME/pipelinekit" ]] || made_pk=1
+[[ -e "$BACKUPS" || -L "$BACKUPS" ]] || made_bk=1
+undo_new_dirs() {
+  [[ "$made_bk" == 0 ]] || rmdir "$BACKUPS" 2>/dev/null || true
+  [[ "$made_pk" == 0 ]] || rmdir "$CLAUDE_HOME/pipelinekit" 2>/dev/null || true
+}
+stop() { undo_new_dirs; die "$1"; }
+
 # frontend-design is a public skill name, so a user may already have a folder of
 # that name; the kit owns it from now on. A link is removed (never followed); a
 # folder the kit did not install and that differs from the kit's is moved to a
@@ -105,11 +112,10 @@ if [[ -L "$FD" ]]; then
   log "removed the link skills/frontend-design -> $target"
 elif [[ -e "$FD" ]] && { [[ ! -d "$FD" ]] || { [[ "$listed" == 0 ]] &&
   ! diff -rq "$FD" "$REPO_ROOT/claude/skills/frontend-design" >/dev/null 2>&1; }; }; then
-  FD_BACKUPS="$CLAUDE_HOME/pipelinekit/backup"
-  FD_BACKUP="$FD_BACKUPS/skills-frontend-design-$(date -u +%Y%m%dT%H%M%SZ)"
+  FD_BACKUP="$BACKUPS/skills-frontend-design-$(date -u +%Y%m%dT%H%M%SZ)"
   # A read-only folder or a file named backup: one line of ours, not mkdir's or mv's.
-  { mkdir -p "$FD_BACKUPS" && mv "$FD" "$FD_BACKUP"; } 2>/dev/null ||
-    die "could not move your own skills/frontend-design to $FD_BACKUPS. It is untouched and the skills were not installed. Move or rename it yourself, then run the installer again."
+  { mkdir -p "$BACKUPS" && mv "$FD" "$FD_BACKUP"; } 2>/dev/null ||
+    stop "could not move your own skills/frontend-design to $BACKUPS. It is untouched and nothing of the kit was copied. Move or rename it yourself, then run the installer again."
   log "kept your own frontend-design skill in $FD_BACKUP"
 fi
 # Files of your own inside a kit skill folder: each folder is replaced as a
@@ -119,7 +125,7 @@ fi
 # edited copy, an older install's tests/, caches. A link is kept as a link, and
 # a file in place of a skill folder is kept as it is. All skills are looked at
 # before any is replaced, so a copy that fails leaves every skill as it was.
-python3 - "$REPO_ROOT/claude" "$CLAUDE_HOME" "$TS" "${KIT_SKILLS[@]}" <<'PY'
+python3 - "$REPO_ROOT/claude" "$CLAUDE_HOME" "$TS" "${KIT_SKILLS[@]}" <<'PY' || { undo_new_dirs; exit 1; }
 import json, os, shutil, sys
 
 src, home, ts, skills = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4:]
@@ -136,7 +142,7 @@ listed = set(listed) if isinstance(listed, dict) else set()
 def fail(skill):
     sys.exit(
         f"[install][error] could not copy your own files in skills/{skill} to {backups}. "
-        "They are untouched and the skills were not installed. "
+        "They are untouched and nothing of the kit was copied. "
         "Move them out of the folder yourself, then run the installer again."
     )
 
@@ -213,6 +219,37 @@ for skill in skills:
     if len(rels) > 10:
         print(f"[install]   and {len(rels) - 10} more")
 PY
+# agents/ is the user's folder too: only the kit's three files are touched. A
+# link is removed when the kit's files are copied (never followed). A file the
+# last install did not list in its manifest and that differs from the kit's is
+# moved to a backup once, and so is anything else of that name. A missing or
+# damaged manifest lists nothing.
+listed_files="$(python3 -c 'import json, sys
+m = json.load(open(sys.argv[1], encoding="utf-8"))
+f = m.get("files") if isinstance(m, dict) else None
+for k in f if isinstance(f, dict) else ():
+    if "\n" not in k and "\r" not in k:
+        print(k)' "$CLAUDE_HOME/pipelinekit/manifest.json" 2>/dev/null)" || listed_files=""
+for a in "${KIT_AGENTS[@]}"; do
+  dst="$CLAUDE_HOME/agents/$a"
+  if [[ ! -L "$dst" && -e "$dst" ]] && { [[ ! -f "$dst" ]] || { ! cmp -s "$dst" "$REPO_ROOT/claude/agents/$a" &&
+    ! grep -qxF "agents/$a" <<<"$listed_files"; }; }; then
+    backup="$BACKUPS/agents-$a-$TS"
+    # A read-only folder or a file named backup: one line of ours, not mkdir's or mv's.
+    { mkdir -p "$BACKUPS" && mv "$dst" "$backup"; } 2>/dev/null ||
+      stop "could not move your own agents/$a to $BACKUPS. It is untouched and nothing of the kit was copied. Move or rename it yourself, then run the installer again."
+    log "kept your own $a in $backup"
+  fi
+done
+
+# ---------- files ----------
+mkdir -p "$CLAUDE_HOME"/{hooks,git-hooks,skills,agents,config}
+# Hooks: copy runtime files only (tests stay in the repo).
+find "$REPO_ROOT/claude/hooks" -maxdepth 1 -type f \( -name '*.sh' -o -name '*.py' \) \
+  -exec cp -p {} "$CLAUDE_HOME/hooks/" \;
+chmod +x "$CLAUDE_HOME"/hooks/*.sh "$CLAUDE_HOME"/hooks/*.py
+cp -p "$REPO_ROOT"/claude/git-hooks/* "$CLAUDE_HOME/git-hooks/"
+chmod +x "$CLAUDE_HOME"/git-hooks/*
 # Skill tests stay in the repo, as the hook tests do. A checkout on a Windows
 # drive (WSL) marks every file executable, so the modes are set here.
 for s in "${KIT_SKILLS[@]}"; do
@@ -244,28 +281,10 @@ PY
     warn "judge-loop: CLAUDE_HOME is not an absolute path a permission pattern can hold; the skill still names ~/.claude and will not find loop.py from this home: install into an absolute path of letters, digits and ._/@+-"
   fi
 fi
-# agents/ is the user's folder too: only the kit's three files are touched. A
-# link is removed (never followed). A file the last install did not list in its
-# manifest and that differs from the kit's is moved to a backup once, and so is
-# anything else of that name. A missing or damaged manifest lists nothing.
-listed_files="$(python3 -c 'import json, sys
-m = json.load(open(sys.argv[1], encoding="utf-8"))
-f = m.get("files") if isinstance(m, dict) else None
-for k in f if isinstance(f, dict) else ():
-    if "\n" not in k and "\r" not in k:
-        print(k)' "$CLAUDE_HOME/pipelinekit/manifest.json" 2>/dev/null)" || listed_files=""
 for a in "${KIT_AGENTS[@]}"; do
   dst="$CLAUDE_HOME/agents/$a"
   if [[ -L "$dst" ]]; then
-    rm -f "$dst"
     log "removed the link agents/$a (its target is untouched)"
-  elif [[ -e "$dst" ]] && { [[ ! -f "$dst" ]] || { ! cmp -s "$dst" "$REPO_ROOT/claude/agents/$a" &&
-    ! grep -qxF "agents/$a" <<<"$listed_files"; }; }; then
-    backup="$CLAUDE_HOME/pipelinekit/backup/agents-$a-$TS"
-    # A read-only folder or a file named backup: one line of ours, not mkdir's or mv's.
-    { mkdir -p "$CLAUDE_HOME/pipelinekit/backup" && mv "$dst" "$backup"; } 2>/dev/null ||
-      die "could not move your own agents/$a to $CLAUDE_HOME/pipelinekit/backup. It is untouched and the kit's $a was not installed. Move or rename it yourself, then run the installer again."
-    log "kept your own $a in $backup"
   fi
   rm -f "$dst"
   cp "$REPO_ROOT/claude/agents/$a" "$dst"
