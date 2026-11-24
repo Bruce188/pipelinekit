@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -164,6 +165,20 @@ def kit(template):
 
 
 BY_HAND = "By hand: bash {work}/scripts/install.sh --git-hooks --no-serena"
+
+
+def partly(old, new, installer, self_check):
+    """The last line of an update whose checkout moved but whose install did
+    not finish; `self_check` is a regular expression."""
+    return (
+        re.escape(
+            f"Partly updated {old[:7]} -> {new[:7]}: the checkout is at {new[:7]} "
+            "but the install did not finish; run the command on the By hand "
+            f"line. Installer: {installer}. Self-check: "
+        )
+        + self_check
+        + r"\."
+    )
 
 
 def bump_version(clone):
@@ -383,10 +398,7 @@ def test_an_install_that_went_in_but_fails_its_check_is_not_called_not_updated(k
     assert rc == 1, out
     assert kit.manifest()["commit"] == new
     assert re.fullmatch(
-        rf"Partly updated {old[:7]} -> {new[:7]}: the installer failed \(exit 1\) "
-        r"after it had replaced the files; its command is on the By hand line\. "
-        r"Self-check: \d+ problems?, run /kit\.",
-        last,
+        partly(old, new, "failed (exit 1)", r"\d+ problems?, run /kit"), last
     ), last
     assert BY_HAND.format(work=kit.work) in out.splitlines()
 
@@ -404,11 +416,7 @@ def test_an_installer_that_fails_after_its_work_is_not_called_a_clean_update(kit
     rc, out, last = kit.update("apply", "--to", new)
     assert rc == 1, out
     assert kit.manifest()["commit"] == new
-    assert last == (
-        f"Partly updated {old[:7]} -> {new[:7]}: the installer failed (exit 7) "
-        "after it had replaced the files; its command is on the By hand line. "
-        "Self-check: healthy."
-    )
+    assert re.fullmatch(partly(old, new, "failed (exit 7)", "healthy"), last), last
     assert BY_HAND.format(work=kit.work) in out.splitlines()
 
 
@@ -443,16 +451,113 @@ def test_failed_installer_is_reported(kit):
     def break_installer(clone):
         (clone / "scripts" / "install.sh").write_text("#!/bin/sh\nexit 7\n")
 
+    old = kit.head()
     new = kit.push("feat: broken installer", break_installer)
     rc, out, last = kit.update("apply", "--to", new)
     assert rc == 1, out
-    assert last == (
-        f"Not updated: the checkout is at {new[:7]} but the installer failed "
-        "(exit 7) and may have replaced some files; its command is on the By "
-        "hand line."
-    )
+    assert kit.head() == new
+    assert re.fullmatch(partly(old, new, "failed (exit 7)", ".+"), last), last
     # The command keeps what was chosen at install time and pastes as it is.
     assert BY_HAND.format(work=kit.work) in out.splitlines()
+
+
+def test_an_installer_that_does_nothing_is_not_called_an_update(kit):
+    def idle_installer(clone):
+        (clone / "scripts" / "install.sh").write_text("#!/bin/sh\nexit 0\n")
+
+    old = kit.head()
+    new = kit.push("feat: an installer that does nothing", idle_installer)
+    rc, out, last = kit.update("apply", "--to", new)
+    assert rc == 1, out
+    installer = f"exit 0, but the install manifest is not at {new[:7]}"
+    assert re.fullmatch(partly(old, new, installer, ".+"), last), last
+    assert BY_HAND.format(work=kit.work) in out.splitlines()
+
+
+def test_a_self_check_that_does_not_run_is_not_called_an_update(kit):
+    def check_without_json(clone):
+        path = clone / "claude" / "skills" / "kit" / "check.py"
+        text = path.read_text().replace(
+            "from __future__ import annotations\n",
+            "from __future__ import annotations\n\nimport sys as _sys\n\n"
+            'if _sys.argv[1:] == ["--json", "--no-remote"]:\n'
+            "    raise SystemExit(3)\n",
+            1,
+        )
+        path.write_text(text)
+
+    old = kit.head()
+    new = kit.push("feat: a check that cannot report", check_without_json)
+    rc, out, last = kit.update("apply", "--to", new)
+    assert rc == 1, out
+    assert kit.manifest()["commit"] == new
+    assert re.fullmatch(
+        partly(old, new, "finished", re.escape("did not run (exit 3)")), last
+    ), last
+    assert BY_HAND.format(work=kit.work) in out.splitlines()
+
+
+def test_a_check_py_that_does_not_load_says_how_to_recover(kit):
+    def break_check(clone):
+        path = clone / "claude" / "skills" / "kit" / "check.py"
+        path.write_text(path.read_text() + "\ndef broken(:\n")
+
+    def mend_check(clone):
+        path = clone / "claude" / "skills" / "kit" / "check.py"
+        path.write_text(path.read_text().replace("\ndef broken(:\n", ""))
+
+    old = kit.head()
+    broken = kit.push("feat: a check.py with a typo", break_check)
+    rc, out, last = kit.update("apply", "--to", broken)
+    assert rc == 1, out
+    # The installer stops at the manifest, which it writes with check.py.
+    did_not_run = re.escape("did not run (exit 1)")
+    assert re.fullmatch(partly(old, broken, "failed (exit 1)", did_not_run), last), last
+    by_hand = (
+        f"By hand: git -C {kit.work} pull --ff-only origin main && "
+        f"bash {kit.work}/scripts/install.sh --git-hooks --no-serena"
+    )
+    fixed = kit.push("fix: the typo", mend_check)
+    for args, word in (
+        (("plan",), "Cannot update"),
+        (("apply", "--to", fixed), "Not updated"),
+    ):
+        rc, out, last = kit.update(*args)
+        assert rc == 1, out
+        assert re.fullmatch(
+            rf"{word}: this install's check\.py could not be loaded "
+            r"\(SyntaxError: .+\); run the By hand line: git pull --ff-only in "
+            r"the checkout, then the installer\.",
+            last,
+        ), last
+        assert by_hand in out.splitlines(), out
+        assert kit.head() == broken
+    # The line does what it says.
+    p = subprocess.run(
+        ["bash", "-c", by_hand.removeprefix("By hand: ")],
+        capture_output=True,
+        text=True,
+        env=kit.env,
+        stdin=subprocess.DEVNULL,
+    )
+    assert p.returncode == 0, p.stdout + p.stderr
+    rc, out, last = kit.update("plan")
+    assert rc == 0 and last.startswith("Up to date: "), out
+    assert kit.head() == fixed
+
+
+def test_a_check_py_that_does_not_load_without_a_manifest(kit):
+    path = kit.home / "skills" / "kit" / "check.py"
+    path.write_text("raise SystemExit(2)\n")
+    (kit.home / "pipelinekit" / "manifest.json").unlink()
+    rc, out, last = kit.update("plan")
+    assert rc == 1, out
+    assert last == (
+        "Cannot update: this install's check.py could not be loaded (SystemExit: 2); "
+        "run git pull --ff-only in the checkout this install was made from, then "
+        "its scripts/install.sh."
+    )
+    assert "By hand:" not in out
 
 
 @pytest.mark.parametrize(
@@ -460,7 +565,50 @@ def test_failed_installer_is_reported(kit):
 )
 def test_apply_wants_a_full_commit_id(kit, to):
     rc, out, _ = kit.update("apply", f"--to={to}")
-    assert rc == 2 and "full commit id" in out, out
+    assert rc == 2, out
+    assert out.strip() == (
+        "Not updated: --to takes the full commit id the plan printed: 40 "
+        "characters 0-9 and a-f (64 in a SHA-256 checkout)."
+    ), out
+
+
+def test_apply_wants_an_id_as_long_as_the_checkout_uses(kit):
+    new = kit.push()
+    before = kit.installed()
+    rc, out, _ = kit.update("apply", "--to", new + "0" * 24)
+    assert rc == 2, out
+    assert out.strip() == (
+        "Not updated: --to takes the full commit id the plan printed: 40 "
+        "characters 0-9 and a-f."
+    ), out
+    assert kit.head() != new and kit.installed() == before
+    assert not (kit.work / ".git" / "FETCH_HEAD").exists()
+
+
+def test_a_refusal_names_ids_that_differ(kit):
+    new = kit.push()
+    other = new[:7] + ("0" if new[7] != "0" else "1") + new[8:]
+    rc, out, last = kit.update("apply", "--to", other)
+    assert rc == 1, out
+    assert last == (
+        f"Not updated: origin/main is at {new} now, not at {other}; run the plan again."
+    )
+
+
+def test_plan_gives_up_on_a_remote_that_does_not_answer(kit, monkeypatch, capsys):
+    kit.git(kit.work, "config", "remote.origin.uploadpack", "sleep 30; git-upload-pack")
+    for key in set(os.environ) - set(kit.env):
+        monkeypatch.delenv(key)
+    for key, value in kit.env.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setattr(update_py, "ANSWER_TIMEOUT", 1)
+    started = time.monotonic()
+    assert update_py.main(["plan"]) == 1
+    assert time.monotonic() - started < 10
+    last = capsys.readouterr().out.strip().splitlines()[-1]
+    assert last == (
+        "Cannot update: origin did not answer within 1 second; try again later."
+    )
 
 
 def test_usage_errors(kit):

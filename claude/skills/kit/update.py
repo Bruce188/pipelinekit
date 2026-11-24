@@ -13,15 +13,15 @@ Usage:
 `apply` takes the commit that `plan` printed and refuses when origin has moved
 on since. Its last line is one of
   Updated <old> -> <new>. Self-check: healthy.
-  Partly updated <old> -> <new>: ...   the installer failed after it had
-                                       replaced the files
+  Partly updated <old> -> <new>: ...   the checkout moved, but the installer
+                                       failed or the self-check did not run
   Up to date: ...
   Not updated: <reason>.
-When the installer fails, a line `By hand: <command>` above the last line holds
-the command that runs it again.
+After a partial update, and when the kit's own check.py cannot be loaded, a
+line `By hand: <command>` above the last line holds what to run instead.
 
 Exit 0 = up to date, or updated and no check failed; 1 = cannot update, the
-installer failed or a check failed; 2 = usage or tool error. Stdlib only.
+install did not finish or a check failed; 2 = usage or tool error. Stdlib only.
 """
 
 from __future__ import annotations
@@ -38,18 +38,49 @@ import time
 # The checker is imported from the install; no cache file may appear there.
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import check  # noqa: E402
-import installer_options  # noqa: E402
+# An update can install a check.py that does not load. Without it this script
+# can still say so and name the way back, so neither import may end it.
+UNLOADED = ""
+try:
+    import installer_options
+except (Exception, SystemExit) as exc:
+    installer_options = None
+    UNLOADED = f"installer_options.py could not be loaded ({type(exc).__name__}: {exc})"
+try:
+    import check
+except (Exception, SystemExit) as exc:
+    check = None
+    UNLOADED = f"check.py could not be loaded ({type(exc).__name__}: {exc})"
 
 MAX_SUBJECTS = 30
-FETCH_TIMEOUT = 60  # seconds
+ANSWER_TIMEOUT = 15  # seconds origin gets to say what it has
+FETCH_TIMEOUT = 60
 INSTALL_TIMEOUT = 900
 # What `git rev-parse` prints: a SHA-1 or a SHA-256 id, nothing in between.
 FULL_ID = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
+# A branch name a By hand line may carry without check.py to vet it.
+BRANCH = re.compile(r"[A-Za-z0-9_][A-Za-z0-9._/-]*")
 
 
 class Stop(Exception):
     """The update cannot go ahead; the message says why."""
+
+
+class Usage(Exception):
+    """The command line asks for something the kit cannot use."""
+
+
+def wrong_id(length: int | None = None) -> str:
+    """The refusal of a --to value, naming the format it takes."""
+    size = f"{length} characters" if length else "40 characters"
+    size += " 0-9 and a-f" + ("" if length else " (64 in a SHA-256 checkout)")
+    return f"--to takes the full commit id the plan printed: {size}"
+
+
+def plain(text: object, limit: int = 200) -> str:
+    """One line of printable characters, without check.py's clean()."""
+    out = "".join(ch if ch.isprintable() else " " for ch in str(text)[:limit])
+    return " ".join(out.split())
 
 
 def git(checkout: str, *args: str) -> tuple[int | None, str]:
@@ -74,27 +105,42 @@ def installed_kit(home: str) -> dict:
     return kit
 
 
+def remote_git(kit: dict, args: list[str], timeout: int, late: str) -> str:
+    """The output of a git command that talks to origin, within `timeout`."""
+    started = time.monotonic()
+    rc, out = check.run_group(
+        ["git", "-C", kit["checkout"], *args], check.remote_env(), timeout
+    )
+    if rc is None and time.monotonic() - started >= timeout:
+        raise Stop(f"{late} within {check.plural(timeout, 'second')}; try again later")
+    if rc != 0:
+        raise Stop(
+            "origin could not be fetched (offline, no access or no branch "
+            f"{kit['branch']})"
+        )
+    return out
+
+
 def fetch(kit: dict) -> str:
     """The commit origin has on the branch, fetched into the checkout."""
     checkout, branch = kit["checkout"], kit["branch"]
-    rc, _ = check.run_group(
-        [
-            "git",
-            "-C",
-            checkout,
-            "fetch",
-            "--quiet",
-            "--no-tags",
-            "origin",
-            f"refs/heads/{branch}",
-        ],
-        check.remote_env(),
-        FETCH_TIMEOUT,
+    ref = f"refs/heads/{branch}"
+    # A short question first: a remote that does not answer is told apart
+    # from a fetch that takes long.
+    heads = remote_git(
+        kit,
+        ["ls-remote", "--heads", "origin", ref],
+        ANSWER_TIMEOUT,
+        "origin did not answer",
     )
-    if rc != 0:
-        raise Stop(
-            f"origin could not be fetched (offline, no access or no branch {branch})"
-        )
+    if not any(line.partition("\t")[2].strip() == ref for line in heads.splitlines()):
+        raise Stop(f"origin has no branch {branch}")
+    remote_git(
+        kit,
+        ["fetch", "--quiet", "--no-tags", "origin", ref],
+        FETCH_TIMEOUT,
+        "the fetch from origin did not finish",
+    )
     rc, remote = git(
         checkout, "rev-parse", "--verify", "--quiet", "FETCH_HEAD^{commit}"
     )
@@ -197,8 +243,9 @@ def installed_commit(home: str) -> str:
     return str(check.as_dict(manifest).get("commit") or "")
 
 
-def self_check(home: str) -> tuple[str, bool]:
-    """What the self-check says about the install, and whether no check failed."""
+def self_check(home: str) -> tuple[str, bool | None]:
+    """What the self-check says about the install, and whether no check
+    failed; None when it did not run."""
     rc, out, _ = check.run(
         [
             sys.executable,
@@ -212,7 +259,7 @@ def self_check(home: str) -> tuple[str, bool]:
         counts = json.loads(out)["counts"]
         fails, warns = int(counts["fail"]), int(counts["warn"])
     except (ValueError, KeyError, TypeError):
-        return f"did not run (exit {rc})", False
+        return f"did not run (exit {rc})", None
     if fails:
         return f"{check.plural(fails, 'problem')}, run /kit", False
     if warns:
@@ -220,12 +267,27 @@ def self_check(home: str) -> tuple[str, bool]:
     return "healthy", True
 
 
+def installer_trouble(rc: int | None, home: str, remote: str) -> str:
+    """How the installer fell short; empty when it finished."""
+    if rc is None:
+        return "did not finish"
+    if rc != 0:
+        return f"failed (exit {rc})"
+    if installed_commit(home) != remote:
+        return f"exit 0, but the install manifest is not at {remote[:7]}"
+    return ""
+
+
 def apply(home: str, target: str) -> int:
     kit = installed_kit(home)
+    if len(target) != len(kit["commit"]):
+        raise Usage(wrong_id(len(kit["commit"])))
     remote = fetch(kit)
     if remote != target:
+        # Seven characters, unless that hides the difference.
+        n = 7 if remote[:7] != target[:7] else len(remote)
         raise Stop(
-            f"origin/{kit['branch']} is at {remote[:7]} now, not at {target[:7]}; "
+            f"origin/{kit['branch']} is at {remote[:n]} now, not at {target[:n]}; "
             "run the plan again"
         )
     head = ready(kit, remote)
@@ -250,25 +312,78 @@ def apply(home: str, target: str) -> int:
         rc = done.returncode
     except (OSError, subprocess.TimeoutExpired):
         rc = None
-    how = "did not finish" if rc is None else f"failed (exit {rc})"
-    if rc != 0:
-        # On a line of its own and without a full stop: it is there to be pasted.
-        print("By hand: " + " ".join(shlex.quote(part) for part in command))
-        if installed_commit(home) != remote:
-            raise Stop(
-                f"the checkout is at {remote[:7]} but the installer {how} and may "
-                "have replaced some files; its command is on the By hand line"
-            )
+    trouble = installer_trouble(rc, home, remote)
     result, ok = self_check(home)
     span = f"{kit['commit'][:7]} -> {remote[:7]}"
-    if rc != 0:
+    if trouble or ok is None:
+        # The checkout moved and the install did not finish. However far the
+        # installer got, the way on is to run it again.
+        # On a line of its own and without a full stop: it is there to be pasted.
+        print("By hand: " + shlex.join(command))
         print(
-            f"Partly updated {span}: the installer {how} after it had replaced "
-            f"the files; its command is on the By hand line. Self-check: {result}."
+            f"Partly updated {span}: the checkout is at {remote[:7]} but the "
+            "install did not finish; run the command on the By hand line. "
+            f"Installer: {trouble or 'finished'}. Self-check: {result}."
         )
         return 1
     print(f"Updated {span}. Self-check: {result}.")
     return 0 if ok else 1
+
+
+def hooks_path_now() -> str:
+    """The global core.hooksPath, asked without check.py."""
+    try:
+        p = subprocess.run(
+            ["git", "config", "--global", "--get", "core.hooksPath"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    return p.stdout.strip()
+
+
+def unloaded(home: str, word: str) -> int:
+    """This install's own code does not load: say so and how to update by hand.
+
+    Needs neither check.py nor anything it imports: either may be what broke.
+    """
+    try:
+        with open(os.path.join(home, "pipelinekit", "manifest.json")) as f:
+            manifest = json.load(f)
+    except (OSError, ValueError):
+        manifest = None
+    manifest = manifest if isinstance(manifest, dict) else {}
+    checkout, branch = manifest.get("checkout"), manifest.get("branch")
+    if not (
+        isinstance(checkout, str)
+        and os.path.isabs(checkout)
+        and checkout == plain(checkout, 4096)
+        and os.path.isdir(checkout)
+        and isinstance(branch, str)
+        and BRANCH.fullmatch(branch)
+    ):
+        print(
+            f"{word}: this install's {plain(UNLOADED)}; run git pull --ff-only "
+            "in the checkout this install was made from, then its "
+            "scripts/install.sh."
+        )
+        return 1
+    options = (
+        installer_options.options(manifest, home, hooks_path_now)
+        if installer_options
+        else []
+    )
+    # The branch by name: the checkout may track no upstream.
+    pull = ["git", "-C", checkout, "pull", "--ff-only", "origin", branch]
+    install = ["bash", os.path.join(checkout, "scripts", "install.sh"), *options]
+    print(f"By hand: {shlex.join(pull)} && {shlex.join(install)}")
+    print(
+        f"{word}: this install's {plain(UNLOADED)}; run the By hand line: git "
+        "pull --ff-only in the checkout, then the installer."
+    )
+    return 1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -278,15 +393,21 @@ def main(argv: list[str] | None = None) -> int:
     ap_apply = sub.add_parser("apply", help="update to the commit the plan named")
     ap_apply.add_argument("--to", required=True, metavar="SHA")
     args = ap.parse_args(argv)
+    word = "Cannot update" if args.command == "plan" else "Not updated"
     if args.command == "apply" and not FULL_ID.fullmatch(args.to):
-        ap.error("--to takes the full commit id that the plan printed")
+        print(f"{word}: {wrong_id()}.")
+        return 2
     home = os.environ.get("CLAUDE_HOME") or os.path.join(
         os.path.expanduser("~"), ".claude"
     )
+    if check is None or installer_options is None:
+        return unloaded(home, word)
     try:
         return plan(home) if args.command == "plan" else apply(home, args.to)
+    except Usage as usage:
+        print(f"{word}: {usage}.")
+        return 2
     except Stop as stop:
-        word = "Cannot update" if args.command == "plan" else "Not updated"
         print(f"{word}: {check.clean(stop)}.")
         return 1
 
@@ -295,6 +416,7 @@ if __name__ == "__main__":
     try:
         code = main()
     except Exception as exc:  # no traceback: the last line is read by a model
-        print(f"pipelinekit update failed: {type(exc).__name__}: {check.clean(exc)}")
+        text = check.clean(exc) if check else plain(exc)
+        print(f"pipelinekit update failed: {type(exc).__name__}: {text}")
         code = 2
     raise SystemExit(code)
