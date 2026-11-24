@@ -174,6 +174,26 @@ def test_a_stack_loop_has_the_full_panel_and_at_most_five_rounds(sb):
     )
 
 
+def test_a_stack_runs_combined_judges_between_its_full_rounds(sb):
+    start_stack(sb)
+    sb.judge(tens(**{ROLE: nine_on(21)}))
+    sb.change("b.py", 5, tag="fixed")
+    run = sb.run("brief")
+    assert run.code == 0, run
+    judges = ", ".join(loop.COMBINED)
+    assert f"Panel of round 2: combined ({judges})" in run.lines
+    first = loop.COMBINED[0]
+    run = sb.save(first, result(9, improvements=["tests:I2"]))
+    assert run.code == 3, run
+    assert sb.save(first, result(9, improvements=[item("tests:I2", pr=22)])).code == 0
+    for judge in loop.COMBINED[1:]:
+        assert sb.save(judge, result(10)).code == 0
+    run = sb.run("round")
+    assert run.code == 1, run
+    assert sb.state()["items"]["tests:I2"]["pr"] == 22
+    assert any(line.startswith("  [tests I2 on #22] ") for line in run.lines), run
+
+
 def test_a_stack_starts_on_its_top_branch(sb):
     path = build_stack(sb)
     sb.git("checkout", "-q", "feat/11-a")
