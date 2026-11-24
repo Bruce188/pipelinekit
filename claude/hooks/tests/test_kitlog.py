@@ -131,7 +131,9 @@ def test_rotation_keeps_one_older_file(state, monkeypatch):
 
 
 @pytest.mark.parametrize("how", ["directory in the way", "read-only directory"])
-def test_a_log_that_cannot_be_moved_still_records_up_to_a_limit(state, monkeypatch, how):
+def test_a_log_that_cannot_be_moved_still_records_up_to_a_limit(
+    state, monkeypatch, how
+):
     if how == "read-only directory" and os.geteuid() == 0:
         pytest.skip("root writes into a read-only directory")
     monkeypatch.setattr(kitlog, "MAX_BYTES", 400)
