@@ -624,6 +624,7 @@ footer {
       <li class="lvl-3"><a href="#file-size-limit">File size limit</a></li>
       <li class="lvl-2"><a href="#rule-ids-and-the-event-log">Rule ids and the event log</a></li>
       <li class="lvl-2"><a href="#skills">Skills</a></li>
+      <li class="lvl-3"><a href="#what-the-skills-run-without-asking">What the skills run without asking</a></li>
       <li class="lvl-2"><a href="#agents">Agents</a></li>
       <li class="lvl-2"><a href="#self-check">Self-check</a></li>
       <li class="lvl-2"><a href="#shipping-a-pull-request">Shipping a pull request</a></li>
@@ -1276,6 +1277,35 @@ footer {
 </tr>
 </tbody>
 </table>
+<h3 id="what-the-skills-run-without-asking">What the skills run without asking</h3>
+<p>A skill's <code>allowed-tools</code> line lets Claude run the commands it names without a permission prompt, during the turn that started the skill. The <code>kit</code> and <code>ship</code> skills name their helper by the folder Claude Code loaded the skill from (<code>${CLAUDE_SKILL_DIR}</code>), which is <code>~/.claude/skills/&lt;skill&gt;</code> after a default install and <code>$CLAUDE_HOME/skills/&lt;skill&gt;</code> after an install into another home. The table shows the paths of a default install.</p>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>Runs without asking</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>kit</code></td>
+<td><code>python3 ~/.claude/skills/kit/check.py</code>, with any of its options; <code>python3 ~/.claude/skills/kit/update.py plan</code>, with nothing after it. <code>update.py apply</code> asks</td>
+</tr>
+<tr>
+<td><code>ship</code></td>
+<td><code>python3 ~/.claude/skills/ship/ship.py</code>, with any of its commands (<code>merge</code> included); <code>python3 ~/.claude/skills/judge-loop/loop.py</code>, with any of its commands</td>
+</tr>
+<tr>
+<td><code>judge-loop</code></td>
+<td><code>python3 ~/.claude/skills/judge-loop/loop.py</code>, with any of its commands</td>
+</tr>
+<tr>
+<td><code>docs-writer</code></td>
+<td>The <code>Read</code>, <code>Write</code>, <code>Edit</code>, <code>Glob</code> and <code>Grep</code> tools and every Bash command</td>
+</tr>
+</tbody>
+</table>
+<p>A rule matches the command as written. A script of the same name anywhere else, such as <code>x/skills/kit/check.py</code> inside a project, asks, and so does the helper started another way: by a relative path, through <code>python3 -m</code>, or after <code>&amp;&amp;</code> behind another command that asks. For <code>loop.py</code> in another home the installer writes that home's path into the <code>judge-loop</code> and <code>ship</code> skills; a home whose path holds a space or other characters a rule cannot hold keeps <code>~/.claude</code>, and the installer warns.</p>
 <p>In 0.1.0, <code>deploy</code> replaces the five separate <code>*-ops</code> skills and the per-provider deployment agents, <code>mobile</code> replaces <code>expo</code> and <code>ios</code>, and the ASP.NET Core security rules moved into <code>dotnet-conventions</code>.</p>
 <h2 id="agents">Agents</h2>
 <p>Three subagents for planning a change, building it and judging the result, each on the model that suits the job. The installer copies them from <code>claude/agents/</code> to <code>~/.claude/agents/</code>.</p>

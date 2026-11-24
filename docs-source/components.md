@@ -159,6 +159,19 @@ With `ask`, Claude Code prompts you instead of refusing. `warning, not logged` m
 | `ship` | Run as `/ship`: Claude finishes the pull requests it opens. A fresh agent acceptance-tests the change against the issue's criteria, findings are fixed and tested again, then `ship.py` merges once every gate holds (own pull request, not a release, linked issues, no required review, a judged build, a passed test for exactly this commit, green CI). A project opts out with `Merges: ask first` in its `CLAUDE.md` |
 | `judge-loop` | Run as `/judge-loop`: plans and builds a change on Opus, and has fresh Fable judges score the plan and the build until each gets 10 out of 10, within a round budget. See [Plan, build, judge](#plan-build-judge). Its record lives in `docs/loops/` of the one checkout it runs in and is never committed; see [The judge loop](installation.html#the-judge-loop). |
 
+### What the skills run without asking
+
+A skill's `allowed-tools` line lets Claude run the commands it names without a permission prompt, during the turn that started the skill. The `kit` and `ship` skills name their helper by the folder Claude Code loaded the skill from (`${CLAUDE_SKILL_DIR}`), which is `~/.claude/skills/<skill>` after a default install and `$CLAUDE_HOME/skills/<skill>` after an install into another home. The table shows the paths of a default install.
+
+| Skill | Runs without asking |
+|-------|---------------------|
+| `kit` | `python3 ~/.claude/skills/kit/check.py`, with any of its options; `python3 ~/.claude/skills/kit/update.py plan`, with nothing after it. `update.py apply` asks |
+| `ship` | `python3 ~/.claude/skills/ship/ship.py`, with any of its commands (`merge` included); `python3 ~/.claude/skills/judge-loop/loop.py`, with any of its commands |
+| `judge-loop` | `python3 ~/.claude/skills/judge-loop/loop.py`, with any of its commands |
+| `docs-writer` | The `Read`, `Write`, `Edit`, `Glob` and `Grep` tools and every Bash command |
+
+A rule matches the command as written. A script of the same name anywhere else, such as `x/skills/kit/check.py` inside a project, asks, and so does the helper started another way: by a relative path, through `python3 -m`, or after `&&` behind another command that asks. For `loop.py` in another home the installer writes that home's path into the `judge-loop` and `ship` skills; a home whose path holds a space or other characters a rule cannot hold keeps `~/.claude`, and the installer warns.
+
 In 0.1.0, `deploy` replaces the five separate `*-ops` skills and the per-provider deployment agents, `mobile` replaces `expo` and `ios`, and the ASP.NET Core security rules moved into `dotnet-conventions`.
 
 ## Agents
