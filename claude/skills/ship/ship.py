@@ -162,9 +162,11 @@ def wait_for_ci(repo, timeout, grace, no_checks_ok=False):
     Returns (ci gate, pull request). `grace` is how long to wait for the first
     check to show up, and for GitHub to see a push, before judging. No check
     at all is a failure when a workflow here runs on pull requests, unless
-    the caller says that none of them runs for this change.
+    the caller says that none of them runs for this change. A head commit
+    that asks GitHub to skip the workflows fails at once: no check will come.
     """
     expected = repo.expects_checks() and not no_checks_ok
+    skip = skip_asked(repo, repo.head) if expected else ""
     start = time.monotonic()
     shown = ""
     while True:
@@ -178,6 +180,8 @@ def wait_for_ci(repo, timeout, grace, no_checks_ok=False):
         )
         if failed or (seen and passed and not pending):
             return ci_gate(pr), pr
+        if seen and not pending and skip:  # no check is to come
+            return gate("ci", "fail", skip_detail(skip, repo.head)), pr
         if seen and not pending and waited >= grace:
             if expected:
                 detail = (
