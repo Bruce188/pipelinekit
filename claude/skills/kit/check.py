@@ -187,7 +187,18 @@ def check_environment(c: Check) -> None:
         if not shutil.which(prog):
             c.add("environment", "info", missing)
             continue
-        _, out, err = run([prog, *args])
+        rc, out, err = run([prog, *args])
+        if rc != 0:
+            # What a crashing program prints is not a version: do not echo it.
+            command = " ".join([prog, *args])
+            how = "did not finish" if rc is None else f"failed (exit {rc})"
+            c.add(
+                "environment",
+                "warn",
+                f"{command} {how}",
+                fix=f"run {command} to see the error, then reinstall {prog}",
+            )
+            continue
         first = ((out or err).strip().splitlines() or ["version unknown"])[0]
         label = "claude CLI" if prog == "claude" else prog
         c.add("environment", "pass", f"{label}: {first.removeprefix('gh version ')}")
