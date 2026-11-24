@@ -29,6 +29,9 @@ kit used to ship, so those parts are gone.
   only the skills' scripts executable, so no `SKILL.md` is, also from a
   checkout on a Windows drive. `/kit` warns when an installed kit script has
   lost its executable bit.
+- `install.sh` keeps the files you added inside a kit skill folder: before it
+  replaces the folder it copies them to `~/.claude/pipelinekit/backup/` and
+  names them. A `tests/` folder left by an older install goes without a backup.
 
 ### Self-check
 

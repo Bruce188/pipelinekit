@@ -640,4 +640,86 @@ B=("$FH"/.claude/pipelinekit/backup/agents-kit-planner.md-*)
 test -d "${B[0]}"
 [ "$(cat "${B[0]}/note.txt")" = "inside again" ]
 cmp "$REPO_ROOT/claude/agents/kit-planner.md" "$FH/.claude/agents/kit-planner.md"
+
+# (o) Files of the user's own inside kit skill folders: copied to a backup, one
+# folder per skill, before the skill is replaced, and named. The kit's own files
+# go without a backup: an edited copy, a file the last install listed, an older
+# install's tests/ folder, caches.
+fd_home o
+fd_install
+S="$FH/.claude/skills"
+echo "my notes" >"$S/docs-writer/my-notes.md"
+echo "my edit" >>"$S/docs-writer/SKILL.md"
+mkdir -p "$S/docs-writer/__pycache__" "$S/frontend-design/examples"
+echo cache >"$S/docs-writer/__pycache__/render.cpython-312.pyc"
+echo "<p>mine</p>" >"$S/frontend-design/examples/a.html"
+ln -s ../SKILL.md "$S/frontend-design/examples/link.md"
+cp -R "$REPO_ROOT/claude/skills/kit/tests" "$S/kit/tests"
+echo "my own case" >"$S/kit/tests/my_case.md"
+echo "old helper" >"$S/ship/old_helper.py"
+python3 - "$FH/.claude/pipelinekit/manifest.json" <<'PY'
+import json, sys
+m = json.load(open(sys.argv[1]))
+m["files"]["skills/ship/old_helper.py"] = ""  # as if the last install put it there
+json.dump(m, open(sys.argv[1], "w"))
+PY
+fd_install || { echo "test_install: install failed with own files in kit skills" >&2; cat "$FH/out" >&2; exit 1; }
+[ "$(fd_backups)" -eq 3 ] ||
+  { echo "test_install: expected 3 backups of own skill files" >&2; ls "$FH/.claude/pipelinekit/backup" >&2; exit 1; }
+own_files() { (cd "$1" && find . \( -type f -o -type l \) | sort | tr '\n' ' '); }
+for want in "docs-writer|./my-notes.md |1 file|my-notes.md" \
+            "frontend-design|./examples/a.html ./examples/link.md |2 files|examples/a.html" \
+            "kit|./tests/my_case.md |1 file|tests/my_case.md"; do
+  IFS='|' read -r s files count first <<<"$want"
+  B=("$FH"/.claude/pipelinekit/backup/skills-"$s"-*)
+  [[ "${B[0]##*/}" =~ ^skills-$s-[0-9]{8}-[0-9]{6}$ ]] ||
+    { echo "test_install: unexpected backup name ${B[0]##*/}" >&2; exit 1; }
+  [ "$(own_files "${B[0]}")" = "$files" ] ||
+    { echo "test_install: backup of skills/$s holds $(own_files "${B[0]}")" >&2; exit 1; }
+  grep -qxF "[install] kept $count of your own from skills/$s in ${B[0]}" "$FH/out" ||
+    { echo "test_install: no line naming the backup of skills/$s" >&2; cat "$FH/out" >&2; exit 1; }
+  grep -qxF "[install]   $first" "$FH/out"
+done
+[ "$(cat "$FH"/.claude/pipelinekit/backup/skills-docs-writer-*/my-notes.md)" = "my notes" ]
+test -L "$(echo "$FH"/.claude/pipelinekit/backup/skills-frontend-design-*/examples/link.md)"
+test ! -e "$S/docs-writer/my-notes.md"
+test ! -e "$S/ship/old_helper.py"
+test ! -e "$S/kit/tests"
+cmp "$REPO_ROOT/claude/skills/docs-writer/SKILL.md" "$S/docs-writer/SKILL.md"
+fd_is_kit
+fd_install
+[ "$(fd_backups)" -eq 3 ]
+if grep -qF 'of your own from' "$FH/out"; then
+  echo "test_install: a second install backed up kit skill files" >&2; exit 1
+fi
+
+# (p) A file in place of a kit skill folder, without a manifest: kept in a
+# backup, and the skill is installed.
+fd_home p
+echo "not a skill" >"$FH/.claude/skills/mobile"
+fd_install || { echo "test_install: install failed with a file in place of a skill" >&2; cat "$FH/out" >&2; exit 1; }
+B=("$FH"/.claude/pipelinekit/backup/skills-mobile-*)
+[ "$(cat "${B[0]}")" = "not a skill" ]
+grep -qxF "[install] kept your own file skills/mobile in ${B[0]}" "$FH/out"
+cmp "$REPO_ROOT/claude/skills/mobile/SKILL.md" "$FH/.claude/skills/mobile/SKILL.md"
+
+# (q) An own file in a kit skill folder and a file where the backup folder goes:
+# the installer stops with one line of its own and leaves the folder as it was.
+fd_home q
+mkdir -p "$FH/.claude/skills/docs-writer" "$FH/.claude/pipelinekit"
+echo "my notes, kept" >"$FH/.claude/skills/docs-writer/my-notes.md"
+echo "not a folder" >"$FH/.claude/pipelinekit/backup"
+rc=0
+HOME="$FH" CLAUDE_HOME="$FH/.claude" GIT_CONFIG_GLOBAL="$FH/.gitconfig" \
+  XDG_CONFIG_HOME="$FH/.config" PIPELINEKIT_STATE_DIR="$FH/state" PIPELINEKIT_GIT_HOOKS=0 \
+  bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$FH/out" 2>"$FH/err" || rc=$?
+if [ "$rc" -eq 0 ]; then
+  echo "test_install: install went on with own skill files it could not keep" >&2; exit 1
+fi
+if [ "$(cat "$FH/err")" != "[install][error] could not copy your own files in skills/docs-writer to $FH/.claude/pipelinekit/backup. They are untouched and the skills were not installed. Move them out of the folder yourself, then run the installer again." ]; then
+  echo "test_install: stderr is not the one line about the own skill files" >&2; cat "$FH/err" >&2; exit 1
+fi
+[ "$(ls -A "$FH/.claude/skills/docs-writer")" = "my-notes.md" ]
+[ "$(cat "$FH/.claude/skills/docs-writer/my-notes.md")" = "my notes, kept" ]
+test -f "$FH/.claude/pipelinekit/backup"
 echo "test_install: PASS"
