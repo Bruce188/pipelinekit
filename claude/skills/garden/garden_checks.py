@@ -408,6 +408,13 @@ def local_hooks(project):
 def scan_checks(project):
     """The Checks section: stacks, one row per kind, and whether the stack was known."""
     found = stacks(project)
+    if project.files_unavailable:
+        return {
+            "stacks": [],
+            "recognised": False,
+            "unavailable": True,
+            "rows": [row(kind, None, "not checked", None) for kind in COMMON_KINDS],
+        }
     pkg = package_json(project) if any(s == "node" for s, _ in found) else {}
     if not pkg and "package.json" in project.files():
         pkg = package_json(project)
@@ -433,6 +440,7 @@ def scan_checks(project):
     return {
         "stacks": [{"stack": s, "marker": shown(m)} for s, m in found],
         "recognised": bool(found),
+        "unavailable": False,
         "rows": rows,
     }
 

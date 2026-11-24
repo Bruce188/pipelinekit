@@ -3,7 +3,7 @@
 import json
 
 import pytest
-from garden_testkit import Sandbox, section
+from garden_testkit import DEEP_JSON, Sandbox, section
 
 
 @pytest.fixture
@@ -202,7 +202,10 @@ def test_node_tests_from_the_test_script(sb):
     assert rows(sb)[("tests", "node")]["state"] == "no"
 
 
-def test_a_broken_package_json_still_scans(sb):
-    sb.write("package.json", "{ not json")
+@pytest.mark.parametrize(
+    "text", ["{ not json", pytest.param(DEEP_JSON, id="deeply-nested")]
+)
+def test_a_broken_package_json_still_scans(sb, text):
+    sb.write("package.json", text)
     assert sb.garden("scan").returncode == 0
     assert rows(sb)[("lint", "node")]["state"] == "no"

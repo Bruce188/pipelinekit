@@ -176,6 +176,10 @@ kit used to ship, so those parts are gone.
   `/garden report` stops after the report. The scan runs nothing from the
   project. `garden.py record` keeps the run in `docs/garden/`, which goes into
   `.git/info/exclude` and onto the never-stage list.
+- `garden`: a project folder that cannot be listed is reported as "file list
+  not available" instead of an empty project; an unexpected error is one line,
+  `internal error (<class>, line <n>)`, for `scan`, `record` and `time` alike;
+  the skill says what to do when the scan, `time` or `record` fails.
 - `ship` gains a root cause step: a finding that comes from a pattern gets the
   rule, hook, check or test that would have stopped it.
 - The session-start hook gives a one-line `/garden` reminder in a project whose

@@ -181,21 +181,124 @@ def test_a_garden_folder_that_cannot_be_searched_is_reported_not_raised(sb):
     assert "docs/garden/timings.json could not be read" in p.stdout
 
 
-def test_a_scan_that_fails_says_so_in_one_line_and_exits_0(monkeypatch, capsys):
+def garden_line(text, nth=1):
+    """The number of the nth line of garden.py that holds `text`."""
+    lines = HELPER.read_text(encoding="utf-8").splitlines()
+    hits = [n for n, line in enumerate(lines, 1) if text in line]
+    return hits[nth - 1]
+
+
+def test_a_scan_that_fails_says_so_in_one_line_and_exits_0(
+    monkeypatch, capsys, tmp_path
+):
     monkeypatch.syspath_prepend(str(HELPER.parent))
+    monkeypatch.chdir(tmp_path)
     import garden
 
     def broken(project):
         raise RuntimeError("planted text that must not be shown")
 
-    monkeypatch.setattr(garden, "scan", broken)
+    monkeypatch.setattr(garden, "scan_checks", broken)
     assert garden.main(["scan"]) == 0
     out, err = capsys.readouterr()
+    line = garden_line("checks = scan_checks(project)")
     assert out == (
-        "garden scan: not measured; the scan stopped on an unexpected "
-        "RuntimeError. Say so and go on without it.\n"
+        f"garden scan: internal error (RuntimeError, line {line}); "
+        "not measured. Say so and go on without it.\n"
     )
     assert err == ""
+
+
+@pytest.mark.parametrize(
+    "args, target, where",
+    [
+        (["record"], "garden_problem", ("problem = garden_problem(project)", 1)),
+        (
+            ["time", "--label", "t", "--", "true"],
+            "run_timed",
+            ("= run_timed(command", 1),
+        ),
+    ],
+)
+def test_an_unexpected_error_is_one_line_with_its_class_and_line(
+    monkeypatch, capsys, tmp_path, args, target, where
+):
+    monkeypatch.syspath_prepend(str(HELPER.parent))
+    monkeypatch.chdir(tmp_path)
+    import garden
+
+    def broken(*_args, **_kwargs):
+        raise KeyError("planted text that must not be shown")
+
+    monkeypatch.setattr(garden, target, broken)
+    assert garden.main(args) == 2
+    out, err = capsys.readouterr()
+    assert out == ""
+    assert err == (
+        f"{args[0]}: internal error (KeyError, line {garden_line(*where)}); "
+        "run it again, and report this line if it comes back\n"
+    )
+
+
+def test_the_helper_starts_without_a_warning(sb, tmp_path):
+    # -W always: on Python 3.11 an invalid escape such as "\d" in a plain
+    # string is a DeprecationWarning, hidden by default. A fresh pycache folder
+    # makes every module compile again, so the warning cannot hide in a cache.
+    seed_sample(sb.root)
+    p = subprocess.run(
+        [
+            sys.executable,
+            "-W",
+            "always",
+            "-X",
+            f"pycache_prefix={tmp_path / 'pycache'}",
+            str(HELPER),
+            "scan",
+        ],
+        cwd=sb.root,
+        env=sb.env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert (p.returncode, p.stderr) == (0, "")
+
+
+@pytest.mark.skipif(
+    not hasattr(os, "geteuid") or os.geteuid() == 0,
+    reason="root reads a folder without permissions",
+)
+def test_a_file_list_that_cannot_be_read_is_said_not_counted(tmp_path):
+    sb = Sandbox(tmp_path, git=False)
+    sb.write("pyproject.toml", "[project]\nname = 'x'\n")
+    sb.write("tests/test_x.py", "def test_x():\n    pass\n")
+    sb.write("CLAUDE.md", "# rules\n")
+    sb.root.chmod(0o311)  # its files can be opened by name, not listed
+    try:
+        text = sb.scan()
+        data = sb.scan_json()
+    finally:
+        sb.root.chmod(0o755)
+    assert "Stacks: not checked, file list not available\n" in text
+    checks = section(text, "## Checks")
+    for name in ("CI", "commit hooks", "secret scan"):
+        assert f"- {name}: not checked, file list not available\n" in checks
+    assert (
+        "- lint, format, types and tests: not checked, file list not available\n"
+    ) in checks
+    pruning = section(text, "## Pruning")
+    rows = ("Python tests that assert nothing", "Skipped tests", "Dead-code tools")
+    for name in rows:
+        assert f"- {name}: not checked, file list not available\n" in pruning
+    assert "- CLAUDE.md: 1 lines" in section(text, "## Guidance")
+    assert data["files_unavailable"] is True
+    assert data["findings"] == []
+
+
+def test_a_readable_file_list_is_not_called_unavailable(sb):
+    sb.write("go.mod", "module x\n")
+    assert sb.scan_json()["files_unavailable"] is False
+    assert "file list not available" not in sb.scan()
 
 
 def test_a_test_file_that_does_not_parse_is_counted(sb):

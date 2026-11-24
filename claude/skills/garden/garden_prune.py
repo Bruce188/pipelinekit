@@ -231,6 +231,7 @@ def scan_pruning(project, stack_names):
         "no_assert_more": no_assert_more,
         "unparsed": unparsed,
         "python": "python" in stack_names,
+        "unavailable": project.files_unavailable,
         "skipped": [{"file": f, "line": n, "stack": s} for f, n, s in skipped_rows],
         "skipped_total": len(skipped),
         "skipped_more": skipped_more,

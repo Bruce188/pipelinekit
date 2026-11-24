@@ -49,7 +49,14 @@ Run it through Bash in these forms only, the path in quotes as shown. The only t
 | `python3 "${CLAUDE_SKILL_DIR}/garden.py" record --scan 1a2b3c4d --picked G1 G3` | save this run under `docs/garden/`, with the findings picked from that scan |
 | `python3 "${CLAUDE_SKILL_DIR}/garden.py" time --label tests -- <command>` | run the command, keep its duration and exit code; it is ended with all it started after 600 seconds (`--timeout N`) |
 
-Exit codes: `scan` 0. `record` 0, 1 when `docs/garden/` cannot be written, 2 on wrong use. `time` gives the command's exit code, 124 when it timed out, 127 when it could not start, 128 plus the signal when garden.py itself was stopped, 2 on wrong use or when `docs/garden/` cannot be written (then nothing runs). Each refusal is one line that says what to do.
+Exit codes: `scan` 0. `record` 0, 1 when `docs/garden/` cannot be written, 2 on wrong use. `time` gives the command's exit code, 124 when it timed out, 127 when it could not start, 128 plus the signal when garden.py itself was stopped, 2 on wrong use or when `docs/garden/` cannot be written (then nothing runs). Each refusal is one line that says what to do. An unexpected error is one line too, `internal error (<class>, line <n>)`: `scan` still exits 0, `record` and `time` exit 2.
+
+## When something fails
+
+- **The scan.** When the scan above is the one line `garden scan: internal error (<class>, line <n>)`, nothing was measured. Tell the user, show that line, and stop: there is nothing to rank, ask about or record.
+- **`time` refuses.** A line that starts with `time:` and exit 2 means wrong use or that `docs/garden/` cannot be written, and nothing ran. Exit 127 means the command could not start. Fix a wrong label or timeout yourself and run it again. Ask the user before you change the command or the folder: a different command is not the one they agreed to. Exit 124 (timed out) or 128 plus a signal is a result, not a refusal: report it as measured.
+- **`record` fails.** On exit 1, `docs/garden/` could not be written: show the line, say the run was not saved, and go on with the fixes the user picked. Exit 2 is the refusal described under The flow.
+- **Any other `internal error`** from `record` or `time`: run it once more; when the same line comes back, show it to the user and go on without that step.
 
 ## Limits
 

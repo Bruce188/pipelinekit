@@ -134,6 +134,30 @@ def test_the_helper_is_given_no_text_from_the_project():
     )
 
 
+def test_the_skill_says_what_to_do_when_a_step_fails():
+    part = SKILL.split("## When something fails", 1)[1].split("\n## ", 1)[0]
+    for words in (
+        "`garden scan: internal error (<class>, line <n>)`",
+        "and stop",
+        "starts with `time:`",
+        "nothing ran",
+        "127",
+        "124",
+        "exit 1",
+        "Ask the user before",
+    ):
+        assert words in part, words
+
+
+def test_the_skill_names_its_helper_by_the_skill_folder_only():
+    # judge-loop names its helper as ~/.claude/... and the installer rewrites
+    # that for another home; garden's form needs no rewrite.
+    refs = re.findall(r'python3 "?([^ "`]*garden\.py)', SKILL)
+    assert len(refs) >= 5
+    assert set(refs) == {"${CLAUDE_SKILL_DIR}/garden.py"}
+    assert "~/.claude" not in SKILL
+
+
 def test_the_skill_file_is_short():
     for path in GARDEN.glob("*.py"):
         text = path.read_text(encoding="utf-8")

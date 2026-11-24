@@ -14,6 +14,9 @@ GARDEN = Path(__file__).resolve().parents[1]
 HELPER = GARDEN / "garden.py"
 REPO = GARDEN.parents[2]
 SECTIONS = ("## Friction", "## Checks", "## Pruning", "## Guidance")
+# JSON nested deeper than Python's recursion limit: json.loads raises
+# RecursionError on it, not ValueError. About 140 kB, under the 512 kB read limit.
+DEEP_JSON = '{"a": ' * 20000 + "1" + "}" * 20000
 
 FAKE_GH = r"""#!/usr/bin/env python3
 import json

@@ -9,7 +9,7 @@ import time
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from garden_testkit import HELPER, Sandbox, findings, section
+from garden_testkit import DEEP_JSON, HELPER, Sandbox, findings, section
 
 T0 = datetime(2026, 11, 1, 12, 0, tzinfo=timezone.utc)
 
@@ -110,6 +110,11 @@ def test_no_finished_run_yet(sb):
         (
             {"default": "main", "runs_raw": '{"a": 1}'},
             "gh gave an answer that is not a list of runs",
+        ),
+        pytest.param(
+            {"default": "main", "runs_raw": DEEP_JSON},
+            "gh gave an answer that is not a list of runs",
+            id="deeply-nested",
         ),
         ({"default": "bad branch;rm"}, "the default branch is not known"),
     ],
@@ -406,7 +411,9 @@ def test_every_option_has_help(sb, args, words):
         assert w in text, w
 
 
-@pytest.mark.parametrize("text", ["{", "[]", "x" * 10])
+@pytest.mark.parametrize(
+    "text", ["{", "[]", "x" * 10, pytest.param(DEEP_JSON, id="deeply-nested")]
+)
 def test_an_unreadable_timings_file_is_said_and_replaced(sb, text):
     sb.write("docs/garden/timings.json", text)
     friction = section(sb.scan(), "## Friction")
