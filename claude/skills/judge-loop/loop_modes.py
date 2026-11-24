@@ -22,8 +22,7 @@ NOT_PLAIN = (
 PATTERN = re.compile(r"[*?\[]")
 ROW_FORM = " (a row reads: - r{n} [{key}] fixed|answered|owner: <text>)"
 HOLD_NOTE = (
-    "note: [{key}] holds the round (a row reads: - r{n} [{key}] answered|owner: "
-    "<text>)"
+    "note: [{key}] holds the round (a row reads: - r{n} [{key}] answered|owner: <text>)"
 )
 AREA_NOTE = (
     "note: area {name} in map.md has no notes file ({path}); write it before the "

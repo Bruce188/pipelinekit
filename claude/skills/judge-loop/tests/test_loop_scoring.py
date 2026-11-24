@@ -366,14 +366,15 @@ NOTHING_NEW = (
     "{folder}/changes.md for each item listed above ({k}), then loop.py brief."
 )
 HOLDS = (
-    "note: [{key}] holds the round (a row reads: - r{n} [{key}] answered|owner: "
-    "<text>)"
+    "note: [{key}] holds the round (a row reads: - r{n} [{key}] answered|owner: <text>)"
 )
 
 
 def held(run):
     """The lines of a refusal that list the items holding the round."""
     return [line for line in run.lines if " holds the round " in line]
+
+
 NOTHING_NEW_BUILD = NOTHING_NEW.format(
     what="no new commit",
     agent="kit-builder",
