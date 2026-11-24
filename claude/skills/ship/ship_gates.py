@@ -664,24 +664,72 @@ def sets(name, old, new):
     return any(sets_version(trail, value) for trail, value in after - before)
 
 
-def listed(patterns, value, names=False):
-    """True when `value` matches one of the patterns of a project line.
+GLOB_CHARS = re.compile(r"[*?[]")
 
-    `dir/` is everything below a directory, anything else a glob on the whole
-    value and, with `names`, on the file name alone.
+
+def listed(patterns, value):
+    """True when the branch `value` matches one of the patterns of a project line.
+
+    `dir/` is every branch that starts with it, anything else a glob on the
+    whole name.
     """
     low = value.lower()
     for pattern in patterns:
         if pattern.endswith("/"):
             hit = low.startswith(pattern)
         else:
-            name = low.rpartition("/")[2]
-            hit = fnmatch.fnmatchcase(low, pattern) or (
-                names and fnmatch.fnmatchcase(name, pattern)
-            )
+            hit = fnmatch.fnmatchcase(low, pattern)
         if hit:
             return True
     return False
+
+
+def file_listed(patterns, path):
+    """True when `path` is a file a `Release files:` pattern names.
+
+    Read the way .gitignore reads a pattern: one with a slash at its start or
+    in its middle is anchored at the top of the repository, one without
+    matches at any depth. `dir/` covers everything below a directory of that
+    name, and so does a plain name without glob characters, which also
+    matches a file of that name.
+    """
+    parts = path.lower().split("/")
+    for pattern in patterns:
+        bare = pattern.strip("/")
+        if not bare:
+            continue
+        anchored = pattern.startswith("/") or "/" in bare
+        if not pattern.endswith("/"):
+            whole = "/".join(parts)
+            if fnmatch.fnmatchcase(whole, bare) or (
+                not anchored and fnmatch.fnmatchcase(parts[-1], bare)
+            ):
+                return True
+            if GLOB_CHARS.search(bare):
+                continue
+        dirs = parts[:-1]
+        if anchored:
+            size = bare.count("/") + 1
+            if len(dirs) >= size and fnmatch.fnmatchcase("/".join(dirs[:size]), bare):
+                return True
+        elif any(fnmatch.fnmatchcase(part, bare) for part in dirs):
+            return True
+    return False
+
+
+def unmatched_files(repo, files):
+    """Hints for `Release files:` values that match no tracked file."""
+    if not files:
+        return []
+    rc, out, _ = repo.try_git("ls-files", "-z")
+    if rc:
+        return []
+    tracked = [path for path in out.split("\0") if path]
+    return [
+        f"Release files: {value} matches no tracked file"
+        for value in files
+        if not any(file_listed([value], path) for path in tracked)
+    ]
 
 
 def project_lines(texts):
@@ -693,7 +741,8 @@ def project_lines(texts):
             m = PROJECT_LINE.match(line)
             if not m:
                 continue
-            values = re.split(r"[,\s]+", m.group(2).lower())
+            # A value may end the sentence: `deploy/.` is `deploy/`.
+            values = [v.rstrip(".") for v in re.split(r"[,\s]+", m.group(2).lower())]
             found[m.group(1).lower()] += [
                 v for v in values if v and "<" not in v and v != "-->"
             ]
@@ -713,7 +762,7 @@ def version_change(repo, base, own=(), release_files=()):
     for old_mode, new_mode, old, new, path in files:
         if {"160000", "120000"} & {old_mode, new_mode}:
             continue
-        if listed(release_files, path, names=True):
+        if file_listed(release_files, path):
             return f"the diff changes {shown(path)}, a release file of this project", ""
         kind = place(path)
         if kind == "whole":
@@ -799,30 +848,30 @@ def release_gate(repo, pr):
     info = repo.info()
     default = (info.get("defaultBranchRef") or {}).get("name") or ""
     own = own_words(info)
+    texts = (text for _, text, _ in policy_texts(repo, base) if text is not None)
+    files, branches = project_lines(texts)
+    hints = unmatched_files(repo, files)
 
     def stop(why):
-        return gate("release", "fail", why, stop=True)
+        return gate("release", "fail", why, stop=True, hints=hints)
 
     if release_title(pr.get("title"), default, own):
         return stop("the title reads like a release")
     why = release_branches(head, base, default, own)
     if why:
         return stop(why)
-    texts = (text for _, text, _ in policy_texts(repo, base) if text is not None)
-    files, branches = project_lines(texts)
     for name in (head, base):
         if listed(branches, name):
             return stop(f"{name} is a release branch of this project")
     why, error = promoted(repo, head)
     if error:
-        return gate("release", "fail", error)
+        return gate("release", "fail", error, hints=hints)
     if why:
         return stop(why)
     why, error = version_change(repo, base, own, files)
     if error:
-        return gate(
-            "release", "fail", f"cannot read what changes against {base}: {error}"
-        )
+        why = f"cannot read what changes against {base}: {error}"
+        return gate("release", "fail", why, hints=hints)
     if why:
         return stop(why)
     answer = recorded_release(repo, pr.get("headRefOid") or "")
@@ -834,8 +883,9 @@ def release_gate(repo, pr):
             "fail",
             "the test record does not say whether this is a release: record the "
             "round again with --release yes or no",
+            hints=hints,
         )
-    return gate("release", "pass", "not a release")
+    return gate("release", "pass", "not a release", hints=hints)
 
 
 def review_gate(pr):

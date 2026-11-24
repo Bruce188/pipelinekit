@@ -796,6 +796,47 @@ def test_project_lines_name_release_files_and_branches():
     assert branches == ["team-*", "shipping"]
 
 
+def test_a_release_file_value_may_end_a_sentence():
+    files, _ = ship.project_lines(["Release files: deploy/.\nRelease file: app/v.txt.\n"])
+    assert files == ["deploy/", "app/v.txt"]
+
+
+FILE_VALUES = [
+    ("deploy", "deploy/app.yml", True),
+    ("deploy", "infra/deploy/app.yml", True),
+    ("deploy/", "infra/deploy/app.yml", True),
+    ("/deploy/", "infra/deploy/app.yml", False),
+    ("/deploy", "deploy/app.yml", True),
+    ("infra/deploy", "infra/deploy/app.yml", True),
+    ("infra/deploy/", "x/infra/deploy/app.yml", False),
+    ("deploy", "deployment/app.yml", False),
+    ("deploy", "app/deploy", True),
+    ("deploy/", "app/deploy", False),
+    ("build.txt", "app/build.txt", True),
+    ("app/build.txt", "app/build.txt", True),
+    ("app/build.txt", "x/app/build.txt", False),
+    ("*.ver", "a/b.ver", True),
+    ("team-*/", "x/team-red/v.txt", True),
+]
+
+
+@pytest.mark.parametrize("pattern, path, hit", FILE_VALUES)
+def test_release_file_values_read_like_gitignore(pattern, path, hit):
+    assert ship.file_listed([pattern], path) is hit
+
+
+def test_status_names_a_release_file_value_that_matches_nothing(sb):
+    sb.change("deploy/app.yml", "a: 1\n", "a: 2\n")
+    sb.change(
+        "CLAUDE.md", "# Rules\n", "# Rules\n\nRelease files: deploy, nothing.txt\n"
+    )
+    release = gates(sb.ship("status", "--json"))["release"]
+    assert release["hints"] == [
+        "Release files: nothing.txt matches no tracked file"
+    ]
+    assert "Release files: nothing.txt matches no" in sb.ship("status").stdout
+
+
 def test_merge_refuses_a_change_to_a_release_file_of_the_project(sb):
     sb.change("CLAUDE.md", "# Rules\n", "# Rules\n\nRelease files: app/build.txt\n")
     sb.change("app/build.txt", "7\n", "8\n")
