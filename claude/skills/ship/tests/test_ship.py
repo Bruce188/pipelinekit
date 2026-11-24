@@ -232,7 +232,10 @@ def test_a_named_pipe_as_the_user_level_claude_md_is_named_not_waited_on(sb):
     done = sb.ship("merge", "--grace", "0", "--timeout", "1", timeout=20)
     assert done.returncode == 3, done.stdout + done.stderr
     assert sb.calls("pr merge") == [] and sb.calls("pr ready") == []
-    assert last_line(done) == f"STOP: policy: {policy['detail']}. Ask the user."
+    # The judged gate cannot see a `Judge loop: off` line in it either.
+    assert last_line(done) == (
+        f"STOP: policy: {policy['detail']}. Also not holding: judged. Ask the user."
+    )
 
 
 def test_a_project_claude_md_that_is_a_folder_is_named(sb):

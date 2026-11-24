@@ -96,13 +96,13 @@ Exit code: 0 done, 1 a gate or a check failed (fix it and run again), 2 the help
 |------|------------|
 | `pr` | the branch has an open pull request |
 | `own` | you opened it, and it is not from a fork |
-| `policy` | the project has not opted out; a `CLAUDE.md` it cannot read (a named pipe, a folder) stops it and is named |
+| `policy` | the project has not opted out; a `CLAUDE.md` it cannot read (a named pipe, a folder, a link to nothing) stops it and is named |
 | `release` | it is not a release (see "What stays with the user") |
 | `linked` | into the default branch: GitHub lists every issue the pull request names among those it closes; into another branch: no misspelt keyword, and names the release pull request that will close them; fails when `gh` cannot answer |
 | `review` | no review is required, requested or asking for changes |
 | `current` | the local commit is the pull request's head and nothing tracked is uncommitted |
 | `up-to-date` | the branch contains its base branch, fetched from the remote, and does not conflict with it; the reason names the base, the commits missing and the next command (see "Up to date with the base") |
-| `judged` | the branch's judge loop ended in 10, a used budget or the user's accept on this commit or an earlier one of the branch, or a skip was recorded for this commit; `Judge loop: off` on the base branch or in the user-level `CLAUDE.md` passes and names where it stands; a loop waiting for the user exits 3 |
+| `judged` | the branch's judge loop ended in 10, a used budget or the user's accept on this commit or an earlier one of the branch, or a skip was recorded for this commit; `Judge loop: off` on the base branch or in the user-level `CLAUDE.md` passes and names where it stands; the user-level file is read as `policy` reads it, through a link, and one it cannot read stops and is named; a loop waiting for the user exits 3 |
 | `tested` | the last record is a pass for this commit, and the loop is not stuck |
 | `ci` | every check passed; no check at all counts only where no workflow runs on pull requests or on pushes to the branch; a draft whose checks were all skipped is pending there, as a check is still to come: `merge` marks it ready and waits for it |
 

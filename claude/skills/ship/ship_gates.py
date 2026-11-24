@@ -9,7 +9,6 @@ import json
 import os
 import plistlib
 import re
-import stat
 from collections import Counter
 from xml.etree import ElementTree
 
@@ -21,7 +20,7 @@ except ImportError:  # before Python 3.11
 from ship_base import *
 from ship_behind import base_gate
 from ship_ci import RUNS_HERE, skip_request
-from ship_judged import MAX_TEXT_FILE, judged_gate, user_file
+from ship_judged import READ_FIX, cannot_read, judged_gate, read_policy, user_file
 from ship_links import linked_gate
 
 # ---------------------------------------------------------------- gates
@@ -128,45 +127,6 @@ def opts_out(text):
     return False
 
 
-def read_policy(path, limit=MAX_TEXT_FILE):
-    """(text, why) of a CLAUDE.md: text None and why '' when there is none.
-
-    The file is opened without waiting, so a named pipe or a device at the path
-    cannot hold the gate up; anything but a regular file gives the reason in
-    `why`. A link is followed, as Claude Code follows it.
-    """
-    try:
-        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
-    except FileNotFoundError:
-        return None, ""
-    except IsADirectoryError:
-        return None, "a folder, not a file"
-    except OSError as exc:
-        return None, (exc.strerror or type(exc).__name__).lower()
-    try:
-        mode = os.fstat(fd).st_mode
-        if stat.S_ISDIR(mode):
-            return None, "a folder, not a file"
-        if stat.S_ISFIFO(mode):
-            return None, "a named pipe, not a regular file"
-        if not stat.S_ISREG(mode):
-            return None, "not a regular file"
-        chunks, size = [], 0
-        while size <= limit:
-            chunk = os.read(fd, limit + 1 - size)
-            if not chunk:
-                break
-            chunks.append(chunk)
-            size += len(chunk)
-    except OSError as exc:
-        return None, (exc.strerror or type(exc).__name__).lower()
-    finally:
-        os.close(fd)
-    if size > limit:
-        return None, f"larger than {limit // (1024 * 1024)} MB"
-    return b"".join(chunks).decode("utf-8", "replace"), ""
-
-
 def policy_texts(repo, base=""):
     """(label, text, why) of every CLAUDE.md that speaks for the project or the user.
 
@@ -183,7 +143,7 @@ def policy_texts(repo, base=""):
     ):
         text, why = read_policy(path)
         if why:
-            yield label, None, f"cannot read {name} ({why})"
+            yield label, None, cannot_read(name, why)
         elif text is not None:
             yield label, text, ""
     for name in ("CLAUDE.md", ".claude/CLAUDE.md") if base else ():
@@ -200,7 +160,7 @@ def policy_gate(repo, pr=None):
     for label, text, why in policy_texts(repo, (pr or {}).get("baseRefName") or ""):
         if why:
             # It may hold the opt-out line: only the user can tell.
-            why += ": make it a readable regular file or remove it"
+            why += f": {READ_FIX}"
             return gate("policy", "fail", why, stop=True)
         if opts_out(text):
             why = f"{label} says `Merges: ask first`"
