@@ -74,7 +74,7 @@ scan() {
     3) echo "pre-merge-commit: gitleaks found secret(s) in the changes this merge brings in (values redacted above); the merge is not recorded. PIPELINEKIT_ALLOW_SECRET=1 overrides one merge. [pre-commit.secret]" >&2
        echo "Next: git merge --abort, take the secret out of the branch you merge, then merge again." >&2
        kitlog block pre-commit.secret "gitleaks found secrets in the merged changes" ;;
-    *) echo "pre-merge-commit: gitleaks $sub failed (exit $rc); merge not recorded. PIPELINEKIT_ALLOW_SECRET=1 skips the scan for one merge. [pre-commit.gitleaks-failed]" >&2
+    *) echo "pre-merge-commit: gitleaks $sub failed (exit $rc); merge not recorded. PIPELINEKIT_ALLOW_SECRET=1 lets one merge through unscanned. [pre-commit.gitleaks-failed]" >&2
        echo "Next: git merge --abort, fix gitleaks, then merge again." >&2
        kitlog error pre-commit.gitleaks-failed "gitleaks $sub failed (exit $rc)" ;;
   esac
