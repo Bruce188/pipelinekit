@@ -24,7 +24,15 @@ while [ "$DIR" != "/" ] && [ ! -f "$DIR/package.json" ]; do
   DIR=$(dirname "$DIR")
 done
 
-if [ -x "$DIR/node_modules/.bin/prettier" ]; then
-  timeout 5 "$DIR/node_modules/.bin/prettier" --write -- "$FILE_PATH" >/dev/null 2>&1 || true
+PRETTIER="$DIR/node_modules/.bin/prettier"
+[ -x "$PRETTIER" ] || exit 0
+
+# Stock macOS has no timeout; Homebrew's coreutils names it gtimeout. With
+# neither, the hook's own timeout in settings.json is the only limit.
+LIMIT=$(command -v timeout || command -v gtimeout)
+if [ -n "$LIMIT" ]; then
+  "$LIMIT" 5 "$PRETTIER" --write -- "$FILE_PATH" >/dev/null 2>&1 || true
+else
+  "$PRETTIER" --write -- "$FILE_PATH" >/dev/null 2>&1 || true
 fi
 exit 0
