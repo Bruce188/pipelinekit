@@ -55,8 +55,9 @@ A repo with its own local `core.hooksPath` (husky, pre-commit framework, or a ma
 Every refusal names its rule in square brackets, for example `[git.no-verify]`,
 and is recorded without the command text in
 `~/.local/state/pipelinekit/events.jsonl`. `/kit` lists what the hooks blocked,
-asked about or failed on in the last days. `PIPELINEKIT_LOG=0` switches the log
-off. Every rule id is in
+asked about or failed on in the last 7 days; `check.py --days N` looks back 1 to
+365 days, and `check.py --session ID` shows one Claude Code session.
+`PIPELINEKIT_LOG=0` switches the log off. Every rule id is in
 [Components](documentation/components.html#rule-ids-and-the-event-log).
 
 ### Skills
