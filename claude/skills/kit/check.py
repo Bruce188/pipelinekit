@@ -171,7 +171,7 @@ def check_environment(c: Check) -> None:
         (
             "gitleaks",
             ["version"],
-            "gitleaks not installed (pre-commit secret scan skipped)",
+            "gitleaks not installed (secret scan of commits and merges skipped)",
         ),
         (
             "claude",
