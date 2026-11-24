@@ -15,12 +15,15 @@
   not a pass; a skill helper that lost its executable bit is a warning.
 - kit, ship: the skills pre-approve their installed helper only
   (`${CLAUDE_SKILL_DIR}/check.py`, `update.py plan`, `ship.py`), no longer any
-  script whose path ends the same way; the components page lists what each
+  script whose path ends the same way; the skills page lists what each
   skill runs without asking.
 - docs-writer: the skill pre-approves its own helpers only (`render.py`,
   `verify_toc.py`, `richness_check.py` and its two test scripts, named by
   `${CLAUDE_SKILL_DIR}`), no longer every Bash command; any other command
   asks while the skill is active.
+- docs: the components page is split under the file size limit; the hooks
+  and rule ids, the skills and agents, the self-check and shipping a pull
+  request each have their own page, and the components page links to them.
 
 ## 0.1.0 — 2026-11-03
 

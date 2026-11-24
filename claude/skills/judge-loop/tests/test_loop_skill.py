@@ -550,8 +550,8 @@ NAMES = (
     "rel",
     (
         "README.md",
-        "docs-source/components.md",
-        "documentation/components.html",
+        "docs-source/skills.md",
+        "documentation/skills.html",
         "CHANGELOG.md",
     ),
 )
@@ -630,8 +630,8 @@ def test_the_readme_exempt_size_names_sensitive_paths():
     ) in plain("README.md")
 
 
-def test_the_components_record_lists_every_file():
-    text = plain("docs-source/components.md")
+def test_the_skills_page_record_lists_every_file():
+    text = plain("docs-source/skills.md")
     for words in (
         "changes.md (one row per item: fixed, answered or owner)",
         "map.md",
@@ -653,7 +653,15 @@ def test_the_changelog_names_the_notes_and_the_fix_list():
 
 
 @pytest.mark.parametrize(
-    "rel", ("docs-source/components.md", "docs-source/installation.md")
+    "rel",
+    (
+        "docs-source/components.md",
+        "docs-source/hooks.md",
+        "docs-source/skills.md",
+        "docs-source/self-check.md",
+        "docs-source/shipping.md",
+        "docs-source/installation.md",
+    ),
 )
 def test_every_heading_follows_a_blank_line(rel):
     lines = repo_text(rel).splitlines()
@@ -670,8 +678,8 @@ def _in_fence(lines, i):
 @pytest.mark.parametrize(
     "rel",
     (
-        "docs-source/components.md",
-        "documentation/components.html",
+        "docs-source/skills.md",
+        "documentation/skills.html",
         "docs-source/installation.md",
         "documentation/installation.html",
     ),
@@ -698,10 +706,8 @@ def test_another_home_is_absolute_and_stays_set(rel):
     ) in text
 
 
-@pytest.mark.parametrize(
-    "rel", ("docs-source/components.md", "documentation/components.html")
-)
-def test_the_components_say_how_a_loop_ends(rel):
+@pytest.mark.parametrize("rel", ("docs-source/skills.md", "documentation/skills.html"))
+def test_the_skills_page_says_how_a_loop_ends(rel):
     text = plain(rel)
     for words in (
         "What is left after the last round becomes follow-up issues",
@@ -764,15 +770,15 @@ def test_the_upgrade_steps_name_the_agents_and_the_switch_lines(rel):
         assert words in steps, words
 
 
-def test_the_components_entry_links_the_record():
+def test_the_skills_entry_links_the_record():
     row = next(
         line
-        for line in repo_text("docs-source/components.md").splitlines()
+        for line in repo_text("docs-source/skills.md").splitlines()
         if line.startswith("| `judge-loop` |")
     )
     assert "`docs/loops/`" in row
     assert "never committed" in row
     assert "](installation.html#the-judge-loop)" in row
-    page = repo_text("documentation/components.html")
+    page = repo_text("documentation/skills.html")
     assert 'href="installation.html#the-judge-loop"' in page
     assert 'id="the-judge-loop"' in repo_text("documentation/installation.html")

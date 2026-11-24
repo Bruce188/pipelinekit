@@ -18,6 +18,12 @@
     "quadrant": "reference"
   },
   {
+    "title": "Hooks and rule ids",
+    "slug": "hooks",
+    "excerpt": "This page lists the permission rules, guard hooks and git hooks that pipelinekit v0.1.0 installs, and the rule id of every refusal.",
+    "quadrant": "reference"
+  },
+  {
     "title": "pipelinekit documentation",
     "slug": "index",
     "excerpt": "pipelinekit v0.1.0 is a small Claude Code config kit. It contains guard hooks, permission rules, global git hooks, nine skills, three agents, a short CLAUDE.md template, and an installer that copies…",
@@ -28,6 +34,24 @@
     "slug": "installation",
     "excerpt": "Install pipelinekit into ~/.claude, or another CLAUDE_HOME, by running one script.",
     "quadrant": "how-to"
+  },
+  {
+    "title": "Self-check",
+    "slug": "self-check",
+    "excerpt": "/kit answers one question: is anything in this install not working? Run it after installing or updating the kit, and when a hook blocks something you did not expect or fails to start. Claude can also…",
+    "quadrant": "reference"
+  },
+  {
+    "title": "Shipping a pull request",
+    "slug": "shipping",
+    "excerpt": "With the kit installed, Claude finishes the pull requests it opens instead of handing each one to you to merge. The ship skill (/ship) describes the loop, and claude/skills/ship/ship.py holds the…",
+    "quadrant": "reference"
+  },
+  {
+    "title": "Skills and agents",
+    "slug": "skills",
+    "excerpt": "This page lists the skills and agents that pipelinekit v0.1.0 installs, and how the judge loop uses them.",
+    "quadrant": "reference"
   },
   {
     "title": "Upgrading from 0.0.1",

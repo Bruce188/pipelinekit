@@ -498,13 +498,21 @@ def test_every_refusal_has_a_rule_id():
     assert len(git_hook_rules()) == 13, git_hook_rules()
 
 
-def test_every_rule_id_is_in_the_docs():
-    docs = (REPO / "docs-source" / "components.md").read_text()
+def test_every_rule_id_is_listed_on_one_docs_page():
     rules = {rule for _, rule in guard_rules()} | git_hook_rules()
     rules |= {"input.invalid", "internal.crash", "bare-repo.marker"}
     session = (HOOKS / "session-check.py").read_text()
     found = set(re.findall(r'"(session-check\.[a-z-]+)"', session))
     assert len(found) == 2, found
     rules |= found
-    missing = sorted(r for r in rules if f"`{r}`" not in docs)
-    assert not missing, f"rule ids missing from docs-source/components.md: {missing}"
+    listed = {}
+    for page in sorted((REPO / "docs-source").glob("*.md")):
+        for line in page.read_text().splitlines():
+            row = re.match(r"\| `([a-z-]+\.[a-z-]+)` \|", line)
+            if row and row.group(1) in rules:
+                listed.setdefault(row.group(1), []).append(page.name)
+    missing = sorted(rules - set(listed))
+    assert not missing, f"rule ids missing from docs-source/hooks.md: {missing}"
+    twice = {rule: pages for rule, pages in listed.items() if len(pages) != 1}
+    assert not twice, f"rule ids listed more than once: {twice}"
+    assert {pages[0] for pages in listed.values()} == {"hooks.md"}, listed

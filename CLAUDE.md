@@ -25,7 +25,7 @@ Project-specific rules only; user-global rules live in `~/.claude/CLAUDE.md`.
 
 - Hooks stay stdlib-only (bash, python3); no new runtime deps.
 - Every hook change runs its test in `claude/hooks/tests/`.
-- A refusal carries a rule id (`group.name`) and is logged through `kitlog.py`, never with the command text. Every id is listed in `docs-source/components.md`; a test holds that.
+- A refusal carries a rule id (`group.name`) and is logged through `kitlog.py`, never with the command text. Every id is listed in `docs-source/hooks.md`; a test holds that.
 - Installer changes run `bash tests/test_install.sh`.
 - Self-check changes run `python3 -m pytest -q claude/skills/kit/tests`. A new hook or skill goes into the lists at the top of `check_base.py`, with a live probe for a hook in `check_core.py`. The update check only informs: it never adds a `[fail]` or `[warn]`, and `update.py` changes a checkout by fast-forward only.
 - Changes to the ship skill run `python3 -m pytest -q claude/skills/ship/tests`. `ship.py` gets no way past a review or branch protection (no `--admin`); a test holds that.

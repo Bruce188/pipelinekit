@@ -4,7 +4,7 @@ diataxis: reference
 
 # File size limit
 
-A hand-written text file (code, tests, markdown) has at most 1,500 lines and 50,000 bytes. Claude Code's Read tool returns a text file whole only up to 25,000 tokens and past that a first page, so a longer file is read in pieces or only in part. The global `pre-commit` hook runs `~/.claude/hooks/filesize.py` on the staged files. `git merge` does not run `pre-commit` for a merge it makes without conflicts, so the global `pre-merge-commit` hook runs the same check on the merged files before the merge is recorded (see [Git hooks](components.html#git-hooks)).
+A hand-written text file (code, tests, markdown) has at most 1,500 lines and 50,000 bytes. Claude Code's Read tool returns a text file whole only up to 25,000 tokens and past that a first page, so a longer file is read in pieces or only in part. The global `pre-commit` hook runs `~/.claude/hooks/filesize.py` on the staged files. `git merge` does not run `pre-commit` for a merge it makes without conflicts, so the global `pre-merge-commit` hook runs the same check on the merged files before the merge is recorded (see [Git hooks](hooks.html#git-hooks)).
 
 ## What is refused
 

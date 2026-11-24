@@ -19,7 +19,11 @@ Up to 0.0.1, pipelinekit was a multi-agent pipeline kit with its own orchestrato
 | Page | Read it when |
 |------|--------------|
 | [Installation](installation.html) | You are setting up the kit on a new machine, devcontainer or VM |
-| [Components](components.html) | You want to know what each permission rule, hook, git hook, skill, agent and MCP server does |
+| [Components](components.html) | You want an overview of what the kit installs, its `CLAUDE.md` template and its MCP servers |
+| [Hooks and rule ids](hooks.html) | You want to know what each permission rule, hook and git hook does, or what a rule id in a refusal means |
+| [Skills and agents](skills.html) | You want to know what each skill and agent does, and how the judge loop plans, builds and judges a change |
+| [Self-check](self-check.html) | You want to know what `/kit` checks and how `/kit update` works |
+| [Shipping a pull request](shipping.html) | You want to know how Claude tests and merges its own pull requests |
 | [File size limit](file-size.html) | A commit or merge was refused over a file's size, or you want to exempt files from the limit |
 | [Upgrading from 0.0.1](upgrading.html) | You installed the old pipeline kit and want to move to 0.1.0 |
 
