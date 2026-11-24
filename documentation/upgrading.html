@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Upgrading from 0.0.1</title>
-<meta name="description" content="How to move from the 0.0.1 pipeline kit to the 0.1.0 config kit: what was removed, what replaces it, and how to clean up an existing ~/.claude."><style>
+<meta name="description" content="How to move from the 0.0.1 pipeline kit to the 0.1.0 config kit: what was removed, what replaces it, and how to clean up an existing ~/.claude. serena 2 covers the move to serena 2."><style>
 /* === Reset + variables === */
 *, *::before, *::after { box-sizing: border-box; }
 :root {
@@ -619,6 +619,7 @@ footer {
     <ul>
       <li class="lvl-2"><a href="#what-was-removed">What was removed</a></li>
       <li class="lvl-2"><a href="#upgrade-steps">Upgrade steps</a></li>
+      <li class="lvl-2"><a href="#serena-2">serena 2</a></li>
       <li class="lvl-2"><a href="#rolling-back">Rolling back</a></li>
     </ul>
   </aside>
@@ -627,7 +628,7 @@ footer {
     <header class="page-header">
       <span class="diataxis-chip diataxis-how-to">how-to</span>
       <h1>Upgrading from 0.0.1</h1>
-      <p class="description">How to move from the 0.0.1 pipeline kit to the 0.1.0 config kit: what was removed, what replaces it, and how to clean up an existing ~/.claude.</p>
+      <p class="description">How to move from the 0.0.1 pipeline kit to the 0.1.0 config kit: what was removed, what replaces it, and how to clean up an existing ~/.claude. serena 2 covers the move to serena 2.</p>
       <div class="page-meta"></div>
     </header>
 
@@ -765,6 +766,29 @@ are left.</p>
 </code></pre></div>
 
 <p>In a Claude Code session, <code>/kit</code> gives the same report.</p>
+<h2 id="serena-2">serena 2</h2>
+<p>The installer pins serena 2.1.0. When it finds a serena 1.x on your <code>PATH</code>, it
+upgrades it with <code>uv tool install --force</code> and says so; without <code>uv</code> it warns
+and prints that command. A serena it could not upgrade stays registered in the
+1.x form.</p>
+<p>serena 2 writes <code>language_servers:</code> in a project's <code>.serena/project.yml</code>, where
+1.x expects <code>languages:</code>. On its first start it rewrites the file of every
+project it knows, not only the one it opens, and serena 1.x then stops on them
+with <code>KeyError: 'languages'</code> (Claude Code shows <code>Connection closed</code>). The
+change goes one way. To use such a file with 1.x again, add a <code>languages:</code> list
+to it:</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">languages</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">python</span>
+</code></pre></div>
+
+<p>A project <code>.mcp.json</code> that runs serena without a pinned commit
+(<code>uvx --from git+https://github.com/oraios/serena ...</code>) fetches the newest
+serena and starts that migration. Pin it as <code>.mcp.json.template</code> does.</p>
+<p>The kit registers serena with <code>--agent-interface tools</code>: one MCP tool per
+operation, as in 1.x. A new serena 2 config defaults to the <code>REPL</code> interface,
+whose <code>serena_repl</code> tool runs Python inside the MCP server, where neither
+<code>bash-guard.py</code> nor the sandbox sees it. An <code>agent_interface:</code> line in a
+project's <code>.serena/project.yml</code> still overrides the flag for that project.</p>
 <h2 id="rolling-back">Rolling back</h2>
 <p>Your 0.0.1 setup is still in the backups from step 1. To go back, move the current directory aside rather than deleting it, so sessions and memory created since the upgrade are not lost:</p>
 <div class="codehilite"><pre><span></span><code>mv<span class="w"> </span>~/.claude<span class="w"> </span>~/.claude.0.1.0

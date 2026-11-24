@@ -4,7 +4,7 @@ diataxis: how-to
 
 # Upgrading from 0.0.1
 
-How to move from the 0.0.1 pipeline kit to the 0.1.0 config kit: what was removed, what replaces it, and how to clean up an existing `~/.claude`.
+How to move from the 0.0.1 pipeline kit to the 0.1.0 config kit: what was removed, what replaces it, and how to clean up an existing `~/.claude`. [serena 2](#serena-2) covers the move to serena 2.
 
 ## What was removed
 
@@ -118,6 +118,35 @@ bash scripts/verify.sh
 ```
 
 In a Claude Code session, `/kit` gives the same report.
+
+## serena 2
+
+The installer pins serena 2.1.0. When it finds a serena 1.x on your `PATH`, it
+upgrades it with `uv tool install --force` and says so; without `uv` it warns
+and prints that command. A serena it could not upgrade stays registered in the
+1.x form.
+
+serena 2 writes `language_servers:` in a project's `.serena/project.yml`, where
+1.x expects `languages:`. On its first start it rewrites the file of every
+project it knows, not only the one it opens, and serena 1.x then stops on them
+with `KeyError: 'languages'` (Claude Code shows `Connection closed`). The
+change goes one way. To use such a file with 1.x again, add a `languages:` list
+to it:
+
+```yaml
+languages:
+- python
+```
+
+A project `.mcp.json` that runs serena without a pinned commit
+(`uvx --from git+https://github.com/oraios/serena ...`) fetches the newest
+serena and starts that migration. Pin it as `.mcp.json.template` does.
+
+The kit registers serena with `--agent-interface tools`: one MCP tool per
+operation, as in 1.x. A new serena 2 config defaults to the `REPL` interface,
+whose `serena_repl` tool runs Python inside the MCP server, where neither
+`bash-guard.py` nor the sandbox sees it. An `agent_interface:` line in a
+project's `.serena/project.yml` still overrides the flag for that project.
 
 ## Rolling back
 

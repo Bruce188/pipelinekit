@@ -119,7 +119,10 @@ skill starts them:
 ### MCP servers
 
 - **serena** (symbol-level code navigation) is installed with `uv` at a pinned
-  commit and registered at user scope in `~/.claude.json`. Skip it with
+  serena 2 commit and registered at user scope in `~/.claude.json` with
+  `--agent-interface tools`. A serena 1.x on your `PATH` is upgraded; serena 2
+  rewrites the projects' `.serena/project.yml` so that 1.x cannot read them
+  (see [serena 2](documentation/upgrading.html#serena-2)). Skip it with
   `--no-serena`.
 - **context7** (library docs) is optional. Copy its entry from
   `.mcp.json.template` into a project's `.mcp.json` if you want it.
@@ -162,8 +165,8 @@ You can safely run the installer again to update. It:
    commit/PR attribution is turned off. Other settings stay as they are;
 5. asks whether to set the global `core.hooksPath` to `~/.claude/git-hooks`
    (never changes an existing value);
-6. installs serena and registers it in `~/.claude.json`, backing that file up
-   first;
+6. installs serena 2 (or upgrades a serena 1.x) and registers it in
+   `~/.claude.json`, backing that file up first;
 7. records what it installed in `~/.claude/pipelinekit/manifest.json` and runs
    `scripts/verify.sh`. Later, `/kit` in a session repeats that check, and `/kit update`
    brings in a newer kit after asking.

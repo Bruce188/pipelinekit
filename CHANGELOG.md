@@ -261,6 +261,11 @@ kit used to ship, so those parts are gone.
   `settings.json` hook command resolves, that attribution is off, and that the
   deny rules are present.
 - CI runs the git-hook, installer, pytest hook and docs-writer tests.
+- serena is pinned at 2.1.0, also in `.mcp.json` and `.mcp.json.template`,
+  and registered with `--agent-interface tools`. The installer upgrades a
+  serena 1.x it finds on `PATH`, which stopped on a `.serena/project.yml`
+  written by serena 2. serena 2 rewrites those files for good; see
+  `docs-source/upgrading.md`.
 
 ### Fixed
 

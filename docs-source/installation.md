@@ -40,7 +40,7 @@ Start a new session after the install: Claude Code loads agents when a session s
    - the kit's `permissions.deny` and `permissions.ask` rules are added after yours; `allow` and other permission keys are untouched;
    - `attribution` is set to empty strings, so commits and PRs get no co-author trailer or footer.
 5. Asks whether to set the global git `core.hooksPath` to `~/.claude/git-hooks`. It never overwrites an existing value; it prints the command instead. Without a terminal, and without `--git-hooks`, it skips this step.
-6. Installs serena with `uv` at a pinned commit and registers it at user scope in `~/.claude.json`. It backs that file up first.
+6. Installs serena 2 with `uv` at a pinned commit, or upgrades a serena 1.x it finds on your `PATH` (see [serena 2](upgrading.html#serena-2)), and registers it at user scope in `~/.claude.json` with `--agent-interface tools`. It backs that file up first.
 7. Writes `~/.claude/pipelinekit/manifest.json` (version, commit, a hash of every installed file, the kit's `settings.json` entries), then runs `scripts/verify.sh`.
 
 <details markdown="1">

@@ -26,7 +26,7 @@
   {
     "title": "Upgrading from 0.0.1",
     "slug": "upgrading",
-    "excerpt": "How to move from the 0.0.1 pipeline kit to the 0.1.0 config kit: what was removed, what replaces it, and how to clean up an existing ~/.claude.",
+    "excerpt": "How to move from the 0.0.1 pipeline kit to the 0.1.0 config kit: what was removed, what replaces it, and how to clean up an existing ~/.claude. serena 2 covers the move to serena 2.",
     "quadrant": "how-to"
   }
 ]
