@@ -255,8 +255,8 @@ def holding_items(st, rows):
 
 def unchanged_check(loop, work, agents, rows):
     """Refuse a new round on the work of the last counted round while an item
-    that keeps a judge below 10 has no answered: or owner: row; the final full
-    read goes on."""
+    that keeps a judge below 10 has no answered: or owner: row; each such item
+    is listed with the row to write. The final full read goes on."""
     st = loop.st
     if not st["rounds"] or st.get("final"):
         return
@@ -268,18 +268,23 @@ def unchanged_check(loop, work, agents, rows):
         if work["commit"] != last["commit"]:
             return
         what = "no new commit"
-        fix = f"have {agent_word(agents, 'kit-builder')} fix the open items and commit"
+        author = agent_word(agents, "kit-builder")
+        fix = f"have {author} fix the open items and commit"
     else:
         if work["sha256"] != last["plan_sha256"]:
             return
         what = "plan.md is the same"
-        fix = f"have {agent_word(agents, 'kit-planner')} fix the open items in plan.md"
+        author = agent_word(agents, "kit-planner")
+        fix = f"have {author} fix the open items in plan.md"
+    for key in holding:
+        role, _, item_id = key.partition(":")
+        say(HOLD_NOTE.format(key=f"{role} {item_id}", n=last["n"]))
     raise Exit(
         2,
         f"Refused: nothing changed since round {last['n']} ({what}). Next: {fix}, "
-        f"or write an answered: or owner: row to {loop.rel}/changes.md for each open "
-        f"item that has none ({count(len(holding), 'item')}; loop.py status lists "
-        "the items), then loop.py brief.",
+        f"or have {author} write an answered: or owner: row to {loop.rel}/changes.md "
+        f"for each item listed above ({count(len(holding), 'item')}), then loop.py "
+        "brief.",
     )
 
 
@@ -438,6 +443,9 @@ FIRST_MISS = {
     TEN_WITH_OPEN: (
         "have that judge mark each improvement it does not need for the 10 as "
         '"needed_for_10": false, or score below 10'
+    ),
+    TEN_WITH_BLOCKING: (
+        "have that judge score below 10, since a blocking item rules out a 10"
     ),
 }
 

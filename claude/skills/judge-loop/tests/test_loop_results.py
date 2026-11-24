@@ -345,7 +345,12 @@ REJECTED = [
     (
         "10 with blocking",
         obj(overall=10, blocking=[item("B1")]),
-        "overall: a 10 with open items",
+        "overall: a 10 with a blocking item",
+    ),
+    (
+        "10 with blocking not needed for 10",
+        obj(overall=10, blocking=[item("B1", needed_for_10=False)]),
+        "overall: a 10 with a blocking item",
     ),
     (
         "10 with still_open",

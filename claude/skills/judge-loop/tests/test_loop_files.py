@@ -717,6 +717,7 @@ BAD_STATES = {
         notes=[{"round": 1, "action": "accept", "text": ["t"]}]
     ),
     "a check that is a number": lambda st: st["items"]["general:I1"].update(check=5),
+    "needed as text": lambda st: st["items"]["general:I1"].update(needed="yes"),
     "a skip record on an open loop": lambda st: st.update(
         skip={"reason": "x", "files": 1, "lines": 1, "user_ok": False}
     ),

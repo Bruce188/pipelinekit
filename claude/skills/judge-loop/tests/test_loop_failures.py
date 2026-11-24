@@ -722,10 +722,14 @@ def test_fallback_agents_pass_over_a_file_that_cannot_be_read(sb, how):
     rel = unreadable_agent(sb, how)
     try:
         run = sb.run("start", "build", "--agents", "fallback")
+        sb.criteria()
+        brief = sb.run("brief", "--agents", "fallback")
     finally:
         (sb.root / rel).chmod(0o755)
     assert run.code == 0, run
     assert run.lines.count(UNCHECKED.format(rel=rel)) == 1, run
+    assert brief.code == 0, brief
+    assert brief.lines.count(UNCHECKED.format(rel=rel)) == 1, brief
 
 
 @pytest.mark.parametrize("mode", ["kit", "fallback"])
@@ -746,10 +750,15 @@ def test_an_agents_folder_that_cannot_be_looked_at(sb, mode):
     run = sb.run(
         "start", "build", *(["--agents", "fallback"] if mode == "fallback" else [])
     )
+    if mode == "fallback":
+        sb.criteria()
+        brief = sb.run("brief", "--agents", "fallback")
     sb.mp.setattr(os, "lstat", real)
     if mode == "fallback":
         assert run.code == 0, run
         assert run.lines.count(UNCHECKED.format(rel=".claude/agents")) == 1, run
+        assert brief.code == 0, brief
+        assert brief.lines.count(UNCHECKED.format(rel=".claude/agents")) == 1, brief
     else:
         assert (run.code, run.last) == (3, CANNOT_CHECK.format(rel=".claude/agents"))
         assert not (sb.loopdir() / "state.json").exists()

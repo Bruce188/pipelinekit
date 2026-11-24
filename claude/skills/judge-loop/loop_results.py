@@ -154,7 +154,7 @@ def check_result(raw: bytes, role: str, open_ids=(), mode="full", prs=()) -> dic
 
     if overall == 10:
         if items["blocking"]:
-            raise NoScore("overall", TEN_WITH_OPEN)
+            raise NoScore("overall", TEN_WITH_BLOCKING)
         if any(e.get("needed_for_10") is not False for e in items["improvements"]):
             raise NoScore("overall", TEN_WITH_OPEN)
         if read != "full":

@@ -271,6 +271,19 @@ def test_a_ten_with_an_unmarked_improvement_is_no_score(sb):
     )
 
 
+def test_a_ten_with_a_blocking_item_has_its_own_hint(sb):
+    sb.start_build()
+    assert sb.run("brief").code == 0
+    run = sb.save("general", result(10, blocking=["B1"]))
+    assert (run.code, run.last) == (
+        3,
+        "STOP: not a score from general (overall: a 10 with a blocking item). Next: "
+        "have that judge score below 10, since a blocking item rules out a 10; write "
+        "it to docs/loops/feat-1-x/build/judge/in/r1_general.txt, loop.py save "
+        "general.",
+    ), run
+
+
 def test_every_option_has_help():
     top = loop.parser()
     subs = next(a for a in top._actions if isinstance(a, argparse._SubParsersAction))
