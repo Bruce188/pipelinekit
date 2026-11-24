@@ -248,7 +248,8 @@ def test_removed_judge_is_not_also_a_tools_problem(kit):
     rc, out = check(kit)
     assert rc == 1
     assert "[fail] agent missing: kit-judge.md: run the installer" in out
-    assert "allows more than reading" not in out
+    assert "kit-judge.md does not have" not in out
+    assert "kit-judge.md has frontmatter keys" not in out
 
 
 def test_edited_agent_is_a_change_since_install(kit):
@@ -269,6 +270,14 @@ def test_other_agents_of_the_user_are_not_reported(kit):
 
 
 JUDGE_TOOLS_LINE = "tools: Read, Grep, Glob\n"
+NO_TOOLS_LINE = (
+    "[fail] kit-judge.md does not have the kit's tools line (Read, Grep, Glob): "
+    "run the installer"
+)
+OTHER_KEYS = (
+    "[fail] kit-judge.md has frontmatter keys other than name, description, "
+    "model and tools: run the installer"
+)
 
 
 @pytest.mark.parametrize(
@@ -276,6 +285,9 @@ JUDGE_TOOLS_LINE = "tools: Read, Grep, Glob\n"
     [
         (JUDGE_TOOLS_LINE, "tools: Read, Grep, Glob, Write\n"),
         (JUDGE_TOOLS_LINE, "tools: Read, Grep, Glob, Bash\n"),
+        # Narrower or reordered: not the kit's line either.
+        (JUDGE_TOOLS_LINE, "tools: Read, Grep\n"),
+        (JUDGE_TOOLS_LINE, "tools: Grep, Read, Glob\n"),
         (JUDGE_TOOLS_LINE, "tools: Read, Grep, Glob\ntools: Edit\n"),
         (JUDGE_TOOLS_LINE, "tools:\n  - Read\n"),
         (JUDGE_TOOLS_LINE, ""),  # no tools line: every tool
@@ -287,21 +299,58 @@ JUDGE_TOOLS_LINE = "tools: Read, Grep, Glob\n"
         # YAML joins an indented line to the value above it, empty lines or not.
         (JUDGE_TOOLS_LINE, JUDGE_TOOLS_LINE + "  , Bash\n"),
         (JUDGE_TOOLS_LINE, JUDGE_TOOLS_LINE + "\n  , Bash\n"),
+        (JUDGE_TOOLS_LINE, JUDGE_TOOLS_LINE + "\t, Bash\n"),
+        # A no-break space is not a YAML space: this key is not tools.
+        (JUDGE_TOOLS_LINE, "tools\u00a0: Read, Grep, Glob\n"),
         # An indented --- closes no frontmatter either.
         ("tools: Read, Grep, Glob\n---\n", "tools: Read, Grep, Glob\n ---\n"),
         # An indented --- opens no frontmatter.
         ("---\nname: kit-judge\n", " ---\nname: kit-judge\n"),
     ],
 )
-def test_judge_that_may_do_more_than_read(kit, old, new):
+def test_judge_without_the_kits_tools_line(kit, old, new):
     judge = kit["home"] / "agents" / "kit-judge.md"
-    text = judge.read_text()
+    text = judge.read_text(encoding="utf-8")
     assert text.count(JUDGE_TOOLS_LINE) == 1
     assert text.count(old) == 1
-    judge.write_text(text.replace(old, new))
+    judge.write_text(text.replace(old, new), encoding="utf-8")
     rc, out = check(kit, "--quick")
     assert rc == 1
-    assert "[fail] kit-judge.md allows more than reading: run the installer" in out
+    assert NO_TOOLS_LINE in out
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        "hooks: x\n",
+        "mcpServers: x\n",
+        "permissionMode: bypassPermissions\n",
+        '"hooks": x\n',
+        "hooks:\n  PreToolUse: x\n",
+        "- x\n",
+    ],
+)
+def test_judge_with_another_frontmatter_key(kit, extra):
+    judge = kit["home"] / "agents" / "kit-judge.md"
+    text = judge.read_text()
+    judge.write_text(text.replace(JUDGE_TOOLS_LINE, JUDGE_TOOLS_LINE + extra))
+    rc, out = check(kit, "--quick")
+    assert rc == 1
+    assert OTHER_KEYS in out
+    assert "does not have the kit's tools line" not in out
+
+
+def test_judge_with_a_folded_description_still_only_reads(kit):
+    judge = kit["home"] / "agents" / "kit-judge.md"
+    lines = judge.read_text().split("\n")
+    i = next(i for i, x in enumerate(lines) if x.startswith("description: "))
+    words = lines[i].removeprefix("description: ").split(" ")
+    lines[i : i + 1] = ["description: >", "  " + " ".join(words[:5])]
+    lines.insert(i + 2, "\t" + " ".join(words[5:]))
+    judge.write_text("\n".join(lines))
+    rc, out = check(kit, "--quick", "--verbose")
+    assert rc == 0, out
+    assert "[pass] kit-judge.md only reads" in out
 
 
 def test_judge_tools_line_outside_the_frontmatter_does_not_count(kit):
@@ -310,7 +359,7 @@ def test_judge_tools_line_outside_the_frontmatter_does_not_count(kit):
     judge.write_text(text + "\ntools: Read, Grep, Glob\n")
     rc, out = check(kit, "--quick")
     assert rc == 1
-    assert "kit-judge.md allows more than reading" in out
+    assert NO_TOOLS_LINE in out
 
 
 def test_judge_with_crlf_line_endings_still_only_reads(kit):

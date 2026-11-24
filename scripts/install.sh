@@ -82,12 +82,8 @@ kit_file() {
 }
 
 # ---------- files ----------
-# Hooks: copy runtime files only (tests stay in the repo).
-find "$REPO_ROOT/claude/hooks" -maxdepth 1 -type f \( -name '*.sh' -o -name '*.py' \) \
-  -exec cp -p {} "$CLAUDE_HOME/hooks/" \;
-chmod +x "$CLAUDE_HOME"/hooks/*.sh "$CLAUDE_HOME"/hooks/*.py
-cp -p "$REPO_ROOT"/claude/git-hooks/* "$CLAUDE_HOME/git-hooks/"
-chmod +x "$CLAUDE_HOME"/git-hooks/*
+# Your own files of a kit name are moved aside before any kit file is
+# copied: an install that stops on one has copied nothing yet.
 # Where your own files of a kit name are kept: an absolute path without a
 # doubled slash, whether CLAUDE_HOME is relative or ends in a slash.
 BACKUPS="$(CDPATH='' cd -- "$CLAUDE_HOME" && pwd)/pipelinekit/backup"
@@ -110,9 +106,41 @@ elif [[ -e "$FD" ]] && { [[ ! -d "$FD" ]] || { [[ "$listed" == 0 ]] &&
   FD_BACKUP="$BACKUPS/skills-frontend-design-$(date -u +%Y%m%dT%H%M%SZ)"
   # A read-only folder or a file named backup: one line of ours, not mkdir's or mv's.
   { mkdir -p "$BACKUPS" && mv "$FD" "$FD_BACKUP"; } 2>/dev/null ||
-    die "could not move your own skills/frontend-design to $BACKUPS. It is untouched and the skills were not installed. Move or rename it yourself, then run the installer again."
+    die "could not move your own skills/frontend-design to $BACKUPS. It is untouched, and the install stopped before copying any kit file. Move or rename it yourself, then run the installer again."
   log "kept your own frontend-design skill in $FD_BACKUP"
 fi
+# agents/ is the user's folder too: only the kit's three files are touched. A
+# link is removed (never followed). A file the last install did not list in its
+# manifest, that differs from the kit's and that is no committed version of it
+# (an install that stopped before its manifest leaves the kit's old text) is
+# moved to a backup once, and so is anything else of that name. A missing or
+# damaged manifest lists nothing.
+listed_files="$(python3 -c 'import json, sys
+m = json.load(open(sys.argv[1], encoding="utf-8"))
+f = m.get("files") if isinstance(m, dict) else None
+for k in f if isinstance(f, dict) else ():
+    if "\n" not in k and "\r" not in k:
+        print(k)' "$CLAUDE_HOME/pipelinekit/manifest.json" 2>/dev/null)" || listed_files=""
+for a in "${KIT_AGENTS[@]}"; do
+  dst="$CLAUDE_HOME/agents/$a"
+  if [[ -L "$dst" ]]; then
+    rm -f "$dst"
+    log "removed the link agents/$a (its target is untouched)"
+  elif [[ -e "$dst" ]] && { [[ ! -f "$dst" ]] || { ! cmp -s "$dst" "$REPO_ROOT/claude/agents/$a" &&
+    ! grep -qxF "agents/$a" <<<"$listed_files" && ! kit_file "$dst" "claude/agents/$a"; }; }; then
+    backup="$BACKUPS/agents-$a-$TS"
+    # A read-only folder or a file named backup: one line of ours, not mkdir's or mv's.
+    { mkdir -p "$BACKUPS" && mv "$dst" "$backup"; } 2>/dev/null ||
+      die "could not move your own agents/$a to $BACKUPS. It is untouched, and the install stopped before copying any kit file. Move or rename it yourself, then run the installer again."
+    log "kept your own $a in $backup"
+  fi
+done
+# Hooks: copy runtime files only (tests stay in the repo).
+find "$REPO_ROOT/claude/hooks" -maxdepth 1 -type f \( -name '*.sh' -o -name '*.py' \) \
+  -exec cp -p {} "$CLAUDE_HOME/hooks/" \;
+chmod +x "$CLAUDE_HOME"/hooks/*.sh "$CLAUDE_HOME"/hooks/*.py
+cp -p "$REPO_ROOT"/claude/git-hooks/* "$CLAUDE_HOME/git-hooks/"
+chmod +x "$CLAUDE_HOME"/git-hooks/*
 for s in "${KIT_SKILLS[@]}"; do
   rm -rf "${CLAUDE_HOME:?}/skills/$s"
   cp -R "$REPO_ROOT/claude/skills/$s" "$CLAUDE_HOME/skills/$s"
@@ -142,31 +170,10 @@ PY
     warn "judge-loop: CLAUDE_HOME is not an absolute path a permission pattern can hold; the skill still names ~/.claude and will not find loop.py from this home: install into an absolute path of letters, digits and ._/@+-"
   fi
 fi
-# agents/ is the user's folder too: only the kit's three files are touched. A
-# link is removed (never followed). A file the last install did not list in its
-# manifest and that differs from the kit's is moved to a backup once, and so is
-# anything else of that name. A missing or damaged manifest lists nothing.
-listed_files="$(python3 -c 'import json, sys
-m = json.load(open(sys.argv[1], encoding="utf-8"))
-f = m.get("files") if isinstance(m, dict) else None
-for k in f if isinstance(f, dict) else ():
-    if "\n" not in k and "\r" not in k:
-        print(k)' "$CLAUDE_HOME/pipelinekit/manifest.json" 2>/dev/null)" || listed_files=""
+# The kit's agents, now that your own files of those names are moved aside.
 for a in "${KIT_AGENTS[@]}"; do
-  dst="$CLAUDE_HOME/agents/$a"
-  if [[ -L "$dst" ]]; then
-    rm -f "$dst"
-    log "removed the link agents/$a (its target is untouched)"
-  elif [[ -e "$dst" ]] && { [[ ! -f "$dst" ]] || { ! cmp -s "$dst" "$REPO_ROOT/claude/agents/$a" &&
-    ! grep -qxF "agents/$a" <<<"$listed_files"; }; }; then
-    backup="$BACKUPS/agents-$a-$TS"
-    # A read-only folder or a file named backup: one line of ours, not mkdir's or mv's.
-    { mkdir -p "$BACKUPS" && mv "$dst" "$backup"; } 2>/dev/null ||
-      die "could not move your own agents/$a to $BACKUPS. It is untouched and the kit's $a was not installed. Move or rename it yourself, then run the installer again."
-    log "kept your own $a in $backup"
-  fi
-  rm -f "$dst"
-  cp "$REPO_ROOT/claude/agents/$a" "$dst"
+  rm -f "$CLAUDE_HOME/agents/$a"
+  cp "$REPO_ROOT/claude/agents/$a" "$CLAUDE_HOME/agents/$a"
 done
 cp -p "$REPO_ROOT/claude/config/never-stage.txt" "$CLAUDE_HOME/config/never-stage.txt"
 log "copied ${#KIT_SKILLS[@]} skills, ${#KIT_AGENTS[@]} agents, hooks, git hooks, config"
@@ -401,5 +408,9 @@ CLAUDE_HOME="$CLAUDE_HOME" CLAUDE_INSTALL_SKIP_SERENA="${CLAUDE_INSTALL_SKIP_SER
 log "manifest: $CLAUDE_HOME/pipelinekit/manifest.json"
 
 # ---------- verify ----------
-CLAUDE_HOME="$CLAUDE_HOME" bash "$REPO_ROOT/scripts/verify.sh"
+# The agents are copied whatever the verification finds, so the closing line
+# is shown either way; a failed verification still fails the install.
+rc=0
+CLAUDE_HOME="$CLAUDE_HOME" bash "$REPO_ROOT/scripts/verify.sh" || rc=$?
 log "start a new session to load the agents (kit-planner, kit-builder, kit-judge)"
+exit "$rc"
