@@ -236,9 +236,18 @@ fi
 # Neither home passes verify (the hooks do not start from it), so the install
 # is checked to run to its end instead.
 odd_home() { # odd_home <CLAUDE_HOME> <its absolute path> <case>
-  (cd "$T" && CLAUDE_HOME="$1" PIPELINEKIT_GIT_HOOKS=0 bash "$REPO_ROOT/scripts/install.sh" --no-serena) >"$T/$3.out" 2>&1 || true
+  local rc=0
+  (cd "$T" && CLAUDE_HOME="$1" PIPELINEKIT_GIT_HOOKS=0 bash "$REPO_ROOT/scripts/install.sh" --no-serena) >"$T/$3.out" 2>&1 || rc=$?
   grep -qF "[install] manifest: $1/pipelinekit/manifest.json" "$T/$3.out" ||
     { echo "test_install: the install into the $3 home stopped early" >&2; exit 1; }
+  # The verification fails, so the install does; the agents were copied all
+  # the same, and the closing line still says how to load them.
+  grep -qxF "Verification FAILED" "$T/$3.out" ||
+    { echo "test_install: the $3 home passed verify" >&2; exit 1; }
+  [ "$rc" -ne 0 ] || { echo "test_install: a failed verification exited 0 in the $3 home" >&2; exit 1; }
+  [ "$(tail -n 1 "$T/$3.out")" = \
+    "[install] start a new session to load the agents (kit-planner, kit-builder, kit-judge)" ] ||
+    { echo "test_install: no closing line after a failed verification in the $3 home" >&2; exit 1; }
   grep -qF '[install][warn] judge-loop: CLAUDE_HOME is not an absolute path a permission pattern can hold' "$T/$3.out" ||
     { echo "test_install: no warning for the $3 home" >&2; exit 1; }
   cmp -s "$REPO_ROOT/claude/skills/judge-loop/SKILL.md" "$2/skills/judge-loop/SKILL.md" ||
@@ -390,7 +399,7 @@ fd_cannot_move() { # fd_cannot_move <tool whose text must not show>
   if [ "$rc" -eq 0 ]; then
     echo "test_install: install went on with an own folder it could not move" >&2; exit 1
   fi
-  if ! grep -qxF "[install][error] could not move your own skills/frontend-design to $FH/.claude/pipelinekit/backup. It is untouched and the skills were not installed. Move or rename it yourself, then run the installer again." "$FH/err"; then
+  if ! grep -qxF "[install][error] could not move your own skills/frontend-design to $FH/.claude/pipelinekit/backup. It is untouched, and the install stopped before copying any kit file. Move or rename it yourself, then run the installer again." "$FH/err"; then
     echo "test_install: no line saying the own folder could not be moved" >&2; cat "$FH/err" >&2; exit 1
   fi
   if grep -qF "$1:" "$FH/err"; then
@@ -475,8 +484,13 @@ HOME="$FH" CLAUDE_HOME="$FH/.claude" GIT_CONFIG_GLOBAL="$FH/.gitconfig" \
 if [ "$rc" -eq 0 ]; then
   echo "test_install: install went on with an own agent it could not move" >&2; exit 1
 fi
-if [ "$(cat "$FH/err")" != "[install][error] could not move your own agents/kit-judge.md to $FH/.claude/pipelinekit/backup. It is untouched and the kit's kit-judge.md was not installed. Move or rename it yourself, then run the installer again." ]; then
+if [ "$(cat "$FH/err")" != "[install][error] could not move your own agents/kit-judge.md to $FH/.claude/pipelinekit/backup. It is untouched, and the install stopped before copying any kit file. Move or rename it yourself, then run the installer again." ]; then
   echo "test_install: stderr is not the one line about the own agent" >&2; cat "$FH/err" >&2; exit 1
+fi
+# The line is true: no hook, skill or other agent of the kit was copied.
+if [ -n "$(find "$FH/.claude/hooks" "$FH/.claude/git-hooks" "$FH/.claude/skills" "$FH/.claude/config" -mindepth 1 2>/dev/null)" ] ||
+  [ "$(ls -A "$FH/.claude/agents")" != "kit-judge.md" ]; then
+  echo "test_install: kit files were copied before the install stopped" >&2; exit 1
 fi
 if grep -qE '(mkdir|mv):' "$FH/err"; then
   echo "test_install: the raw mkdir or mv error was shown" >&2; cat "$FH/err" >&2; exit 1
@@ -513,4 +527,21 @@ B=("$FH"/.claude/pipelinekit/backup/agents-kit-planner.md-*)
 test -d "${B[0]}"
 [ "$(cat "${B[0]}/note.txt")" = "inside again" ]
 cmp "$REPO_ROOT/claude/agents/kit-planner.md" "$FH/.claude/agents/kit-planner.md"
+
+# (o) An earlier install stopped before its manifest was written, and the kit's
+# agent text changed since: the old copy is the kit's, so it is replaced
+# without a backup and without the "kept your own" line.
+fd_home o
+mkdir -p "$FH/.claude/agents"
+old_judge="$(git -C "$REPO_ROOT" log --format=%H -- claude/agents/kit-judge.md | tail -n 1)"
+git -C "$REPO_ROOT" show "$old_judge:claude/agents/kit-judge.md" >"$FH/.claude/agents/kit-judge.md"
+if cmp -s "$REPO_ROOT/claude/agents/kit-judge.md" "$FH/.claude/agents/kit-judge.md"; then
+  echo "test_install: no older kit-judge.md in the history to test with" >&2; exit 1
+fi
+fd_install || { echo "test_install: install failed over an old kit agent" >&2; cat "$FH/out" >&2; exit 1; }
+[ "$(fd_backups)" -eq 0 ]
+if grep -qF 'kept your own' "$FH/out"; then
+  echo "test_install: the kit's own old agent was backed up as yours" >&2; exit 1
+fi
+cmp "$REPO_ROOT/claude/agents/kit-judge.md" "$FH/.claude/agents/kit-judge.md"
 echo "test_install: PASS"
