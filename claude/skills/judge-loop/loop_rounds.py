@@ -7,7 +7,7 @@ import json
 import os
 
 import loop_state
-from loop_modes import *
+from loop_stack import *
 
 # brief ------------------------------------------------------------------------
 
@@ -125,6 +125,8 @@ def judge_prompt(loop, role, n, mode, agents, rows):
         areas = f"The areas of the change: {rel}/map.md"
         if not loop.exists("map.md"):
             areas += " (not written; skip it)"
+        if st.get("stack"):
+            lines += stack_prompt(loop)
         lines += [
             READ_ORDER,
             f"The changed hunks, moved lines left out: {rel}/hunks.patch",
@@ -297,6 +299,9 @@ def cmd_brief(args):
     moved = False
     if loop.kind == "build":
         work, moved = build_work(loop, n)
+        if st.get("stack"):
+            check_criteria(loop)
+            work["heads"] = stack_heads(loop)
     else:
         work = {"round": n, "sha256": sha256(plan)}
     areas = read_areas(loop)
@@ -354,6 +359,8 @@ def cmd_brief(args):
                 "hunks.patch",
                 hunks_text(ctx, work["base_sha"], work["commit"], full),
             )
+            if st.get("stack"):
+                write_stack(loop, n, work)
         for role, mode in modes.items():
             if mode == "changes":
                 write_delta(loop, role, n)
@@ -363,6 +370,7 @@ def cmd_brief(args):
         say(f"Agents: {args.agents}")
         if args.agents == "fallback":
             say(FALLBACK_SENTENCE)
+    st.pop("waiting", None)
     loop.write("settled.md", settled_text(st))
     loop.save()
     briefed = briefed_roles(st)
@@ -503,7 +511,7 @@ def cmd_save(args):
         kept = old.get("tokens")
         tokens = kept if tokens_ok(kept, False) else None
     try:
-        result = check_result(data, role, open_ids(st, role), mode)
+        result = check_result(data, role, open_ids(st, role), mode, stack_prs(st))
         reason = why = ""
     except NoScore as err:
         result, reason, why = None, err.reason, err.why
@@ -616,7 +624,8 @@ def stored_results(loop, n):
             raise no_score(role, RESULT_CHANGED)
         mode = modes.get(role, "full")
         try:
-            out[role] = (data, check_result(data, role, open_ids(st, role), mode))
+            prs = stack_prs(st)
+            out[role] = (data, check_result(data, role, open_ids(st, role), mode, prs))
         except NoScore as err:
             raise no_score(role, err.reason) from None
         tokens = meta.get("tokens")
@@ -652,6 +661,8 @@ def update_items(st, role, result, n):
             needed=entry["kind"] == "blocking"
             or entry.get("needed_for_10") is not False,
         )
+        if "pr" in entry:
+            item["pr"] = entry["pr"]
     for key, item in st["items"].items():
         if key.startswith(f"{role}:") and key not in seen:
             item["open"] = False
@@ -709,6 +720,8 @@ def count_round(loop, results):
         st["streak"] = (
             0 if st.get("final") and below else st["streak"] + 1 if flat else 0
         )
+    if "heads" in pending:
+        rnd["heads"] = pending["heads"]
     st["rounds"].append(rnd)
     if below:
         st["final"] = False

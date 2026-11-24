@@ -85,7 +85,7 @@ unmodified copies), and asks whether to enable the global git hooks.
 It installs the judge loop's three agents, `kit-planner`, `kit-builder` and
 `kit-judge`, into `~/.claude/agents/`; other files in that folder are left
 alone. It replaces `~/.claude/CLAUDE.md` with the kit's own, so a
-`Judge loop:`, `Judge rounds:` or `Judges:` line you kept there is dropped:
+`Judge loop:`, `Judge rounds:`, `Judges:` or `Stacks:` line you kept there is dropped:
 the installer warns and names the backup that holds it. Keep such a line in
 the project's `CLAUDE.md` instead.
 

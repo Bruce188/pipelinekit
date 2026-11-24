@@ -90,7 +90,7 @@ def test_every_command_of_the_helper_is_named():
         cwd=HERE,
     ).stdout
     names = re.search(r"\{([a-z,]+)\}", out).group(1).split(",")
-    assert len(names) == 12, names
+    assert len(names) == 14, names
     text = skill()
     for name in names:
         assert f"{LOOP} {name}" in text, name

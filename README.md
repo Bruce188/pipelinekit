@@ -74,7 +74,7 @@ off. Every rule id is in
 
 ### CLAUDE.md template
 
-`claude/CLAUDE.md.template` is 79 lines long. It covers your identity,
+`claude/CLAUDE.md.template` is 80 lines long. It covers your identity,
 git rules (conventional commits, no AI attribution, never-stage list, no
 direct pushes to `main`), the `docs/` and `documentation/` split, base-branch
 detection, serena vs Grep, a design rule (load `frontend-design` before visual
@@ -97,6 +97,7 @@ sets its own terms with one of these lines, on a line of its own, in its `CLAUDE
 | `Judge loop: off` | No loop for this project |
 | `Judge rounds: N` | The round budget of a plan and of a build (5 by default) |
 | `Judges: correctness, tests` | The judges of the panel |
+| `Stacks: off` | One loop per pull request instead of stacks of pull requests |
 
 A line counts once it is on the branch pull requests go to. The same lines in
 `~/.claude/CLAUDE.md` count too, but the installer replaces that file (after a
@@ -153,7 +154,7 @@ You can safely run the installer again to update. It:
    edited ones are kept with a warning;
 3. renders `~/.claude/CLAUDE.md` from the template, first backing up an existing
    one to `CLAUDE.md.bak-<timestamp>`. When that file held a `Judge loop:`,
-   `Judge rounds:` or `Judges:` line, it names the line: add it again, or put
+   `Judge rounds:`, `Judges:` or `Stacks:` line, it names the line: add it again, or put
    it in the project's `CLAUDE.md`;
 4. backs up `settings.json` to `settings.json.bak-<timestamp>`, then merges in
    `claude/config/settings.template.json`: the kit's hook wiring replaces its

@@ -73,10 +73,18 @@ elif kind == ["pr", "merge"]:
     if state.get("on_merge"):
         import subprocess
         subprocess.run(state["on_merge"], check=True)
+elif kind == ["pr", "list"] and "open" in args:
+    print(json.dumps(state.get("stacked", [])))
 elif kind == ["pr", "list"]:
     if state.get("list_error"):
         sys.exit(state["list_error"])
     print(json.dumps(state.get("merged_into", [])))
+elif kind == ["pr", "edit"]:
+    if state.get("edit_error"):
+        sys.exit(state["edit_error"])
+elif kind == ["pr", "update-branch"]:
+    if state.get("update_error"):
+        sys.exit(state["update_error"])
 else:
     sys.exit("fake gh: unexpected call " + " ".join(args))
 """
@@ -271,6 +279,7 @@ def test_status_lists_every_gate_with_its_reason(sb):
         "current",
         "up-to-date",
         "tested",
+        "stack",
         "ci",
     ):
         assert f" {name} " in done.stdout

@@ -39,12 +39,13 @@ def _text(item, key, field):
     return value
 
 
-def check_result(raw: bytes, role: str, open_ids=(), mode="full") -> dict:
+def check_result(raw: bytes, role: str, open_ids=(), mode="full", prs=()) -> dict:
     """The result of one judge as a score, or NoScore with its reason.
 
     `open_ids` are the ids that were open in this judge's last counted result;
     a `still_open` entry must be one of them. `mode` is the read of the brief,
-    which holds when the answer names none.
+    which holds when the answer names none. `prs` are the pull requests of a
+    stack loop; each item must name one of them.
     """
     if len(raw) > MAX_RESULT:
         raise NoScore("size", OVER_SIZE)
@@ -114,6 +115,8 @@ def check_result(raw: bytes, role: str, open_ids=(), mode="full") -> dict:
                 if not isinstance(item["needed_for_10"], bool):
                     raise NoScore(f"{field}.needed_for_10", WRONG_TYPE)
                 entry["needed_for_10"] = item["needed_for_10"]
+            if prs:
+                entry["pr"] = item_pr(item, f"{field}.pr", prs)
             seen[item_id] = entry
             items[name].append(entry)
 
@@ -237,10 +240,21 @@ def is_cut(item):
     return any(len(clean(item.get(f, ""), MAX_FIELD)) > LIMIT for f in fields)
 
 
+def item_pr(item, field, prs):
+    if "pr" not in item:
+        raise NoScore(field, MISSING)
+    if not is_type(item["pr"], int):
+        raise NoScore(field, WRONG_TYPE)
+    if item["pr"] not in prs:
+        raise NoScore(field, NOT_IN_STACK)
+    return item["pr"]
+
+
 def item_line(key, item):
     role, _, item_id = key.partition(":")
+    on = f" on #{item['pr']}" if "pr" in item else ""
     line = (
-        f"  [{role} {item_id}] {field_text(item['problem'])} | evidence: "
+        f"  [{role} {item_id}{on}] {field_text(item['problem'])} | evidence: "
         f"{field_text(item['evidence'])} | fix: {field_text(item['fix'])}"
     )
     if item.get("check"):
@@ -291,6 +305,12 @@ def fix_next(st):
         who = agent_word(agents, "kit-planner")
         return f"have {who} fix these items, then loop.py brief."
     who = agent_word(agents, "kit-builder")
+    if st.get("stack"):
+        return (
+            f"have {who} fix each item on its pull request's branch and commit, "
+            "merge that branch up through the branches above it (never rebase), "
+            "then loop.py brief."
+        )
     return f"have {who} fix these items and commit, then loop.py brief."
 
 

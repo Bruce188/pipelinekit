@@ -33,7 +33,7 @@ Stop and ask, with an interactive question, when any of these is true. The helpe
 5. **Fix.** Fix every blocker and should-fix. A bug gets a regression test. Something outside the issue's scope becomes a new issue, not a fix here. Commit and push.
 6. **Test again.** Same brief, all criteria, plus the findings that were open. A fix can break something that passed before.
 7. **Record.** `record --result pass --release no`, or `record --result fail --open F1 F3`. Say `--release yes` when the change is a release in a way the helper may not see: it sets a new version, publishes, deploys or promotes a stage. Exit 3 means stop and ask.
-8. **Merge.** `merge` waits for CI, marks the pull request ready, watches it for the settle time (30 seconds, 90 where a check is still to come) so that checks and reviews that only start then are seen, merges the commit that was tested and switches to the updated base branch. This takes a minute or more: let it finish. The last line it prints is the outcome: `Merged ...`, `Not merged: ...` or `STOP: ...`.
+8. **Merge.** A stack of pull requests merges bottom-up, one at a time. After each merge the helper moves your own open pull requests based on the merged branch to the branch it merged into (`gh pr edit --base`) and merges that branch into theirs (`gh pr update-branch`); a line names each one moved, and each it could not move (someone else's, or a command that failed). `merge` waits for CI, marks the pull request ready, watches it for the settle time (30 seconds, 90 where a check is still to come) so that checks and reviews that only start then are seen, merges the commit that was tested and switches to the updated base branch. This takes a minute or more: let it finish. The last line it prints is the outcome: `Merged ...`, `Not merged: ...` or `STOP: ...`.
 9. **After the merge.** Run the tests or start the app once on the base branch. Tell the user in one line what merged and how it was tested, then go on with the next piece of work.
 
 A commit pushed after a passed test needs a new test and a new record: the `tested` gate compares commits. When CI fails, read the log (`gh run view <id> --log-failed`) before changing anything.
@@ -91,6 +91,7 @@ Exit code: 0 done, 1 a gate or a check failed (fix it and run again), 2 the help
 | `current` | the local commit is the pull request's head and nothing tracked is uncommitted |
 | `up-to-date` | the branch contains its base branch and does not conflict with it |
 | `tested` | the last record is a pass for this commit, and the loop is not stuck |
+| `stack` | outside a judged stack: always. In one: its last round is counted, no item is open on it or on a pull request below it (once the loop ended done, at its budget or accepted, the items left are follow-up issues and do not hold it), no commit came on its branch since that round other than merges and the base's own, and the pull request below it, in its own stack or in the stack it is based on, merged first |
 | `ci` | every check passed; no check at all counts only where no workflow runs on pull requests |
 
 ## Limits
@@ -99,4 +100,6 @@ Exit code: 0 done, 1 a gate or a check failed (fix it and run again), 2 the help
 - When a check fails, a review is requested or GitHub refuses after the helper marked the pull request ready, it stays ready. The last line says so. Fix the cause and run `merge` again; on `STOP` ask the user.
 - A record file the helper cannot read is never overwritten: move it away and record the test again.
 - The release gate reads branch names, the title and the diff, and holds a version it cannot place. A release that shows in none of them (`chore: go live` without a version change) passes unless you say `--release yes`. When the gate holds an ordinary change, do not rename things to get past it: ask the user.
+- Where the repository deletes head branches after a merge, GitHub may move the pull requests above to the new base before the helper looks; it then names none and merges nothing into them, and their `up-to-date` gate says what to merge.
+- The `stack` gate reads the judge loop's record in `docs/loops/` of every worktree; like the test record it is a local file. A pull request whose stack record is gone or unreadable counts as outside a stack.
 - In a sandboxed session `gh` may be unable to read its own configuration. The helper then exits 2 with the message from `gh`; report that and stop.
