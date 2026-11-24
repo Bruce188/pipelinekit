@@ -145,6 +145,8 @@ if grep -qF 'kept your own' "$T/install2.out"; then
   echo "test_install: a second install backed up the kit's own agent" >&2; exit 1
 fi
 test ! -e "$CLAUDE_HOME/hooks/tests"
+test ! -e "$CLAUDE_HOME/skills/judge-loop/tests"         # its tests stay in the repo
+test -f "$CLAUDE_HOME/skills/judge-loop/loop_start.py"
 test -x "$CLAUDE_HOME/git-hooks/pre-push"
 [ "$(git config --global core.hooksPath)" = "$CLAUDE_HOME/git-hooks" ]
 python3 - "$CLAUDE_HOME" "$REPO_ROOT" <<'PY'
@@ -155,6 +157,7 @@ head = subprocess.run(["git", "-C", repo, "rev-parse", "HEAD"], capture_output=T
 assert m["commit"] == head, "manifest commit is not the checkout's HEAD"
 assert m["hooks_path"] == f"{home}/git-hooks", "manifest missed the hooks path set by this install"
 assert "skills/kit/check.py" in m["files"] and all(m["files"].values()), "manifest file list incomplete"
+assert not [f for f in m["files"] if f.startswith("skills/judge-loop/tests/")], "manifest expects the judge-loop tests"
 PY
 CLAUDE_HOME="$CLAUDE_HOME" bash "$REPO_ROOT/scripts/verify.sh" >/dev/null
 # The session-start check has nothing to say about a fresh install.

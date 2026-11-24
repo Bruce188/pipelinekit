@@ -24,6 +24,8 @@ SERENA_REF="${SERENA_REF:-9b292a6c8b03c8306f117efeabb0ea7afdb0b3c0}"
 
 KIT_SKILLS=(dotnet-conventions deploy exchange-api-keys docs-writer frontend-design mobile kit ship judge-loop)
 KIT_AGENTS=(kit-planner.md kit-builder.md kit-judge.md)
+# Skills whose tests/ stay in the repo; the same list as NO_TESTS_SKILLS in check.py.
+NO_TESTS_SKILLS=(judge-loop)
 # Shipped by earlier versions. Removed on upgrade only if unmodified (see kit_file).
 RETIRED_SKILLS=(commit-conventions security-conventions expo ios)
 RETIRED_HOOKS=(block-dangerous-commands.sh block-push-main.sh block-stage-sensitive.sh env-scrub.py
@@ -112,6 +114,9 @@ fi
 for s in "${KIT_SKILLS[@]}"; do
   rm -rf "${CLAUDE_HOME:?}/skills/$s"
   cp -R "$REPO_ROOT/claude/skills/$s" "$CLAUDE_HOME/skills/$s"
+done
+for s in "${NO_TESTS_SKILLS[@]}"; do
+  rm -rf "${CLAUDE_HOME:?}/skills/$s/tests"
 done
 find "$CLAUDE_HOME/skills" -name __pycache__ -type d -prune -exec rm -rf {} +
 chmod +x "$CLAUDE_HOME/skills/kit/check.py" "$CLAUDE_HOME/skills/ship/ship.py" \
