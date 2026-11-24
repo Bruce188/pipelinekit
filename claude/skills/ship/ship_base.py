@@ -438,6 +438,16 @@ def poll_seconds():
         return 15.0
 
 
+def progress(line):
+    """A line about what the helper is waiting for, on stderr.
+
+    What was printed to stdout before goes out first, so through a pipe the
+    gate table does not come after the lines that follow it.
+    """
+    sys.stdout.flush()
+    print(line, file=sys.stderr, flush=True)
+
+
 class Repo:
     """The checkout ship.py runs in, with its git and gh calls."""
 

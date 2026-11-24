@@ -135,6 +135,12 @@ kit used to ship, so those parts are gone.
   acceptance test and prints where the report and screenshots go, so
   `git status` does not list the reports before the first `record`.
   `ship.py status` and `merge --dry-run` still change nothing.
+- `ship.py status` and `merge --dry-run` show the `ci` gate of a draft whose
+  checks were all skipped as pending where a workflow runs on pull requests:
+  a check is still to come, as `merge` finds after marking it ready. The
+  gate table and the waiting lines come out in order through a pipe, and
+  the docs say how `--grace` sets the settle time and which runs do not
+  end with an outcome line.
 
 ### Design
 

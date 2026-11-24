@@ -35,7 +35,7 @@ Stop and ask, with an interactive question, when any of these is true. The helpe
 6. **Fix.** Fix every blocker and should-fix. A bug gets a regression test. Something outside the issue's scope becomes a new issue, not a fix here. Commit, bring the branch up to date with its base, run the tests again and push.
 7. **Test again.** Same brief, all criteria, plus the findings that were open. A fix can break something that passed before.
 8. **Record.** `record --result pass --release no`, or `record --result fail --open F1 F3`. Say `--release yes` when the change is a release in a way the helper may not see: it sets a new version, publishes, deploys or promotes a stage. Exit 3 means stop and ask.
-9. **Merge.** `merge` waits for CI, marks the pull request ready, watches it for the settle time (30 seconds, 90 where a check is still to come) so that checks and reviews that only start then are seen, merges the commit that was tested and switches to the updated base branch. This takes a minute or more: let it finish. The last line it prints is the outcome: `Merged ...`, `Not merged: ...` or `STOP: ...`.
+9. **Merge.** `merge` waits for CI, marks the pull request ready, watches it for the settle time (30 seconds; where a check is still to come, the `--grace` time when that is longer, 90 by default) so that checks and reviews that only start then are seen, merges the commit that was tested and switches to the updated base branch. This takes a minute or more: let it finish. The last line it prints is the outcome: `Merged ...`, `Not merged: ...` or `STOP: ...`. Not so for `--dry-run` with every gate holding (`Dry run. Would ...`) and for a usage error (the argparse line, exit 2).
 10. **After the merge.** Run the tests or start the app once on the base branch. Tell the user in one line what merged and how it was tested, and pass on what the helper printed about the issues, then go on with the next piece of work.
 
 A commit pushed after a passed test needs a new test and a new record: the `tested` gate compares commits. When CI fails, read the log (`gh run view <id> --log-failed`) before changing anything.
@@ -104,7 +104,7 @@ Exit code: 0 done, 1 a gate or a check failed (fix it and run again), 2 the help
 | `up-to-date` | the branch contains its base branch, fetched from the remote, and does not conflict with it; the reason names the base, the commits missing and the next command (see "Up to date with the base") |
 | `judged` | the branch's judge loop ended in 10, a used budget or the user's accept on this commit or an earlier one of the branch, or a skip was recorded for this commit; `Judge loop: off` on the base branch or in the user-level `CLAUDE.md` passes and names where it stands; a loop waiting for the user exits 3 |
 | `tested` | the last record is a pass for this commit, and the loop is not stuck |
-| `ci` | every check passed; no check at all counts only where no workflow runs on pull requests or on pushes to the branch |
+| `ci` | every check passed; no check at all counts only where no workflow runs on pull requests or on pushes to the branch; a draft whose checks were all skipped is pending there, as a check is still to come: `merge` marks it ready and waits for it |
 
 ## Issue links
 

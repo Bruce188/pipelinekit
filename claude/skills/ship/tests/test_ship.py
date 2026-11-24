@@ -6,6 +6,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from ship_fixtures import (
@@ -586,13 +587,83 @@ def test_the_settle_time_follows_what_is_still_to_come(sb):
     sb.workflow()
     assert settle_of(sb) == "30"
     sb.state(pr=sb.pr(statusCheckRollup=[check("lint", "SKIPPED")]))
-    assert settle_of(sb) == "90"
-    assert settle_of(sb, "--grace", "200") == "200"
     assert settle_of(sb, "--allow-no-checks") == "30"
-    assert settle_of(sb, "--settle", "5") == "5"
     sb.state()
     sb.workflow("on:\n  pull_request:\n    types: [opened, ready_for_review]\n")
     assert settle_of(sb) == "90"
+
+
+def test_the_settle_time_after_a_skipped_check_is_the_grace_time_when_longer():
+    pr = {"isDraft": True, "statusCheckRollup": [check("lint", "SKIPPED")]}
+    repo = SimpleNamespace(expects_checks=lambda: True, starts_on_ready=lambda: False)
+
+    def settle(*argv):
+        args = ship.build_parser().parse_args(["merge", *argv])
+        return ship.settle_seconds(args, repo, pr)
+
+    assert settle() == 90
+    assert settle("--grace", "200") == 200
+    assert settle("--grace", "5") == 30
+    assert settle("--allow-no-checks") == 30
+    assert settle("--settle", "5") == 5
+
+
+def test_status_and_a_dry_run_say_a_check_is_still_to_come(sb):
+    sb.workflow()
+    sb.passed()
+    sb.state(pr=sb.pr(statusCheckRollup=[check("lint", "SKIPPED")]))
+    done = sb.ship("status", "--json")
+    ci = gates(done)["ci"]
+    assert done.returncode == 1 and ci["state"] == "pending", ci
+    assert "a check is still to come" in ci["detail"] and "lint" in ci["detail"]
+    assert "Result: not ready (ci)" in sb.ship("status").stdout
+    done = sb.ship("merge", "--dry-run")
+    assert done.returncode == 1 and "a check is still to come" in last_line(done)
+    assert sb.calls("pr ready") == [] and sb.calls("pr merge") == []
+    allowed = sb.ship("status", "--json", "--allow-no-checks")
+    assert gates(allowed)["ci"]["state"] == "pass"
+    sb.state(
+        pr=sb.pr(
+            isDraft=False,
+            mergeStateStatus="CLEAN",
+            statusCheckRollup=[check("lint", "SKIPPED")],
+        )
+    )
+    assert gates(sb.ship("status", "--json"))["ci"]["state"] == "pass"
+
+
+def test_merge_takes_a_check_that_comes_after_the_skipped_one(sb):
+    sb.workflow()
+    sb.passed()
+    sb.state(
+        pr=sb.pr(statusCheckRollup=[check("lint", "SKIPPED")]),
+        after_ready_sequence=[{}, {"statusCheckRollup": [check("lint")]}],
+    )
+    done = sb.ship("merge")
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert len(sb.calls("pr merge")) == 1
+
+
+def test_the_gate_table_comes_before_the_watch_line_through_a_pipe(sb):
+    sb.passed()
+    done = subprocess.run(
+        [sys.executable, str(SHIP), "merge", "--settle", "1"],
+        cwd=sb.work,
+        env=sb.env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        timeout=300,
+        check=False,
+    )
+    out = done.stdout
+    assert done.returncode == 0, out
+    table, watch, merged = (
+        out.index("Result: ready to merge"),
+        out.index("watching #7 for 1 s"),
+        out.index("Merged #7"),
+    )
+    assert table < watch < merged, out
 
 
 def test_merge_waits_for_a_check_that_starts_when_marked_ready(sb):
