@@ -98,6 +98,41 @@ def move_stale(loop, n):
     return moved
 
 
+def who_prompt(loop, judge, n):
+    """Which judge this is and its rubric: one role file, or two for a combined
+    judge."""
+    roles = skill_dir() / "roles"
+    if not is_combined(judge):
+        return [
+            f"You are the {judge} judge of round {n} of a {loop.kind} loop.",
+            f"Your role file, the rubric: {roles / (judge + '.md')}",
+        ]
+    first, second = covers(judge)
+    return [
+        f"You are the {judge} judge of round {n} of a {loop.kind} loop: one judge "
+        f"for two roles, {first} and {second}.",
+        f"Your role files, the rubrics: {roles / (first + '.md')} and "
+        f"{roles / (second + '.md')}",
+        COMBINED_TEN,
+    ]
+
+
+def last_text(st, rel, judge, m):
+    """The line naming the results a judge starts from: its own, or those of the
+    judges of another panel that read its roles."""
+    if not m:
+        return "This is your first round: there is no result of yours before it."
+    seen = seen_by(st["rounds"][m - 1], judge)
+    paths = ", ".join(f"{rel}/judge/r{m}_{other}.json" for other in seen)
+    if len(seen) == 1:
+        text = f"Your last counted result (round {m}): {paths}"
+    else:
+        text = f"The last counted results for your roles (round {m}): {paths}"
+    if not is_combined(judge) and seen != [judge]:
+        text += "\n" + BARE_IDS.format(role=judge)
+    return text
+
+
 def judge_prompt(loop, role, n, mode, agents, rows):
     st, rel = loop.st, loop.rel
     lines = []
@@ -106,16 +141,10 @@ def judge_prompt(loop, role, n, mode, agents, rows):
             f"Read `{loop_state.agents_dir() / 'kit-judge.md'}` and follow it as your "
             "instructions."
         )
-    lines += [
-        f"Repository: {clean(loop.ctx.root, 4096)}",
-        f"You are the {role} judge of round {n} of a {loop.kind} loop.",
-        f"Your role file, the rubric: {skill_dir() / 'roles' / (role + '.md')}",
-    ]
-    m = last_counted(st, role)
-    if m:
-        last = f"Your last counted result (round {m}): {rel}/judge/r{m}_{role}.json"
-    else:
-        last = "This is your first round: there is no result of yours before it."
+    lines.append(f"Repository: {clean(loop.ctx.root, 4096)}")
+    lines += who_prompt(loop, role, n)
+    m = last_seen(st, role)
+    last = last_text(st, rel, role, m)
     criteria = f"Acceptance criteria: {rel}/criteria.md"
     settled = (
         "Settled by the user, do not raise again without new evidence: "
@@ -161,7 +190,10 @@ def judge_prompt(loop, role, n, mode, agents, rows):
     lines += [TEN_MINUS, EVERY_GAP, NO_MARK_DOWN, NO_RAISE_AGAIN, HALF_STEPS]
     if n >= 3:
         lines.append(REAL_DEFECT)
-    lines += [SCHEMA_TEXT, ONE_OBJECT, READ_ONLY]
+    lines.append(SCHEMA_TEXT)
+    if is_combined(role):
+        lines.append(COMBINED_IDS)
+    lines += [ONE_OBJECT, READ_ONLY]
     return "\n".join(lines)
 
 
@@ -336,14 +368,14 @@ def cmd_brief(args):
         st["agents"] = args.agents
         st["notes"].append({"round": n, "action": "agents", "text": args.agents})
     if kept:
-        modes = {
-            role: pending.get("modes", {}).get(role, "full") for role in st["panel"]
-        }
+        judges = round_judges(st)
+        modes = {j: pending.get("modes", {}).get(j, "full") for j in judges}
         if fix_tokens is not None:
             pending["fix_tokens"] = fix_tokens
     else:
-        modes = decide_modes(loop, n, moved, work, areas)
-        st["pending"] = {**work, "modes": modes}
+        judges = next_judges(st)
+        modes = decide_modes(loop, n, moved, work, areas, judges)
+        st["pending"] = {**work, "modes": modes, "panel": panel_kind(judges)}
         if fix_tokens is not None:
             st["pending"]["fix_tokens"] = fix_tokens
     loop.check_size()
@@ -382,10 +414,15 @@ def cmd_brief(args):
     loop.save()
     briefed = briefed_roles(st)
     saved = saved_roles(loop) if kept else []
-    for role in st["panel"]:
+    for role in judges:
         if modes[role] == "skipped":
             say(skip_line(loop, role, work))
+    kind = panel_kind(judges)
+    if combines(st):
+        say(f"Panel of round {n}: {kind} ({', '.join(judges)})")
     start = "kit-judge" if agents == "kit" else "general-purpose, model fable"
+    if kind == "combined":
+        start += ", effort high"
     for role in briefed:
         if role in saved:
             continue
@@ -480,11 +517,12 @@ def cmd_save(args):
     st = loop.st
     check_branch(loop)
     role = args.role
-    if role not in st["panel"]:
+    judges = round_judges(st)
+    if role not in judges:
         raise Exit(
             2,
             f"Refused: {shown_value(role or '') or 'that role'} is not on the panel "
-            f"({', '.join(st['panel'])}). Next: loop.py status.",
+            f"({', '.join(judges)}). Next: loop.py status.",
         )
     pending = st["pending"]
     if not pending or st["outcome"] != "open":
@@ -647,7 +685,7 @@ def stored_results(loop, n):
         tokens = meta.get("tokens")
         out[role][1]["tokens"] = tokens if tokens_ok(tokens, False) else None
     for entry in saved:
-        if entry[len(f"r{n}_") : -len(".json")] not in st["panel"]:
+        if entry[len(f"r{n}_") : -len(".json")] not in round_judges(st):
             raise Exit(
                 3,
                 f"STOP: {show_path(loop.rel + '/judge/' + entry)} is from a judge that "
@@ -657,9 +695,12 @@ def stored_results(loop, n):
 
 
 def update_items(st, role, result, n):
+    """Record a judge's items under <role>:<id>; a combined judge names the role
+    in the id and is kept on the item. Its roles' items it did not raise close."""
     seen = set()
+    combined = is_combined(role)
     for entry in result["blocking"] + result["improvements"]:
-        key = f"{role}:{entry['id']}"
+        key = entry["id"] if combined else f"{role}:{entry['id']}"
         seen.add(key)
         item = st["items"].get(key)
         if item is None:
@@ -679,17 +720,24 @@ def update_items(st, role, result, n):
         )
         if "pr" in entry:
             item["pr"] = entry["pr"]
+        if combined:
+            item["judge"] = role
+        else:
+            item.pop("judge", None)
+    mine = covers(role)
     for key, item in st["items"].items():
-        if key.startswith(f"{role}:") and key not in seen:
+        if key.partition(":")[0] in mine and key not in seen:
             item["open"] = False
 
 
 def count_round(loop, results):
-    """Count the pending round; the number of 10s given on earlier work."""
+    """Count the pending round; the closing line of a round that leads to the
+    final round, else ''."""
     st = loop.st
     pending = st["pending"]
     n = pending["round"]
-    panel = st["panel"]
+    panel = round_judges(st)
+    kind = panel_kind(panel)
     modes = {role: pending.get("modes", {}).get(role, "full") for role in panel}
     skipped = {r: last_counted(st, r) for r in panel if modes[r] == "skipped"}
     was_open = {key for key, item in st["items"].items() if effective_open(item)}
@@ -708,6 +756,7 @@ def count_round(loop, results):
         update_items(st, role, result, n)
     rnd = {
         "n": n,
+        "panel": kind,
         "commit": pending.get("commit", ""),
         "base_sha": pending.get("base_sha", ""),
         "plan_sha256": pending.get("sha256", ""),
@@ -731,7 +780,9 @@ def count_round(loop, results):
     if "fix_tokens" in pending:
         rnd["fix_tokens"] = pending["fix_tokens"]
     below = any(s != 10 for s in scores.values())
-    if st["rounds"]:
+    if st["rounds"] and panel_of(st, st["rounds"][-1]) != kind:
+        st["streak"] = 0
+    elif st["rounds"]:
         flat = low_gain(doubled(rnd), doubled(st["rounds"][-1]), len(panel))
         st["streak"] = (
             0 if st.get("final") and below else st["streak"] + 1 if flat else 0
@@ -746,6 +797,10 @@ def count_round(loop, results):
     st["pending"] = {}
     _, open_blocking = open_counts(st)
     last = n >= st["budget"]
+    if not below and not open_blocking and kind == "combined":
+        st["outcome"] = "open"
+        st["final"] = True
+        return COMBINED_FINAL
     if not below and not open_blocking:
         st["outcome"] = "open" if earlier else "done"
         st["final"] = bool(earlier)
@@ -755,7 +810,12 @@ def count_round(loop, results):
         st["outcome"] = "blocked" if open_blocking else "budget"
     else:
         st["outcome"] = "open"
-    return earlier if st.get("final") else 0
+    if not st.get("final"):
+        return ""
+    return (
+        f"Final round: every judge is at 10, {earlier} of them on earlier work. "
+        f"Next: {FINAL_NEXT}"
+    )
 
 
 def cmd_round(args):
@@ -771,7 +831,7 @@ def cmd_round(args):
     plan_copy_ok(loop)
     check_work(loop)
     results = stored_results(loop, st["pending"]["round"])
-    earlier = count_round(loop, results)
+    final_line = count_round(loop, results)
     after = loop.keep_items(results=True)
     loop.check_size(after)
     write_scorecard(loop)
@@ -786,12 +846,8 @@ def cmd_round(args):
         say(below_ten(st))
         print_items(loop)
         raise Exit(3, closing_line(loop))
-    if earlier:
-        raise Exit(
-            1,
-            f"Final round: every judge is at 10, {earlier} of them on earlier work. "
-            f"Next: {FINAL_NEXT}",
-        )
+    if final_line:
+        raise Exit(1, final_line)
     rounds = st["rounds"]
     since = None
     if (

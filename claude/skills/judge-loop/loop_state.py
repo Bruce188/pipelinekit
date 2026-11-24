@@ -15,6 +15,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from loop_panels import *
 from loop_text import *
 
 # Git and files ----------------------------------------------------------------
@@ -336,6 +337,16 @@ def tokens_ok(value, absent_ok=True):
     return is_type(value, int) and 0 <= value <= MAX_TOKENS
 
 
+def panel_field_ok(st, kind):
+    """The panel kind of the pending round or a counted one: optional; combined
+    only in a full-panel loop, else the kind of the loop's panel."""
+    if kind is None:
+        return True
+    if kind == "combined":
+        return combines(st)
+    return kind == panel_kind(st["panel"])
+
+
 def round_extras_ok(rnd, panel):
     """The fields of a counted round that the amendment added; each optional."""
     if "modes" in rnd and not modes_ok(rnd["modes"], panel):
@@ -486,7 +497,10 @@ def state_ok(st, kind, name, git):
             is_type(pending.get("sha256"), str) and HEX64.fullmatch(pending["sha256"])
         ):
             return False
-        if not modes_ok(pending.get("modes", {}), st["panel"]):
+        if not panel_field_ok(st, pending.get("panel")):
+            return False
+        judges = judges_of(st, pending.get("panel"))
+        if not modes_ok(pending.get("modes", {}), judges):
             return False
         if not tokens_ok(pending.get("fix_tokens")):
             return False
@@ -505,13 +519,17 @@ def state_ok(st, kind, name, git):
         scores, results = rnd.get("scores"), rnd.get("results")
         if not (isinstance(scores, dict) and isinstance(results, dict)):
             return False
-        if not all(r in ROLES and is_number(v) for r, v in scores.items()):
+        if not panel_field_ok(st, rnd.get("panel")):
+            return False
+        judges = judges_of(st, rnd.get("panel"))
+        names = COMBINED if rnd.get("panel") == "combined" else ROLES
+        if not all(r in names and is_number(v) for r, v in scores.items()):
             return False
         if not all(is_type(v, str) for v in results.values()):
             return False
         if not (is_number(rnd.get("average")) and is_type(rnd.get("blocking"), int)):
             return False
-        if not round_extras_ok(rnd, st["panel"]):
+        if not round_extras_ok(rnd, judges):
             return False
     for key, item in st["items"].items():
         role, _, item_id = key.partition(":")
@@ -519,6 +537,7 @@ def state_ok(st, kind, name, git):
             role not in ROLES
             or not ITEM_ID.fullmatch(item_id)
             or not isinstance(item, dict)
+            or item.get("judge", COMBINED[0]) not in COMBINED
         ):
             return False
         if item.get("kind") not in ("blocking", "improvement"):

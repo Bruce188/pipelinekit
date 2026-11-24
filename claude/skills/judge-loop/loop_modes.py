@@ -57,9 +57,9 @@ def read_meta(loop, n, role):
 
 
 def briefed_roles(st):
-    """The roles of the pending round that read: every role not skipped."""
+    """The judges of the pending round that read: every judge not skipped."""
     modes = st["pending"].get("modes", {})
-    return [role for role in st["panel"] if modes.get(role) != "skipped"]
+    return [judge for judge in round_judges(st) if modes.get(judge) != "skipped"]
 
 
 def saved_roles(loop):
@@ -222,33 +222,41 @@ def changed_names(ctx, commit):
     return [os.fsdecode(name) for name in out.stdout.split(b"\0") if name]
 
 
-def decide_modes(loop, n, moved, work, areas):
-    """{role: mode} of a new round."""
+def decide_modes(loop, n, moved, work, areas, judges):
+    """{judge: mode} of a new round.
+
+    A judge starts from the last round that read every role it covers, by itself
+    or by another panel's judges; only a judge that gave that 10 itself is
+    skipped."""
     st = loop.st
     if n == 1 or moved:
-        return {role: "full" for role in st["panel"]}
+        return {judge: "full" for judge in judges}
     last = n >= st["budget"]
     changed = {}
     modes = {}
-    for role in st["panel"]:
-        m = last_counted(st, role)
+    for judge in judges:
+        m = last_seen(st, judge)
         if not m:
-            modes[role] = "full"
+            modes[judge] = "full"
             continue
         rnd = st["rounds"][m - 1]
-        if rnd.get("read", {}).get(role) == "part":
-            modes[role] = "full"
-        elif rnd["scores"][role] == 10 and same_work(loop.kind, rnd, work):
-            modes[role] = "skipped"
+        seen = seen_by(rnd, judge)
+        own = judge in seen
+        ten = all(rnd["scores"][other] == 10 for other in seen)
+        if any(rnd.get("read", {}).get(other) == "part" for other in seen):
+            modes[judge] = "full"
+        elif own and ten and same_work(loop.kind, rnd, work):
+            modes[judge] = "skipped"
         elif st.get("final"):
-            modes[role] = "full"
-        elif rnd["scores"][role] == 10 and loop.kind == "build" and not last:
+            modes[judge] = "full"
+        elif own and ten and loop.kind == "build" and not last:
             if rnd["commit"] not in changed:
                 changed[rnd["commit"]] = changed_names(loop.ctx, rnd["commit"])
-            hit = any(role in roles_of(p, areas) for p in changed[rnd["commit"]])
-            modes[role] = "changes" if hit else "skipped"
+            mine = set(covers(judge))
+            hit = any(mine & roles_of(p, areas) for p in changed[rnd["commit"]])
+            modes[judge] = "changes" if hit else "skipped"
         else:
-            modes[role] = "changes"
+            modes[judge] = "changes"
     if all(mode == "skipped" for mode in modes.values()):
         raise Exit(
             2,
@@ -286,9 +294,10 @@ def counting_rows(st, rows, role):
     """The rows that count for a role: marked with its last counted round or a
     later one, up to the last round counted. A row of a round not counted yet
     does not count."""
-    m = last_counted(st, role)
+    m = last_seen(st, role)
     top = st["rounds"][-1]["n"] if st["rounds"] else 0
-    return [r for r in rows if r[1] == role and m and m <= r[0] <= top]
+    mine = covers(role)
+    return [r for r in rows if r[1] in mine and m and m <= r[0] <= top]
 
 
 def print_notes(st, rows):
@@ -361,9 +370,9 @@ def hunks_text(ctx, base, head, full):
 
 
 def write_delta(loop, role, n):
-    """The delta of a changes judge: since the work of its last counted round."""
+    """The delta of a changes judge: since the last round that read its roles."""
     st = loop.st
-    m = last_counted(st, role)
+    m = last_seen(st, role)
     if loop.kind == "build":
         data = diff_text(loop.ctx, st["rounds"][m - 1]["commit"], "HEAD")
     else:
@@ -422,16 +431,19 @@ def tokens_text(rnd):
 
 
 def scorecard_line(st, rnd):
-    head = f"r{rnd['n']}: average {average_text(rnd['average'])}"
-    if rnd["n"] > 1:
-        before = st["rounds"][rnd["n"] - 2]
+    """One round of the scorecard; the gain is against the round before when the
+    same panel judged it. A full-panel loop names the panel of each round."""
+    kind = panel_of(st, rnd)
+    name = f"r{rnd['n']} ({kind} panel)" if combines(st) else f"r{rnd['n']}"
+    head = f"{name}: average {average_text(rnd['average'])}"
+    before = st["rounds"][rnd["n"] - 2] if rnd["n"] > 1 else None
+    if before is not None and panel_of(st, before) == kind:
         gain = gain_text(doubled(rnd), doubled(before), len(rnd["scores"]))
         head += f" (gain {gain})"
     scores = rnd["scores"]
-    roles = [r for r in st.get("panel", ()) if r in scores]
-    roles += [r for r in scores if r not in roles]
     judges = ", ".join(
-        f"{role} {score_text(scores[role])} {judge_mode(rnd, role)}" for role in roles
+        f"{role} {score_text(scores[role])} {judge_mode(rnd, role)}"
+        for role in in_order(st, scores)
     )
     counts = rnd.get("items", {"open": 0, "closed": 0, "new": 0})
     fix = rnd.get("fix_tokens")
@@ -450,5 +462,9 @@ def write_scorecard(loop):
 def pending_line(st):
     pending = st["pending"]
     modes = pending.get("modes", {})
-    roles = ", ".join(f"{role} {modes.get(role, 'full')}" for role in st["panel"])
-    return f"Pending round {pending['round']}: {roles}"
+    judges = round_judges(st)
+    roles = ", ".join(f"{judge} {modes.get(judge, 'full')}" for judge in judges)
+    name = f"Pending round {pending['round']}"
+    if combines(st):
+        name += f" ({panel_kind(judges)} panel)"
+    return f"{name}: {roles}"

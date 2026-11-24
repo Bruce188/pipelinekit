@@ -52,7 +52,8 @@ def check_result(raw: bytes, role: str, open_ids=(), mode="full", prs=()) -> dic
     `open_ids` are the ids that were open in this judge's last counted result;
     a `still_open` entry must be one of them. `mode` is the read of the brief,
     which holds when the answer names none. `prs` are the pull requests of a
-    stack loop; each item must name one of them.
+    stack loop; each item must name one of them. A combined judge names each
+    item <role>:<id>, with one of its two roles.
     """
     if len(raw) > MAX_RESULT:
         raise NoScore("size", OVER_SIZE)
@@ -106,7 +107,11 @@ def check_result(raw: bytes, role: str, open_ids=(), mode="full", prs=()) -> dic
             item_id = item["id"]
             if not isinstance(item_id, str):
                 raise NoScore(f"{field}.id", NOT_A_STRING)
-            if not ITEM_ID.fullmatch(item_id):
+            if is_combined(role):
+                owner, _, bare = item_id.partition(":")
+                if owner not in covers(role) or not ITEM_ID.fullmatch(bare):
+                    raise NoScore(f"{field}.id", NOT_ROLE_ID)
+            elif not ITEM_ID.fullmatch(item_id):
                 raise NoScore(f"{field}.id", NOT_AN_ID)
             if item_id in seen:
                 raise NoScore(f"{field}.id", NOT_UNIQUE)
@@ -178,11 +183,14 @@ def check_result(raw: bytes, role: str, open_ids=(), mode="full", prs=()) -> dic
     }
 
 
-def open_ids(st, role):
+def open_ids(st, judge):
+    """The open ids of a judge's roles: bare for a one-role judge, <role>:<id>
+    for a combined one."""
+    mine = covers(judge)
     return {
-        key.partition(":")[2]
+        key if is_combined(judge) else key.partition(":")[2]
         for key, item in st["items"].items()
-        if key.startswith(f"{role}:") and item["open"]
+        if key.partition(":")[0] in mine and item["open"]
     }
 
 
@@ -300,7 +308,8 @@ def print_items(loop, questions_since=None):
             say(line)
     files = []
     for key, it in items:
-        path = f"{loop.rel}/judge/r{it['last']}_{key.partition(':')[0]}.json"
+        judge = it.get("judge") or key.partition(":")[0]
+        path = f"{loop.rel}/judge/r{it['last']}_{judge}.json"
         if is_cut(it) and path not in files:
             files.append(path)
     for path in files:
@@ -355,15 +364,20 @@ def judge_mode(rnd, role):
     return mode
 
 
+def in_order(st, scores):
+    """The judges of a round: the panel's order, then the rest as saved."""
+    judges = [role for role in st.get("panel", ()) if role in scores]
+    return judges + [judge for judge in scores if judge not in judges]
+
+
 def progress_line(st):
     r = st["rounds"][-1]
     text = f"Round {r['n']} of {st['budget']}: average {average_text(r['average'])}"
-    if len(st["rounds"]) > 1:
+    if len(st["rounds"]) > 1 and panel_of(st, st["rounds"][-2]) == panel_of(st, r):
         text += f" (round before: {average_text(st['rounds'][-2]['average'])})"
     scores = ", ".join(
         f"{role} {score_text(r['scores'][role])} {judge_mode(r, role)}"
-        for role in st["panel"]
-        if role in r["scores"]
+        for role in in_order(st, r["scores"])
     )
     return f"{text}; {scores}"
 

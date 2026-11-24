@@ -31,6 +31,8 @@ def next_text(loop):
             )
         return "loop.py round."
     if st.get("final"):
+        if combines(st) and panel_of(st, st["rounds"][-1]) == "combined":
+            return FULL_PANEL_NEXT
         return FINAL_NEXT
     if st["rounds"] and open_counts(st)[0]:
         return fix_next(loop.st)
@@ -52,6 +54,7 @@ def status_data(loop):
         "scores": [
             {
                 "round": r["n"],
+                "panel": panel_of(st, r),
                 "scores": r["scores"],
                 "modes": r.get("modes", {}),
                 "read": r.get("read", {}),
@@ -64,6 +67,7 @@ def status_data(loop):
         ],
         "scorecard": [scorecard_line(st, r) for r in st["rounds"]],
         "final": bool(st.get("final")),
+        "next_panel": panel_kind(round_judges(st)),
         "waiting": st.get("waiting") or {},
         "stack": st.get("stack") or {},
         "pending_modes": pending.get("modes", {}) if pending else {},
@@ -128,8 +132,9 @@ def cmd_status(args):
         say(note)
     if st["outcome"] != "open":
         raise Exit(0, closing_line(loop))
-    j = len(briefed_roles(st)) if st["pending"] else len(st["panel"])
-    missing = ", ".join(data["missing"]) if st["pending"] else ", ".join(st["panel"])
+    judges = round_judges(st)
+    j = len(briefed_roles(st)) if st["pending"] else len(judges)
+    missing = ", ".join(data["missing"]) if st["pending"] else ", ".join(judges)
     raise Exit(
         0,
         f"Open: round {data['round']} of {st['budget']}, {len(data['saved'])} of {j} "

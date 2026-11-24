@@ -139,14 +139,14 @@ def test_status_lists_judges_in_panel_order(sb):
     run = sb.judge({role: scored(9) for role in loop.FULL_PANEL})
     assert run.code == 1, run
     sb.change("app.py", 5, tag="r2")
-    run = sb.judge({role: scored(9) for role in loop.FULL_PANEL})
+    run = sb.judge({j: nine(f"{loop.covers(j)[1]}:I1") for j in loop.COMBINED})
     assert run.code in (1, 3), run
     card = (sb.loopdir() / "scorecard.md").read_text().splitlines()
     shown = [line for line in sb.run("status").lines if line.startswith("r")]
     assert shown[:2] == card
-    for line in card:
+    for line, panel in zip(card, (loop.FULL_PANEL, loop.COMBINED), strict=True):
         judges = line.split(" | ")[1].split(", ")
-        assert [j.split()[0] for j in judges] == list(loop.FULL_PANEL), line
+        assert [j.split()[0] for j in judges] == list(panel), line
 
 
 # What status counts -------------------------------------------------------------

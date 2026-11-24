@@ -118,6 +118,7 @@ NOT_UNIQUE = "not unique"
 NOT_AN_ID = "not a valid id"
 NOT_OPEN_ID = "not an open id"
 NOT_THE_ROLE = "not the role"
+NOT_ROLE_ID = "not a role:id of its two roles"
 TEN_WITH_OPEN = "a 10 with open items"
 TEN_WITH_BLOCKING = "a 10 with a blocking item"
 NOT_ONE_OBJECT = "not one JSON object"
@@ -148,6 +149,7 @@ WHY_PHRASES = (
     NOT_AN_ID,
     NOT_OPEN_ID,
     NOT_THE_ROLE,
+    NOT_ROLE_ID,
     TEN_WITH_OPEN,
     TEN_WITH_BLOCKING,
     NOT_ONE_OBJECT,
@@ -235,6 +237,16 @@ CHANGE_LOG = (
     "r{m} or later: check a `fixed` row in the work, weigh the evidence of an "
     "`answered` row, and do not mark down what an `owner` row leaves to the user."
 )
+COMBINED_TEN = "Give a 10 only when each of your two roles would give 10."
+COMBINED_IDS = (
+    "Name each item <role>:<id>: one of your two roles, a colon and an id of the "
+    "form above, such as tests:I1. An item with the id I1 in a one-role result is "
+    '<role>:I1. Use the same names in "still_open".'
+)
+BARE_IDS = (
+    "Its items for your role are named {role}:<id>; name them by the id alone, such "
+    'as I1, in "still_open" and when you raise one again.'
+)
 
 NOT_A_REPO = (
     "Refused: not in a git repository. "
@@ -245,6 +257,8 @@ NO_GIT = (
     "Next: install git or fix PATH, then the same command."
 )
 FINAL_NEXT = "loop.py brief; those judges read everything once."
+FULL_PANEL_NEXT = "loop.py brief; the full panel reads everything once."
+COMBINED_FINAL = f"Final round: every combined judge is at 10. Next: {FULL_PANEL_NEXT}"
 
 # The commands, filled in by the loop_* command modules: name -> (configure, run).
 COMMANDS: dict = {}

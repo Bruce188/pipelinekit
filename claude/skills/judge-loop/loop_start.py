@@ -963,11 +963,14 @@ def cmd_start(args):
     if args.agents == "fallback":
         say(FALLBACK_SENTENCE)
     j = len(panel)
-    say(
-        f"Expected cost: {count(j, 'judge run')} per round, at most "
-        f"{count(budget, 'round')} ({count(j * budget, 'judge run')}), one fix pass "
-        "between rounds"
-    )
+    if set(panel) == set(FULL_PANEL):
+        runs = f"{j} judge runs in round 1 and in the final round, "
+        runs += f"{len(COMBINED)} in each round between; at most "
+        runs += f"{count(budget, 'round')} and one final round after them"
+    else:
+        runs = f"{count(j, 'judge run')} per round, at most {count(budget, 'round')}"
+        runs += f" ({count(j * budget, 'judge run')})"
+    say(f"Expected cost: {runs}, one fix pass between rounds")
     head = (
         f"Started: {kind} loop {name}, {count(j, 'judge')}, at most "
         f"{count(budget, 'round')}."
