@@ -498,6 +498,15 @@ def test_a_clean_merge_under_the_limit_goes_through(repo):
     assert repo.git("show", "HEAD:shared.py").stdout.count("\n") == 1400
 
 
+def test_merge_no_verify_skips_the_file_size_limit(repo):
+    grow_on_both_sides(repo, 150, 150)
+    p = repo.git("merge", "-q", "--no-edit", "--no-verify", "other")
+    assert p.returncode == 0, p.stderr
+    assert "[pre-commit.file-size]" not in p.stderr
+    assert repo.git("rev-parse", "-q", "--verify", "HEAD^2").returncode == 0
+    assert repo.events() == []
+
+
 def test_a_clean_merge_warns_for_a_file_over_in_the_other_parent(repo):
     grow_on_both_sides(repo, 10, 300)
     p = merge(repo)
