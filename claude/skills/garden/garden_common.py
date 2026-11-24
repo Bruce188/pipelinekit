@@ -114,6 +114,9 @@ class Project:
             self.git_problem = f"git rev-parse failed with exit {rc}"
         self._files = None
         self.truncated = False
+        # True when the project's own folder could not be listed: then no
+        # count from the file list means anything.
+        self.files_unavailable = False
 
     @property
     def garden(self):
@@ -155,7 +158,13 @@ class Project:
 
     def _walk(self):
         names = []
-        for top, dirs, files in os.walk(self.root):
+        root = os.fspath(self.root)
+
+        def failed(err):
+            if err.filename == root:
+                self.files_unavailable = True
+
+        for top, dirs, files in os.walk(self.root, onerror=failed):
             dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
             rel = os.path.relpath(top, self.root).replace(os.sep, "/")
             for f in sorted(files):

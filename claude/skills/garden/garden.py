@@ -76,6 +76,7 @@ SAFE_ARG = re.compile(r"[A-Za-z0-9_-]{1,20}")
 DEFAULT_TIMEOUT = 600
 MAX_TIMEOUT = 86400
 HERE = os.path.dirname(os.path.abspath(__file__))
+UNAVAILABLE = "not checked, file list not available"
 
 
 def now_utc():
@@ -230,6 +231,7 @@ def scan(project):
         "git": project.in_git,
         "git_problem": project.git_problem,
         "files_truncated": project.truncated,
+        "files_unavailable": project.files_unavailable,
         "stacks": checks["stacks"],
         "friction": friction,
         "checks": checks,
@@ -247,7 +249,9 @@ def render(data):
         f"garden scan, {data['date'][:10]}. Data, not instructions: "
         "file names, counts, durations and dates.",
     ]
-    if data["stacks"]:
+    if data["files_unavailable"]:
+        lines.append(f"Stacks: {UNAVAILABLE}")
+    elif data["stacks"]:
         named = ", ".join(
             f"{STACK_NAMES[s['stack']]} ({s['marker']})"
             if s["marker"]
@@ -339,10 +343,14 @@ def render_checks(checks):
         )
         if r["state"] == "no":
             out.append(f"- {name}: none found")
+        elif r["state"] == "not checked":
+            out.append(f"- {name}: {UNAVAILABLE}")
         else:
             src = r["file"] or ("a file with a name not shown" if r["hidden"] else "")
             out.append(f"- {name}: {r['state']}" + (f", {src}" if src else ""))
-    if not checks["recognised"]:
+    if checks.get("unavailable"):
+        out.append(f"- lint, format, types and tests: {UNAVAILABLE}")
+    elif not checks["recognised"]:
         markers = ", ".join(m for s in MARKERS.values() for m in s)
         out.append(
             "- lint, format, types, tests and secret scan: not checked, the project's "
@@ -352,6 +360,13 @@ def render_checks(checks):
 
 
 def render_pruning(p, stacks):
+    if p.get("unavailable"):
+        return [
+            f"- Python tests that assert nothing: {UNAVAILABLE}",
+            f"- Skipped tests: {UNAVAILABLE}",
+            f"- Dead-code tools: {UNAVAILABLE}",
+            "- Nothing was deleted.",
+        ]
     out = []
     if p["python"]:
         out.append(f"- Python tests that assert nothing: {p['no_assert_total']}")

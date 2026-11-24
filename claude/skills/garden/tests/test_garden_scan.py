@@ -264,6 +264,43 @@ def test_the_helper_starts_without_a_warning(sb, tmp_path):
     assert (p.returncode, p.stderr) == (0, "")
 
 
+@pytest.mark.skipif(
+    not hasattr(os, "geteuid") or os.geteuid() == 0,
+    reason="root reads a folder without permissions",
+)
+def test_a_file_list_that_cannot_be_read_is_said_not_counted(tmp_path):
+    sb = Sandbox(tmp_path, git=False)
+    sb.write("pyproject.toml", "[project]\nname = 'x'\n")
+    sb.write("tests/test_x.py", "def test_x():\n    pass\n")
+    sb.write("CLAUDE.md", "# rules\n")
+    sb.root.chmod(0o311)  # its files can be opened by name, not listed
+    try:
+        text = sb.scan()
+        data = sb.scan_json()
+    finally:
+        sb.root.chmod(0o755)
+    assert "Stacks: not checked, file list not available\n" in text
+    checks = section(text, "## Checks")
+    for name in ("CI", "commit hooks", "secret scan"):
+        assert f"- {name}: not checked, file list not available\n" in checks
+    assert (
+        "- lint, format, types and tests: not checked, file list not available\n"
+    ) in checks
+    pruning = section(text, "## Pruning")
+    rows = ("Python tests that assert nothing", "Skipped tests", "Dead-code tools")
+    for name in rows:
+        assert f"- {name}: not checked, file list not available\n" in pruning
+    assert "- CLAUDE.md: 1 lines" in section(text, "## Guidance")
+    assert data["files_unavailable"] is True
+    assert data["findings"] == []
+
+
+def test_a_readable_file_list_is_not_called_unavailable(sb):
+    sb.write("go.mod", "module x\n")
+    assert sb.scan_json()["files_unavailable"] is False
+    assert "file list not available" not in sb.scan()
+
+
 def test_a_test_file_that_does_not_parse_is_counted(sb):
     sb.write("pyproject.toml", "[project]\nname = 'x'\n")
     sb.write("tests/test_broken.py", "def test_x(:\n")
