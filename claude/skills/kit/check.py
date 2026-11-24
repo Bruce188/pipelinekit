@@ -46,6 +46,11 @@ except ImportError:  # reported as a missing file; the rules read as written
         return rule
 
 
+try:
+    from kit_modes import executable, runnable
+except ImportError:  # reported as a missing file; no file mode is compared
+    executable = runnable = None
+
 SCHEMA = 1
 HOOKS = (
     "bash-guard.py",
@@ -279,6 +284,8 @@ def manifest_problem(m: dict) -> str:
             return f"{key} is not text"
     if not texts(m.get("skills", [])):
         return "skills is not a list of names"
+    if not texts(m.get("executable", [])):
+        return "executable is not a list of names"
     files = m.get("files", {})
     if not isinstance(files, dict) or not texts(list(files.values())):
         return "files is not a table of names and hashes"
@@ -409,6 +416,8 @@ def write_manifest(repo: str, home: str) -> str:
         "serena": os.environ.get("CLAUDE_INSTALL_SKIP_SERENA") != "1",
         "skills": skill_dirs(repo),
         "files": files,
+        # The files installed executable; the check reports one that lost it.
+        "executable": executable(home, list(files)) if executable else [],
         "settings": kit_settings(repo, home),
     }
     target = os.path.join(home, "pipelinekit", "manifest.json")
@@ -677,7 +686,8 @@ def check_judge_tools(c: Check) -> None:
 
 def drift_files(c: Check, files: dict) -> None:
     missing: dict[str, list[str]] = {}
-    changed, same = [], 0
+    changed, lost, same = [], [], 0
+    exe = set(as_list(as_dict(c.manifest).get("executable")))
     gone = tuple(os.path.dirname(b) + "/" for b in c.broken if b.endswith("/SKILL.md"))
     odd = [rel for rel in files if not SAFE_REL.fullmatch(rel)]
     if odd:
@@ -695,7 +705,16 @@ def drift_files(c: Check, files: dict) -> None:
         if not os.path.isfile(c.path(rel)):
             if rel not in c.broken:
                 missing.setdefault("/".join(rel.split("/")[:2]), []).append(rel)
-        elif not digest or sha256(c.path(rel)) != digest:
+            continue
+        # A hook that cannot start is already a failure of the install section.
+        if (
+            runnable
+            and rel in exe
+            and rel not in c.broken
+            and not runnable(c.path(rel))
+        ):
+            lost.append(rel)
+        if not digest or sha256(c.path(rel)) != digest:
             changed.append(rel)
         else:
             same += 1
@@ -710,6 +729,16 @@ def drift_files(c: Check, files: dict) -> None:
             "warn",
             f"changed since install: {names(changed)} "
             "(fine if you edited them; the installer restores the kit's copy)",
+        )
+    if lost:
+        fix = "chmod +x " + " ".join(shlex.quote(c.path(rel)) for rel in lost)
+        c.add(
+            "drift",
+            "warn",
+            f"lost the executable bit since install: {names(lost)} "
+            "(still runs when started with python3)",
+            # a fix the report would shorten or change names the installer instead
+            fix=fix if clean(fix) == fix else repair_hint(c),
         )
     if same:
         c.add("drift", "pass", f"{plural(same, 'file')} unchanged since install")

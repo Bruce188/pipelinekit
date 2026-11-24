@@ -167,6 +167,34 @@ def test_hook_not_executable(kit):
     rc, out = check(kit)
     assert rc == 1
     assert "[fail] hook not executable: block-bare-repo-markers.py" in out
+    assert "lost the executable bit" not in out  # one line for one problem
+
+
+def test_skill_script_that_lost_its_executable_bit_is_a_warning(kit):
+    (kit["home"] / "skills" / "ship" / "ship.py").chmod(0o644)
+    rc, out = check(kit)
+    assert rc == 0, out
+    assert "[warn] lost the executable bit since install: skills/ship/ship.py" in out, (
+        out
+    )
+    ship = shlex.quote(str(kit["home"] / "skills" / "ship" / "ship.py"))
+    assert f"fix: chmod +x {ship}" in out
+    assert "Result: working, 1 warning" in out
+
+
+def test_quick_check_leaves_the_skill_scripts_alone(kit):
+    (kit["home"] / "skills" / "kit" / "check.py").chmod(0o644)
+    rc, out = check(kit, "--quick")
+    assert rc == 0, out
+    assert "lost the executable bit" not in out
+
+
+def test_manifest_without_modes_compares_none(kit):
+    edit_json(kit, "pipelinekit/manifest.json", lambda m: m.pop("executable"))
+    (kit["home"] / "skills" / "ship" / "ship.py").chmod(0o644)
+    rc, out = check(kit)
+    assert rc == 0, out
+    assert "lost the executable bit" not in out
 
 
 @pytest.mark.parametrize("mode", [(), ("--quick",)])
@@ -193,9 +221,10 @@ def test_removed_skill_is_one_line(kit):
     assert out.count("mobile") == 1, out
 
 
-def test_a_check_without_its_rules_module_still_reports(kit, tmp_path):
+@pytest.mark.parametrize("module", ["kit_rules.py", "kit_modes.py"])
+def test_a_check_without_its_rules_module_still_reports(kit, tmp_path, module):
     (tmp_path / "check.py").write_bytes(CHECK.read_bytes())
-    (kit["home"] / "skills" / "kit" / "kit_rules.py").unlink()
+    (kit["home"] / "skills" / "kit" / module).unlink()
     p = subprocess.run(
         [sys.executable, str(tmp_path / "check.py"), "--no-remote"],
         capture_output=True,
@@ -205,7 +234,7 @@ def test_a_check_without_its_rules_module_still_reports(kit, tmp_path):
     )
     assert p.returncode == 1, p.stdout + p.stderr
     assert "Traceback" not in p.stdout + p.stderr
-    assert "[fail] missing: skills/kit/kit_rules.py" in p.stdout
+    assert f"[fail] missing: skills/kit/{module}" in p.stdout
 
 
 def test_removed_skill_file(kit):
@@ -356,6 +385,13 @@ def test_damaged_manifest_does_not_crash_the_checker(kit):
         in out
     )
     assert "check failed" not in out
+
+
+def test_manifest_with_modes_that_are_not_names(kit):
+    edit_json(kit, "pipelinekit/manifest.json", lambda m: m.update(executable=5))
+    rc, out = check(kit)
+    assert rc == 1, out
+    assert "install manifest damaged (executable is not a list of names)" in out
 
 
 # ---------------------------------------------------------------- probes
@@ -584,6 +620,7 @@ def test_manifest_describes_the_install(kit):
         "git-hooks/pre-push",
         "skills/kit/check.py",
         "skills/kit/kit_rules.py",
+        "skills/kit/kit_modes.py",
         "skills/kit/SKILL.md",
         "config/never-stage.txt",
         "CLAUDE.md",
@@ -593,6 +630,18 @@ def test_manifest_describes_the_install(kit):
     ):
         assert rel in files
     assert all(files.values()), "a file was listed but not installed"
+    assert not any("/tests/" in rel for rel in files), "a test file is listed"
+    exe = m["executable"]
+    for rel in (
+        "hooks/bash-guard.py",
+        "git-hooks/pre-push",
+        "skills/kit/check.py",
+        "skills/ship/ship.py",
+        "skills/judge-loop/loop.py",
+    ):
+        assert rel in exe
+    assert set(exe) <= set(files)
+    assert not any(rel.endswith("/SKILL.md") for rel in exe)
     assert not any(
         "__pycache__" in rel or "/tests/" in rel
         for rel in files
