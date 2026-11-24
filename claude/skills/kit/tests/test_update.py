@@ -283,13 +283,31 @@ def test_refuses_an_install_from_elsewhere(kit):
         ({"checkout": "/no/such"}, "the checkout this install was made from is not"),
         ({"commit": ""}, "the install manifest names no commit"),
         ({"branch": ""}, "a checkout that was on no branch"),
-        ({"branch": "-x"}, "a checkout that was on no branch"),
+        ({"branch": "-x"}, "the branch in the install manifest is not a name the"),
     ],
 )
 def test_refuses_a_manifest_it_cannot_use(kit, change, reason):
     kit.edit_manifest(**change)
     rc, out, last = kit.update("plan")
     assert rc == 1 and last.startswith("Cannot update: ") and reason in last, out
+
+
+def test_refuses_a_checkout_it_cannot_install_from(kit, tmp_path):
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    kit.edit_manifest(checkout=str(plain))
+    rc, out, last = kit.update("plan")
+    assert rc == 1, out
+    assert last == (
+        "Cannot update: the folder this install was made from is not a git checkout."
+    )
+    (plain / ".git").mkdir()
+    rc, out, last = kit.update("plan")
+    assert rc == 1, out
+    assert last == (
+        "Cannot update: the checkout this install was made from has no "
+        "scripts/install.sh."
+    )
 
 
 def test_refuses_without_a_manifest(kit):

@@ -281,6 +281,17 @@ kit used to ship, so those parts are gone.
 - The kit test for a warning after an update counted on gh being on PATH, so
   it failed in sessions without it (a sandboxed one, say). It now puts a gh
   stub on PATH itself.
+- `/kit` Updates: the line shows without `--verbose`; `--no-remote` without a
+  recent answer says `not checked`; a remote that did not answer is named
+  with how long ago it was asked and `--refresh`, which asks again now. The
+  remote is asked while the other checks run, so a silent one adds no time.
+  A missing checkout, a folder that is no git checkout, one without
+  `scripts/install.sh` and a branch name the kit does not take each get
+  their own reason, in `/kit update` too.
+- `/kit` Bash sandbox warning: it sees broader `Read` deny rules such as
+  `Read(~/.config/**)` and a login file moved by `GH_CONFIG_DIR`, stays on
+  when only some `gh` commands are excluded, and is an `[info]` when
+  `GH_TOKEN` or `GITHUB_TOKEN` gives gh its token.
 
 ### Removed
 

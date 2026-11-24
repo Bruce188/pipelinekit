@@ -180,7 +180,7 @@ The kit owns these three names in `~/.claude/agents/`, and leaves the rest of th
 | Changes since install | Each installed file, the agent files included, against the hash recorded at install time; the kit's hook entries and deny/ask rules in `settings.json` |
 | Live probe | Each hook gets input it must block and input it must allow: `git commit --no-verify`, a `docker` mount of `/etc`, `curl` piped into `sh`, `DROP TABLE` through `psql`, a `HEAD` file next to `refs/`, a non-conventional commit message, a push to `main`. The session-start check must report an install with nothing in it and say nothing about this one; it gets 6 seconds, and a check that hangs is reported as timed out. Each refusal must also arrive in an event log, which the probe keeps in a temporary directory |
 | Environment | python3, Claude Code and gitleaks versions; whether `gh` is installed and logged in; whether Playwright for python3 is installed, has a browser downloaded and can start chromium, and in a Node project whether `npx` finds a Playwright; WSL; a repository that sets its own `core.hooksPath`; a Bash sandbox that keeps `gh` from reading its own login file; a `frontend-design` plugin enabled next to the kit's copy, as an `[info]` line that says how to keep one. Only the user-level `settings.json` is read, so a plugin enabled in one project's settings is not reported |
-| Updates | Whether the remote of the checkout the install was made from has commits this install lacks: `up to date`, `update available` or `not checked`. Information only, never a problem. Not part of `--quick` |
+| Updates | Whether the remote of the checkout the install was made from has commits this install lacks: `up to date`, `update available` or `not checked`, with the reason. Shown also without `--verbose`. Information only, never a problem. Not part of `--quick` |
 | Activity | What the kit's hooks did in the last 7 days, read from the event log: each rule that blocked, asked, was overridden or failed, with a count and the last time. The 20 newest rules are listed, and a hook that failed is listed however old it is. See [Rule ids and the event log](#rule-ids-and-the-event-log). Not part of `--quick` |
 
 A line is `[fail]` when a guard is missing or does the wrong thing, `[warn]` when something changed but still works (for example a skill file you edited) or a hook failed while it ran, and `[info]` for context. The report ends with `Result: healthy`, or with the number of problems and the command that repairs the install. The check itself changes nothing in `~/.claude`.
@@ -198,13 +198,14 @@ The hook never blocks a session. A check that takes longer than 4 seconds is dro
 The checker is `claude/skills/kit/check.py`, stdlib only. It also runs outside a session:
 
 ```bash
-python3 ~/.claude/skills/kit/check.py            # full report, about a second
+python3 ~/.claude/skills/kit/check.py            # full report, a few seconds
 python3 ~/.claude/skills/kit/check.py --quick    # no live probes
 python3 ~/.claude/skills/kit/check.py --verbose  # also list the checks that passed
 python3 ~/.claude/skills/kit/check.py --json     # for scripts
 python3 ~/.claude/skills/kit/check.py --days 30  # activity of the last 30 days (1 to 365)
 python3 ~/.claude/skills/kit/check.py --session ID  # activity of one session
 python3 ~/.claude/skills/kit/check.py --no-remote   # do not ask the remote for updates
+python3 ~/.claude/skills/kit/check.py --refresh     # ask the remote now, also when it answered earlier
 ```
 
 Exit code 0 means healthy, 1 means problems were found, 2 means the checker itself failed. `scripts/verify.sh` runs the same file. The JSON output has an `activity` list with every rule, where the text report shows the 20 most recent, and an `update` object with the state of the update check.
@@ -213,7 +214,7 @@ The repository checks itself the same way. In CI the `install-smoke` job install
 
 The comparison data is `~/.claude/pipelinekit/manifest.json`, which the installer writes: kit version and commit, the checkout path and branch, whether serena was registered, a SHA-256 of every installed file, and the `settings.json` entries the kit owns. An install made before this file existed reports `install manifest not found`; run the installer once.
 
-The Updates section compares the commit the install was made from with the same branch on `origin` of that checkout. It asks the remote at most once in 24 hours (`git ls-remote`, nothing is fetched), gives it 5 seconds and keeps the answer in `update.json` next to the event log. Offline, without the checkout, or when the install was made from a checkout on no branch, it says `not checked`. An available update is an `[info]` line and never changes the result. `PIPELINEKIT_UPDATE_CHECK=0` switches the check off; `--no-remote` uses only an answer it already has.
+The Updates section compares the commit the install was made from with the same branch on `origin` of that checkout. Its line is shown also without `--verbose`. It asks the remote at most once in 24 hours (`git ls-remote`, nothing is fetched) while the other checks run, so a remote that does not answer adds no time to the report. It gives the remote 5 seconds and keeps the answer in `update.json` next to the event log. A remote that did not answer is asked again after an hour, and the line says how long ago it was asked and that `--refresh` asks now. The line says `not checked`, with the reason, when the remote did not answer or lacks the branch, when the checkout the install was made from is gone or is not a git checkout, and when the install manifest holds no branch or a branch name the kit does not take. An available update is an `[info]` line and never changes the result. `PIPELINEKIT_UPDATE_CHECK=0` switches the check off. `--no-remote` uses only an answer it already has and otherwise says `not checked`; `--refresh` asks the remote although it answered earlier.
 
 `/kit update` applies an update from inside a session:
 
@@ -228,7 +229,7 @@ python3 ~/.claude/skills/kit/update.py plan              # what would change
 python3 ~/.claude/skills/kit/update.py apply --to COMMIT # the full commit id the plan printed
 ```
 
-The Environment section warns about one conflict that is easy to miss. When the Bash sandbox is on, a `Read` deny rule for the `gh` login file (`hosts.yml`) also applies to `gh` itself, so `gh` fails in sandboxed commands, and so does `git` over https when it asks `gh` for the token. The line names the fix: add `gh *` to `sandbox.excludedCommands` in `settings.json`, or run `gh` outside the sandbox.
+The Environment section warns about one conflict that is easy to miss. When the Bash sandbox is on, a `Read` deny rule for the `gh` login file (`hosts.yml`) also applies to `gh` itself, so `gh` fails in sandboxed commands, and so does `git` over https when it asks `gh` for the token. The line names the fix: add `gh *` to `sandbox.excludedCommands` in `settings.json`, or run `gh` outside the sandbox. Every `Read` deny rule that takes in the login file counts, a broader one such as `Read(~/.config/**)` too, and so does the place `GH_CONFIG_DIR` moves the file to. Excluding a single `gh` command, such as `gh pr list`, leaves the warning on, since the other `gh` commands stay in the sandbox. With `GH_TOKEN` or `GITHUB_TOKEN` set, in the environment or in the `env` of `settings.json`, `gh` does not need the file, and the line is an `[info]`.
 
 For `gh` and Playwright the lines are `[pass]` or `[info]`, never a problem: they are your tools, and `gh auth status` also fails without network. Only the exit code of `gh auth status` is used; its output, which names the account and the token's scopes, is dropped. Playwright for python3 starts headless chromium once and closes it, so `/kit` tells `installed, but no browser is downloaded` (fix: `python3 -m playwright install chromium`) apart from a browser that does not start (fix: `python3 -m playwright install --with-deps chromium`). In a folder with a `package.json` (up to the top of the git repository) it runs `npx --no-install playwright --version`, which never downloads anything.
 

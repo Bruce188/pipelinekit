@@ -3,14 +3,15 @@
 
 Usage:
   check.py [--json] [--quick] [--verbose] [--exit-zero] [--days N] [--session ID]
-           [--no-remote]
+           [--no-remote | --refresh]
   check.py --write-manifest REPO_ROOT
 
 Sections: install, changes since install (against the install manifest), a
 live probe of every hook (must block, must allow), the environment, whether
-the remote has a newer kit (asked once a day, never a failure), and the
-activity of the hooks: what they blocked, asked about or failed on in the
-last N days (default 7), read from their event log.
+the remote has a newer kit (asked at most once a day, while the other
+checks run, never a failure), and the activity of the hooks: what they
+blocked, asked about or failed on in the last N days (default 7), read from
+their event log.
 `--quick` skips the probes, the update check, the activity and everything slow.
 
 Exit 0 = healthy, 1 = problems found, 2 = the checker itself failed.
@@ -32,6 +33,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unicodedata
 
@@ -40,6 +42,10 @@ try:  # gh's login and Playwright; without the file, Install reports it
     import check_tools
 except ImportError:
     check_tools = None
+try:  # the Bash sandbox and gh's login file
+    import check_sandbox
+except ImportError:
+    check_sandbox = None
 try:  # which file a hook command runs; the installer reads commands with it too
     import hook_command
 except ImportError:
@@ -444,6 +450,8 @@ class Check:
             f", session {session}" if session else ""
         )
         self.remote = True  # False: use a cached answer, do not ask the remote
+        self.refresh = False  # True: ask the remote, also with an answer stored
+        self.asking: tuple | None = None  # (thread, answer) of start_update
         self.update: dict = {}
         self.items: list[dict] = []
         self.activity: list[dict] = []  # one entry per rule that fired
@@ -1095,75 +1103,6 @@ def is_wsl() -> bool:
         return False
 
 
-def gh_login_file() -> str:
-    base = os.environ.get("GH_CONFIG_DIR") or os.path.join(
-        os.environ.get("XDG_CONFIG_HOME")
-        or os.path.join(os.path.expanduser("~"), ".config"),
-        "gh",
-    )
-    return os.path.join(base, "hosts.yml")
-
-
-def read_refused(path: str) -> bool:
-    """The file is ours and readable by its mode, and opening it is refused.
-
-    That is what a sandbox around this process does. Nothing is read from it.
-    """
-    try:
-        st = os.stat(path)
-        if st.st_uid != os.getuid() or not st.st_mode & 0o400:
-            return False
-        os.close(os.open(path, os.O_RDONLY))
-    except PermissionError:
-        return True
-    except OSError:
-        return False
-    return False
-
-
-def check_sandbox(c: Check) -> None:
-    """The kit's deny rule for the gh login also binds gh inside the sandbox."""
-    if not shutil.which("gh"):
-        return
-    settings = as_dict(c.settings)
-    box = as_dict(settings.get("sandbox"))
-    rules = as_list(as_dict(settings.get("permissions")).get("deny"))
-    declared = box.get("enabled") is True and any(
-        str(r).startswith("Read(") and "gh/hosts.yml" in str(r) for r in rules
-    )
-    refused = read_refused(gh_login_file())
-    if not (declared or refused):
-        return
-    fix = (
-        'add "gh *" to sandbox.excludedCommands in settings.json, '
-        "or run gh outside the sandbox"
-    )
-    excluded = as_list(box.get("excludedCommands"))
-    if any(re.match(r"gh\b", str(x).strip()) for x in excluded):
-        c.add(
-            "environment",
-            "pass",
-            "gh is excluded from the Bash sandbox, which denies its login file",
-        )
-    elif declared:
-        c.add(
-            "environment",
-            "warn",
-            "the Bash sandbox is on and applies the deny rule for the gh login "
-            "file (hosts.yml) to gh itself: gh fails in sandboxed commands, and "
-            "so does git over https when it asks gh for the token",
-            fix,
-        )
-    else:
-        c.add(
-            "environment",
-            "info",
-            "this session cannot open the gh login file (hosts.yml), as inside "
-            "a Bash sandbox: gh works here only when it is excluded from it",
-            fix,
-        )
-
-
 def check_design_plugin(c: Check) -> None:
     """One info line when the user settings enable frontend-design as a plugin
     and the kit's copy is installed (without it there are no two copies).
@@ -1242,7 +1181,8 @@ def check_environment(c: Check) -> None:
                 git_value("rev-parse", "--show-toplevel"),
                 shutil.which("npx"),
             )
-    check_sandbox(c)
+    if check_sandbox:
+        check_sandbox.check(c)
     local = git_value("config", "--local", "--get", "core.hooksPath")
     if local and not same_path(local, c.path("git-hooks")):
         c.add(
@@ -1471,12 +1411,81 @@ def store_answer(checkout: str, branch: str, answer: dict) -> None:
         os.replace(path + ".tmp", path)
 
 
+def checkout_problem(checkout: str, installer: bool = False) -> str:
+    """Why the checkout an install was made from cannot be used, or ''."""
+    # A path that is not absolute would mean the directory this runs in.
+    if not os.path.isabs(checkout) or not os.path.isdir(checkout):
+        return "the checkout this install was made from is not there"
+    if not os.path.exists(os.path.join(checkout, ".git")):
+        return "the folder this install was made from is not a git checkout"
+    script = os.path.join(checkout, "scripts", "install.sh")
+    if installer and not os.path.isfile(script):
+        return "the checkout this install was made from has no scripts/install.sh"
+    return ""
+
+
+def branch_problem(branch: str) -> str:
+    """Why the branch in the install manifest cannot be used, or ''."""
+    if not branch:
+        return "the install was made from a checkout that was on no branch"
+    if not BRANCH.fullmatch(branch):
+        return "the branch in the install manifest is not a name the kit takes"
+    return ""
+
+
+def update_source(c: Check) -> tuple[str, str, str]:
+    """Checkout, branch and commit the install was made from."""
+    m = as_dict(c.manifest)
+    checkout, branch, installed = (
+        str(m.get(k) or "") for k in ("checkout", "branch", "commit")
+    )
+    return checkout, branch, installed
+
+
+def start_update(c: Check) -> None:
+    """Ask origin in the background when check_update will need its answer.
+
+    The probes and the environment checks take their seconds meanwhile, so a
+    remote that does not answer adds no time of its own to a full report.
+    """
+    checkout, branch, installed = update_source(c)
+    if (
+        not c.remote
+        or os.environ.get("PIPELINEKIT_UPDATE_CHECK") == "0"
+        or checkout_problem(checkout)
+        or not COMMIT.fullmatch(installed)
+        or branch_problem(branch)
+        or (not c.refresh and cached_answer(checkout, branch, time.time()))
+    ):
+        return
+    answer: dict = {}
+    asked_at = int(time.time())
+
+    def ask() -> None:
+        answer.update(ask_remote(checkout, branch), checked_at=asked_at)
+
+    thread = threading.Thread(target=ask, daemon=True)
+    thread.start()
+    c.asking = (thread, answer)
+
+
+def answer_of_origin(c: Check, checkout: str, branch: str, now: float) -> dict:
+    """The answer start_update asked for, or a new one."""
+    if c.asking is None:
+        return dict(ask_remote(checkout, branch), checked_at=int(now))
+    thread, answer = c.asking
+    thread.join(UPDATE_TIMEOUT + 5)  # run_group ends the call after the timeout
+    if "state" in answer:
+        return dict(answer)
+    return {"state": "unreachable", "commit": "", "checked_at": int(now)}
+
+
 def check_update(c: Check) -> None:
     """Is the remote ahead of this install? Informs; never a problem."""
 
-    def skip(why: str) -> None:
+    def skip(why: str, fix: str = "") -> None:
         c.update = {"state": "unknown"}
-        c.add("update", "info", f"not checked: {why}")
+        c.add("update", "info", f"not checked: {why}", fix)
 
     if os.environ.get("PIPELINEKIT_UPDATE_CHECK") == "0":
         c.update = {"state": "off"}
@@ -1486,13 +1495,9 @@ def check_update(c: Check) -> None:
             "the update check is switched off (PIPELINEKIT_UPDATE_CHECK=0)",
         )
         return
-    m = as_dict(c.manifest)
-    checkout, branch, installed = (
-        str(m.get(k) or "") for k in ("checkout", "branch", "commit")
-    )
-    there = os.path.isabs(checkout) and os.path.exists(os.path.join(checkout, ".git"))
-    if not there:
-        return skip("the checkout this install was made from is not there")
+    checkout, branch, installed = update_source(c)
+    if checkout_problem(checkout):
+        return skip(checkout_problem(checkout))
     if not COMMIT.fullmatch(installed):
         return skip("the install manifest names no commit")
     head = git_value("-C", checkout, "rev-parse", "HEAD")
@@ -1504,22 +1509,26 @@ def check_update(c: Check) -> None:
             f"{installed[:7]}: the installer brings the install in line",
             repair_hint(c),
         )
-    if not BRANCH.fullmatch(branch):
-        return skip("the install was made from a checkout that was on no branch")
+    if branch_problem(branch):
+        return skip(branch_problem(branch))
     now = time.time()
-    answer = cached_answer(checkout, branch, now)
+    answer = None if c.refresh else cached_answer(checkout, branch, now)
     if answer is None:
         if not c.remote:
-            c.update = {"state": "unknown"}
-            return None
-        answer = dict(ask_remote(checkout, branch), checked_at=int(now))
+            return skip("no recent answer of origin, and --no-remote does not ask it")
+        answer = answer_of_origin(c, checkout, branch, now)
         store_answer(checkout, branch, answer)
     remote = answer["commit"]
+    when = f"checked {age(max(0, now - answer['checked_at']))}"
     if answer["state"] == "unreachable":
-        return skip("origin did not answer (offline, no access or no such remote)")
+        hours = UPDATE_TTL["unreachable"] // 3600
+        return skip(
+            f"origin did not answer (offline, no access or no such remote), {when}",
+            f"origin is asked again {plural(hours, 'hour')} after that; to ask "
+            f"now: python3 {c.path('skills/kit/check.py')} --refresh",
+        )
     if answer["state"] == "gone":
-        return skip(f"origin has no branch {branch}")
-    when = f"checked {age(now - answer['checked_at'])}"
+        return skip(f"origin has no branch {branch}, {when}")
     c.update = {
         "state": "current",
         "branch": branch,
@@ -1601,7 +1610,7 @@ def render_text(c: Check, verbose: bool) -> str:
         if not items:
             continue
         lines.append(f"{title} ({c.window})" if key == "activity" else title)
-        shown = items if verbose else [i for i in items if i["level"] != "pass"]
+        shown = [i for i in items if verbose or i["level"] != "pass" or key == "update"]
         for i in shown:
             lines.append(f"  [{i['level']}] {i['msg']}")
             if "fix" in i:
@@ -1639,10 +1648,17 @@ def render_json(c: Check) -> str:
 
 
 def run_checks(
-    home: str, quick: bool, days: int = 7, session: str = "", remote: bool = True
+    home: str,
+    quick: bool,
+    days: int = 7,
+    session: str = "",
+    remote: bool = True,
+    refresh: bool = False,
 ) -> Check:
     c = Check(home, quick, days, session)
-    c.remote = remote
+    c.remote, c.refresh = remote, refresh
+    if not quick:
+        start_update(c)
     check_install(c)
     check_drift(c)
     if not quick:
@@ -1679,10 +1695,16 @@ def main(argv: list[str] | None = None) -> int:
         metavar="ID",
         help="activity of one Claude Code session only",
     )
-    ap.add_argument(
+    asking = ap.add_mutually_exclusive_group()
+    asking.add_argument(
         "--no-remote",
         action="store_true",
         help="do not ask the remote for updates; an answer from today is still shown",
+    )
+    asking.add_argument(
+        "--refresh",
+        action="store_true",
+        help="ask the remote for updates now, also when it answered earlier",
     )
     ap.add_argument("--write-manifest", metavar="REPO_ROOT", help=argparse.SUPPRESS)
     args = ap.parse_args(argv)
@@ -1696,7 +1718,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.write_manifest:
         write_manifest(args.write_manifest, home)
         return 0
-    c = run_checks(home, args.quick, args.days, args.session, not args.no_remote)
+    c = run_checks(
+        home, args.quick, args.days, args.session, not args.no_remote, args.refresh
+    )
     print(render_json(c) if args.json else render_text(c, args.verbose))
     return 0 if args.exit_zero or c.count("fail") == 0 else 1
 

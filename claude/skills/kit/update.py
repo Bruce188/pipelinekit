@@ -63,14 +63,13 @@ def installed_kit(home: str) -> dict:
         raise Stop(f"the install manifest is {why}; run the installer once by hand")
     kit = {k: str(manifest.get(k) or "") for k in ("checkout", "branch", "commit")}
     kit["serena"] = manifest.get("serena")
-    script = os.path.join(kit["checkout"], "scripts", "install.sh")
-    # A path that is not absolute would mean the directory this runs in.
-    if not os.path.isabs(script) or not os.path.isfile(script):
-        raise Stop("the checkout this install was made from is not there")
+    problem = check.checkout_problem(kit["checkout"], installer=True)
+    if problem:
+        raise Stop(problem)
     if not check.COMMIT.fullmatch(kit["commit"]):
         raise Stop("the install manifest names no commit")
-    if not check.BRANCH.fullmatch(kit["branch"]):
-        raise Stop("the install was made from a checkout that was on no branch")
+    if check.branch_problem(kit["branch"]):
+        raise Stop(check.branch_problem(kit["branch"]))
     return kit
 
 
