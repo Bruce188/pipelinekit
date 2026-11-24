@@ -8,12 +8,16 @@ the number of problems and no text from the report, so nothing a file holds
 can end up in them.
 
 It never holds up a session: every path exits 0, a check that takes too long
-is dropped without a word, and it reads a bounded amount of input and of the
-check's output, waiting at most a second for its input to end. Its own failures
-go to the event log as `session-check.timeout` and `session-check.failed`,
-where /kit shows them.
+is dropped without a word, together with every process it started (on Linux
+also one that left its process group), and it reads a bounded amount of input
+and of the check's output, waiting at most a second for its input to end. Its
+own failures go to the event log as `session-check.timeout`,
+`session-check.failed` and `session-check.stopped` (the hook was ended from
+outside), where /kit shows them.
 
-PIPELINEKIT_SESSION_CHECK=0 switches it off. Stdlib only.
+It runs only when a session starts: an input whose `source` is anything but
+`startup` (a resume, /clear, a compaction) is left alone, wherever it is wired.
+Exactly PIPELINEKIT_SESSION_CHECK=0 switches it off. Stdlib only.
 """
 
 from __future__ import annotations
@@ -32,6 +36,8 @@ TIMEOUT = 4  # seconds; settings.json gives the hook 5
 INPUT_WAIT = 1  # seconds for Claude Code's input to end; it is sent at once
 MAX_INPUT = 1_000_000  # bytes; the input is a few hundred
 MAX_OUTPUT = 1_000_000  # bytes; check.py --quick --json prints a few thousand
+PR_SET_CHILD_SUBREAPER = 36  # Linux prctl option
+STOP_SIGNALS = ("SIGTERM", "SIGHUP", "SIGINT")
 REPAIR = "The kit's installer is the repair path and the user runs it."
 
 
@@ -47,6 +53,69 @@ def record(rule, reason, data=None):
 
 class TooMuchOutput(Exception):
     """The checker printed more than MAX_OUTPUT bytes."""
+
+
+class Stopped(Exception):
+    """The hook got a signal that ends it, for example at Claude Code's limit."""
+
+    def __init__(self, name):
+        super().__init__(name)
+        self.name = name
+
+
+def on_stop_signal(signum, frame):
+    for name in STOP_SIGNALS:  # a second signal must not cut the cleanup short
+        signal.signal(getattr(signal, name), signal.SIG_IGN)
+    raise Stopped(signal.Signals(signum).name)
+
+
+def adopt_orphans():
+    """Become the parent of what the checker's processes leave behind (Linux).
+
+    A process that left the checker's process group with setsid and then lost
+    its parent would otherwise go to init, out of reach of descendants().
+    """
+    try:
+        import ctypes
+
+        libc = ctypes.CDLL(None, use_errno=True)
+        one, zero = ctypes.c_ulong(1), ctypes.c_ulong(0)
+        libc.prctl(ctypes.c_int(PR_SET_CHILD_SUBREAPER), one, zero, zero, zero)
+    except (OSError, AttributeError, ImportError):
+        pass
+
+
+def descendants(root):
+    """Pids of the live processes below root, from /proc; [] without /proc."""
+    try:
+        names = os.listdir("/proc")
+    except OSError:
+        return []
+    children = {}
+    for name in names:
+        if not name.isdigit():
+            continue
+        try:
+            with open(f"/proc/{name}/stat", "rb") as f:
+                fields = f.read().rsplit(b")", 1)[1].split()
+            state, parent = fields[0], int(fields[1])
+        except (OSError, IndexError, ValueError):
+            continue
+        if state != b"Z":
+            children.setdefault(parent, []).append(int(name))
+    found, todo = [], [root]
+    while todo:
+        kids = children.get(todo.pop(), [])
+        found += kids
+        todo += kids
+    return found
+
+
+def reap():
+    """Collect the exit status of every child that has ended."""
+    with contextlib.suppress(ChildProcessError, OSError):
+        while os.waitpid(-1, os.WNOHANG)[0]:
+            pass
 
 
 def read_bounded(fd, deadline, limit):
@@ -104,13 +173,23 @@ def could_not_run(reason, advice, data):
 
 
 def stop(p):
-    """End the checker and all it started."""
-    try:
-        os.killpg(p.pid, signal.SIGKILL)
-    except OSError:
-        p.kill()
-    with contextlib.suppress(subprocess.TimeoutExpired, OSError):
-        p.wait(timeout=1)
+    """End the checker and all it started, also what left its process group."""
+    for _ in range(10):
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except OSError:
+            with contextlib.suppress(OSError):
+                p.kill()
+        left = descendants(os.getpid())
+        for pid in left:
+            with contextlib.suppress(OSError):
+                os.kill(pid, signal.SIGKILL)
+        with contextlib.suppress(subprocess.TimeoutExpired, OSError):
+            p.wait(timeout=1)
+        reap()
+        if not left:
+            return
+        time.sleep(0.01)  # let what was just killed end before looking again
 
 
 def run_checker(checker, env):
@@ -137,7 +216,7 @@ def run_checker(checker, env):
                 raise subprocess.TimeoutExpired(p.args, TIMEOUT)
             # Its output ended; give it what is left of the time to exit.
             code = p.wait(timeout=max(deadline - time.monotonic(), 0.1))
-        except (subprocess.TimeoutExpired, TooMuchOutput):
+        except BaseException:  # a timeout, too much output or a stop signal
             stop(p)
             raise
     return code, out.decode("utf-8", "replace")
@@ -146,7 +225,20 @@ def run_checker(checker, env):
 def main():
     if os.environ.get("PIPELINEKIT_SESSION_CHECK") == "0":
         return
-    data = hook_input()
+    for name in STOP_SIGNALS:
+        signal.signal(getattr(signal, name), on_stop_signal)
+    data = {}
+    try:
+        data = hook_input()
+        if data.get("source", "startup") != "startup":
+            return  # a resume, /clear or a compaction: no session starts
+        adopt_orphans()
+        check(data)
+    except Stopped as exc:
+        record("session-check.stopped", f"ended from outside by {exc.name}", data)
+
+
+def check(data):
     home = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     checker = os.path.join(home, "skills", "kit", "check.py")
     if not os.path.isfile(checker):

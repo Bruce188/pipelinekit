@@ -3,6 +3,7 @@
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -46,19 +47,23 @@ def home(tmp_path):
     return root
 
 
-def run(home, check=None, stdin=START, **extra):
-    if check is not None:
-        (home / "skills" / "kit" / "check.py").write_text(check)
+def hook_env(home, **extra):
     env = dict(os.environ, PIPELINEKIT_STATE_DIR=str(home.parent / "state"))
     for k in ("PIPELINEKIT_SESSION_CHECK", "PIPELINEKIT_LOG", "CLAUDE_HOME"):
         env.pop(k, None)
     env.update(extra)
+    return env
+
+
+def run(home, check=None, stdin=START, **extra):
+    if check is not None:
+        (home / "skills" / "kit" / "check.py").write_text(check)
     p = subprocess.run(
         [sys.executable, str(home / "hooks" / "session-check.py")],
         input=stdin,
         capture_output=True,
         text=True,
-        env=env,
+        env=hook_env(home, **extra),
     )
     assert p.returncode == 0 and p.stderr == "", p.stderr
     return p.stdout
@@ -131,19 +136,34 @@ def test_checker_that_fails_itself(home):
     assert [e["rule"] for e in logged(home)] == ["session-check.failed"]
 
 
-def test_slow_checker_is_dropped_without_a_word(home):
+def gone(pid):
+    """True once pid has ended (within 5 seconds); a survivor is killed."""
+    for _ in range(50):
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True
+        time.sleep(0.1)
+    os.kill(pid, signal.SIGKILL)
+    return False
+
+
+def short_timeout(home, seconds=2):
     hook = home / "hooks" / "session-check.py"
     text = hook.read_text()
     assert "TIMEOUT = 4 " in text
-    hook.write_text(text.replace("TIMEOUT = 4 ", "TIMEOUT = 0.3 "))
+    hook.write_text(text.replace("TIMEOUT = 4 ", f"TIMEOUT = {seconds} "))
+
+
+def test_slow_checker_is_dropped_without_a_word(home):
+    short_timeout(home, 0.3)
     assert run(home, "import time\ntime.sleep(30)\n") == ""
     (event,) = logged(home)
     assert (event["kind"], event["rule"]) == ("error", "session-check.timeout")
 
 
 def test_a_timeout_ends_what_the_checker_started(home):
-    hook = home / "hooks" / "session-check.py"
-    hook.write_text(hook.read_text().replace("TIMEOUT = 4 ", "TIMEOUT = 2 "))
+    short_timeout(home)
     note = home / "child.pid"
     slow = (
         "import subprocess, time\n"
@@ -153,15 +173,83 @@ def test_a_timeout_ends_what_the_checker_started(home):
     )
     assert run(home, slow) == ""
     assert [e["rule"] for e in logged(home)] == ["session-check.timeout"]
-    pid = int(note.read_text())
+    assert gone(int(note.read_text())), "the checker's child outlived the timeout"
+
+
+on_linux = pytest.mark.skipif(
+    not os.path.isdir("/proc/self"), reason="finding a process that left needs /proc"
+)
+
+
+@on_linux
+def test_a_timeout_ends_a_child_that_left_with_setsid(home):
+    short_timeout(home)
+    note = home / "child.pid"
+    slow = (
+        "import subprocess, time\n"
+        "child = subprocess.Popen(['sleep', '30'], start_new_session=True)\n"
+        f"open({str(note)!r}, 'w').write(str(child.pid))\n"
+        "time.sleep(30)\n"
+    )
+    assert run(home, slow) == ""
+    assert [e["rule"] for e in logged(home)] == ["session-check.timeout"]
+    assert gone(int(note.read_text())), "a child in its own session outlived it"
+
+
+@on_linux
+def test_a_timeout_ends_a_daemon_whose_parent_is_gone(home):
+    short_timeout(home)
+    note = home / "daemon.pid"
+    slow = (
+        "import os, time\n"
+        "if os.fork() == 0:\n"
+        "    os.setsid()\n"
+        "    if os.fork() == 0:\n"
+        f"        open({str(note)!r}, 'w').write(str(os.getpid()))\n"
+        "        time.sleep(30)\n"
+        "    os._exit(0)\n"
+        "time.sleep(30)\n"
+    )
+    assert run(home, slow) == ""
+    assert [e["rule"] for e in logged(home)] == ["session-check.timeout"]
+    assert gone(int(note.read_text())), "a double-forked daemon outlived it"
+
+
+def test_stopped_from_outside_is_logged_and_ends_the_check(home):
+    note = home / "checker.pid"
+    slow = (
+        "import os, time\n"
+        f"open({str(note)!r}, 'w').write(str(os.getpid()))\n"
+        "time.sleep(30)\n"
+    )
+    (home / "skills" / "kit" / "check.py").write_text(slow)
+    p = subprocess.Popen(
+        [sys.executable, str(home / "hooks" / "session-check.py")],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=hook_env(home),
+    )
+    p.stdin.write(START)
+    p.stdin.close()
     for _ in range(50):
-        try:
-            os.kill(pid, 0)
-        except ProcessLookupError:
-            return
+        if note.exists() and note.read_text():
+            break
         time.sleep(0.1)
-    os.kill(pid, 9)
-    pytest.fail("the checker's child was still running after the timeout")
+    p.send_signal(signal.SIGTERM)
+    try:
+        p.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        p.kill()
+        p.wait()
+        pytest.fail("the hook kept running after SIGTERM")
+    with p.stdout, p.stderr:
+        assert (p.returncode, p.stdout.read(), p.stderr.read()) == (0, "", "")
+    (event,) = logged(home)
+    assert (event["kind"], event["rule"]) == ("error", "session-check.stopped")
+    assert "SIGTERM" in event["reason"] and event["session"] == "s1"
+    assert gone(int(note.read_text())), "the check outlived the hook"
 
 
 def test_endless_output_is_cut_off(home):
@@ -174,16 +262,13 @@ def test_endless_output_is_cut_off(home):
 
 
 def test_stdin_left_open_does_not_hold_up_the_hook(home):
-    env = dict(os.environ, PIPELINEKIT_STATE_DIR=str(home.parent / "state"))
-    for k in ("PIPELINEKIT_SESSION_CHECK", "PIPELINEKIT_LOG", "CLAUDE_HOME"):
-        env.pop(k, None)
     p = subprocess.Popen(
         [sys.executable, str(home / "hooks" / "session-check.py")],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        env=env,
+        env=hook_env(home),
     )
     p.stdin.write(START)
     p.stdin.flush()  # and never closed, so no end of input arrives
@@ -208,6 +293,24 @@ def test_switched_off(home):
     check = checker(("fail", "broken"))
     assert run(home, check, PIPELINEKIT_SESSION_CHECK="0") == ""
     assert run(home, check, PIPELINEKIT_SESSION_CHECK="1") != ""
+
+
+@pytest.mark.parametrize("value", ["false", "off", "no", "FALSE", "", " 0"])
+def test_only_0_switches_it_off(home, value):
+    """A switch that is not exactly 0 leaves the check on (see components.md)."""
+    assert said(run(home, checker(("fail", "x")), PIPELINEKIT_SESSION_CHECK=value))
+
+
+@pytest.mark.parametrize("source", ["resume", "clear", "compact", "other"])
+def test_says_nothing_when_no_session_starts(home, source):
+    stdin = START.replace('"startup"', json.dumps(source))
+    assert run(home, checker(("fail", "broken")), stdin=stdin) == ""
+    assert run(home, stdin=stdin) == "" and logged(home) == []
+
+
+def test_runs_when_the_input_names_no_source(home):
+    stdin = '{"session_id": "s1", "hook_event_name": "SessionStart"}'
+    assert said(run(home, checker(("fail", "broken")), stdin=stdin))
 
 
 def test_checks_the_install_it_sits_in(home):
