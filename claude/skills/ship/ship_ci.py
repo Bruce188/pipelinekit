@@ -11,6 +11,11 @@ import re
 
 PR_EVENTS = ("pull_request", "pull_request_target")
 RUNS_HERE = "a workflow here runs on pull requests or on pushes to this branch"
+# GitHub starts no push or pull_request run for a commit whose message holds
+# one of these, so no check comes for it, also not when the pull request is
+# reopened.
+SKIP_TAGS = ("[skip ci]", "[ci skip]", "[no ci]", "[skip actions]", "[actions skip]")
+SKIP_TRAILER = re.compile(r"^skip-checks: ?true$", re.M)
 ON_KEY = re.compile(r"""^(?:on|"on"|'on')\s*:(?:\s+(.*))?$""")
 
 
@@ -317,6 +322,19 @@ def runs_for(text, branch):
     if any(event in found for event in PR_EVENTS):
         return True
     return "push" in found and push_runs(found["push"], branch)
+
+
+def skip_request(message):
+    """What in a commit message asks GitHub to skip its workflows; '' if nothing.
+
+    One of GitHub's tags anywhere in the message, or a `skip-checks: true`
+    line in its last paragraph, where trailers go.
+    """
+    for tag in SKIP_TAGS:
+        if tag in message:
+            return tag
+    paragraphs = re.split(r"\n[ \t]*\n", message.replace("\r", "").strip())
+    return "skip-checks: true" if SKIP_TRAILER.search(paragraphs[-1]) else ""
 
 
 def starts_when_ready(text):

@@ -141,6 +141,11 @@ kit used to ship, so those parts are gone.
   gate table and the waiting lines come out in order through a pipe, and
   the docs say how `--grace` sets the settle time and which runs do not
   end with an outcome line.
+- `ship.py status`, `wait` and `merge` name the cause when the message of
+  the head commit asks GitHub to skip the workflows (`[skip ci]`,
+  `[ci skip]`, `[no ci]`, `[skip actions]`, `[actions skip]`, a
+  `skip-checks: true` trailer) and no check is on it, and say to push a
+  commit without the tag, instead of waiting for a check that never comes.
 
 ### Design
 

@@ -20,7 +20,7 @@ except ImportError:  # before Python 3.11
 
 from ship_base import *
 from ship_behind import base_gate
-from ship_ci import RUNS_HERE
+from ship_ci import RUNS_HERE, skip_request
 from ship_judged import MAX_TEXT_FILE, judged_gate, user_file
 from ship_links import linked_gate
 
@@ -891,13 +891,33 @@ def tested_gate(repo, head):
     return gate("tested", "pass", f"round {n} passed on {short(head)} ({tester})")
 
 
-def ci_gate(pr, expected=False):
+def skip_asked(repo, sha):
+    """The tag with which commit `sha` asks GitHub to skip its workflows.
+
+    '' when its message holds none, or when the checkout does not have it.
+    """
+    if not re.fullmatch(r"[0-9a-f]{40,64}", sha or ""):
+        return ""
+    rc, out, _ = repo.try_git("log", "-1", "--format=%B", sha, "--")
+    return "" if rc else skip_request(out)
+
+
+def skip_detail(tag, sha):
+    return (
+        f"the message of the head commit {short(sha)} holds {tag}, so GitHub "
+        "starts no check for it: push a commit without the tag"
+    )
+
+
+def ci_gate(pr, expected=False, skip=""):
     """CI as it stands now.
 
     `expected`: a workflow here runs on the pull request or on pushes to its
     branch, so a pull request without a single check has not been picked up
     yet; that is not a pass. Nor is a draft whose checks were all skipped:
-    `merge` marks it ready and waits for a check that really runs.
+    `merge` marks it ready and waits for a check that really runs. `skip`:
+    the tag with which the head commit asks GitHub to skip the workflows;
+    then no check is to come.
     """
     passed, failed, pending = sort_checks(pr.get("statusCheckRollup"))
     if failed:
@@ -911,6 +931,8 @@ def ci_gate(pr, expected=False):
             "pending",
             f"{len(pending)} of {total} still running: {check_names(pending)}",
         )
+    if not passed and expected and skip:
+        return gate("ci", "fail", skip_detail(skip, pr.get("headRefOid")))
     if not passed and expected:
         return gate(
             "ci",
@@ -951,6 +973,8 @@ def evaluate(repo, pr, no_checks_ok=False, base=""):
         ]
     # First, because it fetches the base branch, which the policy gate reads.
     up_to_date = base_gate(repo, pr, base)
+    head = pr.get("headRefOid") or ""
+    expected = repo.expects_checks() and not no_checks_ok
     return [
         first,
         own_gate(repo, pr),
@@ -960,9 +984,9 @@ def evaluate(repo, pr, no_checks_ok=False, base=""):
         review_gate(pr),
         current_gate(repo, pr),
         up_to_date,
-        judged_gate(repo, pr.get("headRefOid") or "", pr.get("baseRefName") or ""),
-        tested_gate(repo, pr.get("headRefOid") or ""),
-        ci_gate(pr, repo.expects_checks() and not no_checks_ok),
+        judged_gate(repo, head, pr.get("baseRefName") or ""),
+        tested_gate(repo, head),
+        ci_gate(pr, expected, skip_asked(repo, head) if expected else ""),
     ]
 
 
