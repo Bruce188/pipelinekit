@@ -247,6 +247,21 @@ odd_home() { # odd_home <CLAUDE_HOME> <its absolute path> <case>
 odd_home "$HOME/kit home" "$HOME/kit home" space
 odd_home rel-home "$T/rel-home" relative
 
+# Your own agent file in a home given with a trailing slash, or as a relative
+# path: it is kept under an absolute backup path with no doubled slash.
+own_agent() { # own_agent <CLAUDE_HOME> <its absolute path> <case>
+  mkdir -p "$2/agents"
+  echo "my own judge" >"$2/agents/kit-judge.md"
+  (cd "$T" && CLAUDE_HOME="$1" PIPELINEKIT_GIT_HOOKS=0 bash "$REPO_ROOT/scripts/install.sh" --no-serena) >"$T/$3.out" 2>&1 || true
+  local said="[install] kept your own kit-judge.md in " line kept
+  line="$(grep -F "$said" "$T/$3.out" || true)"
+  kept="${line#"$said"}"
+  [[ -n "$line" && "$kept" == "$2/pipelinekit/backup/agents-kit-judge.md-"* && "$kept" != *//* && -f "$kept" ]] ||
+    { echo "test_install: the $3 home names its agent backup as '$kept'" >&2; exit 1; }
+}
+own_agent "$HOME/kit-slash/" "$HOME/kit-slash" "trailing slash"
+own_agent rel-own "$T/rel-own" "relative own"
+
 # The rewrite follows the copy at once: an install that stops later (here on a
 # settings.json that is not JSON) leaves a skill that already names its home.
 KB="$HOME/kit-broken"

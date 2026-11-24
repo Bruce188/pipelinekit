@@ -88,6 +88,9 @@ find "$REPO_ROOT/claude/hooks" -maxdepth 1 -type f \( -name '*.sh' -o -name '*.p
 chmod +x "$CLAUDE_HOME"/hooks/*.sh "$CLAUDE_HOME"/hooks/*.py
 cp -p "$REPO_ROOT"/claude/git-hooks/* "$CLAUDE_HOME/git-hooks/"
 chmod +x "$CLAUDE_HOME"/git-hooks/*
+# Where your own files of a kit name are kept: an absolute path without a
+# doubled slash, whether CLAUDE_HOME is relative or ends in a slash.
+BACKUPS="$(CDPATH='' cd -- "$CLAUDE_HOME" && pwd)/pipelinekit/backup"
 # frontend-design is a public skill name, so a user may already have a folder of
 # that name; the kit owns it from now on. A link is removed (never followed); a
 # folder the kit did not install and that differs from the kit's is moved to a
@@ -104,11 +107,10 @@ if [[ -L "$FD" ]]; then
   log "removed the link skills/frontend-design -> $target"
 elif [[ -e "$FD" ]] && { [[ ! -d "$FD" ]] || { [[ "$listed" == 0 ]] &&
   ! diff -rq "$FD" "$REPO_ROOT/claude/skills/frontend-design" >/dev/null 2>&1; }; }; then
-  FD_BACKUPS="$CLAUDE_HOME/pipelinekit/backup"
-  FD_BACKUP="$FD_BACKUPS/skills-frontend-design-$(date -u +%Y%m%dT%H%M%SZ)"
+  FD_BACKUP="$BACKUPS/skills-frontend-design-$(date -u +%Y%m%dT%H%M%SZ)"
   # A read-only folder or a file named backup: one line of ours, not mkdir's or mv's.
-  { mkdir -p "$FD_BACKUPS" && mv "$FD" "$FD_BACKUP"; } 2>/dev/null ||
-    die "could not move your own skills/frontend-design to $FD_BACKUPS. It is untouched and the skills were not installed. Move or rename it yourself, then run the installer again."
+  { mkdir -p "$BACKUPS" && mv "$FD" "$FD_BACKUP"; } 2>/dev/null ||
+    die "could not move your own skills/frontend-design to $BACKUPS. It is untouched and the skills were not installed. Move or rename it yourself, then run the installer again."
   log "kept your own frontend-design skill in $FD_BACKUP"
 fi
 for s in "${KIT_SKILLS[@]}"; do
@@ -157,10 +159,10 @@ for a in "${KIT_AGENTS[@]}"; do
     log "removed the link agents/$a (its target is untouched)"
   elif [[ -e "$dst" ]] && { [[ ! -f "$dst" ]] || { ! cmp -s "$dst" "$REPO_ROOT/claude/agents/$a" &&
     ! grep -qxF "agents/$a" <<<"$listed_files"; }; }; then
-    backup="$CLAUDE_HOME/pipelinekit/backup/agents-$a-$TS"
+    backup="$BACKUPS/agents-$a-$TS"
     # A read-only folder or a file named backup: one line of ours, not mkdir's or mv's.
-    { mkdir -p "$CLAUDE_HOME/pipelinekit/backup" && mv "$dst" "$backup"; } 2>/dev/null ||
-      die "could not move your own agents/$a to $CLAUDE_HOME/pipelinekit/backup. It is untouched and the kit's $a was not installed. Move or rename it yourself, then run the installer again."
+    { mkdir -p "$BACKUPS" && mv "$dst" "$backup"; } 2>/dev/null ||
+      die "could not move your own agents/$a to $BACKUPS. It is untouched and the kit's $a was not installed. Move or rename it yourself, then run the installer again."
     log "kept your own $a in $backup"
   fi
   rm -f "$dst"
