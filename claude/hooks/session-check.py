@@ -38,6 +38,18 @@ def record(rule, reason, data=None):
         pass
 
 
+def utf8_io() -> None:
+    """Claude Code sends and reads UTF-8, whatever the locale or
+    PYTHONIOENCODING would make of these streams."""
+    for stream, errors in (
+        (sys.stdin, "strict"),
+        (sys.stdout, "strict"),
+        (sys.stderr, "backslashreplace"),
+    ):
+        with contextlib.suppress(AttributeError, ValueError, OSError):
+            stream.reconfigure(encoding="utf-8", errors=errors)  # None: no stream
+
+
 def hook_input():
     """What Claude Code sent on stdin, or {} when that is not a JSON object."""
     try:
@@ -97,6 +109,7 @@ def run_checker(checker, env):
 def main():
     if os.environ.get("PIPELINEKIT_SESSION_CHECK") == "0":
         return
+    utf8_io()
     data = hook_input()
     home = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     checker = os.path.join(home, "skills", "kit", "check.py")
@@ -105,7 +118,7 @@ def main():
             "skills/kit/check.py is missing", "Run the kit's installer again.", data
         )
         return
-    env = dict(os.environ)
+    env = dict(os.environ, PYTHONIOENCODING="utf-8")  # its report is read as UTF-8
     if not env.get("CLAUDE_HOME") and os.path.isfile(
         os.path.join(home, "settings.json")
     ):

@@ -18,6 +18,7 @@ a `Next:` line that names the step to take.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import sys
@@ -62,7 +63,20 @@ def record(kind: str, rule: str, reason: str, data: object = None) -> None:
         pass
 
 
+def utf8_io() -> None:
+    """Claude Code sends and reads UTF-8, whatever the locale or
+    PYTHONIOENCODING would make of these streams."""
+    for stream, errors in (
+        (sys.stdin, "strict"),
+        (sys.stdout, "strict"),
+        (sys.stderr, "backslashreplace"),
+    ):
+        with contextlib.suppress(AttributeError, ValueError, OSError):
+            stream.reconfigure(encoding="utf-8", errors=errors)  # None: no stream
+
+
 def main() -> int:
+    utf8_io()
     try:
         data = json.load(sys.stdin)
     except (ValueError, RecursionError):

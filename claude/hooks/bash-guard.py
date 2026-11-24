@@ -37,6 +37,7 @@ which are documented to prompt even in bypassPermissions mode.
 
 from __future__ import annotations
 
+import contextlib
 import fnmatch
 import json
 import os
@@ -965,9 +966,22 @@ def record(
         pass
 
 
+def utf8_io() -> None:
+    """Claude Code sends and reads UTF-8, whatever the locale or
+    PYTHONIOENCODING would make of these streams."""
+    for stream, errors in (
+        (sys.stdin, "strict"),
+        (sys.stdout, "strict"),
+        (sys.stderr, "backslashreplace"),
+    ):
+        with contextlib.suppress(AttributeError, ValueError, OSError):
+            stream.reconfigure(encoding="utf-8", errors=errors)  # None: no stream
+
+
 def main() -> int:
     if sys.argv[1:] == ["pre-commit"]:
         return pre_commit()
+    utf8_io()
     groups = set(sys.argv[1:]) & ALL_GROUPS or ALL_GROUPS
     try:
         data = json.load(sys.stdin)

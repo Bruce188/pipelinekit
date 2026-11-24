@@ -293,6 +293,15 @@ def test_cli_exits_zero_when_the_log_cannot_be_written(tmp_path):
         ("https://h.example/o/r.git#SECRET", "https://h.example/o/r.git"),
         ("https://h.example/o/r.git?SECRET#x", "https://h.example/o/r.git"),
         ("https://h.example?SECRET", "https://h.example"),
+        ("https://h.example/o/r.git;tok=SECRET", "https://h.example/o/r.git"),
+        ("https://h.example/o;tok=SECRET/r.git", "https://h.example/o"),
+        ("https://h.example/o/r.git%3Ftoken=SECRET", "https://h.example/o/r.git"),
+        ("https://h.example/o/r.git%3ftoken=SECRET", "https://h.example/o/r.git"),
+        ("https://h.example/o/r.git%23SECRET", "https://h.example/o/r.git"),
+        ("https://u1:SEC/RET@h.example/o/r.git", "https://h.example/o/r.git"),
+        ("https://u1:S/E/C@R/ET@h.example/o/r.git", "https://h.example/o/r.git"),
+        ("ssh://u1:SEC/RET@h.example:22/o/r.git", "ssh://h.example:22/o/r.git"),
+        ("ssh://h.example:22/o;x/r.git", "ssh://h.example:22/o"),
     ],
 )
 def test_no_form_of_a_remote_keeps_its_credentials(state, url, kept):
@@ -324,3 +333,27 @@ def test_a_named_pipe_at_the_log_path_is_left_alone(state):
         assert os.read(reader, 100) == b""
     finally:
         os.close(reader)
+
+
+def test_a_semicolon_in_the_reason_text_is_kept(state):
+    kitlog.log("bash-guard", "block", "git.push-remote", "no; not a/b; c;d")
+    (e,) = events(state)
+    assert e["reason"] == "no; not a/b; c;d"
+
+
+@pytest.mark.parametrize("value", [{"a": 1}, ["x"], 7, True, b"bytes"])
+def test_a_session_or_cwd_that_is_no_string_is_stored_empty(state, value):
+    data = {"session_id": value, "tool_use_id": value, "cwd": value}
+    assert kitlog.log("bash-guard", "block", "git.no-verify", "x", data)
+    (e,) = events(state)
+    assert not {"session", "tool_use_id", "cwd"} & set(e), e
+
+
+def test_letters_that_draw_as_nothing_are_not_logged(state):
+    blank = "\u3164\u115f\u1160\uffa0\u2800\u180e"
+    data = {"session_id": f"s{blank}1", "tool_use_id": f"t{blank}", "cwd": f"/{blank}w"}
+    reason, prog = f"a{blank}b", f"g{blank}"
+    kitlog.log("bash-guard", "block", "git.push-remote", reason, data, prog)
+    (e,) = events(state)
+    assert (e["reason"], e["session"], e["tool_use_id"]) == ("a b", "s 1", "t")
+    assert (e["cwd"], e["prog"]) == ("/ w", "g")
