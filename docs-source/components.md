@@ -168,7 +168,7 @@ A skill's `allowed-tools` line lets Claude run the commands it names without a p
 | `kit` | `python3 ~/.claude/skills/kit/check.py`, with any of its options; `python3 ~/.claude/skills/kit/update.py plan`, with nothing after it. `update.py apply` asks |
 | `ship` | `python3 ~/.claude/skills/ship/ship.py`, with any of its commands (`merge` included); `python3 ~/.claude/skills/judge-loop/loop.py`, with any of its commands |
 | `judge-loop` | `python3 ~/.claude/skills/judge-loop/loop.py`, with any of its commands |
-| `docs-writer` | The `Read`, `Write`, `Edit`, `Glob` and `Grep` tools and every Bash command |
+| `docs-writer` | `python3 ~/.claude/skills/docs-writer/render.py`, `verify_toc.py` and `richness_check.py` in that folder, with any of their options; `bash ~/.claude/skills/docs-writer/tests/test_render.sh` and `tests/test_richness_threshold.sh`, with nothing after them; the `Read`, `Write`, `Edit`, `Glob` and `Grep` tools. Any other Bash command asks |
 
 A rule matches the command as written. A script of the same name anywhere else, such as `x/skills/kit/check.py` inside a project, asks, and so does the helper started another way: by a relative path, through `python3 -m`, or after `&&` behind another command that asks. For `loop.py` in another home the installer writes that home's path into the `judge-loop` and `ship` skills; a home whose path holds a space or other characters a rule cannot hold keeps `~/.claude`, and the installer warns.
 
