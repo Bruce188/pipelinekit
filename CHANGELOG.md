@@ -169,8 +169,9 @@ kit used to ship, so those parts are gone.
 - The global `pre-commit` hook refuses a commit that adds a file over the
   limit or takes one past it (`[pre-commit.file-size]`, logged with the path
   and size, never the content). A file already over the limit only warns.
-  A new global `pre-merge-commit` hook runs the same check before `git merge`
-  records a merge it made without conflicts, which skips `pre-commit`.
+  A new global `pre-merge-commit` hook runs the same check, and the same
+  gitleaks secret scan (`[pre-commit.secret]`), before `git merge` records a
+  merge it made without conflicts, which skips `pre-commit`.
   Binary and deleted files are not counted; generated, vendored, lock and
   data files, and the project and designer files an IDE writes, are exempt
   by default, and a project lists more in `.file-size-exempt`, gitignore
