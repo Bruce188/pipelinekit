@@ -574,20 +574,26 @@ def load_record(path):
 
 
 def ensure_ignored(repo):
-    """Test records are local working notes: keep them out of commits."""
+    """Test records and reports are local working notes: keep them out of git.
+
+    Returns why the exclude line could not be added, or an empty string.
+    """
     if repo.try_git("check-ignore", "-q", "docs/uat/record.json")[0] == 0:
-        return
-    rc, out, _ = repo.try_git("rev-parse", "--git-path", "info/exclude")
+        return ""
+    rc, out, err = repo.try_git("rev-parse", "--git-path", "info/exclude")
     if rc:
-        return
+        why = git_said(err or out, rc).rstrip(".")
+        return f"could not find the exclude file of this repository: {why}"
     exclude = repo.root / out
     try:
         exclude.parent.mkdir(parents=True, exist_ok=True)
         old = exclude.read_text(encoding="utf-8") if exclude.exists() else ""
         gap = "" if not old or old.endswith("\n") else "\n"
         exclude.write_text(f"{old}{gap}docs/uat/\n", encoding="utf-8")
-    except OSError:
-        return
+    except (OSError, ValueError) as exc:
+        why = getattr(exc, "strerror", None) or str(exc)
+        return f"could not add docs/uat/ to {out}: {why}"
+    return ""
 
 
 def finding_ids(values):

@@ -2,6 +2,8 @@
 """Finish a pull request you opened: test record, CI wait, gated merge.
 
   ship.py status [--json] [--exit-zero]    every merge gate and why it holds or not
+  ship.py prepare                          before the test: keep docs/uat/ out of
+                                           git, print where the reports go
   ship.py record --result pass|fail ...    store one round of the acceptance test
   ship.py wait [--timeout S] [--grace S]   return when CI on the head commit is done
   ship.py merge [--dry-run] [--stay]       check the gates, wait for CI, merge
@@ -105,6 +107,23 @@ def cmd_status(args, repo):
     else:
         print(render(repo, pr, gates))
     return 0 if args.exit_zero else verdict(gates)
+
+
+def cmd_prepare(args, repo):
+    """Before the acceptance test: keep docs/uat/ out of git, say where to write.
+
+    `status` changes nothing in the repository, so this is the step that adds
+    the exclude line before the tester writes its first file.
+    """
+    problem = ensure_ignored(repo)
+    stem = repo.record_file.with_suffix("").relative_to(repo.root).as_posix()
+    print(f"Report: {stem}.md")
+    print(f"Screenshots: {stem}/")
+    if problem:
+        print(f"Not ready: {problem}. Add the line docs/uat/ to it by hand.")
+        return EXIT_FAIL
+    print("docs/uat/ is kept out of git.")
+    return 0
 
 
 # ---------------------------------------------------------------- CI wait
@@ -467,6 +486,10 @@ def build_parser():
     status = sub.add_parser("status", help="show every merge gate")
     status.add_argument("--json", action="store_true", help="machine-readable")
     status.add_argument("--exit-zero", action="store_true", help="always exit 0")
+    sub.add_parser(
+        "prepare",
+        help="before the test: keep docs/uat/ out of git, print where the reports go",
+    )
     record = sub.add_parser("record", help="store one round of the acceptance test")
     record.add_argument("--result", required=True, choices=("pass", "fail"))
     record.add_argument(
@@ -545,6 +568,7 @@ def cmd_record_current(args, repo):
 
 COMMANDS = {
     "status": cmd_status,
+    "prepare": cmd_prepare,
     "record": cmd_record_current,
     "wait": cmd_wait,
     "merge": cmd_merge,
