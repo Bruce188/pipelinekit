@@ -37,6 +37,7 @@ try:
         github_behind,
         open_pr,
     )
+    from ship_ci import RUNS_HERE
     from ship_gates import *
     from ship_links import after_merge
 except ImportError as e:  # a module missing or broken in the install
@@ -112,7 +113,7 @@ def cmd_status(args, repo):
 def grace_seconds(args, repo):
     if args.grace is not None:
         return args.grace
-    return FIRST_CHECK if repo.has_workflows() else 0
+    return FIRST_CHECK if repo.expects_checks() else 0
 
 
 def ran_checks(pr):
@@ -170,9 +171,9 @@ def wait_for_ci(repo, timeout, grace, no_checks_ok=False):
         if seen and not pending and waited >= grace:
             if expected:
                 detail = (
-                    f"no check has shown up after {int(waited)} s, and workflows "
-                    "here run on pull requests: look at the Actions tab; when "
-                    "none of them runs for this change, add --allow-no-checks"
+                    f"no check has shown up after {int(waited)} s, and {RUNS_HERE}: "
+                    "look at the Actions tab; when none of them runs for this "
+                    "change, add --allow-no-checks"
                 )
                 return gate("ci", "fail", detail), pr
             return ci_gate(pr), pr
@@ -326,9 +327,9 @@ def watch(repo, number, timeout, settle=0, marked=False, expected=False):
                 if marked and expected and not ran_checks(pr):
                     detail = (
                         f"no check ran on #{number} in the {int(waited)} s after "
-                        "it was marked ready, and workflows here run on pull "
-                        "requests: look at the Actions tab; when none of them "
-                        "runs for this change, add --allow-no-checks"
+                        f"it was marked ready, and {RUNS_HERE}: look at the "
+                        "Actions tab; when none of them runs for this change, "
+                        "add --allow-no-checks"
                     )
                     return gate("ci", "fail", detail)
                 return None
@@ -511,7 +512,7 @@ def build_parser():
             default=None,
             metavar="S",
             help="how long to wait for the first check to show up "
-            f"(default {FIRST_CHECK} with workflows in the repository, else 0)",
+            f"(default {FIRST_CHECK} where {RUNS_HERE}, else 0)",
         )
     for cmd in (status, wait, merge):
         cmd.add_argument(

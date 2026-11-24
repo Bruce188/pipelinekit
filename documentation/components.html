@@ -1444,7 +1444,7 @@ python3<span class="w"> </span>~/.claude/skills/kit/update.py<span class="w"> </
 </tr>
 <tr>
 <td><code>ci</code></td>
-<td>Every check has finished and passed. A pull request with no check at all passes only where no workflow runs on pull requests, or with <code>--allow-no-checks</code></td>
+<td>Every check has finished and passed. A pull request with no check at all passes only where no workflow runs on pull requests or on pushes to the branch, or with <code>--allow-no-checks</code>. The <code>on:</code> block of each workflow decides, with its branch filters (<code>branches</code>, <code>branches-ignore</code>, a push trigger with only <code>tags</code>); a word in a comment does not count. Where no workflow runs for the branch, <code>wait</code> and <code>merge</code> do not wait for a first check</td>
 </tr>
 </tbody>
 </table>

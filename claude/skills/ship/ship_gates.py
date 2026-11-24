@@ -20,6 +20,7 @@ except ImportError:  # before Python 3.11
 
 from ship_base import *
 from ship_behind import base_gate
+from ship_ci import RUNS_HERE
 from ship_judged import MAX_TEXT_FILE, judged_gate, user_file
 from ship_links import linked_gate
 
@@ -884,8 +885,9 @@ def tested_gate(repo, head):
 def ci_gate(pr, expected=False):
     """CI as it stands now.
 
-    `expected`: a workflow here runs on pull requests, so a pull request
-    without a single check has not been picked up yet; that is not a pass.
+    `expected`: a workflow here runs on the pull request or on pushes to its
+    branch, so a pull request without a single check has not been picked up
+    yet; that is not a pass.
     """
     passed, failed, pending = sort_checks(pr.get("statusCheckRollup"))
     if failed:
@@ -903,7 +905,7 @@ def ci_gate(pr, expected=False):
         return gate(
             "ci",
             "pending",
-            "no check has shown up yet, and workflows here run on pull requests",
+            f"no check has shown up yet, and {RUNS_HERE}",
         )
     if not passed:
         return gate("ci", "pass", "no CI checks on this pull request")

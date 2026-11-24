@@ -87,7 +87,7 @@ Run it through Bash in these forms only. The only text you add is finding ids an
 
 The judge loop has its own skill and helper. From here run the helper only in the form `python3 ~/.claude/skills/judge-loop/loop.py <command>`, for `status` and `skip --reason "..."`; `start`, `abandon` and the rounds go through `/judge-loop`, which is how the `judged` gate names them: `/judge-loop (loop.py start build)`.
 
-A pull request with no check at all is not green where a workflow runs on pull requests: the helper waits for the first check (`--grace`, 90 seconds by default) and then fails. After a draft is marked ready a check must really have run: one that was skipped on the draft does not count. Add `--allow-no-checks` to `wait` or `merge` only after the Actions tab showed that no workflow runs for this change.
+A pull request with no check at all is not green where a workflow runs on pull requests or on pushes to the branch: the helper waits for the first check (`--grace`, 90 seconds by default) and then fails. The `on:` block of each workflow decides, with its branch filters; a word in a comment does not count. Where no workflow runs for the branch, `wait` and `merge` do not wait for a first check. After a draft is marked ready a check must really have run: one that was skipped on the draft does not count. Add `--allow-no-checks` to `wait` or `merge` only after the Actions tab showed that no workflow runs for this change.
 
 Exit code: 0 done, 1 a gate or a check failed (fix it and run again), 2 the helper could not run (not a repository, `gh` missing or not logged in), 3 stop and ask the user.
 
@@ -103,7 +103,7 @@ Exit code: 0 done, 1 a gate or a check failed (fix it and run again), 2 the help
 | `up-to-date` | the branch contains its base branch, fetched from the remote, and does not conflict with it; the reason names the base, the commits missing and the next command (see "Up to date with the base") |
 | `judged` | the branch's judge loop ended in 10, a used budget or the user's accept on this commit or an earlier one of the branch, or a skip was recorded for this commit; `Judge loop: off` on the base branch or in the user-level `CLAUDE.md` passes and names where it stands; a loop waiting for the user exits 3 |
 | `tested` | the last record is a pass for this commit, and the loop is not stuck |
-| `ci` | every check passed; no check at all counts only where no workflow runs on pull requests |
+| `ci` | every check passed; no check at all counts only where no workflow runs on pull requests or on pushes to the branch |
 
 ## Issue links
 

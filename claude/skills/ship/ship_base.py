@@ -10,6 +10,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from ship_ci import runs_for, starts_when_ready
+
 SCHEMA = 1
 PR_FIELDS = (
     "number,url,title,state,isDraft,isCrossRepository,baseRefName,headRefName,"
@@ -533,15 +535,16 @@ class Repo:
             self._workflows = texts
         return self._workflows
 
-    def has_workflows(self):
-        return bool(self.workflows())
-
     def expects_checks(self):
-        """A workflow here runs on pull requests, so a check should show up."""
-        return any("pull_request" in text for text in self.workflows())
+        """A workflow here runs on the branch's pull request or on its pushes.
+
+        Either way a check shows up on the pull request's head. Its `on:`
+        block decides; a word in a comment or a step does not count.
+        """
+        return any(runs_for(text, self.branch) for text in self.workflows())
 
     def starts_on_ready(self):
-        return any("ready_for_review" in text for text in self.workflows())
+        return any(starts_when_ready(text) for text in self.workflows())
 
 
 # ---------------------------------------------------------------- test record

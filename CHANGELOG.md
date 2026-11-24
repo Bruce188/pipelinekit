@@ -123,8 +123,11 @@ kit used to ship, so those parts are gone.
   settle time before it merges (30 seconds, 90 where a check is still to
   come; `--settle`), so a check or review that only starts then is not
   skipped. A pull request without any check is not green where workflows run
-  on pull requests, and a check that was skipped on the draft does not count
-  as a run (`--allow-no-checks` says otherwise).
+  on pull requests or on pushes to its branch, and a check that was skipped on
+  the draft does not count as a run (`--allow-no-checks` says otherwise). The
+  `on:` block of each workflow decides, with its branch filters: a workflow
+  that only runs on push counts, a word in a comment does not, and where no
+  workflow runs for the branch nothing waits for a first check.
 - `gh pr merge --admin` is on the `permissions.ask` list, `docs/uat/` (local
   test reports) is on the never-stage list, and `/kit` reports whether `gh`
   and Playwright are available.
