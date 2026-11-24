@@ -196,8 +196,8 @@ def test_settle_names_the_next_step_for_each_outcome(sb, outcome, tail):
     "role, item_id, shown",
     [
         ("nobody", "I1", "nobody I1"),
-        ("general", "I1;rm", "general that id"),
-        ("x" * 300, "I1", "that role I1"),
+        ("general", "I1;rm", "general I1?rm"),
+        ("x" * 300, "I1", "x" * 40 + " I1"),
         ("general", "I7", "general I7"),
     ],
     ids=["unknown role", "odd id", "long role", "no such item"],

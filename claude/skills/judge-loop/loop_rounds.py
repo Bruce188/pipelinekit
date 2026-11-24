@@ -483,7 +483,7 @@ def cmd_save(args):
     if role not in st["panel"]:
         raise Exit(
             2,
-            f"Refused: {show_name(role, 'that role')} is not on the panel "
+            f"Refused: {shown_value(role or '') or 'that role'} is not on the panel "
             f"({', '.join(st['panel'])}). Next: loop.py status.",
         )
     pending = st["pending"]

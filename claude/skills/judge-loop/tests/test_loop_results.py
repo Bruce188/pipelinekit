@@ -607,6 +607,21 @@ def test_save_stores_the_answer_byte_for_byte(sb):
     )
 
 
+@pytest.mark.parametrize(
+    "role, shown",
+    [("ge;n", "ge?n"), ("x" * 300, "x" * 40), ("", "that role")],
+    ids=["odd role", "long role", "empty role"],
+)
+def test_save_of_a_role_off_the_panel_shows_it_cut(sb, role, shown):
+    sb.start_build()
+    sb.run("brief")
+    run = sb.run("save", role)
+    assert (run.code, run.last) == (
+        2,
+        f"Refused: {shown} is not on the panel (general). Next: loop.py status.",
+    ), run
+
+
 @pytest.mark.parametrize("how", ["link inside", "link outside", "too big", "missing"])
 def test_save_refuses_an_answer_that_is_not_a_plain_file(sb, how):
     sb.start_build()

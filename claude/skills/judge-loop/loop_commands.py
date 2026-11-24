@@ -293,8 +293,8 @@ def cmd_settle(args):
     loop = pick(ctx, args, "settle")
     st = loop.st
     check_branch(loop)
-    role = show_name(args.role, "that role")
-    item_id = args.id if ITEM_ID.fullmatch(args.id or "") else "that id"
+    role = shown_value(args.role or "") or "that role"
+    item_id = shown_value(args.id or "") or "that id"
     item = st["items"].get(f"{args.role}:{args.id}")
     if item is None or not effective_open(item):
         raise Exit(
