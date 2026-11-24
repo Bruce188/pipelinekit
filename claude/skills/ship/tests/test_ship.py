@@ -1,6 +1,7 @@
 """ship.py against a fake gh and a throwaway repository with a bare origin."""
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -215,6 +216,40 @@ def test_a_sentence_about_the_opt_out_does_not_opt_out(sb):
     text = "- A project turns this off with the line `Merges: ask first`.\n"
     (sb.work / "CLAUDE.md").write_text(text)
     assert gates(sb.ship("status", "--json"))["policy"]["state"] == "pass"
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="no named pipes")
+def test_a_named_pipe_as_the_user_level_claude_md_is_named_not_waited_on(sb):
+    sb.passed()
+    home = Path(sb.env["CLAUDE_HOME"])
+    home.mkdir()
+    os.mkfifo(home / "CLAUDE.md")
+    policy = gates(sb.ship("status", "--json", timeout=20))["policy"]
+    assert policy["state"] == "fail", policy
+    assert policy["detail"].startswith("cannot read $CLAUDE_HOME/CLAUDE.md"), policy
+    assert "named pipe" in policy["detail"]
+    done = sb.ship("merge", "--grace", "0", "--timeout", "1", timeout=20)
+    assert done.returncode == 3, done.stdout + done.stderr
+    assert sb.calls("pr merge") == [] and sb.calls("pr ready") == []
+    assert last_line(done) == f"STOP: policy: {policy['detail']}. Ask the user."
+
+
+def test_a_project_claude_md_that_is_a_folder_is_named(sb):
+    sb.passed()
+    (sb.work / "CLAUDE.local.md").mkdir()
+    policy = gates(sb.ship("status", "--json", timeout=20))["policy"]
+    assert policy["state"] == "fail", policy
+    assert policy["detail"].startswith("cannot read CLAUDE.local.md (a folder"), policy
+
+
+def test_a_linked_user_level_claude_md_is_still_read(sb):
+    sb.passed()
+    home = Path(sb.env["CLAUDE_HOME"])
+    home.mkdir()
+    real = home.parent / "dotfiles-claude.md"
+    real.write_text("Merges: ask first\n")
+    (home / "CLAUDE.md").symlink_to(real)
+    assert "user-level" in refused(sb, "policy", 3).stdout
 
 
 # ---------------------------------------------------------------- merge
