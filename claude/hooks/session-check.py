@@ -173,23 +173,33 @@ def could_not_run(reason, advice, data):
 
 
 def stop(p):
-    """End the checker and all it started, also what left its process group."""
-    for _ in range(10):
-        try:
-            os.killpg(p.pid, signal.SIGKILL)
-        except OSError:
-            with contextlib.suppress(OSError):
-                p.kill()
-        left = descendants(os.getpid())
-        for pid in left:
-            with contextlib.suppress(OSError):
-                os.kill(pid, signal.SIGKILL)
-        with contextlib.suppress(subprocess.TimeoutExpired, OSError):
-            p.wait(timeout=1)
-        reap()
-        if not left:
-            return
-        time.sleep(0.01)  # let what was just killed end before looking again
+    """End the checker and all it started, also what left its process group.
+
+    Takes at most about a second; a stop signal that comes meanwhile waits
+    until the end, so it cannot cut this short.
+    """
+    stops = {getattr(signal, name) for name in STOP_SIGNALS}
+    signal.pthread_sigmask(signal.SIG_BLOCK, stops)
+    try:
+        end = time.monotonic() + 1
+        while True:
+            try:
+                os.killpg(p.pid, signal.SIGKILL)
+            except OSError:
+                with contextlib.suppress(OSError):
+                    p.kill()
+            left = descendants(os.getpid())
+            for pid in left:
+                with contextlib.suppress(OSError):
+                    os.kill(pid, signal.SIGKILL)
+            with contextlib.suppress(subprocess.TimeoutExpired, OSError):
+                p.wait(timeout=max(end - time.monotonic(), 0.01))
+            reap()
+            if not left or time.monotonic() >= end:
+                return
+            time.sleep(0.01)  # let what was just killed end before looking again
+    finally:
+        signal.pthread_sigmask(signal.SIG_UNBLOCK, stops)
 
 
 def run_checker(checker, env):
@@ -230,7 +240,8 @@ def main():
     data = {}
     try:
         data = hook_input()
-        if data.get("source", "startup") != "startup":
+        source = data.get("source")
+        if isinstance(source, str) and source != "startup":
             return  # a resume, /clear or a compaction: no session starts
         adopt_orphans()
         check(data)

@@ -308,8 +308,9 @@ def test_says_nothing_when_no_session_starts(home, source):
     assert run(home, stdin=stdin) == "" and logged(home) == []
 
 
-def test_runs_when_the_input_names_no_source(home):
-    stdin = '{"session_id": "s1", "hook_event_name": "SessionStart"}'
+@pytest.mark.parametrize("source", ["", ', "source": null', ', "source": 1'])
+def test_runs_when_the_input_names_no_source(home, source):
+    stdin = '{"session_id": "s1", "hook_event_name": "SessionStart"%s}' % source
     assert said(run(home, checker(("fail", "broken")), stdin=stdin))
 
 
