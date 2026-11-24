@@ -31,7 +31,7 @@ subject = next((ln.strip() for ln in lines if ln.strip()), "")
 in_worktree = "/.claude/worktrees/" in sys.argv[2] + "/"
 
 def fail(rule, why, step):
-    print(f"commit-msg: {why} [{rule}]\n  subject: {subject}\nNext: {step}", file=sys.stderr)
+    print(f"commit-msg: subject: {subject}\ncommit-msg: {why} [{rule}]\nNext: {step}", file=sys.stderr)
     try:  # one line in the kit's event log; a log that cannot be written changes nothing
         subprocess.run([sys.executable, sys.argv[3], "commit-msg", "block", rule, why], timeout=10,
                        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

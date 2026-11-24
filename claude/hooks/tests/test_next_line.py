@@ -376,6 +376,10 @@ def test_a_commit_msg_refusal_ends_with_its_next_step(repo, msg, rule, step):
     p = repo.commit(msg)
     assert p.returncode != 0
     ends_with_next(p.stderr, rule, step)
+    # The subject comes first, so the rule id sits right above the step.
+    lines = p.stderr.splitlines()
+    assert lines[-2].endswith(f"[{rule}]"), p.stderr
+    assert lines[-3] == "commit-msg: subject: " + msg.splitlines()[0], p.stderr
 
 
 def test_a_secret_refusal_names_the_next_step(repo):
