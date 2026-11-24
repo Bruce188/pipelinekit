@@ -88,7 +88,7 @@ Edit the copy in `~/.claude/config/` to change it for your machine. The installe
 | Hook | What it does |
 |------|--------------|
 | `commit-msg` | Conventional commits (`feat fix refactor docs test chore perf style build ci revert`, scopes, `!`). Rejects wip (outside `.claude/worktrees/`), AI attribution and emoji. Lets `Merge`, `Revert "`, `fixup!`/`squash!`/`amend!` through |
-| `pre-commit` | Refuses a commit that adds or changes a path on the [never-stage list](#the-never-stage-list). Then a `gitleaks` scan of staged changes. Warns and allows if gitleaks is missing. `PIPELINEKIT_ALLOW_SECRET=1` skips one commit. Then the [file size limit](#file-size-limit) |
+| `pre-commit` | Refuses a commit that adds or changes a path on the [never-stage list](#the-never-stage-list). Then a `gitleaks` scan of staged changes. Warns and allows if gitleaks is missing. `PIPELINEKIT_ALLOW_SECRET=1` lets one commit through a finding or a failed scan; the scan still runs. Then the [file size limit](#file-size-limit) |
 | `pre-merge-commit` | Run by `git merge` before it records a merge it made without conflicts, which skips `pre-commit`: the same `gitleaks` scan of what the merge brings in, with the same `PIPELINEKIT_ALLOW_SECRET=1` override for one merge, and the same [file size limit](#file-size-limit) on the merged files. A refused merge is left unfinished. `git merge --no-verify` skips it, as `git commit --no-verify` skips `pre-commit` |
 | `pre-push` | Refuses pushes to `main`/`master`. `ALLOW_MAIN_PUSH=1` overrides (humans only; bash-guard refuses it for Claude) |
 
@@ -113,7 +113,7 @@ The log is `~/.local/state/pipelinekit/events.jsonl`. `$XDG_STATE_HOME` moves it
 
 | Rule id | Hook | Kind | When |
 |---------|------|------|------|
-| `parse.unparsable` | `bash-guard` | block | The command could not be parsed, for example unbalanced quotes |
+| `parse.unparsable` | `bash-guard` | block | The command could not be parsed, for example unbalanced quotes, or it holds a NUL character |
 | `git.no-verify` | `bash-guard` | block | `--no-verify`, or `git commit -n` |
 | `git.hookspath-option` | `bash-guard` | block | `git -c core.hooksPath=...` |
 | `git.config-hookspath` | `bash-guard` | block | Changing `core.hooksPath`, also through a `GIT_CONFIG_*` variable |
@@ -124,7 +124,7 @@ The log is `~/.local/state/pipelinekit/events.jsonl`. `$XDG_STATE_HOME` moves it
 | `git.push-protected` | `bash-guard` | block | A direct push to `main` or `master` |
 | `git.push-all` | `bash-guard` | block | `git push --all`, `--mirror` or `--branches` |
 | `git.never-stage` | `bash-guard` | block | Staging a path on the never-stage list, also through `git commit -a` or `git commit <path>` |
-| `git.never-stage-missing` | `bash-guard` | block | The never-stage list is missing, so nothing is staged |
+| `git.never-stage-missing` | `bash-guard` | block | The never-stage list is missing or is not a regular file (a named pipe, for example), so nothing is staged |
 | `git.bulk-staging` | `bash-guard` | block | `git add -A`, `git add .`, `git commit -a` and other bulk staging |
 | `git.add-expansion` | `bash-guard` | block | A `git add` path with `$` or a backtick in it |
 | `git.pathspec-file` | `bash-guard` | block | `--pathspec-from-file` on `git add` or `git commit` |
@@ -149,7 +149,7 @@ The log is `~/.local/state/pipelinekit/events.jsonl`. `$XDG_STATE_HOME` moves it
 | `pre-commit.never-stage-failed` | `pre-commit` | error | The never-stage check failed, for example because the list is missing, so staged paths were not checked |
 | `pre-commit.secret` | `pre-commit`, `pre-merge-commit` | block | gitleaks found a secret in the staged changes or in what a merge brings in |
 | `pre-commit.gitleaks-failed` | `pre-commit`, `pre-merge-commit` | error | gitleaks itself failed |
-| `pre-commit.allow-secret` | `pre-commit`, `pre-merge-commit` | override | `PIPELINEKIT_ALLOW_SECRET=1` skipped the scan |
+| `pre-commit.allow-secret` | `pre-commit`, `pre-merge-commit` | override | `PIPELINEKIT_ALLOW_SECRET=1` let a finding or a failed scan through. A clean scan logs nothing |
 | `pre-commit.file-size` | `pre-commit`, `pre-merge-commit` | block | The commit or merge adds a file over the [file size limit](file-size.html) or takes one past it |
 | `pre-commit.file-size-over` | `pre-commit`, `pre-merge-commit` | warning, not logged | A file already over the limit changed; the commit or merge goes on |
 | `pre-commit.file-size-exempt-local` | `pre-commit`, `pre-merge-commit` | override | A file over the limit passes only because the unstaged `.file-size-exempt` in the working tree lists it |
