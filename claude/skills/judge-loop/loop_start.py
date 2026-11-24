@@ -663,7 +663,19 @@ def no_history(
     )
 
 
-def prepare(args):
+def on_base(base, starting, stack):
+    """The refusal of a build loop or skip on its base branch."""
+    if stack:
+        top = show_branch(stack["prs"][-1]["branch"])
+        then = f"git switch {top} (the top of the stack), then the same command"
+    else:
+        then = "git switch -c <work branch>, then the same command"
+        if starting:
+            then += "; for a plan loop, loop.py start plan --name <issue>-<slug>"
+    return Exit(2, f"Refused: {show_branch(base)} is the base branch. Next: {then}.")
+
+
+def prepare(args, stack=None, starting=False):
     """The checks `start` and `skip` share, in their fixed order."""
     kind = getattr(args, "loop_kind", "build")
     if kind == "build" and getattr(args, "name", None) is not None:
@@ -711,11 +723,7 @@ def prepare(args):
             "<branch>.",
         )
     if kind == "build" and ctx.branch == base:
-        raise Exit(
-            2,
-            f"Refused: {show_branch(base)} is the base branch. "
-            "Next: git switch -c <work branch>, then the same command.",
-        )
+        raise on_base(base, starting, stack)
     if kind == "build":
         name = slug(ctx.branch)
         if not NAME.fullmatch(name):
@@ -839,7 +847,7 @@ def cmd_start(args):
 
         stack = stack_args(args, loop_stack)
     ctx, kind, name, base, base_ref, base_sha, source, switches, said, size = prepare(
-        args
+        args, stack, starting=True
     )
     if kind == "build" and size.files == 0:
         raise Exit(

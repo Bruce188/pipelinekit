@@ -506,6 +506,10 @@ IS_BASE = (
     "Refused: main is the base branch. "
     "Next: git switch -c <work branch>, then the same command."
 )
+START_ON_BASE = (
+    "Refused: main is the base branch. Next: git switch -c <work branch>, then the "
+    "same command; for a plan loop, loop.py start plan --name <issue>-<slug>."
+)
 BAD_PLAN = (
     "Refused: {v} cannot name a judge record "
     "(letters, digits, '.', '_', '-'; at most 80). Next: {t}."
@@ -520,14 +524,14 @@ REFUSALS = [
     # id, set-up, command, exit, last line (or its start)
     ("build --name", missing_plan, ("start", "build", "--name", "x"), 2, BUILD_NAME),
     ("build --name detached", detach, ("start", "build", "--name", "x"), 2, BUILD_NAME),
-    ("start on main", on_main, ("start", "build"), 2, IS_BASE),
+    ("start on main", on_main, ("start", "build"), 2, START_ON_BASE),
     ("skip on main", on_main, ("skip", "--reason", "x"), 2, IS_BASE),
     (
         "start on main, no remote",
         on_main_without_remote,
         ("start", "build"),
         2,
-        IS_BASE,
+        START_ON_BASE,
     ),
     (
         "skip on main, no remote",
@@ -539,6 +543,7 @@ REFUSALS = [
     ("build detached", detach, ("start", "build"), 2, NO_BRANCH),
     ("plan without a name", None, ("start", "plan"), 2, NO_PLAN_NAME),
     ("plan detached, no name", detach, ("start", "plan"), 2, NO_PLAN_NAME),
+    ("plan on main, no name", on_main, ("start", "plan"), 2, NO_PLAN_NAME),
     (
         "plan ../x",
         None,
@@ -651,6 +656,17 @@ def test_a_plan_on_a_detached_head(sb):
     detach(sb)
     run = sb.run("start", "plan", "--name", "x")
     assert run.code == 0, run
+
+
+@pytest.mark.parametrize("setup", [on_main, on_main_without_remote])
+def test_a_plan_with_a_name_starts_on_the_base_branch(sb, setup):
+    setup(sb)
+    run = sb.run("start", "plan", "--name", "p1")
+    assert run.code == 0, run
+    assert "Loop: plan p1 in docs/loops/p1/plan/" in run.lines
+    st = sb.state("plan", "p1")
+    assert (st["branch"], st["base"]) == ("main", "main")
+    assert not (sb.root / "docs" / "loops" / "main").exists()
 
 
 def test_a_plan_without_a_name_opens_no_loop(sb):

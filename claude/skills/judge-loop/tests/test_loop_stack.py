@@ -185,6 +185,19 @@ def test_a_stack_starts_on_its_top_branch(sb):
     )
 
 
+def test_a_stack_on_its_base_branch_names_its_top_branch(sb):
+    path = build_stack(sb)
+    sb.git("checkout", "-q", "main")
+    run = sb.run("start", "build", "--stack", path)
+    ends(
+        run,
+        2,
+        "Refused: main is the base branch. Next: git switch feat/12-b (the top of "
+        "the stack), then the same command.",
+    )
+    assert not (sb.root / "docs" / "loops").exists()
+
+
 def test_each_branch_of_a_stack_holds_the_one_below(sb):
     path = build_stack(sb)
     sb.git("checkout", "-q", "feat/11-a")
