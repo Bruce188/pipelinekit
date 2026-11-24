@@ -189,6 +189,11 @@ kit used to ship, so those parts are gone.
   request, without a note.
 - The installer leaves the `judge-loop` tests in the repo, and `/kit` no
   longer expects them in `~/.claude/skills/judge-loop/`.
+- A command whose new `state.json` would be too big to save puts back what it
+  changed in the loop folder: the files it wrote or moved (such as a brief's
+  judge files) and, for `start`, the earlier loop it moved aside. The refusal
+  says how many files were put back, or which could not be; once the cause
+  is fixed, the same command runs as if the first try had not happened.
 
 ### Security
 
