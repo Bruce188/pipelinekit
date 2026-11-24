@@ -3,7 +3,6 @@
 # ruff: noqa: F403, F405
 from __future__ import annotations
 
-import calendar
 import importlib.util
 import json
 import os
@@ -11,9 +10,9 @@ import re
 import subprocess
 import sys
 import tempfile
-import time
 
 from check_base import *
+from check_events import *
 
 # ---------------------------------------------------------------- checks
 
@@ -773,61 +772,3 @@ def probe(c: Check) -> None:
             if probe_results(c, "pre-push", results):
                 expected.append(("pre-push", "pre-push.protected-branch"))
         log_check()
-
-
-# ---------------------------------------------------------------- event log
-
-
-def state_dir() -> str:
-    """Where the hooks keep their event log (the same rule as kitlog.py)."""
-    explicit = os.environ.get("PIPELINEKIT_STATE_DIR")
-    if explicit:
-        return explicit
-    base = os.environ.get("XDG_STATE_HOME") or os.path.join(
-        os.path.expanduser("~"), ".local", "state"
-    )
-    return os.path.join(base, "pipelinekit")
-
-
-def event_time(ts: object) -> int | None:
-    if not isinstance(ts, str):
-        return None
-    try:
-        return calendar.timegm(time.strptime(ts, "%Y-%m-%dT%H:%M:%SZ"))
-    except ValueError:
-        return None
-
-
-def read_events(directory: str) -> list[dict]:
-    """Every well-formed event in the log, older file first. Never raises."""
-    events = []
-    for name in ("events.jsonl.1", "events.jsonl"):
-        path = os.path.join(directory, name)
-        if not os.path.isfile(path):
-            continue
-        try:
-            with open(path, "rb") as f:
-                raw = f.read(MAX_LOG_BYTES)
-        except OSError:
-            continue
-        for line in raw.split(b"\n"):
-            try:
-                e = json.loads(line.decode("utf-8", "replace"))
-            except (ValueError, RecursionError):
-                continue
-            if not isinstance(e, dict):
-                continue
-            kind, hook, rule = e.get("kind"), e.get("hook"), e.get("rule")
-            when = event_time(e.get("ts"))
-            if (
-                isinstance(kind, str)
-                and kind in EVENT_KINDS
-                and isinstance(hook, str)
-                and EVENT_HOOK.match(hook)
-                and isinstance(rule, str)
-                and EVENT_RULE.match(rule)
-                and when is not None
-            ):
-                e["when"] = when
-                events.append(e)
-    return events

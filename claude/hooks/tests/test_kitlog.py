@@ -67,6 +67,33 @@ def test_only_the_owner_can_read_the_log(state):
     assert mode(state / "events.jsonl") == 0o600
 
 
+def test_a_log_made_before_is_made_private(state):
+    state.mkdir(mode=0o755)
+    state.chmod(0o755)
+    log = state / "events.jsonl"
+    log.write_text("")
+    log.chmod(0o644)
+    old = state / "events.jsonl.1"
+    old.write_text("")
+    assert kitlog.log("bash-guard", "ask", "sql.destructive", "x")
+    assert mode(state) == 0o700 and mode(log) == 0o600
+
+
+def test_a_directory_that_holds_other_files_keeps_its_mode(state):
+    state.mkdir()
+    state.chmod(0o755)
+    (state / "notes.txt").write_text("mine")
+    assert kitlog.log("bash-guard", "ask", "sql.destructive", "x")
+    assert mode(state) == 0o755 and mode(state / "events.jsonl") == 0o600
+
+
+def test_a_shared_directory_keeps_its_mode(state):
+    state.mkdir()
+    state.chmod(0o1777)
+    assert kitlog.log("bash-guard", "ask", "sql.destructive", "x")
+    assert mode(state) == 0o1777 and mode(state / "events.jsonl") == 0o600
+
+
 def test_reason_is_one_clean_line_without_credentials(state):
     reason = "push to\n\x1b[31m https://user:s3cret@example.com/o/r.git " + "x" * 900
     kitlog.log("bash-guard", "block", "git.push-remote", reason)
@@ -101,6 +128,33 @@ def test_rotation_keeps_one_older_file(state, monkeypatch):
     assert mode(old) == 0o600 and mode(cur) == 0o600
     last = json.loads(cur.read_text().splitlines()[-1])
     assert last["reason"] == "event 29"
+
+
+@pytest.mark.parametrize("how", ["directory in the way", "read-only directory"])
+def test_a_log_that_cannot_be_moved_still_records_up_to_a_limit(
+    state, monkeypatch, how
+):
+    if how == "read-only directory" and os.geteuid() == 0:
+        pytest.skip("root writes into a read-only directory")
+    monkeypatch.setattr(kitlog, "MAX_BYTES", 400)
+    monkeypatch.setattr(kitlog, "MAX_UNROTATED", 1600)
+    assert kitlog.log("bash-guard", "block", "git.no-verify", "first")
+    if how == "directory in the way":
+        (state / "events.jsonl.1").mkdir()
+    else:
+        state.chmod(0o500)
+    cur = state / "events.jsonl"
+    try:
+        written = [
+            kitlog.log("bash-guard", "block", "git.no-verify", f"event {i}")
+            for i in range(40)
+        ]
+    finally:
+        state.chmod(0o700)
+    assert written[:8] == [True] * 8  # well past 400 bytes
+    assert written[-1] is False  # but not past the limit
+    assert 1600 <= cur.stat().st_size < 1600 + kitlog.MAX_LINE
+    assert not (state / "events.jsonl.1").is_file()
 
 
 def test_switched_off(state, monkeypatch):
@@ -156,6 +210,26 @@ def test_default_location_follows_xdg(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     want = tmp_path / "home" / ".local" / "state" / "pipelinekit" / "events.jsonl"
     assert kitlog.log_path() == str(want)
+
+
+@pytest.mark.parametrize(
+    "explicit,xdg,want",
+    [
+        ("~/kit-state", "", "home/kit-state"),
+        ("kit-state", "", "home/.local/state/pipelinekit"),
+        ("./kit-state", "~/xdg", "home/xdg/pipelinekit"),
+        ("", "xdg", "home/.local/state/pipelinekit"),
+        ("", "~", "home/pipelinekit"),
+    ],
+)
+def test_a_tilde_is_expanded_and_a_relative_path_is_not_used(
+    tmp_path, monkeypatch, explicit, xdg, want
+):
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("PIPELINEKIT_STATE_DIR", explicit)
+    monkeypatch.setenv("XDG_STATE_HOME", xdg)
+    monkeypatch.chdir(tmp_path)
+    assert kitlog.state_dir() == str(tmp_path / want)
 
 
 def cli(state, *args):

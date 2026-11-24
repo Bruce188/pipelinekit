@@ -165,7 +165,7 @@ CLAUDE_HOME="$CLAUDE_HOME" bash "$REPO_ROOT/scripts/verify.sh" >/dev/null
 # The session-start check has nothing to say about a fresh install.
 [ -z "$(echo '{}' | "$CLAUDE_HOME/hooks/session-check.py")" ]
 # The checker's modules are installed, and running it leaves no cache file there.
-for f in check_base.py check_core.py; do test -f "$CLAUDE_HOME/skills/kit/$f"; done
+for f in check_base.py check_core.py check_events.py; do test -f "$CLAUDE_HOME/skills/kit/$f"; done
 test -f "$CLAUDE_HOME/hooks/filesize.py"
 test ! -e "$CLAUDE_HOME/skills/kit/__pycache__"
 # Its live probe has pre-commit refuse a file over the size limit, which logs

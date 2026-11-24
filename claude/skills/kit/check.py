@@ -212,94 +212,6 @@ def check_environment(c: Check) -> None:
         )
 
 
-# ---------------------------------------------------------------- activity
-
-
-def check_activity(c: Check) -> None:
-    """What the hooks blocked, asked about, let through or failed on."""
-    off = os.environ.get("PIPELINEKIT_LOG") == "0"
-    if off:
-        c.add("activity", "info", "the event log is switched off (PIPELINEKIT_LOG=0)")
-    now = time.time()
-    since = now - c.days * 86400
-    directory = state_dir()
-    logs = [os.path.join(directory, n) for n in ("events.jsonl.1", "events.jsonl")]
-    # A log that is there and cannot be read is named, not taken for empty.
-    lost = [
-        p
-        for p in logs
-        if os.path.lexists(p) and not (os.path.isfile(p) and os.access(p, os.R_OK))
-    ]
-    if os.path.lexists(directory) and not (
-        os.path.isdir(directory) and os.access(directory, os.R_OK | os.X_OK)
-    ):
-        lost = [directory]
-    for path in lost:
-        c.add("activity", "info", f"the event log cannot be read: {clean(path)}")
-    seen: set[tuple] = set()
-    groups: dict[tuple[str, str, str], dict] = {}
-    for e in read_events(directory):
-        # An event from the future was written by a clock that was wrong.
-        if e["when"] < since or e["when"] > now + 300:
-            continue
-        if c.session and e.get("session") != c.session:
-            continue
-        key = (e["hook"], e["rule"], e["kind"])
-        call = e.get("tool_use_id")
-        if isinstance(call, str) and call:
-            # One command can trip the same rule once per program in it.
-            if (call, *key) in seen:
-                continue
-            seen.add((call, *key))
-        g = groups.setdefault(key, {"count": 0, "last": -1, "reason": ""})
-        g["count"] += 1
-        if e["when"] >= g["last"]:
-            g["last"] = e["when"]
-            g["reason"] = clean(e.get("reason") or "", 200)
-    if not groups:
-        if not off and not lost:
-            c.add("activity", "info", f"no blocks, asks or hook errors ({c.window})")
-        return
-    ordered = sorted(groups.items(), key=lambda kv: (-kv[1]["last"], kv[0]))
-    hidden: list[str] = []
-    extra = 0
-    for n, ((hook, rule, kind), g) in enumerate(ordered):
-        when = time.gmtime(g["last"])
-        c.activity.append(
-            {
-                "hook": hook,
-                "rule": rule,
-                "kind": kind,
-                "count": g["count"],
-                "last": time.strftime("%Y-%m-%dT%H:%M:%SZ", when),
-                "reason": g["reason"],
-            }
-        )
-        if n >= ACTIVITY_LINES:
-            # A failed hook is not dropped for newer blocks.
-            if kind != "error" or extra >= ACTIVITY_LINES:
-                hidden.append(kind)
-                continue
-            extra += 1
-        times = "once" if g["count"] == 1 else f"{g['count']} times"
-        msg = (
-            f"{rule} ({hook}): {EVENT_KINDS[kind]} {times}, "
-            f"last {time.strftime('%Y-%m-%d %H:%M UTC', when)}"
-        )
-        if g["reason"]:
-            msg += f": {g['reason']}"
-        c.add("activity", "warn" if kind == "error" else "info", msg)
-    if hidden:
-        failed = hidden.count("error")
-        c.add(
-            "activity",
-            "warn" if failed else "info",
-            f"{plural(len(hidden), 'more rule')} not shown"
-            + (f", {failed} of them failed" if failed else "")
-            + " (--json lists them all)",
-        )
-
-
 # ---------------------------------------------------------------- report
 
 
@@ -572,14 +484,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--exit-zero", action="store_true", help="exit 0 whatever is found")
     ap.add_argument(
         "--days",
-        type=int,
-        default=7,
+        default="7",
         metavar="N",
         help="activity of the last N days (1 to 365, default 7)",
     )
     ap.add_argument(
         "--session",
-        default="",
+        default=None,
         metavar="ID",
         help="activity of one Claude Code session only",
     )
@@ -590,9 +501,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument("--write-manifest", metavar="REPO_ROOT", help=argparse.SUPPRESS)
     args = ap.parse_args(argv)
-    if not 1 <= args.days <= 365:
+    # int() would also take " 7 ", "+7" and digits of other scripts.
+    if not re.fullmatch(r"[0-9]{1,3}", args.days) or not 1 <= int(args.days) <= 365:
         ap.error("--days takes a whole number from 1 to 365")
-    if args.session and not SESSION.fullmatch(args.session):
+    if args.session is not None and not SESSION.fullmatch(args.session):
         ap.error("--session takes a session id (letters, digits, - and _)")
     home = os.environ.get("CLAUDE_HOME") or os.path.join(
         os.path.expanduser("~"), ".claude"
@@ -600,7 +512,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.write_manifest:
         write_manifest(args.write_manifest, home)
         return 0
-    c = run_checks(home, args.quick, args.days, args.session, not args.no_remote)
+    days, session = int(args.days), args.session or ""
+    c = run_checks(home, args.quick, days, session, not args.no_remote)
     print(render_json(c) if args.json else render_text(c, args.verbose))
     return 0 if args.exit_zero or c.count("fail") == 0 else 1
 

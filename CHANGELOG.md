@@ -299,6 +299,13 @@ kit used to ship, so those parts are gone.
 - docs-writer: widgets and template features (search from `file://`, the
   mobile ToC button, comparison tabs, terminal simulator) now work.
 - `mobile` skill: an example path contained a personal home directory.
+- Event log: a log or state directory made before with a wider mode is made
+  private; a `~` in `PIPELINEKIT_STATE_DIR` or `XDG_STATE_HOME` is expanded and
+  a relative path is not used; a log that cannot be rotated keeps taking events
+  up to 4 MB. `commit-msg` prints the subject above the line with the rule id.
+- `/kit` Activity: an unreadable or unrotated log is a `[warn]`, skipped lines
+  and events dated after now are counted, a large log is read from its end,
+  and `--days` and `--session` refuse values such as ` 7 `, `+7` and `''`.
 
 ### Removed
 

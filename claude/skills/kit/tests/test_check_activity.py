@@ -135,6 +135,7 @@ def test_damaged_log_lines_are_skipped(kit):
     assert rc == 0, out
     assert "check failed" not in out and "Traceback" not in out
     assert activity_rules(out) == ["git.push-protected"]
+    assert "[info] 11 lines of the event log skipped: " in out
     (line,) = [ln for ln in out.splitlines() if "git.push-protected" in ln]
     assert "\x1b" not in out and len(line) < 330
     rc, out = check(kit, "--json")
@@ -214,6 +215,8 @@ def test_event_log_formats_match_the_hooks(monkeypatch, tmp_path):
         {"PIPELINEKIT_STATE_DIR": str(tmp_path / "a")},
         {"XDG_STATE_HOME": str(tmp_path / "b")},
         {},
+        {"PIPELINEKIT_STATE_DIR": "~/c", "XDG_STATE_HOME": "~/d"},
+        {"PIPELINEKIT_STATE_DIR": "c", "XDG_STATE_HOME": "d"},
     )
     for case in cases:
         for k in ("PIPELINEKIT_STATE_DIR", "XDG_STATE_HOME"):
@@ -224,6 +227,9 @@ def test_event_log_formats_match_the_hooks(monkeypatch, tmp_path):
     assert check_py.EVENT_HOOK.pattern == kitlog.HOOK.pattern
     assert check_py.EVENT_RULE.pattern == kitlog.RULE.pattern
     assert tuple(check_py.EVENT_KINDS) == kitlog.KINDS
+    assert check_py.LOG_ROTATE_BYTES == kitlog.MAX_BYTES
+    assert check_py.LOG_MAX_LINE == kitlog.MAX_LINE
+    assert check_py.MAX_LOG_BYTES == kitlog.MAX_UNROTATED
 
 
 def test_a_failed_hook_is_shown_however_busy_the_log_is(kit):
@@ -248,12 +254,6 @@ def test_characters_the_report_cannot_show_do_not_end_it(kit):
     assert "commit-msg.emoji (commit-msg): blocked once" in out
 
 
-def test_events_from_the_future_are_left_out(kit):
-    write_events(kit, ev(age_days=-1), ev("sql.destructive", "ask"))
-    rc, out = check(kit, "--days", "30")
-    assert rc == 0 and activity_rules(out) == ["sql.destructive"], out
-
-
 def test_a_log_that_cannot_be_read_is_named(kit):
     if os.geteuid() == 0:
         pytest.skip("root reads every file")
@@ -261,8 +261,9 @@ def test_a_log_that_cannot_be_read_is_named(kit):
     (state(kit) / "events.jsonl").chmod(0)
     rc, out = check(kit)
     assert rc == 0, out
-    assert "[info] the event log cannot be read: " in out
+    assert "[warn] the event log cannot be read: " in out
     assert "no blocks, asks" not in out
+    assert out.rstrip().endswith("Result: working, 1 warning")
 
 
 @pytest.mark.parametrize("how", ["closed directory", "directory", "pipe"])
@@ -281,7 +282,7 @@ def test_a_log_that_is_there_is_not_called_empty(kit, how):
     finally:
         state(kit).chmod(0o700)
     assert rc == 0, out
-    assert "[info] the event log cannot be read: " in out
+    assert "[warn] the event log cannot be read: " in out
     assert "no blocks, asks" not in out
 
 
