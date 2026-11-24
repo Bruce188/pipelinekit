@@ -284,6 +284,22 @@ def test_a_ten_with_a_blocking_item_has_its_own_hint(sb):
     ), run
 
 
+def test_evidence_without_a_place_says_the_form(sb):
+    sb.start_build()
+    assert sb.run("brief").code == 0
+    vague = result(9, improvements=[item("I1", evidence="somewhere vague")])
+    run = sb.save("general", vague)
+    assert (run.code, run.last) == (
+        3,
+        "STOP: not a score from general (improvements[1].evidence: names no "
+        "file:line or plan section). Next: have that judge give each item evidence "
+        "that names a place: a file:line such as app.py:42, a plan section such as "
+        "plan.md ## Steps, or a criterion such as criterion 2; write it to "
+        "docs/loops/feat-1-x/build/judge/in/r1_general.txt, loop.py save general.",
+    ), run
+    assert sb.save("general", result(9)).code == 0
+
+
 def test_every_option_has_help():
     top = loop.parser()
     subs = next(a for a in top._actions if isinstance(a, argparse._SubParsersAction))

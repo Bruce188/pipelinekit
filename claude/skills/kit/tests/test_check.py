@@ -617,6 +617,43 @@ def test_only_a_folder_with_skill_md_counts_as_a_skill(tmp_path, monkeypatch):
     assert [f for f in m["files"] if f.startswith("skills/")] == skills
 
 
+def test_the_tests_of_a_listed_skill_are_no_kit_files(tmp_path, monkeypatch):
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(tmp_path / "gitconfig"))
+    src = tmp_path / "repo" / "claude"
+    for d in ("hooks", "git-hooks", "config", "skills/judge-loop/tests/fixtures"):
+        (src / d).mkdir(parents=True)
+    for d in ("skills/docs-writer/tests", "skills/judge-loop/lib/tests"):
+        (src / d).mkdir(parents=True)
+    (src / "config" / "settings.template.json").write_text("{}\n")
+    for rel in (
+        "judge-loop/SKILL.md",
+        "judge-loop/loop.py",
+        "judge-loop/lib/tests/kept.py",
+        "judge-loop/tests/conftest.py",
+        "judge-loop/tests/test_loop.py",
+        "judge-loop/tests/fixtures/case.json",
+        "docs-writer/SKILL.md",
+        "docs-writer/tests/test_render.sh",
+    ):
+        (src / "skills" / rel).write_text("")
+    repo = str(tmp_path / "repo")
+    skills = [f for f in check_py.kit_files(repo) if f.startswith("skills/")]
+    assert skills == [
+        "skills/docs-writer/SKILL.md",
+        "skills/docs-writer/tests/test_render.sh",
+        "skills/judge-loop/SKILL.md",
+        "skills/judge-loop/loop.py",
+        "skills/judge-loop/lib/tests/kept.py",
+    ]
+
+
+def test_skills_without_tests_match_the_installer():
+    text = (REPO / "scripts" / "install.sh").read_text()
+    listed = re.search(r"^NO_TESTS_SKILLS=\(([^)]*)\)", text, re.M).group(1).split()
+    assert listed == list(check_py.NO_TESTS_SKILLS)
+    assert set(listed) <= set(check_py.KIT_SKILLS)
+
+
 def test_agent_list_matches_the_repo_and_the_installer():
     in_repo = sorted(p.name for p in (REPO / "claude" / "agents").iterdir())
     assert sorted(check_py.KIT_AGENTS) == in_repo

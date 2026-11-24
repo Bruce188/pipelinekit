@@ -60,6 +60,8 @@ KIT_SKILLS = (
 )
 # A test keeps it equal to claude/agents/ and to the installer's list.
 KIT_AGENTS = ("kit-planner.md", "kit-builder.md", "kit-judge.md")
+# Their tests/ folder stays in the repo; a test keeps it equal to the installer's.
+NO_TESTS_SKILLS = ("judge-loop",)
 # The judge reads and never writes or runs anything.
 JUDGE_TOOLS = ("Read", "Grep", "Glob")
 PLACEHOLDERS = ("${USER_NAME}", "${USER_EMAIL}", "${CLAUDE_HOME}")
@@ -316,8 +318,10 @@ def kit_files(repo: str) -> list[str]:
         f"git-hooks/{n}" for n in sorted(os.listdir(os.path.join(src, "git-hooks")))
     ]
     for skill in skill_dirs(repo):
-        for root, dirs, files in os.walk(os.path.join(src, "skills", skill)):
-            dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
+        top = os.path.join(src, "skills", skill)
+        for root, dirs, files in os.walk(top):
+            skip = {"tests"} if root == top and skill in NO_TESTS_SKILLS else set()
+            dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS | skip)
             for n in sorted(files):
                 if not n.endswith(".pyc"):
                     out.append(os.path.relpath(os.path.join(root, n), src))

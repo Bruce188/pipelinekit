@@ -38,7 +38,7 @@ def test_judge_text_is_cleaned_where_it_is_printed(sb):
     entry = {
         "id": "I1",
         "problem": DIRTY_TEXT,
-        "evidence": "z" * 301,
+        "evidence": "z" * 301 + " app.py:1",
         "fix": DIRTY_TEXT,
         "check": DIRTY_TEXT,
     }
@@ -1008,7 +1008,7 @@ def test_a_role_file_names_its_dimensions_and_the_output(role):
         "Score in steps of 0.5.",
         "The score is 10 minus named items: no item, no deduction.",
         "List every gap now, not the top few.",
-        "a file and line, or the criterion it misses.",
+        "a `file:line`, or the plan section or criterion it misses.",
         "A dimension the work gives you nothing to judge on gets a 10 and no item.",
     ):
         assert words in output, words

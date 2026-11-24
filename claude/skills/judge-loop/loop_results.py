@@ -39,6 +39,13 @@ def _text(item, key, field):
     return value
 
 
+def names_a_place(text):
+    """True when evidence names a file:line or a section of the plan."""
+    if SECTION.search(text):
+        return True
+    return any(LETTER.search(m.group(1)) for m in FILE_LINE.finditer(text))
+
+
 def check_result(raw: bytes, role: str, open_ids=(), mode="full", prs=()) -> dict:
     """The result of one judge as a score, or NoScore with its reason.
 
@@ -111,6 +118,8 @@ def check_result(raw: bytes, role: str, open_ids=(), mode="full", prs=()) -> dic
                 "fix": _text(item, "fix", field),
                 "check": _text(item, "check", field),
             }
+            if not names_a_place(entry["evidence"]):
+                raise NoScore(f"{field}.evidence", NO_PLACE)
             if "needed_for_10" in item:
                 if not isinstance(item["needed_for_10"], bool):
                     raise NoScore(f"{field}.needed_for_10", WRONG_TYPE)

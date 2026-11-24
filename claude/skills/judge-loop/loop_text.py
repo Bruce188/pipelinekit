@@ -124,6 +124,7 @@ NOT_HALF_STEP = "not a step of 0.5"
 BELOW_NO_ITEM = "below 10 without an item"
 TEN_NOT_FULL = "a 10 without a full read"
 NOT_IN_STACK = "not a pull request of the stack"
+NO_PLACE = "names no file:line or plan section"
 WHY_PHRASES = (
     MISSING,
     WRONG_TYPE,
@@ -146,7 +147,18 @@ WHY_PHRASES = (
     BELOW_NO_ITEM,
     TEN_NOT_FULL,
     NOT_IN_STACK,
+    NO_PLACE,
 )
+# The evidence of an item names a place: a file:line (or a link's #L12), or a
+# section of the plan or of criteria.md: a section mark or a markdown heading,
+# the word section, a numbered step or a criterion. A file:line is a word of
+# path characters with a letter in it, so a time such as 10:30 is none.
+FILE_LINE = re.compile(r"(?<![\w.@+/-])([\w.@+/-]+)(?::\d|#L\d)")
+SECTION = re.compile(
+    r"\u00a7|(?:^|\s)#{1,6}\s+\S|\b(?:sections?|criteri(?:on|a)|step\s+\d+)\b",
+    re.IGNORECASE,
+)
+LETTER = re.compile(r"[^\W\d_]")
 # The reasons of `round` that name no field.
 NO_RESULT = "no result saved"
 SAVE_UNFINISHED = "the save did not finish"

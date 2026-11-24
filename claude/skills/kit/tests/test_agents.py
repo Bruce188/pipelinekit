@@ -222,8 +222,9 @@ def test_the_judge_reads_what_its_brief_names():
         "A `changes` brief: start from your last counted result and the delta; "
         "read only what changed and what it touches.",
         "First check that your own items of your last counted result are fixed.",
-        "Give evidence for every item: a `file:line`, a quote from the work, or "
-        "the criterion it misses.",
+        "Give evidence for every item that names a place: a `file:line` (with a "
+        "quote from the work if it helps), or the plan section or criterion it "
+        "misses. An answer with an item that names none of these is refused.",
         'Before you give a 10, read the whole work again and answer "read": "full".',
         "Your score is 10 minus named items",
         "List every gap you can find in this round, not the top few.",

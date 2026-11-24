@@ -249,10 +249,19 @@ def plain_base(ctx, value):
     return value
 
 
+# What gh says when there is no pull request to read: not a fault of gh.
+GH_NO_PULL_REQUEST = ("no pull requests found", "known GitHub host")
+
+
 def gh_base(ctx):
-    """The base branch of the pull request; None, with a note when gh misbehaved."""
+    """The base branch of the pull request; None, with a note when gh misbehaved.
+
+    Without a remote there is no pull request, so gh is not asked.
+    """
+    if not ctx.branch or not ctx.has_remote:
+        return None
     gh = shutil.which("gh")
-    if not gh or not ctx.branch:
+    if not gh:
         return None
     try:
         proc = subprocess.run(
@@ -268,9 +277,9 @@ def gh_base(ctx):
         return gh_note("did not run")
     if proc.returncode:
         said = proc.stderr.decode("utf-8", "replace")
-        if proc.returncode == 4 or "no pull requests found" not in said:
+        if proc.returncode == 4 or not any(s in said for s in GH_NO_PULL_REQUEST):
             return gh_note(f"failed (code {proc.returncode})")
-        return None  # no pull request for this branch
+        return None  # no pull request for this branch, or no GitHub remote
     try:
         data = json.loads(proc.stdout.decode("utf-8"))
     except ValueError:
