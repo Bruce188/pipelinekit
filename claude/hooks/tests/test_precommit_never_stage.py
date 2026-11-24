@@ -237,3 +237,23 @@ def test_a_missing_list_warns_and_lets_the_commit_through(tmp_path):
     assert "[pre-commit.never-stage-failed]" in p.stderr
     rules = [(e["kind"], e["rule"]) for e in repo.events()]
     assert rules == [("error", "pre-commit.never-stage-failed")]
+
+
+def test_a_named_pipe_as_list_warns_without_waiting(tmp_path):
+    kit = copied_kit(tmp_path)
+    (kit / "config").mkdir()
+    os.mkfifo(kit / "config" / "never-stage.txt")
+    repo = make_repo(tmp_path, kit)
+    repo.write("f.txt")
+    repo.add("f.txt")
+    p = subprocess.run(
+        ["git", "commit", "-q", "-m", "feat: change"],
+        cwd=repo.root,
+        env=repo.env,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert p.returncode == 0, p.stderr
+    assert "is not a regular file" in p.stderr
+    assert "[pre-commit.never-stage-failed]" in p.stderr

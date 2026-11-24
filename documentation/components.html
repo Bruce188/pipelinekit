@@ -957,7 +957,7 @@ footer {
 </tr>
 <tr>
 <td><code>pre-commit</code></td>
-<td>Refuses a commit that adds or changes a path on the <a href="#the-never-stage-list">never-stage list</a>. Then a <code>gitleaks</code> scan of staged changes. Warns and allows if gitleaks is missing. <code>PIPELINEKIT_ALLOW_SECRET=1</code> skips one commit. Then the <a href="#file-size-limit">file size limit</a></td>
+<td>Refuses a commit that adds or changes a path on the <a href="#the-never-stage-list">never-stage list</a>. Then a <code>gitleaks</code> scan of staged changes. Warns and allows if gitleaks is missing. <code>PIPELINEKIT_ALLOW_SECRET=1</code> lets one commit through a finding or a failed scan; the scan still runs. Then the <a href="#file-size-limit">file size limit</a></td>
 </tr>
 <tr>
 <td><code>pre-merge-commit</code></td>
@@ -994,7 +994,7 @@ Next: run the command without --no-verify or -n, and fix what the hook reports.
 <td><code>parse.unparsable</code></td>
 <td><code>bash-guard</code></td>
 <td>block</td>
-<td>The command could not be parsed, for example unbalanced quotes</td>
+<td>The command could not be parsed, for example unbalanced quotes, or it holds a NUL character</td>
 </tr>
 <tr>
 <td><code>git.no-verify</code></td>
@@ -1060,7 +1060,7 @@ Next: run the command without --no-verify or -n, and fix what the hook reports.
 <td><code>git.never-stage-missing</code></td>
 <td><code>bash-guard</code></td>
 <td>block</td>
-<td>The never-stage list is missing, so nothing is staged</td>
+<td>The never-stage list is missing or is not a regular file (a named pipe, for example), so nothing is staged</td>
 </tr>
 <tr>
 <td><code>git.bulk-staging</code></td>
@@ -1210,7 +1210,7 @@ Next: run the command without --no-verify or -n, and fix what the hook reports.
 <td><code>pre-commit.allow-secret</code></td>
 <td><code>pre-commit</code>, <code>pre-merge-commit</code></td>
 <td>override</td>
-<td><code>PIPELINEKIT_ALLOW_SECRET=1</code> skipped the scan</td>
+<td><code>PIPELINEKIT_ALLOW_SECRET=1</code> let a finding or a failed scan through. A clean scan logs nothing</td>
 </tr>
 <tr>
 <td><code>pre-commit.file-size</code></td>

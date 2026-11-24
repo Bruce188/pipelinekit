@@ -216,6 +216,13 @@ kit used to ship, so those parts are gone.
   `git add -f`, or earlier. It uses the same matcher as `bash-guard.py`
   (`bash-guard.py pre-commit`); a missing list warns and lets the commit
   through (`[pre-commit.never-stage-failed]`).
+- Fixed in the guard hooks: a named pipe at `config/never-stage.txt` no
+  longer makes `bash-guard.py` wait for a writer; only a regular file is read
+  (`[git.never-stage-missing]`). A command with a NUL character in it is
+  refused (`[parse.unparsable]`), as the part after the NUL was not checked.
+  `PIPELINEKIT_ALLOW_SECRET=1` no longer skips the secret scan: the scan runs,
+  and the override lets a finding or a failed scan through and is logged only
+  then, not for every commit.
 
 ### Added
 

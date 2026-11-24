@@ -114,10 +114,19 @@ check "finding names its rule" ok grep -q '\[pre-commit\.secret\]' "$TMP/last"
 check "log: pre-commit.secret" ok logged pre-commit block pre-commit.secret
 check "gitleaks error blocks" fail stubbed STUB_EXIT=1
 check "log: pre-commit.gitleaks-failed" ok logged pre-commit error pre-commit.gitleaks-failed
-: >"$TMP/gitleaks.argv"
-check "PIPELINEKIT_ALLOW_SECRET=1 skips" ok stubbed STUB_EXIT=3 PIPELINEKIT_ALLOW_SECRET=1
-check "opt-out never calls gitleaks" fail test -s "$TMP/gitleaks.argv"
-check "log: pre-commit.allow-secret" ok logged pre-commit override pre-commit.allow-secret
+last_is() { # last_is <hook> <kind> <rule>: the last event is such an event
+  tail -n 1 "$LOG" | grep -q "\"hook\":\"$1\",\"kind\":\"$2\",\"rule\":\"$3\""
+}
+: >"$TMP/gitleaks.argv"; n=$(events)
+check "PIPELINEKIT_ALLOW_SECRET=1, clean: allows" ok stubbed PIPELINEKIT_ALLOW_SECRET=1
+check "PIPELINEKIT_ALLOW_SECRET=1 still scans" ok test -s "$TMP/gitleaks.argv"
+check "PIPELINEKIT_ALLOW_SECRET=1, clean: nothing recorded" ok test "$(events)" = "$n"
+check "PIPELINEKIT_ALLOW_SECRET=1 lets a finding through" ok stubbed STUB_EXIT=3 PIPELINEKIT_ALLOW_SECRET=1
+check "PIPELINEKIT_ALLOW_SECRET=1, finding: one event" ok test "$(events)" = "$((n + 1))"
+check "log: pre-commit.allow-secret" ok last_is pre-commit override pre-commit.allow-secret
+check "PIPELINEKIT_ALLOW_SECRET=1 lets a failed scan through" ok stubbed STUB_EXIT=1 PIPELINEKIT_ALLOW_SECRET=1
+check "PIPELINEKIT_ALLOW_SECRET=1, failed scan: one event" ok test "$(events)" = "$((n + 2))"
+check "log: failed scan, pre-commit.allow-secret" ok last_is pre-commit override pre-commit.allow-secret
 printf '#!/bin/sh\nexit 1\n' >"$R/.git/hooks/pre-commit"; chmod +x "$R/.git/hooks/pre-commit"
 check "chains to .git/hooks/pre-commit" fail stubbed
 rm "$R/.git/hooks/pre-commit"
@@ -161,10 +170,17 @@ abort
 check "merge, gitleaks error blocks" fail merged STUB_EXIT=1
 check "merge, gitleaks error names its rule" ok grep -q '\[pre-commit\.gitleaks-failed\]$' "$TMP/last"
 check "merge, log: pre-commit.gitleaks-failed" ok logged pre-merge-commit error pre-commit.gitleaks-failed
-abort; : >"$TMP/gitleaks.argv"
-check "merge, PIPELINEKIT_ALLOW_SECRET=1 skips" ok merged STUB_EXIT=3 PIPELINEKIT_ALLOW_SECRET=1
-check "merge, opt-out never calls gitleaks" fail test -s "$TMP/gitleaks.argv"
-check "merge, log: pre-commit.allow-secret" ok logged pre-merge-commit override pre-commit.allow-secret
+abort; : >"$TMP/gitleaks.argv"; n=$(events)
+check "merge, PIPELINEKIT_ALLOW_SECRET=1, clean: allows" ok merged PIPELINEKIT_ALLOW_SECRET=1
+check "merge, PIPELINEKIT_ALLOW_SECRET=1 still scans" ok test -s "$TMP/gitleaks.argv"
+check "merge, PIPELINEKIT_ALLOW_SECRET=1, clean: nothing recorded" ok test "$(events)" = "$n"
+side
+check "merge, PIPELINEKIT_ALLOW_SECRET=1 lets a finding through" ok merged STUB_EXIT=3 PIPELINEKIT_ALLOW_SECRET=1
+check "merge, PIPELINEKIT_ALLOW_SECRET=1, finding: one event" ok test "$(events)" = "$((n + 1))"
+check "merge, log: pre-commit.allow-secret" ok last_is pre-merge-commit override pre-commit.allow-secret
+side
+check "merge, PIPELINEKIT_ALLOW_SECRET=1 lets a failed scan through" ok merged STUB_EXIT=1 PIPELINEKIT_ALLOW_SECRET=1
+check "merge, PIPELINEKIT_ALLOW_SECRET=1, failed scan: one event" ok test "$(events)" = "$((n + 2))"
 side; : >"$TMP/gitleaks.argv"; n=$(events)
 check "merge --no-verify skips the scan" ok merged STUB_EXIT=3 -- --no-verify
 check "merge --no-verify never calls gitleaks" fail test -s "$TMP/gitleaks.argv"
