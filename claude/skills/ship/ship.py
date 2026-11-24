@@ -204,7 +204,7 @@ def wait_for_ci(repo, timeout, grace, no_checks_ok=False):
         else:
             line = "waiting for GitHub to show the pushed commit"
         if line != shown:
-            print(line, file=sys.stderr, flush=True)
+            progress(line)
             shown = line
         nap(poll_seconds(), waited, timeout, *(() if pending else (grace,)))
 
@@ -346,7 +346,7 @@ def watch(repo, number, timeout, settle=0, marked=False, expected=False):
             if settle >= 1:
                 line = f"watching #{number} for {settle:g} s before the merge"
         if line != shown:
-            print(line, file=sys.stderr, flush=True)
+            progress(line)
             shown = line
         nap(step, waited, limit)
 
