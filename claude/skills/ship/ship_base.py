@@ -578,7 +578,7 @@ def ensure_ignored(repo):
 
     Returns why the exclude line could not be added, or an empty string.
     """
-    if repo.try_git("check-ignore", "-q", "docs/uat/record.json")[0] == 0:
+    if repo.try_git("check-ignore", "-q", "docs/uat/")[0] == 0:
         return ""
     rc, out, err = repo.try_git("rev-parse", "--git-path", "info/exclude")
     if rc:
