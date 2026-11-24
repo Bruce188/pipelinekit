@@ -507,6 +507,19 @@ fd_install
 B=("$FH"/.claude/pipelinekit/backup/*)
 grep -qx "a second file" "${B[0]}"
 fd_is_kit
+# nothing_copied: a stopped install copied no kit file and created no folder of
+# the kit's, and left no empty backup folder behind.
+nothing_copied() {
+  local p
+  for p in hooks git-hooks config skills/kit agents/kit-planner.md pipelinekit/manifest.json; do
+    if [ -e "$FH/.claude/$p" ]; then
+      echo "test_install: a stopped install left $p" >&2; exit 1
+    fi
+  done
+  if [ -d "$FH/.claude/pipelinekit/backup" ] && [ -z "$(ls -A "$FH/.claude/pipelinekit/backup")" ]; then
+    echo "test_install: a stopped install left an empty backup folder" >&2; exit 1
+  fi
+}
 # (h), (i): the own folder cannot be moved. The installer stops with one line of
 # its own, without mkdir's or mv's text, and leaves the folder as it was.
 fd_cannot_move() { # fd_cannot_move <tool whose text must not show>
@@ -517,7 +530,7 @@ fd_cannot_move() { # fd_cannot_move <tool whose text must not show>
   if [ "$rc" -eq 0 ]; then
     echo "test_install: install went on with an own folder it could not move" >&2; exit 1
   fi
-  if ! grep -qxF "[install][error] could not move your own skills/frontend-design to $FH/.claude/pipelinekit/backup. It is untouched and the skills were not installed. Move or rename it yourself, then run the installer again." "$FH/err"; then
+  if ! grep -qxF "[install][error] could not move your own skills/frontend-design to $FH/.claude/pipelinekit/backup. It is untouched and nothing of the kit was copied. Move or rename it yourself, then run the installer again." "$FH/err"; then
     echo "test_install: no line saying the own folder could not be moved" >&2; cat "$FH/err" >&2; exit 1
   fi
   if grep -qF "$1:" "$FH/err"; then
@@ -526,6 +539,7 @@ fd_cannot_move() { # fd_cannot_move <tool whose text must not show>
   if [ "$(ls -A "$own")" != "SKILL.md" ] || [ "$(cat "$own/SKILL.md")" != "my own, kept" ]; then
     echo "test_install: the own folder changed" >&2; exit 1
   fi
+  nothing_copied
 }
 
 # (h) The own folder and skills/ are read-only. Root is not stopped by the mode.
@@ -602,7 +616,7 @@ HOME="$FH" CLAUDE_HOME="$FH/.claude" GIT_CONFIG_GLOBAL="$FH/.gitconfig" \
 if [ "$rc" -eq 0 ]; then
   echo "test_install: install went on with an own agent it could not move" >&2; exit 1
 fi
-if [ "$(cat "$FH/err")" != "[install][error] could not move your own agents/kit-judge.md to $FH/.claude/pipelinekit/backup. It is untouched and the kit's kit-judge.md was not installed. Move or rename it yourself, then run the installer again." ]; then
+if [ "$(cat "$FH/err")" != "[install][error] could not move your own agents/kit-judge.md to $FH/.claude/pipelinekit/backup. It is untouched and nothing of the kit was copied. Move or rename it yourself, then run the installer again." ]; then
   echo "test_install: stderr is not the one line about the own agent" >&2; cat "$FH/err" >&2; exit 1
 fi
 if grep -qE '(mkdir|mv):' "$FH/err"; then
@@ -610,6 +624,7 @@ if grep -qE '(mkdir|mv):' "$FH/err"; then
 fi
 [ "$(cat "$FH/.claude/agents/kit-judge.md")" = "my own judge, kept" ]
 test -f "$FH/.claude/pipelinekit/backup"
+nothing_copied
 
 # (n) A folder named kit-planner.md holding one file: moved to a backup with its
 # file, and the kit's file is installed.
@@ -716,10 +731,53 @@ HOME="$FH" CLAUDE_HOME="$FH/.claude" GIT_CONFIG_GLOBAL="$FH/.gitconfig" \
 if [ "$rc" -eq 0 ]; then
   echo "test_install: install went on with own skill files it could not keep" >&2; exit 1
 fi
-if [ "$(cat "$FH/err")" != "[install][error] could not copy your own files in skills/docs-writer to $FH/.claude/pipelinekit/backup. They are untouched and the skills were not installed. Move them out of the folder yourself, then run the installer again." ]; then
+if [ "$(cat "$FH/err")" != "[install][error] could not copy your own files in skills/docs-writer to $FH/.claude/pipelinekit/backup. They are untouched and nothing of the kit was copied. Move them out of the folder yourself, then run the installer again." ]; then
   echo "test_install: stderr is not the one line about the own skill files" >&2; cat "$FH/err" >&2; exit 1
 fi
 [ "$(ls -A "$FH/.claude/skills/docs-writer")" = "my-notes.md" ]
 [ "$(cat "$FH/.claude/skills/docs-writer/my-notes.md")" = "my notes, kept" ]
 test -f "$FH/.claude/pipelinekit/backup"
+nothing_copied
+# (r) An own frontend-design folder put back after the first install, which
+# listed the skill: replaced like the kit's copy. A file the kit ships is
+# replaced without a backup; a file of the user's own is kept in one.
+fd_home r
+fd_install
+rm -rf "$FH/.claude/skills/frontend-design"
+mkdir "$FH/.claude/skills/frontend-design"
+echo "my own, put back" >"$FH/.claude/skills/frontend-design/SKILL.md"
+echo "my extra" >"$FH/.claude/skills/frontend-design/extra.md"
+fd_install || { echo "test_install: install failed with an own folder put back" >&2; cat "$FH/out" >&2; exit 1; }
+fd_is_kit
+[ "$(fd_backups)" -eq 1 ]
+B=("$FH"/.claude/pipelinekit/backup/skills-frontend-design-*)
+[ "$(ls -A "${B[0]}")" = "extra.md" ]
+grep -qxF "[install] kept 1 file of your own from skills/frontend-design in ${B[0]}" "$FH/out"
+
+# (s) A stop after an earlier step moved an own folder: the agent cannot be
+# moved because agents/ is read-only. The own frontend-design folder
+# is in the backup by then; no kit file is copied. Root is not stopped by the mode.
+if [ "$(id -u)" -ne 0 ]; then
+  fd_home s
+  mkdir -p "$FH/.claude/skills/frontend-design" "$FH/.claude/agents" "$FH/.claude/pipelinekit/backup"
+  echo "my own design" >"$FH/.claude/skills/frontend-design/SKILL.md"
+  echo "my own judge, kept" >"$FH/.claude/agents/kit-judge.md"
+  chmod 555 "$FH/.claude/agents"
+  rc=0
+  HOME="$FH" CLAUDE_HOME="$FH/.claude" GIT_CONFIG_GLOBAL="$FH/.gitconfig" \
+    XDG_CONFIG_HOME="$FH/.config" PIPELINEKIT_STATE_DIR="$FH/state" PIPELINEKIT_GIT_HOOKS=0 \
+    bash "$REPO_ROOT/scripts/install.sh" --no-serena >"$FH/out" 2>"$FH/err" || rc=$?
+  chmod 755 "$FH/.claude/agents"
+  if [ "$rc" -eq 0 ]; then
+    echo "test_install: install went on with an own agent it could not move" >&2; exit 1
+  fi
+  grep -qxF "[install][error] could not move your own agents/kit-judge.md to $FH/.claude/pipelinekit/backup. It is untouched and nothing of the kit was copied. Move or rename it yourself, then run the installer again." "$FH/err" ||
+    { echo "test_install: no line about the own agent" >&2; cat "$FH/err" >&2; exit 1; }
+  [ "$(cat "$FH/.claude/agents/kit-judge.md")" = "my own judge, kept" ]
+  B=("$FH"/.claude/pipelinekit/backup/skills-frontend-design-*)
+  [ "$(cat "${B[0]}/SKILL.md")" = "my own design" ]
+  test ! -e "$FH/.claude/skills/frontend-design"
+  nothing_copied
+fi
+
 echo "test_install: PASS"
