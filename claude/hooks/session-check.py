@@ -286,10 +286,12 @@ def check(data):
         return
     found = "1 problem" if len(fails) == 1 else f"{len(fails)} problems"
     say(
-        f"pipelinekit: {found} in this install. Run /kit for the report.",
-        f"The pipelinekit session-start check found {found} in the kit install, "
-        f"so some of its guard hooks may not be working. /kit gives the report. "
-        f"{REPAIR}",
+        f"pipelinekit: the quick check found {found} in this install. "
+        "Run /kit for the report.",
+        f"The pipelinekit session-start check ran the kit's quick check, without "
+        f"the live probes, and found {found} in the kit install, so some of its "
+        f"guard hooks may not be working. /kit gives the full report, which can "
+        f"list more. {REPAIR}",
     )
 
 

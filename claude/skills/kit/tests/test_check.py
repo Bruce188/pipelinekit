@@ -1090,7 +1090,8 @@ def test_session_check_names_kit_when_a_hook_is_gone(kit):
     out = session_check(kit)
     assert len(out.splitlines()) == 1, out
     said = json.loads(out)
-    line = r"pipelinekit: \d+ problems? in this install\. Run /kit for the report\."
+    line = r"pipelinekit: the quick check found \d+ problems? in this install\. "
+    line += r"Run /kit for the report\."
     assert re.fullmatch(line, said["systemMessage"]), said["systemMessage"]
     assert "bash-guard" not in out, "no text from the report in the line"
     assert said["hookSpecificOutput"]["hookEventName"] == "SessionStart"
