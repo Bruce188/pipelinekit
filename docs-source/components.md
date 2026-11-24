@@ -121,7 +121,7 @@ The log is `~/.local/state/pipelinekit/events.jsonl`. `$XDG_STATE_HOME` moves it
 | `input.invalid` | `bash-guard`, `block-bare-repo-markers` | error | The hook got input it could not read |
 | `internal.crash` | `bash-guard`, `block-bare-repo-markers` | error | The hook itself failed, so the command was not checked |
 | `session-check.timeout` | `session-check` | error | The session-start check took longer than 4 seconds and was dropped |
-| `session-check.failed` | `session-check` | error | The session-start check could not run: `check.py` is missing or gave no report |
+| `session-check.failed` | `session-check` | error | The session-start check could not run: `check.py` is missing, gave no report or printed more than 1 MB |
 | `commit-msg.format` | `commit-msg` | block | The subject is not a conventional commit |
 | `commit-msg.subject-length` | `commit-msg` | block | The subject is longer than 100 characters |
 | `commit-msg.wip` | `commit-msg` | block | A wip commit outside `.claude/worktrees/` |
@@ -175,9 +175,9 @@ The kit owns these three names in `~/.claude/agents/`, and leaves the rest of th
 
 | Section | What is checked |
 |---------|-----------------|
-| Install | Every hook, the event-log helper, git hook, skill and agent is present; `kit-judge.md` has the one tools line `Read, Grep, Glob`, else `kit-judge.md allows more than reading`; hooks are executable and have LF line endings; `settings.json` is valid, its hook commands point to files that exist, attribution is off and the secret deny rules are there; the global `core.hooksPath` |
+| Install | Every hook, the event-log helper, git hook, skill and agent is present; `kit-judge.md` has the one tools line `Read, Grep, Glob`, else `kit-judge.md allows more than reading`; hooks are executable and have LF line endings; `settings.json` is valid, its hook commands point to files that exist (also when they start the script through an interpreter such as `python3`; a hook of your own whose file is gone is a `[warn]`, worded as yours), no kit hook is wired twice on one event (a `[warn]`), attribution is off and the secret deny rules are there; the global `core.hooksPath` |
 | Changes since install | Each installed file, the agent files included, against the hash recorded at install time; the kit's hook entries and deny/ask rules in `settings.json` |
-| Live probe | Each hook gets input it must block and input it must allow: `git commit --no-verify`, a `docker` mount of `/etc`, `curl` piped into `sh`, `DROP TABLE` through `psql`, a `HEAD` file next to `refs/`, a non-conventional commit message, a push to `main`. The session-start check must report an install with nothing in it and say nothing about this one. Each refusal must also arrive in an event log, which the probe keeps in a temporary directory |
+| Live probe | Each hook gets input it must block and input it must allow: `git commit --no-verify`, a `docker` mount of `/etc`, `curl` piped into `sh`, `DROP TABLE` through `psql`, a `HEAD` file next to `refs/`, a non-conventional commit message, a push to `main`. The session-start check must report an install with nothing in it and say nothing about this one; it gets 6 seconds, and a check that hangs is reported as timed out. Each refusal must also arrive in an event log, which the probe keeps in a temporary directory |
 | Environment | python3, Claude Code and gitleaks versions; whether `gh` is installed and logged in; whether Playwright for python3 is installed, has a browser downloaded and can start chromium, and in a Node project whether `npx` finds a Playwright; WSL; a repository that sets its own `core.hooksPath`; a Bash sandbox that keeps `gh` from reading its own login file; a `frontend-design` plugin enabled next to the kit's copy, as an `[info]` line that says how to keep one. Only the user-level `settings.json` is read, so a plugin enabled in one project's settings is not reported |
 | Updates | Whether the remote of the checkout the install was made from has commits this install lacks: `up to date`, `update available` or `not checked`. Information only, never a problem. Not part of `--quick` |
 | Activity | What the kit's hooks did in the last 7 days, read from the event log: each rule that blocked, asked, was overridden or failed, with a count and the last time. The 20 newest rules are listed, and a hook that failed is listed however old it is. See [Rule ids and the event log](#rule-ids-and-the-event-log). Not part of `--quick` |
@@ -192,7 +192,7 @@ The same check runs when a session starts. `session-check.py` is a SessionStart 
 pipelinekit: 2 problems in this install. Run /kit for the report.
 ```
 
-The hook never blocks a session. A check that takes longer than 4 seconds is dropped, together with anything it started, and shows up under Activity as `session-check.timeout`. `PIPELINEKIT_SESSION_CHECK=0` in the environment switches it off, and `/kit` then says so.
+The hook never blocks a session. A check that takes longer than 4 seconds is dropped, together with anything it started, and shows up under Activity as `session-check.timeout`. The hook reads at most 1 MB of the check's report, and waits at most a second for its own input to end. `PIPELINEKIT_SESSION_CHECK=0` in the environment switches it off, and `/kit` then says so.
 
 The checker is `claude/skills/kit/check.py`, stdlib only. It also runs outside a session:
 

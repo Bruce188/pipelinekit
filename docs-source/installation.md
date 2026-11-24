@@ -33,7 +33,7 @@ Start a new session after the install: Claude Code loads agents when a session s
 2. Removes skills, hooks and the `docs-writer` agent that earlier 0.1.0 builds installed (`commit-conventions`, `security-conventions`, `expo`, `ios`, the old guard hooks), but only if each is still byte-identical to a committed kit version. Edited copies are kept, with a warning.
 3. Renders `~/.claude/CLAUDE.md` from `claude/CLAUDE.md.template`. If the result differs from your existing file, the old one is saved as `CLAUDE.md.bak-<timestamp>`. When the old file held a `Judge loop:`, `Judge rounds:` or `Judges:` line, the installer names it and the backup: add it again, or put it in the project's `CLAUDE.md`.
 4. Backs up `settings.json` to `settings.json.bak-<timestamp>`, then merges in `claude/config/settings.template.json`:
-   - the kit's hook entries replace its older ones, and hook entries whose script is no longer in `~/.claude/hooks/` are removed; your own hooks stay;
+   - the kit's hook entries replace its older ones, also one you edited to start the script through an interpreter (`python3 ~/.claude/hooks/session-check.py`), and hook entries whose script is no longer in `~/.claude/hooks/` are removed; your own hooks stay;
    - the kit's `permissions.deny` and `permissions.ask` rules are added after yours; `allow` and other permission keys are untouched;
    - `attribution` is set to empty strings, so commits and PRs get no co-author trailer or footer.
 5. Asks whether to set the global git `core.hooksPath` to `~/.claude/git-hooks`. It never overwrites an existing value; it prints the command instead. Without a terminal, and without `--git-hooks`, it skips this step.
