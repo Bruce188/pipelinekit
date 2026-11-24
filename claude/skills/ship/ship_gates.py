@@ -54,6 +54,15 @@ def sort_checks(rollup):
     return passed, failed, pending
 
 
+def ran_checks(pr):
+    """The checks that ran on the pull request; a skipped one did not."""
+    return [
+        item
+        for item in pr.get("statusCheckRollup") or []
+        if (item.get("conclusion") or item.get("state") or "").upper() != "SKIPPED"
+    ]
+
+
 def check_names(items):
     return ", ".join(
         sorted({i.get("name") or i.get("context") or "check" for i in items})
@@ -887,7 +896,8 @@ def ci_gate(pr, expected=False):
 
     `expected`: a workflow here runs on the pull request or on pushes to its
     branch, so a pull request without a single check has not been picked up
-    yet; that is not a pass.
+    yet; that is not a pass. Nor is a draft whose checks were all skipped:
+    `merge` marks it ready and waits for a check that really runs.
     """
     passed, failed, pending = sort_checks(pr.get("statusCheckRollup"))
     if failed:
@@ -907,6 +917,13 @@ def ci_gate(pr, expected=False):
             "pending",
             f"no check has shown up yet, and {RUNS_HERE}",
         )
+    if expected and pr.get("isDraft") and not ran_checks(pr):
+        detail = (
+            f"only skipped checks on the draft ({check_names(passed)}), and "
+            f"{RUNS_HERE}, so a check is still to come: merge marks it ready "
+            "and waits for one"
+        )
+        return gate("ci", "pending", detail)
     if not passed:
         return gate("ci", "pass", "no CI checks on this pull request")
     return gate("ci", "pass", f"{count(len(passed), 'check')} finished, none failed")

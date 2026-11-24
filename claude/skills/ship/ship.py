@@ -135,15 +135,6 @@ def grace_seconds(args, repo):
     return FIRST_CHECK if repo.expects_checks() else 0
 
 
-def ran_checks(pr):
-    """The checks that ran on the pull request; a skipped one did not."""
-    return [
-        item
-        for item in pr.get("statusCheckRollup") or []
-        if (item.get("conclusion") or item.get("state") or "").upper() != "SKIPPED"
-    ]
-
-
 def settle_seconds(args, repo, pr):
     """How long a draft has to stay mergeable after it is marked ready.
 
@@ -556,7 +547,8 @@ def build_parser():
         default=None,
         metavar="S",
         help="how long a draft has to stay mergeable after it is marked ready "
-        f"(default {SETTLE}; as --grace where a check is still to come)",
+        f"(default {SETTLE}; where a check is still to come, the --grace time "
+        "when that is longer)",
     )
     return parser
 
