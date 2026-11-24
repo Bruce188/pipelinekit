@@ -194,6 +194,9 @@ kit used to ship, so those parts are gone.
   judge files) and, for `start`, the earlier loop it moved aside. The refusal
   says how many files were put back, or which could not be; once the cause
   is fixed, the same command runs as if the first try had not happened.
+- `start build` on the base branch also names the way to a plan loop
+  (`loop.py start plan --name <issue>-<slug>`), which still starts there; with
+  `--stack` it names the stack's top branch to switch to.
 
 ### Security
 
