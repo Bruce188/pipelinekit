@@ -93,7 +93,7 @@ def move_stale(loop, n):
         for entry in sorted(os.listdir(folder)):
             if entry.startswith(f"r{n}_") or entry == f"r{n}.diff":
                 target = loop.mkdir(f"judge/stale/{stamp}")
-                os.replace(loop.path(f"{sub}/{entry}"), target / entry)
+                loop.move(loop.path(f"{sub}/{entry}"), target / entry)
                 moved += 1
     return moved
 
