@@ -6,6 +6,8 @@ diataxis: reference
 
 `/kit` answers one question: is anything in this install not working? Run it after installing or updating the kit, and when a hook blocks something you did not expect or fails to start. Claude can also run it on its own when a kit hook misbehaves.
 
+## What is checked
+
 | Section | What is checked |
 |---------|-----------------|
 | Install | Every hook, the event-log helper, the file size check, git hook, skill and agent is present; `kit-judge.md` has the one tools line `Read, Grep, Glob`, else `kit-judge.md allows more than reading`; hooks are executable and have LF line endings; a skill helper that lost its executable bit (`ship.py`, `check.py`, `loop.py`) is a `[warn]` with the `chmod +x` that fixes it, since the skills run them through `python3`; `settings.json` is valid, its hook commands point to files that exist, attribution is off and the secret deny rules are there; the global `core.hooksPath`. A kit file over the file size limit (1,500 lines or 50,000 bytes) is a `[warn]`; the vendored `frontend-design` skill and the files the limit exempts by default are left out, and `--quick` skips this |
@@ -19,6 +21,8 @@ A line is `[fail]` when a guard is missing or does the wrong thing, `[warn]` whe
 
 The report repeats a name from `settings.json` or the install manifest only when it reads as a plain name: a hook's file name, an event, a rule, a version, a branch. Anything else is counted and not quoted, so a line that sits in one of those files cannot show up as a line of the report. Characters that draw as nothing or change how a line reads are removed. A plain name can still spell a word, so read the report as a list of names, not as advice.
 
+## When a session starts
+
 The same check runs when a session starts. `session-check.py` is a SessionStart hook that runs `check.py --quick` on `startup` (not on resume or after `/clear`); it takes about 0.2 seconds. A healthy install, warnings included, gives no output. With a `[fail]` you get one line with the number of problems and no text from the report, and Claude is told the same:
 
 ```text
@@ -26,6 +30,8 @@ pipelinekit: 2 problems in this install. Run /kit for the report.
 ```
 
 The hook never blocks a session. A check that takes longer than 4 seconds is dropped, together with anything it started, and shows up under Activity as `session-check.timeout`. `PIPELINEKIT_SESSION_CHECK=0` in the environment switches it off, and `/kit` then says so.
+
+## Running it from a shell
 
 The checker is `claude/skills/kit/check.py`, stdlib only. It also runs outside a session:
 
@@ -45,6 +51,8 @@ The repository checks itself the same way. In CI the `install-smoke` job install
 
 The comparison data is `~/.claude/pipelinekit/manifest.json`, which the installer writes: kit version and commit, the checkout path and branch, whether serena was registered, a SHA-256 of every installed file, and the `settings.json` entries the kit owns. An install made before this file existed reports `install manifest not found`; run the installer once.
 
+## Updates
+
 The Updates section compares the commit the install was made from with the same branch on `origin` of that checkout. It asks the remote at most once in 24 hours (`git ls-remote`, nothing is fetched), gives it 5 seconds and keeps the answer in `update.json` next to the event log. Offline, without the checkout, or when the install was made from a checkout on no branch, it says `not checked`. An available update is an `[info]` line and never changes the result. `PIPELINEKIT_UPDATE_CHECK=0` switches the check off; `--no-remote` uses only an answer it already has.
 
 `/kit update` applies an update from inside a session:
@@ -59,6 +67,8 @@ The installer runs with what was chosen at install time: the global git hooks st
 python3 ~/.claude/skills/kit/update.py plan              # what would change
 python3 ~/.claude/skills/kit/update.py apply --to COMMIT # the full commit id the plan printed
 ```
+
+## Sandbox and limits
 
 The Environment section warns about one conflict that is easy to miss. When the Bash sandbox is on, a `Read` deny rule for the `gh` login file (`hosts.yml`) also applies to `gh` itself, so `gh` fails in sandboxed commands, and so does `git` over https when it asks `gh` for the token. The line names the fix: add `gh *` to `sandbox.excludedCommands` in `settings.json`, or run `gh` outside the sandbox.
 

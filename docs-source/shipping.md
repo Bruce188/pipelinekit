@@ -6,12 +6,16 @@ diataxis: reference
 
 With the kit installed, Claude finishes the pull requests it opens instead of handing each one to you to merge. The `ship` skill (`/ship`) describes the loop, and `claude/skills/ship/ship.py` holds the conditions for the merge.
 
+## How it works
+
 1. The issue lists acceptance criteria as a checklist.
 2. Claude builds the change, brings in its base, runs the project's tests and opens a draft pull request.
 3. The build is judged with the judge loop until it reaches 10 (see [Plan, build, judge](skills.html#plan-build-judge)); a small fix is recorded with `loop.py skip --reason` instead.
 4. `ship.py prepare` keeps the test reports out of git, and a fresh agent tests the change. It gets the criteria and the running build, not the code or the builder's notes. A web page is driven with Playwright, a command-line tool or installer runs in a throwaway directory, an API is started and called. A change with nothing user-visible gets a smoke run instead.
 5. Findings are fixed, each bug with a regression test, and the test runs again until it passes.
 6. `ship.py record` notes the result for the tested commit, and with a pass whether the pull request is a release (`--release yes` or `--release no`). `ship.py merge` waits for CI and merges.
+
+## The merge gates
 
 `ship.py merge` refuses unless every gate holds:
 
@@ -32,6 +36,8 @@ With the kit installed, Claude finishes the pull requests it opens instead of ha
 The merge command names the tested commit (`--match-head-commit`), so a commit pushed in between is not merged. The helper has no `--admin` option, and `gh pr merge --admin` is on the `permissions.ask` list. The merge method follows the base branch: a merge commit where the branch already has them, squash otherwise.
 
 A draft has to be marked ready before GitHub merges it, and that can start checks, add reviewers or turn on branch protection. The helper therefore watches the pull request after marking it ready and merges only when it stayed mergeable for the whole settle time: 30 seconds or, where a check is still to come because none has run yet or a workflow starts on `ready_for_review`, the `--grace` time when that is longer (90 seconds by default; `--grace 5` leaves it at 30). `--settle S` sets the time. While it watches it reads the head, the checks, the reviews and whether GitHub can merge; the author, the title and the base were checked before the draft was marked ready and are not checked again. Where a workflow runs on pull requests, a check must really have run by then: one that was skipped on the draft does not count, and only `--allow-no-checks` lifts that. If something showed up, the pull request stays ready and unmerged. The last line of output is the outcome: `Merged #12 into main ...`, `Not merged: ...` or `STOP: ...`. Two runs end otherwise: `merge --dry-run` with every gate holding ends with `Dry run. Would ...`, and a usage error, such as an unknown option, ends with the `ship.py merge: error: ...` line of argparse and exit code 2. The gate table goes to stdout and the waiting lines to stderr, in the order they happen, also through a pipe.
+
+## The release gate
 
 The release gate leans towards asking. A feature branch into a release branch such as `release/v1.0` is an ordinary change and merges; the release branch into `main` does not. A title counts when it is made of release words (`chore: prepare 0.3.0`, `Bump version: 1.2.3 to 1.2.4`, `chore: release kit 1.2.0`, `chore: bump version in package.json`, `chore: weekly release`, `chore: patch`, `Deploy`), not when it is about a release (`fix: release 1.2.0 broke the installer`, `chore: release script`), about a dependency (`chore(deps): bump lodash to 4.17.21`) or about a tool (`ci: bump python version to 3.12`); `docs`, `test`, `style`, `refactor` and `perf` titles never count.
 
@@ -75,6 +81,8 @@ How the gate reads some common branch names and titles:
 
 Known working branches are: the default branch; the shared branches `develop`, `development`, `dev`, `integration`, `staging`, `stage`, `next`, `beta`, `alpha`, `canary`, `preview`, `nightly`, `edge`, `uat`, `qa`, `preprod`, `test`, `testing` and `trunk`; branches under `integration/`, `staging/`, `stage/`, `uat/`, `qa/` and `preprod/`; release lines, which is anything that starts with `release/`, `release-`, `releases/`, `rel/`, `rc/`, `hotfix/`, `support/` or `maint/`, and bare version names such as `1.x` or `v2`; topic branches such as `feat/12-base` (a stacked pull request). A pull request into any other branch (`customer-a`, `release`) is held, because the helper cannot know what that branch stands for. Name such a branch on a `Release branches:` line when it is a release branch. As the branch a pull request comes from, `hotfix/login-crash` is a fix like any other; only a hotfix branch with a version in its name (`hotfix/1.2.1`), or one that other pull requests were merged into, is held.
 
+## What stays yours
+
 These stay yours: release pull requests, tags, publishing and production deploys; pull requests someone else opened; anything behind a required review or branch protection. Claude also stops and asks when the same finding is still open on three tested commits in a row (the first try and two fix attempts; more rounds on one commit count once, so recording the same failure again does not stop), after five failed rounds in a row, when the judge loop is waiting for you, and when a test needs a decision the criteria do not settle. A stuck loop shows in `ship.py status` and blocks `ship.py merge` until you decide.
 
 To turn self-merging off for a project, put this line in its `CLAUDE.md`:
@@ -84,6 +92,8 @@ Merges: ask first
 ```
 
 The same line in `~/.claude/CLAUDE.md` turns it off everywhere, and so does `PIPELINEKIT_MERGE` in the environment with any non-empty value but `auto`. Claude then asks before it merges. The line counts on its own line, also as a list or task item, a heading, a table cell or two cells of a row (`| Merges | ask first |`), in bold, as a block quote, in quotation marks (`"Merges: ask first"`), in backticks or inside an HTML comment. `Merging: ask first`, `Merges - ask first`, `Merges: always ask first`, `Merges: never`, `Merges: off` and `Merges: manual` count as the same line. A sentence that starts with the line counts too (`Merges: ask first is what we want.`): when in doubt, the helper asks. A sentence that only mentions it further on does not. The `CLAUDE.md` on the base branch counts as well, so a branch cannot drop the line for its own pull request.
+
+## Test reports
 
 Test reports and screenshots go to `docs/uat/` in the project. That directory is local: `ship.py prepare` adds it to `.git/info/exclude` before the test starts, so `git status` does not list the reports (`ship.py record` adds it too), and it is on the never-stage list. `ship.py status` and `ship.py merge --dry-run` change nothing in the repository. The kit does not install Playwright; `/kit` reports whether `gh` and Playwright are available.
 

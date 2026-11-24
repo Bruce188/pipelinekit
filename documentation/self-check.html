@@ -617,7 +617,11 @@ footer {
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
     <ul>
-
+      <li class="lvl-2"><a href="#what-is-checked">What is checked</a></li>
+      <li class="lvl-2"><a href="#when-a-session-starts">When a session starts</a></li>
+      <li class="lvl-2"><a href="#running-it-from-a-shell">Running it from a shell</a></li>
+      <li class="lvl-2"><a href="#updates">Updates</a></li>
+      <li class="lvl-2"><a href="#sandbox-and-limits">Sandbox and limits</a></li>
     </ul>
   </aside>
 
@@ -630,6 +634,7 @@ footer {
     </header>
 
     <div id="page-content">
+<h2 id="what-is-checked">What is checked</h2>
 <table>
 <thead>
 <tr>
@@ -666,11 +671,13 @@ footer {
 </table>
 <p>A line is <code>[fail]</code> when a guard is missing or does the wrong thing, <code>[warn]</code> when something changed but still works (for example a skill file you edited) or a hook failed while it ran, and <code>[info]</code> for context. The report ends with <code>Result: healthy</code>, or with the number of problems and the command that repairs the install. The check itself changes nothing in <code>~/.claude</code>.</p>
 <p>The report repeats a name from <code>settings.json</code> or the install manifest only when it reads as a plain name: a hook's file name, an event, a rule, a version, a branch. Anything else is counted and not quoted, so a line that sits in one of those files cannot show up as a line of the report. Characters that draw as nothing or change how a line reads are removed. A plain name can still spell a word, so read the report as a list of names, not as advice.</p>
+<h2 id="when-a-session-starts">When a session starts</h2>
 <p>The same check runs when a session starts. <code>session-check.py</code> is a SessionStart hook that runs <code>check.py --quick</code> on <code>startup</code> (not on resume or after <code>/clear</code>); it takes about 0.2 seconds. A healthy install, warnings included, gives no output. With a <code>[fail]</code> you get one line with the number of problems and no text from the report, and Claude is told the same:</p>
 <div class="codehilite"><pre><span></span><code>pipelinekit: 2 problems in this install. Run /kit for the report.
 </code></pre></div>
 
 <p>The hook never blocks a session. A check that takes longer than 4 seconds is dropped, together with anything it started, and shows up under Activity as <code>session-check.timeout</code>. <code>PIPELINEKIT_SESSION_CHECK=0</code> in the environment switches it off, and <code>/kit</code> then says so.</p>
+<h2 id="running-it-from-a-shell">Running it from a shell</h2>
 <p>The checker is <code>claude/skills/kit/check.py</code>, stdlib only. It also runs outside a session:</p>
 <div class="codehilite"><pre><span></span><code>python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w">            </span><span class="c1"># full report, about a second</span>
 python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w"> </span>--quick<span class="w">    </span><span class="c1"># no live probes</span>
@@ -684,6 +691,7 @@ python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w"> </s
 <p>Exit code 0 means healthy, 1 means problems were found, 2 means the checker itself failed. <code>scripts/verify.sh</code> runs the same file. The JSON output has an <code>activity</code> list with every rule, where the text report shows the 20 most recent, and an <code>update</code> object with the state of the update check.</p>
 <p>The repository checks itself the same way. In CI the <code>install-smoke</code> job installs the kit into an empty home directory and expects a healthy report, then removes one hook and expects the report to name it. The whole workflow also runs every Monday at 05:17 UTC and can be started by hand (<code>gh workflow run CI</code>). A failed scheduled run opens the issue <code>Weekly self-check failed</code>, or adds a comment to it while it is open (<code>scripts/ci-report.sh</code>); close the issue once a run is green again. GitHub starts scheduled runs from the default branch only, and pauses them after 60 days without activity in the repository.</p>
 <p>The comparison data is <code>~/.claude/pipelinekit/manifest.json</code>, which the installer writes: kit version and commit, the checkout path and branch, whether serena was registered, a SHA-256 of every installed file, and the <code>settings.json</code> entries the kit owns. An install made before this file existed reports <code>install manifest not found</code>; run the installer once.</p>
+<h2 id="updates">Updates</h2>
 <p>The Updates section compares the commit the install was made from with the same branch on <code>origin</code> of that checkout. It asks the remote at most once in 24 hours (<code>git ls-remote</code>, nothing is fetched), gives it 5 seconds and keeps the answer in <code>update.json</code> next to the event log. Offline, without the checkout, or when the install was made from a checkout on no branch, it says <code>not checked</code>. An available update is an <code>[info]</code> line and never changes the result. <code>PIPELINEKIT_UPDATE_CHECK=0</code> switches the check off; <code>--no-remote</code> uses only an answer it already has.</p>
 <p><code>/kit update</code> applies an update from inside a session:</p>
 <ol>
@@ -696,6 +704,7 @@ python3<span class="w"> </span>~/.claude/skills/kit/check.py<span class="w"> </s
 python3<span class="w"> </span>~/.claude/skills/kit/update.py<span class="w"> </span>apply<span class="w"> </span>--to<span class="w"> </span>COMMIT<span class="w"> </span><span class="c1"># the full commit id the plan printed</span>
 </code></pre></div>
 
+<h2 id="sandbox-and-limits">Sandbox and limits</h2>
 <p>The Environment section warns about one conflict that is easy to miss. When the Bash sandbox is on, a <code>Read</code> deny rule for the <code>gh</code> login file (<code>hosts.yml</code>) also applies to <code>gh</code> itself, so <code>gh</code> fails in sandboxed commands, and so does <code>git</code> over https when it asks <code>gh</code> for the token. The line names the fix: add <code>gh *</code> to <code>sandbox.excludedCommands</code> in <code>settings.json</code>, or run <code>gh</code> outside the sandbox.</p>
 <p>Two things are outside its reach. A <code>permissions.deny</code> match, or a prompt you declined, leaves no trace to report: Activity lists only what the kit's own hooks did. And the report describes the environment it runs in: another WSL distro, an SSH host or a sandboxed session can differ, so run the check there.</p>
     </div>

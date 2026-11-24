@@ -617,7 +617,11 @@ footer {
   <aside class="toc" id="toc">
     <h2 class="toc-heading">On this page</h2>
     <ul>
-
+      <li class="lvl-2"><a href="#how-it-works">How it works</a></li>
+      <li class="lvl-2"><a href="#the-merge-gates">The merge gates</a></li>
+      <li class="lvl-2"><a href="#the-release-gate">The release gate</a></li>
+      <li class="lvl-2"><a href="#what-stays-yours">What stays yours</a></li>
+      <li class="lvl-2"><a href="#test-reports">Test reports</a></li>
     </ul>
   </aside>
 
@@ -630,6 +634,7 @@ footer {
     </header>
 
     <div id="page-content">
+<h2 id="how-it-works">How it works</h2>
 <ol>
 <li>The issue lists acceptance criteria as a checklist.</li>
 <li>Claude builds the change, brings in its base, runs the project's tests and opens a draft pull request.</li>
@@ -638,6 +643,7 @@ footer {
 <li>Findings are fixed, each bug with a regression test, and the test runs again until it passes.</li>
 <li><code>ship.py record</code> notes the result for the tested commit, and with a pass whether the pull request is a release (<code>--release yes</code> or <code>--release no</code>). <code>ship.py merge</code> waits for CI and merges.</li>
 </ol>
+<h2 id="the-merge-gates">The merge gates</h2>
 <p><code>ship.py merge</code> refuses unless every gate holds:</p>
 <table>
 <thead>
@@ -695,6 +701,7 @@ footer {
 </table>
 <p>The merge command names the tested commit (<code>--match-head-commit</code>), so a commit pushed in between is not merged. The helper has no <code>--admin</code> option, and <code>gh pr merge --admin</code> is on the <code>permissions.ask</code> list. The merge method follows the base branch: a merge commit where the branch already has them, squash otherwise.</p>
 <p>A draft has to be marked ready before GitHub merges it, and that can start checks, add reviewers or turn on branch protection. The helper therefore watches the pull request after marking it ready and merges only when it stayed mergeable for the whole settle time: 30 seconds or, where a check is still to come because none has run yet or a workflow starts on <code>ready_for_review</code>, the <code>--grace</code> time when that is longer (90 seconds by default; <code>--grace 5</code> leaves it at 30). <code>--settle S</code> sets the time. While it watches it reads the head, the checks, the reviews and whether GitHub can merge; the author, the title and the base were checked before the draft was marked ready and are not checked again. Where a workflow runs on pull requests, a check must really have run by then: one that was skipped on the draft does not count, and only <code>--allow-no-checks</code> lifts that. If something showed up, the pull request stays ready and unmerged. The last line of output is the outcome: <code>Merged #12 into main ...</code>, <code>Not merged: ...</code> or <code>STOP: ...</code>. Two runs end otherwise: <code>merge --dry-run</code> with every gate holding ends with <code>Dry run. Would ...</code>, and a usage error, such as an unknown option, ends with the <code>ship.py merge: error: ...</code> line of argparse and exit code 2. The gate table goes to stdout and the waiting lines to stderr, in the order they happen, also through a pipe.</p>
+<h2 id="the-release-gate">The release gate</h2>
 <p>The release gate leans towards asking. A feature branch into a release branch such as <code>release/v1.0</code> is an ordinary change and merges; the release branch into <code>main</code> does not. A title counts when it is made of release words (<code>chore: prepare 0.3.0</code>, <code>Bump version: 1.2.3 to 1.2.4</code>, <code>chore: release kit 1.2.0</code>, <code>chore: bump version in package.json</code>, <code>chore: weekly release</code>, <code>chore: patch</code>, <code>Deploy</code>), not when it is about a release (<code>fix: release 1.2.0 broke the installer</code>, <code>chore: release script</code>), about a dependency (<code>chore(deps): bump lodash to 4.17.21</code>) or about a tool (<code>ci: bump python version to 3.12</code>); <code>docs</code>, <code>test</code>, <code>style</code>, <code>refactor</code> and <code>perf</code> titles never count.</p>
 <p>The gate also reads the diff against the base branch. It does not work from a list of known manifests: a version is ordinary in the places known to hold the versions of other things, and held anywhere else, whatever the file format.</p>
 <p>Held are:</p>
@@ -778,12 +785,14 @@ footer {
 </tbody>
 </table>
 <p>Known working branches are: the default branch; the shared branches <code>develop</code>, <code>development</code>, <code>dev</code>, <code>integration</code>, <code>staging</code>, <code>stage</code>, <code>next</code>, <code>beta</code>, <code>alpha</code>, <code>canary</code>, <code>preview</code>, <code>nightly</code>, <code>edge</code>, <code>uat</code>, <code>qa</code>, <code>preprod</code>, <code>test</code>, <code>testing</code> and <code>trunk</code>; branches under <code>integration/</code>, <code>staging/</code>, <code>stage/</code>, <code>uat/</code>, <code>qa/</code> and <code>preprod/</code>; release lines, which is anything that starts with <code>release/</code>, <code>release-</code>, <code>releases/</code>, <code>rel/</code>, <code>rc/</code>, <code>hotfix/</code>, <code>support/</code> or <code>maint/</code>, and bare version names such as <code>1.x</code> or <code>v2</code>; topic branches such as <code>feat/12-base</code> (a stacked pull request). A pull request into any other branch (<code>customer-a</code>, <code>release</code>) is held, because the helper cannot know what that branch stands for. Name such a branch on a <code>Release branches:</code> line when it is a release branch. As the branch a pull request comes from, <code>hotfix/login-crash</code> is a fix like any other; only a hotfix branch with a version in its name (<code>hotfix/1.2.1</code>), or one that other pull requests were merged into, is held.</p>
+<h2 id="what-stays-yours">What stays yours</h2>
 <p>These stay yours: release pull requests, tags, publishing and production deploys; pull requests someone else opened; anything behind a required review or branch protection. Claude also stops and asks when the same finding is still open on three tested commits in a row (the first try and two fix attempts; more rounds on one commit count once, so recording the same failure again does not stop), after five failed rounds in a row, when the judge loop is waiting for you, and when a test needs a decision the criteria do not settle. A stuck loop shows in <code>ship.py status</code> and blocks <code>ship.py merge</code> until you decide.</p>
 <p>To turn self-merging off for a project, put this line in its <code>CLAUDE.md</code>:</p>
 <div class="codehilite"><pre><span></span><code>Merges: ask first
 </code></pre></div>
 
 <p>The same line in <code>~/.claude/CLAUDE.md</code> turns it off everywhere, and so does <code>PIPELINEKIT_MERGE</code> in the environment with any non-empty value but <code>auto</code>. Claude then asks before it merges. The line counts on its own line, also as a list or task item, a heading, a table cell or two cells of a row (<code>| Merges | ask first |</code>), in bold, as a block quote, in quotation marks (<code>"Merges: ask first"</code>), in backticks or inside an HTML comment. <code>Merging: ask first</code>, <code>Merges - ask first</code>, <code>Merges: always ask first</code>, <code>Merges: never</code>, <code>Merges: off</code> and <code>Merges: manual</code> count as the same line. A sentence that starts with the line counts too (<code>Merges: ask first is what we want.</code>): when in doubt, the helper asks. A sentence that only mentions it further on does not. The <code>CLAUDE.md</code> on the base branch counts as well, so a branch cannot drop the line for its own pull request.</p>
+<h2 id="test-reports">Test reports</h2>
 <p>Test reports and screenshots go to <code>docs/uat/</code> in the project. That directory is local: <code>ship.py prepare</code> adds it to <code>.git/info/exclude</code> before the test starts, so <code>git status</code> does not list the reports (<code>ship.py record</code> adds it too), and it is on the never-stage list. <code>ship.py status</code> and <code>ship.py merge --dry-run</code> change nothing in the repository. The kit does not install Playwright; <code>/kit</code> reports whether <code>gh</code> and Playwright are available.</p>
 <div class="codehilite"><pre><span></span><code>python3<span class="w"> </span>~/.claude/skills/ship/ship.py<span class="w"> </span>status<span class="w">           </span><span class="c1"># every gate, with the reason</span>
 python3<span class="w"> </span>~/.claude/skills/ship/ship.py<span class="w"> </span>prepare<span class="w">          </span><span class="c1"># keep docs/uat/ out of git, print the report paths</span>
