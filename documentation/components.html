@@ -1389,7 +1389,7 @@ python3<span class="w"> </span>~/.claude/skills/kit/update.py<span class="w"> </
 <li>The issue lists acceptance criteria as a checklist.</li>
 <li>Claude builds the change, brings in its base, runs the project's tests and opens a draft pull request.</li>
 <li>The build is judged with the judge loop until it reaches 10 (see <a href="#plan-build-judge">Plan, build, judge</a>); a small fix is recorded with <code>loop.py skip --reason</code> instead.</li>
-<li>A fresh agent tests the change. It gets the criteria and the running build, not the code or the builder's notes. A web page is driven with Playwright, a command-line tool or installer runs in a throwaway directory, an API is started and called. A change with nothing user-visible gets a smoke run instead.</li>
+<li><code>ship.py prepare</code> keeps the test reports out of git, and a fresh agent tests the change. It gets the criteria and the running build, not the code or the builder's notes. A web page is driven with Playwright, a command-line tool or installer runs in a throwaway directory, an API is started and called. A change with nothing user-visible gets a smoke run instead.</li>
 <li>Findings are fixed, each bug with a regression test, and the test runs again until it passes.</li>
 <li><code>ship.py record</code> notes the result for the tested commit, and with a pass whether the pull request is a release (<code>--release yes</code> or <code>--release no</code>). <code>ship.py merge</code> waits for CI and merges.</li>
 </ol>
@@ -1474,8 +1474,9 @@ python3<span class="w"> </span>~/.claude/skills/kit/update.py<span class="w"> </
 </code></pre></div>
 
 <p>The same line in <code>~/.claude/CLAUDE.md</code> turns it off everywhere, and so does <code>PIPELINEKIT_MERGE</code> in the environment with any non-empty value but <code>auto</code>. Claude then asks before it merges. The line counts on its own line, also as a list or task item, a heading, a table cell or two cells of a row (<code>| Merges | ask first |</code>), in bold, quoted, in backticks or inside an HTML comment. <code>Merging: ask first</code>, <code>Merges - ask first</code>, <code>Merges: always ask first</code>, <code>Merges: never</code>, <code>Merges: off</code> and <code>Merges: manual</code> count as the same line. A sentence that only mentions it does not. The <code>CLAUDE.md</code> on the base branch counts as well, so a branch cannot drop the line for its own pull request.</p>
-<p>Test reports and screenshots go to <code>docs/uat/</code> in the project. That directory is local: the helper adds it to <code>.git/info/exclude</code>, and it is on the never-stage list. The kit does not install Playwright; <code>/kit</code> reports whether <code>gh</code> and Playwright are available.</p>
+<p>Test reports and screenshots go to <code>docs/uat/</code> in the project. That directory is local: <code>ship.py prepare</code> adds it to <code>.git/info/exclude</code> before the test starts, so <code>git status</code> does not list the reports (<code>ship.py record</code> adds it too), and it is on the never-stage list. <code>ship.py status</code> and <code>ship.py merge --dry-run</code> change nothing in the repository. The kit does not install Playwright; <code>/kit</code> reports whether <code>gh</code> and Playwright are available.</p>
 <div class="codehilite"><pre><span></span><code>python3<span class="w"> </span>~/.claude/skills/ship/ship.py<span class="w"> </span>status<span class="w">           </span><span class="c1"># every gate, with the reason</span>
+python3<span class="w"> </span>~/.claude/skills/ship/ship.py<span class="w"> </span>prepare<span class="w">          </span><span class="c1"># keep docs/uat/ out of git, print the report paths</span>
 python3<span class="w"> </span>~/.claude/skills/ship/ship.py<span class="w"> </span>merge<span class="w"> </span>--dry-run<span class="w">  </span><span class="c1"># what would be merged, and how</span>
 </code></pre></div>
 
