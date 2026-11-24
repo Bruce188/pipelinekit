@@ -44,6 +44,7 @@ Usage: bash scripts/install.sh [--no-serena] [--git-hooks|--no-git-hooks] [--hel
 
 Copies hooks, git hooks, skills, the agents kit-planner, kit-builder and
 kit-judge, and config into \$CLAUDE_HOME (default ~/.claude),
+keeps files of your own found in the kit's skill folders in a backup,
 removes unmodified files that older kit versions installed, renders CLAUDE.md,
 merges hook wiring, permissions (deny/ask) and attribution-off into
 settings.json (backing it up first), installs global git hooks (asks first),
