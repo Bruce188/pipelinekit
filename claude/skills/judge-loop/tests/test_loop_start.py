@@ -592,11 +592,31 @@ def test_gh_that_gives_no_base_says_so(sb, how, setup, why):
     assert sb.state()["base"] == "main"
 
 
-@pytest.mark.parametrize("setup", [no_pull_request, gh_develop])
+def not_github(sb):
+    sb.fake_gh(
+        code=1,
+        err="none of the git remotes configured for this repository point to a "
+        "known GitHub host",
+    )
+
+
+@pytest.mark.parametrize("setup", [no_pull_request, gh_develop, not_github])
 def test_gh_that_answers_gives_no_note(sb, setup):
     setup(sb)
     run = sb.start_build()
     assert not [line for line in run.lines if "gh pr view" in line], run
+
+
+def test_no_remote_leaves_gh_alone(sb):
+    only_local("main")(sb)
+    ran = sb.bin / "gh-ran"
+    sb.fake_gh('{"baseRefName": "develop"}')
+    (sb.bin / "gh").write_text(f"#!/bin/sh\n: > '{ran}'\nexit 1\n")
+    run = sb.start_build()
+    assert run.code == 0, run
+    assert not ran.exists(), "gh ran in a repository without a remote"
+    assert not [line for line in run.lines if "gh pr view" in line], run
+    assert sb.state()["base"] == "main"
 
 
 BASES = [
