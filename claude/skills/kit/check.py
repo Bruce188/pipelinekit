@@ -124,6 +124,7 @@ ACTIVITY_LINES = 20
 # The update check: how long an answer of the remote is reused, in seconds.
 UPDATE_TTL = {"ok": 24 * 3600, "gone": 24 * 3600, "unreachable": 3600}
 UPDATE_TIMEOUT = 5  # seconds the remote gets to answer
+SESSION_WAIT = 6  # seconds the probe gives session-check.py; Claude Code gives 5
 BRANCH = re.compile(r"(?!-)[A-Za-z0-9._/+-]{1,200}")
 COMMIT = re.compile(r"[0-9a-f]{40,64}")
 
@@ -213,6 +214,38 @@ def run_group(argv: list[str], env: dict, timeout: int) -> tuple[int | None, str
         p.communicate()
         return None, ""
     return p.returncode, out
+
+
+def run_hook(
+    argv: list[str], stdin: str, env: dict, cwd: str, timeout: float
+) -> tuple[int | None, str, bool]:
+    """(exit code, stdout, timed out) of a hook; a timeout ends what it started too.
+
+    Exit code None: it did not start or did not finish in time.
+    """
+    try:
+        p = subprocess.Popen(
+            argv,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            errors="replace",
+            env=env,
+            cwd=cwd,
+            start_new_session=True,
+        )
+    except OSError:
+        return None, "", False
+    try:
+        out, _ = p.communicate(stdin, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        with contextlib.suppress(OSError):
+            os.killpg(p.pid, signal.SIGKILL)
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            p.communicate(timeout=1)
+        return None, "", True
+    return p.returncode, out, False
 
 
 def git_value(*args: str) -> str:
@@ -465,6 +498,7 @@ def check_settings(c: Check) -> None:
         return
     user_home = os.path.expanduser("~")
     bad = []
+    theirs = []  # hooks of the user's own whose file is gone: theirs to fix
     if not c.hooks_block:
         bad.append("hooks is not an object")
     for event, groups in as_dict(c.settings.get("hooks")).items():
@@ -497,7 +531,13 @@ def check_settings(c: Check) -> None:
                 if first.startswith("/") and not os.path.exists(first):
                     ok = clean(first) == first and len(first) <= MAX_PATH_SHOWN
                     shown = first if ok else "a path that cannot be shown"
-                    bad.append(f"hook command not found: {shown}")
+                    hooks_dir = os.path.normpath(c.path("hooks"))
+                    in_kit = os.path.dirname(os.path.normpath(first)) == hooks_dir
+                    if in_kit and os.path.basename(first) in HOOKS:
+                        bad.append(f"hook command not found: {shown}")
+                    else:
+                        why = f"a hook of your own runs a file that is not there: {shown}"
+                        theirs.append(why)
     if hook_command:
         twice = hook_command.wired_twice(c.settings.get("hooks"), c.path("hooks"), HOOKS)
         for event, name, n in twice:
@@ -516,11 +556,16 @@ def check_settings(c: Check) -> None:
         bad.append("secret deny rules missing")
     for why in dict.fromkeys(bad):
         c.add("install", "fail", f"settings.json: {why}")
+    for why in dict.fromkeys(theirs):
+        fix = "restore the file, or remove the hook from settings.json"
+        c.add("install", "warn", f"settings.json: {why}", fix=fix)
     if not bad:
+        kit = "kit " if theirs else ""
         c.add(
             "install",
             "pass",
-            "settings.json: hook commands resolve, attribution off, deny rules present",
+            f"settings.json: {kit}hook commands resolve, attribution off, "
+            "deny rules present",
         )
 
 
@@ -976,13 +1021,21 @@ def probe(c: Check) -> None:
 
             def session(home: str) -> str:
                 at = dict(env, CLAUDE_HOME=home)
-                rc, out, _ = run([script], stdin=start, env=at, cwd=plain)
-                return session_decision(rc, out)
+                rc, out, late = run_hook([script], start, at, plain, SESSION_WAIT)
+                return "timed out" if late else session_decision(rc, out)
 
             results = [("an install with nothing in it", "report", session(bare))]
-            if not c.count("fail"):
+            if results[0][2] != "timed out" and not c.count("fail"):
                 results.append(("this install", "silent", session(c.home)))
-            probe_results(c, "session-check.py", results)
+            if any(got == "timed out" for _, _, got in results):
+                c.add(
+                    "probe",
+                    "fail",
+                    f"session-check.py timed out: no answer within {SESSION_WAIT} "
+                    "seconds, where Claude Code gives it 5",
+                )
+            else:
+                probe_results(c, "session-check.py", results)
 
         rc, _, _ = run(["git", "init", "-q", "--template=", repo], env=env)
         if rc != 0:

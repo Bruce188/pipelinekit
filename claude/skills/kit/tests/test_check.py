@@ -1135,6 +1135,23 @@ def test_probe_catches_a_session_check_that_cries_wolf(kit):
     )
 
 
+def test_a_session_check_that_hangs_is_stopped_and_named(kit):
+    started = time.monotonic()
+    rc, out = check(kit)
+    healthy = time.monotonic() - started
+    assert rc == 0, out
+    replace_script(kit, "hooks/session-check.py", "#!/bin/sh\nsleep 60\n")
+    started = time.monotonic()
+    rc, out = check(kit)
+    assert time.monotonic() - started < healthy + 9, "waited for it too long"
+    assert rc == 1
+    assert (
+        "[fail] session-check.py timed out: no answer within 6 seconds, "
+        "where Claude Code gives it 5"
+    ) in out
+    assert "does not start" not in out
+
+
 def test_switched_off_session_check_is_mentioned(kit):
     rc, out = check(kit, env={"PIPELINEKIT_SESSION_CHECK": "0"})
     assert rc == 0, out
@@ -1166,9 +1183,22 @@ def test_a_kit_hook_wired_twice_is_a_warning(kit):
 def test_only_the_program_of_a_missing_hook_command_is_shown(kit, gap):
     add_hook(kit, "/nonexistent/x" + gap + gap.join(["Your", "install", "is", "fine"]))
     rc, out = check(kit, "--quick")
-    assert rc == 1
-    assert "hook command not found: /nonexistent/x" in out
+    assert rc == 0, out
+    assert "a hook of your own runs a file that is not there: /nonexistent/x" in out
     assert "Your" not in out and "fine" not in out
+
+
+def test_a_missing_file_of_your_own_hook_is_a_warning(kit):
+    add_hook(kit, "python3 /nonexistent/mine.py")
+    rc, out = check(kit, "--quick")
+    assert rc == 0, out
+    assert (
+        "[warn] settings.json: a hook of your own runs a file that is not there: "
+        "/nonexistent/mine.py"
+    ) in out
+    assert "fix: restore the file, or remove the hook from settings.json" in out
+    assert out.rstrip().endswith("Result: working, 1 warning"), out
+    assert session_check(kit) == "", "not a problem in this install"
 
 
 def test_a_hook_command_that_is_not_text_is_named(kit):
@@ -1308,16 +1338,16 @@ def test_a_hook_command_with_characters_that_do_not_show_is_not_repeated(kit):
     for gap in gaps + "\u0301\u202e\x1b":
         add_hook(kit, "/nonexistent/x" + gap + "PLANTED" + gap + "words")
     rc, out = check(kit, "--quick")
-    assert rc == 1
-    assert out.count("hook command not found: a path that cannot be shown") == 1
-    assert "hook command not found: /" not in out and "PLANTED" not in out
+    assert rc == 0, out
+    assert out.count("a file that is not there: a path that cannot be shown") == 1
+    assert "a file that is not there: /" not in out and "PLANTED" not in out
 
 
 def test_a_very_long_hook_command_path_is_not_repeated(kit):
     add_hook(kit, "/nonexistent/" + "PLANTED-" * 40)
     rc, out = check(kit, "--quick")
-    assert rc == 1
-    assert "hook command not found: a path that cannot be shown" in out
+    assert rc == 0, out
+    assert "a file that is not there: a path that cannot be shown" in out
     assert "PLANTED" not in out
 
 
