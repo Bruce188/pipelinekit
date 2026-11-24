@@ -11,7 +11,9 @@ from test_ship import BRANCH, Sandbox, gates, last_line
 STACK = Path(__file__).resolve().parents[1] / "ship_stack.py"
 
 
-def stack_state(sandbox, rounds=1, items=None, prs=None, head=None, folder=None):
+def stack_state(
+    sandbox, rounds=1, items=None, prs=None, head=None, folder=None, **fields
+):
     """Write the state of a stack loop with PR #7 on the checked-out branch."""
     prs = prs or [{"pr": 7, "issue": 1, "branch": BRANCH}]
     heads = {str(e["pr"]): head or sandbox.head() for e in prs}
@@ -21,6 +23,7 @@ def stack_state(sandbox, rounds=1, items=None, prs=None, head=None, folder=None)
         "stack": {"base": "main", "prs": prs},
         "rounds": [{"n": n + 1, "heads": heads} for n in range(rounds)],
         "items": items or {},
+        **fields,
     }
     path = sandbox.work / "docs" / "loops" / (folder or "stack") / "build"
     path.mkdir(parents=True, exist_ok=True)
@@ -101,7 +104,36 @@ def test_the_stack_merges_bottom_up(sb):
     sb.state(pr=sb.pr(baseRefName="feat/0-below"))
     got = stack_gate(sb)
     assert got["state"] == "fail"
-    assert got["detail"] == "#6 below it merges first: a stack merges bottom-up"
+    assert got["detail"] == (
+        "#6 below it merges first: a stack merges bottom-up; once #6 has merged, "
+        "set the base of #7 to the branch #6 merged into"
+    )
+
+
+def test_the_part_above_waits_for_the_stack_below(sb):
+    lower = [{"pr": 5, "issue": 3, "branch": "feat/3-lower"}]
+    stack_state(sb, prs=lower, folder="lower")
+    path = stack_state(sb, folder="upper")
+    st = json.loads(path.read_text())
+    st["stack"]["base"] = "feat/3-lower"
+    path.write_text(json.dumps(st))
+    sb.state(pr=sb.pr(baseRefName="feat/3-lower"))
+    got = stack_gate(sb)
+    assert got["state"] == "fail"
+    assert got["detail"].startswith("#5 below it merges first")
+
+
+@pytest.mark.parametrize("outcome", ["done", "budget", "accepted"])
+def test_items_left_when_the_loop_ended_do_not_hold(sb, outcome):
+    stack_state(sb, items={"general:1": item(7)}, outcome=outcome)
+    got = stack_gate(sb)
+    assert got["state"] == "pass", got
+
+
+@pytest.mark.parametrize("outcome", ["open", "stalled", "blocked", "abandoned"])
+def test_items_left_in_an_unfinished_loop_hold(sb, outcome):
+    stack_state(sb, items={"general:1": item(7)}, outcome=outcome)
+    assert stack_gate(sb)["state"] == "fail"
 
 
 def test_a_commit_after_the_judged_head_holds(sb):

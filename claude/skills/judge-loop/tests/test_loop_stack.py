@@ -304,6 +304,28 @@ def test_a_pull_request_not_changed_since_is_not_read_again(sb):
     assert sb.state()["rounds"][0]["heads"]["22"] != sb.head()
 
 
+def test_the_base_merged_into_a_pull_request_above_is_not_its_own(sb):
+    start_stack(sb)
+    sb.judge(tens(**{ROLE: nine_on(22)}))
+    sb.on_base("c.py", "from the base\n")
+    sb.git("merge", "-q", "--no-edit", "origin/main")
+    assert sb.run("brief").code == 0
+    second = (sb.root / ROOT / "stack" / "pr22.patch").read_text()
+    assert second.startswith("# No commit of its own since round 1"), second
+    assert "c.py" not in second
+
+
+def test_a_stack_of_one_pull_request(sb):
+    one = STACK[:1]
+    run = sb.run("start", "build", "--stack", build_stack(sb, one))
+    assert run.code == 0, run
+    sb.criteria(text="## #11\n\n- a works\n")
+    run = sb.judge(tens())
+    assert run.code == 0, run
+    text = (sb.root / "docs/loops/feat-11-a/build/stack.md").read_text()
+    assert "| 1 | #21 | #11 | feat/11-a | main |" in text
+
+
 # waiting ----------------------------------------------------------------------
 
 
