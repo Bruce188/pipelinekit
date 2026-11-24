@@ -250,6 +250,26 @@ def test_a_named_pipe_as_never_stage_list_is_refused_without_waiting(env, tmp_pa
     assert first.endswith("[git.never-stage-missing]")
 
 
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        "echo a\0git commit --no-verify -m x",
+        "git status\0; git push --no-verify",
+        "echo ok\0",
+    ],
+)
+def test_a_nul_character_is_refused(env, tmp_path, cmd):
+    p = raw(env, cmd, tmp_path / "s")
+    assert p.returncode == 2
+    lines = p.stderr.splitlines()
+    assert lines[0] == (
+        "BLOCKED: the command holds a NUL character, so it cannot be checked "
+        "[parse.unparsable]"
+    )
+    assert lines[-1] == "Next: take the NUL character out and run the command again."
+    (e,) = logged(tmp_path / "s")
+    assert (e["kind"], e["rule"]) == ("block", "parse.unparsable")
+
 
 @pytest.mark.parametrize(
     "cmd,want",
