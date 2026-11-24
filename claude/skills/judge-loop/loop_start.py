@@ -190,14 +190,10 @@ def read_switches(ctx, base):
                         f"line {number} of {rel} is not on {where} yet: not used"
                     )
     home, shown = user_home()
-    try:
-        data = read_plain(home / "CLAUDE.md", MAX_TEXT_FILE)
-    except IsADirectoryError:
-        data = None
-        said.append(f"{shown} is a folder where a file was expected: not used")
-    if data is False:
-        said.append(f"{shown} is a link or over {size_text(MAX_TEXT_FILE)}: not used")
-    sources.append((shown, data.decode("utf-8", "replace") if data else "", ""))
+    text, why = read_policy(home / "CLAUDE.md", MAX_TEXT_FILE)
+    if why:
+        said.append(f"cannot read {shown} ({why}): not used")
+    sources.append((shown, text or "", ""))
     for rel, text, on in sources:
         for key, value, number, dropped in parse_switches(text):
             where = f"{rel}:{number}{on}"

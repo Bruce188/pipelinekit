@@ -218,6 +218,49 @@ def read_plain(path, limit):
     return data if len(data) <= limit else False
 
 
+def read_policy(path, limit):
+    """(text, why) of the user-level CLAUDE.md: text None and why '' when there
+    is none.
+
+    Unlike read_plain, a link is followed, as Claude Code follows it: the file
+    often lives in a dotfiles repository. The file is opened without waiting, so
+    a named pipe or a device at the end of the path cannot hold the loop up;
+    anything but a regular file of at most `limit` bytes, or a link to nothing,
+    gives the reason in `why`. Only this file is read through a link.
+    """
+    flags = getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOCTTY", 0)
+    try:
+        fd = os.open(path, os.O_RDONLY | flags)
+    except FileNotFoundError:
+        return None, "a link to a missing file" if os.path.islink(path) else ""
+    except IsADirectoryError:
+        return None, "a folder, not a file"
+    except OSError as exc:
+        return None, (exc.strerror or type(exc).__name__).lower()
+    try:
+        mode = os.fstat(fd).st_mode
+        if stat.S_ISDIR(mode):
+            return None, "a folder, not a file"
+        if stat.S_ISFIFO(mode):
+            return None, "a named pipe, not a regular file"
+        if not stat.S_ISREG(mode):
+            return None, "not a regular file"
+        chunks, size = [], 0
+        while size <= limit:
+            chunk = os.read(fd, limit + 1 - size)
+            if not chunk:
+                break
+            chunks.append(chunk)
+            size += len(chunk)
+    except OSError as exc:
+        return None, (exc.strerror or type(exc).__name__).lower()
+    finally:
+        os.close(fd)
+    if size > limit:
+        return None, f"larger than {size_text(limit)}"
+    return b"".join(chunks).decode("utf-8", "replace"), ""
+
+
 def write_atomic(path, data: bytes):
     path = Path(path)
     if path.is_dir() and not path.is_symlink():
