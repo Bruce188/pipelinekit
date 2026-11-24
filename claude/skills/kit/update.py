@@ -31,7 +31,6 @@ import json
 import os
 import re
 import shlex
-import shutil
 import subprocess
 import sys
 import time
@@ -40,6 +39,7 @@ import time
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import check  # noqa: E402
+import installer_options  # noqa: E402
 
 MAX_SUBJECTS = 30
 FETCH_TIMEOUT = 60  # seconds
@@ -63,6 +63,7 @@ def installed_kit(home: str) -> dict:
         raise Stop(f"the install manifest is {why}; run the installer once by hand")
     kit = {k: str(manifest.get(k) or "") for k in ("checkout", "branch", "commit")}
     kit["serena"] = manifest.get("serena")
+    kit["hooks_path"] = manifest.get("hooks_path")
     problem = check.checkout_problem(kit["checkout"], installer=True)
     if problem:
         raise Stop(problem)
@@ -180,14 +181,15 @@ def plan(home: str) -> int:
 
 
 def installer_args(kit: dict, home: str) -> list[str]:
-    """Keep what the user chose at install time; an update adds nothing new."""
-    hooks = check.git_value("config", "--global", "--get", "core.hooksPath")
-    mine = check.same_path(hooks, os.path.join(home, "git-hooks"))
-    args = ["--git-hooks" if mine else "--no-git-hooks"]
-    serena = kit["serena"]
-    if serena is False or (serena is None and not shutil.which("serena")):
-        args.append("--no-serena")
-    return args
+    """Keep what the user chose at install time; an update adds nothing new.
+
+    The same options as the self-check's repair command.
+    """
+    return installer_options.options(
+        kit,
+        home,
+        lambda: check.git_value("config", "--global", "--get", "core.hooksPath"),
+    )
 
 
 def installed_commit(home: str) -> str:

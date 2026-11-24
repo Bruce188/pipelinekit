@@ -50,6 +50,10 @@ try:  # which file a hook command runs; the installer reads commands with it too
     import hook_command
 except ImportError:
     hook_command = None
+try:  # the installer options of the repair command; update.py runs them too
+    import installer_options
+except ImportError:
+    installer_options = None
 
 SCHEMA = 1
 HOOKS = (
@@ -1575,11 +1579,17 @@ def check_update(c: Check) -> None:
 
 
 def repair_hint(c: Check) -> str:
-    """The installer, with what the install was made without."""
+    """The installer, with the choices the install was made with."""
     m = as_dict(c.manifest)
     checkout = str(m.get("checkout") or "")
     script = os.path.join(checkout, "scripts", "install.sh")
-    keep = " --no-serena" if m.get("serena") is False else ""
+    keep = ""
+    if installer_options:
+
+        def hooks_now() -> str:
+            return git_value("config", "--global", "--get", "core.hooksPath")
+
+        keep = "".join(f" {o}" for o in installer_options.options(m, c.home, hooks_now))
     shown = clean(checkout) == checkout
     if shown and os.path.isabs(script) and os.path.isfile(script):
         return f"bash {shlex.quote(script)}{keep}"

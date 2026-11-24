@@ -1404,10 +1404,17 @@ def test_every_name_the_kit_wires_is_one_the_report_shows():
                     assert check_py.PLAIN_NAME.fullmatch(arg), arg
 
 
-def test_the_repair_command_keeps_an_install_without_serena_that_way(kit):
+def test_the_repair_command_keeps_the_choices_of_the_install(kit):
     (kit["home"] / "hooks" / "bash-guard.py").unlink()
+    script = f"bash {REPO}/scripts/install.sh"
+    edit_json(kit, "pipelinekit/manifest.json", lambda d: d.update(hooks_path=""))
     _, out = check(kit, "--quick")
-    assert out.rstrip().endswith(f"Repair: bash {REPO}/scripts/install.sh --no-serena")
-    edit_json(kit, "pipelinekit/manifest.json", lambda d: d.update(serena=True))
-    _, out = check(kit, "--quick")
-    assert out.rstrip().endswith(f"Repair: bash {REPO}/scripts/install.sh")
+    assert out.rstrip().endswith(f"Repair: {script} --no-git-hooks --no-serena")
+    hooks = str(kit["home"] / "git-hooks")
+    edit_json(
+        kit,
+        "pipelinekit/manifest.json",
+        lambda d: d.update(serena=True, hooks_path=hooks),
+    )
+    rc, out = check(kit, "--quick", "--json")
+    assert json.loads(out)["repair"] == f"{script} --git-hooks", out
