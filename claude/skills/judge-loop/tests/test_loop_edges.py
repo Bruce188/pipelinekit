@@ -125,7 +125,7 @@ def test_a_user_file_that_is_a_folder_is_a_notice(sb):
     run = sb.run("start", "build")
     assert run.code == 0, run
     assert (
-        "$CLAUDE_HOME/CLAUDE.md is a folder where a file was expected: not used"
+        "cannot read $CLAUDE_HOME/CLAUDE.md (a folder, not a file): not used"
         in run.lines
     ), run
     assert sb.state()["outcome"] == "open"
