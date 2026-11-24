@@ -168,7 +168,6 @@ SKIP_ENDS = (
     ".tf",
     ".hcl",
     ".tfvars",
-    ".nix",
     ".snap",
     ".svg",
     ".map",
@@ -198,12 +197,14 @@ CODE_ENDS = wordset(
 # Source files that are a manifest all the same.
 MANIFEST_CODE = wordset(
     "setup.py mix.exs build.gradle.kts settings.gradle.kts package.swift "
-    "conanfile.py app.config.js app.config.ts app.config.mjs app.config.cjs"
+    "conanfile.py app.config.js app.config.ts app.config.mjs app.config.cjs "
+    "vite.config.js vite.config.ts vite.config.mjs vite.config.cjs vite.config.mts"
 )
 DOC_ENDS = wordset(".md .markdown .mdx .rst .adoc .txt .html .htm .tex .org")
 NOTES_STEMS = wordset("changelog changes history news releases releasenotes")
 NOTES_DIRS = wordset(
-    "changelog changelogs releases release-notes release_notes releasenotes"
+    "changelog changelogs releases release-notes release_notes releasenotes "
+    "whatsnew whats-new whats_new changes news history"
 )
 VERSION_STEMS = wordset(
     "version bumpversion releasepleasemanifest appversion versioninfo"
@@ -254,14 +255,14 @@ VALUE = re.compile(r"\s*[\"'\[({]*v?\d")
 # `version = "1.2.3"` and its relatives anywhere on a line of a manifest.
 DECLARES = re.compile(
     r"(?<![\w.-])(?P<key>[\w.-]*version\w*)[\"']?\s*"
-    r"(?:[:?+]?=(?!=)|:(?!:)|\(|>|\s)\s*[\"'\[({]*v?\d",
+    r"(?:[:?+]?=(?!=)|:(?!:)|\(|>|\s)\s*(?:JSON\.stringify\(\s*)?[\"'\[({]*v?\d",
     re.I,
 )
 # The same at the start of a line of source code, with a quoted number: an
 # assignment, a key of an object, a struct or a dictionary, a `#define`.
 VERSION_NAME = (
-    r"(?:__version__|(?:(?:app|package|pkg|project)_?)?version"
-    r"(?:_?(?:name|code|string|number))?)"
+    r"(?:__version(?:_info)?__|release|(?:(?:app|package|pkg|project)_?)?version"
+    r"(?:_?(?:name|code|string|number|info))?)"
 )
 CODE_VERSION = re.compile(
     r"^\s*(?:"
@@ -274,7 +275,13 @@ CODE_VERSION = re.compile(
     r"|#\s*define\s+" + VERSION_NAME + r"(?=\s)"
     r"|define\(\s*[\"']" + VERSION_NAME + r"[\"']\s*,"
     r"|@version(?=\s)"
-    r")\s*[\"'`]v?\d",
+    r")\s*(?:[\"'`]v?\d|\(\s*\d+\s*,\s*\d)",
+    re.I,
+)
+# The header comment of a WordPress plugin or theme, or of a userscript:
+# ` * Version: 1.2.4`, `// @version 1.2.4`.
+HEADER_VERSION = re.compile(
+    r"^\s*(?:/\*+|\*+|//+|#+|;+|--)?\s*(?:@version\s+|version\s*:\s*)v?\d+\.\d",
     re.I,
 )
 # A line that pins something else: a dependency, a plugin, an image, a range.
@@ -290,6 +297,10 @@ DEP_LINE = re.compile(
 MASK = re.compile(r"(?<![\d.])\d+\.\d+\.\d+(?!\.?\d)(?:[-+][\w.]+)?")
 UNDERLINE = re.compile(r"^\s*([=\-~^\"*+#])\1{2,}\s*$")
 LINK_DEF = re.compile(r"^\s*\[v?\d[^\]]*\]\s*:")
+# The first line of an entry of `debian/changelog`.
+DEBIAN_HEAD = re.compile(
+    r"^[a-z0-9][a-z0-9+.-]*\s+\([^()\s]*\d[^()\s]*\)\s+[\w./ -]+;\s*urgency=", re.I
+)
 NOTE_WORDS = wordset("version release released v")
 PROJECT_LINE = re.compile(
     r"^[*_]*release\s+(file|branch)(?:e?s)?[*_]*\s*:[*_]*\s*(.+)$", re.I

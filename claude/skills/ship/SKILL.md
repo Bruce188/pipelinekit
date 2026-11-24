@@ -22,7 +22,7 @@ Stop and ask, with an interactive question, when any of these is true. The helpe
 - A review is required or requested, or branch protection blocks the merge. Never pass `--admin`, dismiss a review or change a repository setting to get past it.
 - The project opted out: a line `Merges: ask first` in its `CLAUDE.md` (in the checkout or on the base branch) or in the user-level one, or `PIPELINEKIT_MERGE` in the environment with any non-empty value but `auto`.
 - The test needs a product decision the criteria do not settle, or it cannot be run here.
-- The same finding is still open after two fix attempts, or five rounds in a row failed. `status` and `merge` then exit 3 as well.
+- The same finding is still open on three tested commits in a row (two fix attempts; more rounds on one commit count once), or five rounds in a row failed. `status` and `merge` then exit 3 as well.
 - The branch's judge loop is waiting for the user. The `judged` gate says so, and `status` and `merge` exit 3.
 
 ## The loop

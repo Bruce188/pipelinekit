@@ -525,6 +525,24 @@ HELD_FILES = [
         'android {\n  defaultConfig {\n    versionName "%s"\n  }\n}\n',
     ),
     bump("MODULE.bazel", 'module(name = "app", version = "%s")\n'),
+    bump(
+        "build.xml",
+        '<project name="demo">\n  <property name="version" value="%s"/>\n</project>\n',
+    ),
+    bump(
+        "default.nix",
+        '{ stdenv }:\nstdenv.mkDerivation {\n  pname = "demo";\n  version = "%s";\n}\n',
+    ),
+    bump(
+        "vite.config.ts",
+        "export default defineConfig({\n  define: {\n"
+        '    __APP_VERSION__: JSON.stringify("%s"),\n  },\n});\n',
+    ),
+    bump(
+        "vite.config.js",
+        "export default {\n  define: {\n"
+        "    'import.meta.env.VITE_VERSION': JSON.stringify('%s'),\n  },\n};\n",
+    ),
 ]
 ORDINARY_FILES = [
     ("pom.xml", POM % ("3.0.0", "1.2.3", "4.13.1"), POM % ("3.0.1", "1.2.3", "4.13.1")),
@@ -564,6 +582,16 @@ ORDINARY_FILES = [
         '    .package(url: "https://example.invalid/x.git", from: "%s"),\n  ]\n)\n',
     ),
     bump("paket.dependencies", "source https://example.invalid\nnuget Json %s\n"),
+    bump(
+        "flake.nix",
+        '{\n  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-%s";\n}\n',
+        "24.05",
+        "24.11",
+    ),
+    bump(
+        "build.xml",
+        '<project>\n  <property name="src.dir" value="src/%s"/>\n</project>\n',
+    ),
 ]
 
 
@@ -605,6 +633,15 @@ HELD_CODE = [
     bump("demo.php", "define('APP_VERSION', '%s');\n"),
     bump("config/app.php", "return [\n    'version' => '%s',\n];\n"),
     bump("src/x/__init__.py", '__version__ = "%s"\n'),
+    bump("src/x/__init__.py", "VERSION = (%s)\n", "1, 2, 3", "1, 2, 4"),
+    bump("src/x/__init__.py", "__version_info__ = (%s)\n", "1, 2, 3", "1, 2, 4"),
+    bump("docs/conf.py", 'project = "demo"\nrelease = "%s"\n'),
+    bump("demo-plugin.php", "<?php\n/**\n * Plugin Name: Demo\n * Version: %s\n */\n"),
+    bump("style.css", "/*\nTheme Name: Demo\nVersion: %s\n*/\n"),
+    bump(
+        "demo.user.js",
+        "// ==UserScript==\n// @name Demo\n// @version %s\n// ==/UserScript==\n",
+    ),
 ]
 ORDINARY_CODE = [
     bump("src/client.ts", 'const options = {\n  apiVersion: "%s",\n};\n'),
@@ -614,6 +651,9 @@ ORDINARY_CODE = [
     bump("src/app.py", '    print("version: %s")\n'),
     bump("tests/meta.js", "module.exports = {\n  version: '%s',\n};\n"),
     bump("src/app.js", "  // version: '%s' was the last one with the old login\n"),
+    bump("src/app.py", "if sys.version_info >= (%s):\n", "3, 8", "3, 9"),
+    bump("src/app.py", "    # needs version %s of the driver\n"),
+    bump("src/app.py", "release_notes = load('%s')\n"),
 ]
 
 
@@ -688,9 +728,38 @@ def test_a_note_about_another_version_is_ordinary(added):
     assert verdict("CHANGELOG.md", NOTES % "", NOTES % added, own) == ""
 
 
-def test_a_new_file_of_release_notes_for_one_version_is_held():
-    why = verdict("docs/releases/1.2.4.md", "", "# What is new\n\n- second\n")
-    assert why == "the diff changes docs/releases/1.2.4.md: a new version is a release"
+@pytest.mark.parametrize(
+    "path",
+    [
+        "docs/releases/1.2.4.md",
+        "docs/whatsnew/1.2.4.rst",
+        "doc/whats-new/v1.2.4.md",
+        "news/1.2.4.md",
+        "docs/changes/1.2.4.rst",
+        "history/1.2.4.txt",
+    ],
+)
+def test_a_new_file_of_release_notes_for_one_version_is_held(path):
+    why = verdict(path, "", "# What is new\n\n- second\n")
+    assert why == f"the diff changes {path}: a new version is a release"
+
+
+DEBIAN = "demo (%s-1) unstable; urgency=medium\n\n  * %s\n\n -- A B <a@b.invalid>  %s\n"
+
+
+def test_a_new_entry_of_a_debian_changelog_is_held():
+    old = DEBIAN % ("1.2.3", "first", "Mon, 09 Nov 2026 10:00:00 +0000")
+    new = DEBIAN % ("1.2.4", "second", "Tue, 10 Nov 2026 10:00:00 +0000") + "\n" + old
+    why = verdict("debian/changelog", old, new)
+    assert why == (
+        "the diff adds a version heading to debian/changelog: a new version is a "
+        "release"
+    )
+
+
+def test_a_release_set_in_a_sphinx_conf_is_held_through_git(sb):
+    sb.change("docs/conf.py", 'release = "1.2.3"\n', 'release = "1.2.4"\n')
+    assert gates(sb.ship("status", "--json"))["release"]["state"] == "fail"
 
 
 # ---------------------------------------------------------------- promotions

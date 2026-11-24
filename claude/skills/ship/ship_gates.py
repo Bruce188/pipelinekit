@@ -445,6 +445,10 @@ def xml_leaves(text):
         here = (*trail, tag)
         for name, value in node.attrib.items():
             out[((*here, "@" + name.rpartition("}")[2]), value)] += 1
+        # `<property name="version" value="1.2.4"/>` of Ant: a key and its value.
+        key = node.attrib.get("name") or node.attrib.get("key")
+        if key and "value" in node.attrib:
+            out[((*here, key), node.attrib["value"])] += 1
         if len(node):
             for child in node:
                 visit(child, here)
@@ -588,7 +592,7 @@ def notes_rule(old, new, own=()):
         below = lines[at + 1] if at + 1 < len(lines) else ""
         if body.startswith(("#", "=")) or UNDERLINE.match(below):
             return True
-        if LINK_DEF.match(line):
+        if LINK_DEF.match(line) or DEBIAN_HEAD.match(line):
             return True
         versions, words = words_of(STRIP_NOTE.sub(" ", body))
         if versions and all(w in own or w in NOTE_WORDS | MONTHS for w in words):
@@ -631,7 +635,7 @@ def code_version(repo, base):
         "--no-color",
         "--no-ext-diff",
         "--no-renames",
-        "-G[Vv][Ee][Rr][Ss][Ii][Oo][Nn]",
+        "-G[Vv][Ee][Rr][Ss][Ii][Oo][Nn]|[Rr][Ee][Ll][Ee][Aa][Ss][Ee]",
         f"refs/remotes/{repo.remote}/{base}...HEAD",
     )
     if rc:
@@ -649,7 +653,7 @@ def code_version(repo, base):
             and path
             and line.startswith("+")
             and place(path) == "code"
-            and CODE_VERSION.match(line[1:])
+            and (CODE_VERSION.match(line[1:]) or HEADER_VERSION.match(line[1:]))
         ):
             return path, ""
     return "", ""

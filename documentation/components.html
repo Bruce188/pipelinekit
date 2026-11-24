@@ -1454,21 +1454,86 @@ python3<span class="w"> </span>~/.claude/skills/kit/update.py<span class="w"> </
 <p>The gate also reads the diff against the base branch. It does not work from a list of known manifests: a version is ordinary in the places known to hold the versions of other things, and held anywhere else, whatever the file format.</p>
 <p>Held are:</p>
 <ul>
-<li>any change to a version file (<code>VERSION</code>, <code>version.txt</code>, <code>.bumpversion.cfg</code>, <code>.release-please-manifest.json</code>) and any numbered file in a release-notes directory (<code>docs/releases/1.2.4.md</code>);</li>
-<li>a new or changed value under a key with <code>version</code> in its name, in any manifest or data file: <code>package.json</code>, <code>pyproject.toml</code>, <code>Cargo.toml</code>, <code>pom.xml</code>, a <code>.csproj</code> or <code>.nuspec</code>, <code>Chart.yaml</code>, <code>Info.plist</code>, <code>CMakeLists.txt</code>, <code>build.gradle</code>, <code>setup.py</code>, <code>AssemblyInfo.cs</code>, <code>version.h</code>, and files the helper has never heard of. In a file without a known format, a line that only swaps one three-part number for another counts too;</li>
-<li>a line of source code that sets a quoted version: an assignment (<code>__version__ = "1.2.4"</code>, <code>public static readonly string Version = "1.2.4";</code>), a key of an object, a struct or a dictionary (<code>version: "1.2.4",</code>), a <code>#define APP_VERSION "1.2.4"</code>. <code>app.config.js</code> and <code>app.config.ts</code> are read as manifests;</li>
-<li>a new version heading in release notes (<code>CHANGELOG</code>, <code>CHANGES</code>, <code>HISTORY</code>, <code>NEWS</code>, <code>RELEASES</code>, <code>RELEASE_NOTES</code>, with any extension): <code>## 1.2.4</code>, <code>## [1.2.4] - 2026-11-10</code>, <code>1.2.4</code> over an underline, <code>**1.2.4**</code>, <code>## kit 1.2.4</code>, a link definition <code>[1.2.4]: ...</code>.</li>
+<li>any change to a version file (<code>VERSION</code>, <code>version.txt</code>, <code>.bumpversion.cfg</code>, <code>.release-please-manifest.json</code>) and any numbered file in a release-notes directory (<code>docs/releases/1.2.4.md</code>, <code>docs/whatsnew/1.2.4.rst</code>, and the same under <code>changes/</code>, <code>news/</code> or <code>history/</code>);</li>
+<li>a new or changed value under a key with <code>version</code> in its name, in any manifest or data file: <code>package.json</code>, <code>pyproject.toml</code>, <code>Cargo.toml</code>, <code>pom.xml</code>, a <code>.csproj</code> or <code>.nuspec</code>, <code>Chart.yaml</code>, <code>Info.plist</code>, <code>CMakeLists.txt</code>, <code>build.gradle</code>, <code>setup.py</code>, <code>AssemblyInfo.cs</code>, <code>version.h</code>, an Ant <code>&lt;property name="version" value="1.2.4"/&gt;</code>, a <code>.nix</code> file, and files the helper has never heard of. In a file without a known format, a line that only swaps one three-part number for another counts too;</li>
+<li>a line of source code that sets a quoted version: an assignment (<code>__version__ = "1.2.4"</code>, <code>public static readonly string Version = "1.2.4";</code>), a key of an object, a struct or a dictionary (<code>version: "1.2.4",</code>), a <code>#define APP_VERSION "1.2.4"</code>, a tuple (<code>VERSION = (1, 2, 4)</code>, <code>__version_info__ = (1, 2, 4)</code>), Sphinx's <code>release = "1.2.4"</code>; and the header comment of a WordPress plugin or theme or of a userscript (<code>* Version: 1.2.4</code>, <code>// @version 1.2.4</code>). <code>app.config.*</code> and <code>vite.config.*</code> are read as manifests, so a Vite <code>define</code> with <code>JSON.stringify("1.2.4")</code> counts;</li>
+<li>a new version heading in release notes (<code>CHANGELOG</code>, <code>CHANGES</code>, <code>HISTORY</code>, <code>NEWS</code>, <code>RELEASES</code>, <code>RELEASE_NOTES</code>, with any extension): <code>## 1.2.4</code>, <code>## [1.2.4] - 2026-11-10</code>, <code>1.2.4</code> over an underline, <code>**1.2.4**</code>, <code>## kit 1.2.4</code>, a link definition <code>[1.2.4]: ...</code>, the first line of a <code>debian/changelog</code> entry (<code>demo (1.2.4-1) unstable; urgency=medium</code>).</li>
 </ul>
-<p>Ordinary are: lock files; files that pin tools (<code>.nvmrc</code>, <code>.python-version</code>, <code>Dockerfile</code>, <code>docker-compose.yml</code>, <code>requirements*.txt</code>, <code>.pre-commit-config.yaml</code>, <code>packages.config</code>, <code>deps.edn</code>); everything under <code>.github/</code>, <code>.circleci/</code> and <code>.devcontainer/</code>; files in test, fixture, example and vendor directories; documentation (<code>README</code>, <code>.md</code>, <code>.rst</code>, <code>.txt</code>, <code>.html</code>); dependency tables and elements (<code>dependencies</code>, <code>[dependencies.clap]</code>, <code>&lt;parent&gt;</code>, <code>&lt;dependency&gt;</code>, <code>engines</code>); keys that name a tool or a format (<code>python-version</code>, <code>apiVersion</code>, <code>schemaVersion</code>, <code>minSdkVersion</code>); a whole number under a plain <code>version</code> key (<code>version: 2</code> is a format version); a changelog entry under an existing heading.</p>
+<p>Ordinary are: lock files; files that pin tools (<code>.nvmrc</code>, <code>.python-version</code>, <code>Dockerfile</code>, <code>docker-compose.yml</code>, <code>requirements*.txt</code>, <code>.pre-commit-config.yaml</code>, <code>packages.config</code>, <code>deps.edn</code>); everything under <code>.github/</code>, <code>.circleci/</code> and <code>.devcontainer/</code>; files in test, fixture, example and vendor directories; documentation (<code>README</code>, <code>.md</code>, <code>.rst</code>, <code>.txt</code>, <code>.html</code>); dependency tables and elements (<code>dependencies</code>, <code>[dependencies.clap]</code>, <code>&lt;parent&gt;</code>, <code>&lt;dependency&gt;</code>, <code>engines</code>); keys that name a tool or a format from a fixed list (<code>python-version</code>, <code>apiVersion</code>, <code>schemaVersion</code>, <code>minSdkVersion</code>); a whole number under a plain <code>version</code> key (<code>version: 2</code> is a format version); a changelog entry under an existing heading.</p>
 <p>No reading of a diff is complete, so three more things decide:</p>
 <ul>
 <li><code>ship.py record --result pass</code> takes <code>--release yes</code> or <code>--release no</code>. Whoever ran the test knows what the change is and says so; <code>yes</code> holds the pull request until a new commit, also when a later round on the same commit says <code>no</code>, and a pass without the answer is not accepted.</li>
 <li>A project names its own release files and branches in its <code>CLAUDE.md</code>, each on a line of its own: <code>Release files: app/build.txt, deploy/</code> and <code>Release branches: team-*, customer-*</code>. A change to one of the files, and a pull request from or into one of the branches, is held. A file value reads the way <code>.gitignore</code> reads a pattern: <code>deploy/</code>, and a plain name such as <code>deploy</code>, cover everything below a directory of that name at any depth, while <code>/deploy/</code> and <code>infra/deploy</code> cover only the one at that path; a glob such as <code>*.ver</code> matches the path or the file name. A value may end a sentence: <code>deploy/.</code> is <code>deploy/</code>. The <code>release</code> gate names a value that matches no tracked file under its line in <code>status</code>. A branch value ending in <code>/</code> covers every branch that starts with it; anything else is a glob on the whole name. As with the opt-out line, the <code>CLAUDE.md</code> on the base branch counts as well.</li>
 <li>A branch that other pull requests were merged into is a stage, whatever it is called, and merging it on is a promotion. The helper asks GitHub about every head branch that is not a topic branch (<code>feat/...</code>, <code>fix/...</code>); without an answer nothing merges.</li>
 </ul>
-<p>The gate guards your own project against a slip. It is not a defence against a pull request written to get past it. It does not see: a version in a place the lists call ordinary (a label in a <code>Dockerfile</code>, a file under <code>tests/</code> or <code>examples/</code>, a <code>.md</code> file that is not release notes); a whole-number version under a plain <code>version</code> key; a version that source code spells another way (<code>VERSION = (1, 2, 4)</code>, the header comment of a plugin); a version in a <code>.nix</code> or <code>.tf</code> file; a version Maven takes from <code>&lt;properties&gt;</code> or <code>${revision}</code>; files over 1 MB and binary files; a release whose title uses no release word (<code>chore: go live</code>) and whose diff sets no version. It holds some pull requests that are not releases: a nested package getting its first version, a version-like setting in a config file, a branch whose short name starts with a stage word (<code>qa-fixes</code>), a title that is a name and a number (<code>chore: lodash 4.17.21</code>). When that happens, say that it may be merged, and merge it yourself.</p>
+<p>The gate guards your own project against a slip. It is not a defence against a pull request written to get past it. It does not see: a version in a place the lists call ordinary (a label in a <code>Dockerfile</code>, a file under <code>tests/</code> or <code>examples/</code>, a <code>.md</code> file that is not release notes); a whole-number version under a plain <code>version</code> key; a version that source code builds at run time (<code>VERSION = ".".join(parts)</code>); a version in a <code>.tf</code>, <code>.tfvars</code> or <code>.hcl</code> file, where Terraform pins its providers and modules; a version Maven takes from <code>&lt;properties&gt;</code> or <code>${revision}</code>; files over 1 MB and binary files; a release whose title uses no release word (<code>chore: go live</code>) and whose diff sets no version. It holds some pull requests that are not releases: a nested package getting its first version, a version-like setting in a config file, an Ant property that pins a dependency (<code>junit.version</code>), a key that names a tool outside the fixed list (<code>KUBECTL_VERSION</code> or <code>POSTGRES_VERSION</code> in a <code>Makefile</code>, <code>postgres_version:</code> in Ansible vars), and the branch names and titles below. The tool list stays fixed on purpose: a project can carry the name of a tool, and a wider rule would let its own version through. When that happens, say that it may be merged, and merge it yourself.</p>
+<p>How the gate reads some common branch names and titles:</p>
+<table>
+<thead>
+<tr>
+<th>Branch the pull request comes from</th>
+<th>Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>qa-fixes</code>, <code>staging-eu</code>, <code>nightly-build</code>, <code>canary</code></td>
+<td>held: a stage word, alone or with one more part</td>
+</tr>
+<tr>
+<td><code>qa-fixes-login</code>, <code>staging-eu-2</code>, <code>dev-tools</code>, <code>test-utils</code>, <code>beta-feature</code></td>
+<td>ordinary: more than one part after the stage word, or a word that only names a stage when it stands alone</td>
+</tr>
+<tr>
+<td><code>feat/qa-fixes</code>, <code>hotfix/login</code>, <code>feat/21-v2</code>, <code>update-deps</code></td>
+<td>ordinary: a topic branch, or no stage or version word</td>
+</tr>
+<tr>
+<td><code>hotfix/1.2.1</code>, <code>prepare-1.2.0</code>, <code>bump-version</code>, <code>chore/bump-version</code>, <code>v2</code>, <code>1.x</code></td>
+<td>held: a version in the name, or a version bump</td>
+</tr>
+<tr>
+<td><code>release-notes-script</code>, <code>docs/release-notes</code></td>
+<td>ordinary: about release notes, not a release</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Title</th>
+<th>Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>chore: lodash 4.17.21</code>, <code>chore: kit 1.2.0</code>, <code>chore: 1.2.0</code>, <code>chore: v2</code></td>
+<td>held: a name and a number, or a number alone</td>
+</tr>
+<tr>
+<td><code>chore: bump lodash to 4.17.21</code>, <code>chore(deps): bump lodash to 4.17.21</code>, <code>chore: upgrade react to 18.2.0</code></td>
+<td>ordinary: a dependency moves to a version</td>
+</tr>
+<tr>
+<td><code>chore: node 20</code>, <code>chore: python 3.12</code>, <code>fix: crash in 1.2.3</code></td>
+<td>ordinary: a tool, or a sentence about another version</td>
+</tr>
+<tr>
+<td><code>chore: release</code>, <code>chore: weekly release</code>, <code>chore: patch</code>, <code>chore: update version</code>, <code>Deploy</code></td>
+<td>held: a release word on its own</td>
+</tr>
+<tr>
+<td><code>chore: release script</code>, <code>docs: release 1.2.0</code>, <code>deploy docs</code>, <code>fix: patch</code>, <code>feat: v2 api</code></td>
+<td>ordinary: about how releases are made, a quiet or plain type, or more than the release word</td>
+</tr>
+<tr>
+<td><code>chore: go live</code></td>
+<td>ordinary, although it may be one: no release word and, unless the diff sets one, no version; say <code>--release yes</code></td>
+</tr>
+</tbody>
+</table>
 <p>Known working branches are: the default branch; the shared branches <code>develop</code>, <code>development</code>, <code>dev</code>, <code>integration</code>, <code>staging</code>, <code>stage</code>, <code>next</code>, <code>beta</code>, <code>alpha</code>, <code>canary</code>, <code>preview</code>, <code>nightly</code>, <code>edge</code>, <code>uat</code>, <code>qa</code>, <code>preprod</code>, <code>test</code>, <code>testing</code> and <code>trunk</code>; branches under <code>integration/</code>, <code>staging/</code>, <code>stage/</code>, <code>uat/</code>, <code>qa/</code> and <code>preprod/</code>; release lines, which is anything that starts with <code>release/</code>, <code>release-</code>, <code>releases/</code>, <code>rel/</code>, <code>rc/</code>, <code>hotfix/</code>, <code>support/</code> or <code>maint/</code>, and bare version names such as <code>1.x</code> or <code>v2</code>; topic branches such as <code>feat/12-base</code> (a stacked pull request). A pull request into any other branch (<code>customer-a</code>, <code>release</code>) is held, because the helper cannot know what that branch stands for. Name such a branch on a <code>Release branches:</code> line when it is a release branch. As the branch a pull request comes from, <code>hotfix/login-crash</code> is a fix like any other; only a hotfix branch with a version in its name (<code>hotfix/1.2.1</code>), or one that other pull requests were merged into, is held.</p>
-<p>These stay yours: release pull requests, tags, publishing and production deploys; pull requests someone else opened; anything behind a required review or branch protection. Claude also stops and asks when the same finding is still open after two fix attempts, after five failed rounds in a row, when the judge loop is waiting for you, and when a test needs a decision the criteria do not settle. A stuck loop shows in <code>ship.py status</code> and blocks <code>ship.py merge</code> until you decide.</p>
+<p>These stay yours: release pull requests, tags, publishing and production deploys; pull requests someone else opened; anything behind a required review or branch protection. Claude also stops and asks when the same finding is still open on three tested commits in a row (the first try and two fix attempts; more rounds on one commit count once, so recording the same failure again does not stop), after five failed rounds in a row, when the judge loop is waiting for you, and when a test needs a decision the criteria do not settle. A stuck loop shows in <code>ship.py status</code> and blocks <code>ship.py merge</code> until you decide.</p>
 <p>To turn self-merging off for a project, put this line in its <code>CLAUDE.md</code>:</p>
 <div class="codehilite"><pre><span></span><code>Merges: ask first
 </code></pre></div>
