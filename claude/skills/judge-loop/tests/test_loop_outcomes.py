@@ -260,7 +260,8 @@ def test_a_command_that_does_not_fit_the_state(sb, command, args, outcome, fits)
 
 def line_of(x, role="general", mark=""):
     return (
-        f"  [{role} {x}] problem {x} | evidence: evidence {x} | fix: fix {x} | "
+        f"  [{role} {x}] problem {x} | evidence: evidence {x} at app.py:1 | "
+        f"fix: fix {x} | "
         f"check: check {x}{mark}"
     )
 
@@ -575,7 +576,7 @@ def accepted_with_items(sb, b=("B1",), i=("I1",), problem=None):
     improvements = [item(x) for x in i]
     if problem:
         for entry in blocking + improvements:
-            entry.update(problem=problem, evidence=problem, fix=problem)
+            entry.update(problem=problem, evidence=f"{problem} app.py:1", fix=problem)
     data = json.dumps(
         {
             "overall": 9,

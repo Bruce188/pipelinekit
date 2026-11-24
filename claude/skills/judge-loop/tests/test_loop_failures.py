@@ -501,7 +501,7 @@ def test_cut_fields_name_each_result_file_once(sb):
     run = sb.judge(
         {
             "general": result(9, improvements=general),
-            "tests": result(9, improvements=[item("T1", evidence=LONG)]),
+            "tests": result(9, improvements=[item("T1", evidence=LONG + " app.py:1")]),
         }
     )
     assert run.code == 1, run

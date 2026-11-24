@@ -30,8 +30,9 @@ Answer with the one JSON object the brief describes: `"overall"` from 0 to 10,
 `"still_open"` for the ids of your last result that you raise again, and `"read"`:
 `"full"` or `"changes"`, what you read. Score in steps of 0.5. The score is 10 minus
 named items: no item, no deduction. List every gap now, not the top few. Give each
-item evidence a reader can check: a file and line, or the criterion it misses. A
-dimension the work gives you nothing to judge on gets a 10 and no item. A blocking
+item evidence a reader can check: a `file:line`, or the plan section or
+criterion it misses.
+A dimension the work gives you nothing to judge on gets a 10 and no item. A blocking
 item is one the work cannot ship with; everything else is an improvement.
 A hand-written file of code, tests or markdown that the work creates or
 makes longer, and that is then over 1,500 lines or 50,000 bytes, is an item.

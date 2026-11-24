@@ -328,6 +328,21 @@ REJECTED = [
         "improvements[1].evidence: empty",
     ),
     (
+        "vague evidence",
+        obj(improvements=[item("I1", evidence="somewhere vague")]),
+        "improvements[1].evidence: names no file:line or plan section",
+    ),
+    (
+        "a time is not a line",
+        obj(blocking=[item("B1", evidence="seen at 10:30 in the log")]),
+        "blocking[1].evidence: names no file:line or plan section",
+    ),
+    (
+        "a word of 2000 letters",
+        obj(improvements=[item("I1", evidence="z" * 1999 + ":")]),
+        "improvements[1].evidence: names no file:line or plan section",
+    ),
+    (
         "field of 2001",
         obj(improvements=[item("I1", problem="x" * 2001)]),
         "improvements[1].problem: too long",
@@ -448,7 +463,25 @@ def padded(data, size):
     return data + b" " * (size - len(data))
 
 
+EVIDENCE_PLACES = (
+    "loop.py:42",
+    "claude/skills/judge-loop/loop_start.py:10-12 says so",
+    "see Makefile:3",
+    "(C:\\work\\app.py:7)",
+    "https://github.com/o/r/blob/main/a.py#L5",
+    "plan.md ## Steps",
+    "plan.md \u00a7 Steps",
+    "the Tests section of plan.md",
+    "plan step 3",
+    "criterion 2 is not met",
+)
+
+
 ACCEPTED = [
+    *(
+        (f"evidence {e}", obj(improvements=[item("I1", evidence=e)]))
+        for e in EVIDENCE_PLACES
+    ),
     ("overall 0", obj(overall=0)),
     ("overall 10", obj(overall=10, read="full", improvements=[])),
     ("9 from a read of the changes", obj(read="changes")),
@@ -558,8 +591,8 @@ def test_save_stores_the_answer_byte_for_byte(sb):
     sb.start_build()
     sb.run("brief")
     first = (
-        b'{"overall": 9, "dimensions": {}, "blocking": [], "improvements": '
-        b'[{"id": "I1", "problem": "p", "evidence": "e", "fix": "f", "check": "c"}]}\n'
+        b'{"overall": 9, "dimensions": {}, "blocking": [], "improvements": [{"id": '
+        b'"I1", "problem": "p", "evidence": "a.py:1", "fix": "f", "check": "c"}]}\n'
     )
     assert sb.save("general", first).code == 0
     assert sb.stored("general").read_bytes() == first

@@ -20,7 +20,9 @@ after it, UTF-8 without a byte order mark, at most 200 kB:
   "blocking" and "improvements": lists, together at most 50 items, each with
   "id" (a capital letter, then at most 19 letters, digits, "_" or "-"; unique),
   "problem", "evidence", "fix" and "check" (strings, not empty, at most 2000
-  characters; "check" is the check that proves the fix);
+  characters; "check" is the check that proves the fix; "evidence" names a
+  place: a file:line such as app.py:42, a plan section such as plan.md ## Steps,
+  or a criterion such as criterion 2);
   an improvement may carry "needed_for_10": false when you would give a 10
   without it; an unmarked improvement is a reason for a score below 10;
   "read" (optional): "full", "changes" or "part" (you stopped before the end),
@@ -446,6 +448,11 @@ FIRST_MISS = {
     ),
     TEN_WITH_BLOCKING: (
         "have that judge score below 10, since a blocking item rules out a 10"
+    ),
+    NO_PLACE: (
+        "have that judge give each item evidence that names a place: a file:line "
+        "such as app.py:42, a plan section such as plan.md ## Steps, or a criterion "
+        "such as criterion 2"
     ),
 }
 
