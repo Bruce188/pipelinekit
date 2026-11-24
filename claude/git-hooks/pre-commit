@@ -8,11 +8,12 @@
 #     refused, however it was staged. A check that fails warns and lets the
 #     commit through.
 #   - gitleaks missing: warn and allow.
-#   - PIPELINEKIT_ALLOW_SECRET=1: skip the scan for one commit (humans only;
-#     the Claude bash-guard hook refuses that assignment).
+#   - PIPELINEKIT_ALLOW_SECRET=1: let one commit through a finding or a failed
+#     scan (humans only; the Claude bash-guard hook refuses that assignment).
+#     The scan still runs, and a clean scan logs nothing.
 #   - gitleaks >= 8.19: `gitleaks git --staged`; older: `gitleaks protect --staged`.
-#   - A finding, a gitleaks failure and a use of the override each leave one
-#     line in the kit's event log.
+#   - A finding, a gitleaks failure and a use of the override (a finding or a
+#     failure it lets through) each leave one line in the kit's event log.
 #   - File size limit (../hooks/filesize.py): a commit that adds a hand-written
 #     file over 1,500 lines or 50,000 bytes, or takes one past that, is refused;
 #     a file that was over before only warns. A check that fails warns and
@@ -45,11 +46,6 @@ never_stage() {
 }
 
 scan() {
-  if [ "${PIPELINEKIT_ALLOW_SECRET:-}" = 1 ]; then
-    echo "pre-commit: PIPELINEKIT_ALLOW_SECRET=1, secret scan skipped" >&2
-    kitlog override pre-commit.allow-secret "PIPELINEKIT_ALLOW_SECRET=1 skipped the secret scan"
-    return 0
-  fi
   if ! command -v gitleaks >/dev/null 2>&1; then
     echo "pre-commit: warning: gitleaks not installed, staged secrets NOT scanned (https://github.com/gitleaks/gitleaks)" >&2
     return 0
@@ -61,8 +57,19 @@ scan() {
     sub=protect
   fi
   gitleaks "$sub" --staged --redact --no-banner --exit-code 3 -v >&2 || rc=$?
+  [ "$rc" = 0 ] && return 0
+  if [ "${PIPELINEKIT_ALLOW_SECRET:-}" = 1 ]; then
+    # The override is used, and logged, only when the scan would refuse.
+    if [ "$rc" = 3 ]; then
+      echo "pre-commit: PIPELINEKIT_ALLOW_SECRET=1 lets this commit through with the secret(s) gitleaks found above." >&2
+      kitlog override pre-commit.allow-secret "PIPELINEKIT_ALLOW_SECRET=1 let a commit through a secret finding"
+    else
+      echo "pre-commit: gitleaks $sub failed (exit $rc); PIPELINEKIT_ALLOW_SECRET=1 lets this commit through unscanned." >&2
+      kitlog override pre-commit.allow-secret "PIPELINEKIT_ALLOW_SECRET=1 let a commit through a failed secret scan (exit $rc)"
+    fi
+    return 0
+  fi
   case $rc in
-    0) return 0 ;;
     3) echo "pre-commit: gitleaks found secret(s) in staged changes (values redacted above); PIPELINEKIT_ALLOW_SECRET=1 overrides one commit. [pre-commit.secret]" >&2
        echo "Next: git restore --staged -- <file> for each file gitleaks names above, take the secret out, then commit again." >&2
        kitlog block pre-commit.secret "gitleaks found secrets in staged changes" ;;
