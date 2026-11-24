@@ -21,13 +21,13 @@ Groups:
          git remote add/set-url, push to a non-origin remote, push to
          main/master, staging never-stage paths (git add/stage, commit -a,
          commit <paths>) and bulk staging outside .claude/worktrees/.
-
-`bash-guard.py pre-commit` holds the never-stage list for commits made any
-other way (a terminal, `git add -f`, a path staged earlier): see pre_commit().
   docker docker/podman run/create bind-mounts of sensitive host paths
          (block) and --privileged (ask).
   fetch  curl/wget output piped or substituted into a shell or interpreter.
   sql    DROP/TRUNCATE sent to psql/mysql/mariadb/sqlite3 (ask).
+
+`bash-guard.py pre-commit` holds the never-stage list for commits made any
+other way (a terminal, `git add -f`, a path staged earlier): see pre_commit().
 
 Destructive-but-legitimate git (reset --hard, clean -f, push --force,
 branch -D, checkout/restore .) is handled by native `permissions.ask` rules,
