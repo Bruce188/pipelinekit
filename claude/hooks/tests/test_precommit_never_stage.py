@@ -92,18 +92,33 @@ def make_repo(tmp_path: Path, kit: Path = KIT) -> Repo:
     return r
 
 
+def copied_kit(tmp_path: Path) -> Path:
+    """The git hooks and the hooks they run, without config/."""
+    kit = tmp_path / "kit"
+    shutil.copytree(KIT / "git-hooks", kit / "git-hooks")
+    (kit / "hooks").mkdir()
+    for name in ("bash-guard.py", "kitlog.py", "filesize.py"):
+        shutil.copy(HOOKS / name, kit / "hooks" / name)
+    return kit
+
+
 @pytest.fixture
 def repo(tmp_path: Path) -> Repo:
     return make_repo(tmp_path)
 
 
-def refused(repo: Repo, p: subprocess.CompletedProcess, *paths: str) -> None:
+def refused(
+    repo: Repo, p: subprocess.CompletedProcess, *paths: str, tracked: bool = False
+) -> None:
     assert p.returncode != 0
     assert RULE in p.stderr
     assert "\nNext: " in "\n" + p.stderr
     for rel in paths:
         assert f"  {rel} (pattern " in p.stderr
-        assert not repo.committed(rel)
+        if tracked:  # the change stays out of HEAD
+            assert repo.git("diff", "--quiet", "HEAD", "--", rel).returncode == 1
+        else:
+            assert not repo.committed(rel)
     events = [e for e in repo.events() if e["rule"] == "pre-commit.never-stage"]
     assert len(events) == 1
     assert events[0]["hook"] == "pre-commit" and events[0]["kind"] == "block"
@@ -150,15 +165,15 @@ def test_every_listed_path_is_named_and_the_log_counts_the_rest(repo):
 def test_commit_all_of_a_tracked_listed_path_is_refused(repo):
     repo.unchecked(".npmrc")
     repo.write(".npmrc", "changed\n")
-    refused(repo, repo.commit("-a"), ".npmrc")
+    refused(repo, repo.commit("-a"), ".npmrc", tracked=True)
 
 
 def test_commit_with_a_listed_pathspec_is_refused(repo):
     repo.unchecked("credentials.json")
     repo.write("credentials.json", "changed\n")
-    p = repo.commit("--", "credentials.json")
-    assert p.returncode != 0 and RULE in p.stderr
-    assert repo.git("diff", "--quiet", "HEAD", "--", "credentials.json").returncode
+    refused(
+        repo, repo.commit("--", "credentials.json"), "credentials.json", tracked=True
+    )
 
 
 def test_a_path_with_a_space_gets_a_quoted_next_command(repo):
@@ -167,6 +182,16 @@ def test_a_path_with_a_space_gets_a_quoted_next_command(repo):
     p = repo.commit()
     refused(repo, p, "keys/my site.key")
     assert "Next: git restore --staged -- 'keys/my site.key'" in p.stderr
+
+
+def test_a_refusal_leaves_no_bytecode_cache_beside_the_hooks(tmp_path):
+    kit = copied_kit(tmp_path)
+    shutil.copytree(KIT / "config", kit / "config")
+    repo = make_repo(tmp_path, kit)
+    repo.write(".env")
+    repo.add(".env")
+    refused(repo, repo.commit(), ".env")
+    assert not (kit / "hooks" / "__pycache__").exists()
 
 
 # ---------------------------------------------------------------- allowed
@@ -203,12 +228,7 @@ def test_an_untouched_tracked_listed_path_does_not_block_other_commits(repo):
 
 
 def test_a_missing_list_warns_and_lets_the_commit_through(tmp_path):
-    kit = tmp_path / "kit"
-    shutil.copytree(KIT / "git-hooks", kit / "git-hooks")
-    (kit / "hooks").mkdir()
-    for name in ("bash-guard.py", "kitlog.py", "filesize.py"):
-        shutil.copy(HOOKS / name, kit / "hooks" / name)
-    repo = make_repo(tmp_path, kit)
+    repo = make_repo(tmp_path, copied_kit(tmp_path))
     repo.write(".env")
     repo.add(".env")
     p = repo.commit()

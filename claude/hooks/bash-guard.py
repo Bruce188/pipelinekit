@@ -2,6 +2,7 @@
 """PreToolUse guard for the Bash tool. One process, one parse, four check groups.
 
 Usage: bash-guard.py [git|docker|fetch|sql]   (no argument = all groups)
+       bash-guard.py pre-commit   (run by the global pre-commit git hook)
 
 settings.json registers this script once per group, each with an `if` rule
 (`Bash(git *)`, `Bash(docker *)`, ...), so it only spawns when that kind of
@@ -20,6 +21,9 @@ Groups:
          git remote add/set-url, push to a non-origin remote, push to
          main/master, staging never-stage paths (git add/stage, commit -a,
          commit <paths>) and bulk staging outside .claude/worktrees/.
+
+`bash-guard.py pre-commit` holds the never-stage list for commits made any
+other way (a terminal, `git add -f`, a path staged earlier): see pre_commit().
   docker docker/podman run/create bind-mounts of sensitive host paths
          (block) and --privileged (ask).
   fetch  curl/wget output piped or substituted into a shell or interpreter.
@@ -225,6 +229,83 @@ def never_stage(path: str, patterns: list[str]) -> str | None:
         elif _match_one(path, pat):
             hit = pat
     return hit
+
+
+# ---------------------------------------------------------------- pre-commit
+
+# The list installed beside the git hooks: <kit>/hooks/../config/never-stage.txt
+HOOK_LIST = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.realpath(__file__))),
+    "config",
+    "never-stage.txt",
+)
+REFUSED = 3
+CONTROL = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def shown(path: str) -> str:
+    """A path on one printable line."""
+    return CONTROL.sub(lambda m: f"\\x{ord(m.group()):02x}", path)
+
+
+def staged_paths() -> list[str]:
+    """Paths the commit adds or changes; deletions are left out. git hands the
+    hook the index the commit is made from (GIT_INDEX_FILE), so `commit -a`
+    and `commit <paths>` are covered."""
+    p = subprocess.run(
+        ["git", "diff", "--cached", "--name-only", "-z", "--no-renames"]
+        + ["--diff-filter=d"],
+        capture_output=True,
+        timeout=60,
+        check=True,
+    )
+    return [os.fsdecode(n) for n in p.stdout.split(b"\0") if n]
+
+
+def pre_commit() -> int:
+    """`bash-guard.py pre-commit`: refuse a commit that adds or changes a path
+    on the never-stage list, however it was staged. Exit 0 = nothing listed is
+    staged, 3 = refused; anything else means the paths were not checked, and
+    the hook lets the commit through with a warning."""
+    sys.stderr.reconfigure(errors="backslashreplace")
+    try:
+        patterns = load_patterns(HOOK_LIST)
+        hits = [(p, pat) for p in staged_paths() if (pat := never_stage(p, patterns))]
+    except Block:
+        print(f"pre-commit: never-stage list missing at {HOOK_LIST}", file=sys.stderr)
+        return 2
+    except Exception as exc:
+        name = type(exc).__name__
+        print(f"pre-commit: never-stage check failed ({name})", file=sys.stderr)
+        return 2
+    if not hits:
+        return 0
+    print(
+        "pre-commit: commit refused, staged path(s) on the never-stage list "
+        f"({HOOK_LIST}):",
+        file=sys.stderr,
+    )
+    for path, pat in hits:
+        print(f"  {shown(path)} (pattern '{pat}')", file=sys.stderr)
+    paths = [path for path, _ in hits]
+    what = (
+        " ".join(shlex.quote(shown(p)) for p in paths)
+        if len(paths) <= 3
+        else "<path>..."
+    )
+    print(
+        "These must not be committed; the files stay on disk. [pre-commit.never-stage]",
+        file=sys.stderr,
+    )
+    print(
+        f"Next: git restore --staged -- {what}, then commit again.",
+        file=sys.stderr,
+    )
+    reason = f"staged '{paths[0]}' matches never-stage pattern '{hits[0][1]}'"
+    if len(hits) > 1:
+        reason += f"; {len(hits) - 1} more path(s)"
+    record("block", "pre-commit.never-stage", reason, hook="pre-commit")
+    return REFUSED
 
 
 # ---------------------------------------------------------------- git
@@ -806,18 +887,22 @@ def guard(cmd: str, cwd: str, groups: set[str]) -> None:
 ALL_GROUPS = {"git", "docker", "fetch", "sql"}
 
 
-def record(kind: str, rule: str, reason: str, data: object = None) -> None:
+def record(
+    kind: str, rule: str, reason: str, data: object = None, hook: str = "bash-guard"
+) -> None:
     """One line in the kit's event log. A missing or failing log changes nothing."""
     try:
         sys.dont_write_bytecode = True  # leave no __pycache__ beside the hooks
         import kitlog
 
-        kitlog.log("bash-guard", kind, rule, reason, data, "/".join(sys.argv[1:3]))
+        kitlog.log(hook, kind, rule, reason, data, "/".join(sys.argv[1:3]))
     except Exception:
         pass
 
 
 def main() -> int:
+    if sys.argv[1:] == ["pre-commit"]:
+        return pre_commit()
     groups = set(sys.argv[1:]) & ALL_GROUPS or ALL_GROUPS
     try:
         data = json.load(sys.stdin)
