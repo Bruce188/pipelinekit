@@ -42,6 +42,7 @@ import json
 import os
 import re
 import shlex
+import stat
 import subprocess
 import sys
 
@@ -220,15 +221,26 @@ def name_of(argv: list[str]) -> str:
 # ---------------------------------------------------------------- never-stage
 
 
+DENY = "; default-deny"
+
+
 def load_patterns(path: str = NEVER_STAGE) -> list[str]:
+    """The patterns of the never-stage list. Only a regular file is read: the
+    open does not wait, so a named pipe at the path cannot hang the hook."""
     try:
-        with open(path, encoding="utf-8") as f:
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
+        with open(fd, encoding="utf-8") as f:
+            if not stat.S_ISREG(os.fstat(fd).st_mode):
+                raise Block(
+                    f"never-stage list at {path} is not a regular file{DENY}",
+                    "git.never-stage-missing",
+                )
             return [
                 ln.strip() for ln in f if ln.strip() and not ln.lstrip().startswith("#")
             ]
     except OSError:
         raise Block(
-            f"never-stage list missing at {path}; default-deny",
+            f"never-stage list missing at {path}{DENY}",
             "git.never-stage-missing",
         ) from None
 
@@ -311,8 +323,8 @@ def pre_commit() -> int:
     try:
         patterns = load_patterns(HOOK_LIST)
         hits = [(p, pat) for p in staged_paths() if (pat := never_stage(p, patterns))]
-    except Block:
-        print(f"pre-commit: never-stage list missing at {HOOK_LIST}", file=sys.stderr)
+    except Block as exc:
+        print(f"pre-commit: {str(exc).removesuffix(DENY)}", file=sys.stderr)
         return 2
     except Exception as exc:
         name = type(exc).__name__
