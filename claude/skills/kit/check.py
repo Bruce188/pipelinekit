@@ -501,8 +501,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument("--write-manifest", metavar="REPO_ROOT", help=argparse.SUPPRESS)
     args = ap.parse_args(argv)
-    # int() would also take " 7 ", "+7" and digits of other scripts.
-    if not re.fullmatch(r"[0-9]{1,3}", args.days) or not 1 <= int(args.days) <= 365:
+    # int() would also take " 7 ", "+7", "7_0", "007" and digits of other scripts.
+    days_ok = re.fullmatch(r"[1-9][0-9]{0,2}", args.days)
+    if not days_ok or not 1 <= int(args.days) <= 365:
         ap.error("--days takes a whole number from 1 to 365")
     if args.session is not None and not SESSION.fullmatch(args.session):
         ap.error("--session takes a session id (letters, digits, - and _)")

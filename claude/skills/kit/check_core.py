@@ -702,15 +702,17 @@ def probe(c: Check) -> None:
 
         def size_hook(rel: str) -> str:
             """git_hook() for the file size limit: a refusal counts only when
-            it names its rule, and a hook that hangs is told apart."""
+            it names its rule, and a hook that hangs is told apart. Its report
+            is read as UTF-8, so it is asked for in UTF-8: a git hook writes
+            for the terminal, in the encoding PYTHONIOENCODING names."""
             try:
                 p = subprocess.run(
                     [c.path(rel)],
                     stdin=subprocess.DEVNULL,
                     capture_output=True,
-                    text=True,
+                    encoding="utf-8",
                     errors="replace",
-                    env=env,
+                    env=dict(env, PYTHONIOENCODING="utf-8"),
                     cwd=repo,
                     timeout=10,
                 )
