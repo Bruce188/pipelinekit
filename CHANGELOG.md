@@ -308,6 +308,14 @@ kit used to ship, so those parts are gone.
 - `/kit` warns when the SessionStart entry of `session-check.py` has
   another type or timeout than the installer wrote, or when
   `disableAllHooks` is set.
+- `/kit update`: whenever the checkout moved but the install did not
+  finish, `apply` ends with one `Partly updated` line that names how the
+  installer ended and what the self-check said, always below a `By hand:`
+  line. A `check.py` that does not load no longer leaves `plan` and `apply`
+  silent: they name the error and give a `By hand:` line that pulls the
+  branch and runs the installer. A `--to` value the kit cannot use is
+  refused in one line that names the format, and `plan` gives up on a
+  remote that does not answer within 15 seconds and says so.
 
 ### Removed
 

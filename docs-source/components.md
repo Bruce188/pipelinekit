@@ -220,9 +220,11 @@ The Updates section compares the commit the install was made from with the same 
 
 `/kit update` applies an update from inside a session:
 
-1. `update.py plan` fetches the branch and lists the new commits, at most 30, each as one cleaned line. Nothing else changes.
+1. `update.py plan` fetches the branch and lists the new commits, at most 30, each as one cleaned line. Nothing else changes. A remote that does not answer within 15 seconds ends the plan with `Cannot update: origin did not answer within 15 seconds`, and the fetch itself gets 60 seconds.
 2. Claude shows them and asks whether to update.
-3. After a yes, `update.py apply --to <commit>` fast-forwards the checkout to exactly the commit the plan listed, runs the installer and then the self-check. Its last line is `Updated <old> -> <new>. Self-check: healthy.`, or the same line with the number of problems or warnings when the new version is installed and its check has something to say. When the installer fails, the last line starts with `Not updated:` or, when the files were already replaced, with `Partly updated`, and a line `By hand: <command>` above it holds the installer command to run again.
+3. After a yes, `update.py apply --to <commit>` fast-forwards the checkout to exactly the commit the plan listed, runs the installer and then the self-check. Its last line is `Updated <old> -> <new>. Self-check: healthy.`, or the same line with the number of problems or warnings when the new version is installed and its check has something to say. When the checkout moved but the install did not finish (the installer failed or did not finish, or the self-check did not run), the last line is `Partly updated <old> -> <new>: the checkout is at <new> but the install did not finish; run the command on the By hand line.`, followed by how the installer ended and what the self-check said, and a line `By hand: <command>` above it holds the installer command to run again. `--to` takes the full commit id the plan printed, 40 characters 0-9 and a-f (64 in a SHA-256 checkout); any other value is refused in one line.
+
+An update can bring a `check.py` that does not load, which `update.py` needs. Then `plan` and `apply` say so in their last line, with the error, and a `By hand:` line above it runs `git pull --ff-only` on the checkout's branch and then the installer, so a fixed commit on the remote can still be installed.
 
 The installer runs with what was chosen at install time: the global git hooks stay on or off, and serena is not registered where it was skipped. The update is refused, and nothing changes, when the checkout has uncommitted changes, is on another branch or has commits the remote lacks, and when the remote moved after the plan. The same two commands work from a shell:
 
