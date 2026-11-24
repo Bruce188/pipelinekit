@@ -16,7 +16,9 @@ Exit codes: scan 0; record 0, 1 when docs/garden/ cannot be written, 2 on
 wrong use; time gives the command's own exit code, 124 when it timed out, 127
 when it could not start, 128 plus the signal when garden.py was stopped
 (the command is ended first), and 2 on wrong use or when docs/garden/ cannot
-be written (then nothing runs).
+be written (then nothing runs). An unexpected error is one line, "internal
+error (<class>, line <n>)", never a traceback: scan still exits 0, record and
+time exit 2.
 
 Standard library only, Python 3.10 or later.
 """
@@ -31,6 +33,7 @@ import json
 import os
 import re
 import sys
+import traceback
 from datetime import datetime, timezone
 
 sys.dont_write_bytecode = True  # leave no __pycache__ in the installed skill
@@ -72,6 +75,7 @@ STATES = ("open", "picked")
 SAFE_ARG = re.compile(r"[A-Za-z0-9_-]{1,20}")
 DEFAULT_TIMEOUT = 600
 MAX_TIMEOUT = 86400
+HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 def now_utc():
@@ -434,14 +438,7 @@ def ensure_excluded(project):
 
 
 def cmd_scan(args):
-    try:
-        data = scan(Project(os.getcwd()))
-    except Exception as exc:  # noqa: BLE001 - the scan loads with the skill
-        print(
-            "garden scan: not measured; the scan stopped on an unexpected "
-            f"{type(exc).__name__}. Say so and go on without it."
-        )
-        return 0
+    data = scan(Project(os.getcwd()))
     if args.json:
         print(json.dumps(data, indent=2, default=str))
     else:
@@ -612,6 +609,18 @@ def cmd_time(args):
     return code if 0 <= code < 256 else 1
 
 
+def internal_error(exc):
+    """'internal error (<class>, line <n>)', the line the innermost in garden.
+
+    The message of the error is left out: it may quote the project's files.
+    """
+    line = "?"
+    for frame in traceback.extract_tb(exc.__traceback__):
+        if os.path.dirname(os.path.abspath(frame.filename)) == HERE:
+            line = frame.lineno
+    return f"internal error ({type(exc).__name__}, line {line})"
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="garden.py", description=__doc__.split("\n\n")[0]
@@ -646,7 +655,19 @@ def main(argv=None):
     t.add_argument("command", nargs=argparse.REMAINDER, help="the command, after --")
     t.set_defaults(func=cmd_time)
     args = parser.parse_args(argv)
-    return args.func(args)
+    try:
+        return args.func(args)
+    except Exception as exc:  # noqa: BLE001 - one line, never a traceback
+        what = internal_error(exc)
+        if args.cmd == "scan":
+            # The scan loads with the skill: the rest of the skill still runs.
+            print(f"garden scan: {what}; not measured. Say so and go on without it.")
+            return 0
+        print(
+            f"{args.cmd}: {what}; run it again, and report this line if it comes back",
+            file=sys.stderr,
+        )
+        return 2
 
 
 if __name__ == "__main__":

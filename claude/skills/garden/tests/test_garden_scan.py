@@ -181,21 +181,63 @@ def test_a_garden_folder_that_cannot_be_searched_is_reported_not_raised(sb):
     assert "docs/garden/timings.json could not be read" in p.stdout
 
 
-def test_a_scan_that_fails_says_so_in_one_line_and_exits_0(monkeypatch, capsys):
+def garden_line(text, nth=1):
+    """The number of the nth line of garden.py that holds `text`."""
+    lines = HELPER.read_text(encoding="utf-8").splitlines()
+    hits = [n for n, line in enumerate(lines, 1) if text in line]
+    return hits[nth - 1]
+
+
+def test_a_scan_that_fails_says_so_in_one_line_and_exits_0(
+    monkeypatch, capsys, tmp_path
+):
     monkeypatch.syspath_prepend(str(HELPER.parent))
+    monkeypatch.chdir(tmp_path)
     import garden
 
     def broken(project):
         raise RuntimeError("planted text that must not be shown")
 
-    monkeypatch.setattr(garden, "scan", broken)
+    monkeypatch.setattr(garden, "scan_checks", broken)
     assert garden.main(["scan"]) == 0
     out, err = capsys.readouterr()
+    line = garden_line("checks = scan_checks(project)")
     assert out == (
-        "garden scan: not measured; the scan stopped on an unexpected "
-        "RuntimeError. Say so and go on without it.\n"
+        f"garden scan: internal error (RuntimeError, line {line}); "
+        "not measured. Say so and go on without it.\n"
     )
     assert err == ""
+
+
+@pytest.mark.parametrize(
+    "args, target, where",
+    [
+        (["record"], "garden_problem", ("problem = garden_problem(project)", 1)),
+        (
+            ["time", "--label", "t", "--", "true"],
+            "run_timed",
+            ("= run_timed(command", 1),
+        ),
+    ],
+)
+def test_an_unexpected_error_is_one_line_with_its_class_and_line(
+    monkeypatch, capsys, tmp_path, args, target, where
+):
+    monkeypatch.syspath_prepend(str(HELPER.parent))
+    monkeypatch.chdir(tmp_path)
+    import garden
+
+    def broken(*_args, **_kwargs):
+        raise KeyError("planted text that must not be shown")
+
+    monkeypatch.setattr(garden, target, broken)
+    assert garden.main(args) == 2
+    out, err = capsys.readouterr()
+    assert out == ""
+    assert err == (
+        f"{args[0]}: internal error (KeyError, line {garden_line(*where)}); "
+        "run it again, and report this line if it comes back\n"
+    )
 
 
 def test_the_helper_starts_without_a_warning(sb, tmp_path):
