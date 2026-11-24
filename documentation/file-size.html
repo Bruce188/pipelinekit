@@ -651,9 +651,10 @@ footer {
 Split the file: new code that would take a file past the limit goes in a new file.
 A generated, vendored or data file can be listed in .file-size-exempt at the top of
 the repository, one pattern per line. [pre-commit.file-size]
+Next: split the file so each part is under the limit, stage the parts, then commit again.
 </code></pre></div>
 
-<p>The last line is one line in the terminal; it is wrapped here.</p>
+<p>The <code>Split the file</code> paragraph is one line in the terminal; it is wrapped here. When the unstaged changes of <code>.file-size-exempt</code> list every refused file, the <code>Next:</code> line says to stage the list instead, and a refused merge ends with <code>git commit to conclude the merge</code>.</p>
 <h2 id="what-is-not-checked">What is not checked</h2>
 <p>Git runs neither hook for <code>git rebase</code>, <code>git cherry-pick</code>, <code>git revert</code>, <code>git am</code> or <code>git stash</code>, so what those commands record is not checked. <code>git commit --no-verify</code> skips both hooks too; <code>bash-guard.py</code> refuses it for Claude.</p>
 <h2 id="what-is-not-counted">What is not counted</h2>

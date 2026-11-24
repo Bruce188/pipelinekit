@@ -41,6 +41,10 @@ kit used to ship, so those parts are gone.
 - `/kit` has an Activity section: what the hooks blocked, asked about or
   failed on in the last 7 days, grouped by rule (`--days N`, `--session ID`).
   The live probe also checks that refusals reach the log.
+- Every refusal of the kit's hooks and git hooks ends with one `Next:` line
+  that names the step to take, after the line with the rule id; a `/kit` run
+  that finds a problem ends with `Next: run <installer>, then /kit again.`,
+  which replaces its `Repair:` line.
 - A SessionStart hook (`session-check.py`) runs the quick check when a session
   starts: no output when the install is healthy, one line naming `/kit` when
   something is broken. It never blocks a session, and

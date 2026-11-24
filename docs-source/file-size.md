@@ -21,9 +21,10 @@ pre-commit: commit refused, over the file size limit of 1,500 lines and 50,000 b
 Split the file: new code that would take a file past the limit goes in a new file.
 A generated, vendored or data file can be listed in .file-size-exempt at the top of
 the repository, one pattern per line. [pre-commit.file-size]
+Next: split the file so each part is under the limit, stage the parts, then commit again.
 ```
 
-The last line is one line in the terminal; it is wrapped here.
+The `Split the file` paragraph is one line in the terminal; it is wrapped here. When the unstaged changes of `.file-size-exempt` list every refused file, the `Next:` line says to stage the list instead, and a refused merge ends with `git commit to conclude the merge`.
 
 ## What is not checked
 
