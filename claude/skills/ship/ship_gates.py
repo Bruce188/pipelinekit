@@ -9,8 +9,8 @@ import json
 import os
 import plistlib
 import re
+import stat
 from collections import Counter
-from pathlib import Path
 from xml.etree import ElementTree
 
 try:
@@ -20,7 +20,7 @@ except ImportError:  # before Python 3.11
 
 from ship_base import *
 from ship_behind import base_gate
-from ship_judged import judged_gate
+from ship_judged import MAX_TEXT_FILE, judged_gate, user_file
 from ship_links import linked_gate
 
 # ---------------------------------------------------------------- gates
@@ -112,27 +112,68 @@ def opts_out(text):
     return False
 
 
+def read_policy(path, limit=MAX_TEXT_FILE):
+    """(text, why) of a CLAUDE.md: text None and why '' when there is none.
+
+    The file is opened without waiting, so a named pipe or a device at the path
+    cannot hold the gate up; anything but a regular file gives the reason in
+    `why`. A link is followed, as Claude Code follows it.
+    """
+    try:
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
+    except FileNotFoundError:
+        return None, ""
+    except IsADirectoryError:
+        return None, "a folder, not a file"
+    except OSError as exc:
+        return None, (exc.strerror or type(exc).__name__).lower()
+    try:
+        mode = os.fstat(fd).st_mode
+        if stat.S_ISDIR(mode):
+            return None, "a folder, not a file"
+        if stat.S_ISFIFO(mode):
+            return None, "a named pipe, not a regular file"
+        if not stat.S_ISREG(mode):
+            return None, "not a regular file"
+        chunks, size = [], 0
+        while size <= limit:
+            chunk = os.read(fd, limit + 1 - size)
+            if not chunk:
+                break
+            chunks.append(chunk)
+            size += len(chunk)
+    except OSError as exc:
+        return None, (exc.strerror or type(exc).__name__).lower()
+    finally:
+        os.close(fd)
+    if size > limit:
+        return None, f"larger than {limit // (1024 * 1024)} MB"
+    return b"".join(chunks).decode("utf-8", "replace"), ""
+
+
 def policy_texts(repo, base=""):
-    """(label, text) of every CLAUDE.md that speaks for the project or the user.
+    """(label, text, why) of every CLAUDE.md that speaks for the project or the user.
 
     The project's files count in the checkout and on the base branch, so a
-    branch cannot drop a line for its own pull request.
+    branch cannot drop a line for its own pull request. A file that is there
+    but cannot be read comes with text None and `why` naming it.
     """
-    home = Path(os.environ.get("CLAUDE_HOME") or Path.home() / ".claude")
-    for label, path in (
-        ("CLAUDE.md", repo.root / "CLAUDE.md"),
-        (".claude/CLAUDE.md", repo.root / ".claude" / "CLAUDE.md"),
-        ("CLAUDE.local.md", repo.root / "CLAUDE.local.md"),
-        ("your user-level CLAUDE.md", home / "CLAUDE.md"),
+    user, shown = user_file()
+    for label, path, name in (
+        ("CLAUDE.md", repo.root / "CLAUDE.md", "CLAUDE.md"),
+        (".claude/CLAUDE.md", repo.root / ".claude" / "CLAUDE.md", ".claude/CLAUDE.md"),
+        ("CLAUDE.local.md", repo.root / "CLAUDE.local.md", "CLAUDE.local.md"),
+        ("your user-level CLAUDE.md", user, shown),
     ):
-        try:
-            yield label, path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
+        text, why = read_policy(path)
+        if why:
+            yield label, None, f"cannot read {name} ({why})"
+        elif text is not None:
+            yield label, text, ""
     for name in ("CLAUDE.md", ".claude/CLAUDE.md") if base else ():
         rc, text, _ = repo.try_git("show", f"refs/remotes/{repo.remote}/{base}:{name}")
         if not rc:
-            yield f"{name} on {base}", text
+            yield f"{name} on {base}", text, ""
 
 
 def policy_gate(repo, pr=None):
@@ -140,7 +181,11 @@ def policy_gate(repo, pr=None):
     asked = os.environ.get("PIPELINEKIT_MERGE", "").strip()
     if asked and asked.lower() != "auto":
         return gate("policy", "fail", f"PIPELINEKIT_MERGE={asked[:20]}", stop=True)
-    for label, text in policy_texts(repo, (pr or {}).get("baseRefName") or ""):
+    for label, text, why in policy_texts(repo, (pr or {}).get("baseRefName") or ""):
+        if why:
+            # It may hold the opt-out line: only the user can tell.
+            why += ": make it a regular file or remove it"
+            return gate("policy", "fail", why, stop=True)
         if opts_out(text):
             why = f"{label} says `Merges: ask first`"
             return gate("policy", "fail", why, stop=True)
@@ -741,7 +786,8 @@ def release_gate(repo, pr):
     why = release_branches(head, base, default, own)
     if why:
         return stop(why)
-    files, branches = project_lines(text for _, text in policy_texts(repo, base))
+    texts = (text for _, text, _ in policy_texts(repo, base) if text is not None)
+    files, branches = project_lines(texts)
     for name in (head, base):
         if listed(branches, name):
             return stop(f"{name} is a release branch of this project")
