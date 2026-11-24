@@ -472,6 +472,16 @@ def test_prepare_adds_no_line_where_another_rule_ignores_the_folder(sb):
     assert exclude_bytes(sb) == before
 
 
+def test_prepare_adds_the_line_where_another_rule_ignores_only_the_record(sb):
+    exclude = sb.work / ".git/info/exclude"
+    exclude.parent.mkdir(parents=True, exist_ok=True)
+    exclude.write_text("*.json\n")
+    assert sb.ship("prepare").returncode == 0
+    write_report(sb)
+    assert sb.git("status", "--porcelain") == ""
+    assert exclude.read_text() == "*.json\ndocs/uat/\n"
+
+
 def test_prepare_says_when_it_cannot_write_the_exclude_file(sb):
     exclude = sb.work / ".git/info/exclude"
     exclude.unlink(missing_ok=True)
