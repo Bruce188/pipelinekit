@@ -866,7 +866,8 @@ def test_project_lines_name_release_files_and_branches():
 
 
 def test_a_release_file_value_may_end_a_sentence():
-    files, _ = ship.project_lines(["Release files: deploy/.\nRelease file: app/v.txt.\n"])
+    text = "Release files: deploy/.\nRelease file: app/v.txt.\n"
+    files, _ = ship.project_lines([text])
     assert files == ["deploy/", "app/v.txt"]
 
 
