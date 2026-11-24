@@ -348,7 +348,7 @@ Limits: the record says that results were saved, not that a judge ran or judged 
 
 | Server | Installed by default | Notes |
 |--------|----------------------|-------|
-| serena | Yes, unless you pass `--no-serena` | Symbol-level code navigation. Installed with `uv` from a pinned commit and registered at user scope in `~/.claude.json`. A project `.mcp.json` entry takes precedence |
+| serena | Yes, unless you pass `--no-serena` | Symbol-level code navigation. serena 2, installed with `uv` from a pinned commit (a serena 1.x on your `PATH` is upgraded) and registered at user scope in `~/.claude.json` with `--agent-interface tools`, one MCP tool per operation. A project `.mcp.json` entry takes precedence |
 | context7 | No | Library and framework docs. Copy its entry from `.mcp.json.template` into a project's `.mcp.json` |
 
 ## What is not included
