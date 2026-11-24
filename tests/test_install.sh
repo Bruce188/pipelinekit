@@ -273,6 +273,39 @@ for h in "$CLAUDE_HOME" "$KH"; do
     { echo "test_install: the ship skill's first command did not run ship.py in $h" >&2; exit 1; }
 done
 
+# The docs-writer skill pre-approves its own helpers the same way. In both
+# homes its rules are the kit's own, and the helper commands its text gives,
+# filled in the way Claude Code fills them in, run the installed helpers from a
+# project's root. Without the markdown package render.py stops with the
+# install hint, which still shows it ran from that home.
+DW="$T/dw-project"
+mkdir -p "$DW/docs-source" "$DW/documentation"
+printf '# Guide\n\nA page.\n\n## One\n\nText.\n' >"$DW/docs-source/guide.md"
+cp "$REPO_ROOT/documentation/index.html" "$DW/documentation/guide.html"
+# shellcheck disable=SC2016 # the rules name ${CLAUDE_SKILL_DIR} literally
+dw_rules='allowed-tools: Read, Write, Edit, Glob, Grep, Bash(python3 ${CLAUDE_SKILL_DIR}/render.py *), Bash(python3 ${CLAUDE_SKILL_DIR}/verify_toc.py *), Bash(python3 ${CLAUDE_SKILL_DIR}/richness_check.py *), Bash(bash ${CLAUDE_SKILL_DIR}/tests/test_render.sh), Bash(bash ${CLAUDE_SKILL_DIR}/tests/test_richness_threshold.sh)'
+for h in "$CLAUDE_HOME" "$KH"; do
+  grep -qxF "$dw_rules" "$h/skills/docs-writer/SKILL.md" ||
+    { echo "test_install: the docs-writer skill's rules changed in $h" >&2; exit 1; }
+  n=0
+  while IFS= read -r cmd; do
+    # shellcheck disable=SC2016
+    cmd="${cmd//'${CLAUDE_SKILL_DIR}'/$h/skills/docs-writer}"
+    cmd="${cmd//<page>/guide}"
+    cmd="${cmd//\/path\/to\/repo/$DW}"
+    rc=0
+    out="$(cd "$DW" && bash -c "$cmd" 2>&1)" || rc=$?
+    if [[ $rc -ne 0 ]] && ! { [[ $cmd == *"/render.py"* && $rc -eq 2 ]] && grep -qF 'pip install markdown' <<<"$out"; }; then
+      echo "test_install: a docs-writer command failed in $h: $cmd" >&2
+      echo "$out" >&2
+      exit 1
+    fi
+    n=$((n + 1))
+  done < <(sed -n 's/^ *\(python3 ${CLAUDE_SKILL_DIR}\/.*\)$/\1/p' "$h/skills/docs-writer/SKILL.md")
+  [[ $n -ge 6 ]] ||
+    { echo "test_install: the docs-writer skill gives $n helper commands in $h" >&2; exit 1; }
+done
+
 # A home a permission pattern cannot hold (a space), or a relative one: a
 # warning, and the installed skill is the kit's own, naming ~/.claude.
 # Neither home passes verify (the hooks do not start from it), so the install
