@@ -44,6 +44,9 @@ KIT_SKILLS = (
 )
 # A test keeps it equal to claude/agents/ and to the installer's list.
 KIT_AGENTS = ("kit-planner.md", "kit-builder.md", "kit-judge.md")
+# Skill helpers the installer marks executable; the skills run them through
+# python3, so a lost bit is a warning, not a failure.
+SKILL_SCRIPTS = ("kit/check.py", "ship/ship.py", "judge-loop/loop.py")
 # The judge reads and never writes or runs anything.
 JUDGE_TOOLS = ("Read", "Grep", "Glob")
 PLACEHOLDERS = ("${USER_NAME}", "${USER_EMAIL}", "${CLAUDE_HOME}")
