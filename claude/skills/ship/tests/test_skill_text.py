@@ -91,6 +91,18 @@ def test_the_skill_holds_the_test_until_the_branch_is_up_to_date():
     assert "`record --result pass` refuses while the gate fails" in skill
 
 
+def test_the_skill_names_the_command_that_keeps_the_reports_out_of_git():
+    skill = " ".join(SKILL.read_text(encoding="utf-8").split())
+    assert "Then run `prepare`" in skill
+    assert "`prepare` adds it to `.git/info/exclude`" in skill
+    assert "`status` changes nothing in the repository" in skill
+    assert "| `python3 ${CLAUDE_SKILL_DIR}/ship.py prepare` |" in skill
+    components = INSTALLATION.with_name("components.md").read_text(encoding="utf-8")
+    assert "`ship.py prepare` adds it to `.git/info/exclude`" in " ".join(
+        components.split()
+    )
+
+
 def flat(path):
     return " ".join(path.read_text(encoding="utf-8").split())
 
