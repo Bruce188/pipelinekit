@@ -297,7 +297,7 @@ How the gate reads some common branch names and titles:
 
 | Branch the pull request comes from | Outcome |
 |---|---|
-| `qa-fixes`, `staging-eu`, `nightly-build`, `canary` | held: a stage word, alone or with one more part |
+| `qa-fixes`, `staging-eu`, `nightly-build`, `canary` | held: `qa`, `staging`, `nightly` or `canary`, alone or with one more part |
 | `qa-fixes-login`, `staging-eu-2`, `dev-tools`, `test-utils`, `beta-feature` | ordinary: more than one part after the stage word, or a word that only names a stage when it stands alone |
 | `feat/qa-fixes`, `hotfix/login`, `feat/21-v2`, `update-deps` | ordinary: a topic branch, or no stage or version word |
 | `hotfix/1.2.1`, `prepare-1.2.0`, `bump-version`, `chore/bump-version`, `v2`, `1.x` | held: a version in the name, or a version bump |

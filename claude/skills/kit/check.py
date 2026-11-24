@@ -191,7 +191,7 @@ def check_environment(c: Check) -> None:
         if rc != 0:
             # What a crashing program prints is not a version: do not echo it.
             command = " ".join([prog, *args])
-            how = "did not finish" if rc is None else f"failed (exit {rc})"
+            how = "did not run to the end" if rc is None else f"failed (exit {rc})"
             c.add(
                 "environment",
                 "warn",
