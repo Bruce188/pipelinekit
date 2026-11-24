@@ -292,6 +292,14 @@ kit used to ship, so those parts are gone.
   `Read(~/.config/**)` and a login file moved by `GH_CONFIG_DIR`, stays on
   when only some `gh` commands are excluded, and is an `[info]` when
   `GH_TOKEN` or `GITHUB_TOKEN` gives gh its token.
+- `/kit --json`: `update` carries a `reason` when the check did not run
+  (`no-checkout`, `no-commit`, `no-branch`, `no-remote`, `unreachable`,
+  `branch-gone`, `quick`, `switched-off`); under `--quick` it was empty.
+- `/kit` repair command: it repeats the git-hooks choice the install manifest
+  records (`--git-hooks` or `--no-git-hooks`), and a manifest without a
+  `serena` field goes by whether serena is installed. `/kit update` runs the
+  installer with the same options, so its `By hand:` line matches.
+- `/kit --quick` shows the Bash sandbox line too.
 
 ### Removed
 

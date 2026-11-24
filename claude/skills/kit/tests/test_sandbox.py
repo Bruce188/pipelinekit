@@ -38,7 +38,9 @@ def test_sandbox_denies_gh_its_login(kit, with_gh):
     assert "[warn] the Bash sandbox is on and applies a deny rule for the gh" in out
     assert 'fix: add "gh *" to sandbox.excludedCommands in settings.json' in out
     assert "Result: working, 1 warning" in out
-    assert "sandbox" not in check(kit, "--quick", env=with_gh)[1]
+    # It reads settings and opens no program, so --quick has it too.
+    rc, out = check(kit, "--quick", env=with_gh)
+    assert "[warn] the Bash sandbox is on and applies a deny rule for the gh" in out
 
 
 @pytest.mark.parametrize("excluded", [["gh *"], ["docker", "gh"], ["gh:*"]])

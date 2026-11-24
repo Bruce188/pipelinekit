@@ -472,14 +472,22 @@ def test_usage_errors(kit):
 def test_installer_options_keep_the_install_as_it_was(monkeypatch):
     args = update_py.installer_args
     monkeypatch.setattr(update_py.check, "git_value", lambda *a: "/h/git-hooks")
-    monkeypatch.setattr(update_py.shutil, "which", lambda name: None)
-    assert args({"serena": True}, "/h") == ["--git-hooks"]
-    assert args({"serena": False}, "/h") == ["--git-hooks", "--no-serena"]
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    kit = {"serena": True, "hooks_path": "/h/git-hooks"}
+    assert args(kit, "/h") == ["--git-hooks"]
+    assert args(dict(kit, serena=False), "/h") == ["--git-hooks", "--no-serena"]
     # A manifest from before the option was recorded: go by what is installed.
-    assert args({"serena": None}, "/h") == ["--git-hooks", "--no-serena"]
-    monkeypatch.setattr(update_py.shutil, "which", lambda name: "/bin/serena")
-    assert args({"serena": None}, "/h") == ["--git-hooks"]
-    monkeypatch.setattr(update_py.check, "git_value", lambda *a: "/other/hooks")
-    assert args({"serena": True}, "/h") == ["--no-git-hooks"]
+    assert args(dict(kit, serena=None), "/h") == ["--git-hooks", "--no-serena"]
+    monkeypatch.setattr(shutil, "which", lambda name: "/bin/serena")
+    assert args(dict(kit, serena=None), "/h") == ["--git-hooks"]
+    # The choice the manifest records counts, not what git says now ...
+    assert args(dict(kit, hooks_path=""), "/h") == ["--no-git-hooks"]
+    assert args(dict(kit, hooks_path="/other/hooks"), "/h") == ["--no-git-hooks"]
+    home = os.path.expanduser("~/h")
+    assert args(dict(kit, hooks_path="~/h/git-hooks"), home) == ["--git-hooks"]
     monkeypatch.setattr(update_py.check, "git_value", lambda *a: "")
-    assert args({"serena": True}, "/h") == ["--no-git-hooks"]
+    assert args(kit, "/h") == ["--git-hooks"]
+    # ... and git only when the manifest has no record of it.
+    assert args(dict(kit, hooks_path=None), "/h") == ["--no-git-hooks"]
+    monkeypatch.setattr(update_py.check, "git_value", lambda *a: "/h/git-hooks")
+    assert args(dict(kit, hooks_path=None), "/h") == ["--git-hooks"]
