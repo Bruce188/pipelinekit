@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
+import signal
 import subprocess
 from pathlib import Path
 
@@ -811,21 +813,111 @@ def user_md(text):
     path.write_text(text)
 
 
-@pytest.mark.parametrize("how", ["a link", "over 1 MB"])
-def test_a_user_file_that_is_not_read(sb, how):
+def user_link(sb, make):
+    """$CLAUDE_HOME/CLAUDE.md as a link to a target that `make` puts in place,
+    as a dotfiles repository lays it out."""
     path = Path(os.environ["CLAUDE_HOME"]) / "CLAUDE.md"
     path.parent.mkdir(parents=True, exist_ok=True)
-    if how == "a link":
-        target = sb.tmp / "dotfiles.md"
-        target.write_text("Judges: tests\n")
-        path.symlink_to(target)
-    else:
-        path.write_text("Judges: tests\n" + "x" * loop.MAX_TEXT_FILE)
+    target = sb.tmp / "dotfiles" / "CLAUDE.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    make(target)
+    path.symlink_to(target)
+    return path
+
+
+@contextlib.contextmanager
+def within(seconds):
+    """Fail instead of hanging when the block runs longer than `seconds`."""
+
+    def stop(signum, frame):
+        raise TimeoutError(f"still running after {seconds} s")
+
+    old = signal.signal(signal.SIGALRM, stop)
+    signal.alarm(seconds)
+    try:
+        yield
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old)
+
+
+def test_a_linked_user_file_switches_the_loop_off(sb):
+    user_link(sb, lambda target: target.write_text("Judge loop: off\n"))
+    sb.change()
+    run = sb.run("start", "build")
+    assert (run.code, run.last) == (
+        0,
+        "Off: judge loop switched off by $CLAUDE_HOME/CLAUDE.md:1. "
+        "Next: work without it.",
+    ), run
+    assert "not used" not in run.out, run
+    assert not sb.loopdir().exists()
+
+
+def test_a_linked_user_file_names_the_panel(sb):
+    user_link(sb, lambda target: target.write_text("Judges: tests\n"))
     sb.change()
     run = sb.run("start", "build")
     assert run.code == 0, run
-    assert "$CLAUDE_HOME/CLAUDE.md is a link or over 1 MB: not used" in run.lines
-    assert "Panel: tests (Judges line)" not in run.lines
+    assert "Panel: tests (Judges line)" in run.lines, run
+    assert "not used" not in run.out, run
+
+
+def over_limit(target):
+    target.write_text("Judge loop: off\n" + "x" * loop.MAX_TEXT_FILE)
+
+
+NOT_READ = [
+    pytest.param(
+        os.mkfifo if hasattr(os, "mkfifo") else None,
+        "a named pipe, not a regular file",
+        id="a named pipe",
+        marks=pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="no mkfifo"),
+    ),
+    pytest.param(Path.mkdir, "a folder, not a file", id="a folder"),
+    pytest.param(lambda target: None, "a link to a missing file", id="a missing file"),
+    pytest.param(over_limit, "larger than 1 MB", id="over 1 MB"),
+]
+
+
+@pytest.mark.parametrize(("make", "why"), NOT_READ)
+def test_a_linked_user_file_that_cannot_be_read(sb, make, why):
+    user_link(sb, make)
+    sb.change()
+    with within(60):
+        run = sb.run("start", "build")
+    assert run.code == 0, run
+    named = [line for line in run.lines if "$CLAUDE_HOME/CLAUDE.md" in line]
+    assert named == [f"cannot read $CLAUDE_HOME/CLAUDE.md ({why}): not used"], run
+    assert "Traceback" not in run.out + run.err
+    assert sb.state()["outcome"] == "open"
+
+
+def test_a_user_file_over_the_limit_is_not_read(sb):
+    over_limit(Path(os.environ["CLAUDE_HOME"]) / "CLAUDE.md")
+    sb.change()
+    run = sb.run("start", "build")
+    assert run.code == 0, run
+    assert (
+        "cannot read $CLAUDE_HOME/CLAUDE.md (larger than 1 MB): not used" in run.lines
+    ), run
+    assert sb.state()["outcome"] == "open"
+
+
+def test_only_the_user_file_is_read_through_a_link(sb):
+    user = user_link(sb, lambda target: target.write_text("Judges: tests\n"))
+    assert loop.read_policy(user, loop.MAX_TEXT_FILE) == ("Judges: tests\n", "")
+    assert loop.read_plain(user, loop.MAX_TEXT_FILE) is False
+    sb.start_build()
+    state = sb.loopdir() / "state.json"
+    outside = sb.tmp / "outside.json"
+    outside.write_bytes(state.read_bytes())
+    state.unlink()
+    state.symlink_to(outside)
+    for command in ("status", "brief"):
+        run = sb.run(command)
+        assert run.code == 2, run
+        assert "is tracked by git or reached through a link." in run.last, run
 
 
 @pytest.mark.parametrize("how", ["unset", "empty"])

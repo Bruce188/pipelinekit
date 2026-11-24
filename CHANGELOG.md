@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- judge-loop: `loop.py start` reads a user-level `CLAUDE.md` that is a link,
+  as the ship gates do, so its `Judge loop: off`, `Judge rounds` and `Judges`
+  lines count; a link to a named pipe, a folder or nothing is named in one
+  line and nothing hangs. The loop's own files are still not read through a
+  link.
 - judge-loop: a full-panel loop runs the six roles in round 1 and in the final
   round, and three combined judges at high effort in the rounds between
   (`correctness+tests`, `security+operations`, `user-experience+scope`). The
