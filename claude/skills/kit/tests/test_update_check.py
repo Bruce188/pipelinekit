@@ -283,7 +283,8 @@ def test_checkout_ahead_of_the_install(tracked):
         f"[info] the checkout is at {new[:7]}, this install was made from "
         f"{tracked['head'][:7]}: the installer brings the install in line"
     ) in out
-    assert "fix: bash " in out and "scripts/install.sh" in out
+    assert "fix: run the repair command at the end of the report" in out
+    assert "Repair: bash " in out and "scripts/install.sh" in out
     assert "[pass] up to date with origin/main" in out
 
 

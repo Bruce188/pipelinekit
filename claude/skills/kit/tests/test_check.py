@@ -473,7 +473,7 @@ def test_hooks_path_changed_since_install(kit):
     git_config(kit, "--global", "core.hooksPath", "/elsewhere")
     rc, out = check(kit, "--quick")
     assert rc == 1
-    assert "pointed at the kit when it was installed, now '/elsewhere'" in out
+    assert "was the kit's when it was installed and is now /elsewhere" in out
     assert f"fix: git config --global core.hooksPath {kit['home']}/git-hooks" in out
 
 
@@ -482,7 +482,7 @@ def test_hooks_path_never_enabled_is_not_a_problem(kit):
     edit_json(kit, "pipelinekit/manifest.json", lambda d: d.update(hooks_path=""))
     rc, out = check(kit, "--quick")
     assert rc == 0, out
-    assert "[info] global core.hooksPath is 'unset' (kit git hooks inactive)" in out
+    assert "[info] global core.hooksPath is unset (kit git hooks inactive)" in out
 
 
 def test_repository_with_its_own_hooks_path(kit, tmp_path):
@@ -515,7 +515,7 @@ def test_json_report(kit):
     assert d["update"] == {"state": "off", "reason": "switched-off"}
     assert d["healthy"] is True and d["mode"] == "full"
     assert d["counts"]["fail"] == 0 and d["counts"]["pass"] > 20
-    assert d["kit"]["checkout"] == str(REPO)
+    assert "checkout" not in d["kit"], "the repair command names it"
     assert re.fullmatch(r"[0-9a-f]{40}", d["kit"]["commit"])
     assert all({"section", "level", "msg"} <= set(r) for r in d["results"])
     assert {r["section"] for r in d["results"]} == {
@@ -1090,7 +1090,8 @@ def test_session_check_names_kit_when_a_hook_is_gone(kit):
     out = session_check(kit)
     assert len(out.splitlines()) == 1, out
     said = json.loads(out)
-    line = r"pipelinekit: \d+ problems? in this install\. Run /kit for the report\."
+    line = r"pipelinekit: the quick check found \d+ problems? in this install\. "
+    line += r"Run /kit for the report\."
     assert re.fullmatch(line, said["systemMessage"]), said["systemMessage"]
     assert "bash-guard" not in out, "no text from the report in the line"
     assert said["hookSpecificOutput"]["hookEventName"] == "SessionStart"
@@ -1181,7 +1182,8 @@ def test_a_kit_hook_wired_twice_is_a_warning(kit):
     assert (
         "[warn] settings.json: session-check.py is wired 2 times under SessionStart"
     ) in out
-    assert out.rstrip().endswith("Result: working, 1 warning"), out
+    assert "SessionStart entry for session-check.py has no timeout" in out
+    assert "Result: working, 2 warnings" in out, out
 
 
 @pytest.mark.parametrize("gap", ["\xa0", "\t", "\u2003", "\n"])

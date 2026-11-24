@@ -66,7 +66,7 @@ Never pass a commit id that did not come from the plan you just ran, and never a
 
 | Section | Checks |
 |---------|--------|
-| Install | hooks, git hooks, skills and agents are present, hooks executable; `kit-judge.md` may only read (`Read, Grep, Glob`); `settings.json` resolves; global `core.hooksPath` |
+| Install | hooks, git hooks, skills and agents are present, hooks executable; `kit-judge.md` may only read (`Read, Grep, Glob`); `settings.json` resolves; the SessionStart entry of `session-check.py` keeps its type and timeout, `disableAllHooks` is not set; global `core.hooksPath` |
 | Changes since install | files against the hashes in the install manifest; the kit's hook entries and deny/ask rules in `settings.json` |
 | Live probe | every hook gets input it must block and input it must allow |
 | Environment | python3, Claude Code and gitleaks versions; whether `gh` is logged in (exit code of `gh auth status` only); whether Playwright for python3 can start chromium or has no browser downloaded, and in a Node project the Playwright `npx` finds; WSL; a repository with its own `core.hooksPath`; a Bash sandbox that denies `gh` its own login file; a `frontend-design` plugin enabled next to the kit's copy |

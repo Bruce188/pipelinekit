@@ -54,6 +54,10 @@ try:  # the installer options of the repair command; update.py runs them too
     import installer_options
 except ImportError:
     installer_options = None
+try:  # plain paths, the program of a hook command, the SessionStart entry
+    import check_wiring
+except ImportError:
+    check_wiring = None
 
 SCHEMA = 1
 HOOKS = (
@@ -103,7 +107,8 @@ PLAIN_VERSION = re.compile(r"[0-9A-Za-z][0-9A-Za-z.+_-]{0,39}")
 PLAIN_BRANCH = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/+@-]{0,79}")
 PLAIN_COMMIT = re.compile(r"[0-9a-f]{7,64}")
 PLAIN_TIME = re.compile(r"[0-9TZ:.+-]{1,32}")
-MAX_PATH_SHOWN = 120
+# The fix of a line that the installer repairs: the command is shown once.
+REPAIR_FIX = "run the repair command at the end of the report"
 SAFE_REL = re.compile(r"[A-Za-z0-9._@+-]+(/[A-Za-z0-9._@+-]+)*")
 WSL_NOTE = (
     "WSL: in Claude Code Desktop pick the WSL environment; "
@@ -340,6 +345,11 @@ def without_credentials(url: str) -> str:
     return re.sub(r"://[^/@]*@", "://", url)
 
 
+def shown_path(value: object) -> str:
+    """The value when it reads as a plain path, else "" (also without the module)."""
+    return check_wiring.shown_path(value) if check_wiring else ""
+
+
 def same_path(a: str, b: str) -> bool:
     return bool(a) and os.path.expanduser(a).rstrip("/") == b.rstrip("/")
 
@@ -534,15 +544,16 @@ def check_settings(c: Check) -> None:
                     bad.append(f"a hook under {where} has a command that is not text")
                     continue
                 # the program only: what follows it is not ours to repeat
-                if hook_command:
+                if check_wiring:
+                    first = check_wiring.program(cmd or "")
+                elif hook_command:
                     first = hook_command.program(cmd or "")
                 else:
                     first = ((cmd or "").split() or [""])[0]
                 first = os.path.expanduser(first)
                 first = first.replace("${HOME}", user_home).replace("$HOME", user_home)
                 if first.startswith("/") and not os.path.exists(first):
-                    ok = clean(first) == first and len(first) <= MAX_PATH_SHOWN
-                    shown = first if ok else "a path that cannot be shown"
+                    shown = shown_path(first) or "a path that cannot be shown"
                     hooks_dir = os.path.normpath(c.path("hooks"))
                     in_kit = os.path.dirname(os.path.normpath(first)) == hooks_dir
                     if in_kit and os.path.basename(first) in HOOKS:
@@ -559,8 +570,10 @@ def check_settings(c: Check) -> None:
                 "warn",
                 f"settings.json: {name} is wired {n} times under "
                 f"{plain(event, PLAIN_EVENT) or 'one event'}, so it runs {n} times",
-                fix=repair_hint(c),
+                fix=REPAIR_FIX,
             )
+    if check_wiring:
+        check_wiring.check(c, REPAIR_FIX)
     a = c.settings.get("attribution")
     off = a is False or (as_dict(a).get("commit") == "" and as_dict(a).get("pr") == "")
     if not off:
@@ -582,6 +595,13 @@ def check_settings(c: Check) -> None:
         )
 
 
+def hooks_path_shown(value: str) -> str:
+    """A core.hooksPath value as the report names it: once, as a plain path."""
+    if not value:
+        return "unset"
+    return shown_path(value) or "set to a path that cannot be shown"
+
+
 def check_hooks_path(c: Check) -> None:
     want = c.path("git-hooks")
     cur = git_value("config", "--global", "--get", "core.hooksPath")
@@ -592,15 +612,17 @@ def check_hooks_path(c: Check) -> None:
         c.add(
             "install",
             "fail",
-            f"git: global core.hooksPath pointed at the kit when it was installed, "
-            f"now '{cur or 'unset'}': commit-msg, pre-commit and pre-push do not run",
+            "git: the global git hooks folder was the kit's when it was installed "
+            f"and is now {hooks_path_shown(cur)}, so commit-msg, pre-commit and "
+            "pre-push do not run",
             fix=f"git config --global core.hooksPath {want}",
         )
     else:
         c.add(
             "install",
             "info",
-            f"global core.hooksPath is '{cur or 'unset'}' (kit git hooks inactive)",
+            f"global core.hooksPath is {hooks_path_shown(cur)} "
+            "(kit git hooks inactive)",
         )
 
 
@@ -1189,11 +1211,13 @@ def check_environment(c: Check) -> None:
             )
     local = git_value("config", "--local", "--get", "core.hooksPath")
     if local and not same_path(local, c.path("git-hooks")):
+        shown = shown_path(local)
         c.add(
             "environment",
             "warn",
-            f"this repository sets its own core.hooksPath ({local}): "
-            "the kit git hooks do not run here",
+            "this repository sets its own core.hooksPath"
+            + (f" ({shown})" if shown else "")
+            + ": the kit git hooks do not run here",
         )
 
 
@@ -1511,7 +1535,7 @@ def check_update(c: Check) -> None:
             "info",
             f"the checkout is at {head[:7]}, this install was made from "
             f"{installed[:7]}: the installer brings the install in line",
-            repair_hint(c),
+            REPAIR_FIX,
         )
     if branch_problem(branch):
         return skip("no-branch", branch_problem(branch))
@@ -1590,8 +1614,7 @@ def repair_hint(c: Check) -> str:
             return git_value("config", "--global", "--get", "core.hooksPath")
 
         keep = "".join(f" {o}" for o in installer_options.options(m, c.home, hooks_now))
-    shown = clean(checkout) == checkout
-    if shown and os.path.isabs(script) and os.path.isfile(script):
+    if shown_path(script) and os.path.isabs(script) and os.path.isfile(script):
         return f"bash {shlex.quote(script)}{keep}"
     return f"bash scripts/install.sh{keep} in your pipelinekit checkout"
 
@@ -1604,9 +1627,8 @@ def kit_info(c: Check) -> dict:
         "branch": PLAIN_BRANCH,
         "installed_at": PLAIN_TIME,
     }
-    info = {k: plain(m.get(k), p) for k, p in names_shown.items()}
-    info["checkout"] = clean(m.get("checkout") or "")
-    return info
+    # The checkout is named once, in the repair command.
+    return {k: plain(m.get(k), p) for k, p in names_shown.items()}
 
 
 def render_text(c: Check, verbose: bool) -> str:
@@ -1635,11 +1657,12 @@ def render_text(c: Check, verbose: bool) -> str:
     fails, warns = c.count("fail"), c.count("warn")
     if fails:
         lines.append(f"Result: {plural(fails, 'problem')}, {plural(warns, 'warning')}")
-        lines.append(f"Repair: {repair_hint(c)}")
     elif warns:
         lines.append(f"Result: working, {plural(warns, 'warning')}")
     else:
         lines.append("Result: healthy")
+    if fails or any(i.get("fix") == REPAIR_FIX for i in c.items):
+        lines.append(f"Repair: {repair_hint(c)}")
     return "\n".join(lines)
 
 

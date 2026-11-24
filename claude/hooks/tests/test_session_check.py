@@ -92,15 +92,20 @@ def test_problems_give_one_line_that_names_kit(home):
     out = run(home, checker(("fail", "hook missing: a.py"), ("fail", "second")))
     message, context = said(out)
     assert message == (
-        "pipelinekit: 2 problems in this install. Run /kit for the report."
+        "pipelinekit: the quick check found 2 problems in this install. "
+        "Run /kit for the report."
     )
     assert "2 problems" in context and "/kit" in context
+    assert "quick check" in context and "can list more" in context
     assert logged(home) == []
 
 
 def test_one_problem(home):
     message, _ = said(run(home, checker(("warn", "w"), ("fail", "only one"))))
-    assert message == "pipelinekit: 1 problem in this install. Run /kit for the report."
+    assert message == (
+        "pipelinekit: the quick check found 1 problem in this install. "
+        "Run /kit for the report."
+    )
 
 
 def test_no_text_from_the_report_reaches_the_session(home):
@@ -108,7 +113,8 @@ def test_no_text_from_the_report_reaches_the_session(home):
     out = run(home, checker(("fail", finding), ("fail", "hook missing: a.py")))
     message, context = said(out)
     assert message == (
-        "pipelinekit: 2 problems in this install. Run /kit for the report."
+        "pipelinekit: the quick check found 2 problems in this install. "
+        "Run /kit for the report."
     )
     for text in ("PLANTED", "fine", "a.py", "xxx", "\\u"):
         assert text not in out, text
