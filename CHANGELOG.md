@@ -300,6 +300,14 @@ kit used to ship, so those parts are gone.
   `serena` field goes by whether serena is installed. `/kit update` runs the
   installer with the same options, so its `By hand:` line matches.
 - `/kit --quick` shows the Bash sandbox line too.
+- `/kit` names `core.hooksPath` and the checkout once, as plain paths:
+  lines the installer repairs point at the `Repair:` line, which is shown
+  for them too, and `--json` no longer has `kit.checkout`. A hook command's
+  file is read as a shell reads it and shown without quotes.
+- The session-start line says its count comes from the quick check.
+- `/kit` warns when the SessionStart entry of `session-check.py` has
+  another type or timeout than the installer wrote, or when
+  `disableAllHooks` is set.
 
 ### Removed
 
