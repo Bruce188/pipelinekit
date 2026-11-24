@@ -8,7 +8,9 @@ The log is $PIPELINEKIT_STATE_DIR/events.jsonl, by default
 ~/.local/state/pipelinekit ($XDG_STATE_HOME is honoured). Only its owner can
 read it: a log or a directory made before with a wider mode is made private (a
 directory that holds other files, or a shared one, keeps its mode). Every event
-is a single write, and at 1 MB it moves to events.jsonl.1.
+is a single write, and at 1 MB it moves to events.jsonl.1. A log that cannot be
+moved (a read-only directory, something else at events.jsonl.1) still takes
+events until it holds 4 MB.
 PIPELINEKIT_LOG=0 switches it off.
 
 The command text is never logged: an event holds the rule id, the hook's
@@ -30,6 +32,7 @@ KINDS = ("block", "ask", "override", "error")
 HOOK = re.compile(r"^[A-Za-z0-9._-]{1,40}$")
 RULE = re.compile(r"^[a-z-]{1,30}\.[a-z0-9-]{1,40}$")
 MAX_BYTES = 1_000_000  # rotate at this size; one older file is kept
+MAX_UNROTATED = 4_000_000  # a log that cannot be rotated grows to this size
 MAX_LINE = 2048
 # Characters that can change how a line reads: controls (C0 and C1), the soft
 # hyphen, line and paragraph separators, direction marks, zero-width and tag
@@ -139,10 +142,17 @@ def append(line: bytes) -> None:
     path = log_path()
     private_dir(os.path.dirname(path))
     try:
-        if os.stat(path).st_size >= MAX_BYTES:
-            os.replace(path, path + ".1")
+        size = os.stat(path).st_size
     except FileNotFoundError:
-        pass
+        size = 0
+    if size >= MAX_BYTES:
+        try:
+            os.replace(path, path + ".1")
+        except OSError:
+            # Events still count for more than a tidy log; /kit says it is
+            # not rotated.
+            if size >= MAX_UNROTATED:
+                raise
     flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
     # A named pipe at the path must not make a hook wait for a reader.
     fd = os.open(path, flags | getattr(os, "O_NONBLOCK", 0), 0o600)

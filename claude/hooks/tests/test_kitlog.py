@@ -130,6 +130,31 @@ def test_rotation_keeps_one_older_file(state, monkeypatch):
     assert last["reason"] == "event 29"
 
 
+@pytest.mark.parametrize("how", ["directory in the way", "read-only directory"])
+def test_a_log_that_cannot_be_moved_still_records_up_to_a_limit(state, monkeypatch, how):
+    if how == "read-only directory" and os.geteuid() == 0:
+        pytest.skip("root writes into a read-only directory")
+    monkeypatch.setattr(kitlog, "MAX_BYTES", 400)
+    monkeypatch.setattr(kitlog, "MAX_UNROTATED", 1600)
+    assert kitlog.log("bash-guard", "block", "git.no-verify", "first")
+    if how == "directory in the way":
+        (state / "events.jsonl.1").mkdir()
+    else:
+        state.chmod(0o500)
+    cur = state / "events.jsonl"
+    try:
+        written = [
+            kitlog.log("bash-guard", "block", "git.no-verify", f"event {i}")
+            for i in range(40)
+        ]
+    finally:
+        state.chmod(0o700)
+    assert written[:8] == [True] * 8  # well past 400 bytes
+    assert written[-1] is False  # but not past the limit
+    assert 1600 <= cur.stat().st_size < 1600 + kitlog.MAX_LINE
+    assert not (state / "events.jsonl.1").is_file()
+
+
 def test_switched_off(state, monkeypatch):
     monkeypatch.setenv("PIPELINEKIT_LOG", "0")
     assert kitlog.log("bash-guard", "block", "git.no-verify", "x") is False
