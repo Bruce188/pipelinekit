@@ -127,13 +127,89 @@ def test_off_in_the_user_file_under_home(sb):
     assert detail(sb, CLAUDE_HOME="") == "off (~/.claude/CLAUDE.md:3)"
 
 
-def test_a_linked_user_file_is_not_read(sb):
-    home = Path(sb.env["CLAUDE_HOME"])
+def link_user_file(sb, make):
+    """Make ~/.claude/CLAUDE.md a link to what `make` puts at a path it is given."""
+    home = Path(sb.env["HOME"]) / ".claude"
     home.mkdir()
-    target = sb.tmp / "elsewhere.md"
-    target.write_text("Judge loop: off\n")
-    (home / "CLAUDE.md").symlink_to(target)
-    assert detail(sb) == NO_RECORD
+    folder = sb.tmp / "dotfiles"
+    folder.mkdir()
+    target = folder / "CLAUDE.md"
+    (home / "CLAUDE.md").symlink_to(make(target) or target)
+
+
+def off_file(path):
+    path.write_text("# Me\n\nJudge loop: off\n")
+
+
+def test_a_linked_user_file_is_read_by_status_and_merge(sb):
+    link_user_file(sb, off_file)
+    assert detail(sb, CLAUDE_HOME="") == "off (~/.claude/CLAUDE.md:3)"
+    done = sb.ship("record", "--result", "pass", "--release", "no")
+    assert done.returncode == 0, done.stderr
+    done = sb.ship("merge", "--grace", "0", CLAUDE_HOME="")
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert len(sb.calls("pr merge")) == 1
+
+
+def make_fifo(path):
+    if not hasattr(os, "mkfifo"):
+        pytest.skip("no named pipes")
+    os.mkfifo(path)
+
+
+def make_big(path):
+    off_file(path)
+    with path.open("a") as fh:
+        fh.write("x" * (1024 * 1024))
+
+
+def device(path):
+    if not Path(os.devnull).is_char_device():
+        pytest.skip("no character device")
+    return Path(os.devnull)
+
+
+LINKED = {
+    "a named pipe": (make_fifo, "a named pipe, not a regular file"),
+    "a folder": (Path.mkdir, "a folder, not a file"),
+    "a missing file": (lambda path: None, "a link to a missing file"),
+    "a device": (device, "not a regular file"),
+    "a file over a megabyte": (make_big, "larger than 1 MB"),
+}
+
+
+@pytest.mark.parametrize("kind", LINKED)
+def test_a_link_to_something_else_is_named_in_one_line(sb, kind):
+    make, why = LINKED[kind]
+    link_user_file(sb, make)
+    sb.passed()
+    line = (
+        f"cannot read ~/.claude/CLAUDE.md ({why}): "
+        "make it a readable regular file or remove it"
+    )
+    found = gates(sb.ship("status", "--json", timeout=20, CLAUDE_HOME=""))
+    assert (found["judged"]["state"], found["judged"]["detail"]) == ("fail", line)
+    assert (found["policy"]["state"], found["policy"]["detail"]) == ("fail", line)
+    done = sb.ship(
+        "merge", "--grace", "0", "--timeout", "1", timeout=20, CLAUDE_HOME=""
+    )
+    assert done.returncode == 3, done.stdout + done.stderr
+    assert sb.calls("pr merge") == [] and sb.calls("pr ready") == []
+    assert line in last_line(done)
+
+
+def test_an_off_line_on_the_base_branch_passes_past_an_unreadable_user_file(sb):
+    text = "Judge loop: off\n"
+    sb.change("CLAUDE.md", text, text + "More.\n")
+    link_user_file(sb, lambda path: None)
+    assert judged(sb, CLAUDE_HOME="")["state"] == "pass"
+
+
+def test_both_gates_read_claude_md_through_one_helper():
+    import ship_gates
+
+    assert ship_gates.read_policy is ship_judged.read_policy
+    assert ship_gates.READ_FIX == ship_judged.READ_FIX
 
 
 def test_the_kit_template_as_user_file_does_not_switch_the_judge_off(sb):
@@ -276,7 +352,7 @@ def test_a_named_pipe_where_the_record_should_be_is_unreadable(sb):
 
 
 @needs_fifo
-def test_a_named_pipe_as_the_user_file_is_not_read(sb):
+def test_a_named_pipe_as_the_user_file_is_named_not_waited_on(sb):
     home = Path(sb.env["CLAUDE_HOME"])
     home.mkdir()
     os.mkfifo(home / "CLAUDE.md")
@@ -293,7 +369,8 @@ def test_a_named_pipe_as_the_user_file_is_not_read(sb):
         timeout=20,
         check=False,
     )
-    assert done.stdout == "''\n", done.stderr
+    why = "cannot read $CLAUDE_HOME/CLAUDE.md (a named pipe, not a regular file)"
+    assert done.stdout == repr(("", why)) + "\n", done.stderr
 
 
 BAD_FIELDS = {

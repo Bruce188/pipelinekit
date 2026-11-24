@@ -227,6 +227,55 @@ def read_plain(path, limit):
     return data if len(data) <= limit else False
 
 
+READ_FIX = "make it a readable regular file or remove it"
+
+
+def cannot_read(name, why):
+    return f"cannot read {name} ({why})"
+
+
+def read_policy(path, limit=MAX_TEXT_FILE):
+    """(text, why) of a CLAUDE.md: text None and why '' when there is none.
+
+    Both the policy gate and the judged gate read a CLAUDE.md through this. A
+    link is followed, as Claude Code follows it. The file is opened without
+    waiting, so a named pipe or a device at the end of the path cannot hold the
+    gate up; anything but a regular file of at most `limit` bytes, or a link to
+    nothing, gives the reason in `why`.
+    """
+    flags = getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOCTTY", 0)
+    try:
+        fd = os.open(path, os.O_RDONLY | flags)
+    except FileNotFoundError:
+        return None, "a link to a missing file" if os.path.islink(path) else ""
+    except IsADirectoryError:
+        return None, "a folder, not a file"
+    except OSError as exc:
+        return None, (exc.strerror or type(exc).__name__).lower()
+    try:
+        mode = os.fstat(fd).st_mode
+        if stat.S_ISDIR(mode):
+            return None, "a folder, not a file"
+        if stat.S_ISFIFO(mode):
+            return None, "a named pipe, not a regular file"
+        if not stat.S_ISREG(mode):
+            return None, "not a regular file"
+        chunks, size = [], 0
+        while size <= limit:
+            chunk = os.read(fd, limit + 1 - size)
+            if not chunk:
+                break
+            chunks.append(chunk)
+            size += len(chunk)
+    except OSError as exc:
+        return None, (exc.strerror or type(exc).__name__).lower()
+    finally:
+        os.close(fd)
+    if size > limit:
+        return None, f"larger than {limit // (1024 * 1024)} MB"
+    return b"".join(chunks).decode("utf-8", "replace"), ""
+
+
 def user_file():
     """The user-level CLAUDE.md and the name it is shown by."""
     home = os.environ.get("CLAUDE_HOME")
@@ -257,7 +306,9 @@ def base_blob(repo, spec):
 
 
 def off_line(repo, base):
-    """Where `Judge loop: off` stands, or ''.
+    """(where `Judge loop: off` stands, why the user-level file cannot be read).
+
+    Each is '' when there is nothing to say.
 
     The project's files count on the base branch as the remote has it, never in
     the checkout, so a branch cannot switch the judge off for its own pull
@@ -272,14 +323,14 @@ def off_line(repo, base):
                 text = data.decode("utf-8", "replace")
                 sources.append((rel, text, f" on {show_branch(base)}"))
     path, shown = user_file()
-    data = read_plain(path, MAX_TEXT_FILE)
-    if data:
-        sources.append((shown, data.decode("utf-8", "replace"), ""))
+    text, why = read_policy(path)
+    if text:
+        sources.append((shown, text, ""))
     for rel, text, on in sources:
         for key, value, number, _ in parse_switches(text):
             if key == "Judge loop" and value == "off":
-                return f"{rel}:{number}{on}"
-    return ""
+                return f"{rel}:{number}{on}", ""
+    return "", cannot_read(shown, why) if why else ""
 
 
 # ---------------------------------------------------------------- the record
@@ -477,9 +528,12 @@ def base_mismatch(st, base):
 def judged_gate(repo, head, base):
     """The build loop of the branch ended on this commit or one before it, or a
     skip record stands on the head; the judge loop is off; or why not."""
-    where = off_line(repo, base)
+    where, unread = off_line(repo, base)
     if where:
         return judged("pass", f"off ({clean(where)})")
+    if unread:
+        # It may hold `Judge loop: off`: only the user can tell.
+        return judged("fail", f"{unread}: {READ_FIX}", stop=True)
     name = slug(repo.branch)
     if not NAME.fullmatch(name):
         return judged(
