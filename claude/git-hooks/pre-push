@@ -30,7 +30,8 @@ while read -r _lref lsha rref _rsha; do
   case "$rref" in
     refs/heads/main|refs/heads/master)
       if [ "${ALLOW_MAIN_PUSH:-}" != 1 ]; then
-        echo "pre-push: direct push to ${rref#refs/heads/} refused; push a branch and open a PR (humans: ALLOW_MAIN_PUSH=1) [pre-push.protected-branch]" >&2
+        echo "pre-push: direct push to ${rref#refs/heads/} refused (humans: ALLOW_MAIN_PUSH=1) [pre-push.protected-branch]" >&2
+        echo "Next: git switch -c <branch>, git push -u origin <branch>, then open a PR." >&2
         kitlog block pre-push.protected-branch "direct push to ${rref#refs/heads/} refused"
         exit 1
       fi

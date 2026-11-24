@@ -338,7 +338,7 @@ def test_block_names_its_rule_and_is_logged(env, tmp_path):
     p = raw(env, cmd, tmp_path / "s", args=["git", "git"])
     assert p.returncode == 2
     assert p.stderr.startswith("BLOCKED: ")
-    assert p.stderr.rstrip().endswith("[git.no-verify]")
+    assert p.stderr.splitlines()[0].endswith("[git.no-verify]")
     (e,) = logged(tmp_path / "s")
     assert (e["hook"], e["kind"], e["rule"]) == ("bash-guard", "block", "git.no-verify")
     assert e["session"] == "s-1" and e["tool_use_id"] == "toolu_1"
@@ -363,7 +363,7 @@ def test_block_names_its_rule_and_is_logged(env, tmp_path):
 def test_a_push_to_a_url_is_refused_without_repeating_it(env, tmp_path, remote):
     p = raw(env, f'git push "{remote}" feat', tmp_path / "s")
     assert p.returncode == 2
-    assert p.stderr.rstrip().endswith("[git.push-remote]")
+    assert p.stderr.splitlines()[0].endswith("[git.push-remote]")
     (e,) = logged(tmp_path / "s")
     assert e["reason"] == "push to a URL or path is not allowed; only origin"
     assert "h.example" not in p.stderr
@@ -408,7 +408,7 @@ def test_invalid_input_is_refused_and_logged(env, tmp_path, payload):
     p = raw(env, "", tmp_path / "s", payload=payload)
     assert p.returncode == 2
     assert p.stderr.startswith("BLOCKED: ")
-    assert p.stderr.rstrip().endswith("[input.invalid]")
+    assert p.stderr.splitlines()[0].endswith("[input.invalid]")
     (e,) = logged(tmp_path / "s")
     assert (e["kind"], e["rule"]) == ("error", "input.invalid")
 
@@ -433,7 +433,7 @@ def test_a_log_that_cannot_be_written_changes_nothing(env, tmp_path):
     blocker = tmp_path / "file"
     blocker.write_text("x")
     p = raw(env, "git commit --no-verify -m x", blocker / "state")
-    assert p.returncode == 2 and p.stderr.rstrip().endswith("[git.no-verify]")
+    assert p.returncode == 2 and p.stderr.splitlines()[0].endswith("[git.no-verify]")
     p = raw(env, 'psql -c "DROP TABLE users"', blocker / "state")
     assert p.returncode == 0 and "ask" in p.stdout
     off = {"PIPELINEKIT_LOG": "0"}
@@ -448,7 +448,7 @@ def test_guard_works_without_the_log_helper(env, tmp_path):
     p = raw(
         env, "git commit --no-verify -m x", tmp_path / "s", guard=alone / GUARD.name
     )
-    assert p.returncode == 2 and p.stderr.rstrip().endswith("[git.no-verify]")
+    assert p.returncode == 2 and p.stderr.splitlines()[0].endswith("[git.no-verify]")
     assert (
         raw(env, "git status", tmp_path / "s", guard=alone / GUARD.name).returncode == 0
     )

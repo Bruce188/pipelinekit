@@ -516,7 +516,7 @@ def render_text(c: Check, verbose: bool) -> str:
     fails, warns = c.count("fail"), c.count("warn")
     if fails:
         lines.append(f"Result: {plural(fails, 'problem')}, {plural(warns, 'warning')}")
-        lines.append(f"Repair: {repair_hint(c)}")
+        lines.append(f"Next: run {repair_hint(c)}, then /kit again.")
     elif warns:
         lines.append(f"Result: working, {plural(warns, 'warning')}")
     else:

@@ -63,9 +63,11 @@ scan() {
   gitleaks "$sub" --staged --redact --no-banner --exit-code 3 -v >&2 || rc=$?
   case $rc in
     0) return 0 ;;
-    3) echo "pre-commit: gitleaks found secret(s) in staged changes (values redacted above). Unstage them; PIPELINEKIT_ALLOW_SECRET=1 overrides one commit. [pre-commit.secret]" >&2
+    3) echo "pre-commit: gitleaks found secret(s) in staged changes (values redacted above); PIPELINEKIT_ALLOW_SECRET=1 overrides one commit. [pre-commit.secret]" >&2
+       echo "Next: git restore --staged -- <file> for each file gitleaks names above, take the secret out, then commit again." >&2
        kitlog block pre-commit.secret "gitleaks found secrets in staged changes" ;;
-    *) echo "pre-commit: gitleaks $sub failed (exit $rc); commit refused. Fix gitleaks or set PIPELINEKIT_ALLOW_SECRET=1 for one commit. [pre-commit.gitleaks-failed]" >&2
+    *) echo "pre-commit: gitleaks $sub failed (exit $rc); commit refused. PIPELINEKIT_ALLOW_SECRET=1 skips the scan for one commit. [pre-commit.gitleaks-failed]" >&2
+       echo "Next: fix gitleaks (gitleaks version shows whether it runs), then commit again." >&2
        kitlog error pre-commit.gitleaks-failed "gitleaks $sub failed (exit $rc)" ;;
   esac
   return 1

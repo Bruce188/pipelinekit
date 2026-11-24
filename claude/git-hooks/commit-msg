@@ -30,8 +30,8 @@ body = "\n".join(lines)
 subject = next((ln.strip() for ln in lines if ln.strip()), "")
 in_worktree = "/.claude/worktrees/" in sys.argv[2] + "/"
 
-def fail(rule, why):
-    print(f"commit-msg: {why} [{rule}]\n  subject: {subject}", file=sys.stderr)
+def fail(rule, why, step):
+    print(f"commit-msg: {why} [{rule}]\n  subject: {subject}\nNext: {step}", file=sys.stderr)
     try:  # one line in the kit's event log; a log that cannot be written changes nothing
         subprocess.run([sys.executable, sys.argv[3], "commit-msg", "block", rule, why], timeout=10,
                        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -46,23 +46,28 @@ AI = r"(claude|anthropic|openai|chatgpt|gpt-?\d|copilot|gemini|cursor|codex)"
 if re.search(rf"(?im)^\s*co-authored-by:.*{AI}", body) or \
    re.search(rf"(?i)generated (with|by)\W+.{{0,40}}{AI}", body) or \
    re.search(r"(?i)noreply@anthropic\.com", body):
-    fail("commit-msg.ai-attribution", "AI attribution is not allowed in commit messages")
+    fail("commit-msg.ai-attribution", "AI attribution is not allowed in commit messages",
+         "take the AI attribution out of the message and commit again.")
 
 EMOJI = re.compile("[\U0001F000-\U0001FAFF☀-⛿✅✊✋✨❌❎"
                    "❓-❕❗➕-➗➰➿⭐⭕️]")
 if EMOJI.search(body):
-    fail("commit-msg.emoji", f"emoji are not allowed ({EMOJI.search(body).group()!r})")
+    fail("commit-msg.emoji", f"emoji are not allowed ({EMOJI.search(body).group()!r})",
+         "take the emoji out of the message and commit again.")
 
 if re.match(r"(?i)wip\b", subject) or re.fullmatch(r"(?i)\w+(\([^)]*\))?!?:\s*wip\W*", subject):
     if in_worktree:
         sys.exit(0)
-    fail("commit-msg.wip", "wip commits are only allowed in .claude/worktrees/ agent worktrees")
+    fail("commit-msg.wip", "wip commits are only allowed in .claude/worktrees/ agent worktrees",
+         "write a conventional subject that says what changed, such as feat: <what>, and commit again.")
 
 TYPES = "feat|fix|refactor|docs|test|chore|perf|style|build|ci|revert"
 if not re.match(rf"({TYPES})(\([\w./,\- ]+\))?!?: \S", subject):
-    fail("commit-msg.format", f"use conventional commits: <type>[(scope)][!]: <description>, type one of {TYPES.replace('|', ' ')}")
+    fail("commit-msg.format", f"use conventional commits: <type>[(scope)][!]: <description>, type one of {TYPES.replace('|', ' ')}",
+         "write the subject as <type>: <description>, such as fix: <what was wrong>, and commit again.")
 if len(subject) > 100:
-    fail("commit-msg.subject-length", f"subject is {len(subject)} chars; keep it to 100")
+    fail("commit-msg.subject-length", f"subject is {len(subject)} chars; keep it to 100",
+         "shorten the subject to 100 characters, put the detail in the body, and commit again.")
 PY
 
 chain commit-msg "$@" || exit $?

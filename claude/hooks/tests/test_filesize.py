@@ -138,6 +138,8 @@ def test_the_whole_refusal(repo):
         "a new file. A generated, vendored or data file can be listed in "
         ".file-size-exempt at the top of the repository, one pattern per line. "
         "[pre-commit.file-size]",
+        "Next: split the file so each part is under the limit, stage the parts, "
+        "then commit again.",
     ]
 
 
@@ -236,7 +238,8 @@ def test_a_file_that_grows_past_only_the_byte_limit_is_refused(repo):
     assert p.returncode != 0
     lines = p.stderr.splitlines()
     assert "  notes.md: 14 lines, 52,035 bytes (was 10 lines, 36,031 bytes)" in lines
-    assert lines[-1].endswith("[pre-commit.file-size]")
+    assert lines[-2].endswith("[pre-commit.file-size]")
+    assert lines[-1].startswith("Next: split the file ")
 
 
 def test_a_file_at_the_limit_passes(repo):
@@ -849,7 +852,11 @@ def test_unstaged_changes_to_a_tracked_exempt_list_are_named(repo):
         "The unstaged changes of .file-size-exempt list big.py; stage the list "
         "(`git add .file-size-exempt`)."
     ) in lines
-    assert lines[-1].endswith("[pre-commit.file-size]")
+    assert lines[-2].endswith("[pre-commit.file-size]")
+    assert lines[-1] == (
+        "Next: git add .file-size-exempt, split the other file so each part is "
+        "under the limit, stage the parts, then commit again."
+    )
     assert repo.git("add", ".file-size-exempt").returncode == 0
     p = repo.commit()
     assert p.returncode != 0

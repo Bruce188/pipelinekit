@@ -749,6 +749,25 @@ def log(kind: str, rule: str, entries: list[tuple], what: str) -> None:
         pass
 
 
+def next_step(refused: list[tuple], hints: list[str]) -> str:
+    """The `Next:` step of a refusal: stage the exempt list when its unstaged
+    changes name every refused file, split the files otherwise."""
+    done = "commit again"
+    if HOOK == "pre-merge-commit":
+        done = "git commit to conclude the merge"
+    left = [p for p, _, _ in refused if p not in hints]
+    if not left:
+        return f"git add {EXEMPT_FILE}, then {done}."
+    split = "split the file" if len(left) == 1 else "split each file"
+    if hints:
+        split = f"git add {EXEMPT_FILE}, " + (
+            "split the other file"
+            if len(left) == 1
+            else "split each of the other files"
+        )
+    return f"{split} so each part is under the limit, stage the parts, then {done}."
+
+
 def report(refused: list[tuple], warned: list[tuple], hints: list[str]) -> None:
     limit = f"{MAX_LINES:,} lines and {MAX_BYTES:,} bytes"
     what = "merge" if HOOK == "pre-merge-commit" else "commit"
@@ -779,6 +798,7 @@ def report(refused: list[tuple], warned: list[tuple], hints: list[str]) -> None:
         f"[{RULE}]",
         file=sys.stderr,
     )
+    print(f"Next: {next_step(refused, hints)}", file=sys.stderr)
     log("block", RULE, refused, f"limit {MAX_LINES} lines, {MAX_BYTES} bytes")
 
 
@@ -803,7 +823,8 @@ def main(argv: list[str]) -> int:
         if refused:  # the decision stands even when the report cannot be printed
             with contextlib.suppress(Exception):
                 print(
-                    f"{HOOK}: refused, over the file size limit [{RULE}]",
+                    f"{HOOK}: refused, over the file size limit [{RULE}]\n"
+                    f"Next: {next_step(refused, hints)}",
                     file=sys.stderr,
                 )
     return code
