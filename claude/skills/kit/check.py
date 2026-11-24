@@ -81,7 +81,8 @@ SECTIONS = (
     ("update", "Updates"),
     ("activity", "Activity"),
 )
-SKIP_DIRS = {"__pycache__", ".pytest_cache", ".ruff_cache"}
+# Left out of an installed skill: caches, and the tests (they stay in the repo).
+SKIP_DIRS = {"__pycache__", ".pytest_cache", ".ruff_cache", "tests"}
 # Letters and symbols that draw as nothing: the fillers and the braille blank.
 BLANK = frozenset("\u115f\u1160\u3164\uffa0\u2800")
 # What the report repeats from settings.json or the manifest has to read as a

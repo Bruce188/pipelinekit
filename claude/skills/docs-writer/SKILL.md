@@ -101,9 +101,11 @@ Load the `frontend-design` skill before adding a snippet, restyling `template.ht
 
 ## Tests
 
+The tests stay in the pipelinekit checkout; the installed skill has none. From the checkout:
+
 ```bash
-bash "${CLAUDE_SKILL_DIR}/tests/test_render.sh"
-bash "${CLAUDE_SKILL_DIR}/tests/test_richness_threshold.sh"
+bash claude/skills/docs-writer/tests/test_render.sh
+bash claude/skills/docs-writer/tests/test_richness_threshold.sh
 ```
 
 `test_render.sh` also runs `tests/test_interactive.py`, which clicks, drags and types through every snippet and template feature in headless Chromium over `file://` (needs `pip install playwright && playwright install chromium`; prints SKIP otherwise).

@@ -24,6 +24,8 @@ SERENA_REF="${SERENA_REF:-9b292a6c8b03c8306f117efeabb0ea7afdb0b3c0}"
 
 KIT_SKILLS=(dotnet-conventions deploy exchange-api-keys docs-writer frontend-design mobile kit ship judge-loop)
 KIT_AGENTS=(kit-planner.md kit-builder.md kit-judge.md)
+# The skill files that run as programs; no other installed skill file is executable.
+KIT_SKILL_SCRIPTS=(kit/check.py kit/update.py ship/ship.py judge-loop/loop.py)
 # Shipped by earlier versions. Removed on upgrade only if unmodified (see kit_file).
 RETIRED_SKILLS=(commit-conventions security-conventions expo ios)
 RETIRED_HOOKS=(block-dangerous-commands.sh block-push-main.sh block-stage-sensitive.sh env-scrub.py
@@ -109,13 +111,18 @@ elif [[ -e "$FD" ]] && { [[ ! -d "$FD" ]] || { [[ "$listed" == 0 ]] &&
     die "could not move your own skills/frontend-design to $FD_BACKUPS. It is untouched and the skills were not installed. Move or rename it yourself, then run the installer again."
   log "kept your own frontend-design skill in $FD_BACKUP"
 fi
+# Skill tests stay in the repo, as the hook tests do. A checkout on a Windows
+# drive (WSL) marks every file executable, so the modes are set here.
 for s in "${KIT_SKILLS[@]}"; do
   rm -rf "${CLAUDE_HOME:?}/skills/$s"
   cp -R "$REPO_ROOT/claude/skills/$s" "$CLAUDE_HOME/skills/$s"
+  find "$CLAUDE_HOME/skills/$s" -name tests -type d -prune -exec rm -rf {} +
+  find "$CLAUDE_HOME/skills/$s" -type f -exec chmod a-x {} +
 done
 find "$CLAUDE_HOME/skills" -name __pycache__ -type d -prune -exec rm -rf {} +
-chmod +x "$CLAUDE_HOME/skills/kit/check.py" "$CLAUDE_HOME/skills/ship/ship.py" \
-  "$CLAUDE_HOME/skills/judge-loop/loop.py"
+for f in "${KIT_SKILL_SCRIPTS[@]}"; do
+  chmod +x "$CLAUDE_HOME/skills/$f"
+done
 # judge-loop in another home: the skill names its helper as ~/.claude/...;
 # from another home that path is wrong, so the installed copy names this home
 # instead, right after the copy (an install that stops later still leaves a
